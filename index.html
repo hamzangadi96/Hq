@@ -587,7 +587,12 @@ async function laden(){
   firebaseStart();
 }
 
-const nieuweCode=()=>'CB-'+iso(S.datum).replace(/-/g,'')+'-'+pad(S.batches.length+1);
+const nieuweCode=()=>{
+  const voor='CB-'+iso(S.datum).replace(/-/g,'')+'-';
+  const nrs=S.batches.filter(b=>b.code&&b.code.indexOf(voor)===0)
+    .map(b=>parseInt(b.code.slice(voor.length),10)||0);
+  return voor+pad((nrs.length?Math.max.apply(null,nrs):0)+1);
+};
 const chocNaam=k=>(CHOC.find(c=>c.key===k)||{}).naam||'';
 
 const BEDRIJF={naam:'Cacaoboetiek',adres:'Alcoalaan 8D, 5151 RW Drunen',
@@ -1028,7 +1033,8 @@ function batchHTML(){
   h+=`<div class="blokkop"><span class="eyebrow">In deze batch</span><span class="tel">${b.logs.length} registraties</span></div>
     <div class="paneel">${groepen}</div>
     <div class="voet"><button data-rapport="batch">Batchrapport bekijken</button>
-      <button data-rapport="dag">Dagrapport van vandaag</button></div>`;
+      <button data-rapport="dag">Dagrapport van vandaag</button>
+      <button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`;
   return h;
 }
 
@@ -1064,6 +1070,7 @@ function bind(){
   $$('[data-rij]').forEach(b=>b.onclick=()=>{S.open=S.open===b.dataset.rij?null:b.dataset.rij;render()});
   $$('[data-etiket]').forEach(b=>b.onclick=()=>sheetVoorraadLabel(S.batchId,b.dataset.etiket));
   $$('[data-rapport]').forEach(b=>b.onclick=()=>sheetRapport(b.dataset.rapport,S.batchId));
+  $$('[data-verwijder]').forEach(b=>b.onclick=()=>verwijderBatch(b.dataset.verwijder));
   const tb=$('#tijdbalk'); if(tb) tb.onclick=sheetWerk;
   const dw=$('[data-werk]'); if(dw) dw.onclick=sheetWerk;
   bewaar();
@@ -2120,6 +2127,16 @@ function dagRapportHTML(){
       <td class="${l.status==='fout'?'fout':'let'}">${esc(l.titel)}</td><td>${esc(l.sub||'')}</td></tr>`).join('')}</table>`;
 
   return h+rHand()+rVoet()+`</div>`;
+}
+
+function verwijderBatch(id){
+  const b=S.batches.find(x=>x.id===id); if(!b) return;
+  const n=b.logs.length;
+  if(!confirm('Batch '+b.code+' definitief verwijderen?\n\n'+
+     bNamen(b)+'\n'+n+' registraties, tijden en metingen gaan weg. Dit kun je niet terugdraaien.')) return;
+  S.batches=S.batches.filter(x=>x.id!==id);
+  if(S.batchId===id) S.batchId=null;
+  S.open=null; bewaarNu(); dicht(); render(); toast('Batch '+b.code+' verwijderd.');
 }
 
 function sheetRapport(soort,batchId){

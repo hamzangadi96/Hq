@@ -1,6 +1,6 @@
 /* Cacaoboetiek HQ - service worker
    Doel: de app start ook zonder verbinding. Verhoog VERSIE bij elke nieuwe deploy. */
-const VERSIE = 'hq-v1';
+const VERSIE = 'hq-v2';
 const SCHIL = [
   './',
   './index.html',
