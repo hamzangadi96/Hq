@@ -405,12 +405,23 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .etiket .er{display:flex;justify-content:space-between;gap:8px}
 .etiket .ek{color:#444}
 .etiket .eb{font-weight:700}
-.et-partij{width:63.5mm;height:38.1mm;padding:3mm;display:flex;flex-direction:column;justify-content:space-between}
-.et-partij .en{font-size:10.5pt;line-height:1.15}
-.et-partij .sub{font-size:7.5pt;color:#444;margin-top:.6mm}
-.et-partij .aantal{font-size:15pt;font-weight:700;letter-spacing:-.02em;line-height:1}
-.et-partij .code{font-size:10.5pt;font-weight:700;letter-spacing:.02em;font-variant-numeric:tabular-nums}
-.et-partij .r{font-size:7.5pt;line-height:1.35}
+.et-partij{width:63.5mm;height:38.1mm;padding:2.6mm 3mm;display:flex;flex-direction:column}
+.et-partij .merkregel{font-family:'Cormorant Garamond',Georgia,serif;font-size:7.5pt;font-weight:600;
+  letter-spacing:.28em;text-align:center;padding-left:.28em;color:#000;line-height:1}
+.et-partij .streep{height:.25mm;background:#000;margin:1.4mm 0}
+.et-partij .streep.dun{height:.15mm;background:#999}
+.et-partij .en{font-size:10.5pt;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.et-partij .sub{font-size:6.8pt;color:#444;margin-top:.6mm;letter-spacing:.01em}
+.et-partij .midden{display:flex;align-items:flex-end;justify-content:space-between;margin-top:auto;gap:2mm}
+.et-partij .aantal{font-size:20pt;font-weight:700;letter-spacing:-.04em;line-height:.85}
+.et-partij .aantal em{font-style:normal;font-size:7pt;font-weight:600;letter-spacing:.04em;margin-left:.6mm}
+.et-partij .tht{text-align:right;line-height:1.15}
+.et-partij .tht .k{font-size:5.8pt;font-weight:700;letter-spacing:.16em;color:#555}
+.et-partij .tht .v{font-size:9.5pt;font-weight:700;letter-spacing:-.01em}
+.et-partij .voetregel{display:flex;justify-content:space-between;align-items:baseline;font-size:6.4pt;
+  letter-spacing:.04em;color:#222}
+.et-partij .voetregel .lot{font-weight:700;font-variant-numeric:tabular-nums}
+.et-partij .voetregel .k{font-size:5.6pt;font-weight:700;letter-spacing:.16em;color:#777;margin-right:1mm}
 .et-product{width:99.1mm;height:67.7mm;padding:4mm;display:flex;flex-direction:column;gap:1.2mm}
 .et-product .en{font-size:11pt}
 .et-product .ing{font-size:6.5pt;line-height:1.3}
@@ -485,7 +496,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v9 · 9 aug 2026';
+const APPVERSIE='v10 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1867,13 +1878,19 @@ function sheetVoorraadLabel(batchId,receptId){
   const e=etiketData(r), tht=kort(thtVan(b,r));
   const perDoos=e.perDoos||1;
   const label=`<div class="etiket et-partij">
-      <div><div class="en">${esc(r.naam)}</div>
-        <div class="sub">${chocNaam(b.chocolade)}</div></div>
-      <div class="er" style="align-items:flex-end">
-        <span class="aantal">${perDoos} <span style="font-size:8pt;font-weight:600">st</span></span>
-        <span class="code">${b.code}</span></div>
-      <div class="r"><div class="er"><span class="ek">Gemaakt</span><span>${kort(S.datum)}</span></div>
-        <div class="er"><span class="ek">THT</span><span class="eb">${tht}</span></div></div>
+      <div class="merkregel">CACAOBOETIEK</div>
+      <div class="streep"></div>
+      <div class="en">${esc(r.naam)}</div>
+      <div class="sub">${chocNaam(b.chocolade)} · ${getal(gramPerBonbon(r))} g per bonbon</div>
+      <div class="midden">
+        <div class="aantal">${perDoos}<em>STUKS</em></div>
+        <div class="tht"><div class="k">THT</div><div class="v">${tht}</div></div>
+      </div>
+      <div class="streep dun"></div>
+      <div class="voetregel">
+        <span><span class="k">LOT</span><span class="lot">${b.code}</span></span>
+        <span>${kort(S.datum)}</span>
+      </div>
     </div>`;
   const doosjes=Math.max(1,Math.ceil(rg.aantal/perDoos));
   sheet('Voorraadlabel',
