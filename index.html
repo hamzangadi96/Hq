@@ -522,7 +522,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v24 · 9 aug 2026';
+const APPVERSIE='v25 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2046,7 +2046,7 @@ function printEtiketten(bron,n,vel){
 function voorraadLabelHTML(b,receptId){
   const r=receptVan(b,receptId); if(!r) return '';
   const e=etiketData(r), tht=kort(thtVan(b,r));
-  const perDoos=e.perDoos||S.malGrootte||1;
+  const perDoos=S.malGrootte||1;
   const nr=Math.max(0,b.regels.findIndex(x=>x.receptId===receptId))+1;
   const gemaakt=kort(b.eindDatum?new Date(b.eindDatum):new Date());
   const qrTekst=b.regels.length>1?`${b.code}/${nr}`:b.code;
@@ -2075,17 +2075,13 @@ function sheetVoorraadLabel(batchId,receptId){
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
   const r=receptVan(b,receptId), rg=b.regels.find(x=>x.receptId===receptId)||{aantal:0};
   const e=etiketData(r);
-  const perDoos=e.perDoos||S.malGrootte||1;
+  const perDoos=S.malGrootte||1;
   const label=voorraadLabelHTML(b,receptId);
   const doosjes=Math.max(1,Math.ceil(rg.aantal/perDoos));
   sheet('Voorraadstickers',
     `<p class="hint">Voor op de bakjes waarin je bonbons na productie bewaart.
        Er gaan er evenveel in een bakje als in een mal, dus je krijgt één sticker per mal.</p>
      <div class="etvoorbeeld"><div class="schaal" id="vlSchaal">${label}</div></div>
-     <div class="veld"><label>Bonbons per bakje</label>
-       <div class="stepper"><button class="stepbtn" id="vlDMin">${svg(I.min)}</button>
-         <div class="stepval"><input id="vlDoos" type="number" inputmode="numeric" value="${perDoos}"><span class="eenh">st</span></div>
-         <button class="stepbtn" id="vlDPlus">${svg(I.plus)}</button></div></div>
      <div class="veld"><label>Aantal stickers</label>
        <div class="stepper"><button class="stepbtn" id="vlMin">${svg(I.min)}</button>
          <div class="stepval"><input id="vlAantal" type="number" inputmode="numeric" value="${doosjes}"><span class="eenh">st</span></div>
@@ -2100,7 +2096,7 @@ function sheetVoorraadLabel(batchId,receptId){
      <button class="sec" id="vlTerug">Terug naar batch</button>`);
   setTimeout(()=>pasSchaal('vlSchaal'),20);
   const verdeling=()=>{
-    const pd=parseInt($('#vlDoos').value)||1, n=parseInt($('#vlAantal').value)||0;
+    const pd=perDoos, n=parseInt($('#vlAantal').value)||0;
     const d=Math.ceil(rg.aantal/pd), rest=rg.aantal%pd;
     $('#vlVerdeel').textContent=`${rg.mallen||Math.round(rg.aantal/(S.malGrootte||1))} ${
       (rg.mallen||1)===1?'mal':'mallen'} · ${rg.aantal} bonbons · ${pd} per bakje = ${d} ${d===1?'bakje':'bakjes'}`
@@ -2112,10 +2108,6 @@ function sheetVoorraadLabel(batchId,receptId){
     $('#vlVelInfo').textContent=`${v.per} stickers passen op één vel, dus ${n} ${n===1?'sticker':'stickers'} wordt `
       +`${vellen} ${vellen===1?'vel':'vellen'}.`+(S.labelVel==='a4'?'':' Met snijlijnen om uit te knippen.');
   };
-  const herteken=()=>{e.perDoos=Math.max(1,parseInt($('#vlDoos').value)||1);bewaarNu();sheetVoorraadLabel(batchId,receptId)};
-  $('#vlDMin').onclick=()=>{$('#vlDoos').value=Math.max(1,parseInt($('#vlDoos').value||1)-1);herteken()};
-  $('#vlDPlus').onclick=()=>{$('#vlDoos').value=parseInt($('#vlDoos').value||0)+1;herteken()};
-  $('#vlDoos').onchange=herteken;
   $('#vlMin').onclick=()=>{$('#vlAantal').value=Math.max(1,parseInt($('#vlAantal').value||1)-1);verdeling()};
   $('#vlPlus').onclick=()=>{$('#vlAantal').value=parseInt($('#vlAantal').value||0)+1;verdeling()};
   $('#vlAantal').oninput=verdeling; verdeling();
