@@ -416,18 +416,18 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
   border:.25mm solid #b0b0b0;border-radius:50%;z-index:3}
 .et-partij .kerf.l{left:-1.4mm}
 .et-partij .kerf.r{right:-1.4mm}
-.et-partij .gegevens{flex:1;min-width:0;padding:2.2mm 2.8mm 2mm;display:flex;flex-direction:column}
+.et-partij .gegevens{flex:1;min-width:0;padding:2.2mm 2.8mm 2.2mm;display:flex;flex-direction:column;justify-content:space-between}
 .et-partij .en{font-size:9.5pt;font-weight:700;letter-spacing:-.02em;line-height:1.12;
   overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .et-partij .sub{font-size:6.2pt;color:#6a6a6a;letter-spacing:.02em;margin-top:.5mm;line-height:1.2}
-.et-partij .raster{display:flex;gap:2.5mm;margin-top:auto}
+.et-partij .raster{display:flex;gap:2mm;align-items:flex-end}
 .et-partij .cel{min-width:0}
-.et-partij .cel.rechts{margin-left:auto;text-align:right}
-.et-partij .k{font-size:5.2pt;font-weight:700;letter-spacing:.16em;color:#767676;line-height:1.6}
+.et-partij .cel.rechts{margin-left:auto;text-align:right;flex:none}
+.et-partij .k{font-size:5.2pt;font-weight:700;letter-spacing:.14em;color:#767676;line-height:1.5}
 .et-partij .v{font-size:8.5pt;font-weight:700;letter-spacing:-.01em;line-height:1.15;white-space:nowrap}
 .et-partij .v.groot{font-size:12pt;letter-spacing:-.03em}
-.et-partij .streep{height:.2mm;background:#d5d5d5;margin:1.6mm 0 1.2mm}
-.et-partij .lotv{font-size:7.4pt;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.et-partij .streep{height:.2mm;background:#d5d5d5;margin:1.4mm 0}
+.et-partij .lotv{font-size:7pt;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:0;white-space:nowrap}
 .et-partij .qr{display:block}
 .et-product{width:99.1mm;height:67.7mm;padding:4mm;display:flex;flex-direction:column;gap:1.2mm}
 .et-product .en{font-size:11pt}
@@ -435,12 +435,12 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .et-product .r{font-size:6.5pt;line-height:1.35}
 .et-product .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .schaal{transform-origin:top left}
-.stickerblok{display:block;width:100%;margin-top:14px;padding:0;background:#fff;
-  border:1px solid var(--lijn);border-radius:16px;overflow:hidden;text-align:left;cursor:pointer;font:inherit}
+.stickerblok{display:flex;align-items:center;gap:13px;width:100%;margin-top:13px;padding:11px 13px;
+  background:#fff;border:1px solid var(--lijn);border-radius:15px;text-align:left;cursor:pointer;font:inherit}
 .stickerblok:active{background:#fafafa}
-.stickerschaal{padding:14px 14px 0;overflow:hidden}
-.stickervoet{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:12px 14px;border-top:1px solid var(--lijn);margin-top:12px}
+.stickerschaal{width:132px;flex:none;overflow:hidden;border-radius:5px;
+  box-shadow:0 0 0 1px #ececee}
+.stickervoet{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .stickervoet span{font:600 14.5px Inter,sans-serif;color:var(--ink);display:flex;flex-direction:column;gap:2px}
 .stickervoet em{font:500 12.5px Inter,sans-serif;font-style:normal;color:var(--grijs)}
 .stickervoet svg{width:16px;height:16px;color:var(--grijs);flex:none}
@@ -520,7 +520,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v19 · 9 aug 2026';
+const APPVERSIE='v20 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
