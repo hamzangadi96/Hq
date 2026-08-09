@@ -435,6 +435,15 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .et-product .r{font-size:6.5pt;line-height:1.35}
 .et-product .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .schaal{transform-origin:top left}
+.stickerblok{display:block;width:100%;margin-top:14px;padding:0;background:#fff;
+  border:1px solid var(--lijn);border-radius:16px;overflow:hidden;text-align:left;cursor:pointer;font:inherit}
+.stickerblok:active{background:#fafafa}
+.stickerschaal{padding:14px 14px 0;overflow:hidden}
+.stickervoet{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px 14px;border-top:1px solid var(--lijn);margin-top:12px}
+.stickervoet span{font:600 14.5px Inter,sans-serif;color:var(--ink);display:flex;flex-direction:column;gap:2px}
+.stickervoet em{font:500 12.5px Inter,sans-serif;font-style:normal;color:var(--grijs)}
+.stickervoet svg{width:16px;height:16px;color:var(--grijs);flex:none}
 #printvel{display:none}
 .vel.postnl{width:152mm;height:102mm;padding:2.5mm;box-sizing:border-box;
   display:grid;grid-template-columns:repeat(2,73mm);grid-template-rows:repeat(2,47mm);
@@ -511,7 +520,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v18 · 9 aug 2026';
+const APPVERSIE='v19 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -928,8 +937,15 @@ function dashboardHTML(){
       <div class="sub">${b.code} · ${bTotaal(b)} stuks · volgende stap: ${v?v.label.toLowerCase():'afronden'}</div>
       ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
         <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
-      <button class="prim" data-batch="${b.id}">Verder met deze batch</button>
-      <button class="sec2" data-stickers="${b.id}">${svg(I.doc)}Voorraadstickers</button>`;
+      <button class="prim" data-batch="${b.id}">Verder met deze batch</button>`;
+    if(b.regels.length){
+      const rg=b.regels[0], per=S.malGrootte||1, aant=Math.max(1,Math.ceil(rg.aantal/per));
+      h+=`<button class="stickerblok" data-stickers="${b.id}">
+        <div class="stickerschaal"><div class="schaal" id="dbSticker">${voorraadLabelHTML(b,rg.receptId)}</div></div>
+        <div class="stickervoet"><span>Voorraadstickers<em>${aant} ${aant===1?'sticker':'stickers'}${
+          b.regels.length>1?` · ${b.regels.length} smaken`:''}</em></span>${svg(I.pijl,'2')}</div>
+      </button>`;
+    }
   } else if(!S.recepten.length){
     h+=`<h2>Begin met je eerste smaak</h2>
       <div class="sub">Beschrijf één bonbon: de schelp en de lagen erin, met het gewicht per stuk. Daarna rekent de app elke batch voor je uit.</div>
@@ -1194,6 +1210,7 @@ function bind(){
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
   $$('[data-batch]').forEach(b=>b.onclick=()=>{S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0});
+  if($('#dbSticker')) setTimeout(()=>pasSchaal('dbSticker'),20);
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
@@ -2009,15 +2026,14 @@ function printEtiketten(bron,n,vel){
 }
 
 /* label voor op je voorraadbakjes */
-function sheetVoorraadLabel(batchId,receptId){
-  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
-  const r=receptVan(b,receptId), rg=b.regels.find(x=>x.receptId===receptId)||{aantal:0};
+function voorraadLabelHTML(b,receptId){
+  const r=receptVan(b,receptId); if(!r) return '';
   const e=etiketData(r), tht=kort(thtVan(b,r));
   const perDoos=e.perDoos||S.malGrootte||1;
   const nr=Math.max(0,b.regels.findIndex(x=>x.receptId===receptId))+1;
   const gemaakt=kort(b.eindDatum?new Date(b.eindDatum):new Date());
   const qrTekst=b.regels.length>1?`${b.code}/${nr}`:b.code;
-  const label=`<div class="etiket et-partij">
+  return `<div class="etiket et-partij">
       <div class="kop"><div class="merkregel">CACAOBOETIEK</div></div>
       <div class="body">
         <div class="kerf l"></div><div class="kerf r"></div>
@@ -2037,6 +2053,13 @@ function sheetVoorraadLabel(batchId,receptId){
         </div>
       </div>
     </div>`;
+}
+function sheetVoorraadLabel(batchId,receptId){
+  const b=S.batches.find(x=>x.id===batchId); if(!b) return;
+  const r=receptVan(b,receptId), rg=b.regels.find(x=>x.receptId===receptId)||{aantal:0};
+  const e=etiketData(r);
+  const perDoos=e.perDoos||S.malGrootte||1;
+  const label=voorraadLabelHTML(b,receptId);
   const doosjes=Math.max(1,Math.ceil(rg.aantal/perDoos));
   sheet('Voorraadstickers',
     `<p class="hint">Voor op de bakjes waarin je bonbons na productie bewaart.
