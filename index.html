@@ -511,7 +511,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v17 · 9 aug 2026';
+const APPVERSIE='v18 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -928,7 +928,8 @@ function dashboardHTML(){
       <div class="sub">${b.code} · ${bTotaal(b)} stuks · volgende stap: ${v?v.label.toLowerCase():'afronden'}</div>
       ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
         <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
-      <button class="prim" data-batch="${b.id}">Verder met deze batch</button>`;
+      <button class="prim" data-batch="${b.id}">Verder met deze batch</button>
+      <button class="sec2" data-stickers="${b.id}">${svg(I.doc)}Voorraadstickers</button>`;
   } else if(!S.recepten.length){
     h+=`<h2>Begin met je eerste smaak</h2>
       <div class="sub">Beschrijf één bonbon: de schelp en de lagen erin, met het gewicht per stuk. Daarna rekent de app elke batch voor je uit.</div>
@@ -1193,6 +1194,17 @@ function bind(){
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
   $$('[data-batch]').forEach(b=>b.onclick=()=>{S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0});
+  $$('[data-stickers]').forEach(x=>x.onclick=()=>{
+    const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
+    if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
+    sheet('Welke smaak?',
+      `<p class="hint">Deze batch heeft ${b.regels.length} smaken. Elke smaak krijgt zijn eigen stickers.</p>
+       <div class="lijst">${b.regels.map(rg=>{const r=receptVan(b,rg.receptId);
+         return `<button class="rij" data-kies="${rg.receptId}"><span class="naam">${esc(r.naam)}
+           <small>${rg.mallen} ${rg.mallen===1?'mal':'mallen'} · ${rg.aantal} stuks</small></span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`,'');
+    $$('[data-kies]').forEach(k=>k.onclick=()=>sheetVoorraadLabel(b.id,k.dataset.kies));
+  });
   $$('[data-rij]').forEach(b=>b.onclick=()=>{S.open=S.open===b.dataset.rij?null:b.dataset.rij;render()});
   $$('[data-eerder]').forEach(b=>b.onclick=()=>{S.toonEerder=b.dataset.eerder==='open';render()});
   $$('[data-archief]').forEach(b=>b.onclick=sheetArchief);
