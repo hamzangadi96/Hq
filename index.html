@@ -485,7 +485,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v7 · 9 aug 2026';
+const APPVERSIE='v9 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -515,6 +515,7 @@ const S={
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
+  ontvangsten:[], ijkingen:[],
   batches:[]
 };
 
@@ -534,7 +535,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet'];
+  'werkplan','planGezet','ontvangsten','ijkingen'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -562,10 +563,16 @@ function bewaarNu(){
 function bewaar(){clearTimeout(bewaarTimer);bewaarTimer=setTimeout(bewaarNu,400)}
 
 /* --- laag 2: Firebase, zodra je online bent --- */
+function fbConfig(){
+  if(typeof FIREBASE_CONFIG!=='undefined'&&FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey) return FIREBASE_CONFIG;
+  if(typeof firebaseConfig!=='undefined'&&firebaseConfig&&firebaseConfig.apiKey) return firebaseConfig;
+  return null;
+}
 function firebaseStart(){
-  if(typeof FIREBASE_CONFIG==='undefined'||!FIREBASE_CONFIG.apiKey||typeof firebase==='undefined') return;
+  const cfg=fbConfig();
+  if(!cfg||typeof firebase==='undefined') return;
   try{
-    firebase.initializeApp(FIREBASE_CONFIG);
+    firebase.initializeApp(cfg);
     fbKlaar=true;
     firebase.database().ref('.info/connected').on('value',s2=>{fbOnline=!!s2.val()});
     firebase.auth().onAuthStateChanged(u=>{
@@ -664,8 +671,8 @@ function migreerBatches(){
 
 /* ================= productiestappen ================= */
 const planVan=b=>b.stappen=b.stappen||{};
-const planGedaan=b=>S.werkplan.filter(n=>planVan(b)[n]&&planVan(b)[n].gedaan).length;
-const planVolgende=b=>S.werkplan.find(n=>!(planVan(b)[n]&&planVan(b)[n].gedaan));
+const planGedaan=b=>bPlan(b).filter(n=>planVan(b)[n]&&planVan(b)[n].gedaan).length;
+const planVolgende=b=>bPlan(b).find(n=>!(planVan(b)[n]&&planVan(b)[n].gedaan));
 function stapKlaar(b,naam){
   planVan(b)[naam]={gedaan:true,datum:vandaag(),tijd:nu()};
   bLog(b,{type:'productiestap',titel:naam,sub:'afgerond'});
@@ -732,13 +739,20 @@ const bTel=(b,t)=>b.logs.filter(l=>l.type===t).length;
 const lopende=()=>S.batches.filter(b=>b.status==='bezig');
 const bTotaal=b=>b.regels.reduce((s,r)=>s+r.aantal,0);
 const bMallen=b=>b.regels.reduce((s,r)=>s+(r.mallen||0),0);
-const bNamen=b=>b.regels.map(r=>recept(r.receptId).naam).join(' + ');
+/* een batch bewaart zijn eigen kopie van de receptuur, zodat latere wijzigingen
+   aan een smaak nooit een afgeronde batch of rapport veranderen */
+function receptVan(b,id){
+  if(b&&b.recepten&&b.recepten[id]) return b.recepten[id];
+  return recept(id);
+}
+const bPlan=b=>(b&&b.werkplan&&b.werkplan.length)?b.werkplan:S.werkplan;
+const bNamen=b=>b.regels.map(r=>receptVan(b,r.receptId).naam).join(' + ');
 
 /* alle ingrediënten van een batch, opgeteld in gram */
 function bIngredienten(b){
   const map={};
   b.regels.forEach(rg=>{
-    const r=recept(rg.receptId);
+    const r=receptVan(b,rg.receptId);
     (r.onderdelen||[]).forEach(o=>{
       verdeel(o,(parseFloat(o.gram)||0)*rg.aantal).forEach(x=>{
         if(!x.naam) return;
@@ -763,8 +777,8 @@ const BSTAPPEN=[
    waarde:b=>{const t=bIngredienten(b).length,g=Object.values(b.lots).filter(Boolean).length;
      return bTel(b,'ingredienten')?g+' van '+t:'—'}},
   {key:'productie',label:'Productiestappen',kern:true,
-   klaar:b=>S.werkplan.length>0&&planGedaan(b)===S.werkplan.length,sheet:'productie',knop:'Stappen openen',
-   waarde:b=>S.werkplan.length?planGedaan(b)+' van '+S.werkplan.length:'—'},
+   klaar:b=>bPlan(b).length>0&&planGedaan(b)===bPlan(b).length,sheet:'productie',knop:'Stappen openen',
+   waarde:b=>bPlan(b).length?planGedaan(b)+' van '+bPlan(b).length:'—'},
   {key:'afwijking',label:'Afwijkingen',kern:false,klaar:()=>true,sheet:'afwijking',knop:'Afwijking melden',
    waarde:b=>bTel(b,'afwijking')||'geen'},
   {key:'schoonmaak',label:'Schoonmaak',kern:true,
@@ -778,6 +792,22 @@ const KERN=BSTAPPEN.filter(s=>s.kern);
 const bGedaan=b=>KERN.filter(s=>s.klaar(b)).length;
 const bVolgende=b=>KERN.find(s=>!s.klaar(b));
 
+function batchOpDatum(b,d){
+  return b.startDatum===d||b.eindDatum===d||(b.dagen||[]).some(x=>x.datum===d)||b.logs.some(l=>l.datum===d);
+}
+function alleDatums(){
+  const set={};
+  S.batches.forEach(b=>{
+    if(b.startDatum) set[b.startDatum]=1;
+    if(b.eindDatum) set[b.eindDatum]=1;
+    (b.dagen||[]).forEach(x=>set[x.datum]=1);
+    b.logs.forEach(l=>{if(l.datum)set[l.datum]=1});
+  });
+  (S.ontvangsten||[]).forEach(x=>{if(x.datum)set[x.datum]=1});
+  return Object.keys(set).sort().reverse();
+}
+const laatsteIjking=()=>(S.ijkingen||[]).slice().sort((a,b)=>a.datum<b.datum?1:-1)[0]||null;
+
 const dagenTot=d=>Math.round((new Date(iso(d))-new Date(vandaag()))/86400000);
 function signalen(){
   const uit=[];
@@ -788,7 +818,7 @@ function signalen(){
     if(b.resultaat&&b.resultaat.perSmaak){
       b.resultaat.perSmaak.forEach(ps=>{
         if(!ps.goed) return;
-        const r=recept(ps.receptId), d=thtVan(b,r), n=dagenTot(d);
+        const r=receptVan(b,ps.receptId), d=thtVan(b,r), n=dagenTot(d);
         if(n>7) return;
         uit.push({ernst:n<0?'rood':'amber',
           tekst:`${ps.goed} bonbons ${r.naam}`,
@@ -796,6 +826,10 @@ function signalen(){
       });
     }
   });
+  const ij=laatsteIjking();
+  const maanden=ij?Math.round((new Date(vandaag())-new Date(ij.datum))/2592000000):null;
+  if(!ij) uit.push({ernst:'amber',tekst:'Thermometer nog nooit geijkt',extra:'zonder ijking zijn je metingen aanvechtbaar'});
+  else if(maanden>=6) uit.push({ernst:'amber',tekst:'Thermometer al '+maanden+' maanden niet geijkt',extra:'laatst op '+kort(new Date(ij.datum))});
   return uit.sort((a,b)=>(a.ernst==='rood'?0:1)-(b.ernst==='rood'?0:1));
 }
 
@@ -958,6 +992,8 @@ function productieHTML(){
     }
   }
   h+=`<div class="voet">
+    <button data-sheet="ontvangst">Ontvangst vastleggen</button>
+    <button data-archief>Archief${(()=>{const n=alleDatums().length;return n?' ('+n+(n===1?' dag)':' dagen)'):''})()}</button>
     <button data-sheet="recepten">Smaken beheren${S.recepten.length?' ('+S.recepten.length+')':''}</button>
     <button data-sheet="instellingen">Instellingen</button>
     ${S.batches.length?`<button data-rapport="dag">Dagrapport van vandaag</button>`:''}</div>`;
@@ -968,7 +1004,7 @@ function productieHTML(){
 function uitwerkingHTML(b){
   let h='<div class="uw">';
   b.regels.forEach(rg=>{
-    const r=recept(rg.receptId);
+    const r=receptVan(b,rg.receptId);
     h+=`<div class="uwkop"><span class="n">${esc(r.naam)}</span>
       <span class="a">${rg.mallen?rg.mallen+(rg.mallen===1?' mal · ':' mallen · '):''}${rg.aantal} st</span></div>`;
     (r.onderdelen||[]).forEach(o=>{
@@ -1029,7 +1065,7 @@ function batchHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>
     <div class="uit"><div class="uitin">
       ${b.regels.map(rg=>`<button class="toevoeg" data-etiket="${rg.receptId}" style="border-bottom:1px solid var(--lijn)">
-        ${svg(I.doc)}${esc(recept(rg.receptId).naam)}</button>`).join('')}
+        ${svg(I.doc)}${esc(receptVan(b,rg.receptId).naam)}</button>`).join('')}
     </div></div></div>`;
 
   /* uitwerking bovenaan als vaste referentie */
@@ -1067,14 +1103,14 @@ function batchHTML(){
         <em>${b.lots[i.naam]?'lot '+esc(b.lots[i.naam]):'geen lotnummer'}</em></span></div>`).join('')
         :'<div class="geen">Geen ingrediënten in deze smaken.</div>';
     } else if(s.key==='productie'){
-      inh=S.werkplan.length?S.werkplan.map(n=>{const x=planVan(b)[n];
+      inh=bPlan(b).length?bPlan(b).map(n=>{const x=planVan(b)[n];
         return `<div class="item"><span class="t">${x&&x.gedaan?x.tijd:'—'}</span>
           <span class="b" style="${x&&x.gedaan?'':'color:var(--grijs2)'}">${esc(n)}
           ${x&&x.gedaan?`<em>${kort(new Date(x.datum))}</em>`:''}</span></div>`}).join('')
         :'<div class="geen">Nog geen stappen ingesteld.</div>';
     } else if(s.key==='afronden'){
       inh=b.resultaat?b.resultaat.perSmaak.map(p=>`<div class="item"><span class="t">${b.eind}</span>
-        <span class="b">${esc(recept(p.receptId).naam)} · ${p.goed} goed<em>${p.afkeur} afkeur · THT ${kort(thtVan(b,recept(p.receptId)))}</em></span></div>`).join('')
+        <span class="b">${esc(receptVan(b,p.receptId).naam)} · ${p.goed} goed<em>${p.afkeur} afkeur · THT ${kort(thtVan(b,receptVan(b,p.receptId)))}</em></span></div>`).join('')
         :'<div class="geen">Batch loopt nog.</div>';
     } else {
       const it=b.logs.filter(l=>l.type===s.key);
@@ -1132,6 +1168,7 @@ function bind(){
   $$('[data-batch]').forEach(b=>b.onclick=()=>{S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0});
   $$('[data-rij]').forEach(b=>b.onclick=()=>{S.open=S.open===b.dataset.rij?null:b.dataset.rij;render()});
   $$('[data-eerder]').forEach(b=>b.onclick=()=>{S.toonEerder=b.dataset.eerder==='open';render()});
+  $$('[data-archief]').forEach(b=>b.onclick=sheetArchief);
   $$('[data-etiket]').forEach(b=>b.onclick=()=>sheetVoorraadLabel(S.batchId,b.dataset.etiket));
   $$('[data-rapport]').forEach(b=>b.onclick=()=>sheetRapport(b.dataset.rapport,S.batchId));
   $$('[data-verwijder]').forEach(b=>b.onclick=()=>verwijderBatch(b.dataset.verwijder));
@@ -1290,8 +1327,11 @@ function wizard3(){
      <button class="sec" id="w3T">Terug naar smaken</button>`,'Stap 3 van 3');
   $('#w3T').onclick=wizard2;
   $('#w3Ok').onclick=()=>{
+    const kopie={};
+    regels.forEach(rg=>{kopie[rg.receptId]=JSON.parse(JSON.stringify(recept(rg.receptId)))});
     const b={id:uid(),code:nieuweCode(),chocolade:W.choc,regels,gestart:nu(),startDatum:vandaag(),
-      status:'bezig',dagen:[],lots:{},logs:[],resultaat:null};
+      status:'bezig',dagen:[],lots:{},logs:[],resultaat:null,
+      recepten:kopie, werkplan:S.werkplan.slice()};
     S.batches.push(b);
     S.tab='productie';S.batchId=b.id;S.open=null;
     klaarSheet('Batch '+b.code+' aangemaakt.');$('#scherm').scrollTop=0;
@@ -1571,10 +1611,11 @@ function sheetTemp(){
 }
 
 function sheetOntvangst(){
-  const b=batch(); if(!b) return;
-  startStap(b,'Ontvangst verwerken');
+  const b=batch();
+  if(b) startStap(b,'Ontvangst verwerken');
   sheet('Ontvangst goederen',
-    `<p class="hint">Leg de partij hier één keer vast. Bij het loggen van je ingrediënten kies je 'm daarna uit een lijst.</p>
+    `<p class="hint">Leg de partij hier één keer vast. Bij het loggen van je ingrediënten kies je 'm daarna uit een lijst.${
+       b?'':' Er loopt nu geen batch, dus dit wordt los vastgelegd.'}</p>
      <div class="veld"><label>Leverancier</label>
       <div class="chips" id="oC">${S.leveranciers.map((l,i)=>`<button class="chip ${i?'':'aan'}" data-v="${esc(l)}">${esc(l)}</button>`).join('')}${nieuwChip('oNieuw')}</div>
       ${S.leveranciers.length?'':'<div class="geen" style="padding-top:8px">Nog geen leveranciers — voeg je eerste toe.</div>'}
@@ -1618,7 +1659,13 @@ function sheetOntvangst(){
     if(staat==='fout'&&!a) return toast('Beschrijf kort wat er mis was.');
     if(staat==='ok'){
       S.lots.push({id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:h,eenheid:e,
-        ontvangen:iso(S.datum)+' '+nu(),temp:gekoeld==='ja'?tmp:''});
+        ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''});
+    }
+    if(!b){
+      S.ontvangsten.push({id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
+        hoeveel:h,eenheid:e,temp:gekoeld==='ja'?tmp:'',staat,actie:a});
+      bewaarNu(); dicht(); render();
+      return toast(staat==='ok'?'Partij vastgelegd.':'Levering geweigerd en vastgelegd.');
     }
     bLog(b,{type:'ontvangst',titel:lev+' · '+p,
       sub:'Lot '+l+(t?' · THT '+kort(new Date(t)):'')+(h?' · '+h+' '+e:'')+
@@ -1768,7 +1815,7 @@ function sheetAfronden(){
       ${KERN.filter(s=>s.key!=='afronden').map(s=>`<div class="crij ${s.klaar(b)?'ok':'mis'}">
         ${svg(s.klaar(b)?I.vink:I.cirkel,'2')}<span>${s.label}</span></div>`).join('')}</div>
      <div class="veld"><label>Resultaat per smaak</label>
-      ${b.regels.map(rg=>`<div class="rrij"><div class="rinfo"><div class="rnaam">${esc(recept(rg.receptId).naam)}</div>
+      ${b.regels.map(rg=>`<div class="rrij"><div class="rinfo"><div class="rnaam">${esc(receptVan(b,rg.receptId).naam)}</div>
         <div class="rsub">gepland ${rg.aantal} st</div></div>
         <div class="qty"><input class="lotinp" style="width:70px" data-goed="${rg.receptId}" type="number" inputmode="numeric" value="${rg.aantal}" placeholder="goed">
           <input class="lotinp" style="width:70px" data-afkeur="${rg.receptId}" type="number" inputmode="numeric" value="0" placeholder="afkeur"></div></div>`).join('')}
@@ -1785,7 +1832,7 @@ function sheetAfronden(){
     stopWerk(b);
     b.resultaat={goed,afkeur:afk,perSmaak}; b.status='klaar'; b.eind=nu(); b.eindDatum=vandaag();
     bLog(b,{type:'afronden',titel:goed+' goed, '+afk+' afkeur',
-      sub:perSmaak.map(p=>recept(p.receptId).naam+' '+p.goed).join(' · ')+(n?' — '+n:''),
+      sub:perSmaak.map(p=>receptVan(b,p.receptId).naam+' '+p.goed).join(' · ')+(n?' — '+n:''),
       status:niet.length?'let':'ok'});
     klaarSheet('Batch '+b.code+' afgerond.');
   };
@@ -1816,7 +1863,7 @@ function printEtiketten(html,n){
 /* label voor op je voorraadbakjes */
 function sheetVoorraadLabel(batchId,receptId){
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
-  const r=recept(receptId), rg=b.regels.find(x=>x.receptId===receptId)||{aantal:0};
+  const r=receptVan(b,receptId), rg=b.regels.find(x=>x.receptId===receptId)||{aantal:0};
   const e=etiketData(r), tht=kort(thtVan(b,r));
   const perDoos=e.perDoos||1;
   const label=`<div class="etiket et-partij">
@@ -1946,19 +1993,20 @@ function sheetProductie(){
         <span class="wt">${bezig?'bezig':(perAct[n]?duurKort(perAct[n]):'')}</span></button></div>`;
   };
   /* alles wat niet in het plan staat: tussendoor */
-  const tussen=S.activiteiten.filter(a=>!S.werkplan.includes(a));
+  const plan=bPlan(b);
+  const tussen=S.activiteiten.filter(a=>!plan.includes(a));
   const volgende=planVolgende(b);
   sheet('Productiestappen',
     `<p class="hint">Tik een stap aan om eraan te beginnen of ‘m te hervatten — de timer schakelt mee.
        Vink links af als een stap écht klaar is.</p>
-     <div class="veld">${S.werkplan.map(rij).join('')||'<div class="geen">Nog geen stappen ingesteld.</div>'}</div>
+     <div class="veld">${plan.map(rij).join('')||'<div class="geen">Nog geen stappen ingesteld.</div>'}</div>
      ${tussen.length?`<div class="subkop">Tussendoor</div>
        <div class="veld">${tussen.map(a=>`<div class="werkrij ${w&&w.act===a?'bezig':''}">
          <button type="button" class="startknop" data-tussen="${esc(a)}">
            <span class="wn">${esc(a)}</span>
            <span class="wt">${w&&w.act===a?'bezig':(perAct[a]?duurKort(perAct[a]):'')}</span></button></div>`).join('')}</div>`:''}
      <div class="totaalregel"><span class="l">Stappen gedaan</span>
-       <span class="w">${planGedaan(b)} van ${S.werkplan.length}</span></div>
+       <span class="w">${planGedaan(b)} van ${plan.length}</span></div>
      <div class="voet" style="margin-top:14px"><button id="pStappenIns">Stappen aanpassen</button></div>`,
     w ? `<button class="prim" style="margin-top:0" id="pStop">${svg(I.vink)}Timer stoppen</button>`
       : (volgende?`<button class="prim" style="margin-top:0" id="pStart">Beginnen met ${esc(volgende.toLowerCase())}</button>`:''));
@@ -1991,7 +2039,7 @@ function sheetStapDoen(naam){
   /* welke onderdelen horen bij deze stap? */
   let blokken='';
   b.regels.forEach(rg=>{
-    const r=recept(rg.receptId);
+    const r=receptVan(b,rg.receptId);
     const bij=(r.onderdelen||[]).filter(o=>(o.stap||'')===naam);
     if(!bij.length) return;
     blokken+=`<div class="uvsmaak">${esc(r.naam)} · ${rg.aantal} st</div>`;
@@ -2068,7 +2116,7 @@ function batchRapportHTML(b){
       <div class="rij"><span>Uitgevoerd door</span><b>${esc(S.naam)}</b></div></div></div>`;
 
   h+=`<h3>Smaken en houdbaarheid</h3><table><tr><th>Smaak</th><th>Aantal</th><th>Per bonbon</th><th>THT</th></tr>
-    ${b.regels.map(rg=>{const r=recept(rg.receptId);
+    ${b.regels.map(rg=>{const r=receptVan(b,rg.receptId);
       return `<tr><td>${esc(r.naam)}</td><td class="n">${rg.aantal} st</td>
         <td class="n">${getal(gramPerBonbon(r))} g</td><td class="n">${kort(thtVan(b,r))}</td></tr>`}).join('')}</table>`;
 
@@ -2099,6 +2147,9 @@ function batchRapportHTML(b){
   h+=temps.length?`<table><tr><th>Datum</th><th>Tijd</th><th>Meting</th><th>Norm en oordeel</th></tr>
     ${temps.map(l=>`<tr><td class="t">${l.datum?kort(new Date(l.datum)):''}</td><td class="t">${l.tijd}</td><td>${esc(l.titel)}</td>
       <td class="${l.status==='fout'?'fout':''}">${esc(l.sub||'')}</td></tr>`).join('')}</table>`:rLeeg('Geen metingen vastgelegd.');
+  const ijk=laatsteIjking();
+  h+=`<div class="rij" style="margin-top:2mm"><span>Thermometer laatst geijkt</span>
+    <b class="${ijk?'':'fout'}">${ijk?kort(new Date(ijk.datum)):'niet vastgelegd'}</b></div>`;
 
   const ing=bIngredienten(b);
   h+=`<h3>Grondstoffen en traceerbaarheid</h3>`;
@@ -2129,8 +2180,8 @@ function batchRapportHTML(b){
     :rLeeg('Niet vastgelegd.');
 
   h+=`<h3>Productiestappen</h3>`;
-  h+=S.werkplan.length?`<table><tr><th>Stap</th><th>Datum</th><th>Afgerond om</th></tr>
-    ${S.werkplan.map(n=>{const x=planVan(b)[n];
+  h+=bPlan(b).length?`<table><tr><th>Stap</th><th>Datum</th><th>Afgerond om</th></tr>
+    ${bPlan(b).map(n=>{const x=planVan(b)[n];
       return `<tr><td>${esc(n)}</td><td class="n">${x&&x.gedaan?kort(new Date(x.datum)):'—'}</td>
         <td class="n ${x&&x.gedaan?'':'fout'}">${x&&x.gedaan?x.tijd:'niet gedaan'}</td></tr>`}).join('')}</table>`
     :rLeeg('Geen stappen ingesteld.');
@@ -2147,9 +2198,9 @@ function batchRapportHTML(b){
   h+=`<h3>Resultaat</h3>`;
   if(b.resultaat){
     h+=`<table><tr><th>Smaak</th><th>Goed</th><th>Afkeur</th><th>THT</th></tr>
-      ${(b.resultaat.perSmaak||[]).map(p=>`<tr><td>${esc(recept(p.receptId).naam)}</td>
+      ${(b.resultaat.perSmaak||[]).map(p=>`<tr><td>${esc(receptVan(b,p.receptId).naam)}</td>
         <td class="n">${p.goed}</td><td class="n">${p.afkeur}</td>
-        <td class="n">${kort(thtVan(b,recept(p.receptId)))}</td></tr>`).join('')}
+        <td class="n">${kort(thtVan(b,receptVan(b,p.receptId)))}</td></tr>`).join('')}
       <tr><td><b>Totaal</b></td><td class="n"><b>${b.resultaat.goed}</b></td>
         <td class="n"><b>${b.resultaat.afkeur}</b></td><td></td></tr></table>`;
   } else h+=rLeeg('Batch nog niet afgerond.');
@@ -2157,19 +2208,24 @@ function batchRapportHTML(b){
   return h+rHand()+rVoet()+`</div>`;
 }
 
-function dagRapportHTML(){
-  const alle=S.batches;
+function dagRapportHTML(datum){
+  const dag=datum||vandaag();
+  const alle=S.batches.filter(b=>batchOpDatum(b,dag));
   const logs=[];
-  alle.forEach(b=>b.logs.forEach(l=>logs.push(Object.assign({code:b.code},l))));
+  alle.forEach(b=>b.logs.filter(l=>l.datum===dag).forEach(l=>logs.push(Object.assign({code:b.code},l))));
+  (S.ontvangsten||[]).filter(x=>x.datum===dag).forEach(x=>logs.push({code:'—',tijd:x.tijd,
+    titel:x.leverancier+' · '+x.product,sub:'Lot '+x.lot+(x.tht?' · THT '+kort(new Date(x.tht)):''),status:'ok'}));
   logs.sort((a,b)=>a.tijd.localeCompare(b.tijd));
-  const goed=alle.reduce((s,b)=>s+(b.resultaat?b.resultaat.goed:0),0);
-  const afk=alle.reduce((s,b)=>s+(b.resultaat?b.resultaat.afkeur:0),0);
+  const opDag=b=>b.eindDatum===dag;
+  const goed=alle.filter(opDag).reduce((s,b)=>s+(b.resultaat?b.resultaat.goed:0),0);
+  const afk=alle.filter(opDag).reduce((s,b)=>s+(b.resultaat?b.resultaat.afkeur:0),0);
   const punten=logs.filter(l=>l.status&&l.status!=='ok');
+  const dd=new Date(dag);
 
-  let h=`<div class="rapport">${rKop('Dagrapport productie',DAG[S.datum.getDay()]+' '+kort(S.datum))}`;
+  let h=`<div class="rapport">${rKop('Dagrapport productie',DAG[dd.getDay()]+' '+kort(dd))}`;
   h+=`<h3>Samenvatting</h3><div class="paar">
-    <div><div class="rij"><span>Batches</span><b>${alle.length}</b></div>
-      <div class="rij"><span>Afgerond</span><b>${alle.filter(b=>b.status==='klaar').length}</b></div>
+    <div><div class="rij"><span>Batches deze dag</span><b>${alle.length}</b></div>
+      <div class="rij"><span>Afgerond</span><b>${alle.filter(opDag).length}</b></div>
       <div class="rij"><span>Registraties</span><b>${logs.length}</b></div></div>
     <div><div class="rij"><span>Bonbons goed</span><b>${goed}</b></div>
       <div class="rij"><span>Afkeur</span><b>${afk}</b></div>
@@ -2179,10 +2235,14 @@ function dagRapportHTML(){
   h+=alle.length?`<table><tr><th>Batchcode</th><th>Smaken</th><th>Chocolade</th><th>Aantal</th><th>Resultaat</th></tr>
     ${alle.map(b=>`<tr><td>${b.code}</td><td>${esc(bNamen(b))}</td>
       <td>${chocNaam(b.chocolade)}</td><td class="n">${bTotaal(b)} st</td>
-      <td class="n">${b.resultaat?b.resultaat.goed+' goed · '+b.resultaat.afkeur+' afkeur':'loopt nog'}</td></tr>`).join('')}</table>`
-    :rLeeg('Geen batches vandaag.');
+      <td class="n">${b.resultaat?b.resultaat.goed+' goed · '+b.resultaat.afkeur+' afkeur':'liep nog'}</td></tr>`).join('')}</table>`
+    :rLeeg('Geen batches op deze dag.');
 
-  const dagAct={}; alle.forEach(b=>werkPerActiviteit(b).forEach(x=>dagAct[x.act]=(dagAct[x.act]||0)+x.sec));
+  const dagAct={};
+  alle.forEach(b=>(b.werk||[]).forEach(w=>{
+    const d2=iso(new Date(w.start));
+    if(d2===dag) dagAct[w.act]=(dagAct[w.act]||0)+seconden(w);
+  }));
   const dagSec=Object.values(dagAct).reduce((a,c)=>a+c,0);
   if(dagSec){
     h+=`<h3>Tijdsbesteding</h3><table><tr><th>Werkzaamheid</th><th>Tijd</th><th>Aandeel</th></tr>
@@ -2193,13 +2253,19 @@ function dagRapportHTML(){
 
   h+=`<h3>Alle registraties</h3>`;
   h+=logs.length?`<table><tr><th>Tijd</th><th>Batch</th><th>Registratie</th><th>Details</th></tr>
-    ${logs.map(l=>`<tr><td class="t">${l.tijd}</td><td>${l.code.slice(-2)}</td>
+    ${logs.map(l=>`<tr><td class="t">${l.tijd}</td><td>${l.code==='—'?'—':l.code.slice(-2)}</td>
       <td class="${l.status==='fout'?'fout':l.status==='let'?'let':''}">${esc(l.titel)}</td>
-      <td>${esc(l.sub||'')}</td></tr>`).join('')}</table>`:rLeeg('Nog niets gelogd.');
+      <td>${esc(l.sub||'')}</td></tr>`).join('')}</table>`:rLeeg('Niets gelogd op deze dag.');
 
   if(punten.length) h+=`<h3>Aandachtspunten</h3><table><tr><th>Tijd</th><th>Batch</th><th>Punt</th><th>Maatregel</th></tr>
     ${punten.map(l=>`<tr><td class="t">${l.tijd}</td><td>${l.code}</td>
       <td class="${l.status==='fout'?'fout':'let'}">${esc(l.titel)}</td><td>${esc(l.sub||'')}</td></tr>`).join('')}</table>`;
+
+  const ij=laatsteIjking();
+  h+=`<h3>Meetapparatuur</h3>`;
+  h+=ij?`<div class="rij"><span>Thermometer laatst geijkt</span><b>${kort(new Date(ij.datum))}${
+      ij.gemeten!==''&&ij.gemeten!==undefined?' · gemeten '+komma(ij.gemeten)+' °C in ijswater':''}</b></div>`
+    :`<div class="rij"><span>Thermometer</span><b class="fout">nog geen ijking vastgelegd</b></div>`;
 
   return h+rHand()+rVoet()+`</div>`;
 }
@@ -2214,9 +2280,9 @@ function verwijderBatch(id){
   S.open=null; bewaarNu(); dicht(); render(); toast('Batch '+b.code+' verwijderd.');
 }
 
-function sheetRapport(soort,batchId){
-  const html = soort==='batch' ? batchRapportHTML(S.batches.find(b=>b.id===batchId)) : dagRapportHTML();
-  sheet(soort==='batch'?'Batchrapport':'Dagrapport',
+function sheetRapport(soort,batchId,datum){
+  const html = soort==='batch' ? batchRapportHTML(S.batches.find(b=>b.id===batchId)) : dagRapportHTML(datum);
+  sheet(soort==='batch'?'Batchrapport':(datum&&datum!==vandaag()?'Dagrapport '+kort(new Date(datum)):'Dagrapport'),
     `<p class="hint">Op A4. Tik Printen en kies in het deelmenu van je telefoon voor <b>Bewaar in Bestanden</b> om er een pdf van te maken.</p>
      <div class="etvoorbeeld" style="padding:0"><div class="schaal" id="rpSchaal">${html}</div></div>`,
     `<button class="prim" style="margin-top:0" id="rpPrint">${svg(I.doc)}Printen of opslaan als pdf</button>
@@ -2428,8 +2494,12 @@ function sheetOnderdeel(idx){
 /* ================= account en synchronisatie ================= */
 function sheetAccount(){
   if(!fbKlaar){
+    const cfg=fbConfig();
+    const mist=cfg&&!cfg.databaseURL;
     return sheet('Synchronisatie',
-      `<p class="hint">Firebase is nog niet ingesteld. Vul je projectgegevens in het bestand <b>config.js</b>. Tot die tijd werkt alles gewoon,
+      `<p class="hint">${mist
+        ? 'Je gegevens zijn ingevuld, maar er ontbreekt een <b>databaseURL</b>. Dat betekent dat de Realtime Database nog niet bestond toen je de web-app aanmaakte. Maak eerst de database aan, kopieer daarna opnieuw je gegevens.'
+        : 'Firebase is nog niet ingesteld. Vul je projectgegevens in het bestand <b>config.js</b>.'} Tot die tijd werkt alles gewoon,
         maar staat je data alleen op dit toestel.</p>`,
       `<button class="prim" style="margin-top:0" id="acK">Sluiten</button>`), $('#acK').onclick=dicht;
   }
@@ -2509,11 +2579,72 @@ function sheetData(){
   $('#dKlaar').onclick=dicht;
 }
 
+/* ================= archief ================= */
+function sheetArchief(){
+  const dagen=alleDatums();
+  sheet('Archief',
+    `<p class="hint">Elke dag waarop je iets hebt vastgelegd. Tik een datum aan voor het dagrapport van die dag.</p>
+     <div>${dagen.length?dagen.map(d=>{
+       const bs=S.batches.filter(b=>batchOpDatum(b,d));
+       const klaar=bs.filter(b=>b.eindDatum===d).length;
+       const dd=new Date(d);
+       return `<button class="rij" data-dag="${d}" style="padding-left:0;padding-right:0">
+         <span class="tekst"><span class="t1">${DAG[dd.getDay()]} ${kort(dd)}</span>
+           <span class="t2">${bs.length} ${bs.length===1?'batch':'batches'}${klaar?' · '+klaar+' afgerond':''}</span></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
+      :'<div class="geen">Nog niets vastgelegd.</div>'}</div>`,
+    `<button class="prim" style="margin-top:0" id="arK">Sluiten</button>`);
+  $$('[data-dag]').forEach(b=>b.onclick=()=>sheetRapport('dag',null,b.dataset.dag));
+  $('#arK').onclick=dicht;
+}
+
+function sheetIjking(){
+  const lijst=(S.ijkingen||[]).slice().sort((a,b)=>a.datum<b.datum?1:-1);
+  sheet('Thermometer ijken',
+    `<p class="hint">Leg smeltend ijswater klaar en meet. Een goede thermometer wijst 0 °C aan, met hooguit
+       een halve graad afwijking. Zonder deze controle zijn al je metingen aanvechtbaar.</p>
+     <div class="veld"><label>Gemeten in ijswater</label>
+       <div class="stepper"><button class="stepbtn" id="ijMin">${svg(I.min)}</button>
+         <div class="stepval"><input id="ijV" type="number" inputmode="decimal" step="0.1" value="0"><span class="eenh">°C</span></div>
+         <button class="stepbtn" id="ijPlus">${svg(I.plus)}</button></div>
+       <div class="norm ok" id="ijN"></div></div>
+     <div class="veld"><label>Notitie</label><input class="inp" id="ijT" placeholder="Bijv. bijgesteld, of nieuwe thermometer"></div>
+     <div class="veld"><label>Eerdere ijkingen</label>
+       <div>${lijst.length?lijst.map((x,i)=>`<div class="rrij"><div class="rinfo">
+         <div class="rnaam">${kort(new Date(x.datum))} · ${komma(x.gemeten)} °C</div>
+         <div class="rsub">${esc(x.notitie||'geen bijzonderheden')}</div></div>
+         <button class="wisbtn" data-ijwis="${i}">${svg(I.kruis,'2')}</button></div>`).join('')
+        :'<div class="geen">Nog geen ijking vastgelegd.</div>'}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="ijOk">IJking vastleggen op ${kort(new Date())}</button>
+     <button class="sec" id="ijTerug">Terug</button>`);
+  const check=()=>{
+    const v=parseFloat($('#ijV').value), ok=!isNaN(v)&&Math.abs(v)<=0.5;
+    $('#ijN').className='norm '+(ok?'ok':'fout');
+    $('#ijN').innerHTML=svg(ok?I.vink:I.alarm)+(ok?'Binnen de marge van een halve graad':'Meer dan 0,5 °C afwijking — bijstellen of vervangen');
+  };
+  $('#ijMin').onclick=()=>{$('#ijV').value=(parseFloat($('#ijV').value||0)-0.1).toFixed(1);check()};
+  $('#ijPlus').onclick=()=>{$('#ijV').value=(parseFloat($('#ijV').value||0)+0.1).toFixed(1);check()};
+  $('#ijV').oninput=check; check();
+  $$('[data-ijwis]').forEach(b=>b.onclick=()=>{
+    const x=lijst[parseInt(b.dataset.ijwis)];
+    S.ijkingen=S.ijkingen.filter(y=>y!==x); bewaarNu(); sheetIjking(); toast('Verwijderd.');
+  });
+  $('#ijTerug').onclick=sheetInstellingen;
+  $('#ijOk').onclick=()=>{
+    const v=parseFloat($('#ijV').value);
+    if(isNaN(v)) return toast('Vul de gemeten waarde in.');
+    S.ijkingen.push({id:uid(),datum:vandaag(),gemeten:v,notitie:$('#ijT').value.trim()});
+    bewaarNu(); render(); sheetIjking(); toast('IJking vastgelegd.');
+  };
+}
+
 /* ================= instellingen ================= */
 function sheetInstellingen(){
   sheet('Instellingen',
     `<button class="menurij" data-ins="recepten">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
      <button class="menurij" data-ins="mal">${svg(I.vorm)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
+     <button class="menurij" data-ins="ijking">${svg(I.temp)}Thermometer ijken<span class="tel">${
+       laatsteIjking()?kort(new Date(laatsteIjking().datum)):'nooit'}</span></button>
      <button class="menurij" data-ins="meetpunten">${svg(I.temp)}Meetpunten<span class="tel">${S.meetpunten.length}</span></button>
      <button class="menurij" data-ins="checks">${svg(I.vink)}Openingscheck<span class="tel">${S.checks.length}</span></button>
      <button class="menurij" data-ins="werkplan">${svg(I.vorm)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
@@ -2527,6 +2658,7 @@ function sheetInstellingen(){
     if(k==='recepten') return sheetRecepten();
     if(k==='meetpunten') return sheetMeetpunten();
     if(k==='mal') return sheetMal();
+    if(k==='ijking') return sheetIjking();
     if(k==='checks') return sheetChecks();
     if(k==='lots') return sheetLots();
     sheetLijst(k);
