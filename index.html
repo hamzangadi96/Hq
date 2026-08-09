@@ -435,11 +435,15 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .et-product .r{font-size:6.5pt;line-height:1.35}
 .et-product .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .schaal{transform-origin:top left}
-.stickerblok{display:flex;align-items:center;gap:11px;width:100%;margin-top:13px;padding:12px 13px;
+.stickerblok{display:flex;align-items:center;gap:11px;width:100%;margin-top:12px;padding:9px 13px;
   background:#fff;border:1px solid var(--lijn);border-radius:15px;text-align:left;cursor:pointer;font:inherit}
 .stickerblok:active{background:#fafafa}
-.stickerschaal{flex:1;min-width:0;overflow:hidden;border-radius:6px;box-shadow:0 0 0 1px #ececee}
-.stickerblok>svg{width:17px;height:17px;color:var(--grijs);flex:none}
+.qrmini{width:26px;height:26px;flex:none;display:block;opacity:.9}
+.qrmini svg{width:26px!important;height:26px!important;display:block}
+.sbnaam{flex:1;min-width:0;font:600 14.5px Inter,sans-serif;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbaant{font:600 14.5px Inter,sans-serif;color:var(--grijs);flex:none}
+.stickerblok>svg{width:16px;height:16px;color:#a1a1aa;flex:none}
 #printvel{display:none}
 .vel.postnl{width:152mm;height:102mm;padding:2.5mm;box-sizing:border-box;
   display:grid;grid-template-columns:repeat(2,73mm);grid-template-rows:repeat(2,47mm);
@@ -516,7 +520,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v22 · 9 aug 2026';
+const APPVERSIE='v23 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -936,8 +940,11 @@ function dashboardHTML(){
       <button class="prim" data-batch="${b.id}">Verder met deze batch</button>`;
     if(b.regels.length){
       const rg=b.regels[0], per=S.malGrootte||1, aant=Math.max(1,Math.ceil(rg.aantal/per));
+      const qt=b.regels.length>1?`${b.code}/1`:b.code;
       h+=`<button class="stickerblok" data-stickers="${b.id}">
-        <div class="stickerschaal"><div class="schaal" id="dbSticker">${voorraadLabelHTML(b,rg.receptId)}</div></div>
+        <span class="qrmini">${qrSvg(qt,20)}</span>
+        <span class="sbnaam">Voorraadstickers</span>
+        <span class="sbaant">${aant}</span>
         ${svg(I.pijl,'2')}
       </button>`;
     }
@@ -1205,7 +1212,6 @@ function bind(){
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
   $$('[data-batch]').forEach(b=>b.onclick=()=>{S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0});
-  if($('#dbSticker')) setTimeout(()=>pasSchaal('dbSticker'),20);
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
