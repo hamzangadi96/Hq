@@ -203,9 +203,11 @@ nav{flex:none;display:grid;grid-template-columns:repeat(5,1fr);background:var(--
 
 .veld{margin-bottom:20px}
 .veld label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);margin-bottom:9px;letter-spacing:-.01em}
+.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Inter,sans-serif}
 .inp{width:100%;height:52px;border-radius:14px;border:none;background:var(--bg);padding:0 15px;font-size:16px;font-weight:500;outline:none}
 .inp:focus{box-shadow:inset 0 0 0 1.5px var(--ink);background:#fff}
-textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px}
+textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Inter,sans-serif}
+.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
 .chip{padding:10px 15px;border-radius:12px;background:var(--bg);font-size:14px;font-weight:600;letter-spacing:-.01em;
   color:var(--ink2);display:inline-flex;align-items:center;gap:6px}
@@ -520,7 +522,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v23 · 9 aug 2026';
+const APPVERSIE='v24 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -660,6 +662,20 @@ const nieuweCode=()=>{
 };
 const chocNaam=k=>(CHOC.find(c=>c.key===k)||{}).naam||'';
 const chocKort=k=>({wit:'Wit',melk:'Melk',puur:'Puur'})[k]||'';
+/* leest '10 min', '1 uur', '30 sec' uit een zin en geeft seconden terug */
+function leesTijd(t){
+  const m=String(t).match(/(\d+(?:[.,]\d+)?)\s*(uur|u\b|minuten|minuut|min\b|seconden|sec\b|s\b)/i);
+  if(!m) return 0;
+  const n=parseFloat(m[1].replace(',','.')), e=m[2].toLowerCase();
+  if(/^u/.test(e)) return Math.round(n*3600);
+  if(/^m/.test(e)) return Math.round(n*60);
+  return Math.round(n);
+}
+/* leest '80 °C' of '31,5 C' uit een zin */
+function leesGraden(t){
+  const m=String(t).match(/(\d+(?:[.,]\d+)?)\s*(?:°\s*)?C(?![a-z])/i);
+  return m?parseFloat(m[1].replace(',','.')):null;
+}
 
 const BEDRIJF={naam:'Cacaoboetiek',adres:'Alcoalaan 8D, 5151 RW Drunen',
   contact:'info@cacaoboetiek.nl · www.cacaoboetiek.nl'};
@@ -2619,10 +2635,11 @@ function sheetOnderdeel(idx){
       <button class="sec" id="oP" style="margin-top:2px">${svg(I.plus)}&nbsp; Ingrediënt toevoegen</button>
       <div id="oSam"></div></div>
      <div class="veld"><label>Werkwijze voor dit onderdeel</label>
-       <p class="hint" style="margin-bottom:10px">Deze stappen krijg je straks één voor één te zien tijdens het maken.</p>
-       <div id="oW">${o.werkwijze.map(x=>`<div class="ingrij"><input class="nm" data-wz value="${esc(x)}" placeholder="Wat doe je?">
-         <button class="wisbtn" data-wis-w>${svg(I.kruis,'2')}</button></div>`).join('')}</div>
-       <button class="sec" id="oWP" style="margin-top:2px">${svg(I.plus)}&nbsp; Stap toevoegen</button></div>
+       <p class="hint" style="margin-bottom:10px">Elke regel is één handeling. Typ, druk op enter, typ door.
+         Straks krijg je ze één voor één te zien tijdens het maken.</p>
+       <textarea class="inp wzvak" id="oW" rows="7"
+         placeholder="Room verwarmen tot 80 °C&#10;Van het vuur halen&#10;Chocolade erdoor roeren&#10;Laten afkoelen 20 min&#10;Boter erdoor mixen">${esc((o.werkwijze||[]).join('\n'))}</textarea>
+       <div class="geen" id="oWuit" style="padding-top:9px"></div></div>
      <div class="veld"><label>Hoort bij welke productiestap?</label>
        <div class="chips" id="oStap">${S.werkplan.map(x=>`<button class="chip klein ${x===(o.stap||raadStap(o.naam))?'aan':''}"
          data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>
@@ -2672,9 +2689,16 @@ function sheetOnderdeel(idx){
   bindRijen(); ververs();
   $('#oG').oninput=ververs;
   $('#oP').onclick=()=>{$('#oI').insertAdjacentHTML('beforeend',ingRij({naam:'',deel:''}));bindRijen();ververs()};
-  $('#oWP').onclick=()=>{$('#oW').insertAdjacentHTML('beforeend',
-    `<div class="ingrij"><input class="nm" data-wz placeholder="Wat doe je?">
-     <button class="wisbtn" data-wis-w>${svg(I.kruis,'2')}</button></div>`);bindRijen()};
+  const wzUit=()=>{
+    const rg=$('#oW').value.split('\n').map(x=>x.trim()).filter(Boolean);
+    if(!rg.length) return $('#oWuit').textContent='Nog geen stappen. Zonder werkwijze kan de app je niet begeleiden.';
+    const mt=rg.filter(x=>leesTijd(x)).length, mg=rg.filter(x=>leesGraden(x)!==null).length;
+    let t=`${rg.length} ${rg.length===1?'handeling':'handelingen'}`;
+    if(mt) t+=` · ${mt}× een tijd herkend`;
+    if(mg) t+=` · ${mg}× een temperatuur herkend`;
+    $('#oWuit').textContent=t+'.';
+  };
+  $('#oW').oninput=wzUit; wzUit();
   $('#oMin').onclick=()=>{$('#oG').value=Math.max(0,(parseFloat($('#oG').value||0)-0.25)).toFixed(2).replace(/\.?0+$/,'');ververs()};
   $('#oPlus').onclick=()=>{$('#oG').value=((parseFloat($('#oG').value||0)+0.25)).toFixed(2).replace(/\.?0+$/,'');ververs()};
   $('#oTerug').onclick=()=>{bewaarSmaak();tekenRecept()};
@@ -2687,7 +2711,7 @@ function sheetOnderdeel(idx){
     if(gram>50&&!confirm(getal(gram)+' g per bonbon is ongebruikelijk veel. Weet je het zeker?')) return;
     if(!ing.length) return toast('Vul in waar dit onderdeel uit bestaat.');
     if(ing.length>1&&ing.some(x=>!x.deel)) return toast('Vul bij elk ingrediënt in hoeveel gram er in jouw bak gaat.');
-    const werkwijze=$$('[data-wz]').map(i=>i.value.trim()).filter(Boolean);
+    const werkwijze=$('#oW').value.split('\n').map(x=>x.trim()).filter(Boolean);
     const d={naam,gram,ing,werkwijze,stap:chipV('#oStap')||raadStap(naam)};
     if(nieuw) R.onderdelen.push(d); else R.onderdelen[idx]=d;
     bewaarSmaak(); render(); tekenRecept();
