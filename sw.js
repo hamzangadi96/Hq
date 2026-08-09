@@ -1,9 +1,9 @@
-/* Cacaoboetiek HQ - service worker
-   Doel: de app start ook zonder verbinding. Verhoog VERSIE bij elke nieuwe deploy. */
-const VERSIE = 'hq-v2';
+/* Cacaoboetiek HQ — service worker
+   Verhoog VERSIE bij elke nieuwe upload. */
+const VERSIE = 'hq-v7';
+
+/* alleen plaatjes en manifest cachen; de app zelf halen we altijd vers op */
 const SCHIL = [
-  './',
-  './index.html',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -11,7 +11,12 @@ const SCHIL = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSIE).then(c => c.addAll(SCHIL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VERSIE)
+      .then(c => c.addAll(SCHIL))
+      .catch(() => {})
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -27,24 +32,33 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  /* Firebase en fonts nooit uit de cache serveren */
+  /* Firebase en lettertypes nooit onderscheppen */
   if (url.hostname.includes('firebaseio.com') ||
+      url.hostname.includes('firebasedatabase.app') ||
       url.hostname.includes('googleapis.com') ||
+      url.hostname.includes('gstatic.com') ||
       url.hostname.includes('firebaseapp.com')) return;
 
-  /* de app zelf: eerst het netwerk, anders de cache */
-  if (req.mode === 'navigate' || url.pathname.endsWith('index.html')) {
+  const isApp = req.mode === 'navigate' ||
+                url.pathname.endsWith('/') ||
+                url.pathname.endsWith('index.html') ||
+                url.pathname.endsWith('config.js');
+
+  if (isApp) {
+    /* altijd vers ophalen, buiten elke cache om; alleen als noodgreep uit de cache */
     e.respondWith(
-      fetch(req).then(r => {
-        const kopie = r.clone();
-        caches.open(VERSIE).then(c => c.put(req, kopie));
-        return r;
-      }).catch(() => caches.match('./index.html'))
+      fetch(req, { cache: 'no-store' })
+        .then(r => {
+          const kopie = r.clone();
+          caches.open(VERSIE).then(c => c.put(req, kopie));
+          return r;
+        })
+        .catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
     );
     return;
   }
 
-  /* de rest: eerst de cache, anders het netwerk */
+  /* plaatjes en manifest: eerst uit de cache */
   e.respondWith(
     caches.match(req).then(r => r || fetch(req).then(res => {
       if (res.ok && url.origin === location.origin) {
@@ -52,6 +66,6 @@ self.addEventListener('fetch', e => {
         caches.open(VERSIE).then(c => c.put(req, kopie));
       }
       return res;
-    }).catch(() => caches.match('./index.html')))
+    }))
   );
 });
