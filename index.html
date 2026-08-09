@@ -429,11 +429,20 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .et-product .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .schaal{transform-origin:top left}
 #printvel{display:none}
+.vel.postnl{width:152mm;height:102mm;padding:3mm;box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:0}
+.vel.postnl .etiket{width:100%!important;height:100%!important;outline:.1mm dashed #c8c8c8;outline-offset:-.05mm}
+.vel.postnl .et-partij{padding:2.2mm 2.4mm}
+.vel.postnl .et-partij .en{font-size:9.5pt}
+.vel.postnl .et-partij .aantal{font-size:18pt}
+.vel.a4{width:210mm;padding:8mm;box-sizing:border-box;display:flex;flex-wrap:wrap}
+.vel.a4 .etiket{outline:.1mm dashed #d8d8d8;outline-offset:-.05mm}
 @media print{
   html,body{background:#fff!important;margin:0!important;padding:0!important;height:auto!important}
   .app{display:none!important}
   #printvel{display:block!important;position:static!important}
-  .vel{page-break-after:always;display:flex;flex-wrap:wrap}
+  .vel{page-break-after:always}
+  .vel:last-child{page-break-after:auto}
   .rapport{width:auto!important;min-height:0!important;padding:0!important}
   .vel .etiket{border:none}
   @page{size:A4;margin:8mm}
@@ -496,7 +505,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v10 · 9 aug 2026';
+const APPVERSIE='v13 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -546,7 +555,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1071,7 +1080,7 @@ function batchHTML(){
   /* etiketten per smaak */
   const etOpen=S.open==='etiket';
   const etGroep=`<div class="groep ${etOpen?'open':''}">
-    <button class="arij" data-rij="etiket"><span class="naam">Voorraadlabels<small>printen</small></span>
+    <button class="arij" data-rij="etiket"><span class="naam">Voorraadstickers<small>printen</small></span>
       <span class="waarde gevuld">${b.regels.length}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>
     <div class="uit"><div class="uitin">
@@ -1866,9 +1875,22 @@ function pasSchaal(id){
   el.style.transform=`scale(${f})`;
   el.parentElement.style.height=((kaart.offsetHeight||0)*f)+'px';
 }
-function printEtiketten(html,n){
-  $('#printvel').innerHTML=`<div class="vel">${Array.from({length:n},()=>html).join('')}</div>`;
-  setTimeout(()=>window.print(),60);
+const VELLEN={
+  a4:{naam:'A4-vel',per:21,mm:[210,297]},
+  postnl:{naam:'PostNL-vel 152 × 102 mm',per:6,mm:[152,102]}
+};
+function printEtiketten(html,n,vel){
+  const v=VELLEN[vel]||VELLEN.a4;
+  let uit='';
+  for(let i=0;i<n;i+=v.per){
+    const stuk=Math.min(v.per,n-i);
+    uit+=`<div class="vel ${vel||'a4'}">${Array.from({length:stuk},()=>html).join('')}</div>`;
+  }
+  $('#printvel').innerHTML=uit;
+  let st=document.getElementById('printstijl');
+  if(!st){st=document.createElement('style');st.id='printstijl';document.head.appendChild(st)}
+  st.textContent=`@media print{@page{size:${v.mm[0]}mm ${v.mm[1]}mm;margin:0}}`;
+  setTimeout(()=>window.print(),80);
 }
 
 /* label voor op je voorraadbakjes */
@@ -1876,7 +1898,7 @@ function sheetVoorraadLabel(batchId,receptId){
   const b=S.batches.find(x=>x.id===batchId); if(!b) return;
   const r=receptVan(b,receptId), rg=b.regels.find(x=>x.receptId===receptId)||{aantal:0};
   const e=etiketData(r), tht=kort(thtVan(b,r));
-  const perDoos=e.perDoos||1;
+  const perDoos=e.perDoos||S.malGrootte||1;
   const label=`<div class="etiket et-partij">
       <div class="merkregel">CACAOBOETIEK</div>
       <div class="streep"></div>
@@ -1893,26 +1915,38 @@ function sheetVoorraadLabel(batchId,receptId){
       </div>
     </div>`;
   const doosjes=Math.max(1,Math.ceil(rg.aantal/perDoos));
-  sheet('Voorraadlabel',
-    `<p class="hint">Voor op de bakjes waarin je bonbons na productie bewaart.</p>
+  sheet('Voorraadstickers',
+    `<p class="hint">Voor op de bakjes waarin je bonbons na productie bewaart.
+       Er gaan er evenveel in een bakje als in een mal, dus je krijgt één sticker per mal.</p>
      <div class="etvoorbeeld"><div class="schaal" id="vlSchaal">${label}</div></div>
      <div class="veld"><label>Bonbons per bakje</label>
        <div class="stepper"><button class="stepbtn" id="vlDMin">${svg(I.min)}</button>
          <div class="stepval"><input id="vlDoos" type="number" inputmode="numeric" value="${perDoos}"><span class="eenh">st</span></div>
          <button class="stepbtn" id="vlDPlus">${svg(I.plus)}</button></div></div>
-     <div class="veld"><label>Aantal labels</label>
+     <div class="veld"><label>Aantal stickers</label>
        <div class="stepper"><button class="stepbtn" id="vlMin">${svg(I.min)}</button>
          <div class="stepval"><input id="vlAantal" type="number" inputmode="numeric" value="${doosjes}"><span class="eenh">st</span></div>
          <button class="stepbtn" id="vlPlus">${svg(I.plus)}</button></div>
-       <div class="geen" id="vlVerdeel" style="padding-top:8px"></div></div>`,
-    `<button class="prim" style="margin-top:0" id="vlPrint">${svg(I.doc)}Printen</button>
+       <div class="geen" id="vlVerdeel" style="padding-top:8px"></div></div>
+     <div class="veld"><label>Waar print je op?</label>
+       <div class="duo" id="vlVel">
+         <button data-v="postnl" class="${(S.labelVel||'postnl')==='postnl'?'aan':''}">PostNL-vel</button>
+         <button data-v="a4" class="${S.labelVel==='a4'?'aan':''}">A4-vel</button></div>
+       <div class="geen" id="vlVelInfo" style="padding-top:8px"></div></div>`,
+    `<button class="prim" style="margin-top:0" id="vlPrint">${svg(I.doc)}${doosjes} ${doosjes===1?'sticker':'stickers'} printen</button>
      <button class="sec" id="vlTerug">Terug naar batch</button>`);
   setTimeout(()=>pasSchaal('vlSchaal'),20);
   const verdeling=()=>{
     const pd=parseInt($('#vlDoos').value)||1, n=parseInt($('#vlAantal').value)||0;
     const d=Math.ceil(rg.aantal/pd), rest=rg.aantal%pd;
-    $('#vlVerdeel').textContent=`${rg.aantal} bonbons = ${d} ${d===1?'bakje':'bakjes'}`
-      +(rest?` (laatste ${rest} st)`:'')+`. Je print er ${n}.`;
+    $('#vlVerdeel').textContent=`${rg.mallen||Math.round(rg.aantal/(S.malGrootte||1))} ${
+      (rg.mallen||1)===1?'mal':'mallen'} · ${rg.aantal} bonbons · ${pd} per bakje = ${d} ${d===1?'bakje':'bakjes'}`
+      +(rest?` (laatste ${rest} st)`:'');
+    const vv=VELLEN[S.labelVel||'postnl'], vl=Math.max(1,Math.ceil(n/vv.per));
+    if($('#vlPrint')) $('#vlPrint').innerHTML=svg(I.doc)+`${n} ${n===1?'sticker':'stickers'} printen`;
+    const v=VELLEN[S.labelVel||'postnl'], vellen=Math.max(1,Math.ceil(n/v.per));
+    $('#vlVelInfo').textContent=`${v.per} stickers passen op één vel, dus ${n} ${n===1?'sticker':'stickers'} wordt `
+      +`${vellen} ${vellen===1?'vel':'vellen'}.`+(S.labelVel==='a4'?'':' Met snijlijnen om uit te knippen.');
   };
   const herteken=()=>{e.perDoos=Math.max(1,parseInt($('#vlDoos').value)||1);bewaarNu();sheetVoorraadLabel(batchId,receptId)};
   $('#vlDMin').onclick=()=>{$('#vlDoos').value=Math.max(1,parseInt($('#vlDoos').value||1)-1);herteken()};
@@ -1921,8 +1955,13 @@ function sheetVoorraadLabel(batchId,receptId){
   $('#vlMin').onclick=()=>{$('#vlAantal').value=Math.max(1,parseInt($('#vlAantal').value||1)-1);verdeling()};
   $('#vlPlus').onclick=()=>{$('#vlAantal').value=parseInt($('#vlAantal').value||0)+1;verdeling()};
   $('#vlAantal').oninput=verdeling; verdeling();
+  $$('#vlVel button').forEach(x=>x.onclick=()=>{
+    sluitToetsenbord();
+    $$('#vlVel button').forEach(y=>y.classList.remove('aan')); x.classList.add('aan');
+    S.labelVel=x.dataset.v; bewaarNu(); verdeling();
+  });
   $('#vlTerug').onclick=dicht;
-  $('#vlPrint').onclick=()=>printEtiketten(label,parseInt($('#vlAantal').value)||1);
+  $('#vlPrint').onclick=()=>printEtiketten(label,parseInt($('#vlAantal').value)||1,S.labelVel||'postnl');
 }
 
 /* consumentenetiket: hoort bij de smaak, wordt geprint bij het inpakken van een order */
