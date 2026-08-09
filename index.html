@@ -405,23 +405,29 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .etiket .er{display:flex;justify-content:space-between;gap:8px}
 .etiket .ek{color:#444}
 .etiket .eb{font-weight:700}
-.et-partij{width:63.5mm;height:38.1mm;padding:2.6mm 3mm;display:flex;flex-direction:column}
-.et-partij .merkregel{font-family:'Cormorant Garamond',Georgia,serif;font-size:7.5pt;font-weight:600;
-  letter-spacing:.28em;text-align:center;padding-left:.28em;color:#000;line-height:1}
-.et-partij .streep{height:.25mm;background:#000;margin:1.4mm 0}
-.et-partij .streep.dun{height:.15mm;background:#999}
-.et-partij .en{font-size:10.5pt;font-weight:700;letter-spacing:-.02em;line-height:1.1}
-.et-partij .sub{font-size:6.8pt;color:#444;margin-top:.6mm;letter-spacing:.01em}
-.et-partij .midden{display:flex;align-items:flex-end;justify-content:space-between;margin-top:auto;gap:2mm}
-.et-partij .aantal{font-size:20pt;font-weight:700;letter-spacing:-.04em;line-height:.85}
-.et-partij .aantal em{font-style:normal;font-size:7pt;font-weight:600;letter-spacing:.04em;margin-left:.6mm}
-.et-partij .tht{text-align:right;line-height:1.15}
-.et-partij .tht .k{font-size:5.8pt;font-weight:700;letter-spacing:.16em;color:#555}
-.et-partij .tht .v{font-size:9.5pt;font-weight:700;letter-spacing:-.01em}
-.et-partij .voetregel{display:flex;justify-content:space-between;align-items:baseline;font-size:6.4pt;
-  letter-spacing:.04em;color:#222}
-.et-partij .voetregel .lot{font-weight:700;font-variant-numeric:tabular-nums}
-.et-partij .voetregel .k{font-size:5.6pt;font-weight:700;letter-spacing:.16em;color:#777;margin-right:1mm}
+.et-partij{width:73mm;height:47mm;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.et-partij .kop{padding:1.6mm 3mm 1.2mm;border-bottom:.35mm solid #000;text-align:center;flex:none}
+.et-partij .merkregel{font-family:'Cormorant Garamond',Georgia,serif;font-size:8pt;font-weight:600;
+  letter-spacing:.3em;padding-left:.3em;line-height:1;color:#000}
+.et-partij .body{flex:1;display:flex;position:relative;min-height:0}
+.et-partij .qrvak{width:25mm;flex:none;display:flex;align-items:center;justify-content:center;
+  border-right:.25mm dashed #9a9a9a}
+.et-partij .kerf{position:absolute;left:25mm;width:2.6mm;height:2.6mm;background:#fff;
+  border:.25mm solid #9a9a9a;border-radius:50%;transform:translateX(-50%);z-index:2}
+.et-partij .kerf.b{top:-1.3mm}
+.et-partij .kerf.o{bottom:-1.3mm}
+.et-partij .gegevens{flex:1;min-width:0;padding:2.2mm 2.8mm 2mm;display:flex;flex-direction:column}
+.et-partij .en{font-size:9.5pt;font-weight:700;letter-spacing:-.02em;line-height:1.12;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.et-partij .raster{display:flex;gap:2.5mm;margin-top:auto}
+.et-partij .cel{min-width:0}
+.et-partij .cel.rechts{margin-left:auto;text-align:right}
+.et-partij .k{font-size:5.2pt;font-weight:700;letter-spacing:.16em;color:#767676;line-height:1.6}
+.et-partij .v{font-size:8.5pt;font-weight:700;letter-spacing:-.01em;line-height:1.15;white-space:nowrap}
+.et-partij .v.groot{font-size:12pt;letter-spacing:-.03em}
+.et-partij .streep{height:.2mm;background:#d5d5d5;margin:1.6mm 0 1.2mm}
+.et-partij .lotv{font-size:7.4pt;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.et-partij .qr{display:block}
 .et-product{width:99.1mm;height:67.7mm;padding:4mm;display:flex;flex-direction:column;gap:1.2mm}
 .et-product .en{font-size:11pt}
 .et-product .ing{font-size:6.5pt;line-height:1.3}
@@ -429,14 +435,13 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .et-product .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .schaal{transform-origin:top left}
 #printvel{display:none}
-.vel.postnl{width:152mm;height:102mm;padding:3mm;box-sizing:border-box;
-  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:0}
-.vel.postnl .etiket{width:100%!important;height:100%!important;outline:.1mm dashed #c8c8c8;outline-offset:-.05mm}
-.vel.postnl .et-partij{padding:2.2mm 2.4mm}
-.vel.postnl .et-partij .en{font-size:9.5pt}
-.vel.postnl .et-partij .aantal{font-size:18pt}
-.vel.a4{width:210mm;padding:8mm;box-sizing:border-box;display:flex;flex-wrap:wrap}
-.vel.a4 .etiket{outline:.1mm dashed #d8d8d8;outline-offset:-.05mm}
+.vel.postnl{width:152mm;height:102mm;padding:2.5mm;box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(2,73mm);grid-template-rows:repeat(2,47mm);
+  gap:1mm;justify-content:center;align-content:center}
+.vel.a4{width:210mm;height:297mm;padding:8mm;box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(2,73mm);grid-template-rows:repeat(5,47mm);
+  gap:2mm;justify-content:center;align-content:start}
+.vel.postnl .etiket,.vel.a4 .etiket{outline:.12mm dashed #b8b8b8;outline-offset:0}
 @media print{
   html,body{background:#fff!important;margin:0!important;padding:0!important;height:auto!important}
   .app{display:none!important}
@@ -505,7 +510,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v13 · 9 aug 2026';
+const APPVERSIE='v14 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -644,6 +649,7 @@ const nieuweCode=()=>{
   return voor+pad((nrs.length?Math.max.apply(null,nrs):0)+1);
 };
 const chocNaam=k=>(CHOC.find(c=>c.key===k)||{}).naam||'';
+const chocKort=k=>({wit:'Wit',melk:'Melk',puur:'Puur'})[k]||'';
 
 const BEDRIJF={naam:'Cacaoboetiek',adres:'Alcoalaan 8D, 5151 RW Drunen',
   contact:'info@cacaoboetiek.nl · www.cacaoboetiek.nl'};
@@ -1875,9 +1881,100 @@ function pasSchaal(id){
   el.style.transform=`scale(${f})`;
   el.parentElement.style.height=((kaart.offsetHeight||0)*f)+'px';
 }
+// QR-code, byte-modus, foutcorrectie M, versie 1 t/m 3
+const QRV={1:{n:21,tot:26,ec:10,al:[]},2:{n:25,tot:44,ec:16,al:[6,18]},3:{n:29,tot:70,ec:26,al:[6,22]}};
+function qrMatrix(tekst,maskVast){
+  const by=[];for(const ch of unescape(encodeURIComponent(tekst)))by.push(ch.charCodeAt(0));
+  let v=0;for(const k of [1,2,3]){if(by.length<=QRV[k].tot-QRV[k].ec-2){v=k;break}}
+  if(!v){v=3;by.length=QRV[3].tot-QRV[3].ec-2}
+  const S=QRV[v],dataCw=S.tot-S.ec;
+  // bitstroom
+  let bits=[];const push=(w,n)=>{for(let i=n-1;i>=0;i--)bits.push((w>>i)&1)};
+  push(4,4);push(by.length,8);by.forEach(b=>push(b,8));
+  push(0,Math.min(4,dataCw*8-bits.length));
+  while(bits.length%8)bits.push(0);
+  const data=[];for(let i=0;i<bits.length;i+=8){let b=0;for(let j=0;j<8;j++)b=(b<<1)|bits[i+j];data.push(b)}
+  const pad=[0xEC,0x11];let pi=0;while(data.length<dataCw)data.push(pad[pi++%2]);
+  // Reed-Solomon
+  const EXP=new Array(512),LOG=new Array(256);let x=1;
+  for(let i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&0x100)x^=0x11D}
+  for(let i=255;i<512;i++)EXP[i]=EXP[i-255];
+  const mul=(a,b)=>(a&&b)?EXP[LOG[a]+LOG[b]]:0;
+  let g=[1];for(let i=0;i<S.ec;i++){const ng=new Array(g.length+1).fill(0);
+    for(let j=0;j<g.length;j++){ng[j]^=g[j];ng[j+1]^=mul(g[j],EXP[i])}g=ng}
+  const rest=new Array(S.ec).fill(0);
+  for(const d of data){const f=d^rest[0];rest.shift();rest.push(0);
+    for(let j=0;j<S.ec;j++)rest[j]^=mul(g[j+1],f)}
+  const alle=data.concat(rest);
+  // raster
+  const n=S.n,m=[],res=[];
+  for(let i=0;i<n;i++){m.push(new Array(n).fill(0));res.push(new Array(n).fill(0))}
+  const zet=(r,c,w)=>{m[r][c]=w;res[r][c]=1};
+  const finder=(r,c)=>{for(let i=-1;i<8;i++)for(let j=-1;j<8;j++){
+    const y=r+i,x2=c+j;if(y<0||x2<0||y>=n||x2>=n)continue;
+    const rand=(i>=0&&i<=6&&(j===0||j===6))||(j>=0&&j<=6&&(i===0||i===6));
+    const kern=i>=2&&i<=4&&j>=2&&j<=4;zet(y,x2,(rand||kern)?1:0)}};
+  finder(0,0);finder(0,n-7);finder(n-7,0);
+  for(let i=8;i<n-8;i++){zet(6,i,i%2===0?1:0);zet(i,6,i%2===0?1:0)}
+  for(const a of S.al)for(const b of S.al){
+    if((a===6&&b===6)||(a===6&&b===S.al[S.al.length-1])||(a===S.al[S.al.length-1]&&b===6))continue;
+    for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++)
+      zet(a+i,b+j,(Math.abs(i)===2||Math.abs(j)===2||(i===0&&j===0))?1:0)}
+  zet(n-8,8,1);
+  for(let i=0;i<9;i++){if(!res[8][i])res[8][i]=1;if(!res[i][8])res[i][8]=1}
+  for(let i=0;i<8;i++){res[8][n-1-i]=1;res[n-1-i][8]=1}
+  // gegevens plaatsen
+  let bi=0;const bitVan=k=>(alle[k>>3]>>(7-(k&7)))&1;
+  for(let c=n-1;c>0;c-=2){if(c===6)c--;
+    for(let t=0;t<n;t++){const r=((n-1-c)&2)? t : n-1-t;
+      for(let k=0;k<2;k++){const cc=c-k;
+        if(!res[r][cc]){m[r][cc]=bi<alle.length*8?bitVan(bi):0;bi++}}}}
+  // masker
+  const maskf=[(r,c)=>(r+c)%2,(r,c)=>r%2,(r,c)=>c%3,(r,c)=>(r+c)%3,
+    (r,c)=>(((r>>1)+Math.floor(c/3))%2),(r,c)=>((r*c)%2)+((r*c)%3),
+    (r,c)=>((((r*c)%2)+((r*c)%3))%2),(r,c)=>((((r+c)%2)+((r*c)%3))%2)];
+  const straf=g2=>{let p=0;
+    for(let r=0;r<n;r++)for(const rij of [1]){let cnt=1;
+      for(let c=1;c<n;c++){if(g2[r][c]===g2[r][c-1])cnt++;else{if(cnt>=5)p+=cnt-2;cnt=1}}if(cnt>=5)p+=cnt-2}
+    for(let c=0;c<n;c++){let cnt=1;
+      for(let r=1;r<n;r++){if(g2[r][c]===g2[r-1][c])cnt++;else{if(cnt>=5)p+=cnt-2;cnt=1}}if(cnt>=5)p+=cnt-2}
+    for(let r=0;r<n-1;r++)for(let c=0;c<n-1;c++)
+      if(g2[r][c]===g2[r][c+1]&&g2[r][c]===g2[r+1][c]&&g2[r][c]===g2[r+1][c+1])p+=3;
+    const pat=[1,0,1,1,1,0,1,0,0,0,0],pat2=[0,0,0,0,1,0,1,1,1,0,1];
+    const kijk=(arr)=>{let t=0;for(let i=0;i+11<=arr.length;i++){
+      let a=true,b=true;for(let j=0;j<11;j++){if(arr[i+j]!==pat[j])a=false;if(arr[i+j]!==pat2[j])b=false}
+      if(a)t+=40;if(b)t+=40}return t};
+    for(let r=0;r<n;r++)p+=kijk(g2[r]);
+    for(let c=0;c<n;c++){const col=[];for(let r=0;r<n;r++)col.push(g2[r][c]);p+=kijk(col)}
+    let don=0;for(let r=0;r<n;r++)for(let c=0;c<n;c++)don+=g2[r][c];
+    p+=Math.floor(Math.abs(don*100/(n*n)-50)/5)*10;return p};
+  const bouw=msk=>{const g2=m.map(r=>r.slice());
+    for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(!res[r][c]&&maskf[msk](r,c)===0)g2[r][c]^=1;
+    const f=(0<<3)|msk;let d=f<<10;
+    for(let i=4;i>=0;i--)if(d&(1<<(i+10)))d^=0x537<<i;
+    const fmt=((f<<10)|d)^0x5412;
+    const bit=i=>(fmt>>i)&1;              // bit 14 = eerst geplaatst
+    for(let i=0;i<=5;i++)g2[8][i]=bit(14-i);
+    g2[8][7]=bit(8);g2[8][8]=bit(7);g2[7][8]=bit(6);
+    for(let r=0;r<=5;r++)g2[r][8]=bit(r);
+    for(let i=0;i<=6;i++)g2[n-1-i][8]=bit(14-i);
+    for(let j=0;j<=7;j++)g2[8][n-8+j]=bit(7-j);
+    g2[n-8][8]=1;return g2};
+  if(maskVast!==undefined)return{n,g:bouw(maskVast),v,mask:maskVast};
+  let best=null,bs=1e9,bm=0;
+  for(let k=0;k<8;k++){const g2=bouw(k),sc=straf(g2);if(sc<bs){bs=sc;best=g2;bm=k}}
+  return{n,g:best,v,mask:bm};
+}
+function qrSvg(tekst,mm){
+  const {n,g}=qrMatrix(tekst);let d='';
+  for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(g[r][c])d+=`M${c} ${r}h1v1h-1z`;
+  return `<svg class="qr" viewBox="0 0 ${n} ${n}" width="${mm}mm" height="${mm}mm" `
+    +`shape-rendering="crispEdges"><path d="${d}" fill="#000"/></svg>`;
+}
+
 const VELLEN={
-  a4:{naam:'A4-vel',per:21,mm:[210,297]},
-  postnl:{naam:'PostNL-vel 152 × 102 mm',per:6,mm:[152,102]}
+  a4:{naam:'A4-vel',per:10,mm:[210,297]},
+  postnl:{naam:'PostNL-vel 152 × 102 mm',per:4,mm:[152,102]}
 };
 function printEtiketten(html,n,vel){
   const v=VELLEN[vel]||VELLEN.a4;
@@ -1899,19 +1996,25 @@ function sheetVoorraadLabel(batchId,receptId){
   const r=receptVan(b,receptId), rg=b.regels.find(x=>x.receptId===receptId)||{aantal:0};
   const e=etiketData(r), tht=kort(thtVan(b,r));
   const perDoos=e.perDoos||S.malGrootte||1;
+  const nr=Math.max(0,b.regels.findIndex(x=>x.receptId===receptId))+1;
+  const qrTekst=b.regels.length>1?`${b.code}/${nr}`:b.code;
   const label=`<div class="etiket et-partij">
-      <div class="merkregel">CACAOBOETIEK</div>
-      <div class="streep"></div>
-      <div class="en">${esc(r.naam)}</div>
-      <div class="sub">${chocNaam(b.chocolade)} · ${getal(gramPerBonbon(r))} g per bonbon</div>
-      <div class="midden">
-        <div class="aantal">${perDoos}<em>STUKS</em></div>
-        <div class="tht"><div class="k">THT</div><div class="v">${tht}</div></div>
-      </div>
-      <div class="streep dun"></div>
-      <div class="voetregel">
-        <span><span class="k">LOT</span><span class="lot">${b.code}</span></span>
-        <span>${kort(S.datum)}</span>
+      <div class="kop"><div class="merkregel">CACAOBOETIEK</div></div>
+      <div class="body">
+        <div class="kerf b"></div><div class="kerf o"></div>
+        <div class="qrvak">${qrSvg(qrTekst,20)}</div>
+        <div class="gegevens">
+          <div class="en">${esc(r.naam)}</div>
+          <div class="raster">
+            <div class="cel"><div class="k">AANTAL</div><div class="v groot">${perDoos}</div></div>
+            <div class="cel rechts"><div class="k">THT</div><div class="v">${tht}</div></div>
+          </div>
+          <div class="streep"></div>
+          <div class="raster">
+            <div class="cel"><div class="k">LOT</div><div class="lotv">${b.code}</div></div>
+            <div class="cel rechts"><div class="k">CHOCOLADE</div><div class="v">${chocKort(b.chocolade)}</div></div>
+          </div>
+        </div>
       </div>
     </div>`;
   const doosjes=Math.max(1,Math.ceil(rg.aantal/perDoos));
