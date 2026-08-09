@@ -405,20 +405,21 @@ textarea.inp{height:88px;padding:15px;line-height:1.5;resize:none;font-size:16px
 .etiket .er{display:flex;justify-content:space-between;gap:8px}
 .etiket .ek{color:#444}
 .etiket .eb{font-weight:700}
-.et-partij{width:73mm;height:47mm;padding:0;display:flex;flex-direction:column;overflow:hidden}
+.et-partij{width:73mm;height:47mm;padding:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .et-partij .kop{padding:1.6mm 3mm 1.2mm;border-bottom:.35mm solid #000;text-align:center;flex:none}
 .et-partij .merkregel{font-family:'Cormorant Garamond',Georgia,serif;font-size:8pt;font-weight:600;
   letter-spacing:.3em;padding-left:.3em;line-height:1;color:#000}
 .et-partij .body{flex:1;display:flex;position:relative;min-height:0}
 .et-partij .qrvak{width:25mm;flex:none;display:flex;align-items:center;justify-content:center;
   border-right:.25mm dashed #9a9a9a}
-.et-partij .kerf{position:absolute;left:25mm;width:2.6mm;height:2.6mm;background:#fff;
-  border:.25mm solid #9a9a9a;border-radius:50%;transform:translateX(-50%);z-index:2}
-.et-partij .kerf.b{top:-1.3mm}
-.et-partij .kerf.o{bottom:-1.3mm}
+.et-partij .kerf{position:absolute;top:-1.4mm;width:2.8mm;height:2.8mm;background:#fff;
+  border:.25mm solid #b0b0b0;border-radius:50%;z-index:3}
+.et-partij .kerf.l{left:-1.4mm}
+.et-partij .kerf.r{right:-1.4mm}
 .et-partij .gegevens{flex:1;min-width:0;padding:2.2mm 2.8mm 2mm;display:flex;flex-direction:column}
 .et-partij .en{font-size:9.5pt;font-weight:700;letter-spacing:-.02em;line-height:1.12;
   overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.et-partij .sub{font-size:6.2pt;color:#6a6a6a;letter-spacing:.02em;margin-top:.5mm;line-height:1.2}
 .et-partij .raster{display:flex;gap:2.5mm;margin-top:auto}
 .et-partij .cel{min-width:0}
 .et-partij .cel.rechts{margin-left:auto;text-align:right}
@@ -510,7 +511,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v14 · 9 aug 2026';
+const APPVERSIE='v17 · 9 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1876,10 +1877,13 @@ function etiketData(r){
 }
 function pasSchaal(id){
   const el=$('#'+id); if(!el||!el.firstElementChild) return;
-  const kaart=el.firstElementChild, br=el.parentElement.clientWidth;
+  const kaart=el.firstElementChild, ouder=el.parentElement, st=getComputedStyle(ouder);
+  const pl=parseFloat(st.paddingLeft)||0, pr=parseFloat(st.paddingRight)||0;
+  const pt=parseFloat(st.paddingTop)||0, pb=parseFloat(st.paddingBottom)||0;
+  const br=Math.max(1,ouder.clientWidth-pl-pr);
   const f=Math.min(1,br/(kaart.offsetWidth||1));
   el.style.transform=`scale(${f})`;
-  el.parentElement.style.height=((kaart.offsetHeight||0)*f)+'px';
+  ouder.style.height=((kaart.offsetHeight||0)*f+pt+pb)+'px';
 }
 // QR-code, byte-modus, foutcorrectie M, versie 1 t/m 3
 const QRV={1:{n:21,tot:26,ec:10,al:[]},2:{n:25,tot:44,ec:16,al:[6,18]},3:{n:29,tot:70,ec:26,al:[6,22]}};
@@ -1976,12 +1980,14 @@ const VELLEN={
   a4:{naam:'A4-vel',per:10,mm:[210,297]},
   postnl:{naam:'PostNL-vel 152 × 102 mm',per:4,mm:[152,102]}
 };
-function printEtiketten(html,n,vel){
-  const v=VELLEN[vel]||VELLEN.a4;
+function printEtiketten(bron,n,vel){
+  const v=VELLEN[vel]||VELLEN.a4, maak=(typeof bron==='function')?bron:()=>bron;
   let uit='';
   for(let i=0;i<n;i+=v.per){
     const stuk=Math.min(v.per,n-i);
-    uit+=`<div class="vel ${vel||'a4'}">${Array.from({length:stuk},()=>html).join('')}</div>`;
+    let cel='';
+    for(let j=0;j<stuk;j++) cel+=maak(i+j+1,n);
+    uit+=`<div class="vel ${vel||'a4'}">${cel}</div>`;
   }
   $('#printvel').innerHTML=uit;
   let st=document.getElementById('printstijl');
@@ -1997,14 +2003,16 @@ function sheetVoorraadLabel(batchId,receptId){
   const e=etiketData(r), tht=kort(thtVan(b,r));
   const perDoos=e.perDoos||S.malGrootte||1;
   const nr=Math.max(0,b.regels.findIndex(x=>x.receptId===receptId))+1;
+  const gemaakt=kort(b.eindDatum?new Date(b.eindDatum):new Date());
   const qrTekst=b.regels.length>1?`${b.code}/${nr}`:b.code;
   const label=`<div class="etiket et-partij">
       <div class="kop"><div class="merkregel">CACAOBOETIEK</div></div>
       <div class="body">
-        <div class="kerf b"></div><div class="kerf o"></div>
+        <div class="kerf l"></div><div class="kerf r"></div>
         <div class="qrvak">${qrSvg(qrTekst,20)}</div>
         <div class="gegevens">
           <div class="en">${esc(r.naam)}</div>
+          <div class="sub">${chocNaam(b.chocolade)}</div>
           <div class="raster">
             <div class="cel"><div class="k">AANTAL</div><div class="v groot">${perDoos}</div></div>
             <div class="cel rechts"><div class="k">THT</div><div class="v">${tht}</div></div>
@@ -2012,7 +2020,7 @@ function sheetVoorraadLabel(batchId,receptId){
           <div class="streep"></div>
           <div class="raster">
             <div class="cel"><div class="k">LOT</div><div class="lotv">${b.code}</div></div>
-            <div class="cel rechts"><div class="k">CHOCOLADE</div><div class="v">${chocKort(b.chocolade)}</div></div>
+            <div class="cel rechts"><div class="k">GEMAAKT</div><div class="v">${gemaakt}</div></div>
           </div>
         </div>
       </div>
@@ -2047,6 +2055,7 @@ function sheetVoorraadLabel(batchId,receptId){
       +(rest?` (laatste ${rest} st)`:'');
     const vv=VELLEN[S.labelVel||'postnl'], vl=Math.max(1,Math.ceil(n/vv.per));
     if($('#vlPrint')) $('#vlPrint').innerHTML=svg(I.doc)+`${n} ${n===1?'sticker':'stickers'} printen`;
+
     const v=VELLEN[S.labelVel||'postnl'], vellen=Math.max(1,Math.ceil(n/v.per));
     $('#vlVelInfo').textContent=`${v.per} stickers passen op één vel, dus ${n} ${n===1?'sticker':'stickers'} wordt `
       +`${vellen} ${vellen===1?'vel':'vellen'}.`+(S.labelVel==='a4'?'':' Met snijlijnen om uit te knippen.');
