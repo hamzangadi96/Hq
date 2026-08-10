@@ -763,6 +763,7 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 <script src="config.js"></script>
 <script>
 /* ================= iconen ================= */
@@ -796,7 +797,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v65 · 11 aug 2026';
+const APPVERSIE='v66 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2149,6 +2150,81 @@ const macOpdrachten=()=>Object.entries((S.werk||{}).opdrachten||{})
   .sort((a,b2)=>String(b2.gevraagd||'').localeCompare(String(a.gevraagd||'')));
 const lopendeOpdracht=()=>macOpdrachten().find(x=>x.status==='open'||x.status==='bezig')||null;
 
+/* ============ rechtstreeks naar Shopify en MyParcel ============ */
+async function roep(naam,gegevens){
+  if(!fbUser) throw new Error('Log eerst in.');
+  if(typeof firebase==='undefined'||!firebase.functions) throw new Error('Functions niet geladen.');
+  const f=firebase.app().functions('europe-west1').httpsCallable(naam);
+  const r=await f(gegevens||{});
+  return r.data;
+}
+const koppeling=()=>((S.werk||{}).koppeling)||{};
+
+function sheetKoppelingen(){
+  const k=koppeling();
+  const rij=(sleutel,naam,uitleg)=>`<button class="arij" data-kop="${sleutel}">
+    <span class="bol ${k[sleutel]?'af':''}">${k[sleutel]?svg(I.vink,'2.6'):''}</span>
+    <span class="naam">${naam}<small>${k[sleutel]?'gekoppeld':uitleg}</small></span>
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+  sheet('Koppelingen',
+    `<p class="hint">Je sleutels worden op de server bewaard, niet in deze app.
+      Zo kan niemand die de pagina opent erbij.</p>
+     <div class="paneel">
+       ${rij('shopify','Shopify','je webshop, voor de orders')}
+       ${rij('myparcel','MyParcel','voor je verzendlabels')}
+     </div>
+     ${(S.werk||{}).laatstOpgehaald?`<div class="geen" style="padding-top:12px">
+       Laatst opgehaald ${kort(new Date(S.werk.laatstOpgehaald))} om
+       ${new Date(S.werk.laatstOpgehaald).toTimeString().slice(0,5)}.</div>`:''}`,
+    `${k.shopify?`<button class="prim" style="margin-top:0" id="kpHaal">Orders ophalen</button>`:''}`);
+  $$('[data-kop]').forEach(x=>x.onclick=()=>sheetKoppel(x.dataset.kop));
+  if($('#kpHaal')) $('#kpHaal').onclick=async()=>{
+    $('#kpHaal').disabled=true; $('#kpHaal').textContent='Bezig…';
+    try{ const r=await roep('haalOrders'); toast(r.aantal+' orders opgehaald.'); dicht(); render(); }
+    catch(e){ toast(fout(e)); $('#kpHaal').disabled=false; $('#kpHaal').textContent='Orders ophalen'; }
+  };
+}
+const fout=e=>((e&&e.message)||'Er ging iets mis.').replace(/^[A-Z_]+:\s*/,'');
+
+function sheetKoppel(welke){
+  const k=koppeling();
+  const shop=welke==='shopify';
+  sheet(shop?'Shopify koppelen':'MyParcel koppelen',
+    shop
+    ? `<p class="hint">Maak in Shopify een app aan via het Dev Dashboard met leesrechten op orders
+        en klanten. Plak hier het adres van je winkel en het toegangstoken.</p>
+       <div class="veld"><label>Adres van je winkel</label>
+         <input class="inp" id="kpW" placeholder="jouwwinkel.myshopify.com" autocapitalize="off"></div>
+       <div class="veld"><label>Toegangstoken</label>
+         <input class="inp" id="kpT" placeholder="shpat_…" autocapitalize="off"></div>
+       <div class="veld"><label>Webhook-geheim <span style="font-weight:400">— mag leeg</span></label>
+         <input class="inp" id="kpG" placeholder="alleen als je webhooks gebruikt" autocapitalize="off"></div>`
+    : `<p class="hint">Je vindt je sleutel in MyParcel onder Instellingen, bij API-instellingen.</p>
+       <div class="veld"><label>API-sleutel</label>
+         <input class="inp" id="kpS" placeholder="je MyParcel-sleutel" autocapitalize="off"></div>`,
+    `<button class="prim" style="margin-top:0" id="kpOk">Koppelen en uitproberen</button>
+     ${k[welke]?`<button class="sec" id="kpWeg" style="color:var(--rood)">Koppeling verwijderen</button>`:''}`);
+  $('#kpOk').onclick=async()=>{
+    const knop=$('#kpOk'); knop.disabled=true; knop.textContent='Uitproberen…';
+    try{
+      if(shop){
+        const w=$('#kpW').value.trim(), t=$('#kpT').value.trim();
+        if(!w||!t) throw new Error('Vul beide velden in.');
+        await roep('zetKoppeling',{shopify:{winkel:w,token:t,webhook_geheim:$('#kpG').value.trim()||null}});
+      } else {
+        const sl=$('#kpS').value.trim();
+        if(!sl) throw new Error('Vul je sleutel in.');
+        await roep('zetKoppeling',{myparcel:{sleutel:sl}});
+      }
+      render(); klaarSheet('Gekoppeld en getest.');
+    }catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Koppelen en uitproberen'; }
+  };
+  if($('#kpWeg')) $('#kpWeg').onclick=async()=>{
+    if(!confirm('Koppeling verwijderen?')) return;
+    try{ await roep('wisKoppeling',{welke}); render(); sheetKoppelingen(); }catch(e){ toast(fout(e)) }
+  };
+}
+
 function macOpdracht(mode,order,boodschap){
   if(!fbUser) return toast('Log eerst in bij synchronisatie.');
   const id='c_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
@@ -2184,11 +2260,32 @@ function sheetMacOrder(nr){
        ${rij(o.boodschap,'Wenskaart','psd voor Photoshop')}
      </div>
      <div class="geen" style="padding-top:12px">${esc(o.periode||'')}</div>`,
-    `<button class="prim" style="margin-top:0" id="moOpnieuw">Deze order opnieuw verwerken</button>
-     <button class="sec" id="moKaart">Wenskaart maken</button>`);
-  $('#moKaart').onclick=()=>sheetWenskaart('');
-  $('#moOpnieuw').onclick=()=>{
-    macOpdracht('ophaal',o.nummer,true); dicht();
+    `${o.afhaal?'' : (o.myparcel_id
+        ? `<button class="prim" style="margin-top:0" id="moLabel">${svg(I.doc)}Verzendlabel openen</button>`
+        : `<button class="prim" style="margin-top:0" id="moMaak">Verzendlabel maken</button>`)}
+     ${o.wenskaart_gevraagd?`<button class="sec" id="moKaart">Wenskaart maken</button>`:''}`);
+  if($('#moMaak')) $('#moMaak').onclick=async()=>{
+    const k=$('#moMaak'); k.disabled=true; k.textContent='Aanmelden bij MyParcel…';
+    try{ await roep('maakLabel',{order:o.shopifyId||o.nummer});
+      render(); klaarSheet('Zending aangemeld. Het label staat klaar.'); }
+    catch(e){ toast(fout(e)); k.disabled=false; k.textContent='Verzendlabel maken' }
+  };
+  if($('#moLabel')) $('#moLabel').onclick=async()=>{
+    const k=$('#moLabel'); k.disabled=true; k.textContent='Ophalen…';
+    try{
+      const r=await roep('labelPdf',{order:o.shopifyId||o.nummer});
+      const blob=new Blob([Uint8Array.from(atob(r.pdf),c=>c.charCodeAt(0))],{type:'application/pdf'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=r.naam;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),4000);
+      k.disabled=false; k.innerHTML=svg(I.doc)+'Verzendlabel openen';
+    }catch(e){ toast(fout(e)); k.disabled=false; k.innerHTML=svg(I.doc)+'Verzendlabel openen' }
+  };
+  if($('#moKaart')) $('#moKaart').onclick=async()=>{
+    try{ const r=await roep('haalBoodschap',{order:o.shopifyId||o.nummer});
+      sheetWenskaart(r.boodschap||''); }
+    catch(e){ sheetWenskaart('') }
   };
 }
 
@@ -2203,21 +2300,27 @@ function ordersHTML(){
       open.reduce((n,o)=>n+orderAantal(o),0)+' bonbons'
     : 'geen openstaande orders'}</div>`;
 
+  const k=koppeling(), viaServer=!!k.shopify;
   const aan=macLeeft(), bezig=lopendeOpdracht(), mo=macOrders();
   if(fbUser){
-    h+=`<div class="macbalk ${aan?'aan':''}">
-      <span class="macbol"></span>
-      <span class="mactekst">${aan?'Je Mac draait':'Je Mac staat uit'}
-        <em>${bezig
-          ? (MACMODES.find(m=>m.k===bezig.mode)||{n:bezig.mode}).n+' · '+(bezig.status==='bezig'?'bezig':'in de wachtrij')
-          : (aan?'klaar voor opdrachten':'opdrachten wachten tot je hem start')}</em></span>
-      ${bezig&&bezig.status==='bezig'?'<span class="macdraai"></span>':''}
-    </div>`;
-
-    h+=`<div class="blokkop" style="margin-top:20px"><span class="eyebrow">Laat je Mac werken</span></div>
-      <div class="paneel">${MACMODES.map(m=>`<button class="arij" data-mac="${m.k}">
-        <span class="naam">${m.n}<small>${m.u}</small></span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+    if(viaServer){
+      h+=`<button class="macbalk aan" data-kopalles>
+        <span class="macbol"></span>
+        <span class="mactekst">Shopify gekoppeld
+          <em>${k.myparcel?'MyParcel ook · labels maak je hier':'MyParcel nog niet · labels kun je nog niet maken'}</em></span>
+        ${svg(I.pijl,'2')}
+      </button>
+      <button class="prim" data-haalorders style="margin-top:12px">Orders ophalen</button>`;
+    } else {
+      h+=`<button class="macbalk" data-kopalles>
+        <span class="macbol"></span>
+        <span class="mactekst">Nog niet gekoppeld
+          <em>koppel je webshop, dan komen je orders hier binnen</em></span>
+        ${svg(I.pijl,'2')}
+      </button>`;
+      if(aan||bezig) h+=`<div class="geen" style="padding-top:12px">
+        Je Mac draait ook mee${bezig?' · '+(bezig.status==='bezig'?'bezig':'wachtrij'):''}.</div>`;
+    }
 
     if(mo.length){
       const teDoen=mo.filter(x=>!x.factuur||!(x.afhaal||x.label)||x.wijziging);
@@ -2805,6 +2908,12 @@ function bind(){
   $$('[data-nieuweorder]').forEach(x=>x.onclick=sheetNieuweOrder);
   $$('[data-order]').forEach(x=>x.onclick=()=>sheetOrder(x.dataset.order));
   $$('[data-macorder]').forEach(x=>x.onclick=()=>sheetMacOrder(x.dataset.macorder));
+  $$('[data-kopalles]').forEach(x=>x.onclick=sheetKoppelingen);
+  $$('[data-haalorders]').forEach(x=>x.onclick=async()=>{
+    x.disabled=true; const oud=x.textContent; x.textContent='Ophalen…';
+    try{ const r=await roep('haalOrders'); toast(r.aantal+' orders opgehaald.'); render(); }
+    catch(e){ toast(fout(e)); x.disabled=false; x.textContent=oud }
+  });
   $$('[data-mac]').forEach(x=>x.onclick=()=>{
     const m=MACMODES.find(y=>y.k===x.dataset.mac);
     if(!confirm(m.n+' op je Mac starten?')) return;
@@ -2939,6 +3048,9 @@ $('#btnMenu').onclick=()=>{
       hOpen?'let':''}">${hOpen?hOpen+' openstaand':'op orde'}</span></button>
     <button class="menurij" id="mRec">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
     <button class="menurij" id="mKaart">${svg(I.doc)}Wenskaart maken<span class="tel">a5</span></button>
+    <button class="menurij" id="mKop">${svg(I.vracht)}Koppelingen<span class="tel">${(()=>{
+      const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
+      return n?n+' van 2':'nog geen'})()}</span></button>
 
     ${TABS.filter(t=>!t.klaar).length?`<div class="mkop">Nog in aanbouw</div>
       ${TABS.filter(t=>!t.klaar).map(t=>`<button class="menurij" data-naar="${t.key}">${svg(t.icon)}${t.label}
@@ -2957,6 +3069,7 @@ $('#btnMenu').onclick=()=>{
       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
   $('#mHaccp').onclick=sheetHaccp;
   $('#mKaart').onclick=()=>sheetWenskaart('');
+  $('#mKop').onclick=sheetKoppelingen;
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
   });
