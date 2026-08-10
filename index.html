@@ -279,14 +279,31 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .trsub{font-size:12.5px;color:var(--grijs);margin-top:4px;line-height:1.45}
 .prim.groot{height:64px;font-size:17px;border-radius:18px}
 .prim.groot svg{width:20px;height:20px}
-.ritkaart{background:var(--ink);color:#fff;border-radius:18px;padding:20px;text-align:center;position:relative}
-.ritkaart .rkbol{width:10px;height:10px;border-radius:99px;background:#4ade80;
-  position:absolute;top:20px;left:20px;animation:pols 2s infinite}
-.rkkm{font-size:56px;font-weight:700;letter-spacing:-.045em;line-height:1;
-  display:flex;align-items:baseline;justify-content:center;gap:8px}
-.rkkm em{font-size:17px;font-weight:500;font-style:normal;opacity:.6;letter-spacing:0}
-.rkmeta{font-size:12.5px;opacity:.65;margin-top:12px;line-height:1.5}
-.ritkaart .prim{background:#fff;color:var(--ink);margin-top:20px}
+.ritkaart{display:block;background:var(--ink);color:#fff;border-radius:18px;
+  padding:24px 20px 20px;text-align:center}
+.rkstatus{display:flex;align-items:center;justify-content:center;gap:8px;
+  font-size:12.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.rkstatus .rkbol{width:8px;height:8px;border-radius:99px;background:#4ade80;
+  flex:none;animation:pols 2s infinite}
+.rkkm{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-top:16px;
+  font-size:64px;font-weight:700;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.rkkm em{font-size:20px;font-weight:500;font-style:normal;opacity:.55;letter-spacing:-.01em}
+.rkmeta{font-size:13px;opacity:.6;margin-top:12px;line-height:1.5;white-space:nowrap}
+.rkstop{width:100%;height:48px;margin-top:24px;border-radius:14px;background:#fff;
+  color:var(--ink);font-size:15px;font-weight:600;letter-spacing:-.01em}
+.rkstop:active{opacity:.85}
+.ritklaar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+  padding-bottom:20px;margin-bottom:24px;border-bottom:1px solid var(--lijn)}
+.rkgetal{display:flex;align-items:baseline;gap:8px;font-size:48px;font-weight:700;
+  letter-spacing:-.045em;line-height:.9;font-variant-numeric:tabular-nums}
+.rkgetal em{font-size:17px;font-weight:500;font-style:normal;color:var(--grijs);letter-spacing:-.01em}
+.rkregels{text-align:right;font-size:12.5px;color:var(--grijs);line-height:1.6}
+.rkregels b{font-weight:600;color:var(--ink)}
+.mveld{display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;
+  border-radius:14px;background:var(--bg)}
+.mveld input{flex:1;min-width:0;background:none;border:0;font-size:16px;font-weight:600;
+  color:var(--ink);padding:0;height:100%}
+.mveld span{font-size:14px;font-weight:600;color:var(--grijs2);flex:none}
 .vrkop{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding-bottom:20px;margin-bottom:4px;border-bottom:1px solid var(--lijn)}
 .vrgetal{font-size:44px;font-weight:700;letter-spacing:-.04em;line-height:.95}
@@ -657,7 +674,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v48 · 10 aug 2026';
+const APPVERSIE='v49 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1474,12 +1491,13 @@ function geldHTML(){
 
   if(r){
     const min=Math.round((Date.now()-r.begonnen)/60000);
-    h+=`<div class="ritkaart loopt">
-      <div class="rkbol"></div>
+    const n=(r.punten||[]).length;
+    h+=`<div class="ritkaart">
+      <div class="rkstatus"><span class="rkbol"></span>Onderweg</div>
       <div class="rkkm"><span id="rkKm">${komma(Math.round((r.km||0)*10)/10)}</span><em>km</em></div>
-      <div class="rkmeta">onderweg sinds ${r.start.tijd} · ${min} min<br>
-        <span id="rkPunten">${(r.punten||[]).length} meetpunten</span></div>
-      <button class="prim" data-ritstop>Rit beëindigen</button></div>`;
+      <div class="rkmeta">sinds ${r.start.tijd} &nbsp;·&nbsp; ${min} ${min===1?'minuut':'minuten'}
+        &nbsp;·&nbsp; <span id="rkPunten">${n} ${n===1?'meting':'metingen'}</span></div>
+      <button class="rkstop" data-ritstop>Rit beëindigen</button></div>`;
   } else {
     h+=`<button class="prim groot" data-ritstart>${svg(I.auto)}&nbsp; Rit starten</button>
       <div class="geen" style="padding:12px 0 0;text-align:center">
@@ -1548,28 +1566,29 @@ async function ritStop(){
   }
   const begin=S.kmStand;
   sheet('Rit afronden',
-    `<div class="vrkop"><div class="vrgetal">${komma(km)}<em>kilometer</em></div>
-      <div class="vrmeta">${r.start.tijd} – ${eind.tijd}<br>${bron==='gemeten'
-        ? (r.punten||[]).length+' meetpunten'
-        : 'route berekend<br>app was tussendoor dicht'}</div></div>
-     <div class="veld"><label>Kilometers</label>
-       <div class="stepper"><div class="stepval" style="width:100%">
-         <input id="rrKm" type="number" inputmode="decimal" step="0.1" value="${km}"><span class="eenh">km</span></div></div>
-       <div class="geen" style="padding-top:8px">${bron==='gemeten'
-         ? 'Gemeten via gps terwijl de app openstond.'
-         : 'De app kon niet meten omdat hij dicht was. Dit is de kortste route over de weg — reed je om, pas het dan aan.'}</div></div>
+    `<div class="ritklaar">
+       <div class="rkgetal">${komma(km)}<em>km</em></div>
+       <div class="rkregels">
+         <div><b>${r.start.tijd} – ${eind.tijd}</b></div>
+         <div>${bron==='gemeten'?(r.punten||[]).length+' metingen via gps':'route berekend'}</div>
+       </div>
+     </div>
+     ${bron==='berekend'?`<div class="melding amber" style="margin:0 0 20px">${svg(I.alarm,'2')}
+       <span>De app was tussendoor dicht en kon niet meten. Dit is de kortste route over de weg —
+         reed je om, pas het aantal dan aan.</span></div>`:''}
      <div class="veld"><label>Waarvoor was deze rit?</label>
-       <input class="inp" id="rrR" placeholder="Bijv. levering Bakkerij De Vries, of inkoop Callebaut"></div>
+       <input class="inp" id="rrR" placeholder="Bijv. levering Bakkerij De Vries"></div>
      <div class="veld"><label>Soort rit</label><div class="duo" id="rrZ">
        <button class="aan" data-v="zak">Zakelijk</button><button data-v="pri">Privé</button></div></div>
-     <div class="veld"><label>Kilometerstand</label>
-       <div class="stepper"><div class="stepval" style="width:100%">
-         <input id="rrK" type="number" inputmode="numeric" value="${begin!==null?Math.round(begin+km):''}"
-           placeholder="stand na de rit"><span class="eenh">km</span></div></div>
+     <div class="veld"><label>Afstand</label>
+       <div class="mveld"><input id="rrKm" type="number" inputmode="decimal" step="0.1" value="${km}"><span>km</span></div></div>
+     <div class="veld"><label>Kilometerstand na de rit</label>
+       <div class="mveld"><input id="rrK" type="number" inputmode="numeric"
+         value="${begin!==null?Math.round(begin+km):''}" placeholder="${begin!==null?'':'aflezen van je dashboard'}"><span>km</span></div>
        <div class="geen" style="padding-top:8px">${begin!==null
-         ? 'Beginstand was '+getal(begin)+' km. Klopt de stand op je dashboard niet, pas hem dan aan.'
-         : 'Vul één keer je huidige kilometerstand in, daarna telt de app zelf door.'}</div></div>
-     ${r.start.adres?`<div class="geen">Van ${esc(r.start.adres)}</div>`:''}`,
+         ? 'Beginstand was '+getal(begin)+' km.'
+         : 'Eén keer invullen, daarna telt de app zelf door.'}</div></div>
+     ${r.start.adres?`<div class="geen">Vertrokken vanaf ${esc(r.start.adres)}</div>`:''}`,
     `<button class="prim" style="margin-top:0" id="rrOk">Rit vastleggen</button>`);
   let zak=true;
   $$('#rrZ button').forEach(x=>x.onclick=()=>{sluitToetsenbord();
