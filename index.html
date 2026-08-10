@@ -638,7 +638,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v43 · 10 aug 2026';
+const APPVERSIE='v44 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1850,7 +1850,12 @@ function bind(){
   $$('[data-toast]').forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
-  $$('[data-batch]').forEach(b=>b.onclick=()=>{S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0});
+  $$('[data-batch]').forEach(b=>b.onclick=()=>{
+    S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
+    const v=vergetenTimer();
+    if(v&&!(v.w.gezien&&Date.now()-v.w.gezien<3600000)) return setTimeout(sheetTimerCorrectie,350);
+    const st=bVolgende(batch()); if(st&&st.sheet&&SHEETS[st.sheet]) setTimeout(()=>SHEETS[st.sheet](),300);
+  });
   $$('[data-allerg]').forEach(x=>x.onclick=sheetAllergenenBatch);
   $$('[data-vr]').forEach(x=>x.onclick=()=>sheetVoorraadRegel(x.dataset.vr));
   $$('[data-vmut]').forEach(x=>x.onclick=sheetMutaties);
@@ -2278,6 +2283,17 @@ function sheetMeting(opt){
 }
 const meetpuntErbij=(naam,terug)=>sheetMeting({naam,terug});
 
+/* wat mat je hier de vorige keer? dat scheelt typen */
+function vorigeMeting(mpId){
+  let laatst=null;
+  (S.batches||[]).forEach(b=>(b.logs||[]).forEach(l=>{
+    if(l.type!=='temperatuur'||l.mpId!==mpId) return;
+    if(!laatst||(l.datum+l.tijd)>(laatst.datum+laatst.tijd)) laatst=l;
+  }));
+  if(laatst&&typeof laatst.waarde==='number') return laatst.waarde;
+  const m=meetpuntVan(mpId);
+  return m?Math.round(((m.min+m.max)/2)*10)/10:4;
+}
 function sheetTemp(voor,bij){
   const b=batch(); if(!b) return;
   startStap(b,'Temperatuur meten');
@@ -2310,7 +2326,7 @@ function sheetTemp(voor,bij){
      <div class="veld"><label>Gemeten waarde</label>
       <div class="stepper"><button class="stepbtn" id="tMin">${svg(I.min)}</button>
       <div class="stepval"><input id="tV" type="number" inputmode="decimal" step="0.1" value="${
-        (typeof voor==='number'&&!isNaN(voor))?komma(voor):'4,0'}"><span class="eenh">°C</span></div>
+        ((typeof voor==='number'&&!isNaN(voor))?voor:vorigeMeting(mp[0]&&mp[0].id)).toFixed(1)}"><span class="eenh">°C</span></div>
       <button class="stepbtn" id="tPlus">${svg(I.plus)}</button></div><div class="norm ok" id="tN"></div></div>
      ${bij?`<p class="hint" style="margin-top:-4px">Hoort bij: ${esc(bij)}</p>`:''}
      <div class="veld" id="tAV" style="display:none"><label>Wat heb je gedaan?</label>
@@ -2325,7 +2341,13 @@ function sheetTemp(voor,bij){
   };
   $('#tMin').onclick=()=>{$('#tV').value=(parseFloat($('#tV').value||0)-0.5).toFixed(1);check()};
   $('#tPlus').onclick=()=>{$('#tV').value=(parseFloat($('#tV').value||0)+0.5).toFixed(1);check()};
-  $('#tV').oninput=check; chips('#tC',false,check); check();
+  $('#tV').oninput=check;
+  chips('#tC',false,()=>{
+    /* ander meetpunt: neem de laatste waarde die je daar mat */
+    if(typeof voor!=='number'||isNaN(voor)) $('#tV').value=vorigeMeting(chipV('#tC')).toFixed(1);
+    check();
+  });
+  check();
   koppelInline('tNieuw','tForm','tFN',()=>{
     const n=$('#tFN').value.trim(), mi=parseFloat($('#tFMin').value), ma=parseFloat($('#tFMax').value);
     if(!n) return toast('Geef het meetpunt een naam.');
@@ -2337,7 +2359,7 @@ function sheetTemp(voor,bij){
     const v=parseFloat($('#tV').value); if(isNaN(v)) return toast('Vul een temperatuur in.');
     const ok=v>=m.min&&v<=m.max, a=$('#tA').value.trim();
     if(!ok&&!a) return toast('Buiten norm: noteer welke actie je nam.');
-    bLog(b,{type:'temperatuur',titel:`${m.naam} · ${komma(v)} °C`,
+    bLog(b,{type:'temperatuur',titel:`${m.naam} · ${komma(v)} °C`,mpId:m.id,waarde:v,
       sub:`Norm ${komma(m.min)} – ${komma(m.max)} °C`+(a?' — actie: '+a:''),status:ok?'ok':'fout'});
     klaarSheet(ok?'Meting opgeslagen.':'Afwijking vastgelegd — staat nu op je dashboard.');
   };
@@ -2863,6 +2885,43 @@ function ringSvg(deel,groot){
     <circle cx="100" cy="100" r="${r}" class="rvul"
       stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c*(1-deel)).toFixed(1)}"/></svg>`;
 }
+/* je legt je telefoon weg en vergeet te stoppen — dat mag je registratie niet vervuilen */
+function vergetenTimer(){
+  const b=batch(); if(!b) return null;
+  const w=lopendWerk(b); if(!w) return null;
+  const uren=(Date.now()-w.start)/3600000;
+  return uren>=6?{w,uren:Math.round(uren)}:null;
+}
+function sheetTimerCorrectie(){
+  const v=vergetenTimer(); if(!v) return;
+  const b=batch(), start=new Date(v.w.start);
+  const nuTijd=pad(new Date().getHours())+':'+pad(new Date().getMinutes());
+  sheet('Loopt deze timer nog?',
+    `<p class="hint">De timer voor <b>${esc(v.w.act)}</b> loopt al ${v.uren} uur, sinds
+      ${pad(start.getHours())}:${pad(start.getMinutes())}. Ben je vergeten te stoppen?</p>
+     <div class="veld"><label>Tot hoe laat was je hiermee bezig?</label>
+       <input class="inp" id="tcT" type="time" value="${nuTijd}"></div>
+     <div class="geen" id="tcU" style="padding-top:8px"></div>`,
+    `<button class="prim" style="margin-top:0" id="tcOk">Tijd corrigeren</button>
+     <button class="sec" id="tcDoor">Nee, hij loopt nog</button>`);
+  const reken=()=>{
+    const [u,m]=($('#tcT').value||'00:00').split(':').map(Number);
+    const eind=new Date(start); eind.setHours(u,m,0,0);
+    if(eind<=start) eind.setDate(eind.getDate()+1);
+    const sec=Math.round((eind-start)/1000);
+    $('#tcU').textContent='Dat wordt '+duurKort(sec)+' voor '+v.w.act.toLowerCase()+'.';
+    return eind;
+  };
+  $('#tcT').oninput=reken; reken();
+  $('#tcDoor').onclick=()=>{v.w.gezien=Date.now();bewaarNu();dicht()};
+  $('#tcOk').onclick=()=>{
+    const eind=reken();
+    if(eind>new Date()) return toast('Die tijd ligt in de toekomst.');
+    v.w.eind=eind.getTime(); bewaarNu(); render();
+    klaarSheet('Tijd gecorrigeerd naar '+duurKort(Math.round((eind-start)/1000))+'.');
+  };
+}
+
 function sheetKlok(){
   const b=batch(); if(!b) return sheetWerk();
   const w=lopendWerk(b);
@@ -3369,9 +3428,26 @@ function sheetRecepten(){
         <button class="chip klein" data-edit="${r.id}">Wijzig</button></div>`).join('');
   }).join('');
   sheet('Smaken',
-    S.recepten.length?perChoc
+    S.recepten.length
+    ? `${S.recepten.length>6?`<div class="veld" style="margin-bottom:4px">
+         <input class="inp" id="rzZ" placeholder="Zoek een smaak" autocomplete="off"></div>`:''}
+       <div id="rzL">${perChoc}</div>`
     :`<p class="hint">Nog geen smaken. Een smaak is de opbouw van één bonbon: de schelp, de lagen erin, en hoeveel gram elk onderdeel weegt. Hoeveel bonbons je maakt kies je pas bij een batch.</p>`,
     `<button class="prim" style="margin-top:0" id="rN">Nieuwe smaak</button>`);
+  if($('#rzZ')) $('#rzZ').oninput=()=>{
+    const t=$('#rzZ').value.trim().toLowerCase();
+    let zichtbaar=0;
+    $$('#rzL .rrij').forEach(rij=>{
+      const raak=!t||rij.querySelector('.rnaam').textContent.toLowerCase().includes(t);
+      rij.style.display=raak?'':'none'; if(raak) zichtbaar++;
+    });
+    /* een kop zonder zichtbare smaken eronder hoort ook weg */
+    $$('#rzL .uwkop').forEach(kop=>{
+      let el=kop.nextElementSibling, n=0;
+      while(el&&el.classList.contains('rrij')){ if(el.style.display!=='none') n++; el=el.nextElementSibling }
+      kop.style.display=n?'':'none';
+    });
+  };
   $('#rN').onclick=()=>sheetReceptForm();
   $$('[data-edit]').forEach(b=>b.onclick=()=>sheetReceptForm(b.dataset.edit));
 }
@@ -4109,6 +4185,35 @@ function sheetMeetpunten(){
     if(t>34) kop.classList.add('klein');
     else if(t<14) kop.classList.remove('klein');
   },{passive:true});
+})();
+
+/* een sheet sluit je op de telefoon door omlaag te vegen */
+(function(){
+  const vel=$('#sheet'), body=$('#sheetBody'); if(!vel) return;
+  let y0=null, y=0, bezig=false;
+  vel.addEventListener('touchstart',e=>{
+    /* alleen vegen als je bovenaan staat of de kop vastpakt, anders wil je scrollen */
+    if(body&&body.scrollTop>2&&!e.target.closest('.sheetkop')&&!e.target.closest('.grip')) return;
+    if(e.target.closest('input,textarea,select,button')) return;
+    y0=e.touches[0].clientY; y=0; bezig=true; vel.style.transition='none';
+  },{passive:true});
+  vel.addEventListener('touchmove',e=>{
+    if(!bezig||y0===null) return;
+    y=Math.max(0,e.touches[0].clientY-y0);
+    vel.style.transform='translateY('+y+'px)';
+    const ov=$('#overlay'); if(ov) ov.style.opacity=String(Math.max(0,1-y/400));
+  },{passive:true});
+  const los=()=>{
+    if(!bezig) return;
+    bezig=false; vel.style.transition='transform .22s ease-out';
+    const ov=$('#overlay');
+    if(y>110){ vel.style.transform='translateY(100%)';
+      setTimeout(()=>{vel.style.transform='';vel.style.transition='';if(ov)ov.style.opacity='';dicht()},170); }
+    else { vel.style.transform=''; if(ov) ov.style.opacity=''; }
+    y0=null; y=0;
+  };
+  vel.addEventListener('touchend',los);
+  vel.addEventListener('touchcancel',los);
 })();
 
 /* de klok laten lopen zonder het hele scherm te hertekenen */
