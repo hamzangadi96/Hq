@@ -265,6 +265,10 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .inforij:last-child{border-bottom:none}
 .inforij .k{color:var(--grijs);font-weight:450}
 .inforij .v{font-weight:600;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.lotrij{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lotrij .inp{flex:1;min-width:0}
+.lotplus{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--grijs);padding:2px 0}
+.lotplus svg{width:14px;height:14px}
 .lotblok{padding:12px 0;border-bottom:1px solid var(--lijn)}
 .lotblok:last-of-type{border-bottom:none}
 .lotkop{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
@@ -546,7 +550,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v30 · 10 aug 2026';
+const APPVERSIE='v31 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -686,6 +690,15 @@ const nieuweCode=()=>{
 };
 const chocNaam=k=>(CHOC.find(c=>c.key===k)||{}).naam||'';
 const chocKort=k=>({wit:'Wit',melk:'Melk',puur:'Puur'})[k]||'';
+/* b.lots[naam] was één lotnummer, is nu een lijst. Oude batches blijven werken. */
+function lotLijst(b,naam){
+  const v=b.lots[naam];
+  if(!v) return [];
+  if(typeof v==='string') return v.trim()?[v.trim()]:[];
+  return v.filter(x=>x&&String(x).trim()).map(x=>String(x).trim());
+}
+const lotTekst=(b,naam)=>lotLijst(b,naam).join(' + ');
+const heeftLot=(b,naam)=>lotLijst(b,naam).length>0;
 /* leest '10 min', '1 uur', '30 sec' uit een zin en geeft seconden terug */
 function leesTijd(t){
   const m=String(t).match(/(\d+(?:[.,]\d+)?)\s*(uur|u\b|minuten|minuut|min\b|seconden|sec\b|s\b)/i);
@@ -841,7 +854,7 @@ function bIngredienten(b){
 
 const BSTAPPEN=[
   {key:'ingredienten',label:'Ingrediënten',kern:true,klaar:b=>bTel(b,'ingredienten')>0,sheet:'ingredienten',knop:'Lotnummers invullen',
-   waarde:b=>{const t=bIngredienten(b).length,g=Object.values(b.lots).filter(Boolean).length;
+   waarde:b=>{const t=bIngredienten(b).length,g=bIngredienten(b).filter(i=>heeftLot(b,i.naam)).length;
      return bTel(b,'ingredienten')?g+' van '+t:'—'}},
   {key:'opening',label:'Openingscheck',kern:true,
    klaar:b=>{const d=dagVan(b,vandaag());return !!(d&&d.opening)},sheet:'opening',knop:'Check doen',
@@ -1177,9 +1190,9 @@ function batchHTML(){
         :'<div class="geen">Nog niet gedaan.</div>';
     } else if(s.key==='ingredienten'){
       const lijst=bIngredienten(b);
-      inh=lijst.length?lijst.map(i=>`<div class="item"><span class="t">${b.lots[i.naam]?'✓':'—'}</span>
+      inh=lijst.length?lijst.map(i=>`<div class="item"><span class="t">${heeftLot(b,i.naam)?'✓':'—'}</span>
         <span class="b">${esc(i.naam)} · ${getal(i.hoeveel)} g
-        <em>${b.lots[i.naam]?'lot '+esc(b.lots[i.naam]):'geen lotnummer'}</em></span></div>`).join('')
+        <em>${heeftLot(b,i.naam)?(lotLijst(b,i.naam).length>1?'lots ':'lot ')+esc(lotTekst(b,i.naam)):'geen lotnummer'}</em></span></div>`).join('')
         :'<div class="geen">Geen ingrediënten in deze smaken.</div>';
     } else if(s.key==='productie'){
       inh=bPlan(b).length?bPlan(b).map(n=>{const x=planVan(b)[n];
@@ -1782,16 +1795,21 @@ function sheetIngredienten(){
     $('#iR').onclick=sheetRecepten; return;
   }
   const blok=i=>{
-    const opties=lotsVoor(i.naam).slice(0,6);
+    const huidig=lotLijst(b,i.naam), opties=lotsVoor(i.naam).slice(0,6);
     const chips=opties.length?`<div class="lotchips">${opties.map(l=>`
-      <button type="button" class="lotchip ${b.lots[i.naam]===l.lot?'aan':''} ${lotOver(l)?'over':''}"
+      <button type="button" class="lotchip ${huidig.includes(l.lot)?'aan':''} ${lotOver(l)?'over':''}"
         data-kies="${esc(i.naam)}" data-lot="${esc(l.lot)}">${esc(l.lot)}
         <em>${esc(l.product)}${lotOver(l)?' · over THT':''}</em></button>`).join('')}</div>`
-      :`<div class="geen" style="padding:0 0 9px">Nog geen partijen vastgelegd — vul het lotnummer met de hand in, of leg de ontvangst vast.</div>`;
-    return `<div class="lotblok">
+      :`<div class="geen" style="padding:0 0 8px">Nog geen partijen vastgelegd — vul het lotnummer met de hand in, of leg de ontvangst vast.</div>`;
+    const velden=(huidig.length?huidig:['']).map((v,n)=>`
+      <div class="lotrij"><input class="inp" data-lot="${esc(i.naam)}" value="${esc(v)}"
+        placeholder="${n?'Nog een lotnummer':'Lotnummer'}">
+        ${n?`<button type="button" class="wisbtn" data-wislot>${svg(I.kruis,'2')}</button>`:''}</div>`).join('');
+    return `<div class="lotblok" data-ing="${esc(i.naam)}">
       <div class="lotkop"><span class="n">${esc(i.naam)}</span><span class="g">${getal(i.hoeveel)} g nodig</span></div>
       ${chips}
-      <input class="inp" data-lot="${esc(i.naam)}" value="${esc(b.lots[i.naam]||'')}" placeholder="Lotnummer">
+      <div class="lotvelden">${velden}</div>
+      <button type="button" class="lotplus" data-meer="${esc(i.naam)}">${svg(I.plus)}Uit meer dan één partij</button>
     </div>`;
   };
   sheet('Ingrediënten',
@@ -1800,18 +1818,38 @@ function sheetIngredienten(){
      <div class="voet" style="margin-top:10px"><button id="iOnt">Nieuwe partij vastleggen</button></div>`,
     `<button class="prim" style="margin-top:0" id="iOk">Lotnummers opslaan</button>`);
   $('#iOnt').onclick=sheetOntvangst;
+  const velden=naam=>$$(`.lotblok[data-ing="${naam}"] input[data-lot]`);
+  const nieuwVeld=(naam,waarde)=>{
+    const vak=document.querySelector(`.lotblok[data-ing="${naam}"] .lotvelden`);
+    vak.insertAdjacentHTML('beforeend',
+      `<div class="lotrij"><input class="inp" data-lot="${naam}" value="${waarde||''}" placeholder="Nog een lotnummer">
+       <button type="button" class="wisbtn" data-wislot>${svg(I.kruis,'2')}</button></div>`);
+    bindWis();
+    return vak.lastElementChild.querySelector('input');
+  };
+  const bindWis=()=>$$('[data-wislot]').forEach(x=>x.onclick=()=>{x.parentElement.remove()});
+  bindWis();
+  $$('[data-meer]').forEach(x=>x.onclick=()=>{sluitToetsenbord();nieuwVeld(x.dataset.meer,'').focus()});
   $$('[data-kies]').forEach(c=>c.onclick=()=>{
     sluitToetsenbord();
-    const naam=c.dataset.kies;
-    document.querySelector(`input[data-lot="${naam}"]`).value=c.dataset.lot;
-    $$(`[data-kies="${naam}"]`).forEach(x=>x.classList.remove('aan'));
+    const naam=c.dataset.kies, lot=c.dataset.lot;
+    const vs=velden(naam), al=vs.find(v=>v.value.trim()===lot);
+    if(al){ al.value=''; c.classList.remove('aan');
+      if(vs.length>1&&al.parentElement.querySelector('[data-wislot]')) al.parentElement.remove();
+      return; }
+    const leeg=vs.find(v=>!v.value.trim());
+    (leeg||nieuwVeld(naam,'')).value=lot;
     c.classList.add('aan');
   });
   $('#iOk').onclick=()=>{
-    $$('input[data-lot]').forEach(inp=>{b.lots[inp.dataset.lot]=inp.value.trim()});
-    const g=Object.values(b.lots).filter(Boolean).length, t=lijst.length;
+    lijst.forEach(i=>{
+      const v=[...new Set($$(`.lotblok[data-ing="${i.naam}"] input[data-lot]`)
+        .map(x=>x.value.trim()).filter(Boolean))];
+      if(v.length) b.lots[i.naam]=v; else delete b.lots[i.naam];
+    });
+    const g=lijst.filter(i=>heeftLot(b,i.naam)).length, t=lijst.length;
     if(!g) return toast('Vul minimaal één lotnummer in.');
-    const over=lijst.filter(i=>{const l=S.lots.find(x=>x.lot===b.lots[i.naam]);return l&&lotOver(l)});
+    const over=lijst.filter(i=>lotLijst(b,i.naam).some(c=>{const l=S.lots.find(x=>x.lot===c);return l&&lotOver(l)}));
     const best=b.logs.find(l=>l.type==='ingredienten');
     const oInfo={titel:g===t?`Alle ${t} ingrediënten met lotnummer`:`${g} van ${t} ingrediënten met lotnummer`,
       sub:(g===t?'Volledig traceerbaar':'Traceerbaarheid nog niet compleet')+
@@ -2389,11 +2427,15 @@ function batchRapportHTML(b){
   const ing=bIngredienten(b);
   h+=`<h3>Grondstoffen en traceerbaarheid</h3>`;
   h+=ing.length?`<table><tr><th>Ingrediënt</th><th>Verbruikt</th><th>Lotnummer</th><th>Leverancier</th><th>THT partij</th></tr>
-    ${ing.map(i=>{const lot=b.lots[i.naam]||'', p=S.lots.find(x=>x.lot===lot);
-      return `<tr><td>${esc(i.naam)}</td><td class="n">${getal(i.hoeveel)} g</td>
-        <td class="${lot?'':'fout'}">${lot?esc(lot):'ontbreekt'}</td>
-        <td>${p?esc(p.leverancier):'—'}</td>
-        <td class="n">${p&&p.tht?kort(new Date(p.tht)):'—'}</td></tr>`}).join('')}</table>`:rLeeg('Geen ingrediënten.');
+    ${ing.map(i=>{
+      const cs=lotLijst(b,i.naam);
+      if(!cs.length) return `<tr><td>${esc(i.naam)}</td><td class="n">${getal(i.hoeveel)} g</td>
+        <td class="fout">ontbreekt</td><td>—</td><td class="n">—</td></tr>`;
+      return cs.map((lot,n)=>{const pt=S.lots.find(x=>x.lot===lot);
+        return `<tr><td>${n?'':esc(i.naam)}</td><td class="n">${n?'':getal(i.hoeveel)+' g'}</td>
+          <td>${esc(lot)}</td><td>${pt?esc(pt.leverancier):'—'}</td>
+          <td class="n">${pt&&pt.tht?kort(new Date(pt.tht)):'—'}</td></tr>`}).join('');
+    }).join('')}</table>`:rLeeg('Geen ingrediënten.');
 
   const ontv=b.logs.filter(l=>l.type==='ontvangst');
   if(ontv.length) h+=`<h3>Ontvangst goederen</h3><table><tr><th>Tijd</th><th>Levering</th><th>Details</th></tr>
