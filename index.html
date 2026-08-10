@@ -306,9 +306,27 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
   border-radius:14px;background:var(--bg)}
 .mveld input{flex:1;min-width:0;background:none;border:0;font-size:16px;font-weight:600;
   color:var(--ink);padding:0;height:100%}
+.meetvak{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 0 40px;text-align:center}
+.meetring{width:88px;height:88px;border-radius:99px;border:2px solid var(--lijn);
+  display:grid;place-items:center;position:relative}
+.meetring::after{content:'';position:absolute;inset:-2px;border-radius:99px;
+  border:2px solid var(--ink);border-right-color:transparent;border-bottom-color:transparent;
+  animation:draai 1.1s linear infinite}
+@keyframes draai{to{transform:rotate(360deg)}}
+.meetbol{width:12px;height:12px;border-radius:99px;background:var(--ink);animation:pols 2s infinite}
+.meetnauw{margin-top:24px;font-size:28px;font-weight:700;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums}
+.meetnauw.scherp{color:var(--groen)}
+.meetsub{margin-top:4px;font-size:13px;color:var(--grijs)}
+.adresvoet{padding-top:8px;min-height:24px}
 .onthoud{display:flex;align-items:flex-start;gap:12px;padding:16px 0 8px;
   font-size:13.5px;color:var(--grijs);line-height:1.45;cursor:pointer}
+.onthoud.klein{padding:0;font-size:12.5px;gap:8px;align-items:center}
 .onthoud input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--ink)}
+.onthoud.klein input{width:18px;height:18px}
+.bekend{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--groen);font-weight:500}
+.bekend svg{width:13px;height:13px}
 .mveld span{font-size:14px;font-weight:600;color:var(--grijs2);flex:none}
 .vrkop{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding-bottom:20px;margin-bottom:4px;border-bottom:1px solid var(--lijn)}
@@ -680,7 +698,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v51 · 10 aug 2026';
+const APPVERSIE='v53 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1573,26 +1591,28 @@ function geldHTML(){
 
 async function ritStart(){
   if(S.rit) return;
-  toast('Locatie bepalen…');
+  const onder=meetScherm('Vertrekpunt bepalen');
   try{
-    const p=await positieNu();
+    const p=await positieNu({onder});
     S.rit={begonnen:Date.now(),start:{tijd:nu(),lat:p.lat,lon:p.lon,adres:null},
       punten:[{lat:p.lat,lon:p.lon,t:Date.now()}],km:0,nauw:p.nauw};
-    bewaarNu(); render(); ritVolgen(true); schermWakker(true);
-    toast('Rit gestart.');
+    bewaarNu(); dicht(); render(); ritVolgen(true); schermWakker(true);
+    toast('Rit gestart · locatie op '+p.nauw+' m nauwkeurig');
     const n=await plaatsNaam(p.lat,p.lon);
     if(n.adres&&S.rit){S.rit.start.adres=n.adres;S.rit.start.bekend=n.bekend;bewaarNu();render()}
   }catch(e){
+    dicht();
     toast(e&&e.code===1?'Geef de app toegang tot je locatie.':'Locatie niet gevonden. Probeer het buiten opnieuw.');
   }
 }
 async function ritStop(){
   const r=S.rit; if(!r) return;
   ritVolgen(false); schermWakker(false);
-  let eind={tijd:nu(),lat:null,lon:null,adres:null};
+  const onder=meetScherm('Aankomst bepalen');
+  let eind={tijd:nu(),lat:null,lon:null,adres:null,nauw:null};
   try{
-    const p=await positieNu();
-    eind.lat=p.lat; eind.lon=p.lon;
+    const p=await positieNu({onder});
+    eind.lat=p.lat; eind.lon=p.lon; eind.nauw=p.nauw;
     r.punten.push({lat:p.lat,lon:p.lon,t:Date.now()});
     r.km=ritKm(r.punten);
   }catch(e){}
@@ -1631,15 +1651,19 @@ async function ritStop(){
          : 'Eén keer invullen, daarna telt de app zelf door.'}</div></div>
      <div class="veld"><label>Vertrokken vanaf</label>
        <input class="inp" id="rrV" value="${esc(r.start.adres||'')}" placeholder="adres wordt opgezocht…">
-       <div class="geen" style="padding-top:8px" id="rrVbek"
-         ${r.start.bekend?'':'style="display:none"'}>Herkende plek uit je lijst.</div></div>
+       <div class="adresvoet" id="rrVvoet">
+         ${r.start.bekend
+           ? '<span class="bekend">'+svg(I.vink,'2.6')+'Uit je vaste plekken</span>'
+           : '<label class="onthoud klein"><input type="checkbox" id="rrOnthV"><span>Onthouden als vaste plek</span></label>'}
+       </div></div>
      <div class="veld"><label>Aangekomen bij</label>
        <input class="inp" id="rrN" value="${esc(eind.adres||'')}" placeholder="adres wordt opgezocht…">
-       <div class="geen" style="padding-top:8px" id="rrNbek" style="display:none">Herkende plek uit je lijst.</div></div>
-     <label class="onthoud"><input type="checkbox" id="rrOnth"><span>Deze bestemming onthouden,
-       zodat het adres voortaan meteen klopt</span></label>
-     ${r.nauw?`<div class="geen">Locatie op ${r.nauw} meter nauwkeurig gemeten. Klopt een adres niet,
-       pas het hierboven aan.</div>`:''}`,
+       <div class="adresvoet" id="rrNvoet">
+         <label class="onthoud klein"><input type="checkbox" id="rrOnth"><span>Onthouden als vaste plek</span></label>
+       </div></div>
+     <div class="geen">Vertrek gemeten op ${r.nauw||'?'} m, aankomst op ${eind.nauw||'?'} m nauwkeurig.
+       Klopt een huisnummer niet, typ het hierboven goed en vink "onthouden" aan — dan staat het
+       de volgende keer meteen juist.</div>`,
     `<button class="prim" style="margin-top:0" id="rrOk">Rit vastleggen</button>`);
   let zak=true;
   $$('#rrZ button').forEach(x=>x.onclick=()=>{sluitToetsenbord();
@@ -1648,7 +1672,8 @@ async function ritStop(){
     if(!n.adres) return;
     eind.adres=n.adres; eind.bekend=n.bekend;
     const el=$('#rrN'); if(el&&!el.value) el.value=n.adres;
-    const b=$('#rrNbek'); if(b) b.style.display=n.bekend?'block':'none';
+    const voet=$('#rrNvoet');
+    if(voet&&n.bekend) voet.innerHTML='<span class="bekend">'+svg(I.vink,'2.6')+'Uit je vaste plekken</span>';
   });
   $('#rrKm').oninput=()=>{
     const v=parseFloat($('#rrKm').value);
@@ -1667,11 +1692,15 @@ async function ritStop(){
       standBegin:isNaN(stand)?null:Math.round(stand-km), standEind:isNaN(stand)?null:Math.round(stand),
       punten:r.punten.length};
     S.ritten=S.ritten||[]; S.ritten.push(rit);
-    if($('#rrOnth')&&$('#rrOnth').checked&&eind.lat!==null&&rit.eind.adres){
-      S.plekken=S.plekken||[];
-      if(!plekBij(eind.lat,eind.lon))
-        S.plekken.push({id:uid(),naam:rit.eind.adres,adres:rit.eind.adres,lat:eind.lat,lon:eind.lon});
-    }
+    S.plekken=S.plekken||[];
+    const onthou=(vink,lat,lon,adres)=>{
+      if(!vink||!vink.checked||lat===null||!adres) return;
+      const best=plekBij(lat,lon);
+      if(best){best.adres=adres;best.naam=adres}          /* bestaande plek bijwerken */
+      else S.plekken.push({id:uid(),naam:adres,adres,lat,lon});
+    };
+    onthou($('#rrOnthV'),r.start.lat,r.start.lon,rit.start.adres);
+    onthou($('#rrOnth'),eind.lat,eind.lon,rit.eind.adres);
     if(!isNaN(stand)) S.kmStand=Math.round(stand);
     S.rit=null; bewaarNu(); render();
     klaarSheet(komma(km)+' km vastgelegd'+(zak?' · '+euro(km*kmTarief())+' aftrekbaar':'')+'.');
@@ -4292,24 +4321,56 @@ function ritVolgen(aan){
     const p=$('#rkPunten'); if(p) p.textContent=S.rit.punten.length+' meetpunten';
   },()=>{},{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
-/* de eerste meting is meestal de slechtste. Even doormeten en de scherpste nemen. */
-function positieNu(ms){
-  ms=ms||5000;
+/* Eén gps-meting zit er zo tien meter naast. Meerdere metingen middelen is veel scherper:
+   elke meting weegt mee naar 1/nauwkeurigheid², zoals dat hoort bij ruis. */
+function positieNu(opt){
+  opt=opt||{};
+  const maxMs=opt.ms||14000, doel=opt.doel||5, minAantal=opt.min||5;
   return new Promise((res,rej)=>{
     if(!navigator.geolocation) return rej(new Error('geen locatie'));
-    let beste=null, id=null, klaar=false;
+    let punten=[], id=null, klaar=false, tijd=null;
+    const middel=()=>{
+      if(!punten.length) return null;
+      const beste=Math.min.apply(null,punten.map(p=>p.nauw));
+      const bruik=punten.filter(p=>p.nauw<=Math.max(beste*2,beste+8));
+      let gw=0,la=0,lo=0;
+      bruik.forEach(p=>{const w=1/(p.nauw*p.nauw);gw+=w;la+=p.lat*w;lo+=p.lon*w});
+      /* de spreiding neemt af met de wortel van het aantal metingen */
+      const nauw=Math.max(3,Math.round(beste/Math.sqrt(bruik.length)));
+      return {lat:la/gw,lon:lo/gw,nauw,metingen:bruik.length,ruw:beste};
+    };
     const stop=fout=>{
       if(klaar) return; klaar=true;
       if(id!==null) navigator.geolocation.clearWatch(id);
-      beste?res(beste):rej(fout||new Error('geen fix'));
+      if(tijd) clearInterval(tijd);
+      const g=middel();
+      g?res(g):rej(fout||new Error('geen fix'));
     };
     id=navigator.geolocation.watchPosition(p=>{
-      const c={lat:p.coords.latitude,lon:p.coords.longitude,nauw:Math.round(p.coords.accuracy)};
-      if(!beste||c.nauw<beste.nauw) beste=c;
-      if(beste.nauw<=8) stop();                 /* scherper wordt het niet */
-    },e=>{ if(!beste) stop(e) },{enableHighAccuracy:true,maximumAge:0,timeout:ms});
-    setTimeout(()=>stop(),ms);
+      punten.push({lat:p.coords.latitude,lon:p.coords.longitude,nauw:Math.max(1,p.coords.accuracy)});
+      const g=middel();
+      if(opt.onder) opt.onder(g);
+      if(g.metingen>=minAantal&&g.nauw<=doel) stop();
+    },e=>{ if(!punten.length) stop(e) },{enableHighAccuracy:true,maximumAge:0,timeout:maxMs});
+    setTimeout(()=>stop(),maxMs);
   });
+}
+
+/* laat zien dat hij aan het scherpstellen is, anders sta je blind te wachten */
+function meetScherm(titel,klaarTekst){
+  sheet(titel,
+    `<div class="meetvak">
+       <div class="meetring"><div class="meetbol"></div></div>
+       <div class="meetnauw" id="mtN">zoeken…</div>
+       <div class="meetsub" id="mtS">de gps stelt scherp</div>
+     </div>`,'');
+  return g=>{
+    const n=$('#mtN'), sub=$('#mtS');
+    if(!n||!g) return;
+    n.textContent='± '+g.nauw+' meter';
+    sub.textContent=g.metingen+' ' +(g.metingen===1?'meting':'metingen')+' gemiddeld';
+    if(g.nauw<=5) n.classList.add('scherp');
+  };
 }
 
 /* plekken waar je vaker komt: eigen werkplaats, vaste klanten */
