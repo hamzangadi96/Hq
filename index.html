@@ -309,6 +309,27 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
   border-radius:14px;background:var(--bg)}
 .mveld input{flex:1;min-width:0;background:none;border:0;font-size:16px;font-weight:600;
   color:var(--ink);padding:0;height:100%}
+.kaartje{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:20px 16px 12px}
+.balken{display:flex;align-items:flex-end;gap:4px;height:88px}
+.bkol{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bstaaf{width:100%;max-width:22px;background:var(--ink);border-radius:4px 4px 0 0;min-height:2px;
+  display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.bstaaf.leeg{background:#ececee;min-height:2px}
+.bpri{width:100%;background:var(--grijs3)}
+.bkol span{font-size:10px;font-weight:600;color:var(--grijs3);line-height:1}
+.bkol.nu span{color:var(--ink)}
+.balklegenda{display:flex;align-items:center;gap:14px;margin-top:14px;padding-top:12px;
+  border-top:1px solid var(--lijn);font-size:11px;color:var(--grijs)}
+.balklegenda .bl{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}
+.balklegenda .bl.zak{background:var(--ink)}
+.balklegenda .bl.pri{background:var(--grijs3)}
+.balklegenda .rechts{margin-left:auto}
+.rmerk{width:24px;height:24px;border-radius:8px;flex:none;display:grid;place-items:center;
+  font-size:11px;font-weight:700;letter-spacing:0}
+.rmerk.zak{background:var(--ink);color:#fff}
+.rmerk.pri{background:var(--bg);color:var(--grijs2)}
+.rrij2 .waarde em{font-size:11px;font-weight:500;font-style:normal;color:var(--grijs3);margin-left:3px}
+.rrij2 .naam small b{font-weight:600;color:var(--amber)}
 .klapkop{display:flex;align-items:center;gap:10px;width:100%;padding:16px 0;
   font-size:14px;font-weight:600;color:var(--grijs);border-top:1px solid var(--lijn);margin-top:4px}
 .klapkop svg{width:14px;height:14px;transform:rotate(90deg);transition:transform .2s}
@@ -695,7 +716,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v60 · 11 aug 2026';
+const APPVERSIE='v61 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1454,6 +1475,28 @@ const bonTotaal=(j,soort)=>bonnen(j).filter(b=>!soort||b.soort===soort)
   .reduce((n,b)=>n+b.bedrag,0);
 const btwTotaal=j=>bonnen(j).reduce((n,b)=>n+(b.btw||0),0);
 
+function maandBalken(){
+  const j=new Date().getFullYear(), nu2=new Date().getMonth();
+  const per=Array.from({length:12},()=>({zak:0,pri:0}));
+  (S.ritten||[]).forEach(r=>{
+    if(!r.datum.startsWith(String(j))) return;
+    const m=new Date(r.datum).getMonth();
+    per[m][r.zakelijk?'zak':'pri']+=r.km;
+  });
+  const hoogste=Math.max(1,...per.map(x=>x.zak+x.pri));
+  if(!per.some(x=>x.zak+x.pri>0)) return '';
+  return `<div class="balken">${per.map((x,i)=>{
+    const tot=x.zak+x.pri, h=tot/hoogste*100;
+    const leeg=i<=nu2&&tot===0;
+    return `<div class="bkol ${i===nu2?'nu':''}" title="${MND[i]} ${Math.round(tot)} km">
+      <div class="bstaaf ${leeg?'leeg':''}" style="height:${Math.max(tot?4:0,h)}%">
+        ${x.pri?`<div class="bpri" style="height:${x.pri/Math.max(tot,1)*100}%"></div>`:''}</div>
+      <span>${MND[i].slice(0,1).toUpperCase()}</span></div>`}).join('')}</div>
+    <div class="balklegenda"><span><i class="bl zak"></i>zakelijk</span>
+      <span><i class="bl pri"></i>privé</span>
+      <span class="rechts">hoogste maand ${getal(Math.round(hoogste))} km</span></div>`;
+}
+
 function sheetBon(id){
   const bestaand=id?(S.bonnen||[]).find(x=>x.id===id):null;
   const b=bestaand||{datum:iso(new Date()),soort:'Grondstoffen',bedrag:0,btw:0,wie:'',wat:''};
@@ -1513,8 +1556,17 @@ function sheetBonnen(){
        <div class="item"><span class="t">${euro(bonTotaal(j))}</span>
          <span class="b">Totaal uitgegeven<em>${lijst.length} ${lijst.length===1?'bon':'bonnen'} dit jaar</em></span></div>
        <div class="item"><span class="t">${euro(btwTotaal(j))}</span>
-         <span class="b">Waarvan btw<em>terug te vragen bij je aangifte</em></span></div>
+         <span class="b">Waarvan btw<em>over heel ${j}</em></span></div>
      </div>
+     <div class="blokkop"><span class="eyebrow">Btw per kwartaal</span></div>
+     <div class="paneel" style="margin-bottom:20px">${[1,2,3,4].map(k=>{
+       const bon=bonnen(j).filter(b=>kwartaalVan(b.datum)===k);
+       const btw=bon.reduce((n,b)=>n+(b.btw||0),0);
+       const nuKw=kwartaalVan(new Date());
+       return `<div class="item ${k===nuKw?'':''}"><span class="t">${btw?euro(btw):'—'}</span>
+         <span class="b">Kwartaal ${k}${k===nuKw?' <em style="display:inline;color:var(--ink)">· nu</em>':''}
+         <em>${bon.length} ${bon.length===1?'bon':'bonnen'} · ${euro(bon.reduce((n,b)=>n+b.bedrag,0))} uitgegeven</em></span></div>`
+     }).join('')}</div>
      ${BONSOORT.filter(x=>bonTotaal(j,x)>0).length?`<div class="blokkop"><span class="eyebrow">Per soort</span></div>
        <div class="paneel" style="margin-bottom:20px">${BONSOORT.filter(x=>bonTotaal(j,x)>0).map(x=>
          `<div class="item"><span class="t">${euro(bonTotaal(j,x))}</span>
@@ -1699,12 +1751,12 @@ function geldHTML(){
       <span class="tel">${lijst.length||''}</span></div>`;
   h+=lijst.length?`<div class="paneel">${lijst.slice(0,20).map(x=>{
     const m=ritMankeert(x);
-    return `<button class="arij" data-rit="${x.id}">
+    return `<button class="arij rrij2" data-rit="${x.id}">
+      <span class="rmerk ${x.zakelijk?'zak':'pri'}">${x.zakelijk?'Z':'P'}</span>
       <span class="naam">${esc(x.reden||'geen reden ingevuld')}
         <small>${kort(new Date(x.datum))} · ${esc(toonPlek(x.start)||'vertrek')} → ${esc(toonPlek(x.eind)||'aankomst')}${
-          m.length?' · mist '+m.join(', '):''}</small></span>
-      ${m.length?'<span class="stip amber"></span>':(x.zakelijk?'':'<span class="stip"></span>')}
-      <span class="waarde gevuld">${komma(Math.round(x.km*10)/10)}</span>
+          m.length?' · <b>mist '+m.join(', ')+'</b>':''}</small></span>
+      <span class="waarde gevuld">${komma(Math.round(x.km*10)/10)}<em>km</em></span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
    :`<div class="paneel"><div class="geen">Nog geen ritten. Druk op start als je wegrijdt.</div></div>`;
 
@@ -1717,6 +1769,7 @@ function geldHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
 
     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Zakelijk gereden</span></div>
+    ${(()=>{const b=maandBalken();return b?`<div class="kaartje" style="margin-bottom:12px">${b}</div>`:''})()}
     <div class="paneel">
       <div class="item"><span class="t">${getal(Math.round(zakKw))}</span>
         <span class="b">Dit kwartaal<em>${euro(zakKw*kmTarief())} aftrekbaar · Q${kw}</em></span></div>
@@ -1798,7 +1851,8 @@ async function ritStop(){
        <span>De app was tussendoor dicht en kon niet meten. Dit is de kortste route over de weg —
          reed je om, pas het aantal dan aan.</span></div>`:''}
      <div class="veld"><label>Waarvoor was deze rit?</label>
-       <input class="inp" id="rrR" placeholder="Bijv. levering Bakkerij De Vries"></div>
+       <input class="inp" id="rrR" placeholder="Bijv. levering Bakkerij De Vries">
+       <div class="chips" id="rrSug" style="padding-top:10px"></div></div>
      <div class="veld"><label>Soort rit</label><div class="duo" id="rrZ">
        <button class="aan" data-v="zak">Zakelijk</button><button data-v="pri">Privé</button></div></div>
 
@@ -1848,8 +1902,22 @@ async function ritStop(){
     const voet=$('#rrNvoet');
     if(voet&&n.bekend) voet.innerHTML='<span class="bekend">'+svg(n.vestiging?I.huis:I.vink,'2.4')+
       (n.vestiging?'Je vestigingsadres':'Uit je vaste plekken')+'</span>';
+    suggesties();
   });
   ['rrN','rrKm'].forEach(id=>{const el=$('#'+id); if(el) el.oninput=()=>{el.dataset.aangepast='1'}});
+  const suggesties=()=>{
+    const vak=$('#rrSug'); if(!vak) return;
+    const lijst=redenSuggesties(eind.lat,eind.lon,r.start.lat,r.start.lon);
+    vak.innerHTML=lijst.map(x=>`<button class="chip klein" data-sug="${esc(x.reden)}"
+      data-zak="${x.zakelijk?1:0}">${esc(x.reden)}</button>`).join('');
+    $$('[data-sug]').forEach(c=>c.onclick=()=>{
+      $('#rrR').value=c.dataset.sug;
+      const wilZak=c.dataset.zak==='1';
+      $$('#rrZ button').forEach(b=>b.classList.toggle('aan',(b.dataset.v==='zak')===wilZak));
+      zak=wilZak; sluitToetsenbord();
+    });
+  };
+  suggesties();
   $('#rrMeer').onclick=()=>{
     const open=$('#rrDetail').classList.toggle('open');
     $('#rrMeer').classList.toggle('open',open);
@@ -4706,6 +4774,27 @@ function kmPeriode(zakelijk,kwartaal){
   const j=String(new Date().getFullYear()), k=kwartaal||kwartaalVan(new Date());
   return (S.ritten||[]).filter(r=>r.datum.startsWith(j)&&r.zakelijk===zakelijk
     &&(!kwartaal||kwartaalVan(r.datum)===k)).reduce((n,r)=>n+r.km,0);
+}
+/* Je rijdt steeds dezelfde routes. Wat vulde je eerder in toen je hier was? */
+function redenSuggesties(lat,lon,vanLat,vanLon){
+  const bij=(a,b,c,d)=>a!==null&&c!==null&&afstandKm({lat:a,lon:b},{lat:c,lon:d})<0.12;
+  const punten=[];
+  (S.ritten||[]).forEach(r=>{
+    if(!r.reden) return;
+    const zelfdeEind=bij(lat,lon,r.eind.lat,r.eind.lon);
+    const zelfdeRoute=zelfdeEind&&bij(vanLat,vanLon,r.start.lat,r.start.lon);
+    if(zelfdeRoute) punten.push({reden:r.reden,zakelijk:r.zakelijk,score:3,datum:r.datum});
+    else if(zelfdeEind) punten.push({reden:r.reden,zakelijk:r.zakelijk,score:2,datum:r.datum});
+  });
+  /* zelfde reden vaker gebruikt telt zwaarder, recenter ook */
+  const map={};
+  punten.forEach(x=>{
+    const k=x.reden.toLowerCase();
+    map[k]=map[k]||{reden:x.reden,zakelijk:x.zakelijk,punt:0,datum:x.datum};
+    map[k].punt+=x.score;
+    if(x.datum>map[k].datum) map[k].datum=x.datum;
+  });
+  return Object.values(map).sort((a,b2)=>b2.punt-a.punt||b2.datum.localeCompare(a.datum)).slice(0,3);
 }
 const vestiging=()=>(S.plekken||[]).find(p=>p.vestiging)||null;
 /* op je scherm zie je de naam, in het rapport staat het adres */
