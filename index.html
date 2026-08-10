@@ -292,6 +292,9 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .rkstop{width:100%;height:48px;margin-top:24px;border-radius:14px;background:#fff;
   color:var(--ink);font-size:15px;font-weight:600;letter-spacing:-.01em}
 .rkstop:active{opacity:.85}
+.rkweg{width:100%;height:44px;margin-top:8px;border-radius:14px;background:transparent;
+  color:#fff;opacity:.55;font-size:14px;font-weight:500}
+.rkweg:active{opacity:.85}
 .ritklaar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding-bottom:20px;margin-bottom:24px;border-bottom:1px solid var(--lijn)}
 .rkgetal{display:flex;align-items:baseline;gap:8px;font-size:48px;font-weight:700;
@@ -677,7 +680,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v50 · 10 aug 2026';
+const APPVERSIE='v51 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1476,7 +1479,7 @@ function sheetRit(id){
          r.bron==='berekend'?'Route berekend':'Meetpunten'}
          <em>${r.bron==='berekend'?'kortste route over de weg':'via gps vastgelegd'}</em></span></div>
      </div>`,
-    `<button class="sec" id="rdWis" style="color:var(--rood);margin-top:0">Rit verwijderen</button>`);
+    `<button class="sec" id="rdWis" style="color:var(--rood);margin-top:0">${svg(I.kruis,'2')}&nbsp; Rit verwijderen</button>`);
   $('#rdWis').onclick=()=>{
     if(!confirm('Deze rit verwijderen?')) return;
     S.ritten=S.ritten.filter(x=>x.id!==id); bewaarNu(); render(); dicht();
@@ -1533,7 +1536,8 @@ function geldHTML(){
       <div class="rkkm"><span id="rkKm">${komma(Math.round((r.km||0)*10)/10)}</span><em>km</em></div>
       <div class="rkmeta">sinds ${r.start.tijd} &nbsp;·&nbsp; ${min} ${min===1?'minuut':'minuten'}
         &nbsp;·&nbsp; <span id="rkPunten">${n} ${n===1?'meting':'metingen'}</span></div>
-      <button class="rkstop" data-ritstop>Rit beëindigen</button></div>`;
+      <button class="rkstop" data-ritstop>Rit beëindigen</button>
+      <button class="rkweg" data-ritweg>Rit annuleren</button></div>`;
   } else {
     h+=`<button class="prim groot" data-ritstart>${svg(I.auto)}&nbsp; Rit starten</button>
       <div class="geen" style="padding:12px 0 0;text-align:center">
@@ -2162,7 +2166,23 @@ function bind(){
   $$('[data-klanten]').forEach(x=>x.onclick=()=>sheetKlanten());
   $$('[data-ritstart]').forEach(x=>x.onclick=ritStart);
   $$('[data-ritstop]').forEach(x=>x.onclick=ritStop);
-  $$('[data-rit]').forEach(x=>x.onclick=()=>sheetRit(x.dataset.rit));
+  $$('[data-ritweg]').forEach(x=>x.onclick=()=>{
+    if(!confirm('Deze rit annuleren? Er wordt niets vastgelegd.')) return;
+    ritVolgen(false); schermWakker(false); S.rit=null; bewaarNu(); render(); toast('Rit geannuleerd.');
+  });
+  $$('[data-rit]').forEach(x=>{
+    x.onclick=()=>sheetRit(x.dataset.rit);
+    let lang=null;
+    x.addEventListener('touchstart',()=>{ lang=setTimeout(()=>{
+      lang=null;
+      const r=(S.ritten||[]).find(y=>y.id===x.dataset.rit); if(!r) return;
+      if(confirm('Rit "'+(r.reden||'zonder reden')+'" van '+kort(new Date(r.datum))+' verwijderen?')){
+        S.ritten=S.ritten.filter(y=>y.id!==r.id); bewaarNu(); render(); toast('Rit verwijderd.');
+      }
+    },600)},{passive:true});
+    ['touchend','touchmove','touchcancel'].forEach(e=>
+      x.addEventListener(e,()=>{if(lang){clearTimeout(lang);lang=null}},{passive:true}));
+  });
   $$('[data-kmexport]').forEach(x=>x.onclick=sheetRitten);
   $$('[data-plekken]').forEach(x=>x.onclick=sheetPlekken);
   $$('[data-kmtarief]').forEach(x=>x.onclick=()=>{
