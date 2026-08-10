@@ -417,6 +417,18 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .vinkknop.aan{background:var(--groen);color:#fff}
 .startknop{flex:1;display:flex;align-items:center;gap:12px;text-align:left;min-width:0}
 /* geleide modus */
+.klokvak{position:relative;width:100%;max-width:280px;margin:8px auto 0;aspect-ratio:1}
+.ring{width:100%;height:100%;transform:rotate(-90deg);display:block}
+.ring .rbaan{fill:none;stroke:#ececee;stroke-width:7}
+.ring .rvul{fill:none;stroke:var(--ink);stroke-width:7;stroke-linecap:round;
+  transition:stroke-dashoffset .5s linear}
+.klokin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;padding:0 40px}
+.kact{font-size:17px;font-weight:600;letter-spacing:-.02em;line-height:1.25;color:var(--grijs)}
+.ktijd{font-size:44px;font-weight:700;letter-spacing:-.045em;line-height:1.1;margin-top:8px;
+  font-variant-numeric:tabular-nums}
+.kvan{font-size:12.5px;color:var(--grijs3);margin-top:4px}
+.klokvoet{text-align:center;font-size:12.5px;color:var(--grijs);margin-top:20px}
 .gbalk{height:4px;border-radius:99px;background:#ececee;overflow:hidden;margin-bottom:12px}
 .gvul{height:100%;background:var(--ink);border-radius:99px;transition:width .25s}
 .gtel{font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
@@ -621,7 +633,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v40 · 10 aug 2026';
+const APPVERSIE='v41 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1239,7 +1251,7 @@ function batchHTML(){
   const w=lopendWerk(b);
   const tijdbalk = b.status==='klaar' ? '' :
     (w
-      ? `<button class="tijdbalk" id="tijdbalk">
+      ? `<button class="tijdbalk" id="tijdbalk" data-klok>
            <span class="tp"></span>
            <span class="tn">${esc(w.act)}
              <small>sinds ${pad(new Date(w.start).getHours())}:${pad(new Date(w.start).getMinutes())}</small></span>
@@ -1807,7 +1819,7 @@ function bind(){
   $$('[data-etiket]').forEach(b=>b.onclick=()=>sheetVoorraadLabel(S.batchId,b.dataset.etiket));
   $$('[data-rapport]').forEach(b=>b.onclick=()=>sheetRapport(b.dataset.rapport,S.batchId));
   $$('[data-verwijder]').forEach(b=>b.onclick=()=>verwijderBatch(b.dataset.verwijder));
-  const tb=$('#tijdbalk'); if(tb) tb.onclick=sheetWerk;
+  const tb=$('#tijdbalk'); if(tb) tb.onclick=()=>tb.hasAttribute('data-klok')?sheetKlok():sheetWerk();
   const dw=$('[data-werk]'); if(dw) dw.onclick=sheetWerk;
   bewaar();
 }
@@ -2775,6 +2787,46 @@ function sheetProductEtiket(receptId){
 }
 
 /* ================= tijdregistratie ================= */
+let ringTik=null;
+function ringSvg(deel,groot){
+  const r=groot?92:92, c=2*Math.PI*r;
+  return `<svg class="ring" viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="${r}" class="rbaan"/>
+    <circle cx="100" cy="100" r="${r}" class="rvul"
+      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c*(1-deel)).toFixed(1)}"/></svg>`;
+}
+function sheetKlok(){
+  const b=batch(); if(!b) return sheetWerk();
+  const w=lopendWerk(b);
+  if(!w) return sheetWerk();
+  const sec=Math.floor((Date.now()-w.start)/1000);
+  const deel=(sec%60)/60;
+  const start=new Date(w.start);
+  sheet('',
+    `<div class="klokvak">
+       ${ringSvg(deel)}
+       <div class="klokin">
+         <div class="kact">${esc(w.act)}</div>
+         <div class="ktijd tikker" id="kT">${duurTekst(Date.now()-w.start)}</div>
+         <div class="kvan">sinds ${pad(start.getHours())}:${pad(start.getMinutes())}</div>
+       </div>
+     </div>
+     <div class="klokvoet">Totaal deze batch ${duurKort(werkTotaal(b)+sec)}</div>`,
+    `<button class="prim" style="margin-top:0" id="kStop">${svg(I.vink,'2.4')}Klaar met ${esc(w.act.toLowerCase())}</button>
+     <button class="sec" id="kAnder">Andere werkzaamheid</button>`);
+  if(ringTik){clearInterval(ringTik);ringTik=null}
+  ringTik=setInterval(()=>{
+    const el=$('#kT'); if(!el){clearInterval(ringTik);ringTik=null;return}
+    const s2=Math.floor((Date.now()-w.start)/1000);
+    el.textContent=duurTekst(Date.now()-w.start);
+    const ring=document.querySelector('.rvul');
+    if(ring){const c=2*Math.PI*92; ring.setAttribute('stroke-dashoffset',(c*(1-((s2%60)/60))).toFixed(1))}
+  },500);
+  $('#kStop').onclick=()=>{stopWerk(b);if(ringTik){clearInterval(ringTik);ringTik=null}
+    klaarSheet('Tijd vastgelegd: '+duurKort(sec)+'.')};
+  $('#kAnder').onclick=sheetWerk;
+}
+
 function sheetWerk(){
   const b=batch(); if(!b) return;
   const w=lopendWerk(b), perAct=werkPerActiviteit(b);
@@ -2796,8 +2848,8 @@ function sheetWerk(){
   if($('#wStop')) $('#wStop').onclick=()=>{stopWerk(b);klaarSheet('Timer gestopt.')};
   $$('[data-act]').forEach(x=>x.onclick=()=>{
     sluitToetsenbord();
-    if(w&&w.act===x.dataset.act) return; 
-    startWerk(b,x.dataset.act); klaarSheet('Timer loopt: '+x.dataset.act);
+    if(!(w&&w.act===x.dataset.act)) startWerk(b,x.dataset.act);
+    bewaarNu(); render(); sheetKlok();
   });
   koppelInline('wNieuw','wForm','wN',()=>{
     const v=$('#wN').value.trim(); if(!v) return toast('Vul een activiteit in.');
