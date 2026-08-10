@@ -701,7 +701,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v55 · 10 aug 2026';
+const APPVERSIE='v56 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1452,34 +1452,70 @@ function stapUitleg(k,b){
 
 function sheetPlekken(){
   S.plekken=S.plekken||[];
+  const ves=vestiging();
+  const rij=pl=>`<button class="arij" data-plekbew="${pl.id}">
+    <span class="bol ${pl.vestiging?'af':'leeg'}">${pl.vestiging?svg(I.vink,'2.6'):''}</span>
+    <span class="naam">${esc(pl.naam||pl.adres)}
+      <small>${pl.vestiging?'vestigingsadres · ':''}${esc(pl.adres)}</small></span>
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
   sheet('Vaste plekken',
-    `<p class="hint">Adressen waar je vaker komt. Ben je binnen 120 meter van zo'n plek,
-      dan gebruikt de app dit adres in plaats van wat gps ervan maakt — dan klopt het huisnummer altijd.</p>
-     ${S.plekken.length?`<div class="paneel" style="margin-bottom:20px">${S.plekken.map(pl=>`
-       <div class="item"><span class="t">📍</span><span class="b">${esc(pl.adres)}
-         <em>${komma(Math.round(pl.lat*1e4)/1e4)}, ${komma(Math.round(pl.lon*1e4)/1e4)}</em></span>
-         <button class="wisbtn" data-plekwis="${pl.id}">${svg(I.kruis,'2')}</button></div>`).join('')}</div>`
+    `<p class="hint">Kom je binnen 75 meter van een vaste plek, dan gebruikt de app die naam en
+      dat adres in plaats van wat gps ervan maakt. Sta je ergens anders, dan zoekt hij het adres gewoon op.</p>
+     ${!ves?`<div class="melding amber" style="margin-bottom:20px">${svg(I.alarm,'2')}
+       <span>Je hebt nog geen vestigingsadres. Leg dat als eerste vast — daar begint bijna elke rit.</span></div>`:''}
+     ${S.plekken.length?`<div class="paneel" style="margin-bottom:20px">${
+       S.plekken.slice().sort((a,b2)=>(b2.vestiging?1:0)-(a.vestiging?1:0)).map(rij).join('')}</div>`
       :'<div class="geen" style="padding-bottom:20px">Nog geen vaste plekken.</div>'}
-     <div class="blokkop"><span class="eyebrow">Hier toevoegen</span></div>
+     <div class="blokkop"><span class="eyebrow">Waar je nu bent toevoegen</span></div>
+     <div class="veld"><label>Naam</label>
+       <input class="inp" id="plN" placeholder="Bijv. Werkplaats, of Callebaut"></div>
      <div class="veld"><label>Adres</label>
-       <input class="inp" id="plA" placeholder="Bijv. Alcoalaan 8D, Drunen"></div>
-     <div class="geen" id="plU">Je huidige locatie wordt gebruikt als coördinaten.</div>`,
+       <input class="inp" id="plA" placeholder="wordt opgezocht…"></div>
+     <label class="onthoud"><input type="checkbox" id="plV" ${ves?'':'checked'}>
+       <span>Dit is mijn vestigingsadres</span></label>
+     <div class="geen" id="plU">Je locatie wordt bepaald…</div>`,
     `<button class="prim" style="margin-top:0" id="plOk">Deze plek vastleggen</button>`);
-  $$('[data-plekwis]').forEach(x=>x.onclick=()=>{
-    S.plekken=S.plekken.filter(y=>y.id!==x.dataset.plekwis); bewaarNu(); sheetPlekken();
-  });
+  $$('[data-plekbew]').forEach(x=>x.onclick=()=>sheetPlek(x.dataset.plekbew));
   let hier=null;
-  positieNu().then(async p=>{
+  positieNu({ms:9000}).then(async p=>{
     hier=p;
-    $('#plU').textContent='Locatie gevonden op '+p.nauw+' meter nauwkeurig.';
+    $('#plU').textContent='Locatie bepaald op '+p.nauw+' meter nauwkeurig.';
     if(!$('#plA').value){ const a=await adresVan(p.lat,p.lon); if(a&&!$('#plA').value) $('#plA').value=a; }
   }).catch(()=>{ $('#plU').textContent='Locatie niet gevonden. Zet je locatie aan en probeer het buiten.' });
   $('#plOk').onclick=()=>{
-    const a=$('#plA').value.trim();
+    const a=$('#plA').value.trim(), n=$('#plN').value.trim();
     if(!a) return toast('Vul het adres in.');
-    if(!hier) return toast('Wacht tot je locatie gevonden is.');
-    S.plekken.push({id:uid(),naam:a,adres:a,lat:hier.lat,lon:hier.lon});
-    bewaarNu(); sheetPlekken(); toast('Plek vastgelegd.');
+    if(!hier) return toast('Wacht tot je locatie bepaald is.');
+    const nieuw={id:uid(),naam:n||a,adres:a,lat:hier.lat,lon:hier.lon,vestiging:$('#plV').checked};
+    if(nieuw.vestiging) (S.plekken||[]).forEach(x=>x.vestiging=false);
+    S.plekken.push(nieuw); bewaarNu(); sheetPlekken(); toast('Plek vastgelegd.');
+  };
+}
+
+function sheetPlek(id){
+  const pl=(S.plekken||[]).find(x=>x.id===id); if(!pl) return;
+  sheet(pl.naam||pl.adres,
+    `<div class="veld"><label>Naam</label>
+       <input class="inp" id="pbN" value="${esc(pl.naam||'')}" placeholder="Bijv. Werkplaats"></div>
+     <div class="veld"><label>Adres</label>
+       <input class="inp" id="pbA" value="${esc(pl.adres||'')}"></div>
+     <label class="onthoud"><input type="checkbox" id="pbV" ${pl.vestiging?'checked':''}>
+       <span>Dit is mijn vestigingsadres</span></label>
+     <div class="geen">Herkend binnen 75 meter van ${komma(Math.round(pl.lat*1e4)/1e4)},
+       ${komma(Math.round(pl.lon*1e4)/1e4)}. In je rittenoverzicht komt het adres te staan,
+       op je scherm de naam.</div>`,
+    `<button class="prim" style="margin-top:0" id="pbOk">Opslaan</button>
+     <button class="sec" id="pbWis" style="color:var(--rood)">Plek verwijderen</button>`);
+  $('#pbOk').onclick=()=>{
+    const a=$('#pbA').value.trim();
+    if(!a) return toast('Vul het adres in.');
+    if($('#pbV').checked) (S.plekken||[]).forEach(x=>x.vestiging=false);
+    pl.naam=$('#pbN').value.trim()||a; pl.adres=a; pl.vestiging=$('#pbV').checked;
+    bewaarNu(); render(); sheetPlekken(); toast('Plek bijgewerkt.');
+  };
+  $('#pbWis').onclick=()=>{
+    if(!confirm('Plek "'+(pl.naam||pl.adres)+'" verwijderen?')) return;
+    S.plekken=S.plekken.filter(x=>x.id!==id); bewaarNu(); render(); sheetPlekken();
   };
 }
 
@@ -1490,10 +1526,10 @@ function sheetRit(id){
       <div class="vrmeta">${kort(new Date(r.datum))}<br>${r.start.tijd} – ${r.eind.tijd}<br>
         ${r.zakelijk?'zakelijk · '+euro(r.km*kmTarief())+' aftrekbaar':'privé'}</div></div>
      <div class="paneel">
-       <div class="item"><span class="t">van</span><span class="b">${esc(r.start.adres||'onbekend adres')}
-         <em>${r.start.lat?komma(Math.round(r.start.lat*1e4)/1e4)+', '+komma(Math.round(r.start.lon*1e4)/1e4):''}</em></span></div>
-       <div class="item"><span class="t">naar</span><span class="b">${esc(r.eind.adres||'onbekend adres')}
-         <em>${r.eind.lat?komma(Math.round(r.eind.lat*1e4)/1e4)+', '+komma(Math.round(r.eind.lon*1e4)/1e4):''}</em></span></div>
+       <div class="item"><span class="t">van</span><span class="b">${esc(toonPlek(r.start)||'onbekend')}
+         <em>${esc(r.start.adres||'geen adres vastgelegd')}</em></span></div>
+       <div class="item"><span class="t">naar</span><span class="b">${esc(toonPlek(r.eind)||'onbekend')}
+         <em>${esc(r.eind.adres||'geen adres vastgelegd')}</em></span></div>
        ${r.standBegin!==null?`<div class="item"><span class="t">stand</span>
          <span class="b">${getal(r.standBegin)} → ${getal(r.standEind)} km<em>kilometerteller</em></span></div>`:''}
        <div class="item"><span class="t">${r.punten}</span><span class="b">${
@@ -1555,7 +1591,7 @@ function geldHTML(){
       <div class="rkstatus"><span class="rkbol"></span>Onderweg sinds ${r.start.tijd}</div>
       <div class="rkkm"><span id="rkKm">${komma(Math.round((r.km||0)*10)/10)}</span><em>km</em></div>
       <button class="rkvan" data-ritvan>${r.start.adres
-        ? (r.start.bekend?svg(I.vink,'2.6'):'')+'vanaf '+esc(r.start.adres)
+        ? (r.start.bekend?svg(r.start.vestiging?I.huis:I.vink,'2.2'):'')+'vanaf '+esc(toonPlek(r.start))
         : 'adres opzoeken…'}</button>
       <button class="rkstop" data-ritstop>Rit beëindigen</button>
       <button class="rkweg" data-ritweg>Annuleren</button>
@@ -1580,7 +1616,7 @@ function geldHTML(){
   h+=lijst.length?`<div class="paneel">${lijst.slice(0,20).map(x=>`
     <button class="arij" data-rit="${x.id}">
       <span class="naam">${esc(x.reden||'geen reden ingevuld')}
-        <small>${kort(new Date(x.datum))} · ${esc(x.start.adres||'vertrek')} → ${esc(x.eind.adres||'aankomst')}</small></span>
+        <small>${kort(new Date(x.datum))} · ${esc(toonPlek(x.start)||'vertrek')} → ${esc(toonPlek(x.eind)||'aankomst')}</small></span>
       ${x.zakelijk?'':'<span class="stip"></span>'}
       <span class="waarde gevuld">${komma(Math.round(x.km*10)/10)}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
@@ -1603,7 +1639,8 @@ async function ritStart(){
     bewaarNu(); dicht(); render(); ritVolgen(true); schermWakker(true);
     toast('Rit gestart · locatie op '+p.nauw+' m nauwkeurig');
     const n=await plaatsNaam(p.lat,p.lon);
-    if(n.adres&&S.rit){S.rit.start.adres=n.adres;S.rit.start.bekend=n.bekend;bewaarNu();render()}
+    if(n.adres&&S.rit){S.rit.start.adres=n.adres;S.rit.start.naam=n.naam;
+      S.rit.start.bekend=n.bekend;S.rit.start.vestiging=n.vestiging;bewaarNu();render()}
   }catch(e){
     dicht();
     toast(e&&e.code===1?'Geef de app toegang tot je locatie.':'Locatie niet gevonden. Probeer het buiten opnieuw.');
@@ -1674,7 +1711,7 @@ async function ritStop(){
     $$('#rrZ button').forEach(y=>y.classList.remove('aan'));x.classList.add('aan');zak=x.dataset.v==='zak'});
   plaatsNaam(eind.lat,eind.lon).then(n=>{
     if(!n.adres) return;
-    eind.adres=n.adres; eind.bekend=n.bekend;
+    eind.adres=n.adres; eind.naam=n.naam; eind.bekend=n.bekend; eind.vestiging=n.vestiging;
     const el=$('#rrN'); if(el&&!el.value) el.value=n.adres;
     const voet=$('#rrNvoet');
     if(voet&&n.bekend) voet.innerHTML='<span class="bekend">'+svg(I.vink,'2.6')+'Uit je vaste plekken</span>';
@@ -1691,8 +1728,10 @@ async function ritStop(){
     const km=Math.round(km2*10)/10;
     const stand=parseFloat($('#rrK').value);
     const rit={id:uid(),datum:iso(new Date()),km,reden,zakelijk:zak,bron,
-      start:{tijd:r.start.tijd,lat:r.start.lat,lon:r.start.lon,adres:$('#rrV').value.trim()||r.start.adres},
-      eind:{tijd:eind.tijd,lat:eind.lat,lon:eind.lon,adres:$('#rrN').value.trim()||eind.adres},
+      start:{tijd:r.start.tijd,lat:r.start.lat,lon:r.start.lon,
+        adres:$('#rrV').value.trim()||r.start.adres,naam:r.start.bekend?r.start.naam:null},
+      eind:{tijd:eind.tijd,lat:eind.lat,lon:eind.lon,
+        adres:$('#rrN').value.trim()||eind.adres,naam:eind.bekend?eind.naam:null},
       standBegin:isNaN(stand)?null:Math.round(stand-km), standEind:isNaN(stand)?null:Math.round(stand),
       punten:r.punten.length};
     S.ritten=S.ritten||[]; S.ritten.push(rit);
@@ -4403,7 +4442,7 @@ function meetScherm(titel,klaarTekst){
 
 /* plekken waar je vaker komt: eigen werkplaats, vaste klanten */
 function plekBij(lat,lon,meter){
-  const grens=(meter||120)/1000;
+  const grens=(meter||75)/1000;
   let dichtst=null, kort=Infinity;
   (S.plekken||[]).forEach(pl=>{
     const d=afstandKm({lat,lon},{lat:pl.lat,lon:pl.lon});
@@ -4414,10 +4453,13 @@ function plekBij(lat,lon,meter){
 /* eerst kijken of je hier vaker bent, pas dan het adres opzoeken */
 async function plaatsNaam(lat,lon){
   const pl=plekBij(lat,lon);
-  if(pl) return {adres:pl.adres,plekId:pl.id,bekend:true};
+  if(pl) return {naam:pl.naam||pl.adres,adres:pl.adres,plekId:pl.id,bekend:true,vestiging:!!pl.vestiging};
   const a=await adresVan(lat,lon);
-  return {adres:a,plekId:null,bekend:false};
+  return {naam:a,adres:a,plekId:null,bekend:false,vestiging:false};
 }
+const vestiging=()=>(S.plekken||[]).find(p=>p.vestiging)||null;
+/* wat je op het scherm ziet: de naam. Wat in het rapport komt: het adres. */
+const toonPlek=r2=>r2&&(r2.naam||r2.adres)||'';
 const CTYPES={
   ongedierte:{n:'Ongediertecontrole',herhaal:90},
   klacht:{n:'Klacht'},
