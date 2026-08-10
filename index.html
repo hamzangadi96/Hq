@@ -638,7 +638,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v42 · 10 aug 2026';
+const APPVERSIE='v43 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1358,6 +1358,8 @@ function batchHTML(){
     <div class="paneel">${naslag}</div>
     <div class="voet"><button data-rapport="batch">Batchrapport bekijken</button>
       <button data-rapport="dag">Dagrapport van vandaag</button>
+      ${b.status==='klaar'?'':'<button data-bwijzig>Batch aanpassen</button>'}
+      <button data-bkopie="${b.id}">Nieuwe batch met deze opzet</button>
       <button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`;
   return h;
 }
@@ -1694,6 +1696,65 @@ function traceerBatchHTML(b){
         <span class="b">Nog op voorraad<em>${esc(smaakNaam(v.receptId))}</em></span></div>`).join(''):''}
     </div>`;
 }
+function sheetBatchWijzig(){
+  const b=batch(); if(!b) return;
+  if(b.status==='klaar') return toast('Deze batch is al afgerond.');
+  const W={};
+  b.regels.forEach(rg=>W[rg.receptId]=rg.mallen);
+  const zelfde=(S.recepten||[]).filter(r=>r.chocolade===b.chocolade);
+  const teken=()=>{
+    const nu2=Object.entries(W).filter(([k,v])=>v>0);
+    const tot=nu2.reduce((n,[k,v])=>n+v*S.malGrootte,0);
+    const eraf=b.regels.filter(rg=>!W[rg.receptId]);
+    sheet('Batch aanpassen',
+      `<p class="hint">Aantallen kloppen niet meer, of je voegt een smaak toe.
+        De receptuur van deze batch blijft zoals hij was toen je begon.</p>
+       <div class="paneel">${zelfde.map(r=>{
+         const m=W[r.id]||0, alBezig=b.regels.some(rg=>rg.receptId===r.id);
+         return `<div class="orij"><span class="on">${esc(r.naam)}
+           <em>${m?m*S.malGrootte+' bonbons':(alBezig?'gaat eruit':'niet in deze batch')}</em></span>
+           <div class="ostep"><button class="stepbtn klein" data-bm="${r.id}">${svg(I.min)}</button>
+             <span class="oa ${m?'aan':''}">${m}</span>
+             <button class="stepbtn klein" data-bp="${r.id}">${svg(I.plus)}</button></div></div>`}).join('')}</div>
+       <div class="totaalregel" style="margin-top:20px"><span class="l">Nieuw totaal</span>
+         <span class="w">${tot} bonbons · ${nu2.reduce((n,[k,v])=>n+v,0)} mallen</span></div>
+       ${eraf.length?`<div class="melding amber" style="margin-top:16px">${svg(I.alarm,'2')}
+         <span>${eraf.map(rg=>esc(receptVan(b,rg.receptId).naam)).join(' en ')} ${eraf.length===1?'gaat':'gaan'}
+           uit deze batch. Wat je al hebt vastgelegd blijft in het rapport staan.</span></div>`:''}`,
+      `<button class="prim" style="margin-top:0" id="bwOk">Opslaan</button>
+       <button class="sec" id="bwT">Annuleren</button>`);
+    $$('[data-bp]').forEach(x=>x.onclick=()=>{W[x.dataset.bp]=(W[x.dataset.bp]||0)+1;teken()});
+    $$('[data-bm]').forEach(x=>x.onclick=()=>{W[x.dataset.bm]=Math.max(0,(W[x.dataset.bm]||0)-1);teken()});
+    $('#bwT').onclick=()=>{S.open=null;render();dicht()};
+    $('#bwOk').onclick=()=>{
+      const regels=Object.entries(W).filter(([k,v])=>v>0)
+        .map(([k,v])=>({receptId:k,mallen:v,aantal:v*S.malGrootte}));
+      if(!regels.length) return toast('Er moet minstens één smaak in blijven.');
+      regels.forEach(rg=>{ if(!b.recepten[rg.receptId])
+        b.recepten[rg.receptId]=JSON.parse(JSON.stringify(recept(rg.receptId))) });
+      const oud=b.regels.reduce((n,r)=>n+r.aantal,0), nieuw=regels.reduce((n,r)=>n+r.aantal,0);
+      b.regels=regels;
+      bLog(b,{type:'wijziging',titel:'Batch aangepast',
+        sub:oud+' → '+nieuw+' bonbons · '+regels.map(rg=>receptVan(b,rg.receptId).naam+' '+rg.mallen+'×').join(', '),
+        status:'ok'});
+      bewaarNu(); render(); klaarSheet('Batch bijgewerkt naar '+nieuw+' bonbons.');
+    };
+  };
+  teken();
+}
+
+function sheetBatchKopie(id){
+  const oud=(S.batches||[]).find(x=>x.id===id); if(!oud) return;
+  const kopie={};
+  oud.regels.forEach(rg=>{kopie[rg.receptId]=JSON.parse(JSON.stringify(recept(rg.receptId)||oud.recepten[rg.receptId]))});
+  const b={id:uid(),code:nieuweCode(),chocolade:oud.chocolade,
+    regels:JSON.parse(JSON.stringify(oud.regels)),
+    gestart:nu(),startDatum:vandaag(),status:'bezig',dagen:[],lots:{},logs:[],resultaat:null,
+    werk:[],stappen:{},afvink:{},recepten:kopie,werkplan:S.werkplan.slice()};
+  S.batches.push(b); S.batchId=b.id; S.open=null; bewaarNu(); render(); dicht();
+  toast('Batch '+b.code+' aangemaakt, zelfde opzet als '+oud.code+'.');
+}
+
 function sheetTraceer(vooraf){
   const zoek=(vooraf||'').trim();
   const res=zoek?zoekLot(zoek):{batches:[],partijen:[]};
@@ -1824,6 +1885,8 @@ function bind(){
   $$('[data-etiket]').forEach(b=>b.onclick=()=>sheetVoorraadLabel(S.batchId,b.dataset.etiket));
   $$('[data-rapport]').forEach(b=>b.onclick=()=>sheetRapport(b.dataset.rapport,S.batchId));
   $$('[data-verwijder]').forEach(b=>b.onclick=()=>verwijderBatch(b.dataset.verwijder));
+  $$('[data-bwijzig]').forEach(b=>b.onclick=sheetBatchWijzig);
+  $$('[data-bkopie]').forEach(b=>b.onclick=()=>sheetBatchKopie(b.dataset.bkopie));
   const tb=$('#tijdbalk'); if(tb) tb.onclick=()=>tb.hasAttribute('data-klok')?sheetKlok():sheetWerk();
   const dw=$('[data-werk]'); if(dw) dw.onclick=sheetWerk;
   bewaar();
