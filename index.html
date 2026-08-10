@@ -279,22 +279,25 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .trsub{font-size:12.5px;color:var(--grijs);margin-top:4px;line-height:1.45}
 .prim.groot{height:64px;font-size:17px;border-radius:18px}
 .prim.groot svg{width:20px;height:20px}
-.ritkaart{display:block;background:var(--ink);color:#fff;border-radius:18px;
-  padding:24px 20px 20px;text-align:center}
+.ritkaart{display:block;background:var(--ink);color:#fff;border-radius:18px;padding:20px}
 .rkstatus{display:flex;align-items:center;justify-content:center;gap:8px;
-  font-size:12.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
-.rkstatus .rkbol{width:8px;height:8px;border-radius:99px;background:#4ade80;
+  font-size:12.5px;font-weight:500;opacity:.6}
+.rkstatus .rkbol{width:7px;height:7px;border-radius:99px;background:#4ade80;
   flex:none;animation:pols 2s infinite}
-.rkkm{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-top:16px;
-  font-size:64px;font-weight:700;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
-.rkkm em{font-size:20px;font-weight:500;font-style:normal;opacity:.55;letter-spacing:-.01em}
-.rkmeta{font-size:13px;opacity:.6;margin-top:12px;line-height:1.5;white-space:nowrap}
-.rkstop{width:100%;height:48px;margin-top:24px;border-radius:14px;background:#fff;
-  color:var(--ink);font-size:15px;font-weight:600;letter-spacing:-.01em}
+.rkkm{display:flex;align-items:baseline;justify-content:center;gap:6px;margin:12px 0 20px;
+  font-size:48px;font-weight:700;letter-spacing:-.045em;line-height:1;font-variant-numeric:tabular-nums}
+.rkkm em{font-size:17px;font-weight:500;font-style:normal;opacity:.5;letter-spacing:-.01em}
+.rkvan{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;
+  padding:0 8px 20px;background:none;color:#fff;opacity:.6;font-size:13px;font-weight:500;
+  line-height:1.4;text-align:center}
+.rkvan svg{width:12px;height:12px;flex:none;color:#4ade80;opacity:1}
+.rkvan:active{opacity:.9}
+.rkstop{display:flex;align-items:center;justify-content:center;width:100%;height:48px;
+  border-radius:14px;background:#fff;color:var(--ink);font-size:15px;font-weight:600;letter-spacing:-.01em}
 .rkstop:active{opacity:.85}
-.rkweg{width:100%;height:44px;margin-top:8px;border-radius:14px;background:transparent;
-  color:#fff;opacity:.55;font-size:14px;font-weight:500}
-.rkweg:active{opacity:.85}
+.rkweg{display:flex;align-items:center;justify-content:center;width:100%;height:40px;
+  margin-top:4px;background:none;color:#fff;opacity:.5;font-size:13.5px;font-weight:500}
+.rkweg:active{opacity:.8}
 .ritklaar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding-bottom:20px;margin-bottom:24px;border-bottom:1px solid var(--lijn)}
 .rkgetal{display:flex;align-items:baseline;gap:8px;font-size:48px;font-weight:700;
@@ -698,7 +701,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v53 · 10 aug 2026';
+const APPVERSIE='v55 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1548,14 +1551,15 @@ function geldHTML(){
 
   if(r){
     const min=Math.round((Date.now()-r.begonnen)/60000);
-    const n=(r.punten||[]).length;
     h+=`<div class="ritkaart">
-      <div class="rkstatus"><span class="rkbol"></span>Onderweg</div>
+      <div class="rkstatus"><span class="rkbol"></span>Onderweg sinds ${r.start.tijd}</div>
       <div class="rkkm"><span id="rkKm">${komma(Math.round((r.km||0)*10)/10)}</span><em>km</em></div>
-      <div class="rkmeta">sinds ${r.start.tijd} &nbsp;·&nbsp; ${min} ${min===1?'minuut':'minuten'}
-        &nbsp;·&nbsp; <span id="rkPunten">${n} ${n===1?'meting':'metingen'}</span></div>
+      <button class="rkvan" data-ritvan>${r.start.adres
+        ? (r.start.bekend?svg(I.vink,'2.6'):'')+'vanaf '+esc(r.start.adres)
+        : 'adres opzoeken…'}</button>
       <button class="rkstop" data-ritstop>Rit beëindigen</button>
-      <button class="rkweg" data-ritweg>Rit annuleren</button></div>`;
+      <button class="rkweg" data-ritweg>Annuleren</button>
+      <span id="rkPunten" hidden></span></div>`;
   } else {
     h+=`<button class="prim groot" data-ritstart>${svg(I.auto)}&nbsp; Rit starten</button>
       <div class="geen" style="padding:12px 0 0;text-align:center">
@@ -2195,6 +2199,30 @@ function bind(){
   $$('[data-klanten]').forEach(x=>x.onclick=()=>sheetKlanten());
   $$('[data-ritstart]').forEach(x=>x.onclick=ritStart);
   $$('[data-ritstop]').forEach(x=>x.onclick=ritStop);
+  $$('[data-ritvan]').forEach(x=>x.onclick=()=>{
+    const r=S.rit; if(!r) return;
+    sheet('Vertrekadres',
+      `<p class="hint">Dit adres komt in je rittenregistratie. Klopt het huisnummer niet,
+        pas het aan — dan staat het meteen goed.</p>
+       <div class="veld"><label>Vertrokken vanaf</label>
+         <input class="inp" id="vaA" value="${esc(r.start.adres||'')}" placeholder="adres"></div>
+       <label class="onthoud"><input type="checkbox" id="vaO" ${r.start.bekend?'':'checked'}>
+         <span>Onthouden als vaste plek, zodat het hier voortaan meteen klopt</span></label>
+       ${r.nauw?`<div class="geen">Gps was op ${r.nauw} meter nauwkeurig.</div>`:''}`,
+      `<button class="prim" style="margin-top:0" id="vaOk">Opslaan</button>`);
+    $('#vaOk').onclick=()=>{
+      const a=$('#vaA').value.trim();
+      if(!a) return toast('Vul een adres in.');
+      r.start.adres=a;
+      if($('#vaO').checked&&r.start.lat!==null){
+        S.plekken=S.plekken||[];
+        const best=plekBij(r.start.lat,r.start.lon);
+        if(best){best.adres=a;best.naam=a} else S.plekken.push({id:uid(),naam:a,adres:a,lat:r.start.lat,lon:r.start.lon});
+        r.start.bekend=true;
+      }
+      bewaarNu(); render(); klaarSheet('Vertrekadres bijgewerkt.');
+    };
+  });
   $$('[data-ritweg]').forEach(x=>x.onclick=()=>{
     if(!confirm('Deze rit annuleren? Er wordt niets vastgelegd.')) return;
     ritVolgen(false); schermWakker(false); S.rit=null; bewaarNu(); render(); toast('Rit geannuleerd.');
