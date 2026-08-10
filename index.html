@@ -269,6 +269,12 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .lotrij .inp{flex:1;min-width:0}
 .lotplus{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--grijs);padding:2px 0}
 .lotplus svg{width:14px;height:14px}
+.alblok{padding:16px 0;border-bottom:1px solid var(--lijn)}
+.alblok:last-child{border-bottom:none}
+.alkop{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.alkop .n{font-size:15px;font-weight:600;letter-spacing:-.015em}
+.alkop .g{font-size:12.5px;font-weight:500;color:var(--grijs3);text-align:right}
+.alkop .g.aan{color:var(--rood);font-weight:600}
 .lotblok{padding:12px 0;border-bottom:1px solid var(--lijn)}
 .lotblok:last-of-type{border-bottom:none}
 .lotkop{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
@@ -578,7 +584,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v32 · 10 aug 2026';
+const APPVERSIE='v33 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -596,6 +602,31 @@ const komma=n=>String(n).replace('.',',');
 const getal=n=>{const r=Math.round(n*10)/10;return komma(r%1===0?r.toFixed(0):r.toFixed(1))};
 
 /* ================= state ================= */
+/* de 14 groepen uit bijlage II van verordening 1169/2011 */
+const ALLERGENEN=[
+  {k:'gluten',n:'Glutenbevattende granen'},{k:'schaaldier',n:'Schaaldieren'},
+  {k:'ei',n:'Eieren'},{k:'vis',n:'Vis'},{k:'pinda',n:'Pinda\'s'},{k:'soja',n:'Soja'},
+  {k:'melk',n:'Melk'},{k:'noten',n:'Noten'},{k:'selderij',n:'Selderij'},
+  {k:'mosterd',n:'Mosterd'},{k:'sesam',n:'Sesamzaad'},{k:'sulfiet',n:'Sulfiet'},
+  {k:'lupine',n:'Lupine'},{k:'weekdier',n:'Weekdieren'}
+];
+const alNaam=k=>(ALLERGENEN.find(a=>a.k===k)||{}).n||k;
+/* welke allergenen zitten in dit ingredient? vastgelegd op naam, geldt overal */
+const ingAllerg=naam=>(S.allerg&&S.allerg[naam])||[];
+const isAllergeen=naam=>ingAllerg(naam).length>0;
+/* alle ingredientnamen die in je recepten voorkomen */
+function alleIngredienten(){
+  const set=new Set();
+  (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>
+    (o.ing||[]).forEach(i=>{if(i.naam&&i.naam.trim())set.add(i.naam.trim())})));
+  return [...set].sort((a,b)=>a.localeCompare(b,'nl'));
+}
+/* welke allergeengroepen zitten in deze smaak? */
+function smaakAllergenen(r){
+  const set=new Set();
+  smaakIngredienten(r).forEach(i=>ingAllerg(i.naam).forEach(k=>set.add(k)));
+  return ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k);
+}
 const CHOC=[
   {key:'wit',naam:'Witte chocolade'},
   {key:'melk',naam:'Melkchocolade'},
@@ -628,7 +659,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -756,10 +787,10 @@ function smaakIngredienten(r){
     .sort((a,b)=>b.gram-a.gram);
 }
 function declaratie(r){
-  const al=r.etiket&&r.etiket.allergenen||[];
+  const oud=(r.etiket&&r.etiket.allergenen)||[];
   return smaakIngredienten(r).map(i=>{
     const naam=esc(i.naam)+' '+getal(i.pct)+'%';
-    return al.includes(i.naam)?`<b>${naam}</b>`:naam;
+    return (isAllergeen(i.naam)||oud.includes(i.naam))?`<b>${naam}</b>`:naam;
   }).join(', ');
 }
 
@@ -1204,7 +1235,14 @@ function batchHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>
     <div class="uit"><div class="uitin">${uitwerkingHTML(b)}</div></div></div>`;
 
-  const naslag=groepen+werkGroep;
+  const A=batchAllergenen(b);
+  const alGroep=`<div class="groep">
+    <button class="arij" data-allerg><span class="bol leeg"></span>
+      <span class="naam">Allergenen${A.verschil?'<small>let op de volgorde</small>':''}</span>
+      ${A.verschil?'<span class="stip amber"></span>':''}
+      <span class="waarde ${A.alle.length?'gevuld':''}">${A.alle.length?A.alle.map(alNaam).join(', '):'geen'}</span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
+  const naslag=groepen+werkGroep+alGroep;
   const nu=bVolgende(b);
   const bstapRij=s=>{
     const isOpen=S.open===s.key, klaar=s.klaar(b), w=String(s.waarde(b));
@@ -1292,6 +1330,7 @@ function bind(){
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
   $$('[data-batch]').forEach(b=>b.onclick=()=>{S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0});
+  $$('[data-allerg]').forEach(x=>x.onclick=sheetAllergenenBatch);
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
@@ -2219,7 +2258,8 @@ function sheetProductEtiket(receptId){
   const label=`<div class="etiket et-product">
       <div class="en">${esc(r.naam)}</div>
       <div class="ing"><b>Ingrediënten:</b> ${declaratie(r)}</div>
-      ${e.allergenen.length?`<div class="r"><b>Bevat:</b> ${e.allergenen.map(esc).join(', ')}</div>`:''}
+      ${(()=>{const g=smaakAllergenen(r);
+        return g.length?`<div class="r"><b>Bevat:</b> ${g.map(k=>esc(alNaam(k).toLowerCase())).join(', ')}</div>`:''})()}
       <div class="r">${esc(e.bewaar||'')}</div>
       <div class="er r"><span>${e.netto?'Netto '+esc(e.netto):'Netto — invullen'}</span>
         <span><b>THT ${tht}</b></span></div>
@@ -2233,18 +2273,20 @@ function sheetProductEtiket(receptId){
      <div class="veld"><label>Netto-hoeveelheid</label>
        <input class="inp" id="peN" value="${esc(e.netto)}" placeholder="Bijv. 16 stuks (144 g)"></div>
      <div class="veld"><label>Bewaaradvies</label><input class="inp" id="peB" value="${esc(e.bewaar)}"></div>
-     <div class="veld"><label>Welke ingrediënten zijn allergenen?</label>
-       <div class="chips" id="peA">${ing.map(i=>`<button class="chip klein ${e.allergenen.includes(i.naam)?'aan':''}"
-         data-al="${esc(i.naam)}">${esc(i.naam)}</button>`).join('')}</div>
-       <div class="geen" style="padding-top:8px">Aangetikte namen komen vetgedrukt in de ingrediëntenlijst, zoals de wet vraagt.</div></div>
+     <div class="veld"><label>Allergenen</label>
+       <div class="geen" style="padding:0 0 12px">${(()=>{const g=smaakAllergenen(r);
+         const mist=ing.filter(i=>!isAllergeen(i.naam));
+         return (g.length?'Deze smaak bevat '+g.map(k=>alNaam(k).toLowerCase()).join(', ')+'. ':'')
+           +(mist.length?'Nog niet ingevuld: '+mist.map(i=>esc(i.naam)).join(', ')+'.':'Alles is ingevuld.')})()}</div>
+       <button class="sec" style="margin-top:0" id="peAl">Allergenen per ingrediënt instellen</button></div>
      <div class="wachtlabel"><span class="stip"></span>Printen gebeurt straks bij Orders, stap 3</div>`,
     `<button class="prim" style="margin-top:0" id="peOk">Opslaan</button>
      <button class="sec" id="peTerug">Terug naar smaak</button>`);
   setTimeout(()=>pasSchaal('peSchaal'),20);
+  if($('#peAl')) $('#peAl').onclick=sheetAllergenen;
   const lees=()=>{e.netto=$('#peN').value.trim();e.bewaar=$('#peB').value.trim();bewaarNu()};
   $$('[data-al]').forEach(c=>c.onclick=()=>{
     sluitToetsenbord(); lees(); c.classList.toggle('aan');
-    e.allergenen=$$('[data-al].aan').map(x=>x.dataset.al);
     bewaarNu(); sheetProductEtiket(receptId);
   });
   $('#peTerug').onclick=()=>{lees();sheetReceptForm(receptId)};
@@ -3051,6 +3093,81 @@ function sheetIjking(){
 }
 
 /* ================= instellingen ================= */
+/* volgorde-advies: allergeenarm eerst, allergeenrijk laatst */
+function batchAllergenen(b){
+  const rij=b.regels.map(rg=>{
+    const r=receptVan(b,rg.receptId);
+    return {receptId:rg.receptId,naam:r.naam,groepen:smaakAllergenen(r)};
+  });
+  const alle=new Set(); rij.forEach(x=>x.groepen.forEach(g=>alle.add(g)));
+  const advies=[...rij].sort((a,b2)=>a.groepen.length-b2.groepen.length||a.naam.localeCompare(b2.naam,'nl'));
+  const verschil=rij.length>1&&rij.some(x=>x.groepen.join()!==rij[0].groepen.join());
+  return {rij,alle:ALLERGENEN.filter(a=>alle.has(a.k)).map(a=>a.k),advies,verschil};
+}
+function sheetAllergenenBatch(){
+  const b=batch(); if(!b) return;
+  const A=batchAllergenen(b);
+  const onbekend=bIngredienten(b).filter(i=>!isAllergeen(i.naam)&&!(S.allerg&&S.allerg[i.naam]));
+  sheet('Allergenen in deze batch',
+    `<p class="hint">${A.alle.length
+       ? 'Deze batch bevat '+A.alle.map(alNaam).join(', ').toLowerCase()+'.'
+       : 'Er zijn nog geen allergenen gekoppeld aan de ingrediënten van deze batch.'}</p>
+     <div class="paneel" style="margin-bottom:16px">${A.rij.map(x=>`
+       <div class="item"><span class="t">${x.groepen.length||'—'}</span>
+         <span class="b">${esc(x.naam)}<em>${x.groepen.length?x.groepen.map(alNaam).join(', '):'geen allergenen'}</em></span>
+       </div>`).join('')}</div>
+     ${A.verschil?`<div class="blokkop"><span class="eyebrow">Adviesvolgorde</span></div>
+       <p class="hint">Je smaken bevatten niet dezelfde allergenen. Maak ze in deze volgorde,
+         dan sleep je geen allergeen mee naar een smaak die het niet hoort te bevatten.</p>
+       <div class="paneel" style="margin-bottom:16px">${A.advies.map((x,i)=>`
+         <div class="item"><span class="t">${i+1}</span>
+           <span class="b">${esc(x.naam)}<em>${x.groepen.length?x.groepen.map(alNaam).join(', '):'allergeenvrij'}</em></span>
+         </div>`).join('')}</div>`:''}
+     ${onbekend.length?`<div class="geen">Nog niet ingevuld: ${onbekend.map(i=>esc(i.naam)).join(', ')}.
+       Zolang dat zo is, kan de app niet garanderen dat dit overzicht compleet is.</div>`:''}`,
+    `${A.verschil?`<button class="prim" style="margin-top:0" id="abR">Allergenenreiniging vastleggen</button>`:''}
+     <button class="${A.verschil?'sec':'prim'}" style="margin-top:${A.verschil?'8px':'0'}" id="abI">Allergenen instellen</button>`);
+  if($('#abR')) $('#abR').onclick=()=>{
+    bLog(b,{type:'schoonmaak',titel:'Allergenenreiniging tussen smaken',
+      sub:'Gereedschap en werkvlak gereinigd bij wissel van allergeengroep',status:'ok'});
+    bewaarNu(); render(); klaarSheet('Reiniging vastgelegd.');
+  };
+  $('#abI').onclick=sheetAllergenen;
+}
+
+function sheetAllergenen(){
+  S.allerg=S.allerg||{};
+  const ing=alleIngredienten();
+  if(!ing.length){
+    return sheet('Allergenen',
+      `<p class="hint">Je hebt nog geen ingrediënten in je smaken staan. Vul eerst een recept in,
+        dan kun je hier per ingrediënt aangeven welke allergenen erin zitten.</p>`,'');
+  }
+  const rij=n=>{
+    const gk=ingAllerg(n);
+    return `<div class="alblok">
+      <div class="alkop"><span class="n">${esc(n)}</span>
+        <span class="g ${gk.length?'aan':''}">${gk.length?gk.map(alNaam).join(', '):'geen'}</span></div>
+      <div class="chips">${ALLERGENEN.map(a=>`<button class="chip klein ${gk.includes(a.k)?'aan':''}"
+        data-ing="${esc(n)}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
+    </div>`;
+  };
+  sheet('Allergenen',
+    `<p class="hint">Geef per ingrediënt aan welke van de veertien wettelijke allergenen erin zitten.
+      Je smaken, etiketten en batches nemen dit automatisch over.</p>
+     <div id="alL">${ing.map(rij).join('')}</div>`,
+    `<button class="prim" style="margin-top:0" id="alOk">Klaar</button>`);
+  $$('[data-al]').forEach(c=>c.onclick=()=>{
+    const n=c.dataset.ing, k=c.dataset.al;
+    const lijst=new Set(ingAllerg(n));
+    lijst.has(k)?lijst.delete(k):lijst.add(k);
+    const v=ALLERGENEN.filter(a=>lijst.has(a.k)).map(a=>a.k);
+    if(v.length) S.allerg[n]=v; else delete S.allerg[n];
+    bewaarNu(); sheetAllergenen();
+  });
+  $('#alOk').onclick=sheetInstellingen;
+}
+
 function sheetInstellingen(){
   sheet('Instellingen',
     `<button class="menurij" data-ins="recepten">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
@@ -3063,6 +3180,9 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
      <button class="menurij" data-ins="zones">${svg(I.spark)}Schoonmaak-onderdelen<span class="tel">${S.zones.length}</span></button>
      <button class="menurij" data-ins="middelen">${svg(I.spark)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
+     <button class="menurij" data-ins="allerg">${svg(I.alarm)}Allergenen<span class="tel">${
+       (()=>{const t=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
+             return t?(g?g+' van '+t:'nog niets'):'geen ingrediënten'})()}</span></button>
      <button class="menurij" data-ins="lots">${svg(I.doos)}Partijen in huis<span class="tel">${S.lots.length}</span></button>
      <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>`,'');
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
@@ -3073,6 +3193,7 @@ function sheetInstellingen(){
     if(k==='ijking') return sheetIjking();
     if(k==='checks') return sheetChecks();
     if(k==='lots') return sheetLots();
+    if(k==='allerg') return sheetAllergenen();
     sheetLijst(k);
   });
 }
