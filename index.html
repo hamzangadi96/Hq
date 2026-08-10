@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Petit+Formal+Script&family=Caveat:wght@400;500&family=Parisienne&display=swap" rel="stylesheet">
 <style>
 :root{
   --ink:#18181b; --ink2:#3f3f46; --grijs:#71717a; --grijs2:#a1a1aa; --grijs3:#d4d4d8;
@@ -670,6 +670,14 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .etiket .er{display:flex;justify-content:space-between;gap:8px}
 .etiket .ek{color:#444}
 .etiket .eb{font-weight:700}
+.wenskaart{width:210mm;height:148mm;background:#fff;position:relative;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:22mm 26mm;box-sizing:border-box;color:#1a1a1a}
+.wktekst{text-align:center;max-width:100%;word-wrap:break-word}
+.wkmerk{position:absolute;bottom:14mm;left:0;right:0;text-align:center;
+  font-family:'Cormorant Garamond',Georgia,serif;font-size:7.5pt;font-weight:600;
+  letter-spacing:.34em;padding-left:.34em;color:#8a8a8a}
+.vel.wenskaartvel{width:210mm;height:148mm;padding:0;display:block}
 .et-partij{width:73mm;height:47mm;padding:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .et-partij .kop{padding:1.6mm 3mm 1.2mm;border-bottom:.35mm solid #000;text-align:center;flex:none}
 .et-partij .merkregel{font-family:'Cormorant Garamond',Georgia,serif;font-size:8pt;font-weight:600;
@@ -788,7 +796,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v64 · 11 aug 2026';
+const APPVERSIE='v65 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -864,7 +872,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1574,6 +1582,96 @@ function maandBalken(){
       <span class="rechts">hoogste maand ${getal(Math.round(hoogste))} km</span></div>`;
 }
 
+/* ============ wenskaarten, zonder Photoshop ============ */
+const KAARTFONTS=[
+  {k:'petit', n:'Petit Formal Script', css:"'Petit Formal Script',cursive", basis:34, hoog:1.7},
+  {k:'parisienne', n:'Parisienne', css:"'Parisienne',cursive", basis:40, hoog:1.55},
+  {k:'caveat', n:'Caveat', css:"'Caveat',cursive", basis:42, hoog:1.5},
+  {k:'cormorant', n:'Cormorant', css:"'Cormorant Garamond',Georgia,serif", basis:30, hoog:1.75}
+];
+const kaartFont=()=>KAARTFONTS.find(f=>f.k===S.kaartFont)||KAARTFONTS[0];
+
+/* Een witregel vóór de afsluiting leest rustiger. */
+const AFSLUITERS=['liefs','groetjes','groeten','veel liefs','hartelijke groet','met liefde',
+  'tot snel','xxx','xx','warme groet','veel plezier','geniet ervan','dikke kus'];
+function kaartRegels(tekst){
+  const rijen=String(tekst||'').replace(/\r/g,'').split('\n');
+  const uit=[];
+  rijen.forEach((r,i)=>{
+    const kaal=r.trim().toLowerCase().replace(/[,.!]+$/,'');
+    const isAfsluiter=AFSLUITERS.some(a=>kaal===a||kaal.startsWith(a+' '));
+    if(isAfsluiter&&i>0&&uit.length&&uit[uit.length-1].trim()!=='') uit.push('');
+    uit.push(r);
+  });
+  return uit;
+}
+/* De tekst mag krimpen om te passen, maar nooit groeien. */
+function kaartGrootte(tekst,font){
+  const regels=kaartRegels(tekst);
+  const langste=regels.reduce((n,r)=>Math.max(n,r.length),0);
+  let pt=font.basis;
+  const maxRegels=Math.floor(74/(font.hoog*4.2));
+  while(pt>18&&(langste*pt*0.46>860||regels.length*pt*font.hoog>640)) pt-=2;
+  return Math.max(18,pt);
+}
+function kaartHTML(tekst,font,pt){
+  const f=font||kaartFont();
+  const g=pt||kaartGrootte(tekst,f);
+  return `<div class="wenskaart">
+    <div class="wktekst" style="font-family:${f.css};font-size:${g}pt;line-height:${f.hoog}">
+      ${kaartRegels(tekst).map(r=>r.trim()?esc(r):'&nbsp;').join('<br>')}
+    </div>
+    <div class="wkmerk">CACAOBOETIEK</div>
+  </div>`;
+}
+
+function sheetWenskaart(vooraf){
+  S.kaartFont=S.kaartFont||KAARTFONTS[0].k;
+  const teken=()=>{
+    const tekst=($('#wkT')&&$('#wkT').value)||vooraf||'';
+    const f=kaartFont(), pt=kaartGrootte(tekst,f);
+    sheet('Wenskaart',
+      `<p class="hint">A5 liggend, klaar om te printen. De tekst past zichzelf aan:
+        hij wordt kleiner als je meer schrijft, nooit groter.</p>
+       <div class="etvoorbeeld" style="padding:12px"><div class="schaal" id="wkSchaal">${kaartHTML(tekst,f,pt)}</div></div>
+       <div class="veld"><label>Wat komt erop?</label>
+         <textarea class="inp" id="wkT" rows="5" placeholder="Lieve Els,&#10;&#10;Van harte gefeliciteerd!&#10;&#10;Liefs, Marieke">${esc(tekst)}</textarea>
+         <div class="geen" id="wkU" style="padding-top:8px"></div></div>
+       <div class="veld"><label>Handschrift</label>
+         <div class="chips" id="wkF">${KAARTFONTS.map(x=>
+           `<button class="chip klein ${x.k===f.k?'aan':''}" data-wkf="${x.k}"
+             style="font-family:${x.css};font-size:15px">${x.n}</button>`).join('')}</div></div>`,
+      `<button class="prim" style="margin-top:0" id="wkPrint">${svg(I.doc)}Printen of opslaan als pdf</button>`);
+    setTimeout(()=>pasSchaal('wkSchaal'),20);
+    const bij=()=>{
+      const t=$('#wkT').value;
+      const g=kaartGrootte(t,kaartFont());
+      $('#wkSchaal').innerHTML=kaartHTML(t,kaartFont(),g);
+      pasSchaal('wkSchaal');
+      const r=kaartRegels(t).length;
+      $('#wkU').textContent=t.trim()
+        ? r+' '+(r===1?'regel':'regels')+' · '+g+' pt'+(g<f.basis?' (verkleind om te passen)':'')
+        : 'Nog niets ingevuld.';
+    };
+    $('#wkT').oninput=bij; bij();
+    $$('[data-wkf]').forEach(c=>c.onclick=()=>{
+      S.kaartFont=c.dataset.wkf; bewaarNu();
+      $$('[data-wkf]').forEach(y=>y.classList.remove('aan')); c.classList.add('aan');
+      bij();
+    });
+    $('#wkPrint').onclick=()=>{
+      const t=$('#wkT').value;
+      if(!t.trim()) return toast('Schrijf eerst iets.');
+      $('#printvel').innerHTML=`<div class="vel wenskaartvel">${kaartHTML(t,kaartFont(),kaartGrootte(t,kaartFont()))}</div>`;
+      let st=document.getElementById('printstijl');
+      if(!st){st=document.createElement('style');st.id='printstijl';document.head.appendChild(st)}
+      st.textContent='@media print{@page{size:210mm 148mm;margin:0}}';
+      setTimeout(()=>window.print(),80);
+    };
+  };
+  teken();
+}
+
 function sheetBon(id){
   const bestaand=id?(S.bonnen||[]).find(x=>x.id===id):null;
   const b=bestaand||{datum:iso(new Date()),soort:'Grondstoffen',bedrag:0,btw:0,wie:'',wat:''};
@@ -2086,7 +2184,9 @@ function sheetMacOrder(nr){
        ${rij(o.boodschap,'Wenskaart','psd voor Photoshop')}
      </div>
      <div class="geen" style="padding-top:12px">${esc(o.periode||'')}</div>`,
-    `<button class="prim" style="margin-top:0" id="moOpnieuw">Deze order opnieuw verwerken</button>`);
+    `<button class="prim" style="margin-top:0" id="moOpnieuw">Deze order opnieuw verwerken</button>
+     <button class="sec" id="moKaart">Wenskaart maken</button>`);
+  $('#moKaart').onclick=()=>sheetWenskaart('');
   $('#moOpnieuw').onclick=()=>{
     macOpdracht('ophaal',o.nummer,true); dicht();
   };
@@ -2838,6 +2938,7 @@ $('#btnMenu').onclick=()=>{
     <button class="menurij" id="mHaccp">${svg(I.klembord)}HACCP-dossier<span class="tel ${
       hOpen?'let':''}">${hOpen?hOpen+' openstaand':'op orde'}</span></button>
     <button class="menurij" id="mRec">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
+    <button class="menurij" id="mKaart">${svg(I.doc)}Wenskaart maken<span class="tel">a5</span></button>
 
     ${TABS.filter(t=>!t.klaar).length?`<div class="mkop">Nog in aanbouw</div>
       ${TABS.filter(t=>!t.klaar).map(t=>`<button class="menurij" data-naar="${t.key}">${svg(t.icon)}${t.label}
@@ -2855,6 +2956,7 @@ $('#btnMenu').onclick=()=>{
     <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
   $('#mHaccp').onclick=sheetHaccp;
+  $('#mKaart').onclick=()=>sheetWenskaart('');
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
   });
