@@ -184,7 +184,9 @@ nav{flex:none;display:grid;grid-template-columns:repeat(5,1fr);background:var(--
   border-top:1px solid var(--lijn);padding:8px 4px calc(8px + env(safe-area-inset-bottom))}
 .tab{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--grijs2);padding:4px 0}
 .tab svg{width:20px;height:20px;stroke-width:1.7}
-.tab span{font-size:11px;font-weight:600;letter-spacing:-.02em}
+.tab span{font-size:11px;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+@media (max-width:389px){ .tab span{font-size:10px;letter-spacing:-.03em} .tab{gap:2px} }
+@media (max-width:339px){ .tab span{font-size:9px} .tab svg{width:18px;height:18px} }
 .tab.actief{color:var(--ink)}
 
 .overlay{position:absolute;inset:0;background:rgba(24,24,27,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
@@ -204,6 +206,10 @@ nav{flex:none;display:grid;grid-template-columns:repeat(5,1fr);background:var(--
 .sheetvoet:empty{display:none}
 .sec{width:100%;height:48px;border-radius:14px;background:var(--bg);font-size:15px;font-weight:600;
   margin-top:8px;text-align:center;display:flex;align-items:center;justify-content:center}
+.mkop{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--grijs3);padding:20px 0 4px}
+.mkop:first-child{padding-top:0}
+.tel.let{color:var(--amber);font-weight:700}
 .menurij{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--lijn);width:100%;font-size:15px;font-weight:500}
 .menurij:last-child{border-bottom:none}
 .menurij svg{width:18px;height:18px;color:var(--grijs);flex:none}
@@ -260,6 +266,13 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);padding:4px;border-radius:14px}
 .duo button{height:44px;border-radius:10px;font-size:14px;font-weight:600;color:var(--grijs);text-align:center}
 .duo button.aan{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.duo3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;background:var(--bg);padding:4px;border-radius:14px}
+.duo3 button{height:44px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--grijs);text-align:center}
+.duo3 button.aan{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.melding{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:14px;
+  font-size:13.5px;line-height:1.45;margin-bottom:12px}
+.melding svg{width:16px;height:16px;flex:none;margin-top:2px}
+.melding.amber{background:#fffbeb;color:#92400e}
 .info{margin-bottom:20px}
 .inforij{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:8px 0;border-bottom:1px solid var(--lijn)}
 .inforij:last-child{border-bottom:none}
@@ -557,6 +570,8 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 <script>
 /* ================= iconen ================= */
 const I={
+  klembord:'<path d="M9 4H7.5A1.5 1.5 0 0 0 6 5.5v14A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5v-14A1.5 1.5 0 0 0 16.5 4H15"/>'
+    +'<rect x="9" y="2.6" width="6" height="3.2" rx="1"/><path d="M9.2 12.4l1.8 1.8 3.8-3.8"/>',
   klok:'<circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.1 1.9"/>',
   huis:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.6V21h14V9.6"/>',
   vorm:'<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
@@ -584,7 +599,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v33 · 10 aug 2026';
+const APPVERSIE='v37 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -659,7 +674,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -978,17 +993,23 @@ function signalen(){
   const maanden=ij?Math.round((new Date(vandaag())-new Date(ij.datum))/2592000000):null;
   if(!ij) uit.push({ernst:'amber',tekst:'Thermometer nog nooit geijkt',extra:'zonder ijking zijn je metingen aanvechtbaar'});
   else if(maanden>=6) uit.push({ernst:'amber',tekst:'Thermometer al '+maanden+' maanden niet geijkt',extra:'laatst op '+kort(new Date(ij.datum))});
+  ['ongedierte','recall'].forEach(t=>{
+    const o=controleOver(t); if(!o) return;
+    uit.push({ernst:'amber',tekst:CTYPES[t].n+(o.nooit?' nog nooit gedaan':' al '+o.dagen+' dagen geleden'),
+      extra:'advies: elke '+(CTYPES[t].herhaal===365?'12 maanden':'3 maanden')});
+  });
   return uit.sort((a,b)=>(a.ernst==='rood'?0:1)-(b.ernst==='rood'?0:1));
 }
 
 /* ================= tabs ================= */
 const TABS=[
-  {key:'dashboard',label:'Dashboard',icon:I.huis},
-  {key:'productie',label:'Productie',icon:I.vorm},
+  {key:'dashboard',label:'Dashboard',icon:I.huis,klaar:true},
+  {key:'productie',label:'Productie',icon:I.vorm,klaar:true},
   {key:'orders',label:'Orders',icon:I.lijst},
   {key:'voorraad',label:'Voorraad',icon:I.doos},
   {key:'geld',label:'Geld',icon:I.euro}
 ];
+const tabsInBalk=()=>TABS.filter(t=>t.klaar||t.key===S.tab);
 const STRAKS={
   orders:{titel:'Orders',intro:'Bestellingen van binnenkomst tot factuur, met de verwerkingsagent die het voorwerk doet.',
     punten:['Orderlijst met status: nieuw, in productie, klaar, verzonden','Agent leest bestellingen uit en maakt een concept','Jij bevestigt — de agent doet dat nooit zelf','Benodigde batches automatisch klaargezet','Eén tik van verzonden naar factuur'],stap:3},
@@ -1028,7 +1049,7 @@ function render(){
 
   $('#scherm').innerHTML = inBatch?batchHTML():
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():straksHTML(S.tab);
-  $('#tabbar').innerHTML=TABS.map(t=>`<button class="tab ${t.key===S.tab?'actief':''}" data-tab="${t.key}">${svg(t.icon)}<span>${t.label}</span></button>`).join('');
+  $('#tabbar').innerHTML=tabsInBalk().map(t=>`<button class="tab ${t.key===S.tab?'actief':''}" data-tab="${t.key}">${svg(t.icon)}<span>${t.label}</span></button>`).join('');
   $$('[data-tab]').forEach(x=>x.onclick=()=>{S.tab=x.dataset.tab;S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0});
   bind();
 }
@@ -1151,10 +1172,9 @@ function productieHTML(){
   }
   h+=`<div class="voet">
     <button data-sheet="ontvangst">Ontvangst vastleggen</button>
-    <button data-archief>Archief${(()=>{const n=alleDatums().length;return n?' ('+n+(n===1?' dag)':' dagen)'):''})()}</button>
     <button data-sheet="recepten">Smaken beheren${S.recepten.length?' ('+S.recepten.length+')':''}</button>
     <button data-sheet="instellingen">Instellingen</button>
-    ${S.batches.length?`<button data-rapport="dag">Dagrapport van vandaag</button>`:''}</div>`;
+</div>`;
   return h;
 }
 
@@ -1313,6 +1333,47 @@ function stapUitleg(k,b){
   }[k]||'';
 }
 
+function sheetHaccp(){
+  const ij=laatsteIjking();
+  const rij=(k,titel,onder,waarde,waarschuw)=>`<button class="arij" data-h="${k}">
+    <span class="bol ${waarschuw?'':'leeg'}" ${waarschuw?'style="border-color:var(--amber);background:var(--amber)"':''}></span>
+    <span class="naam">${titel}<small>${onder}</small></span>
+    <span class="waarde ${waarde&&waarde!=='—'?'gevuld':''}">${esc(waarde||'—')}</span>
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+  const og=laatsteControle('ongedierte'), rc=laatsteControle('recall');
+  const kl=controles('klacht');
+  let h='';
+  const open=[];
+  ['ongedierte','recall'].forEach(t=>{const o=controleOver(t); if(o) open.push(CTYPES[t].n)});
+  if(!ij) open.push('Thermometerijking');
+  if(open.length) h+=`<div class="melding amber" style="margin-bottom:20px">${svg(I.alarm,'2')}
+    <span>${open.join(' en ')} ${open.length>1?'zijn':'is'} nog niet op orde. De NVWA vraagt hier standaard naar.</span></div>`;
+
+  h+=`<div class="blokkop"><span class="eyebrow">Periodiek</span></div><div class="paneel">
+    ${rij('ongedierte','Ongediertecontrole','elke 3 maanden',
+      og?kort(new Date(og.datum)):'nooit',!!controleOver('ongedierte'))}
+    ${rij('ijking','Thermometer ijken','elke 6 maanden',
+      ij?kort(new Date(ij.datum)):'nooit',!ij)}
+    ${rij('recall','Terugroepoefening','elk jaar',
+      rc?kort(new Date(rc.datum)):'nooit',!!controleOver('recall'))}
+  </div>`;
+
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Als het zich voordoet</span></div>
+    <div class="paneel">
+    ${rij('klacht','Klachten','van klanten',kl.length?kl.length+'':'geen',false)}
+    ${rij('ontvangst','Ontvangst','levering vastleggen',(S.ontvangsten||[]).length?(S.ontvangsten||[]).length+'':'—',false)}
+  </div>`;
+
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Terugzoeken</span></div>
+    <div class="paneel">
+    ${rij('archief','Archief','alles per dag',(()=>{const n=alleDatums().length;return n?n+(n===1?' dag':' dagen'):'leeg'})(),false)}
+    ${S.batches.length?rij('dagrapport','Dagrapport','van vandaag','printen',false):''}
+    ${rij('allerg','Allergenen','per ingrediënt',(()=>{const t=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
+      return t?(g?g+' van '+t:'nog niets'):'—'})(),false)}
+  </div>`;
+  sheet('HACCP-dossier',h,'');
+}
+
 function straksHTML(key){
   const s=STRAKS[key];
   return `<div class="straks"><h2>${s.titel}</h2><p class="intro">${s.intro}</p>
@@ -1345,6 +1406,15 @@ function bind(){
   $$('[data-rij]').forEach(b=>b.onclick=()=>{S.open=S.open===b.dataset.rij?null:b.dataset.rij;render()});
   $$('[data-eerder]').forEach(b=>b.onclick=()=>{S.toonEerder=b.dataset.eerder==='open';render()});
   $$('[data-archief]').forEach(b=>b.onclick=sheetArchief);
+  $$('[data-h]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.h;
+    if(k==='ijking') return sheetIjking();
+    if(k==='archief') return sheetArchief();
+    if(k==='allerg') return sheetAllergenen();
+    if(k==='ontvangst') return sheetOntvangst();
+    if(k==='dagrapport') return sheetRapport('dag',null,vandaag());
+    sheetControles(k==='klacht'?'klacht':k);
+  });
   $$('[data-etiket]').forEach(b=>b.onclick=()=>sheetVoorraadLabel(S.batchId,b.dataset.etiket));
   $$('[data-rapport]').forEach(b=>b.onclick=()=>sheetRapport(b.dataset.rapport,S.batchId));
   $$('[data-verwijder]').forEach(b=>b.onclick=()=>verwijderBatch(b.dataset.verwijder));
@@ -1357,17 +1427,33 @@ function bind(){
 $('#btnMenu').innerHTML=svg(I.meer);
 $('#sheetSluit').innerHTML=svg(I.kruis,'2');
 $('#btnMenu').onclick=()=>{
-  sheet('Menu',`<button class="menurij" id="mRec">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
+  const hOpen=(()=>{let n=0;['ongedierte','recall'].forEach(t=>{if(controleOver(t))n++});
+    if(!laatsteIjking())n++; return n})();
+  sheet('Menu',
+   `<div class="mkop">Voedselveiligheid</div>
+    <button class="menurij" id="mHaccp">${svg(I.klembord)}HACCP-dossier<span class="tel ${
+      hOpen?'let':''}">${hOpen?hOpen+' openstaand':'op orde'}</span></button>
+    <button class="menurij" id="mRec">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
+
+    ${TABS.filter(t=>!t.klaar).length?`<div class="mkop">Nog in aanbouw</div>
+      ${TABS.filter(t=>!t.klaar).map(t=>`<button class="menurij" data-naar="${t.key}">${svg(t.icon)}${t.label}
+        <span class="tel">bekijken</span></button>`).join('')}`:''}
+
+    <div class="mkop">Beheer</div>
     <button class="menurij" id="mIns">${svg(I.instel)}Instellingen</button>
     <button class="menurij" id="mData">${svg(I.doc)}Gegevens meenemen</button>
     <button class="menurij" id="mNieuw">${svg(I.ververs)}Nieuwe dag beginnen</button>
+
+    <div class="mkop">Opslag</div>
     <button class="menurij" id="mAccount">${svg(fbUser?I.vink:I.alarm)}
       ${fbUser?esc(fbUser.email||'Ingelogd'):'Inloggen voor synchronisatie'}
       <span class="tel">${!fbKlaar?'niet ingesteld':(fbUser?(fbOnline?'online':'offline'):'uit')}</span></button>
-    <div class="menurij" style="color:var(--grijs2);font-size:13.5px">${svg(I.vink)}
-      Alles staat op je toestel${fbUser?' en in Firebase':''}</div>
-    <button class="menurij" id="mVers" style="color:var(--grijs2);font-size:13.5px">${svg(I.ververs)}
+    <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
+  $('#mHaccp').onclick=sheetHaccp;
+  $$('[data-naar]').forEach(x=>x.onclick=()=>{
+    S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
+  });
   $('#mVers').onclick=()=>{
     if(!confirm('De app opnieuw ophalen? Je gegevens blijven staan.')) return;
     if('serviceWorker' in navigator){
@@ -2713,6 +2799,17 @@ function dagRapportHTML(datum){
       ij.gemeten!==''&&ij.gemeten!==undefined?' · gemeten '+komma(ij.gemeten)+' °C in ijswater':''}</b></div>`
     :`<div class="rij"><span>Thermometer</span><b class="fout">nog geen ijking vastgelegd</b></div>`;
 
+  h+=`<h3>Periodieke controles</h3>`;
+  h+=['ongedierte','recall'].map(t=>{
+    const c=laatsteControle(t), o=controleOver(t);
+    return `<div class="rij"><span>${CTYPES[t].n} laatst uitgevoerd</span>${
+      c?`<b class="${o?'fout':''}">${kort(new Date(c.datum))} · ${esc(c.titel)}</b>`
+       :'<b class="fout">nog niet vastgelegd</b>'}</div>`;
+  }).join('');
+  const kl=controles('klacht').filter(c=>c.datum===datum);
+  if(kl.length) h+=`<h3>Klachten</h3><table><tr><th>Tijd</th><th>Van</th><th>Klacht en afhandeling</th></tr>
+    ${kl.map(c=>`<tr><td class="t">${c.tijd}</td><td>${esc(c.titel)}</td><td>${esc(c.sub||'')}</td></tr>`).join('')}</table>`;
+
   return h+rHand()+rVoet()+`</div>`;
 }
 
@@ -3104,6 +3201,112 @@ function batchAllergenen(b){
   const verschil=rij.length>1&&rij.some(x=>x.groepen.join()!==rij[0].groepen.join());
   return {rij,alle:ALLERGENEN.filter(a=>alle.has(a.k)).map(a=>a.k),advies,verschil};
 }
+const CTYPES={
+  ongedierte:{n:'Ongediertecontrole',herhaal:90},
+  klacht:{n:'Klacht'},
+  recall:{n:'Terugroepoefening',herhaal:365}
+};
+const controles=t=>(S.controles||[]).filter(c=>!t||c.type===t)
+  .sort((a,b2)=>(b2.datum+b2.tijd).localeCompare(a.datum+a.tijd));
+function laatsteControle(t){ return controles(t)[0] }
+function controleOver(t){
+  const c=laatsteControle(t), h=CTYPES[t].herhaal;
+  if(!h) return null;
+  if(!c) return {nooit:true};
+  const d=Math.round((Date.now()-new Date(c.datum).getTime())/86400000);
+  return d>h?{dagen:d}:null;
+}
+function sheetControles(start){
+  S.controles=S.controles||[];
+  const lijst=controles();
+  const regel=c=>`<div class="item ${c.status||''}"><span class="t">${kort(new Date(c.datum))}</span>
+    <span class="b">${esc(CTYPES[c.type]?CTYPES[c.type].n:c.type)}: ${esc(c.titel)}
+    ${c.sub?`<em>${esc(c.sub)}</em>`:''}</span></div>`;
+  const waarschuw=['ongedierte','recall'].map(t=>{
+    const o=controleOver(t); if(!o) return '';
+    return `<div class="melding amber">${svg(I.alarm,'2')}<span>${CTYPES[t].n}: ${
+      o.nooit?'nog nooit gedaan':'laatste is '+o.dagen+' dagen geleden'}. Advies: elke ${
+      CTYPES[t].herhaal===365?'12 maanden':'3 maanden'}.</span></div>`;
+  }).join('');
+  sheet('Controles en klachten',
+    `<p class="hint">Registraties die los van een batch staan. De NVWA kan hier net zo goed naar vragen.</p>
+     ${waarschuw}
+     <div class="veld"><div class="duo3" id="cT">
+       <button class="${(start||'ongedierte')==='ongedierte'?'aan':''}" data-v="ongedierte">Ongedierte</button>
+       <button class="${start==='klacht'?'aan':''}" data-v="klacht">Klacht</button>
+       <button class="${start==='recall'?'aan':''}" data-v="recall">Terugroepen</button></div></div>
+     <div id="cForm"></div>
+     ${lijst.length?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Vastgelegd</span>
+       <span class="tel">${lijst.length}</span></div>
+       <div class="paneel">${lijst.slice(0,20).map(regel).join('')}</div>`:''}`,
+    `<button class="prim" style="margin-top:0" id="cOk">Vastleggen</button>`);
+  let type=start||'ongedierte';
+  const velden=()=>{
+    if(type==='ongedierte') return `
+      <div class="veld"><label>Wat heb je gecontroleerd?</label>
+        <div class="chips" id="cW">${['Vangplaten','Lokdozen','Visuele controle','Buitenzijde'].map((x,i)=>
+          `<button class="chip klein ${i<3?'aan':''}" data-w="${x}">${x}</button>`).join('')}</div></div>
+      <div class="veld"><label>Bevinding</label><div class="duo" id="cB">
+        <button class="aan" data-v="schoon">Niets aangetroffen</button>
+        <button data-v="vondst">Wel iets gezien</button></div></div>
+      <div class="veld" id="cAV" style="display:none"><label>Wat heb je gedaan?</label>
+        <textarea class="inp" id="cA" placeholder="Bijv. lokdoos vervangen, kier gedicht, bestrijder gebeld"></textarea></div>`;
+    if(type==='klacht') return `
+      <div class="veld"><label>Van wie</label><input class="inp" id="cVan" placeholder="Naam of bedrijf"></div>
+      <div class="veld"><label>Wat is de klacht?</label>
+        <textarea class="inp" id="cK" placeholder="Beschrijf wat de klant meldde"></textarea></div>
+      <div class="veld"><label>Lotnummer</label><input class="inp" id="cLot" placeholder="Als de klant het kan noemen"></div>
+      <div class="veld"><label>Hoe afgehandeld?</label>
+        <textarea class="inp" id="cAf" placeholder="Bijv. vervangen, terugbetaald, oorzaak onderzocht"></textarea></div>`;
+    return `
+      <div class="veld"><label>Welk lot heb je nagetrokken?</label><input class="inp" id="cLot2" placeholder="Bijv. CB-20260810-01"></div>
+      <div class="veld"><label>Hoe lang duurde het?</label><input class="inp" id="cDuur" placeholder="Bijv. 20 minuten"></div>
+      <div class="veld"><label>Uitkomst</label>
+        <textarea class="inp" id="cU" placeholder="Kon je vaststellen welke grondstoffen erin zaten en waar het naartoe ging?"></textarea></div>`;
+  };
+  const teken=()=>{
+    $('#cForm').innerHTML=velden();
+    if($('#cB')) $$('#cB button').forEach(x=>x.onclick=()=>{
+      $$('#cB button').forEach(y=>y.classList.remove('aan')); x.classList.add('aan');
+      $('#cAV').style.display=x.dataset.v==='vondst'?'block':'none';
+    });
+    if($('#cW')) $$('#cW button').forEach(x=>x.onclick=()=>x.classList.toggle('aan'));
+  };
+  teken();
+  $$('#cT button').forEach(x=>x.onclick=()=>{
+    sluitToetsenbord();
+    $$('#cT button').forEach(y=>y.classList.remove('aan')); x.classList.add('aan');
+    type=x.dataset.v; teken();
+  });
+  $('#cOk').onclick=()=>{
+    const c={id:uid(),type,datum:iso(new Date()),tijd:nu(),status:'ok'};
+    if(type==='ongedierte'){
+      const w=$$('#cW button.aan').map(x=>x.dataset.w);
+      if(!w.length) return toast('Vink aan wat je gecontroleerd hebt.');
+      const vondst=$$('#cB button.aan')[0].dataset.v==='vondst';
+      const actie=vondst?($('#cA').value.trim()):'';
+      if(vondst&&!actie) return toast('Noteer wat je eraan gedaan hebt.');
+      c.titel=vondst?'iets aangetroffen':'niets aangetroffen';
+      c.sub=w.join(', ')+(actie?' · '+actie:'');
+      c.status=vondst?'let':'ok';
+    } else if(type==='klacht'){
+      const k=$('#cK').value.trim();
+      if(!k) return toast('Beschrijf de klacht.');
+      c.titel=$('#cVan').value.trim()||'anoniem';
+      c.sub=k+($('#cLot').value.trim()?' · lot '+$('#cLot').value.trim():'')
+        +($('#cAf').value.trim()?' · afgehandeld: '+$('#cAf').value.trim():'');
+      c.status='let';
+    } else {
+      const u=$('#cU').value.trim();
+      if(!u) return toast('Noteer de uitkomst van de oefening.');
+      c.titel='lot '+($('#cLot2').value.trim()||'onbekend');
+      c.sub=u+($('#cDuur').value.trim()?' · duurde '+$('#cDuur').value.trim():'');
+    }
+    S.controles.push(c); bewaarNu(); render(); sheetControles();
+    toast('Vastgelegd.');
+  };
+}
+
 function sheetAllergenenBatch(){
   const b=batch(); if(!b) return;
   const A=batchAllergenen(b);
