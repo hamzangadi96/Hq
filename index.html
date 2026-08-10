@@ -105,6 +105,11 @@ main{flex:1;overflow-y:auto;padding:20px 20px 32px;-webkit-overflow-scrolling:to
 .arij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 20px;border-bottom:1px solid var(--lijn)}
 .groep:last-child .arij{border-bottom:none}
 .arij .naam{flex:1;font-size:15px;font-weight:500;letter-spacing:-.015em}
+.arij .bol{width:20px;height:20px;border-radius:99px;border:1.5px solid #d8d8dc;flex:none;
+  display:grid;place-items:center;color:transparent}
+.arij .bol.af{background:var(--ink);border-color:var(--ink);color:#fff}
+.arij .bol.leeg{border-color:transparent}
+.arij .bol svg{width:11px;height:11px}
 .arij .naam small{display:block;font-size:11px;font-weight:600;color:var(--grijs3);margin-top:4px;letter-spacing:.03em;text-transform:uppercase}
 .arij .waarde{font-size:14px;font-weight:500;color:var(--grijs2);letter-spacing:-.01em}
 .arij .waarde.gevuld{color:var(--ink2)}
@@ -527,7 +532,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v27 · 9 aug 2026';
+const APPVERSIE='v28 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1109,9 +1114,7 @@ function batchHTML(){
            <span class="tn">${esc(w.act)}
              <small>sinds ${pad(new Date(w.start).getHours())}:${pad(new Date(w.start).getMinutes())}</small></span>
            <span class="tt tikker">${duurTekst(Date.now()-w.start)}</span></button>`
-      : `<button class="tijdbalk uit" id="tijdbalk">
-           ${svg(I.klok,'1.9')}<span class="tn">Tijd bijhouden</span>
-           <span class="tstart">Starten</span></button>`);
+      : '');
   let h=`<div class="balk top">${KERN.map(s=>`<div class="seg ${s.klaar(b)?'vol':''}"></div>`).join('')}</div>
     <div class="stap" style="margin:0 2px 14px">${b.status==='klaar'?`Afgerond om ${b.eind}`:`Stap ${bGedaan(b)+1} van ${KERN.length} · ${v?v.label:'Afronden'}`}</div>`;
 
@@ -1127,17 +1130,6 @@ function batchHTML(){
       <button class="prim" data-sheet="${v.sheet}">${esc(v.knop)}</button></div>`;
   }
 
-  /* etiketten per smaak */
-  const etOpen=S.open==='etiket';
-  const etGroep=`<div class="groep ${etOpen?'open':''}">
-    <button class="arij" data-rij="etiket"><span class="naam">Voorraadstickers<small>printen</small></span>
-      <span class="waarde gevuld">${b.regels.length}</span>
-      <span class="pijl">${svg(I.pijl,'2')}</span></button>
-    <div class="uit"><div class="uitin">
-      ${b.regels.map(rg=>`<button class="toevoeg" data-etiket="${rg.receptId}" style="border-bottom:1px solid var(--lijn)">
-        ${svg(I.doc)}${esc(receptVan(b,rg.receptId).naam)}</button>`).join('')}
-    </div></div></div>`;
-
   /* uitwerking bovenaan als vaste referentie */
   const uwOpen=S.open==='uitwerking';
   const wOpen=S.open==='werk', perAct=werkPerActiviteit(b), tot=werkTotaal(b);
@@ -1151,13 +1143,14 @@ function batchHTML(){
       ${b.status==='klaar'?'':`<button class="toevoeg" data-werk>${svg(I.plus)}Timer omschakelen</button>`}
     </div></div></div>`;
 
-  let groepen=werkGroep+etGroep+`<div class="groep ${uwOpen?'open':''}">
+  let groepen=`<div class="groep ${uwOpen?'open':''}">
     <button class="arij" data-rij="uitwerking"><span class="naam">Receptuitwerking<small>hoeveelheden</small></span>
       <span class="waarde gevuld">${b.regels.length} ${b.regels.length===1?'smaak':'smaken'}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>
     <div class="uit"><div class="uitin">${uitwerkingHTML(b)}</div></div></div>`;
 
-  groepen+=BSTAPPEN.map(s=>{
+  const naslag=groepen+werkGroep;
+  const bstapRij=s=>{
     const isOpen=S.open===s.key, klaar=s.klaar(b), w=String(s.waarde(b));
     let inh='';
     if(s.key==='opening'){
@@ -1191,16 +1184,21 @@ function batchHTML(){
     const knop=(b.status==='klaar')?'':`<button class="toevoeg" data-sheet="${s.sheet}">${svg(I.plus)}${s.knop}</button>`;
     return `<div class="groep ${isOpen?'open':''}">
       <button class="arij" data-rij="${s.key}">
+        <span class="bol ${s.kern?(klaar?'af':''):'leeg'}">${s.kern&&klaar?svg(I.vink,'2.6'):''}</span>
         <span class="naam">${s.label}${s.kern?'':'<small>optioneel</small>'}</span>
-        ${klaar&&s.kern?'<span class="stip groen"></span>':''}
         ${b.logs.some(l=>l.type===s.key&&l.status!=='ok')?'<span class="stip amber"></span>':''}
         <span class="waarde ${w!=='—'?'gevuld':''}">${esc(w)}</span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
       <div class="uit"><div class="uitin">${inh}${knop}</div></div></div>`;
-  }).join('');
+  };
+  groepen=BSTAPPEN.map(bstapRij).join('');
 
-  h+=`<div class="blokkop"><span class="eyebrow">In deze batch</span><span class="tel">${b.logs.length} registraties</span></div>
+  const nOver=BSTAPPEN.filter(x=>x.kern&&!x.klaar(b)).length;
+  h+=`<div class="blokkop"><span class="eyebrow">Vastleggen</span>
+      <span class="tel">${nOver?nOver+' te doen':'compleet'}</span></div>
     <div class="paneel">${groepen}</div>
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Naslag</span></div>
+    <div class="paneel">${naslag}</div>
     <div class="voet"><button data-rapport="batch">Batchrapport bekijken</button>
       <button data-rapport="dag">Dagrapport van vandaag</button>
       <button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`;
