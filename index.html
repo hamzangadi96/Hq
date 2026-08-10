@@ -418,6 +418,11 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .startknop{flex:1;display:flex;align-items:center;gap:12px;text-align:left;min-width:0}
 /* geleide modus */
 .klokvak{position:relative;width:100%;max-width:280px;margin:8px auto 0;aspect-ratio:1}
+.klokvak.klein{max-width:190px;margin:0 auto 24px}
+.klokvak.klein .kact{font-size:14px}
+.klokvak.klein .ktijd{font-size:30px;margin-top:4px}
+.klokvak.klein .kvan{font-size:11px}
+.klokvak.klein .klokin{padding:0 24px}
 .ring{width:100%;height:100%;transform:rotate(-90deg);display:block}
 .ring .rbaan{fill:none;stroke:#ececee;stroke-width:7}
 .ring .rvul{fill:none;stroke:var(--ink);stroke-width:7;stroke-linecap:round;
@@ -633,7 +638,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v41 · 10 aug 2026';
+const APPVERSIE='v42 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3039,9 +3044,14 @@ function sheetStapDoen(naam){
 
   const gedaan=planVan(b)[naam]&&planVan(b)[naam].gedaan;
   sheet(naam,
-    `<div class="uvkop"><span class="tp"></span>
-       <span class="un">${esc(naam)}<small>${bMallen(b)} ${bMallen(b)===1?'mal':'mallen'} · ${bTotaal(b)} bonbons</small></span>
-       <span class="ut tikker">${w?duurTekst(Date.now()-w.start):'00:00'}</span></div>
+    `<div class="klokvak ${geleideLijst(b,naam).length?'klein':''}">
+       ${ringSvg(w?((Math.floor((Date.now()-w.start)/1000)%60)/60):0)}
+       <div class="klokin">
+         <div class="kact">${esc(naam)}</div>
+         <div class="ktijd tikker">${w?duurTekst(Date.now()-w.start):'00:00'}</div>
+         <div class="kvan">${bMallen(b)} ${bMallen(b)===1?'mal':'mallen'} · ${bTotaal(b)} bonbons</div>
+       </div>
+     </div>
      ${blokken}`,
     `${geleideLijst(b,naam).length?`<button class="prim" style="margin-top:0" id="uvGeleid">${svg(I.pijl,'2')}Stap voor stap doorlopen</button>`:''}
      <button class="${geleideLijst(b,naam).length?'sec':'prim'}" style="margin-top:${geleideLijst(b,naam).length?'8px':'0'}" id="uvOk">${gedaan?'Opnieuw openen':'Stap afronden'}</button>
@@ -4045,6 +4055,11 @@ setInterval(()=>{
   const w=lopendWerk(b);
   const t = w ? duurTekst(Date.now()-w.start) : '—';
   kl.forEach(el=>{if(el.textContent!==t)el.textContent=t});
+  const ring=document.querySelector('.rvul');
+  if(ring&&w){
+    const c=2*Math.PI*92, sec=Math.floor((Date.now()-w.start)/1000);
+    ring.setAttribute('stroke-dashoffset',(c*(1-((sec%60)/60))).toFixed(1));
+  }
 },1000);
 
 if('serviceWorker' in navigator){
