@@ -1,0 +1,40 @@
+# Rolt de Cloud Functions uit zodra je iets in de map cloud verandert.
+# Je hoeft hier verder niets mee te doen — GitHub regelt het.
+
+name: Functies uitrollen
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloud/**'
+  workflow_dispatch:        # zo kun je hem ook met de hand starten
+
+jobs:
+  uitrollen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code ophalen
+        uses: actions/checkout@v4
+
+      - name: Node klaarzetten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Firebase-gereedschap
+        run: npm install -g firebase-tools
+
+      - name: Uitrollen naar Firebase
+        working-directory: cloud
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/sleutel.json
+          FIREBASE_SLEUTEL: ${{ secrets.FIREBASE_SLEUTEL }}
+        run: |
+          printf '%s' "$FIREBASE_SLEUTEL" > "$GITHUB_WORKSPACE/sleutel.json"
+          firebase deploy \
+            --only functions,database \
+            --project cacaoboetiek-hq \
+            --non-interactive \
+            --force
+          rm -f "$GITHUB_WORKSPACE/sleutel.json"
