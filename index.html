@@ -375,6 +375,34 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
 .vinkknop svg{width:15px;height:15px}
 .vinkknop.aan{background:var(--groen);color:#fff}
 .startknop{flex:1;display:flex;align-items:center;gap:12px;text-align:left;min-width:0}
+/* geleide modus */
+.gbalk{height:4px;border-radius:99px;background:#ececee;overflow:hidden;margin-bottom:12px}
+.gvul{height:100%;background:var(--ink);border-radius:99px;transition:width .25s}
+.gtel{font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--grijs);margin-bottom:20px}
+.gvak{min-height:190px;display:flex;flex-direction:column;justify-content:center;padding:4px 0 12px}
+.gwoord{font-size:17px;font-weight:500;color:var(--grijs);letter-spacing:-.01em}
+.ggetal{font-size:56px;font-weight:700;letter-spacing:-.04em;line-height:1;margin-top:8px;
+  display:flex;align-items:baseline;gap:8px}
+.ggetal em{font-size:17px;font-weight:500;font-style:normal;color:var(--grijs);letter-spacing:0}
+.gzin{font-size:28px;font-weight:600;letter-spacing:-.025em;line-height:1.25}
+.gtimer{display:flex;align-items:center;gap:12px;margin-top:20px;padding:12px 16px;
+  border:1px solid var(--lijn);border-radius:14px}
+.gtimer.loopt{background:var(--ink);border-color:var(--ink)}
+.gklok{flex:1;font-size:32px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.gtimer.loopt .gklok{color:#fff}
+.gklok.op{color:var(--rood)}
+.gstart{height:40px;padding:0 20px;border-radius:99px;background:var(--ink);color:#fff;
+  font-size:15px;font-weight:600;flex:none}
+.gtimer.loopt .gstart{background:#fff;color:var(--ink)}
+.gmeet{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:44px;
+  margin-top:12px;border:1px solid var(--lijn);border-radius:14px;font-size:14px;font-weight:600}
+.gmeet svg{width:16px;height:16px}
+.gvoet{display:flex;gap:8px;margin-top:8px}
+.gvoet button{flex:1;height:44px;border-radius:14px;background:var(--bg);
+  font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:4px}
+.gvoet button:disabled{opacity:.35}
+.gvoet button svg{width:14px;height:14px;transform:rotate(180deg)}
 .uvkop{display:flex;align-items:center;gap:12px;background:var(--ink);color:#fff;border-radius:18px;
   padding:16px 16px;margin-bottom:20px}
 .uvkop .un{flex:1;font-size:16px;font-weight:600;letter-spacing:-.02em}
@@ -550,7 +578,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v31 · 10 aug 2026';
+const APPVERSIE='v32 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -600,7 +628,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1656,7 +1684,7 @@ function sheetMeting(opt){
 }
 const meetpuntErbij=(naam,terug)=>sheetMeting({naam,terug});
 
-function sheetTemp(){
+function sheetTemp(voor,bij){
   const b=batch(); if(!b) return;
   startStap(b,'Temperatuur meten');
   if(!S.meetpunten.length){
@@ -1687,8 +1715,10 @@ function sheetTemp(){
           <button class="miniknop" id="tFormOk">Opslaan</button></div></div></div>
      <div class="veld"><label>Gemeten waarde</label>
       <div class="stepper"><button class="stepbtn" id="tMin">${svg(I.min)}</button>
-      <div class="stepval"><input id="tV" type="number" inputmode="decimal" step="0.1" value="4.0"><span class="eenh">°C</span></div>
+      <div class="stepval"><input id="tV" type="number" inputmode="decimal" step="0.1" value="${
+        (typeof voor==='number'&&!isNaN(voor))?komma(voor):'4,0'}"><span class="eenh">°C</span></div>
       <button class="stepbtn" id="tPlus">${svg(I.plus)}</button></div><div class="norm ok" id="tN"></div></div>
+     ${bij?`<p class="hint" style="margin-top:-4px">Hoort bij: ${esc(bij)}</p>`:''}
      <div class="veld" id="tAV" style="display:none"><label>Wat heb je gedaan?</label>
       <textarea class="inp" id="tA" placeholder="Bijv. deur stond open, thermostaat lager, om 11:00 hermeten"></textarea></div>`,
     `<button class="prim" style="margin-top:0" id="tOk">Meting opslaan</button>`);
@@ -2302,6 +2332,97 @@ function sheetProductie(){
 }
 
 /* een productiestap uitvoeren: precies wat je moet doen, met de juiste hoeveelheden */
+
+/* ============ geleide modus: één handeling tegelijk ============ */
+function geleideLijst(b,naam){
+  const uit=[];
+  b.regels.forEach(rg=>{
+    const r=receptVan(b,rg.receptId);
+    (r.onderdelen||[]).filter(o=>(o.stap||'')===naam).forEach((o,oi)=>{
+      const tot=(parseFloat(o.gram)||0)*rg.aantal;
+      verdeel(o,tot).forEach((x,i)=>uit.push({soort:'weeg',smaak:r.naam,deel:o.naam,
+        tekst:x.naam,gram:x.gram,k:naam+'|'+rg.receptId+'|ing'+oi+'|'+i}));
+      (o.werkwijze||[]).forEach((t,i)=>uit.push({soort:'doe',smaak:r.naam,deel:o.naam,
+        tekst:t,sec:leesTijd(t),graden:leesGraden(t),k:naam+'|'+rg.receptId+'|wz'+oi+'|'+i}));
+    });
+  });
+  return uit;
+}
+let kookTik=null;
+function kookRest(){
+  if(!S.kook) return 0;
+  return Math.max(0,Math.round((S.kook.start+S.kook.sec*1000-Date.now())/1000));
+}
+function sheetGeleid(naam,i){
+  const b=batch(); if(!b) return;
+  const lijst=geleideLijst(b,naam);
+  if(!lijst.length) return sheetStapDoen(naam);
+  let w=lopendWerk(b);
+  if(!w||w.act!==naam){startWerk(b,naam);w=lopendWerk(b);setTimeout(render,0)}
+  b.afvink=b.afvink||{};
+  i=Math.max(0,Math.min(lijst.length-1,i|0));
+  const h=lijst[i], laatste=i===lijst.length-1;
+  const loopt=S.kook&&S.kook.k===h.k, rest=loopt?kookRest():0;
+
+  let midden='';
+  if(h.soort==='weeg'){
+    midden=`<div class="gwoord">${esc(h.tekst)}</div>
+      <div class="ggetal">${getal(h.gram)}<em>gram</em></div>`;
+  } else {
+    midden=`<div class="gzin">${esc(h.tekst)}</div>`;
+    if(h.sec){
+      midden+=`<div class="gtimer ${loopt?'loopt':''}">
+        <span class="gklok ${loopt&&!rest?'op':''}" id="gKlok">${klokTekst(loopt?rest:h.sec)}</span>
+        <button class="gstart" id="gStart">${loopt?(rest?'Stoppen':'Opnieuw'):'Start'}</button></div>`;
+    }
+    if(h.graden!==null&&h.graden!==undefined){
+      midden+=`<button class="gmeet" id="gMeet">${svg(I.temp,'1.9')}Meting vastleggen bij ${getal(h.graden)} °C</button>`;
+    }
+  }
+
+  sheet(naam,
+    `<div class="gbalk"><div class="gvul" style="width:${((i+1)/lijst.length*100).toFixed(1)}%"></div></div>
+     <div class="gtel">${i+1} van ${lijst.length} · ${esc(h.deel)}${
+       b.regels.length>1?' · '+esc(h.smaak):''}</div>
+     <div class="gvak">${midden}</div>`,
+    `<button class="prim" style="margin-top:0" id="gOk">${
+       h.soort==='weeg'?'Afgewogen':'Klaar'}${laatste?' — stap afronden':', volgende'}</button>
+     <div class="gvoet">
+       <button id="gVorige" ${i?'':'disabled'}>${svg(I.pijl,'2')}Vorige</button>
+       <button id="gLijst">Hele lijst</button>
+     </div>`);
+
+  const tik=()=>{
+    if(!S.kook||S.kook.k!==h.k) return;
+    const r=kookRest(), el=$('#gKlok');
+    if(el){ el.textContent=klokTekst(r); if(!r) el.classList.add('op'); }
+    if(!r){ clearInterval(kookTik); kookTik=null; const kn=$('#gStart'); if(kn) kn.textContent='Opnieuw'; }
+  };
+  if(kookTik){clearInterval(kookTik);kookTik=null}
+  if(loopt&&rest){kookTik=setInterval(tik,250)}
+
+  if($('#gStart')) $('#gStart').onclick=()=>{
+    if(loopt&&rest){ S.kook=null; if(kookTik){clearInterval(kookTik);kookTik=null} }
+    else S.kook={k:h.k,sec:h.sec,start:Date.now()};
+    bewaarNu(); sheetGeleid(naam,i);
+  };
+  if($('#gMeet')) $('#gMeet').onclick=()=>sheetTemp(h.graden,naam+' — '+h.deel);
+  $('#gLijst').onclick=()=>sheetStapDoen(naam);
+  $('#gVorige').onclick=()=>{ if(i) sheetGeleid(naam,i-1) };
+  $('#gOk').onclick=()=>{
+    b.afvink[h.k]=true; bewaarNu();
+    if(S.kook&&S.kook.k===h.k) S.kook=null;
+    if(laatste){
+      stapKlaar(b,naam); stopWerk(b);
+      const nv=planVolgende(b); render(); sheetProductie();
+      return toast(nv?'Klaar. Volgende: '+nv.toLowerCase():'Alle productiestappen gedaan.');
+    }
+    sheetGeleid(naam,i+1);
+  };
+}
+const klokTekst=s=>{const m=Math.floor(s/60),r=s%60;
+  return m>=60?Math.floor(m/60)+':'+pad(m%60)+':'+pad(r):pad(m)+':'+pad(r)};
+
 function sheetStapDoen(naam){
   const b=batch(); if(!b) return;
   let w=lopendWerk(b);
@@ -2347,8 +2468,14 @@ function sheetStapDoen(naam){
        <span class="un">${esc(naam)}<small>${bMallen(b)} ${bMallen(b)===1?'mal':'mallen'} · ${bTotaal(b)} bonbons</small></span>
        <span class="ut tikker">${w?duurTekst(Date.now()-w.start):'00:00'}</span></div>
      ${blokken}`,
-    `<button class="prim" style="margin-top:0" id="uvOk">${gedaan?'Opnieuw openen':'Stap afronden'}</button>
+    `${geleideLijst(b,naam).length?`<button class="prim" style="margin-top:0" id="uvGeleid">${svg(I.pijl,'2')}Stap voor stap doorlopen</button>`:''}
+     <button class="${geleideLijst(b,naam).length?'sec':'prim'}" style="margin-top:${geleideLijst(b,naam).length?'8px':'0'}" id="uvOk">${gedaan?'Opnieuw openen':'Stap afronden'}</button>
      <button class="sec" id="uvTerug">Terug naar stappen</button>`);
+  if($('#uvGeleid')) $('#uvGeleid').onclick=()=>{
+    const l=geleideLijst(b,naam);
+    const start=Math.max(0,l.findIndex(x=>!b.afvink[x.k]));
+    sheetGeleid(naam,start);
+  };
   $$('[data-af]').forEach(x=>x.onclick=()=>{
     sluitToetsenbord();
     const k=x.dataset.af;
