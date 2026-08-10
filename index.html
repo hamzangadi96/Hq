@@ -107,8 +107,22 @@ main{flex:1;overflow-y:auto;padding:20px 20px 32px;-webkit-overflow-scrolling:to
 .arij .naam{flex:1;font-size:15px;font-weight:500;letter-spacing:-.015em}
 .arij .bol{width:20px;height:20px;border-radius:99px;border:1.5px solid #d8d8dc;flex:none;
   display:grid;place-items:center;color:transparent}
-.arij .bol.af{background:var(--ink);border-color:var(--ink);color:#fff}
 .arij .bol.leeg{border-color:transparent}
+
+/* de route: stappen zijn verbonden, je ziet waar je bent */
+.groep.inroute{position:relative}
+.groep.inroute::before{content:'';position:absolute;left:29px;top:0;bottom:0;width:2px;background:#e9e9ec}
+.groep.inroute:first-child::before{top:24px}
+.groep.inroute:last-of-type::before{bottom:calc(100% - 26px)}
+.arij .rmark{width:20px;height:20px;border-radius:99px;flex:none;display:grid;place-items:center;
+  position:relative;z-index:1;background:#fff;border:2px solid #e0e0e4;color:transparent}
+.arij.rgedaan .rmark{background:var(--ink);border-color:var(--ink);color:#fff}
+.arij.rnu .rmark{border-color:var(--ink);box-shadow:0 0 0 4px rgba(24,24,27,.09)}
+.arij.rnu .rmark::after{content:'';width:8px;height:8px;border-radius:99px;background:var(--ink)}
+.arij .rmark svg{width:11px;height:11px}
+.arij.rstraks .naam{color:var(--grijs2)}
+.arij.rstraks .waarde{color:var(--grijs3)}
+.arij.rnu .naam{font-weight:600}
 .arij .bol svg{width:11px;height:11px}
 .arij .naam small{display:block;font-size:11px;font-weight:600;color:var(--grijs3);margin-top:4px;letter-spacing:.03em;text-transform:uppercase}
 .arij .waarde{font-size:14px;font-weight:500;color:var(--grijs2);letter-spacing:-.01em}
@@ -532,7 +546,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v28 · 10 aug 2026';
+const APPVERSIE='v30 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -826,6 +840,9 @@ function bIngredienten(b){
 }
 
 const BSTAPPEN=[
+  {key:'ingredienten',label:'Ingrediënten',kern:true,klaar:b=>bTel(b,'ingredienten')>0,sheet:'ingredienten',knop:'Lotnummers invullen',
+   waarde:b=>{const t=bIngredienten(b).length,g=Object.values(b.lots).filter(Boolean).length;
+     return bTel(b,'ingredienten')?g+' van '+t:'—'}},
   {key:'opening',label:'Openingscheck',kern:true,
    klaar:b=>{const d=dagVan(b,vandaag());return !!(d&&d.opening)},sheet:'opening',knop:'Check doen',
    waarde:b=>{const d=dagVan(b,vandaag());return d&&d.opening?(d.opening.overgenomen?'overgenomen':'akkoord'):'—'}},
@@ -833,22 +850,19 @@ const BSTAPPEN=[
    klaar:b=>b.logs.some(l=>l.type==='temperatuur'&&l.datum===vandaag()),sheet:'temp',knop:'Meting toevoegen',
    waarde:b=>{const n=b.logs.filter(l=>l.type==='temperatuur'&&l.datum===vandaag()).length;
      return n?n+(n===1?' vandaag':' vandaag'):'—'}},
-  {key:'ontvangst',label:'Ontvangst',kern:false,klaar:b=>bTel(b,'ontvangst')>0,sheet:'ontvangst',knop:'Ontvangst toevoegen',
-   waarde:b=>bTel(b,'ontvangst')||'—'},
-  {key:'ingredienten',label:'Ingrediënten',kern:true,klaar:b=>bTel(b,'ingredienten')>0,sheet:'ingredienten',knop:'Lotnummers invullen',
-   waarde:b=>{const t=bIngredienten(b).length,g=Object.values(b.lots).filter(Boolean).length;
-     return bTel(b,'ingredienten')?g+' van '+t:'—'}},
   {key:'productie',label:'Productiestappen',kern:true,
    klaar:b=>bPlan(b).length>0&&planGedaan(b)===bPlan(b).length,sheet:'productie',knop:'Stappen openen',
    waarde:b=>bPlan(b).length?planGedaan(b)+' van '+bPlan(b).length:'—'},
-  {key:'afwijking',label:'Afwijkingen',kern:false,klaar:()=>true,sheet:'afwijking',knop:'Afwijking melden',
-   waarde:b=>bTel(b,'afwijking')||'geen'},
   {key:'schoonmaak',label:'Schoonmaak',kern:true,
    klaar:b=>b.logs.some(l=>l.type==='schoonmaak'&&l.datum===vandaag()),sheet:'schoonmaak',knop:'Schoonmaak loggen',
    waarde:b=>{const n=b.logs.filter(l=>l.type==='schoonmaak'&&l.datum===vandaag()).length;
      return n?n+(n===1?' keer':' keer'):'—'}},
   {key:'afronden',label:'Afronden',kern:true,klaar:b=>b.status==='klaar',sheet:'afronden',knop:'Batch afronden',
-   waarde:b=>b.resultaat?b.resultaat.goed+' goed':'—'}
+   waarde:b=>b.resultaat?b.resultaat.goed+' goed':'—'},
+  {key:'ontvangst',label:'Ontvangst',kern:false,klaar:b=>bTel(b,'ontvangst')>0,sheet:'ontvangst',knop:'Ontvangst toevoegen',
+   waarde:b=>bTel(b,'ontvangst')||'—'},
+  {key:'afwijking',label:'Afwijkingen',kern:false,klaar:()=>true,sheet:'afwijking',knop:'Afwijking melden',
+   waarde:b=>bTel(b,'afwijking')||'geen'}
 ];
 const KERN=BSTAPPEN.filter(s=>s.kern);
 const bGedaan=b=>KERN.filter(s=>s.klaar(b)).length;
@@ -1150,8 +1164,10 @@ function batchHTML(){
     <div class="uit"><div class="uitin">${uitwerkingHTML(b)}</div></div></div>`;
 
   const naslag=groepen+werkGroep;
+  const nu=bVolgende(b);
   const bstapRij=s=>{
     const isOpen=S.open===s.key, klaar=s.klaar(b), w=String(s.waarde(b));
+    const stand=klaar?'gedaan':(nu&&nu.key===s.key?'nu':'straks');
     let inh='';
     if(s.key==='opening'){
       const dl=dagenVan(b).filter(x=>x.opening);
@@ -1182,10 +1198,11 @@ function batchHTML(){
         :'<div class="geen">Nog niets gelogd.</div>';
     }
     const knop=(b.status==='klaar')?'':`<button class="toevoeg" data-sheet="${s.sheet}">${svg(I.plus)}${s.knop}</button>`;
-    return `<div class="groep ${isOpen?'open':''}">
-      <button class="arij" data-rij="${s.key}">
-        <span class="bol ${s.kern?(klaar?'af':''):'leeg'}">${s.kern&&klaar?svg(I.vink,'2.6'):''}</span>
-        <span class="naam">${s.label}${s.kern?'':'<small>optioneel</small>'}</span>
+    return `<div class="groep ${isOpen?'open':''} ${s.kern?'inroute':''}">
+      <button class="arij ${s.kern?('r'+stand):''}" data-rij="${s.key}">
+        ${s.kern?`<span class="rmark">${klaar?svg(I.vink,'2.8'):''}</span>`
+                :'<span class="bol leeg"></span>'}
+        <span class="naam">${s.label}${s.kern?(s.key==='ingredienten'?'<small>vooraf, dag ervoor</small>':''):'<small>optioneel</small>'}</span>
         ${b.logs.some(l=>l.type===s.key&&l.status!=='ok')?'<span class="stip amber"></span>':''}
         <span class="waarde ${w!=='—'?'gevuld':''}">${esc(w)}</span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
@@ -1194,8 +1211,8 @@ function batchHTML(){
   groepen=BSTAPPEN.map(bstapRij).join('');
 
   const nOver=BSTAPPEN.filter(x=>x.kern&&!x.klaar(b)).length;
-  h+=`<div class="blokkop"><span class="eyebrow">Vastleggen</span>
-      <span class="tel">${nOver?nOver+' te doen':'compleet'}</span></div>
+  h+=`<div class="blokkop"><span class="eyebrow">De route</span>
+      <span class="tel">${bGedaan(b)} van ${KERN.length}</span></div>
     <div class="paneel">${groepen}</div>
     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Naslag</span></div>
     <div class="paneel">${naslag}</div>
