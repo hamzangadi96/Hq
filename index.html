@@ -303,6 +303,9 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
   border-radius:14px;background:var(--bg)}
 .mveld input{flex:1;min-width:0;background:none;border:0;font-size:16px;font-weight:600;
   color:var(--ink);padding:0;height:100%}
+.onthoud{display:flex;align-items:flex-start;gap:12px;padding:16px 0 8px;
+  font-size:13.5px;color:var(--grijs);line-height:1.45;cursor:pointer}
+.onthoud input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--ink)}
 .mveld span{font-size:14px;font-weight:600;color:var(--grijs2);flex:none}
 .vrkop{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding-bottom:20px;margin-bottom:4px;border-bottom:1px solid var(--lijn)}
@@ -674,7 +677,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v49 · 10 aug 2026';
+const APPVERSIE='v50 · 10 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -729,7 +732,7 @@ const S={
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
-  klanten:[], orders:[], ritten:[], rit:null, kmStand:null,
+  klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[],
   ontvangsten:[], ijkingen:[],
   batches:[]
 };
@@ -750,7 +753,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1423,6 +1426,39 @@ function stapUitleg(k,b){
   }[k]||'';
 }
 
+function sheetPlekken(){
+  S.plekken=S.plekken||[];
+  sheet('Vaste plekken',
+    `<p class="hint">Adressen waar je vaker komt. Ben je binnen 120 meter van zo'n plek,
+      dan gebruikt de app dit adres in plaats van wat gps ervan maakt — dan klopt het huisnummer altijd.</p>
+     ${S.plekken.length?`<div class="paneel" style="margin-bottom:20px">${S.plekken.map(pl=>`
+       <div class="item"><span class="t">📍</span><span class="b">${esc(pl.adres)}
+         <em>${komma(Math.round(pl.lat*1e4)/1e4)}, ${komma(Math.round(pl.lon*1e4)/1e4)}</em></span>
+         <button class="wisbtn" data-plekwis="${pl.id}">${svg(I.kruis,'2')}</button></div>`).join('')}</div>`
+      :'<div class="geen" style="padding-bottom:20px">Nog geen vaste plekken.</div>'}
+     <div class="blokkop"><span class="eyebrow">Hier toevoegen</span></div>
+     <div class="veld"><label>Adres</label>
+       <input class="inp" id="plA" placeholder="Bijv. Alcoalaan 8D, Drunen"></div>
+     <div class="geen" id="plU">Je huidige locatie wordt gebruikt als coördinaten.</div>`,
+    `<button class="prim" style="margin-top:0" id="plOk">Deze plek vastleggen</button>`);
+  $$('[data-plekwis]').forEach(x=>x.onclick=()=>{
+    S.plekken=S.plekken.filter(y=>y.id!==x.dataset.plekwis); bewaarNu(); sheetPlekken();
+  });
+  let hier=null;
+  positieNu().then(async p=>{
+    hier=p;
+    $('#plU').textContent='Locatie gevonden op '+p.nauw+' meter nauwkeurig.';
+    if(!$('#plA').value){ const a=await adresVan(p.lat,p.lon); if(a&&!$('#plA').value) $('#plA').value=a; }
+  }).catch(()=>{ $('#plU').textContent='Locatie niet gevonden. Zet je locatie aan en probeer het buiten.' });
+  $('#plOk').onclick=()=>{
+    const a=$('#plA').value.trim();
+    if(!a) return toast('Vul het adres in.');
+    if(!hier) return toast('Wacht tot je locatie gevonden is.');
+    S.plekken.push({id:uid(),naam:a,adres:a,lat:hier.lat,lon:hier.lon});
+    bewaarNu(); sheetPlekken(); toast('Plek vastgelegd.');
+  };
+}
+
 function sheetRit(id){
   const r=(S.ritten||[]).find(x=>x.id===id); if(!r) return;
   sheet(r.reden||'Rit',
@@ -1526,6 +1562,7 @@ function geldHTML(){
 
   h+=`<div class="voet">
     ${lijst.length?'<button data-kmexport>Rittenoverzicht printen</button>':''}
+    <button data-plekken>Vaste plekken${(S.plekken||[]).length?' ('+S.plekken.length+')':''}</button>
     <button data-kmtarief>Kilometervergoeding · ${komma(kmTarief())} per km</button></div>`;
   return h;
 }
@@ -1536,11 +1573,11 @@ async function ritStart(){
   try{
     const p=await positieNu();
     S.rit={begonnen:Date.now(),start:{tijd:nu(),lat:p.lat,lon:p.lon,adres:null},
-      punten:[{lat:p.lat,lon:p.lon,t:Date.now()}],km:0};
+      punten:[{lat:p.lat,lon:p.lon,t:Date.now()}],km:0,nauw:p.nauw};
     bewaarNu(); render(); ritVolgen(true); schermWakker(true);
     toast('Rit gestart.');
-    const a=await adresVan(p.lat,p.lon);
-    if(a&&S.rit){S.rit.start.adres=a;bewaarNu()}
+    const n=await plaatsNaam(p.lat,p.lon);
+    if(n.adres&&S.rit){S.rit.start.adres=n.adres;S.rit.start.bekend=n.bekend;bewaarNu();render()}
   }catch(e){
     toast(e&&e.code===1?'Geef de app toegang tot je locatie.':'Locatie niet gevonden. Probeer het buiten opnieuw.');
   }
@@ -1588,12 +1625,27 @@ async function ritStop(){
        <div class="geen" style="padding-top:8px">${begin!==null
          ? 'Beginstand was '+getal(begin)+' km.'
          : 'Eén keer invullen, daarna telt de app zelf door.'}</div></div>
-     ${r.start.adres?`<div class="geen">Vertrokken vanaf ${esc(r.start.adres)}</div>`:''}`,
+     <div class="veld"><label>Vertrokken vanaf</label>
+       <input class="inp" id="rrV" value="${esc(r.start.adres||'')}" placeholder="adres wordt opgezocht…">
+       <div class="geen" style="padding-top:8px" id="rrVbek"
+         ${r.start.bekend?'':'style="display:none"'}>Herkende plek uit je lijst.</div></div>
+     <div class="veld"><label>Aangekomen bij</label>
+       <input class="inp" id="rrN" value="${esc(eind.adres||'')}" placeholder="adres wordt opgezocht…">
+       <div class="geen" style="padding-top:8px" id="rrNbek" style="display:none">Herkende plek uit je lijst.</div></div>
+     <label class="onthoud"><input type="checkbox" id="rrOnth"><span>Deze bestemming onthouden,
+       zodat het adres voortaan meteen klopt</span></label>
+     ${r.nauw?`<div class="geen">Locatie op ${r.nauw} meter nauwkeurig gemeten. Klopt een adres niet,
+       pas het hierboven aan.</div>`:''}`,
     `<button class="prim" style="margin-top:0" id="rrOk">Rit vastleggen</button>`);
   let zak=true;
   $$('#rrZ button').forEach(x=>x.onclick=()=>{sluitToetsenbord();
     $$('#rrZ button').forEach(y=>y.classList.remove('aan'));x.classList.add('aan');zak=x.dataset.v==='zak'});
-  adresVan(eind.lat,eind.lon).then(a=>{if(a)eind.adres=a});
+  plaatsNaam(eind.lat,eind.lon).then(n=>{
+    if(!n.adres) return;
+    eind.adres=n.adres; eind.bekend=n.bekend;
+    const el=$('#rrN'); if(el&&!el.value) el.value=n.adres;
+    const b=$('#rrNbek'); if(b) b.style.display=n.bekend?'block':'none';
+  });
   $('#rrKm').oninput=()=>{
     const v=parseFloat($('#rrKm').value);
     if(!isNaN(v)&&S.kmStand!==null) $('#rrK').value=Math.round(S.kmStand+v);
@@ -1606,11 +1658,16 @@ async function ritStop(){
     const km=Math.round(km2*10)/10;
     const stand=parseFloat($('#rrK').value);
     const rit={id:uid(),datum:iso(new Date()),km,reden,zakelijk:zak,bron,
-      start:{tijd:r.start.tijd,lat:r.start.lat,lon:r.start.lon,adres:r.start.adres},
-      eind:{tijd:eind.tijd,lat:eind.lat,lon:eind.lon,adres:eind.adres},
+      start:{tijd:r.start.tijd,lat:r.start.lat,lon:r.start.lon,adres:$('#rrV').value.trim()||r.start.adres},
+      eind:{tijd:eind.tijd,lat:eind.lat,lon:eind.lon,adres:$('#rrN').value.trim()||eind.adres},
       standBegin:isNaN(stand)?null:Math.round(stand-km), standEind:isNaN(stand)?null:Math.round(stand),
       punten:r.punten.length};
     S.ritten=S.ritten||[]; S.ritten.push(rit);
+    if($('#rrOnth')&&$('#rrOnth').checked&&eind.lat!==null&&rit.eind.adres){
+      S.plekken=S.plekken||[];
+      if(!plekBij(eind.lat,eind.lon))
+        S.plekken.push({id:uid(),naam:rit.eind.adres,adres:rit.eind.adres,lat:eind.lat,lon:eind.lon});
+    }
     if(!isNaN(stand)) S.kmStand=Math.round(stand);
     S.rit=null; bewaarNu(); render();
     klaarSheet(komma(km)+' km vastgelegd'+(zak?' · '+euro(km*kmTarief())+' aftrekbaar':'')+'.');
@@ -2107,6 +2164,7 @@ function bind(){
   $$('[data-ritstop]').forEach(x=>x.onclick=ritStop);
   $$('[data-rit]').forEach(x=>x.onclick=()=>sheetRit(x.dataset.rit));
   $$('[data-kmexport]').forEach(x=>x.onclick=sheetRitten);
+  $$('[data-plekken]').forEach(x=>x.onclick=sheetPlekken);
   $$('[data-kmtarief]').forEach(x=>x.onclick=()=>{
     sheet('Kilometervergoeding',
       `<p class="hint">Het bedrag dat je per zakelijke kilometer van je winst mag aftrekken.
@@ -4214,13 +4272,42 @@ function ritVolgen(aan){
     const p=$('#rkPunten'); if(p) p.textContent=S.rit.punten.length+' meetpunten';
   },()=>{},{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
-function positieNu(){
+/* de eerste meting is meestal de slechtste. Even doormeten en de scherpste nemen. */
+function positieNu(ms){
+  ms=ms||5000;
   return new Promise((res,rej)=>{
     if(!navigator.geolocation) return rej(new Error('geen locatie'));
-    navigator.geolocation.getCurrentPosition(
-      p=>res({lat:p.coords.latitude,lon:p.coords.longitude,nauw:Math.round(p.coords.accuracy)}),
-      e=>rej(e),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    let beste=null, id=null, klaar=false;
+    const stop=fout=>{
+      if(klaar) return; klaar=true;
+      if(id!==null) navigator.geolocation.clearWatch(id);
+      beste?res(beste):rej(fout||new Error('geen fix'));
+    };
+    id=navigator.geolocation.watchPosition(p=>{
+      const c={lat:p.coords.latitude,lon:p.coords.longitude,nauw:Math.round(p.coords.accuracy)};
+      if(!beste||c.nauw<beste.nauw) beste=c;
+      if(beste.nauw<=8) stop();                 /* scherper wordt het niet */
+    },e=>{ if(!beste) stop(e) },{enableHighAccuracy:true,maximumAge:0,timeout:ms});
+    setTimeout(()=>stop(),ms);
   });
+}
+
+/* plekken waar je vaker komt: eigen werkplaats, vaste klanten */
+function plekBij(lat,lon,meter){
+  const grens=(meter||120)/1000;
+  let dichtst=null, kort=Infinity;
+  (S.plekken||[]).forEach(pl=>{
+    const d=afstandKm({lat,lon},{lat:pl.lat,lon:pl.lon});
+    if(d<grens&&d<kort){kort=d;dichtst=pl}
+  });
+  return dichtst;
+}
+/* eerst kijken of je hier vaker bent, pas dan het adres opzoeken */
+async function plaatsNaam(lat,lon){
+  const pl=plekBij(lat,lon);
+  if(pl) return {adres:pl.adres,plekId:pl.id,bekend:true};
+  const a=await adresVan(lat,lon);
+  return {adres:a,plekId:null,bekend:false};
 }
 const CTYPES={
   ongedierte:{n:'Ongediertecontrole',herhaal:90},
