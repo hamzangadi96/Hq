@@ -192,16 +192,16 @@ main>.blokkop:first-child{margin-top:8px}
 .ivak.ink{background:var(--ink);color:#fff}
 
 /* ── voortgangsring: compacter dan een balk, past naast de tekst ── */
-.ring{width:38px;height:38px;flex:none;position:relative;display:grid;place-items:center}
-.ring svg{width:38px;height:38px;transform:rotate(-90deg)}
-.ring circle{fill:none;stroke-width:3.4}
-.ring .baan{stroke:var(--bg)}
-.ring .vul{stroke:var(--ink);stroke-linecap:round;transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
-.ring.groen .vul{stroke:var(--groen)}
-.ring.amber .vul{stroke:var(--amber)}
+.mring{width:38px;height:38px;min-width:38px;flex:none;position:relative;display:grid;place-items:center}
+.mring svg{width:38px;height:38px;display:block;transform:rotate(-90deg)}
+.mring circle{fill:none;stroke-width:3.4}
+.mring .baan{stroke:var(--bg)}
+.mring .vul{stroke:var(--ink);stroke-linecap:round;transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
+.mring.groen .vul{stroke:var(--groen)}
+.mring.amber .vul{stroke:var(--amber)}
 .hkkop{display:flex;align-items:center;gap:12px}
 .hkkop .hkl{flex:1;min-width:0}
-.ring .rt{position:absolute;font-size:10.5px;font-weight:700;letter-spacing:-.03em;
+.mring .rt{position:absolute;font-size:10.5px;font-weight:700;letter-spacing:-.03em;
   font-variant-numeric:tabular-nums;color:var(--ink)}
 
 /* ── hoe lang loopt dit al ── */
@@ -278,26 +278,6 @@ main>.blokkop:first-child{margin-top:8px}
 .uwtot .kop{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--grijs2);margin-bottom:8px}
 
 .snel{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.snelknop{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:16px 16px;display:flex;align-items:center;gap:12px}
-.snelknop:active{background:var(--bg)}
-
-/* verpakking als raster: kleuren onder elkaar, maten naast elkaar */
-.vraster{display:grid;grid-template-columns:1fr repeat(auto-fit,minmax(58px,68px));
-  align-items:stretch;padding:0 14px 10px}
-.vrhoek{height:34px}
-.vrmaat{height:34px;display:grid;place-items:center;font-size:12px;font-weight:700;
-  color:var(--grijs2);letter-spacing:.02em}
-.vrmaat small{font-size:9.5px;font-weight:600;margin-left:2px;opacity:.75}
-.vrkleur{display:flex;align-items:center;font-size:14.5px;font-weight:500;letter-spacing:-.015em;
-  padding:0 8px 0 2px;min-height:46px;border-top:1px solid var(--lijn)}
-.vrcel{display:grid;place-items:center;min-height:46px;border-top:1px solid var(--lijn);
-  font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);
-  border-radius:0;text-align:center}
-.vrcel.leeg{color:var(--grijs3);font-weight:500}
-.vrcel.amber{color:var(--amber)} .vrcel.rood{color:var(--rood)}
-.vrcel:active{background:var(--bg)}
-.snelknop svg{width:19px;height:20px;color:var(--grijs);flex:none;stroke-width:1.7}
-.snelknop span{font-size:14px;font-weight:500;letter-spacing:-.015em;line-height:1.25}
 .cijfers{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid var(--lijn);border-radius:18px;overflow:hidden}
 .ccel{padding:16px 8px;text-align:center;border-right:1px solid var(--lijn)}
 .ccel:last-child{border-right:none}
@@ -1095,7 +1075,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v102 · 11 aug 2026';
+const APPVERSIE='v103 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1771,8 +1751,8 @@ function ringHTML(gedaan,totaal,klas){
   const pct=totaal?Math.min(100,Math.round(gedaan/totaal*100)):0;
   const omtrek=2*Math.PI*16;
   const vul=omtrek*pct/100;
-  return `<span class="ring ${klas||''}">
-    <svg viewBox="0 0 38 38"><circle class="baan" cx="19" cy="19" r="16"></circle>
+  return `<span class="mring ${klas||''}">
+    <svg viewBox="0 0 38 38" width="38" height="38"><circle class="baan" cx="19" cy="19" r="16"></circle>
       <circle class="vul" cx="19" cy="19" r="16"
         stroke-dasharray="${vul.toFixed(1)} ${(omtrek-vul).toFixed(1)}"></circle></svg>
     <span class="rt">${pct}</span></span>`;
