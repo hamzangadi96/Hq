@@ -1094,7 +1094,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v104 · 11 aug 2026';
+const APPVERSIE='v105 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1701,9 +1701,9 @@ function render(){
   const kopEl=document.querySelector('header');
   const opDash=S.tab==='dashboard'&&!inBatch;
   kopEl.classList.toggle('gecentreerd',opDash);
-  kopEl.classList.toggle('donker',opDash);
-  $('#scherm').classList.toggle('opdonker',opDash);
-  if(!opDash) $('#kopKpi').innerHTML='';
+  kopEl.classList.remove('donker');
+  $('#scherm').classList.remove('opdonker');
+  $('#kopKpi').innerHTML='';
   if(!(S.tab==='dashboard'&&!inBatch)||$('#scherm').scrollTop<14) kopEl.classList.remove('klein');
   if(inBatch){
     const b=batch();
@@ -1713,7 +1713,6 @@ function render(){
   } else if(S.tab==='dashboard'){
     $('#kopTitel').innerHTML=merkKop();
     $('#kopOnder').textContent='';
-    $('#kopKpi').innerHTML=dagStrook();
   } else {
     const t=TABS.find(x=>x.key===S.tab)||{};
     $('#kopTitel').textContent=t.label||'';
@@ -1781,17 +1780,30 @@ function ringHTML(gedaan,totaal,klas){
 function dashboardHTML(){
   const sig=signalen(), open=lopende();
   const b=open.find(x=>lopendWerk(x))||open[0];
+  const kb=S.batches.filter(x=>x.status==='klaar');
+  const goed=kb.reduce((n,x)=>n+(x.resultaat?x.resultaat.goed:0),0);
+  const gepland=S.batches.reduce((n,x)=>n+bTotaal(x),0);
+  const afk=kb.reduce((n,x)=>n+(x.resultaat?x.resultaat.afkeur:0),0);
+  const vandaagPlan=planLijst().filter(p2=>dagenTussen(vandaag(),p2.datum)<=1);
+  const boodVandaag=planLijst().filter(p2=>{
+    const bd=boodschapDatum(p2); return bd&&dagenTussen(vandaag(),bd)<=0});
+  const openOrders=(S.orders||[]).filter(o=>o.status==='nieuw');
+  const d0=new Date();
 
-  let h=`<div class="eyebrow" style="margin:0 2px 11px">Productie</div><div class="hoofdkaart">`;
+  let h='';
+
+  /* ── waar je nu mee bezig bent ── */
   if(b){
     const v=bVolgende(b), w=lopendWerk(b);
-    h+=`<div class="balk">${KERN.map(s=>`<div class="seg ${s.klaar(b)?'vol':''}"></div>`).join('')}</div>
+    h+=`<div class="hoofdkaart">
       <div class="hkkop">
-        <div class="hkl"><div class="stap">Dag ${dagNummer(b)} · stap ${bGedaan(b)+1} van ${KERN.length} · ${v?v.label:'Afronden'}</div></div>
+        <div class="hkl">
+          <div class="stap">Dag ${dagNummer(b)} · ${bTotaal(b)} stuks</div>
+          <h2 style="margin-top:6px">${esc(bNamen(b))}</h2>
+        </div>
         ${ringHTML(bGedaan(b),KERN.length,b.status==='pauze'?'amber':'')}
       </div>
-      <h2>${esc(bNamen(b))}</h2>
-      <div class="sub">${b.code} · ${bTotaal(b)} stuks · volgende stap: ${v?v.label.toLowerCase():'afronden'}</div>
+      <div class="sub">${b.code} · volgende stap: ${v?v.label.toLowerCase():'afronden'}</div>
       ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
         <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
       <button class="prim" data-batch="${b.id}">Verder met deze batch</button>`;
@@ -1802,57 +1814,49 @@ function dashboardHTML(){
         <span class="qrmini">${qrSvg(qt,20)}</span>
         <span class="sbnaam">Voorraadstickers</span>
         <span class="sbaant">${aant}</span>
-        ${svg(I.pijl,'2')}
-      </button>`;
+        ${svg(I.pijl,'2')}</button>`;
     }
-  } else if(!S.recepten.length){
-    h+=`<h2>Begin met je eerste smaak</h2>
-      <div class="sub">Beschrijf één bonbon: de schelp en de lagen erin, met het gewicht per stuk. Daarna rekent de app elke batch voor je uit.</div>
-      <button class="prim" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>`;
-  } else if(S.batches.length){
-    h+=`<div class="vinkje">${svg(I.vink,'2.2')}</div>
-      <h2 style="text-align:center">Alle batches afgerond</h2>
-      <div class="sub" style="text-align:center">${S.batches.length} vandaag. Nog een ronde?</div>
-      <button class="prim" data-sheet="nieuwbatch">${svg(I.plus)}Nieuwe batch</button>`;
+    h+=`</div>`;
   } else {
-    h+=`<h2>Nog geen batch vandaag</h2>
-      <div class="sub">Kies je chocolade, zet je mallen klaar, en je krijgt de uitwerking met alle hoeveelheden.</div>
-      <button class="prim" data-sheet="nieuwbatch">${svg(I.plus)}Nieuwe batch</button>`;
-  }
-  h+=`</div>`;
-
-  /* andere batches die ook nog openstaan */
-  const rest=open.filter(x=>x!==b);
-  if(rest.length){
-    h+=`<div class="blokkop"><span class="eyebrow">Ook open</span><span class="tel">${rest.length}</span></div>
-    <div class="paneel">${rest.map(x=>{const w2=lopendWerk(x);
-      return `<button class="rij" data-batch="${x.id}">
-        <span class="stip amber"></span>
-        <span class="tekst"><span class="t1">${esc(bNamen(x))}</span>
-          <span class="t2">${x.code} · dag ${dagNummer(x)} · ${bTotaal(x)} st</span></span>
-        <span class="rechts">${w2?'bezig':bGedaan(x)+'/'+KERN.length}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`;
-  }
-
-  if(S.batches.length){
-    if(sig.length){
-      h+=`<div class="blokkop"><span class="eyebrow">Vraagt aandacht</span><span class="tel">${sig.length}</span></div>
-      <div class="paneel">${sig.slice(0,4).map(s=>`<button class="rij" data-naar="productie">
-        <span class="stip ${s.ernst}"></span>
-        <span class="tekst"><span class="t1">${esc(s.tekst)}</span><span class="t2">Productie · ${esc(s.extra)}</span></span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
-    } else {
-      h+=`<div class="blokkop"><span class="eyebrow">Vraagt aandacht</span></div>
-      <div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
-        <p>Niets aan de hand.<br>Alles wat je logde stond binnen norm.</p></div></div>`;
-    }
+    const kop = !S.recepten.length ? {t:'Begin met je eerste smaak',
+        s:'Beschrijf één bonbon: de schelp en de lagen erin. Daarna rekent de app elke batch voor je uit.',
+        k:'Smaak toevoegen',a:'data-sheet="receptnieuw"'}
+      : vandaagPlan.filter(p2=>dagenTussen(vandaag(),p2.datum)<=0).length
+        ? {t:'Klaar om te beginnen',
+           s:vandaagPlan[0].regels.map(r=>smaakNaam(r.receptId)).join(', ')+' staat voor vandaag gepland.',
+           k:'Batch starten',a:'data-planstart="'+vandaagPlan[0].id+'"'}
+      : kb.length ? {t:'Alles afgerond',
+          s:kb.length+(kb.length===1?' batch':' batches')+' klaar'+(goed?' · '+goed+' bonbons':'')+'. Nog een ronde?',
+          k:'Nieuwe batch',a:'data-sheet="nieuwbatch"'}
+      : {t:'Nog geen batch vandaag',
+         s:'Kies je '+(branche().basis||'basissoort').toLowerCase()+', zet je mallen klaar, en je krijgt de uitwerking met alle hoeveelheden.',
+         k:'Nieuwe batch',a:'data-sheet="nieuwbatch"'};
+    h+=`<div class="hoofdkaart">
+      <h2>${kop.t}</h2><div class="sub">${esc(kop.s)}</div>
+      <button class="prim" ${kop.a}>${svg(I.plus)}${kop.k}</button></div>`;
   }
 
+  /* ── de dag in vier tegels ── */
+  const tegel=(attr,icoon,kop,waarde,sub,klas)=>`<button class="tegel" ${attr}>
+    <span class="tk">${svg(icoon)}${kop}</span>
+    <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
+    <span class="ts ${klas||''}">${sub}</span></button>`;
 
-  /* wat er vandaag en morgen op de rol staat */
-  const vandaagPlan=planLijst().filter(p2=>dagenTussen(vandaag(),p2.datum)<=1);
-  const boodVandaag=planLijst().filter(p2=>{
-    const bd=boodschapDatum(p2); return bd&&dagenTussen(vandaag(),bd)<=0});
+  h+=`<div class="blokkop"><span class="eyebrow">Vandaag</span>
+      <span class="tel">${DAG[d0.getDay()]} ${d0.getDate()} ${MND[d0.getMonth()]}</span></div>
+    <div class="tegels">
+      ${tegel('data-naar="productie"',I.vorm,'Gemaakt',goed||'—',
+        gepland?'van '+gepland+' gepland':'nog niets afgerond')}
+      ${tegel('data-naar="productie"',I.vink,'Batches',S.batches.length?kb.length+'/'+S.batches.length:'—',
+        S.batches.length?(open.length?open.length+' onderweg':'allemaal klaar'):'nog geen batch')}
+      ${tegel('data-naar="orders"',I.doos,'Orders',openOrders.length||'—',
+        openOrders.length?openOrders.reduce((n,o)=>n+orderAantal(o),0)+' bonbons':'niets open')}
+      ${tegel('data-naar="productie"',I.alarm,'Aandacht',sig.length||'—',
+        sig.length?'vraagt om actie':(afk?afk+' afkeur vandaag':'niets aan de hand'),
+        sig.length?'let':'')}
+    </div>`;
+
+  /* ── op de rol ── */
   if(vandaagPlan.length||boodVandaag.length){
     h+=`<div class="blokkop"><span class="eyebrow">Op de rol</span></div>
       <div class="paneel">
@@ -1875,20 +1879,40 @@ function dashboardHTML(){
       </div>`;
   }
 
-  /* snelacties: waar je op een dag het vaakst heen wil */
+  /* ── andere batches die openstaan ── */
+  const rest=open.filter(x=>x!==b);
+  if(rest.length){
+    h+=`<div class="blokkop"><span class="eyebrow">Ook open</span><span class="tel">${rest.length}</span></div>
+      <div class="paneel">${rest.map(x=>`<button class="arij" data-batch="${x.id}">
+        ${ringHTML(bGedaan(x),KERN.length,x.status==='pauze'?'amber':'')}
+        <span class="naam">${esc(bNamen(x))}<small>${x.code} · ${bTotaal(x)} st · stap ${bGedaan(x)} van ${KERN.length}</small></span>
+        <span class="dagenbadge ${dagNummer(x)>2?'let':''}">${dagNummer(x)===1?'dag 1':dagNummer(x)+' dagen'}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+  }
+
+  /* ── wat aandacht vraagt ── */
+  if(sig.length){
+    h+=`<div class="blokkop"><span class="eyebrow">Vraagt aandacht</span>
+        <span class="tel let">${sig.length}</span></div>
+      <div class="paneel">${sig.slice(0,5).map(s2=>`<button class="arij" data-naar="productie">
+        <span class="ivak ${s2.ernst==='rood'?'rood':'amber'}">${svg(I.alarm)}</span>
+        <span class="naam">${esc(s2.tekst)}<small>${esc(s2.extra)}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+  }
+
+  /* ── snel naar ── */
   h+=`<div class="blokkop"><span class="eyebrow">Snel naar</span></div>
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
-    <button class="snelknop" data-sheet="recepten">${svg(I.boek)}Smaken</button>
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
     <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
-    <button class="snelknop" data-naar="voorraad">${svg(I.doos)}Voorraad</button>
     <button class="snelknop" data-sheet="instellingen">${svg(I.instel)}Instellingen</button>
   </div>`;
   return h;
 }
+
 
 /* ---------- de dagcijfers in de donkere kopband ----------
    Vier korte cellen die je opzij kunt schuiven, met een balk voor je voortgang.
