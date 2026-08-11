@@ -29,8 +29,8 @@ button{cursor:pointer;border:none;background:none;padding:0;text-align:left}
 .app{position:relative;width:100%;max-width:440px;margin:0 auto;height:100dvh;background:var(--bg);
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 70px rgba(0,0,0,.10)}
 
-header{flex:none;padding:calc(20px + env(safe-area-inset-top)) 20px 4px;display:flex;align-items:flex-start;gap:12px}
-header h1{margin:0;font-size:21px;font-weight:600;letter-spacing:-.035em;line-height:1.2}
+header{flex:none;padding:calc(12px + env(safe-area-inset-top)) 20px 10px;display:flex;align-items:flex-start;gap:12px}
+header h1{margin:0;font-size:27px;font-weight:600;letter-spacing:-.04em;line-height:1.15}
 header.gecentreerd{position:relative;display:block;padding:calc(20px + env(safe-area-inset-top)) 20px 20px;border-bottom:1px solid var(--lijn);
   transition:padding .24s cubic-bezier(.32,.72,0,1),border-color .24s ease}
 header.gecentreerd.klein{padding:calc(12px + env(safe-area-inset-top)) 20px 12px}
@@ -55,7 +55,7 @@ header.klein .merklogo{max-height:30px}
   display:grid;place-items:center;min-height:104px;margin:0 0 14px}
 .logovak img{max-width:100%;max-height:68px;object-fit:contain}
 .logovak .geenlogo{font-size:13.5px;color:var(--grijs2);text-align:center;line-height:1.5}
-header .onder{margin-top:4px;font-size:14px;font-weight:450;color:var(--grijs);letter-spacing:-.01em}
+header .onder{margin-top:3px;font-size:14px;font-weight:450;color:var(--grijs);letter-spacing:-.01em}
 header .vlak{flex:1;min-width:0}
 
 /* de donkere kopband op het dashboard, met de dagcijfers erin */
@@ -114,9 +114,10 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
 .hbtn.terug{margin-left:-8px}
 .hbtn.menu{margin-right:-8px}
 
-main{flex:1;overflow-y:auto;padding:20px 20px 32px;-webkit-overflow-scrolling:touch}
+main{flex:1;overflow-y:auto;padding:12px 20px 32px;-webkit-overflow-scrolling:touch}
 .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--grijs2)}
 .blokkop{display:flex;align-items:baseline;gap:12px;margin:32px 2px 12px}
+main>.blokkop:first-child{margin-top:8px}
 .blokkop .eyebrow{flex:1}
 .blokkop .tel{font-size:12.5px;font-weight:600;color:var(--grijs2);letter-spacing:-.01em}
 .blokkop .tel.let{color:var(--amber);font-weight:700}
@@ -1059,7 +1060,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v95 · 11 aug 2026';
+const APPVERSIE='v96 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1679,12 +1680,10 @@ function render(){
     $('#kopTitel').innerHTML=merkKop();
     $('#kopOnder').textContent='';
     $('#kopKpi').innerHTML=dagStrook();
-  } else if(S.tab==='productie'){
-    $('#kopTitel').textContent='Productie';
-    $('#kopOnder').textContent=datumtekst;
   } else {
-    $('#kopTitel').textContent=(bedrijf().naam||'Cacaoboetiek')+' HQ';
-    $('#kopOnder').textContent=TABS.find(x=>x.key===S.tab).label;
+    const t=TABS.find(x=>x.key===S.tab)||{};
+    $('#kopTitel').textContent=t.label||'';
+    $('#kopOnder').textContent=schermOnder(S.tab)||datumtekst;
   }
 
   $('#scherm').innerHTML = inBatch?batchHTML():
@@ -1699,6 +1698,38 @@ function render(){
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnTerug').onclick=()=>{S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0};
+
+/* de regel onder de paginatitel: kort wat er op deze tab speelt */
+function schermOnder(tab){
+  const d=new Date();
+  const datumtekst=`${DAG[d.getDay()]} ${d.getDate()} ${MND[d.getMonth()]}`;
+  if(tab==='productie'){
+    const loopt=S.batches.filter(b=>b.status!=='klaar');
+    return loopt.length
+      ? loopt.length+(loopt.length===1?' batch loopt':' batches lopen')+' · '+
+        loopt.reduce((n,b)=>n+bTotaal(b),0)+' bonbons onderweg'
+      : datumtekst;
+  }
+  if(tab==='voorraad'){
+    const t=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
+    const w=voorraadWaarde();
+    return t? t+' bonbons'+(w.bekend?' · '+euro(w.bekend)+' aan grondstoffen':'')
+            : 'gereed product, grondstoffen en verpakking';
+  }
+  if(tab==='geld'){
+    const om=omzetVan(new Date().getFullYear(),0);
+    return om.bruto? euro(om.bruto)+' omzet dit jaar · '+om.orders+' '+(om.orders===1?'order':'orders')
+                   : 'omzet, btw, kilometers en bonnen';
+  }
+  if(tab==='orders'){
+    const open=(S.orders||[]).filter(o=>o.status==='nieuw');
+    return open.length
+      ? open.length+(open.length===1?' order open':' orders open')+' · '+
+        open.reduce((n,o)=>n+orderAantal(o),0)+' bonbons'
+      : 'klanten en bestellingen';
+  }
+  return datumtekst;
+}
 
 /* ---------- dashboard ---------- */
 function dashboardHTML(){
@@ -1821,16 +1852,16 @@ function productieHTML(){
   const totAfk=alleAf.reduce((n,b)=>n+b.resultaat.afkeur,0);
   const afkPct=(totGoed+totAfk)?Math.round(totAfk/(totGoed+totAfk)*100):null;
 
-  let h=`<h1>Productie</h1><div class="datum">${loopt.length
-    ? loopt.length+(loopt.length===1?' batch loopt':' batches lopen')+' · '+inProductie+' bonbons onderweg'
-    : (S.recepten.length?'geen batch onderweg':'begin met je eerste smaak')}</div>`;
+  let h='';
+  if(!S.recepten.length) h+=`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}
+    <span>Begin met je eerste smaak — daarna kun je batches maken.</span></div>`;
 
   const tegel=(attr,icoon,kop,waarde,sub,klas)=>`<button class="tegel" ${attr}>
     <span class="tk">${svg(icoon)}${kop}</span>
     <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
     <span class="ts ${klas||''}">${sub}</span></button>`;
 
-  h+=`<div class="tegels" style="margin-top:4px">
+  h+=`<div class="tegels">
     ${tegel('data-sheet="nieuwbatch"',I.plus,'Onderweg',loopt.length||'—',
       loopt.length?inProductie+' bonbons':'nieuwe batch starten')}
     ${tegel('',I.vink,'Vandaag af',goedVandaag||'—',
@@ -3025,9 +3056,7 @@ function geldHTML(){
   const openst=openstaand(), openTot=openst.reduce((n,x)=>n+x.bedrag,0);
   const wv=winstVan(jr0,kw0);
 
-  let h=`<h1>Financiën</h1><div class="datum">${omJ.bruto
-    ? euro(omJ.bruto)+' omzet dit jaar · '+omJ.orders+' '+(omJ.orders===1?'order':'orders')
-    : 'omzet, btw, kilometers en bonnen'}</div>`;
+  let h='';
 
   /* een rit die loopt hoort bovenaan — anders staat geld voorop */
   if(r){
@@ -3053,7 +3082,7 @@ function geldHTML(){
   const margeGem=(()=>{const l=(S.recepten||[]).map(margeVan).filter(m=>m&&m.pct!==null);
     return l.length?Math.round(l.reduce((n,m)=>n+m.pct,0)/l.length):null})();
 
-  h+=`<div class="blokkop" style="margin-top:${r?'24px':'0'}"><span class="eyebrow">Kwartaal ${kw0}</span>
+  h+=`<div class="blokkop" style="margin-top:${r?'24px':'8px'}"><span class="eyebrow">Kwartaal ${kw0}</span>
       <span class="tel">${jr0}</span></div>
     <div class="tegels">
       ${tegel('data-btw',I.euro,'Omzet',omK.bruto?euro(omK.bruto):'—',
@@ -3485,10 +3514,7 @@ function ordersHTML(){
   const rest=alle.filter(o=>o.status!=='nieuw').reverse();
   const krap=open.filter(o=>dekking(o).some(d=>d.tekort>0));
 
-  let h=`<h1>Orders</h1><div class="datum">${open.length
-    ? open.length+(open.length===1?' order open':' orders open')+' · '+
-      open.reduce((n,o)=>n+orderAantal(o),0)+' bonbons'
-    : 'geen openstaande orders'}</div>`;
+  let h='';
 
   const k=koppeling(), viaServer=!!k.shopify;
   const aan=macLeeft(), bezig=lopendeOpdracht(), mo=macOrders();
@@ -3797,9 +3823,7 @@ function voorraadHTML(){
   const w2=voorraadWaarde();
   const laagNu=alles.filter(grondOnder);
 
-  let h=`<h1>Voorraad</h1><div class="datum">${totaal
-    ? totaal+' bonbons'+(w2.bekend?' · '+euro(w2.bekend)+' aan grondstoffen':'')
-    : 'gereed product, grondstoffen en verpakking'}</div>`;
+  let h='';
 
   /* ── wat aandacht vraagt ── */
   if(over.length) h+=`<div class="melding rood" style="margin-bottom:12px">${svg(I.alarm,'2')}
@@ -3821,7 +3845,7 @@ function voorraadHTML(){
     <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
     <span class="ts ${klas||''}">${sub}</span></button>`;
 
-  h+=`<div class="tegels" style="margin-top:4px">
+  h+=`<div class="tegels">
     ${tegel('data-naar="productie"',I.doos,'Gereed',totaal||'—',
       gereed.length?gereed.length+(gereed.length===1?' partij':' partijen'):'nog geen product')}
     ${tegel('data-waardering',I.euro,'Waarde',w2.bekend?euro(w2.bekend):'—',
