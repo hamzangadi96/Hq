@@ -376,6 +376,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .melding svg{width:16px;height:16px;flex:none;margin-top:2px}
 .melding.amber{background:#fffbeb;color:#92400e}
 .melding.rood{background:#fef2f2;color:#991b1b}
+.melding.groen{background:#f0fdf4;color:#14532d}
 .trkop{padding-bottom:16px;border-bottom:2px solid var(--ink);margin-bottom:4px}
 .trcode{font-size:21px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .trsub{font-size:12.5px;color:var(--grijs);margin-top:4px;line-height:1.45}
@@ -977,7 +978,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v82 · 11 aug 2026';
+const APPVERSIE='v83 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3004,7 +3005,9 @@ function voorraadHTML(){
   const bijna=gereed.filter(v=>{const d=dagenTotTHT(v.tht);return d!==null&&d<=14});
   const over=gereed.filter(v=>{const d=dagenTotTHT(v.tht);return d!==null&&d<0});
 
-  let h=`<h1>Voorraad</h1><div class="datum">${totaal?totaal+' bonbons op voorraad':'nog niets op voorraad'}</div>`;
+  const w=voorraadWaarde();
+  let h=`<h1>Voorraad</h1><div class="datum">${totaal?totaal+' bonbons op voorraad':'nog niets op voorraad'}${
+    w.bekend?' · '+euro(w.bekend)+' aan grondstoffen':''}</div>`;
 
   if(over.length) h+=`<div class="melding rood" style="margin-bottom:12px">${svg(I.alarm,'2')}
     <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT.
@@ -3032,10 +3035,13 @@ function voorraadHTML(){
   const rij=v=>{
     const d=grondDrempel(v.product), laag=grondOnder(v), leeg=v.saldo<=0;
     const lots=Object.keys(v.lots).filter(k=>v.lots[k]>0);
+    const f=fefoLot(v.product), fd=f?dagenTotTHT(f.tht):null;
+    const onder=f
+      ? `eerst lot ${esc(f.lot)}${fd!==null?(fd<0?' — verlopen':' · nog '+fd+' dagen'):''}`
+      : (lots.length?lots.length+(lots.length===1?' lot':' lots')+' · '+esc(lots.slice(0,2).join(', '))+(lots.length>2?'…':'')
+                   :'geen lot bekend');
     return `<button class="arij" data-gs="${esc(v.product)}">
-      <span class="naam">${esc(v.product)}<small>${
-        lots.length?lots.length+(lots.length===1?' lot':' lots')+' · '+esc(lots.slice(0,2).join(', '))+(lots.length>2?'…':'')
-                   :'geen lot bekend'}${d?' · drempel '+toonHoeveel(d,v.basis):''}</small></span>
+      <span class="naam">${esc(v.product)}<small>${onder}${d?' · drempel '+toonHoeveel(d,v.basis):''}</small></span>
       ${laag||leeg?`<span class="stip ${leeg?'rood':'amber'}"></span>`:''}
       <span class="waarde gevuld">${toonHoeveel(v.saldo,v.basis)}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
@@ -3045,7 +3051,7 @@ function voorraadHTML(){
   const grond=alles.filter(v=>artSoort(v.product)==='ingredient');
   const opRaken=grond.filter(grondOnder);
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Grondstoffen</span>
-      <span class="tel">${opRaken.length?opRaken.length+' bijna op':(grond.length?grond.length+' producten':'')}</span></div>`;
+      <span class="tel">${opRaken.length?opRaken.length+' bijna op':(grond.length?grond.length+(grond.length===1?' product':' producten'):'')}</span></div>`;
   h+=grond.length?`<div class="paneel">${grond.map(rij).join('')}</div>`
    :`<div class="paneel"><div class="geen">Nog geen grondstoffen. Leg een levering vast bij Ontvangst.</div></div>`;
 
@@ -3053,7 +3059,7 @@ function voorraadHTML(){
   const verp=alles.filter(v=>artSoort(v.product)==='verpakking');
   const laagV=verp.filter(grondOnder);
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Verpakking</span>
-      <span class="tel">${laagV.length?laagV.length+' bijna op':(verp.length?verp.length+' artikelen':'')}</span></div>`;
+      <span class="tel">${laagV.length?laagV.length+' bijna op':(verp.length?verp.length+(verp.length===1?' artikel':' artikelen'):'')}</span></div>`;
   if(verp.length){
     const maten=[...new Set(verp.map(v=>art(v.product).maat).filter(Boolean))].sort((a,b2)=>a-b2);
     const kleuren=[...new Set(verp.map(v=>art(v.product).kleur).filter(Boolean))];
@@ -3082,13 +3088,17 @@ function voorraadHTML(){
   if(hulp.length){
     const laagH=hulp.filter(grondOnder);
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Hulpmiddelen</span>
-        <span class="tel">${laagH.length?laagH.length+' bijna op':hulp.length+' artikelen'}</span></div>
+        <span class="tel">${laagH.length?laagH.length+' bijna op':hulp.length+(hulp.length===1?' artikel':' artikelen')}</span></div>
       <div class="paneel">${hulp.map(rij).join('')}</div>`;
   }
 
-  h+=`<div class="voet">
-    <button data-vmut>Alle mutaties${(S.mutaties||[]).length?' ('+S.mutaties.length+')':''}</button>
-    <button data-sheet="ontvangst">Ontvangst vastleggen</button></div>`;
+  const teBestellen=grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0).length;
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+    <button class="knop2" data-bestel style="margin:0 0 10px">${svg(I.vracht)}Bestellijst${
+      teBestellen?` <span class="tel let" style="margin-left:auto">${teBestellen}</span>`:''}</button>
+    <button class="knop2" data-telronde style="margin:0 0 10px">${svg(I.vink)}Telronde</button>
+    <button class="knop2" data-sheet="ontvangst" style="margin:0">${svg(I.plus)}Ontvangst vastleggen</button>
+    <div class="voet"><button data-vmut>Alle mutaties${(S.mutaties||[]).length?' ('+S.mutaties.length+')':''}</button></div>`;
   return h;
 }
 
@@ -3106,7 +3116,13 @@ function sheetGrondstof(product){
 
   sheet(v.product,
     `<div class="vrkop"><div class="vrgetal">${toonHoeveel(v.saldo,basis)}<em>op voorraad</em></div>
-      <div class="vrmeta">${d?'drempel '+toonHoeveel(d,basis)+(grondOnder(v)?' — bijna op':''):'geen drempel ingesteld'}</div></div>
+      <div class="vrmeta">${d?'drempel '+toonHoeveel(d,basis)+(grondOnder(v)?' — bijna op':''):'geen drempel ingesteld'}${
+        waardeVan(v)!==null?'<br>waarde '+euro(waardeVan(v)):''}</div></div>
+     ${(()=>{const f=fefoLot(product); if(!f) return '';
+       const fd=dagenTotTHT(f.tht);
+       return `<div class="melding ${fd<0?'rood':fd<=14?'amber':'groen'}" style="margin-bottom:16px">${svg(I.alarm,'2')}
+         <span>Gebruik lot ${esc(f.lot)} eerst — ${fd<0?'verlopen':'nog '+fd+' dagen'},
+           ${toonHoeveel(f.rest,basis)} over.</span></div>`})()}
 
      <div class="veld"><label>Wat wil je doen?</label>
        <div class="duo3" id="gS">
@@ -3231,6 +3247,159 @@ function boekVerbruik(b){
    Twee maten in zes kleuren zijn twaalf artikelen. Die typ je niet los;
    je geeft de maten en de kleuren, en de app maakt de combinaties. */
 const V={maten:'',kleuren:'',naam:'Doosje',start:0,drempel:0};
+/* ================= dekking, bestellen, tellen en waarde =================
+   Alles hier leest de voorraad die je al hebt; er wordt niets bijgehouden
+   wat de app niet toch al weet. */
+
+/* wat heb je nodig voor een set batchregels? matcht op productnaam */
+function nodigVoor(regels,receptenBron){
+  const map={};
+  (regels||[]).forEach(rg=>{
+    const r=(receptenBron&&receptenBron[rg.receptId])||recept(rg.receptId);
+    if(!r) return;
+    (r.onderdelen||[]).forEach(o=>{
+      verdeel(o,(parseFloat(o.gram)||0)*rg.aantal).forEach(x=>{
+        if(!x.naam) return;
+        map[x.naam]=(map[x.naam]||0)+x.gram;
+      });
+    });
+  });
+  return Object.keys(map).map(n=>({naam:n,gram:map[n]}));
+}
+/* per ingrediënt: hoeveel ligt er, en kom je tekort? */
+function dekkingGrond(regels,receptenBron){
+  const vv=grondVoorraad();
+  return nodigVoor(regels,receptenBron).map(i=>{
+    const v=vv.find(x=>gKey(x.product)===gKey(i.naam));
+    const op=v?v.saldo:0;
+    return {naam:i.naam,nodig:i.gram,op,onbekend:!v,tekort:Math.max(0,i.gram-op)};
+  }).sort((a,b2)=>b2.tekort-a.tekort);
+}
+function dekkingBlok(regels,receptenBron){
+  const d=dekkingGrond(regels,receptenBron);
+  if(!d.length) return '';
+  const kort2=d.filter(x=>x.tekort>0), onbek=d.filter(x=>x.onbekend);
+  const kop=kort2.length
+    ? `<div class="melding ${onbek.length===kort2.length?'amber':'rood'}" style="margin-bottom:12px">${svg(I.alarm,'2')}
+        <span>${kort2.length===1?'Eén grondstof':kort2.length+' grondstoffen'} ${
+          onbek.length===kort2.length?'staan nog niet in je voorraad':'zijn niet genoeg'}.</span></div>`
+    : `<div class="melding groen" style="margin-bottom:12px">${svg(I.vink,'2')}
+        <span>Je hebt alles in huis voor deze batch.</span></div>`;
+  return `${kop}<div class="blokkop"><span class="eyebrow">Dekking grondstoffen</span></div>
+    <div class="paneel">${d.map(x=>`<div class="arij" style="cursor:default">
+      <span class="naam">${esc(x.naam)}<small>${x.onbekend?'niet in voorraad'
+        :'nodig '+toonHoeveel(x.nodig,'g')+' · aanwezig '+toonHoeveel(x.op,'g')}</small></span>
+      ${x.tekort?`<span class="stip ${x.onbekend?'amber':'rood'}"></span>`:''}
+      <span class="waarde gevuld">${x.tekort?'−'+toonHoeveel(x.tekort,'g'):'ok'}</span>
+    </div>`).join('')}</div>`;
+}
+
+/* ---------- eerst gebruiken: het lot dat het snelst verloopt ---------- */
+function fefoLot(product){
+  const v=grondVoorraad().find(x=>gKey(x.product)===gKey(product));
+  if(!v) return null;
+  const kandidaten=Object.keys(v.lots).filter(k=>v.lots[k]>0)
+    .map(l=>{const p=(S.lots||[]).find(x=>x.lot===l);return {lot:l,rest:v.lots[l],tht:p?p.tht:''}})
+    .filter(x=>x.tht);
+  if(!kandidaten.length) return null;
+  kandidaten.sort((a,b2)=>a.tht.localeCompare(b2.tht));
+  return kandidaten[0];
+}
+
+/* ---------- inkoopprijs en voorraadwaarde ---------- */
+const gPrijs=p=>{const a=art(p);return typeof a.prijs==='number'?a.prijs:null};
+function waardeVan(v){
+  const pr=gPrijs(v.product);
+  if(pr===null) return null;
+  /* prijs is per basiseenheid: per gram, per ml of per stuk */
+  return v.saldo*pr;
+}
+function voorraadWaarde(){
+  let bekend=0, onbekend=0;
+  grondVoorraad().forEach(v=>{const w=waardeVan(v); if(w===null)onbekend++; else bekend+=w});
+  return {bekend,onbekend};
+}
+
+/* ---------- bestellijst: alles onder de drempel, per leverancier ---------- */
+function leverancierVan(product){
+  const l=(S.lots||[]).filter(x=>gKey(x.product)===gKey(product)&&x.leverancier)
+    .sort((a,b2)=>String(b2.ontvangen||'').localeCompare(String(a.ontvangen||'')));
+  return l.length?l[0].leverancier:'';
+}
+function sheetBestellijst(){
+  const laag=grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0);
+  const per={};
+  laag.forEach(v=>{
+    const lev=leverancierVan(v.product)||'Nog geen leverancier';
+    per[lev]=per[lev]||[];
+    const d=grondDrempel(v.product);
+    per[lev].push({v,tekort:Math.max(d-v.saldo,0)});
+  });
+  const groepen=Object.keys(per).sort();
+  const tekst=groepen.map(g=>g+':\n'+per[g].map(x=>
+    '- '+x.v.product+' (nog '+toonHoeveel(x.v.saldo,x.v.basis)+
+    (x.tekort?', aanvullen tot '+toonHoeveel(grondDrempel(x.v.product),x.v.basis):'')+')').join('\n')).join('\n\n');
+
+  sheet('Bestellijst',
+    laag.length
+      ? `<p class="hint">Alles wat op of onder zijn drempel zit, gegroepeerd per leverancier
+          waar je het de vorige keer kocht.</p>
+         ${groepen.map(g=>`<div class="blokkop"><span class="eyebrow">${esc(g)}</span>
+           <span class="tel">${per[g].length}</span></div>
+           <div class="paneel">${per[g].map(x=>`<button class="arij" data-gs="${esc(x.v.product)}">
+             <span class="naam">${esc(x.v.product)}<small>nog ${toonHoeveel(x.v.saldo,x.v.basis)}${
+               x.tekort?' · aanvullen met minstens '+toonHoeveel(x.tekort,x.v.basis):''}</small></span>
+             <span class="stip ${x.v.saldo<=0?'rood':'amber'}"></span>
+             <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`).join('')}`
+      : `<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
+          <p>Niets te bestellen.<br>Alles zit boven zijn drempel.</p></div></div>`,
+    laag.length?`<button class="prim" style="margin-top:0" id="blKopie">Lijst kopiëren</button>`:'');
+  if($('#blKopie')) $('#blKopie').onclick=()=>{
+    try{ navigator.clipboard.writeText(tekst); toast('Bestellijst gekopieerd.') }
+    catch(e){ toast('Kopiëren lukte niet.') }
+  };
+}
+
+/* ---------- telronde: de artikelen die je het vaakst gebruikt ---------- */
+function sheetTelronde(){
+  const lijst=grondVoorraad().map(v=>{
+    const mut=(S.gmut||[]).filter(m=>gKey(m.product)===gKey(v.product));
+    const beweging=mut.filter(m=>m.aantal<0).length;
+    const laatst=art(v.product).geteld||'';
+    return {v,beweging,laatst};
+  }).sort((a,b2)=>{
+    if(!a.laatst&&b2.laatst) return -1;
+    if(a.laatst&&!b2.laatst) return 1;
+    if(a.laatst!==b2.laatst) return a.laatst.localeCompare(b2.laatst);
+    return b2.beweging-a.beweging;
+  }).slice(0,20);
+
+  sheet('Telronde',
+    `<p class="hint">Twintig artikelen, die het langst niet geteld zijn bovenaan.
+      Vul in wat er écht ligt; de app boekt zelf het verschil.</p>
+     ${lijst.length?lijst.map(x=>`<div class="rrij">
+       <div class="rinfo"><div class="rnaam">${esc(x.v.product)}</div>
+         <div class="rsub">nu ${toonHoeveel(x.v.saldo,x.v.basis)} · ${
+           x.laatst?'geteld '+kort(new Date(x.laatst)):'nooit geteld'}</div></div>
+       <div class="qty"><input class="lotinp" style="width:82px" data-tel="${esc(x.v.product)}"
+         type="number" inputmode="decimal" placeholder="${x.v.basis}"></div></div>`).join('')
+      :'<div class="geen">Nog geen voorraad om te tellen.</div>'}`,
+    lijst.length?`<button class="prim" style="margin-top:0" id="trOk">Tellingen verwerken</button>`:'');
+  if($('#trOk')) $('#trOk').onclick=()=>{
+    let n=0;
+    $$('[data-tel]').forEach(inp=>{
+      const w=inp.value.trim(); if(w==='') return;
+      const prod=inp.dataset.tel;
+      const v=grondVoorraad().find(x=>gKey(x.product)===gKey(prod)); if(!v) return;
+      const geteld=parseFloat(w)||0, verschil=geteld-v.saldo;
+      zetArt(prod,{geteld:vandaag()});
+      if(verschil) { gBoek(prod,verschil,v.basis,'Telronde'); n++; }
+    });
+    bewaarNu(); dicht(); render();
+    toast(n?n+(n===1?' artikel bijgesteld.':' artikelen bijgesteld.'):'Alles klopte al.');
+  };
+}
+
 function sheetVerpakkingNieuw(){
   sheet('Verpakking toevoegen',
     `<p class="hint">Geef je maten en kleuren op. De app maakt er losse artikelen van,
@@ -3764,6 +3933,8 @@ function bind(){
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
+  $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
+  $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
@@ -3965,7 +4136,7 @@ function wizard3(){
       <div class="inforij"><span class="k">Chocolade</span><span class="v">${chocNaam(W.choc)}</span></div>
       <div class="inforij"><span class="k">Mallen</span><span class="v">${regels.reduce((s,r)=>s+r.mallen,0)}</span></div>
       <div class="inforij"><span class="k">Totaal</span><span class="v">${regels.reduce((s,r)=>s+r.aantal,0)} bonbons</span></div>
-     </div>${uitwerkingHTML(voorbeeld)}`,
+     </div>${dekkingBlok(regels)}${uitwerkingHTML(voorbeeld)}`,
     `<button class="prim" style="margin-top:0" id="w3Ok">Batch aanmaken</button>
      <button class="sec" id="w3T">Terug naar smaken</button>`,'Stap 3 van 3');
   $('#w3T').onclick=wizard2;
@@ -4291,6 +4462,9 @@ function sheetOntvangst(){
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
        <div><label>Hoeveelheid</label><input class="inp" id="oH" type="number" inputmode="decimal" placeholder="0"></div>
        <div><label>Eenheid</label><select class="inp" id="oE" style="text-align:center">${['kg','g','l','ml','st'].map(e=>`<option>${e}</option>`).join('')}</select></div></div>
+     <div class="veld"><label>Prijs — mag leeg</label>
+       <input class="inp" id="oPr" type="number" inputmode="decimal" placeholder="Totaalbedrag van deze levering">
+       <div class="hint" style="margin:8px 0 0">Voor je voorraadwaarde. Zonder btw.</div></div>
      <div class="veld"><label>Gekoeld geleverd?</label>
        <div class="duo" id="oK"><button data-v="nee" class="aan">Niet gekoeld</button><button data-v="ja">Gekoeld</button></div>
        <div id="oKV" style="display:none;margin-top:12px">
@@ -4323,6 +4497,9 @@ function sheetOntvangst(){
       S.lots.push({id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:h,eenheid:e,
         ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''});
       if(h) gBoek(p,parseFloat(h)||0,e,'Ontvangst '+lev,l);
+      const pr=parseFloat($('#oPr').value)||0;
+      if(pr>0&&h){ const basisAantal=naarBasis(parseFloat(h)||0,e);
+        if(basisAantal>0) zetArt(p,{prijs:pr/basisAantal}); }
     }
     if(!b){
       S.ontvangsten.push({id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
