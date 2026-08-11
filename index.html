@@ -1095,7 +1095,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v100 · 11 aug 2026';
+const APPVERSIE='v102 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1271,7 +1271,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, artikelen:{}, controleur:'', levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1296,7 +1296,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1850,9 +1850,37 @@ function dashboardHTML(){
   }
 
 
+  /* wat er vandaag en morgen op de rol staat */
+  const vandaagPlan=planLijst().filter(p2=>dagenTussen(vandaag(),p2.datum)<=1);
+  const boodVandaag=planLijst().filter(p2=>{
+    const bd=boodschapDatum(p2); return bd&&dagenTussen(vandaag(),bd)<=0});
+  if(vandaagPlan.length||boodVandaag.length){
+    h+=`<div class="blokkop"><span class="eyebrow">Op de rol</span></div>
+      <div class="paneel">
+        ${boodVandaag.length?`<button class="arij" data-boodschap>
+          <span class="ivak amber">${svg(I.vracht)}</span>
+          <span class="naam">Boodschappen doen<small>voor ${boodVandaag.length===1
+            ?'de batch van '+kort(new Date(boodVandaag[0].datum))
+            :boodVandaag.length+' geplande batches'}</small></span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`:''}
+        ${vandaagPlan.map(p2=>{
+          const n=dagenTussen(vandaag(),p2.datum);
+          const tot=p2.regels.reduce((x,r)=>x+r.aantal,0);
+          return `<div class="arij">
+            <span class="ivak ${n<=0?'ink':'amber'}">${svg(I.vorm)}</span>
+            <span class="naam">${esc(p2.regels.map(r=>smaakNaam(r.receptId)).join(', '))}
+              <small>${n<=0?'vandaag draaien':'morgen draaien'} · ${tot} bonbons</small></span>
+            ${n<=0?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
+                  :`<span class="pijl" data-planning>${svg(I.pijl,'2')}</span>`}
+          </div>`}).join('')}
+      </div>`;
+  }
+
   /* snelacties: waar je op een dag het vaakst heen wil */
   h+=`<div class="blokkop"><span class="eyebrow">Snel naar</span></div>
   <div class="snelrij">
+    <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
+    <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
     <button class="snelknop" data-sheet="recepten">${svg(I.boek)}Smaken</button>
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
@@ -1917,12 +1945,34 @@ function productieHTML(){
     ${tegel('',I.vink,'Vandaag af',goedVandaag||'—',
       afVandaag.length?afVandaag.length+(afVandaag.length===1?' batch':' batches')
         +(afkVandaag?' · '+afkVandaag+' afkeur':''):'nog niets afgerond',afkVandaag?'let':'')}
+    ${tegel('data-planning',I.klok,'Gepland',(S.planning||[]).length||'—',(()=>{
+      const l=planLijst(); if(!l.length) return 'niets ingepland';
+      const n=dagenTussen(vandaag(),l[0].datum);
+      return n<=0?'vandaag draaien':n===1?'morgen de eerste':'eerste over '+n+' dagen'})(),
+      (()=>{const l=planLijst();return l.length&&dagenTussen(vandaag(),l[0].datum)<=0?'let':''})())}
     ${tegel('data-sheet="recepten"',I.boek,'Smaken',S.recepten.length||'—',
       S.recepten.length?'in je bibliotheek':'nog geen smaak')}
-    ${tegel('',I.spark,'Afkeur',afkPct!==null?afkPct+'%':'—',
-      afkPct!==null?'over '+alleAf.length+' '+(alleAf.length===1?'batch':'batches'):'nog geen cijfers',
-      afkPct!==null&&afkPct>5?'let':'')}
   </div>`;
+
+  /* ── wat er gepland staat ── */
+  const plan=planLijst().slice(0,4);
+  if(plan.length){
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Gepland</span>
+        <span class="tel">${(S.planning||[]).length}</span></div>
+      <div class="paneel">${plan.map(p2=>{
+        const n=dagenTussen(vandaag(),p2.datum);
+        const tot=p2.regels.reduce((x,r)=>x+r.aantal,0);
+        const bd=boodschapDatum(p2), bn=bd?dagenTussen(vandaag(),bd):null;
+        return `<div class="arij">
+          <span class="ivak ${n<=0?'ink':n===1?'amber':''}">${svg(I.vorm)}</span>
+          <span class="naam">${esc(p2.regels.map(r=>smaakNaam(r.receptId)).join(', '))}
+            <small>${n<0?Math.abs(n)+' dagen geleden gepland':n===0?'vandaag':n===1?'morgen':'over '+n+' dagen'
+              } · ${tot} bonbons${bd&&bn>=0?' · boodschappen '+(bn===0?'vandaag':bn===1?'morgen':'over '+bn+' dagen'):''}</small></span>
+          ${n<=0?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
+                :`<span class="pijl" data-planning>${svg(I.pijl,'2')}</span>`}
+        </div>`}).join('')}
+        <button class="meer" data-planning>Hele planning</button></div>`;
+  }
 
   /* ── wat er deze week de deur uit moet ── */
   const open=(S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum)
@@ -2013,6 +2063,7 @@ function productieHTML(){
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
     <div class="paneel">
       ${brij('data-sheet="nieuwbatch"',I.plus,'Batch genereren','')}
+      ${brij('data-planning',I.klok,'Planning',(S.planning||[]).length||'niets gepland')}
       ${brij('data-sheet="receptnieuw"',I.plus,'Smaak toevoegen','')}
       ${brij('data-sheet="recepten"',I.boek,'Smaken beheren',S.recepten.length||'geen')}
       ${brij('data-sheet="ontvangst"',I.vracht,'Ontvangst vastleggen','')}
@@ -4006,8 +4057,11 @@ function voorraadHTML(){
       ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
       ${brij('data-tht',I.klok,'Houdbaarheid',
         vl.length?(vlOver?vlOver+' over datum':vl.length+' binnenkort'):'niets loopt af',!!vlOver)}
-      ${brij('data-bestel',I.vracht,'Bestellijst',
-        teBestellen?teBestellen+' te bestellen':'niets nodig',!!teBestellen)}
+      ${brij('data-boodschap',I.vracht,'Boodschappenlijst',(()=>{
+        const n=(S.boodschappen||[]).length+alles.filter(v=>grondOnder(v)||v.saldo<=0)
+          .filter(v=>!(S.boodschappen||[]).some(x=>gKey(x.product)===gKey(v.product))).length;
+        return n?n+' te halen':'niets nodig'})(),(()=>{
+        const n=(S.boodschappen||[]).length+teBestellen; return !!n})())}
       ${brij('data-telronde',I.vink,'Telronde','')}
       ${brij('data-waardering',I.doc,'Voorraadwaardering',w2.bekend?euro(w2.bekend):'geen prijzen')}
       ${brij('data-levertijd',I.vracht,'Levertijden',
@@ -4274,6 +4328,304 @@ function leverancierVan(product){
     .sort((a,b2)=>String(b2.ontvangen||'').localeCompare(String(a.ontvangen||'')));
   return l.length?l[0].leverancier:'';
 }
+/* ================= boodschappenlijst =================
+   Wat je tekortkomt voor een batch komt hier terecht, verrekend met wat er al
+   ligt en met je drempel. Zo haal je genoeg, maar niet te veel. */
+function boodschapZet(product,gram,reden){
+  S.boodschappen=S.boodschappen||[];
+  const k=gKey(product);
+  const best=S.boodschappen.find(x=>gKey(x.product)===k);
+  if(best){
+    /* het hoogste van beide: één batch kan meer vragen dan de drempel */
+    if(gram>best.gram){ best.gram=gram; best.reden=reden }
+    return false;
+  }
+  S.boodschappen.push({id:uid(),product:product,gram:gram,reden:reden||'',datum:vandaag()});
+  return true;
+}
+/* wat je écht moet halen: het tekort, opgehoogd tot je drempel */
+function nodigVoorBoodschap(product,tekortGram){
+  const v=grondVoorraad().find(x=>gKey(x.product)===gKey(product));
+  const saldo=v?v.saldo:0;
+  const drempel=grondDrempel(product);
+  /* na deze batch wil je nog steeds boven je drempel zitten */
+  const gewenst=Math.max(tekortGram, (drempel?drempel+tekortGram:tekortGram));
+  return Math.max(0,Math.round(gewenst));
+}
+function boodschapUitBatch(regels,receptenBron){
+  const d=dekkingGrond(regels,receptenBron).filter(x=>x.tekort>0);
+  let n=0;
+  d.forEach(x=>{ if(boodschapZet(x.naam,nodigVoorBoodschap(x.naam,x.tekort),'batch')) n++; });
+  return {toegevoegd:n,totaal:d.length};
+}
+
+/* ================= planning =================
+   Een geplande batch is nog geen batch: het is een voornemen met een datum.
+   Op de dag zelf maak je er met één tik een echte batch van. De app rekent
+   zelf uit wanneer je boodschappen moet doen, op basis van je levertijden. */
+
+const planLijst=()=>(S.planning||[]).slice()
+  .sort((a,b2)=>String(a.datum).localeCompare(String(b2.datum)));
+const planOpDatum=d=>(S.planning||[]).filter(x=>x.datum===d);
+
+/* de langste levertijd van wat je voor deze batch nodig hebt */
+function levertijdVoor(regels){
+  const d=dekkingGrond(regels).filter(x=>x.tekort>0);
+  if(!d.length) return 0;
+  let max=0;
+  d.forEach(x=>{
+    const lev=leverancierVan(x.naam);
+    max=Math.max(max, levertijdVan(lev)||3);
+  });
+  return max;
+}
+const datumPlus=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return iso(x)};
+const dagenTussen=(a,b2)=>Math.round((new Date(b2)-new Date(a))/86400000);
+
+/* wanneer moet je boodschappen doen voor deze geplande batch? */
+function boodschapDatum(p){
+  const lt=p.levertijd||0;
+  if(!lt) return null;
+  return datumPlus(p.datum,-(lt+1));   /* een dag marge */
+}
+
+function sheetPlanBatch(vooraf){
+  const P={choc:null,mallen:{},datum:vooraf||datumPlus(vandaag(),1)};
+  const stap1=()=>{
+    sheet('Wanneer wil je maken?',
+      `<p class="hint">Kies de dag waarop je deze batch wil draaien. De app rekent uit wanneer
+        je boodschappen moet doen om op tijd alles in huis te hebben.</p>
+       <div class="veld"><label>Productiedag</label>
+         <input class="inp" id="pbD" type="date" value="${P.datum}" min="${vandaag()}"></div>
+       <div class="veld"><label>Snel kiezen</label>
+         <div class="keuzeraster">
+           ${[[1,'Morgen'],[2,'Overmorgen'],[7,'Volgende week']].map(([n,l])=>
+             `<button class="chip" data-snel="${n}">${l}</button>`).join('')}
+         </div></div>`,
+      `<button class="prim" style="margin-top:0" id="pb1">Volgende</button>`,'Stap 1 van 3');
+    $$('[data-snel]').forEach(b=>b.onclick=()=>{
+      P.datum=datumPlus(vandaag(),parseInt(b.dataset.snel));
+      $('#pbD').value=P.datum;
+    });
+    $('#pb1').onclick=()=>{
+      P.datum=$('#pbD').value||P.datum;
+      if(P.datum<vandaag()) return toast('Kies een dag vanaf vandaag.');
+      stap2();
+    };
+  };
+
+  const stap2=()=>{
+    sheet('Welke '+(branche().basis||'basissoort').toLowerCase()+'?',
+      `<div class="choc" id="pbC">${soorten().map(c=>{
+        const n=S.recepten.filter(r=>r.chocolade===c.key).length;
+        return `<button class="chocknop ${P.choc===c.key?'aan':''}" data-c="${c.key}">
+          <span class="schijf ${c.key}"></span>
+          <span class="ct"><span class="cn">${c.naam}</span>
+            <span class="cs">${n?n+(n===1?' smaak':' smaken'):'nog geen smaken'}</span></span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`,
+      `<button class="sec" id="pb2T">Terug</button>`,'Stap 2 van 3');
+    $$('#pbC [data-c]').forEach(b=>b.onclick=()=>{P.choc=b.dataset.c;stap3()});
+    $('#pb2T').onclick=stap1;
+  };
+
+  const stap3=()=>{
+    const lijst=S.recepten.filter(r=>r.chocolade===P.choc);
+    const regels=Object.keys(P.mallen).filter(k=>P.mallen[k]>0)
+      .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*S.malGrootte}));
+    const tot=regels.reduce((n,r)=>n+r.aantal,0);
+    const lt=regels.length?levertijdVoor(regels):0;
+    const bd=lt?datumPlus(P.datum,-(lt+1)):null;
+
+    sheet('Hoeveel mallen?',
+      `<p class="hint">Kies per smaak hoeveel mallen je draait.</p>
+       ${lijst.length?lijst.map(r=>`<div class="orij">
+         <span class="on">${esc(r.naam)}<em>${hintTekst(r,P.mallen[r.id]||0)}</em></span>
+         <div class="ostep"><button class="stepbtn klein" data-pm="${r.id}">${svg(I.min)}</button>
+           <span class="oa ${P.mallen[r.id]?'aan':''}">${P.mallen[r.id]||0}</span>
+           <button class="stepbtn klein" data-pp="${r.id}">${svg(I.plus)}</button></div></div>`).join('')
+        :'<div class="geen">Nog geen smaken met deze basissoort.</div>'}
+       ${tot?`<div class="totaalregel" style="margin-top:18px"><span class="l">Totaal</span>
+         <span class="w">${tot} bonbons</span></div>
+         <div class="info" style="margin-top:16px">
+           <div class="inforij"><span class="k">Productiedag</span>
+             <span class="v">${kort(new Date(P.datum))}</span></div>
+           ${bd?`<div class="inforij"><span class="k">Boodschappen doen</span>
+             <span class="v">${kort(new Date(bd))}</span></div>
+             <div class="inforij"><span class="k">Langste levertijd</span>
+             <span class="v">${lt} dagen</span></div>`
+            :`<div class="inforij"><span class="k">Grondstoffen</span>
+              <span class="v">alles in huis</span></div>`}
+         </div>`:''}`,
+      `<button class="prim" style="margin-top:0" id="pb3" ${tot?'':'disabled'}>
+         ${tot?'Inplannen op '+kort(new Date(P.datum)):'Kies eerst mallen'}</button>
+       <button class="sec" id="pb3T">Terug</button>`,'Stap 3 van 3');
+
+    $$('[data-pp]').forEach(b=>b.onclick=()=>{P.mallen[b.dataset.pp]=(P.mallen[b.dataset.pp]||0)+1;stap3()});
+    $$('[data-pm]').forEach(b=>b.onclick=()=>{P.mallen[b.dataset.pm]=Math.max(0,(P.mallen[b.dataset.pm]||0)-1);stap3()});
+    $('#pb3T').onclick=stap2;
+    if($('#pb3')) $('#pb3').onclick=()=>{
+      S.planning=S.planning||[];
+      S.planning.push({id:uid(),datum:P.datum,chocolade:P.choc,regels,levertijd:lt,
+        gemaakt:vandaag()});
+      bewaarNu(); dicht(); render();
+      toast('Ingepland op '+kort(new Date(P.datum))+(bd?' · boodschappen '+kort(new Date(bd)):''));
+    };
+  };
+  stap1();
+}
+
+/* van plan naar echte batch */
+function planStart(id){
+  const p=(S.planning||[]).find(x=>x.id===id); if(!p) return;
+  const kopie={};
+  p.regels.forEach(rg=>{const r=recept(rg.receptId); if(r) kopie[rg.receptId]=JSON.parse(JSON.stringify(r))});
+  const b={id:uid(),code:nieuweCode(),chocolade:p.chocolade,
+    regels:JSON.parse(JSON.stringify(p.regels)),gestart:nu(),startDatum:vandaag(),
+    status:'bezig',dagen:[],lots:{},logs:[],resultaat:null,
+    recepten:kopie,werkplan:S.werkplan.slice(),uitPlan:p.id};
+  S.batches.push(b);
+  S.planning=S.planning.filter(x=>x.id!==id);
+  S.tab='productie';S.batchId=b.id;S.open=null;
+  bewaarNu(); dicht(); render();
+  toast('Batch '+b.code+' gestart.'); $('#scherm').scrollTop=0;
+}
+
+function sheetPlanning(){
+  const lijst=planLijst();
+  const dagen={};
+  lijst.forEach(p=>{
+    (dagen[p.datum]=dagen[p.datum]||{batches:[],bood:[]}).batches.push(p);
+    const bd=boodschapDatum(p);
+    if(bd) (dagen[bd]=dagen[bd]||{batches:[],bood:[]}).bood.push(p);
+  });
+  /* orders met leverdatum horen ook in je agenda */
+  const ord={};
+  (S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum).forEach(o=>{
+    (ord[o.leverdatum]=ord[o.leverdatum]||[]).push(o);
+  });
+  Object.keys(ord).forEach(d=>{dagen[d]=dagen[d]||{batches:[],bood:[]}});
+
+  const datums=Object.keys(dagen).sort();
+  const labelVan=d=>{
+    const n=dagenTussen(vandaag(),d);
+    if(n<0) return Math.abs(n)+' dagen geleden';
+    if(n===0) return 'vandaag';
+    if(n===1) return 'morgen';
+    if(n<7) return 'over '+n+' dagen';
+    return kort(new Date(d));
+  };
+
+  sheet('Planning',
+    `<p class="hint">Wat er de komende dagen staat te gebeuren. De app rekent zelf uit
+      wanneer je boodschappen moet doen.</p>
+     ${datums.length?datums.map(d=>{
+       const dag=dagen[d], dn=new Date(d);
+       const nu6=dagenTussen(vandaag(),d);
+       return `<div class="blokkop"><span class="eyebrow">${DAG[dn.getDay()]} ${dn.getDate()} ${MND[dn.getMonth()]}</span>
+         <span class="tel ${nu6<=0?'let':''}">${labelVan(d)}</span></div>
+       <div class="paneel">
+         ${dag.bood.map(p=>`<button class="arij" data-boodschap>
+           <span class="ivak amber">${svg(I.vracht)}</span>
+           <span class="naam">Boodschappen doen<small>voor de batch van ${kort(new Date(p.datum))}</small></span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}
+         ${dag.batches.map(p=>{
+           const tot=p.regels.reduce((n,r)=>n+r.aantal,0);
+           const namen=p.regels.map(r=>smaakNaam(r.receptId)).join(', ');
+           const kanNu=d<=vandaag();
+           return `<div class="arij">
+             <span class="ivak ${kanNu?'ink':''}">${svg(I.vorm)}</span>
+             <span class="naam">${esc(namen)}<small>${chocNaam(p.chocolade).toLowerCase()} · ${tot} bonbons</small></span>
+             ${kanNu?`<button class="miniknop" data-planstart="${p.id}">Starten</button>`
+                   :`<button class="wisbtn" data-planwis="${p.id}">${svg(I.kruis,'2')}</button>`}
+           </div>`}).join('')}
+         ${(ord[d]||[]).map(o=>`<button class="arij" data-order="${o.id}">
+           <span class="ivak">${svg(I.doos)}</span>
+           <span class="naam">${esc(klantNaam(o.klantId))}<small>order ${esc(o.nummer)} · ${orderAantal(o)} bonbons leveren</small></span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}
+       </div>`}).join('')
+      :`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.klok,'2.2')}</div>
+         <p>Nog niets gepland.<br>Plan een batch, dan zie je hier wanneer je wat moet doen.</p></div></div>`}`,
+    `<button class="prim" style="margin-top:0" id="plNieuw">${svg(I.plus)}Batch inplannen</button>`);
+
+  $('#plNieuw').onclick=()=>sheetPlanBatch();
+  $$('[data-planstart]').forEach(b=>b.onclick=()=>planStart(b.dataset.planstart));
+  $$('[data-planwis]').forEach(b=>b.onclick=()=>{
+    if(!confirm('Deze geplande batch verwijderen?')) return;
+    S.planning=S.planning.filter(x=>x.id!==b.dataset.planwis);
+    bewaarNu(); sheetPlanning(); render(); toast('Uit je planning gehaald.');
+  });
+}
+
+function sheetBoodschappen(){
+  /* alles onder de drempel hoort er ook bij, ook zonder batch */
+  const lijst=(S.boodschappen||[]).slice();
+  grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0).forEach(v=>{
+    if(lijst.some(x=>gKey(x.product)===gKey(v.product))) return;
+    const d=grondDrempel(v.product);
+    lijst.push({id:'auto-'+gKey(v.product),product:v.product,
+      gram:Math.max(0,Math.round((d||0)-v.saldo)),reden:'drempel',auto:true});
+  });
+
+  const per={};
+  lijst.forEach(x=>{
+    const lev=leverancierVan(x.product)||'Nog geen leverancier';
+    (per[lev]=per[lev]||[]).push(x);
+  });
+  const groepen=Object.keys(per).sort();
+
+  const hoeveel=x=>{
+    const v=grondVoorraad().find(y=>gKey(y.product)===gKey(x.product));
+    const basis=v?v.basis:'g';
+    const ink=inkoopVan(x.product);
+    if(ink&&x.gram>0){
+      const n=Math.max(1,Math.ceil(x.gram/ink.basis));
+      return {tekst:n+' × '+inkoopTekst(ink),bij:'nodig '+toonHoeveel(x.gram,basis)};
+    }
+    return {tekst:x.gram>0?toonHoeveel(x.gram,basis):'aanvullen',bij:''};
+  };
+
+  const tekst=groepen.map(g=>g+':\n'+per[g].map(x=>{
+    const h=hoeveel(x);
+    return '- '+x.product+' — '+h.tekst;
+  }).join('\n')).join('\n\n');
+
+  sheet('Boodschappenlijst',
+    lijst.length
+      ? `<p class="hint">Wat je nodig hebt voor je batches, min wat er al ligt.
+          Gegroepeerd per leverancier waar je het de vorige keer kocht.</p>
+         ${groepen.map(g=>`<div class="blokkop"><span class="eyebrow">${esc(g)}</span>
+           <span class="tel">${per[g].length}</span></div>
+           <div class="paneel">${per[g].map(x=>{
+             const h=hoeveel(x);
+             const v=grondVoorraad().find(y=>gKey(y.product)===gKey(x.product));
+             return `<div class="arij" style="cursor:default">
+               <span class="ivak ${x.reden==='batch'?'amber':''}">${svg(x.reden==='batch'?I.vorm:I.doos)}</span>
+               <span class="naam">${esc(x.product)}<small>${
+                 x.reden==='batch'?'nodig voor een batch':'onder je drempel'}${
+                 v?' · nu '+toonHoeveel(v.saldo,v.basis):' · niet op voorraad'}${
+                 h.bij?' · '+h.bij:''}</small></span>
+               <span class="waarde gevuld">${h.tekst}</span>
+               ${x.auto?'':`<button class="wisbtn" data-bwis="${x.id}">${svg(I.kruis,'2')}</button>`}
+             </div>`}).join('')}</div>`).join('')}`
+      : `<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
+          <p>Niets te halen.<br>Alles wat je nodig hebt ligt er.</p></div></div>`,
+    lijst.length?`<button class="prim" style="margin-top:0" id="bsKopie">Lijst kopiëren</button>
+      ${(S.boodschappen||[]).length?`<button class="sec" id="bsLeeg">Lijst leegmaken</button>`:''}`:'');
+
+  $$('[data-bwis]').forEach(b=>b.onclick=()=>{
+    S.boodschappen=(S.boodschappen||[]).filter(x=>x.id!==b.dataset.bwis);
+    bewaarNu(); sheetBoodschappen(); render(); toast('Van de lijst gehaald.');
+  });
+  if($('#bsKopie')) $('#bsKopie').onclick=()=>{
+    try{ navigator.clipboard.writeText(tekst); toast('Lijst gekopieerd.') }
+    catch(e){ toast('Kopiëren lukte niet.') }
+  };
+  if($('#bsLeeg')) $('#bsLeeg').onclick=()=>{
+    if(!confirm('De hele boodschappenlijst leegmaken?')) return;
+    S.boodschappen=[]; bewaarNu(); sheetBoodschappen(); render(); toast('Lijst leeggemaakt.');
+  };
+}
+
 function sheetBestellijst(){
   const laag=grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0);
   const per={};
@@ -5314,6 +5666,9 @@ function bind(){
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
   $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
+  $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
+  $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
+  $$('[data-planstart]').forEach(x=>x.onclick=()=>planStart(x.dataset.planstart));
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-tht]').forEach(x=>x.onclick=sheetTHT);
   $$('[data-waardering]').forEach(x=>x.onclick=sheetWaardering);
@@ -5536,10 +5891,21 @@ function wizard3(){
       <div class="inforij"><span class="k">Chocolade</span><span class="v">${chocNaam(W.choc)}</span></div>
       <div class="inforij"><span class="k">Mallen</span><span class="v">${regels.reduce((s,r)=>s+r.mallen,0)}</span></div>
       <div class="inforij"><span class="k">Totaal</span><span class="v">${regels.reduce((s,r)=>s+r.aantal,0)} bonbons</span></div>
-     </div>${dekkingBlok(regels)}${uitwerkingHTML(voorbeeld)}`,
+     </div>${dekkingBlok(regels)}${(()=>{
+       const kort2=dekkingGrond(regels).filter(x=>x.tekort>0);
+       return kort2.length?`<button class="knop2" id="w3Bood" style="margin:0 0 6px">${svg(I.vracht)}
+         Zet ${kort2.length===1?'dit tekort':'deze tekorten'} op de boodschappenlijst</button>`:''})()}${
+       uitwerkingHTML(voorbeeld)}`,
     `<button class="prim" style="margin-top:0" id="w3Ok">Batch aanmaken</button>
      <button class="sec" id="w3T">Terug naar smaken</button>`,'Stap 3 van 3');
   $('#w3T').onclick=wizard2;
+  if($('#w3Bood')) $('#w3Bood').onclick=()=>{
+    const r=boodschapUitBatch(regels);
+    bewaarNu(); render();
+    toast(r.toegevoegd? r.toegevoegd+(r.toegevoegd===1?' product':' producten')+' op je lijst gezet.'
+                      : 'Stond al op je lijst.');
+    sheetBoodschappen();
+  };
   $('#w3Ok').onclick=()=>{
     const kopie={};
     regels.forEach(rg=>{kopie[rg.receptId]=JSON.parse(JSON.stringify(recept(rg.receptId)))});
@@ -5906,6 +6272,12 @@ function sheetOntvangst(){
       const pr=parseFloat($('#oPr').value)||0;
       if(pr>0&&h){ const basisAantal=naarBasis(parseFloat(h)||0,e);
         if(basisAantal>0) zetArt(p,{prijs:pr/basisAantal}); }
+      /* gehaald? dan van de boodschappenlijst af */
+      if(S.boodschappen&&S.boodschappen.length){
+        const voor=S.boodschappen.length;
+        S.boodschappen=S.boodschappen.filter(x=>gKey(x.product)!==gKey(p));
+        if(S.boodschappen.length<voor) setTimeout(()=>toast(p+' van je boodschappenlijst gehaald.'),1200);
+      }
     }
     if(!b){
       S.ontvangsten.push({id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
