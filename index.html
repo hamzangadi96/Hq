@@ -748,6 +748,65 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
   @page{size:A4;margin:8mm}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ══════════ Op een groot scherm: zijbalk in plaats van tabbalk ══════════
+   Onder de 900 pixels verandert er niets — dan blijft alles zoals op je telefoon. */
+@media (min-width:900px){
+  body{background:#e9e9ec}
+  .app{max-width:1180px;height:100dvh;
+    display:grid;grid-template-columns:236px 1fr;grid-template-rows:1fr;
+    box-shadow:0 0 90px rgba(0,0,0,.10)}
+
+  /* de zijbalk */
+  nav{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:2px;
+    background:var(--card);border-top:none;border-right:1px solid var(--lijn);
+    padding:96px 14px 20px;overflow-y:auto}
+  nav .tab{flex-direction:row;align-items:center;gap:12px;justify-content:flex-start;
+    padding:11px 14px;border-radius:12px;font-size:14.5px;font-weight:500;
+    letter-spacing:-.015em;text-align:left}
+  nav .tab svg{width:19px;height:19px;flex:none}
+  nav .tab span{font-size:14.5px}
+  nav .tab:hover{background:var(--bg)}
+  nav .tab.actief{background:var(--ink);color:#fff}
+
+  /* de kop komt boven de zijbalk te staan */
+  header{position:absolute;top:0;left:0;width:236px;z-index:5;
+    padding:24px 20px 0;background:var(--card)}
+  header h1{font-size:17px}
+  header .onder{font-size:12.5px}
+  header .hbtn.menu{top:22px;right:16px;margin-right:0}
+
+  /* de inhoud krijgt de ruimte */
+  main{grid-column:2;grid-row:1;padding:40px 48px 64px;max-width:820px}
+  #scherm h1{font-size:34px}
+  #scherm .datum{font-size:15px}
+
+  /* twee kolommen waar dat kan */
+  .paneel,.kaartje,.hoofdkaart{max-width:640px}
+  .ordlijst{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:820px}
+  .balken{height:120px}
+
+  /* de bottom-sheet wordt een venster in het midden */
+  .overlay{position:fixed;background:rgba(24,24,27,.45)}
+  .sheet{position:fixed;left:50%;right:auto;bottom:auto;top:50%;
+    transform:translate(-50%,-46%) scale(.98);opacity:0;
+    width:min(560px,92vw);max-height:84dvh;border-radius:20px;
+    transition:opacity .18s,transform .18s}
+  .sheet.open{transform:translate(-50%,-50%) scale(1);opacity:1}
+  .sheet .grip{display:none}
+  .sheetkop{padding-top:22px}
+
+  /* muisaanwijzer waar je kunt klikken */
+  .arij:hover,.ordkaart:hover,.menurij:hover{background:#fafafa}
+  .prim:hover{opacity:.92}
+}
+
+/* nog breder: meer lucht */
+@media (min-width:1300px){
+  .app{max-width:1320px;grid-template-columns:260px 1fr}
+  header,nav{width:260px}
+  main{padding:44px 64px 72px;max-width:900px}
+}
 </style>
 </head>
 <body>
@@ -809,7 +868,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v70 · 11 aug 2026';
+const APPVERSIE='v71 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
