@@ -209,6 +209,25 @@ main>.blokkop:first-child{margin-top:8px}
   background:var(--bg);border-radius:99px;padding:3px 8px;white-space:nowrap;flex:none}
 .dagenbadge.let{background:#fffbeb;color:var(--amber)}
 
+/* ── weekstrip: veertien dagen vooruit, stip als er iets is ── */
+.weekstrip{display:flex;gap:6px;overflow-x:auto;margin:0 -20px 4px;padding:2px 20px 10px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.weekstrip::-webkit-scrollbar{display:none}
+.wdag{flex:none;width:46px;padding:8px 0 9px;border-radius:14px;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
+.wdag .wd{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--grijs2)}
+.wdag .wn{font-size:16px;font-weight:600;letter-spacing:-.03em;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.wdag.nu{background:var(--ink)}
+.wdag.nu .wd{color:#8f8f98} .wdag.nu .wn{color:#fff}
+.wdag.leeg .wn{color:var(--grijs3)}
+.wstippen{display:flex;gap:3px;height:5px;margin-top:3px}
+.wstippen i{width:5px;height:5px;border-radius:99px;display:block}
+.wstippen i.b{background:var(--ink)}
+.wstippen i.o{background:var(--amber)}
+.wstippen i.l{background:var(--grijs3)}
+.wdag.nu .wstippen i.b{background:#fff}
+
 /* ── instructie met de stap waaraan hij hangt ── */
 .insblok{padding:14px 0;border-bottom:1px solid var(--lijn)}
 .insblok:first-child{padding-top:0}
@@ -1075,7 +1094,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v103 · 11 aug 2026';
+const APPVERSIE='v104 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4495,13 +4514,39 @@ function sheetPlanning(){
     return kort(new Date(d));
   };
 
+  /* veertien dagen vooruit, met een stip per soort dat er die dag is */
+  const strip=(()=>{
+    let uit='<div class="weekstrip">';
+    for(let i=0;i<14;i++){
+      const d=datumPlus(vandaag(),i), dt=new Date(d);
+      const dag=dagen[d]||{batches:[],bood:[]};
+      const ords=(ord[d]||[]).length;
+      const iets=dag.batches.length||dag.bood.length||ords;
+      uit+=`<button class="wdag ${i===0?'nu':''} ${iets?'':'leeg'}" data-naardag="${d}">
+        <span class="wd">${DAG[dt.getDay()].slice(0,2)}</span>
+        <span class="wn">${dt.getDate()}</span>
+        <span class="wstippen">${
+          (dag.batches.length?'<i class="b"></i>':'')+
+          (dag.bood.length?'<i class="o"></i>':'')+
+          (ords?'<i class="l"></i>':'')}</span></button>`;
+    }
+    return uit+'</div>';
+  })();
+
   sheet('Planning',
-    `<p class="hint">Wat er de komende dagen staat te gebeuren. De app rekent zelf uit
-      wanneer je boodschappen moet doen.</p>
+    `${strip}
+     <div class="geen" style="padding:0 2px 14px;display:flex;gap:14px;flex-wrap:wrap">
+       <span style="display:inline-flex;align-items:center;gap:6px">
+         <i style="width:6px;height:6px;border-radius:99px;background:var(--ink);display:block"></i>batch</span>
+       <span style="display:inline-flex;align-items:center;gap:6px">
+         <i style="width:6px;height:6px;border-radius:99px;background:var(--amber);display:block"></i>boodschappen</span>
+       <span style="display:inline-flex;align-items:center;gap:6px">
+         <i style="width:6px;height:6px;border-radius:99px;background:var(--grijs3);display:block"></i>leveren</span>
+     </div>
      ${datums.length?datums.map(d=>{
        const dag=dagen[d], dn=new Date(d);
        const nu6=dagenTussen(vandaag(),d);
-       return `<div class="blokkop"><span class="eyebrow">${DAG[dn.getDay()]} ${dn.getDate()} ${MND[dn.getMonth()]}</span>
+       return `<div class="blokkop" data-dag="${d}"><span class="eyebrow">${DAG[dn.getDay()]} ${dn.getDate()} ${MND[dn.getMonth()]}</span>
          <span class="tel ${nu6<=0?'let':''}">${labelVan(d)}</span></div>
        <div class="paneel">
          ${dag.bood.map(p=>`<button class="arij" data-boodschap>
@@ -4528,6 +4573,12 @@ function sheetPlanning(){
     `<button class="prim" style="margin-top:0" id="plNieuw">${svg(I.plus)}Batch inplannen</button>`);
 
   $('#plNieuw').onclick=()=>sheetPlanBatch();
+  $$('[data-naardag]').forEach(b=>b.onclick=()=>{
+    const d=b.dataset.naardag;
+    const doel=document.querySelector('[data-dag="'+d+'"]');
+    if(doel){ doel.scrollIntoView({behavior:'smooth',block:'start'}); }
+    else { sheetPlanBatch(d); }
+  });
   $$('[data-planstart]').forEach(b=>b.onclick=()=>planStart(b.dataset.planstart));
   $$('[data-planwis]').forEach(b=>b.onclick=()=>{
     if(!confirm('Deze geplande batch verwijderen?')) return;
