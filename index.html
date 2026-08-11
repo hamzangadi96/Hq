@@ -1118,7 +1118,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v116 · 11 aug 2026';
+const APPVERSIE='v117 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1818,15 +1818,7 @@ function weekstripHTML(dagenVooruit){
   if(loopt.length) (perDag[vandaag()]=perDag[vandaag()]||[])
     .push({soort:'productie',tekst:'batch onderweg'});
 
-  const eind=new Date(datumPlus(vandaag(),n-1));
-  const start=new Date(vandaag());
-  const maandTekst = start.getMonth()===eind.getMonth()
-    ? MND[start.getMonth()]+' '+start.getFullYear()
-    : MND[start.getMonth()]+' — '+MND[eind.getMonth()]+' '+eind.getFullYear();
-
-  let uit=`<div class="wmaand"><span class="mnd">${maandTekst}</span>
-    <button class="wkleuren" data-legenda aria-label="Wat betekenen de kleuren?">${svg(I.palet)}</button></div>
-    <div class="weekstrip">`;
+  let uit=`<div class="weekstrip">`;
   for(let i=0;i<n;i++){
     const d=datumPlus(vandaag(),i), dt=new Date(d);
     const taken=perDag[d]||[];
@@ -1835,13 +1827,17 @@ function weekstripHTML(dagenVooruit){
     const soorten2=volgorde.filter(k=>taken.some(t=>t.soort===k));
     const titel=soorten2.map(k=>k==='leveren'?'leveren':(DAGSOORT[k]||{}).n).join(' · ');
     const nieuweMaand=i>0&&dt.getDate()===1;
+    /* vandaag toont de maand in plaats van de dagletter — dat scheelt een regel */
+    const bovenaan = i===0 ? MND[dt.getMonth()].slice(0,3)
+      : nieuweMaand ? MND[dt.getMonth()].slice(0,3) : DAG[dt.getDay()].slice(0,2);
     uit+=`<button class="wdag ${i===0?'nu':''} ${taken.length?'vol':'leeg'} ${nieuweMaand?'maand':''}"
       data-weekdag="${d}" title="${esc(titel||'niets gepland')}">
-      <span class="wd">${nieuweMaand?MND[dt.getMonth()].slice(0,3):DAG[dt.getDay()].slice(0,2)}</span>
+      <span class="wd">${bovenaan}</span>
       <span class="wn">${dt.getDate()}</span>
       <span class="wstippen">${soorten2.map(k=>`<i class="s-${k}"></i>`).join('')}</span>
     </button>`;
   }
+  uit+=`<button class="wkleuren" data-legenda aria-label="Wat betekenen de kleuren?">${svg(I.palet)}</button>`;
   uit+='</div>';
   uit+=`<div class="wlegenda" id="wLeg">
     ${Object.keys(DAGSOORT).map(k=>`<span><i class="s-${k}"></i>${DAGSOORT[k].n.toLowerCase()}</span>`).join('')}
