@@ -233,6 +233,7 @@ main>.blokkop:first-child{margin-top:8px}
 .s-voorbereiden{background:#7c8fa8}
 .s-half{background:#9a9aa4}
 .s-productie{background:var(--ink)}
+.s-verzenden{background:#6b5b95}
 .s-live{background:#c0392b}
 .s-overig{background:#5b7c6b}
 .s-leveren{background:var(--grijs3)}
@@ -240,6 +241,7 @@ main>.blokkop:first-child{margin-top:8px}
 .wdag.nu .s-boodschappen{background:#fbbf24}
 .wdag.nu .s-voorbereiden{background:#a8bcd4}
 .wdag.nu .s-half{background:#c4c4ce}
+.wdag.nu .s-verzenden{background:#a99ccb}
 .wdag.nu .s-live{background:#f87171}
 .wdag.nu .s-overig{background:#86b39a}
 .wdag.nu .s-leveren{background:#71717a}
@@ -1117,7 +1119,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v110 · 11 aug 2026';
+const APPVERSIE='v112 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1293,7 +1295,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], verzendgrens:14, levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1318,7 +1320,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1822,7 +1824,7 @@ function weekstripHTML(dagenVooruit){
     const d=datumPlus(vandaag(),i), dt=new Date(d);
     const taken=perDag[d]||[];
     /* per soort één balkje, in vaste volgorde */
-    const volgorde=['boodschappen','voorbereiden','half','productie','live','overig','leveren'];
+    const volgorde=['boodschappen','voorbereiden','half','productie','verzenden','live','overig','leveren'];
     const soorten2=volgorde.filter(k=>taken.some(t=>t.soort===k));
     const titel=soorten2.map(k=>k==='leveren'?'leveren':(DAGSOORT[k]||{}).n).join(' · ');
     uit+=`<button class="wdag ${i===0?'nu':''} ${taken.length?'vol':'leeg'}" data-weekdag="${d}"
@@ -1845,8 +1847,11 @@ function dashboardToestand(){
   const bezig=open.find(x=>lopendWerk(x))||open[0];
   if(bezig) return {soort:'bezig',b:bezig};
 
+  /* wat vandaag de deur uit moet gaat voor: daar zit een klant op te wachten */
+  const verz=verzendTaken().filter(v=>v.datum<=vandaag());
   const plan=planLijst();
   const vandaagP=plan.filter(p=>dagenTussen(vandaag(),p.datum)<=0);
+  if(verz.length&&!bezig) return {soort:'verzenden',lijst:verz,plan:vandaagP};
   if(vandaagP.length) return {soort:'vandaag',p:vandaagP[0],rest:vandaagP.slice(1)};
 
   const boodNu=plan.filter(p=>{const bd=boodschapDatum(p);return bd&&dagenTussen(vandaag(),bd)<=0});
@@ -1949,6 +1954,39 @@ function dashboardHTML(){
           <span class="ivak ink">${svg(I.vorm)}</span>
           <span class="naam">${esc(p2.regels.map(r=>smaakNaam(r.receptId)).join(', '))}
             <small>${p2.regels.reduce((n,r)=>n+r.aantal,0)} bonbons</small></span>
+          <button class="miniknop" data-planstart="${p2.id}">Starten</button></div>`).join('')}</div>`;
+    }
+  }
+
+  else if(t.soort==='verzenden'){
+    const teLaat=t.lijst.filter(v=>v.datum<vandaag());
+    h+=`<div class="hoofdkaart">
+      <div class="stap" style="color:${DAGSOORT.verzenden.kleur}">Verzenden${
+        teLaat.length?' · '+teLaat.length+' te laat':''}</div>
+      <h2 style="margin-top:6px">${t.lijst.length} ${t.lijst.length===1?'pakket':'pakketten'} de deur uit</h2>
+      <div class="sub">Besteld voor ${verzendgrens()}:00 gaat vandaag nog weg.${
+        teLaat.length?' '+teLaat.length+' had gisteren of eerder gemoeten.':''}</div>
+      <button class="prim" data-naar="orders">${svg(I.doos)}Naar je orders</button></div>
+      <div class="blokkop"><span class="eyebrow">Vandaag verzenden</span>
+        <span class="tel ${teLaat.length?'let':''}">${t.lijst.length}</span></div>
+      <div class="paneel">${t.lijst.slice(0,6).map(v=>{
+        const laat=v.datum<vandaag();
+        const n=laat?dagenTussen(v.datum,vandaag()):0;
+        return `<div class="arij">
+          <span class="ivak" style="background:${laat?'#fef2f2':'#6b5b9520'};color:${
+            laat?'var(--rood)':DAGSOORT.verzenden.kleur}">${svg(I.vracht)}</span>
+          <span class="naam">${esc(v.naam)}<small>${esc(v.nummer||'')}${
+            laat?' · '+n+(n===1?' dag':' dagen')+' te laat':' · vandaag'}${
+            v.shop?' · uit je webshop':''}</small></span>
+          ${v.o?`<button class="miniknop" data-verzonden="${v.o.id}">Verzonden</button>`
+               :`<span class="pijl" data-naar="orders">${svg(I.pijl,'2')}</span>`}
+        </div>`}).join('')}</div>`;
+    if(t.plan.length){
+      h+=`<div class="blokkop"><span class="eyebrow">Ook vandaag</span></div>
+        <div class="paneel">${t.plan.map(p2=>`<div class="arij">
+          <span class="ivak ink">${svg(I.vorm)}</span>
+          <span class="naam">${esc(p2.regels.map(r=>smaakNaam(r.receptId)).join(', '))}
+            <small>batch draaien · ${p2.regels.reduce((n,r)=>n+r.aantal,0)} bonbons</small></span>
           <button class="miniknop" data-planstart="${p2.id}">Starten</button></div>`).join('')}</div>`;
     }
   }
@@ -4006,7 +4044,8 @@ function sheetNieuweOrder(){
       const regels=Object.entries(W.regels).filter(([k,v])=>v>0).map(([k,v])=>({receptId:k,aantal:v}));
       if(!regels.length) return toast('Voeg minstens één smaak toe.');
       const o={id:uid(),nummer:nieuwOrdernr(),klantId:W.klantId,regels,
-        leverdatum:$('#oD').value||'',datum:iso(new Date()),status:'nieuw',lots:{}};
+        leverdatum:$('#oD').value||'',datum:iso(new Date()),
+        besteldOm:new Date().toTimeString().slice(0,5),status:'nieuw',lots:{}};
       S.orders=S.orders||[]; S.orders.push(o); bewaarNu(); render();
       sheetOrder(o.id); toast('Order '+o.nummer+' aangemaakt.');
     };
@@ -4602,7 +4641,8 @@ const DAGSOORT={
   half:{n:'Halffabricaat',kleur:'#9a9aa4',ico:'vorm'},
   productie:{n:'Productiedag',kleur:'var(--ink)',ico:'vorm'},
   live:{n:'Live',kleur:'#c0392b',ico:'spark'},
-  overig:{n:'Overig',kleur:'#5b7c6b',ico:'klembord'}
+  overig:{n:'Overig',kleur:'#5b7c6b',ico:'klembord'},
+  verzenden:{n:'Verzenden',kleur:'#6b5b95',ico:'vracht'}
 };
 /* losse taken staan los van een batch: een live, een afspraak, een klus */
 const TAAKSOORTEN=[
@@ -4613,6 +4653,58 @@ const TAAKSOORTEN=[
   {k:'overig',n:'Iets anders'}
 ];
 const takenOp=d=>(S.taken||[]).filter(t=>t.datum===d);
+
+/* ---------- verzendregel ----------
+   Besteld voor 14:00 op een werkdag gaat dezelfde dag de deur uit. Daarna,
+   of in het weekend, schuift het door naar de eerstvolgende werkdag. */
+const verzendgrens=()=>typeof S.verzendgrens==='number'?S.verzendgrens:14;
+const isWeekend=d=>{const n=new Date(d).getDay();return n===0||n===6};
+function volgendeWerkdag(d){
+  let x=d;
+  do{ x=datumPlus(x,1) }while(isWeekend(x));
+  return x;
+}
+function verzenddagVan(o){
+  if(o.afhaal) return null;
+  if(o.verzonden) return null;
+  if(o.verzenddag) return o.verzenddag;      /* handmatig gezet wint */
+  const d=String(o.datum||'').slice(0,10);
+  if(!d) return null;
+  const uur=(()=>{
+    const t=o.besteldOm||o.tijd||'';
+    const m=String(t).match(/^(\d{1,2})[:.](\d{2})/);
+    return m?parseInt(m[1],10):null;
+  })();
+  /* geen tijd bekend: dan gewoon dezelfde dag, of maandag als het weekend is */
+  if(isWeekend(d)) return volgendeWerkdag(d);
+  if(uur===null||uur<verzendgrens()) return d;
+  return volgendeWerkdag(d);
+}
+/* orders uit Shopify: die brengen hun eigen besteltijd mee */
+function shopVerzendTaken(){
+  return macOrders().filter(x=>!x.afhaal&&!x.verzonden&&!x.label)
+    .map(x=>{
+      /* Shopify levert een tijdstempel; daar rekenen we de verzenddag uit */
+      const stempel=x.besteld||x.created_at||x.datum||'';
+      const dag=String(stempel).slice(0,10);
+      if(!dag) return null;
+      const m=String(stempel).match(/T(\d{2}):(\d{2})/);
+      const uur=m?parseInt(m[1],10):null;
+      let datum;
+      if(isWeekend(dag)) datum=volgendeWerkdag(dag);
+      else if(uur===null||uur<verzendgrens()) datum=dag;
+      else datum=volgendeWerkdag(dag);
+      return {shop:x,datum,nummer:x.nummer,naam:x.naam||x.klant||('Order '+x.nummer)};
+    }).filter(Boolean);
+}
+
+/* alle orders die nog verzonden moeten worden, met hun verzenddag */
+function verzendTaken(){
+  const eigen=(S.orders||[]).filter(o=>o.status!=='vervallen'&&!o.verzonden&&!o.afhaal)
+    .map(o=>({o,datum:verzenddagVan(o),naam:klantNaam(o.klantId),nummer:o.nummer}))
+    .filter(x=>x.datum);
+  return eigen.concat(shopVerzendTaken());
+}
 /* welke stap uit je werkplan hoort bij welke soort */
 function stapSoort(naam){
   const t=String(naam||'').toLowerCase();
@@ -4636,9 +4728,33 @@ function planTaken(p){
   return uit;
 }
 const allePlanTaken=()=>planLijst().flatMap(planTaken)
-  .concat((S.taken||[]).map(t=>({datum:t.datum,soort:t.soort,tekst:t.tekst,los:t,tijd:t.tijd||''})));
+  .concat((S.taken||[]).map(t=>({datum:t.datum,soort:t.soort,tekst:t.tekst,los:t,tijd:t.tijd||''})))
+  .concat(verzendTaken().map(v=>({datum:v.datum,soort:'verzenden',
+    tekst:v.naam,verzend:v,tijd:''})));
 
 /* een losse taak inplannen: een live, een klus, een afspraak */
+function sheetVerzendregel(){
+  sheet('Verzendregel',
+    `<p class="hint">Bestellingen die vóór dit tijdstip binnenkomen gaan dezelfde werkdag nog weg.
+      Daarna, of in het weekend, schuift het naar de eerstvolgende werkdag.</p>
+     <div class="veld"><label>Uiterlijk besteld om</label>
+       <div class="keuzeraster">${[12,13,14,15,16,17].map(u=>
+         `<button class="chip ${verzendgrens()===u?'aan':''}" data-vg="${u}">${u}:00</button>`).join('')}</div></div>
+     <div class="info">
+       <div class="inforij"><span class="k">Nu besteld</span>
+         <span class="v">${(()=>{const nu7=new Date();
+           const d=iso(nu7);
+           const vd=isWeekend(d)?volgendeWerkdag(d):(nu7.getHours()<verzendgrens()?d:volgendeWerkdag(d));
+           return 'verzenden op '+kort(new Date(vd))})()}</span></div>
+     </div>`,
+    `<button class="prim" style="margin-top:0" id="vgOk">Klaar</button>`);
+  $$('[data-vg]').forEach(b=>b.onclick=()=>{
+    S.verzendgrens=parseInt(b.dataset.vg);
+    bewaarNu(); sheetVerzendregel(); render();
+  });
+  $('#vgOk').onclick=()=>{dicht();render()};
+}
+
 function sheetTaakNieuw(datum){
   const T={soort:'live',datum:datum||vandaag(),tekst:'',tijd:''};
   const teken=()=>{
@@ -4888,10 +5004,12 @@ function sheetPlanning(){
          ${(dag.voor||[]).map(t=>`<div class="arij" style="cursor:default">
            <span class="ivak" style="background:${DAGSOORT[t.soort].kleur}1f;color:${DAGSOORT[t.soort].kleur}">
              ${svg(I[DAGSOORT[t.soort].ico])}</span>
-           <span class="naam">${esc(t.tekst)}<small>${t.los
-             ? DAGSOORT[t.soort].n.toLowerCase()+(t.tijd?' · '+esc(t.tijd):'')
+           <span class="naam">${esc(t.tekst)}<small>${
+             t.verzend ? 'verzenden · '+esc(t.verzend.nummer||'')+(t.verzend.shop?' · uit je webshop':'')
+             : t.los ? DAGSOORT[t.soort].n.toLowerCase()+(t.tijd?' · '+esc(t.tijd):'')
              : 'voor de batch van '+kort(new Date(t.plan.datum))}</small></span>
            ${t.los?`<button class="wisbtn" data-taakwis="${t.los.id}">${svg(I.kruis,'2')}</button>`:''}
+           ${t.verzend&&t.verzend.o?`<button class="miniknop" data-verzonden="${t.verzend.o.id}">Verzonden</button>`:''}
          </div>`).join('')}
          ${dag.batches.map(p=>{
            const tot=p.regels.reduce((n,r)=>n+r.aantal,0);
@@ -4915,6 +5033,12 @@ function sheetPlanning(){
 
   $('#plNieuw').onclick=()=>sheetPlanBatch();
   $('#plTaak').onclick=()=>sheetTaakNieuw();
+  $$('[data-verzonden]').forEach(b=>b.onclick=()=>{
+    const o2=(S.orders||[]).find(x=>x.id===b.dataset.verzonden); if(!o2) return;
+    o2.verzonden=iso(new Date());
+    if(o2.status==='ingepakt') o2.status='geleverd';
+    bewaarNu(); sheetPlanning(); render(); toast('Als verzonden gemarkeerd.');
+  });
   $$('[data-taakwis]').forEach(b=>b.onclick=()=>{
     S.taken=(S.taken||[]).filter(x=>x.id!==b.dataset.taakwis);
     bewaarNu(); sheetPlanning(); render(); toast('Uit je planning gehaald.');
@@ -9133,6 +9257,8 @@ function sheetInstellingen(){
        bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
      <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
        esc(branche().naam)}</span></button>
+     <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
+       verzendgrens()}:00</span></button>
      <button class="menurij" data-ins="verkoop">${svg(I.spark)}Verkoopprijzen<span class="tel">${
        (()=>{const n=(S.recepten||[]).filter(r=>verkoopPrijs(r.id)!==null).length;
          return n?n+' van '+(S.recepten||[]).length:'nog niets'})()}</span></button>
@@ -9156,6 +9282,7 @@ function sheetInstellingen(){
     if(k==='bedrijf') return sheetBedrijf();
     if(k==='branche') return sheetBranche(false);
     if(k==='verkoop') return sheetVerkoopprijzen();
+    if(k==='verzend') return sheetVerzendregel();
     if(k==='recepten') return sheetRecepten();
     if(k==='meetpunten') return sheetMeetpunten();
     if(k==='mal') return sheetMal();
