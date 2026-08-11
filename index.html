@@ -214,10 +214,17 @@ main>.blokkop:first-child{margin-top:8px}
 .insblok:first-child{padding-top:0}
 .insblok:last-of-type{border-bottom:none;padding-bottom:6px}
 .insblok .ingrij{margin-bottom:0}
-.inschips{display:flex;gap:6px;overflow-x:auto;margin:10px -20px 0;padding:0 20px 2px;
+.inschips{display:flex;gap:6px;overflow-x:auto;margin:10px -20px 0;padding:0 20px 4px;
   scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .inschips::-webkit-scrollbar{display:none}
 .inschips .chip{flex:none}
+
+/* ── keuzes in een raster: gelijke breedte, geen gaten ── */
+.keuzeraster{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.keuzeraster.twee{grid-template-columns:1fr 1fr}
+.keuzeraster .chip{width:100%;justify-content:center;text-align:center;padding:14px 8px;
+  font-size:14px;line-height:1.25}
+.keuzeraster .chip.breed{grid-column:1 / -1}
 .groep:last-child .arij{border-bottom:none}
 .arij .naam{flex:1;font-size:15px;font-weight:500;letter-spacing:-.015em}
 .arij .bol{width:20px;height:20px;border-radius:99px;border:1.5px solid #d8d8dc;flex:none;
@@ -1088,7 +1095,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v99 · 11 aug 2026';
+const APPVERSIE='v100 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7282,12 +7289,12 @@ function smaakStap2(){
   sheet('Waar maak je het van?',
     `<p class="hint">Kies je ${(branche().basis||'basissoort').toLowerCase()} en hoe lang het product houdbaar is.</p>
      <div class="veld"><label>${esc(branche().basis||'Basissoort')}</label>
-       <div class="chips" id="swC">${soorten().map(c=>
+       <div class="keuzeraster twee" id="swC">${soorten().map(c=>
          `<button class="chip ${c.key===R.chocolade?'aan':''}" data-v="${c.key}">${c.naam}</button>`).join('')}</div></div>
      <div class="veld"><label>Houdbaar na productie</label>
-       <div class="chips" id="swT">${[7,14,21,30,60,90].map(d=>
+       <div class="keuzeraster" id="swT">${[7,14,21,30,60,90].map(d=>
          `<button class="chip ${R.tht===d?'aan':''}" data-v="${d}">${d} dagen</button>`).join('')}
-         <button class="chip ${[7,14,21,30,60,90].includes(R.tht)?'':'aan'}" data-v="anders">Anders</button></div>
+         <button class="chip breed ${[7,14,21,30,60,90].includes(R.tht)?'':'aan'}" data-v="anders">Ander aantal</button></div>
        <div class="inlineform ${[7,14,21,30,60,90].includes(R.tht)?'':'open'}" id="swTF" style="margin-top:10px">
          <div class="rijtje"><input class="mini" id="swTN" type="number" inputmode="numeric"
            value="${R.tht}" style="max-width:96px">
@@ -7328,10 +7335,10 @@ function smaakStap3(){
          <span class="w">${getal(totaal)} g</span></div>`
       :''}
      <div class="veld"><label>${R.onderdelen.length?'Nog een laag toevoegen':'Begin met een laag'}</label>
-       <div class="chips" id="swO">${ONDERDEELVOORSTEL.filter(x=>
+       <div class="keuzeraster" id="swO">${ONDERDEELVOORSTEL.filter(x=>
          !R.onderdelen.some(o=>gKey(o.naam)===gKey(x))).map(x=>
-         `<button class="chip" data-nieuwond="${esc(x)}">${svg(I.plus)}${x}</button>`).join('')}
-         <button class="chip nieuw" data-nieuwond="">${svg(I.plus)}Anders</button></div></div>`,
+         `<button class="chip" data-nieuwond="${esc(x)}">${x}</button>`).join('')}
+         <button class="chip nieuw breed" data-nieuwond="">${svg(I.plus)}Andere laag</button></div></div>`,
     `<button class="prim" style="margin-top:0" id="sw3">${R.onderdelen.length?'Volgende':'Overslaan'}</button>
      <button class="sec" id="sw3T">Terug</button>`,'Stap 3 van 4');
   $$('[data-ond]').forEach(b=>b.onclick=()=>{R.wizard=3;sheetOnderdeel(parseInt(b.dataset.ond))});
@@ -7354,9 +7361,9 @@ function smaakStap4(){
      <div class="veld"><label>Instructie toevoegen</label>
        <input class="inp" id="swI" placeholder="Bijv. tempereren tot 31,5 °C"></div>
      <div class="veld"><label>Hoort bij welke stap?</label>
-       <div class="chips" id="swS">
-         <button class="chip klein aan" data-v="">Los</button>
-         ${(S.werkplan||[]).map(w=>`<button class="chip klein" data-v="${esc(w)}">${esc(w)}</button>`).join('')}
+       <div class="keuzeraster twee" id="swS">
+         <button class="chip aan breed" data-v="">Niet aan een stap</button>
+         ${(S.werkplan||[]).map(w=>`<button class="chip" data-v="${esc(w)}">${esc(w)}</button>`).join('')}
        </div></div>
      <button class="knop2" id="swIOk" style="margin:0">${svg(I.plus)}Toevoegen</button>`,
     `<button class="prim" style="margin-top:0" id="sw4">Klaar</button>
