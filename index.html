@@ -316,6 +316,18 @@ main{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
 .menurij svg{width:18px;height:18px;color:var(--grijs);flex:none}
 .menurij .tel{margin-left:auto;font-size:12.5px;font-weight:500;color:var(--grijs2)}
 
+/* beheerrijen in een paneel: zelfde taal als het menu, met de waarde rechts */
+.beheerrij{display:flex;align-items:center;gap:12px;width:100%;padding:15px 16px;
+  border-bottom:1px solid var(--lijn);font-size:15px;font-weight:500;text-align:left}
+.beheerrij:last-child{border-bottom:none}
+.beheerrij:active{background:var(--bg)}
+.beheerrij>svg{width:18px;height:18px;color:var(--grijs);flex:none}
+.beheerrij .l{flex:1;min-width:0;letter-spacing:-.015em}
+.beheerrij .w{font-size:13px;font-weight:600;color:var(--grijs2);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.beheerrij .w.let{color:var(--amber)}
+.beheerrij .p{width:14px;height:14px;color:var(--grijs3);flex:none}
+
 /* chocolade-keuze */
 .choc{display:flex;flex-direction:column;gap:12px}
 .chocknop{display:flex;align-items:center;gap:16px;padding:16px;border-radius:18px;background:var(--bg)}
@@ -1019,7 +1031,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v88 · 11 aug 2026';
+const APPVERSIE='v89 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2874,13 +2886,17 @@ function geldHTML(){
   const r=S.rit, lijst=ritten();
   const zak=kmDitJaar(true), pri=kmDitJaar(false);
   const jr0=new Date().getFullYear(), kw0=kwartaalVan(new Date());
-  const omJ=omzetVan(jr0,0);
+  const omJ=omzetVan(jr0,0), omK=omzetVan(jr0,kw0), btwK=btwSplit(jr0,kw0);
+  const voorK=bonnenPeriode(jr0,kw0).reduce((n,b)=>n+(b.btw||0),0);
+  const openst=openstaand(), openTot=openst.reduce((n,x)=>n+x.bedrag,0);
+  const wv=winstVan(jr0,kw0);
+
   let h=`<h1>Financiën</h1><div class="datum">${omJ.bruto
     ? euro(omJ.bruto)+' omzet dit jaar · '+omJ.orders+' '+(omJ.orders===1?'order':'orders')
     : 'omzet, btw, kilometers en bonnen'}</div>`;
 
+  /* een rit die loopt hoort bovenaan — anders staat geld voorop */
   if(r){
-    const min=Math.round((Date.now()-r.begonnen)/60000);
     h+=`<div class="ritkaart">
       <div class="rkstatus"><span class="rkbol"></span>Onderweg sinds ${r.start.tijd}</div>
       <div class="rkkm"><span id="rkKm">${komma(Math.round((r.km||0)*10)/10)}</span><em>km</em></div>
@@ -2892,34 +2908,40 @@ function geldHTML(){
       <button class="rkstop" data-ritstop>Rit beëindigen</button>
       <button class="rkweg" data-ritweg>Annuleren</button>
       <span id="rkPunten" hidden></span></div>`;
-  } else {
-    h+=`<button class="prim groot" data-ritstart>${svg(I.auto)}&nbsp; Rit starten</button>
-      <button class="sec" data-ritbestem style="margin-top:8px">Rit starten met bestemming</button>
-      <div class="geen" style="padding:12px 0 0;text-align:center">
-        Laat de app open voor een precieze meting. Sluit je hem, dan berekent hij de route bij aankomst.${
-        S.kmStand?'<br>Teller staat op '+getal(S.kmStand)+' km':''}</div>`;
   }
 
-  /* omzet en btw: het eerste wat je wil zien */
-  const omK=omzetVan(jr0,kw0);
-  const bnsK=bonnenPeriode(jr0,kw0);
-  const voorK=bnsK.reduce((n,b)=>n+(b.btw||0),0);
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Omzet</span>
-      <span class="tel">${omJ.mist?omJ.mist+' zonder prijs':''}</span></div>
+  /* ── omzet ── */
+  h+=`<div class="blokkop" style="margin-top:${r?'24px':'0'}"><span class="eyebrow">Omzet</span>
+      <span class="tel">kwartaal ${kw0}</span></div>
     <div class="paneel">
       <button class="arij" data-btw>
-        <span class="naam">Dit kwartaal<small>Q${kw0} · ${euro(omK.btw)} btw over de omzet</small></span>
+        <span class="naam">Dit kwartaal<small>${omK.orders} ${omK.orders===1?'order':'orders'} · ${
+          euro(btwK.laagExcl+btwK.hoogExcl)} exclusief btw</small></span>
         <span class="waarde ${omK.bruto?'gevuld':''}">${omK.bruto?euro(omK.bruto):'—'}</span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
       <button class="arij" data-btw>
-        <span class="naam">Te betalen btw<small>na aftrek van ${euro(voorK)} uit je bonnen</small></span>
-        <span class="waarde ${omK.btw-voorK?'gevuld':''}">${euro(omK.btw-voorK)}</span>
+        <span class="naam">Te betalen btw<small>na aftrek van ${euro(voorK)} voorbelasting</small></span>
+        <span class="waarde ${(omK.btw-voorK)?'gevuld':''}">${euro(omK.btw-voorK)}</span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
       <button class="arij" data-openstaand>
-        <span class="naam">Openstaand<small>${(()=>{const l=openstaand();
-          return l.length?l.length+(l.length===1?' order nog niet betaald':' orders nog niet betaald'):'alles betaald'})()}</small></span>
-        <span class="waarde ${openstaand().length?'gevuld':''}">${(()=>{const t=openstaand()
-          .reduce((n,x)=>n+x.bedrag,0); return t?euro(t):'—'})()}</span>
+        <span class="naam">Openstaand<small>${openst.length
+          ?openst.length+(openst.length===1?' order nog niet betaald':' orders nog niet betaald')
+          :'alles betaald'}</small></span>
+        ${openst.some(x=>x.dagen>30)?'<span class="stip rood"></span>'
+          :openst.some(x=>x.dagen>14)?'<span class="stip amber"></span>':''}
+        <span class="waarde ${openTot?'gevuld':''}">${openTot?euro(openTot):'—'}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+    </div>
+    ${omJ.mist?`<div class="melding amber" style="margin-top:12px">${svg(I.alarm,'2')}
+      <span>${omJ.mist} bonbons zonder verkoopprijs — die tellen niet mee in je omzet.</span></div>`:''}`;
+
+  /* ── resultaat ── */
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Resultaat</span></div>
+    <div class="paneel">
+      <button class="arij" data-winst>
+        <span class="naam">Winst en verlies<small>na grondstoffen, bonnen, kilometers${
+          wv.arbeid?' en arbeid':''}</small></span>
+        <span class="waarde gevuld">${wv.resultaat<0?'−':''}${euro(Math.abs(wv.resultaat))}</span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
       <button class="arij" data-marges>
         <span class="naam">Marge per smaak<small>${(()=>{
@@ -2928,11 +2950,22 @@ function geldHTML(){
           const g=Math.round(l.reduce((n,m)=>n+m.pct,0)/l.length);
           return 'gemiddeld '+g+'% over '+l.length+' '+(l.length===1?'smaak':'smaken')})()}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+      <button class="arij" data-bonnen>
+        <span class="naam">Bonnen<small>${(S.bonnen||[]).length
+          ?bonnen(jr0).length+' dit jaar · '+euro(btwTotaal(jr0))+' btw terug te vragen'
+          :'nog niets vastgelegd'}</small></span>
+        <span class="waarde ${bonTotaal(jr0)?'gevuld':''}">${bonTotaal(jr0)?euro(bonTotaal(jr0)):'—'}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
     </div>`;
 
+  /* ── kilometers ── */
   const gaten=kmControle(), mist=onvolledig();
+  const kwK=kmPeriode(true,kw0);
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Kilometers</span>
+      <span class="tel">${lijst.length?lijst.length+(lijst.length===1?' rit':' ritten'):''}</span></div>`;
+
   if(gaten.length||mist.length){
-    h+=`<div class="melding ${gaten.length?'rood':'amber'}" style="margin-top:20px">${svg(I.alarm,'2')}
+    h+=`<div class="melding ${gaten.length?'rood':'amber'}" style="margin-bottom:12px">${svg(I.alarm,'2')}
       <span>${[
         gaten.filter(g=>g.soort==='gat').length?getal(Math.round(gaten.filter(g=>g.soort==='gat')
           .reduce((n,g)=>n+g.km,0)))+' km niet verantwoord tussen twee ritten':'',
@@ -2943,57 +2976,62 @@ function geldHTML(){
         :' Vul aan wat er mist, dan is je aftrek onderbouwd.'}</span></div>`;
   }
 
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Ritten</span>
-      <span class="tel">${lijst.length||''}</span></div>`;
-  h+=lijst.length?`<div class="paneel">${lijst.slice(0,20).map(x=>{
-    const m=ritMankeert(x);
-    return `<button class="arij rrij2" data-rit="${x.id}">
-      ${autoVanDeZaak()?`<span class="rmerk ${x.zakelijk?'zak':'pri'}">${x.zakelijk?'Z':'P'}</span>`:''}
-      <span class="naam">${esc(x.reden||'geen reden ingevuld')}
-        <small>${kort(new Date(x.datum))} · ${esc(toonPlek(x.start)||'vertrek')} → ${esc(toonPlek(x.eind)||'aankomst')}${
-          m.length?' · <b>mist '+m.join(', ')+'</b>':''}</small></span>
-      <span class="waarde gevuld">${komma(Math.round(x.km*10)/10)}<em>km</em></span>
-      <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
-   :`<div class="paneel"><div class="geen">Nog geen ritten. Druk op start als je wegrijdt.</div></div>`;
-
-  const kw=kwartaalVan(new Date()), zakKw=kmPeriode(true,kw);
-  const jr=new Date().getFullYear();
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Uitgaven</span></div>
-    <div class="paneel"><button class="arij" data-bonnen>
-      <span class="naam">Bonnen<small>${(S.bonnen||[]).length?bonnen(jr).length+' dit jaar · '+euro(btwTotaal(jr))+' btw terug te vragen':'nog niets vastgelegd'}</small></span>
-      <span class="waarde ${bonTotaal(jr)?'gevuld':''}">${bonTotaal(jr)?euro(bonTotaal(jr)):'—'}</span>
-      <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
-
-    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Zakelijk gereden</span></div>
-    ${(()=>{const b=maandBalken();return b?`<div class="kaartje" style="margin-bottom:12px">${b}</div>`:''})()}
-    <div class="paneel">
-      <div class="item"><span class="t">${getal(Math.round(zakKw))}</span>
-        <span class="b">Dit kwartaal<em>${euro(zakKw*kmTarief())} aftrekbaar · Q${kw}</em></span></div>
-      <div class="item"><span class="t">${getal(Math.round(zak))}</span>
-        <span class="b">Dit jaar<em>${euro(zak*kmTarief())} aftrekbaar · ${komma(kmTarief())} per km</em></span></div>
-      ${autoVanDeZaak()?`<div class="item ${pri>500?'let':''}"><span class="t">${getal(Math.round(pri))}</span>
-        <span class="b">Privé dit jaar<em>${pri>500
+  h+=`<div class="paneel">
+      <div class="arij" style="cursor:default">
+        <span class="naam">Dit kwartaal<small>Q${kw0} · ${komma(kmTarief())} per km</small></span>
+        <span class="waarde ${kwK?'gevuld':''}">${getal(Math.round(kwK))} km · ${euro(kwK*kmTarief())}</span></div>
+      <div class="arij" style="cursor:default">
+        <span class="naam">Dit jaar<small>aftrekbaar van je winst</small></span>
+        <span class="waarde ${zak?'gevuld':''}">${getal(Math.round(zak))} km · ${euro(zak*kmTarief())}</span></div>
+      ${autoVanDeZaak()?`<div class="arij" style="cursor:default">
+        <span class="naam">Privé dit jaar<small>${pri>500
           ?'meer dan 500 km — je ontkomt niet aan bijtelling'
-          :'nog '+getal(Math.round(500-pri))+' km tot de grens van 500'}</em></span></div>`:''}
+          :'nog '+getal(Math.round(500-pri))+' km tot de grens van 500'}</small></span>
+        ${pri>500?'<span class="stip amber"></span>':''}
+        <span class="waarde gevuld">${getal(Math.round(pri))} km</span></div>`:''}
     </div>`;
 
+  if(!r) h+=`<button class="prim" data-ritstart style="margin-top:12px">${svg(I.auto)}Rit starten</button>
+    <button class="knop2" data-ritbestem style="margin-top:8px">Rit starten met bestemming</button>`;
+
+  if(lijst.length){
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Laatste ritten</span></div>
+      <div class="paneel">${lijst.slice(0,8).map(x=>{
+        const m=ritMankeert(x);
+        return `<button class="arij" data-rit="${x.id}">
+          <span class="naam">${esc(x.reden||'geen reden ingevuld')}
+            <small>${kort(new Date(x.datum))} · ${esc(toonPlek(x.start)||'vertrek')} → ${
+              esc(toonPlek(x.eind)||'aankomst')}${m.length?' · mist '+m.join(', '):''}</small></span>
+          ${m.length?'<span class="stip amber"></span>':''}
+          <span class="waarde gevuld">${komma(Math.round(x.km*10)/10)} km</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`;
+    const b=maandBalken();
+    if(b) h+=`<div class="kaartje" style="margin-top:12px">${b}</div>`;
+  } else {
+    h+=`<div class="geen" style="padding:10px 2px 0">Nog geen ritten. Druk op start als je wegrijdt.</div>`;
+  }
+
+  /* ── beheer ── */
+  const rij=(attr,icoon,label,waarde,let2)=>`<button class="beheerrij" ${attr}>
+    ${svg(icoon)}<span class="l">${label}</span>
+    ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
+    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+
+  const zonderPrijs=(S.recepten||[]).filter(x=>verkoopPrijs(x.id)===null).length;
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
-    <button class="knop2" data-btw style="margin:0 0 10px">${svg(I.doc)}Btw-aangifte</button>
-    <button class="knop2" data-winst style="margin:0 0 10px">${svg(I.spark)}Winst en verlies</button>
-    <button class="knop2" data-uurtarief style="margin:0 0 10px">${svg(I.klok)}Uurtarief${
-      uurtarief()?` <span class="tel" style="margin-left:auto">${euro(uurtarief())} per uur</span>`:''}</button>
-    <button class="knop2" data-verkoop style="margin:0 0 10px">${svg(I.spark)}Verkoopprijzen${
-      (()=>{const n=(S.recepten||[]).filter(r=>verkoopPrijs(r.id)===null).length;
-        return n?` <span class="tel let" style="margin-left:auto">${n}</span>`:''})()}</button>
-    ${lijst.length?`<button class="knop2" data-kmexport style="margin:0 0 10px">${svg(I.doc)}Rittenoverzicht printen</button>`:''}
-    <button class="knop2" data-plekken style="margin:0 0 10px">${svg(I.huis)}Vaste plekken${
-      (S.plekken||[]).length?` <span class="tel" style="margin-left:auto">${S.plekken.length}</span>`:''}</button>
-    <button class="knop2" data-autosoort style="margin:0 0 10px">${svg(I.auto)}Soort auto${
-      ` <span class="tel" style="margin-left:auto">${S.autoSoort==='zaak'?'van de zaak':'privé'}</span>`}</button>
-    <button class="knop2" data-kmtarief style="margin:0">${svg(I.spark)}Kilometervergoeding${
-      ` <span class="tel" style="margin-left:auto">${komma(kmTarief())} per km</span>`}</button>`;
+    <div class="paneel">
+      ${rij('data-btw',I.doc,'Btw-aangifte','')}
+      ${rij('data-verkoop',I.spark,'Verkoopprijzen',
+        zonderPrijs?zonderPrijs+' zonder prijs':(S.recepten||[]).length+' ingevuld',!!zonderPrijs)}
+      ${rij('data-uurtarief',I.klok,'Uurtarief',uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld',!uurtarief())}
+      ${rij('data-kmtarief',I.spark,'Kilometervergoeding',komma(kmTarief())+' per km')}
+      ${rij('data-autosoort',I.auto,'Soort auto',S.autoSoort==='zaak'?'van de zaak':'privé')}
+      ${rij('data-plekken',I.huis,'Vaste plekken',(S.plekken||[]).length||'geen')}
+      ${lijst.length?rij('data-kmexport',I.doc,'Rittenoverzicht printen',''):''}
+    </div>`;
   return h;
 }
+
 
 async function ritStart(doel){
   if(S.rit) return;
@@ -3738,16 +3776,26 @@ function voorraadHTML(){
 
   const teBestellen=grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0).length;
   const vl=verlopenPartijen(), vlOver=vl.filter(x=>x.dagen<0).length;
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
-    <button class="knop2" data-tht style="margin:0 0 10px">${svg(I.klok)}Houdbaarheid${
-      vl.length?` <span class="tel ${vlOver?'let':''}" style="margin-left:auto">${vl.length}</span>`:''}</button>
-    <button class="knop2" data-bestel style="margin:0 0 10px">${svg(I.vracht)}Bestellijst${
-      teBestellen?` <span class="tel let" style="margin-left:auto">${teBestellen}</span>`:''}</button>
-    <button class="knop2" data-telronde style="margin:0 0 10px">${svg(I.vink)}Telronde</button>
-    <button class="knop2" data-waardering style="margin:0 0 10px">${svg(I.doc)}Voorraadwaardering</button>
-    <button class="knop2" data-levertijd style="margin:0 0 10px">${svg(I.vracht)}Levertijden</button>
-    <button class="knop2" data-sheet="ontvangst" style="margin:0">${svg(I.plus)}Ontvangst vastleggen</button>
-    <div class="voet"><button data-vmut>Alle mutaties${(S.mutaties||[]).length?' ('+S.mutaties.length+')':''}</button></div>`;
+  const w2=voorraadWaarde();
+  const brij=(attr,icoon,label,waarde,let2)=>`<button class="beheerrij" ${attr}>
+    ${svg(icoon)}<span class="l">${label}</span>
+    ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
+    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+
+  h+=`<button class="prim" data-sheet="ontvangst" style="margin-top:22px">${svg(I.plus)}Ontvangst vastleggen</button>
+
+    <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+    <div class="paneel">
+      ${brij('data-tht',I.klok,'Houdbaarheid',
+        vl.length?(vlOver?vlOver+' over datum':vl.length+' binnenkort'):'niets loopt af',!!vlOver)}
+      ${brij('data-bestel',I.vracht,'Bestellijst',
+        teBestellen?teBestellen+' te bestellen':'niets nodig',!!teBestellen)}
+      ${brij('data-telronde',I.vink,'Telronde','')}
+      ${brij('data-waardering',I.doc,'Voorraadwaardering',w2.bekend?euro(w2.bekend):'geen prijzen')}
+      ${brij('data-levertijd',I.vracht,'Levertijden',
+        Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld')}
+      ${brij('data-vmut',I.ververs,'Alle mutaties',(S.mutaties||[]).length||'geen')}
+    </div>`;
   return h;
 }
 
