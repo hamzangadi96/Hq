@@ -1275,7 +1275,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v133 · 12 aug 2026';
+const APPVERSIE='v134 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1875,7 +1875,7 @@ const SNELITEMS=[
   {key:'haccp',label:'HACCP',icon:'klembord',soort:'sheet',doe:()=>sheetHaccp()},
   {key:'dossier',label:'Dossier',icon:'doc',soort:'sheet',doe:()=>sheetDossier()},
   {key:'wenskaart',label:'Wenskaart',icon:'spark',soort:'sheet',doe:()=>sheetWenskaart()},
-  {key:'traceren',label:'Traceren',icon:'qr',soort:'sheet',doe:()=>sheetTrace()},
+  {key:'traceren',label:'Traceren',icon:'loep',soort:'sheet',doe:()=>sheetTrace('')},
   {key:'ontvangst',label:'Ontvangst',icon:'vracht',soort:'sheet',doe:()=>sheetOntvangst()},
   {key:'zoeken',label:'Zoeken',icon:'loep',soort:'sheet',doe:()=>sheetZoek()},
   {key:'uitleg',label:'Hoe werkt het?',icon:'hulp',soort:'sheet',doe:()=>sheetUitleg()},
@@ -2542,6 +2542,7 @@ function productieHTML(){
     <div class="paneel">
       ${brij('data-sheet="nieuwbatch"',I.plus,'Batch genereren','')}
       ${brij('data-planning',I.klok,'Planning',(S.planning||[]).length||'niets gepland')}
+      ${brij('data-trace',I.loep,'Lot terugzoeken','')}
       ${brij('data-sheet="receptnieuw"',I.plus,'Smaak toevoegen','')}
       ${brij('data-sheet="recepten"',I.boek,'Smaken beheren',S.recepten.length||'geen')}
       ${brij('data-sheet="ontvangst"',I.vracht,'Ontvangst vastleggen','')}
@@ -6393,6 +6394,7 @@ function bind(){
   $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
+  $$('[data-trace]').forEach(x=>x.onclick=()=>sheetTrace(''));
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw());
   $$('[data-uitlegopen]').forEach(x=>x.onclick=sheetUitleg);
   $$('[data-legenda]').forEach(x=>x.onclick=()=>{
@@ -9670,7 +9672,9 @@ const UITLEG=[
    stappen:[
      {t:'Leg lotnummers vast bij elke batch',u:'Zonder dit werkt traceren niet. Het is de enige stap die je echt niet mag overslaan.'},
      {t:'Plak je voorraadstickers',u:'Elke bak krijgt een QR-code met de batchcode erin. Scan je die later, dan weet je meteen wat erin zit.'},
-     {t:'Zoek terug via een lotnummer',u:'Voer een lotnummer, batchcode of ordernummer in en je ziet de hele keten: van leverancier tot klant.'},
+     {t:'Zoek terug via een lotnummer',
+      u:'Voer een lotnummer, batchcode of ordernummer in en je ziet de hele keten: van leverancier tot klant.',
+      knop:'Lot terugzoeken',doe:'trace'},
      {t:'Oefen één keer per jaar',u:'Pak een willekeurig lot en volg het helemaal terug. De NVWA vraagt hierom, en je ontdekt meteen waar je registratie hapert.'}
    ]}
 ];
@@ -9764,6 +9768,7 @@ function bindHulpKnoppen(){
     if(d==='dossier') return sheetDossier();
     if(d==='verkoop') return sheetVerkoopprijzen();
     if(d==='verzend') return sheetVerzendregel();
+    if(d==='trace') return sheetTrace('');
     if(d==='naarvoorraad'){ S.tab='voorraad'; dicht(); render(); return }
     if(d==='naarorders'){ S.tab='orders'; dicht(); render(); return }
     if(d==='naargeld'){ S.tab='geld'; dicht(); render(); return }
@@ -10122,6 +10127,7 @@ function sheetUitlegOnderwerp(id){
     if(d==='dossier') return sheetDossier();
     if(d==='verkoop') return sheetVerkoopprijzen();
     if(d==='verzend') return sheetVerzendregel();
+    if(d==='trace') return sheetTrace('');
     if(d==='naarvoorraad'){ S.tab='voorraad'; dicht(); render(); return }
     if(d==='naarorders'){ S.tab='orders'; dicht(); render(); return }
     if(d==='naargeld'){ S.tab='geld'; dicht(); render(); return }
