@@ -797,7 +797,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v66 · 11 aug 2026';
+const APPVERSIE='v67 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1920,7 +1920,9 @@ function geldHTML(){
           .reduce((n,g)=>n+g.km,0)))+' km niet verantwoord tussen twee ritten':'',
         gaten.filter(g=>g.soort==='terug').length?'kilometerstand loopt ergens terug':'',
         mist.length?mist.length+(mist.length===1?' rit is':' ritten zijn')+' niet compleet':''
-      ].filter(Boolean).join(' · ')}. Een registratie met gaten wordt afgekeurd.</span></div>`;
+      ].filter(Boolean).join(' · ')}.${autoVanDeZaak()
+        ?' Een registratie met gaten wordt afgekeurd.'
+        :' Vul aan wat er mist, dan is je aftrek onderbouwd.'}</span></div>`;
   }
 
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Ritten</span>
@@ -2036,12 +2038,13 @@ async function ritStop(){
      <div class="klapin" id="rrDetail">
        <div class="veld"><label>Afstand</label>
          <div class="mveld"><input id="rrKm" type="number" inputmode="decimal" step="0.1" value="${km}"><span>km</span></div></div>
-       <div class="veld"><label>Kilometerstand na de rit</label>
+       <div class="veld"><label>Kilometerstand na de rit${autoVanDeZaak()?'':' <span style="font-weight:400">— niet verplicht</span>'}</label>
          <div class="mveld"><input id="rrK" type="number" inputmode="numeric"
-           value="${begin!==null?Math.round(begin+km):''}" placeholder="${begin!==null?'':'aflezen van je dashboard'}"><span>km</span></div>
-         <div class="geen" style="padding-top:8px">${begin!==null
-           ? 'Beginstand was '+getal(begin)+' km.'
-           : 'Eén keer invullen, daarna telt de app zelf door.'}</div></div>
+           value="${begin!==null?Math.round(begin+km):''}" placeholder="${begin!==null?'':(autoVanDeZaak()?'aflezen van je dashboard':'mag leeg blijven')}"><span>km</span></div>
+         <div class="geen" style="padding-top:8px">${autoVanDeZaak()
+           ? (begin!==null?'Beginstand was '+getal(begin)+' km. Bij een auto van de zaak moet de reeks sluiten.'
+                          :'Eén keer invullen, daarna telt de app zelf door.')
+           : 'Met een privéauto hoeft dit niet — je adressen en de afstand zijn genoeg.'}</div></div>
        <div class="veld"><label>Vertrokken vanaf</label>
          <input class="inp" id="rrV" value="${esc(r.start.adres||'')}" placeholder="adres wordt opgezocht…">
          <div class="adresvoet" id="rrVvoet">
@@ -2975,9 +2978,13 @@ function bind(){
        <div class="geen" id="asU"></div>`,
       `<button class="prim" style="margin-top:0" id="asOk">Opslaan</button>`);
     let soort=S.autoSoort==='zaak'?'zaak':'prive';
-    const uitleg=()=>{ $('#asU').textContent = soort==='zaak'
-      ? 'Je moet aantonen dat je minder dan 500 km per jaar privé rijdt, anders volgt bijtelling. De app houdt die grens voor je bij.'
-      : 'Je trekt ' + komma(kmTarief()) + ' per zakelijke kilometer van je winst af. De 500 km-grens geldt niet voor jou.'; };
+    const uitleg=()=>{ $('#asU').innerHTML = soort==='zaak'
+      ? 'Je moet aantonen dat je minder dan 500 km per jaar privé rijdt, anders volgt bijtelling.'
+        +' Daarvoor moet je <b>elke</b> rit vastleggen, ook privé, en moeten de kilometerstanden'
+        +' op elkaar aansluiten. De app controleert dat voor je.'
+      : 'Je trekt ' + komma(kmTarief()) + ' per zakelijke kilometer van je winst af.'
+        +' Je hoeft alleen je <b>zakelijke</b> ritten vast te leggen, met vertrekadres,'
+        +' aankomstadres en de afstand. Kilometerstanden hoeven niet.'; };
     $$('#asK button').forEach(b=>b.onclick=()=>{
       $$('#asK button').forEach(y=>y.classList.remove('aan')); b.classList.add('aan');
       soort=b.dataset.v; uitleg();
@@ -5154,6 +5161,7 @@ async function plaatsNaam(lat,lon){
 /* De Belastingdienst keurt een registratie af zodra er gaten in zitten: als rit A eindigt op
    84.243 en rit B begint op 84.310, dan is er 67 km niet verantwoord. Dat moet je zien. */
 function kmControle(){
+  if(!autoVanDeZaak()) return [];    /* sluitende reeks hoeft alleen bij een auto van de zaak */
   const lijst=(S.ritten||[]).filter(r=>r.standBegin!==null&&r.standEind!==null)
     .sort((a,b)=>(a.standBegin||0)-(b.standBegin||0));
   const gaten=[];
@@ -5165,13 +5173,19 @@ function kmControle(){
   }
   return gaten;
 }
-/* een rit zonder adres of zonder stand is bij een controle onbruikbaar */
+/* Wat je moet vastleggen hangt af van je auto.
+   Auto van de zaak: alles, inclusief kilometerstanden — daarmee toon je aan dat je
+   onder de 500 privékilometers blijft.
+   Privéauto: alleen je zakelijke ritten, met adressen en afstand. Kilometerstanden
+   hoeven niet, en privéritten hoef je helemaal niet te verantwoorden. */
+const autoVanDeZaak=()=>S.autoSoort==='zaak';
 function ritMankeert(r){
+  if(!autoVanDeZaak()&&!r.zakelijk) return [];      /* privérit, privéauto: vrij */
   const m=[];
   if(!r.start.adres) m.push('vertrekadres');
   if(!r.eind.adres) m.push('aankomstadres');
-  if(r.standBegin===null||r.standEind===null) m.push('kilometerstand');
   if(!r.reden) m.push('reden');
+  if(autoVanDeZaak()&&(r.standBegin===null||r.standEind===null)) m.push('kilometerstand');
   return m;
 }
 const onvolledig=()=>(S.ritten||[]).filter(r=>ritMankeert(r).length);
