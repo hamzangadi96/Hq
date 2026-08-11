@@ -1131,7 +1131,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v118 · 11 aug 2026';
+const APPVERSIE='v119 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4919,13 +4919,13 @@ function sheetPlanBatch(vooraf){
     sheet('Voorbereiden',
       `<p class="hint">Doe je iets al een dag eerder? Zet het hier op een dag, dan zie je het
         terug in je planning met een eigen kleur. Laat leeg wat je op de dag zelf doet.</p>
-       ${stappen.map(st=>{
+       ${stappen.map((st,si)=>{
          const soort=stapSoort(st);
          return `<div class="veld">
            <label style="display:flex;align-items:center;gap:8px">
              <i style="width:9px;height:4px;border-radius:99px;display:block;background:${
                DAGSOORT[soort].kleur}"></i>${esc(st)}</label>
-           <div class="keuzeraster" data-vst="${esc(st)}">
+           <div class="keuzeraster" data-vst="${si}">
              ${opties.map(o=>{
                const d=datumPlus(P.datum,o);
                const l=o===0?'Op de dag':o===-1?'Dag ervoor':Math.abs(o)+' dagen ervoor';
@@ -4936,7 +4936,8 @@ function sheetPlanBatch(vooraf){
        <button class="sec" id="pb4T">Terug</button>`,'Stap 4 van 4');
 
     $$('[data-vst]').forEach(rij=>{
-      const st=rij.dataset.vst;
+      const st=stappen[parseInt(rij.dataset.vst,10)];
+      if(st===undefined) return;
       rij.querySelectorAll('[data-vd]').forEach(b=>b.onclick=()=>{
         rij.querySelectorAll('[data-vd]').forEach(x=>x.classList.remove('aan'));
         b.classList.add('aan');
@@ -4945,14 +4946,22 @@ function sheetPlanBatch(vooraf){
     });
     $('#pb4T').onclick=stap3;
     $('#pb4').onclick=()=>{
-      const voorbereiding=Object.keys(P.voor).filter(st=>P.voor[st])
-        .map(st=>({stap:st,datum:P.voor[st]}));
-      S.planning=S.planning||[];
-      S.planning.push({id:uid(),datum:P.datum,chocolade:P.choc,regels:P.regels,
-        levertijd:P.lt,voorbereiding,gemaakt:vandaag()});
-      bewaarNu(); dicht(); render();
-      const bd2=P.lt?datumPlus(P.datum,-(P.lt+1)):null;
-      toast('Ingepland op '+kort(new Date(P.datum))+(bd2?' · boodschappen '+kort(new Date(bd2)):''));
+      try{
+        const regels2=(P.regels&&P.regels.length)?P.regels
+          :Object.keys(P.mallen||{}).filter(k=>P.mallen[k]>0)
+            .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*S.malGrootte}));
+        if(!regels2.length) return toast('Kies eerst hoeveel mallen je draait.');
+        const voorbereiding=Object.keys(P.voor).filter(st=>P.voor[st])
+          .map(st=>({stap:st,datum:P.voor[st]}));
+        S.planning=S.planning||[];
+        S.planning.push({id:uid(),datum:P.datum,chocolade:P.choc,regels:regels2,
+          levertijd:P.lt||0,voorbereiding,gemaakt:vandaag()});
+        bewaarNu(); dicht(); render();
+        const bd2=P.lt?datumPlus(P.datum,-(P.lt+1)):null;
+        toast('Ingepland op '+kort(new Date(P.datum))+(bd2?' · boodschappen '+kort(new Date(bd2)):''));
+      }catch(e){
+        toast('Inplannen lukte niet. Probeer het nog eens.');
+      }
     };
   };
   stap1();
