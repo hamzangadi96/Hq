@@ -240,6 +240,54 @@ main>.blokkop:first-child{margin-top:8px}
 .ustap::before{content:'';position:absolute;left:13px;top:30px;bottom:0;width:1.5px;background:var(--lijn)}
 .ustap:last-child::before{display:none}
 /* de uitleg schuift over het scherm heen; wat eronder ligt blijft intact */
+/* ── branchekeuze: kaarten met een icoon, twee per rij ── */
+.brgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.brkaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
+  padding:18px 14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+  position:relative;text-align:left;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 10px 22px -18px rgba(24,24,27,.2)}
+.brkaart:active{background:var(--bg)}
+/* de kaarten schuiven één voor één omhoog in beeld */
+.brgrid .brkaart{opacity:0;animation:brin .42s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes brin{from{opacity:0;transform:translateY(10px) scale(.985)}
+  to{opacity:1;transform:none}}
+.brgrid .brkaart:nth-child(1){animation-delay:.02s}
+.brgrid .brkaart:nth-child(2){animation-delay:.05s}
+.brgrid .brkaart:nth-child(3){animation-delay:.08s}
+.brgrid .brkaart:nth-child(4){animation-delay:.11s}
+.brgrid .brkaart:nth-child(5){animation-delay:.14s}
+.brgrid .brkaart:nth-child(6){animation-delay:.17s}
+.brgrid .brkaart:nth-child(7){animation-delay:.20s}
+.brgrid .brkaart:nth-child(8){animation-delay:.23s}
+.brgrid .brkaart:nth-child(9){animation-delay:.26s}
+@media (prefers-reduced-motion:reduce){
+  .brgrid .brkaart{animation:none;opacity:1}
+}
+
+/* hetzelfde binnenkomen voor tegels en lijstrijen */
+.tegels .tegel,.paneel .arij{animation:brin .42s cubic-bezier(.32,.72,0,1) backwards}
+.tegels .tegel:nth-child(1),.paneel .arij:nth-child(1){animation-delay:.02s}
+.tegels .tegel:nth-child(2),.paneel .arij:nth-child(2){animation-delay:.05s}
+.tegels .tegel:nth-child(3),.paneel .arij:nth-child(3){animation-delay:.08s}
+.tegels .tegel:nth-child(4),.paneel .arij:nth-child(4){animation-delay:.11s}
+.paneel .arij:nth-child(5){animation-delay:.14s}
+.paneel .arij:nth-child(6){animation-delay:.17s}
+.paneel .arij:nth-child(n+7){animation-delay:.19s}
+@media (prefers-reduced-motion:reduce){
+  .tegels .tegel,.paneel .arij{animation:none}
+}
+.brico{width:42px;height:42px;border-radius:13px;background:var(--bg);display:grid;
+  place-items:center;color:var(--ink);margin-bottom:10px}
+.brico svg{width:22px;height:22px;stroke-width:1.5}
+.brnaam{font-size:15px;font-weight:600;letter-spacing:-.025em;color:var(--ink);line-height:1.25}
+.brsub{font-size:12px;color:var(--grijs2);line-height:1.35;letter-spacing:-.01em;margin-top:3px}
+.brkaart.aan{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink),
+  0 1px 2px rgba(24,24,27,.04),0 12px 26px -18px rgba(24,24,27,.3)}
+.brkaart.aan .brico{background:var(--ink);color:#fff}
+.brnu{position:absolute;top:14px;right:14px;width:20px;height:20px;border-radius:99px;
+  background:var(--ink);color:#fff;display:grid;place-items:center}
+.brnu svg{width:12px;height:12px}
+
 .hulppaneel{position:absolute;inset:0;background:var(--card);border-radius:26px 26px 0 0;
   display:none;flex-direction:column;z-index:5}
 .hulppaneel.open{display:flex;animation:hulpin .28s cubic-bezier(.32,.72,0,1)}
@@ -1141,6 +1189,22 @@ const I={
   klok:'<circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.1 1.9"/>',
   palet:'<path d="M12 3a9 9 0 0 0 0 18c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6h1.9A4.7 4.7 0 0 0 21 11c0-4.4-4-8-9-8z"/>'
     +'<circle cx="7.8" cy="11.2" r="1.05"/><circle cx="11.4" cy="7.6" r="1.05"/><circle cx="15.9" cy="9.4" r="1.05"/>',
+  bonbon:'<path d="M12 4.5 20 9v6l-8 4.5L4 15V9z"/><path d="M12 4.5V19.5M4 9l8 4.5 8-4.5"/>',
+  brood:'<path d="M5 10a3.2 3.2 0 0 1 3.2-3.2h7.6A3.2 3.2 0 0 1 19 10v6.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 16.5z"/>'
+    +'<path d="M9 7.2v10.8M15 7.2v10.8"/>',
+  ijsje:'<path d="M8.2 10.5a3.8 3.8 0 0 1 7.6 0"/><path d="M8.2 10.5h7.6L12 20.5z"/>'
+    +'<path d="M9.6 14.2h4.8"/>',
+  vlees:'<path d="M14.8 4.4a5.2 5.2 0 0 1 3.2 8.4l-6.4 6.4a3.6 3.6 0 0 1-5.1-5.1l6.4-6.4a5.2 5.2 0 0 1 1.9-3.3z"/>'
+    +'<circle cx="13.4" cy="9.6" r="1.8"/>',
+  kaas:'<path d="M4 12.6 15.4 5.4a1 1 0 0 1 1.5.5l2.6 6.7z"/><path d="M4 12.6v4.4a1 1 0 0 0 1 1h13.5a1 1 0 0 0 1-1v-4.4z"/>'
+    +'<circle cx="9" cy="15.2" r="1"/><circle cx="15" cy="15" r="1.2"/>',
+  glas:'<path d="M7 4h10l-.8 8.4a4.3 4.3 0 0 1-8.4 0z"/><path d="M12 16.7V20M9 20h6"/>',
+  boon:'<path d="M12 3.4c4 0 7.2 3.4 7.2 7.6S16 20.6 12 20.6 4.8 15.2 4.8 11 8 3.4 12 3.4z"/>'
+    +'<path d="M12 3.4c-1.6 2.4-1.6 14.8 0 17.2"/>',
+  pot:'<path d="M8.4 3.6h7.2v2.6l1.4 1.8v10.4a1.6 1.6 0 0 1-1.6 1.6H8.6A1.6 1.6 0 0 1 7 18.4V8z"/>'
+    +'<path d="M7 10.6h10"/>',
+  fles:'<path d="M10 3.4h4v3.2l2 3v9.8a1.6 1.6 0 0 1-1.6 1.6H9.6A1.6 1.6 0 0 1 8 19.4V9.6z"/>'
+    +'<path d="M8 13.6h8"/>',
   hulp:'<circle cx="12" cy="12" r="9"/>'
     +'<path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.1-2.4 3.6"/>'
     +'<path d="M12 17.2h.01"/>',
@@ -1170,7 +1234,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v123 · 11 aug 2026';
+const APPVERSIE='v125 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5778,18 +5842,22 @@ function sheetVerpakkingNieuw(){
 
 function sheetBranche(eerste){
   const nu2=S.branche||'chocolaterie';
+  const ico={chocolaterie:'bonbon',bakkerij:'brood',ijs:'ijsje',slagerij:'vlees',
+    kaas:'kaas',brouwerij:'glas',koffie:'boon',conserven:'pot',cosmetica:'fles'};
   sheet(eerste?'Waar werk je mee?':'Branche en sjabloon',
     `<p class="hint">${eerste
-      ? 'Kies je vak. Je krijgt daarmee passende productiestappen, meetpunten en schoonmaakpunten als startpunt — alles blijft aanpasbaar.'
+      ? 'Kies je vak. Je krijgt passende productiestappen, meetpunten en schoonmaakpunten als startpunt — alles blijft aanpasbaar.'
       : 'Het sjabloon vult alleen aan wat je nog niet hebt. Je eigen instellingen blijven staan.'}</p>
-     <div class="paneel">${Object.keys(BRANCHES).map(k=>{
+     <div class="brgrid">${Object.keys(BRANCHES).filter(k=>ico[k]).map(k=>{
        const t=BRANCHES[k];
-       return `<button class="arij" data-br="${k}">
-         <span class="naam">${esc(t.naam)}<small>${esc(t.sub)}</small></span>
-         ${k===nu2?`<span class="waarde gevuld">nu</span>`:''}
-         <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>
-     <div class="hint" style="margin:18px 0 0">De normwaarden zijn gangbare voorbeelden, geen wettelijk advies.
-       Controleer ze aan je eigen HACCP-plan en pas ze aan waar nodig.</div>`,
+       return `<button class="brkaart ${k===nu2?'aan':''}" data-br="${k}">
+         <span class="brico">${svg(ico[k])}</span>
+         <span class="brnaam">${esc(t.naam)}</span>
+         <span class="brsub">${esc(t.sub)}</span>
+         ${k===nu2?`<span class="brnu">${svg(I.vink,'2.4')}</span>`:''}
+       </button>`}).join('')}</div>
+     <p class="hint" style="margin:20px 0 0">De normwaarden zijn gangbare voorbeelden, geen wettelijk advies.
+       Controleer ze aan je eigen HACCP-plan en pas ze aan waar nodig.</p>`,
     eerste?'':`<button class="prim" style="margin-top:0" id="brT">Klaar</button>`);
   if($('#brT')) $('#brT').onclick=sheetInstellingen;
   $$('[data-br]').forEach(b=>b.onclick=()=>{
@@ -5800,7 +5868,6 @@ function sheetBranche(eerste){
     toast(n?t.naam+' ingesteld · '+n+' voorstellen toegevoegd.':t.naam+' ingesteld.');
   });
 }
-
 function sheetVoorraadRegel(sleutel){
   const [receptId,lot]=sleutel.split('|');
   const v=voorraadGereed().find(x=>x.receptId===receptId&&x.lot===lot);
