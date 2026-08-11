@@ -119,6 +119,7 @@ main{flex:1;overflow-y:auto;padding:20px 20px 32px;-webkit-overflow-scrolling:to
 .blokkop{display:flex;align-items:baseline;gap:12px;margin:32px 2px 12px}
 .blokkop .eyebrow{flex:1}
 .blokkop .tel{font-size:12.5px;font-weight:600;color:var(--grijs2);letter-spacing:-.01em}
+.blokkop .tel.let{color:var(--amber);font-weight:700}
 .paneel{background:var(--card);border-radius:18px;border:1px solid var(--lijn);overflow:hidden;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
 
@@ -1031,7 +1032,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v89 · 11 aug 2026';
+const APPVERSIE='v90 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3677,23 +3678,32 @@ function voorraadHTML(){
   const totaal=gereed.reduce((n,v)=>n+v.aantal,0);
   const bijna=gereed.filter(v=>{const d=dagenTotTHT(v.tht);return d!==null&&d<=14});
   const over=gereed.filter(v=>{const d=dagenTotTHT(v.tht);return d!==null&&d<0});
+  const alles=grondVoorraad();
+  const w2=voorraadWaarde();
+  const laagNu=alles.filter(grondOnder);
 
-  const w=voorraadWaarde();
-  let h=`<h1>Voorraad</h1><div class="datum">${totaal?totaal+' bonbons op voorraad':'nog niets op voorraad'}${
-    w.bekend?' · '+euro(w.bekend)+' aan grondstoffen':''}</div>`;
+  let h=`<h1>Voorraad</h1><div class="datum">${totaal
+    ? totaal+' bonbons'+(w2.bekend?' · '+euro(w2.bekend)+' aan grondstoffen':'')
+    : 'gereed product, grondstoffen en verpakking'}</div>`;
 
+  /* ── wat aandacht vraagt ── */
   if(over.length) h+=`<div class="melding rood" style="margin-bottom:12px">${svg(I.alarm,'2')}
     <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT.
-      Boek ${over.length===1?'die':'die'} af als breuk.</span></div>`;
+      Boek die af als derving.</span></div>`;
   else if(bijna.length) h+=`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}
     <span>${bijna.length===1?'Eén partij loopt':bijna.length+' partijen lopen'} binnen twee weken af.</span></div>`;
-  const laagNu=grondVoorraad().filter(grondOnder);
   if(laagNu.length) h+=`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}
     <span>${laagNu.map(v=>esc(v.product)).slice(0,3).join(', ')}${laagNu.length>3?' en meer':''}
       ${laagNu.length===1?'is':'zijn'} bijna op.</span></div>`;
 
-  h+=`<div class="blokkop"><span class="eyebrow">Gereed product</span>
-      <span class="tel">${gereed.length?gereed.length+(gereed.length===1?' partij':' partijen'):''}</span></div>`;
+  /* een lege categorie wordt één rij die je verder helpt, geen groot leeg vlak */
+  const leegRij=(tekst,sub,attr)=>`<div class="paneel"><button class="arij" ${attr||''}>
+    <span class="naam">${tekst}<small>${sub}</small></span>
+    ${attr?`<span class="pijl">${svg(I.pijl,'2')}</span>`:''}</button></div>`;
+
+  /* ── gereed product ── */
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Gereed product</span>
+      <span class="tel">${gereed.length?totaal+' bonbons':''}</span></div>`;
   h+=gereed.length?`<div class="paneel">${gereed.map(v=>{
     const d=dagenTotTHT(v.tht), st=d===null?'':(d<0?'rood':d<=14?'amber':'');
     return `<button class="arij" data-vr="${v.receptId}|${v.lot}">
@@ -3702,9 +3712,8 @@ function voorraadHTML(){
       ${st?`<span class="stip ${st}"></span>`:''}
       <span class="waarde gevuld">${v.aantal}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
-   :`<div class="paneel"><div class="geen">Zodra je een batch afrondt, komt het gereed product hier vanzelf te staan.</div></div>`;
+   :leegRij('Nog geen gereed product','komt hier zodra je een batch afrondt','data-naar="productie"');
 
-  const alles=grondVoorraad();
   const rij=v=>{
     const d=grondDrempel(v.product), laag=grondOnder(v), leeg=v.saldo<=0;
     const lots=Object.keys(v.lots).filter(k=>v.lots[k]>0);
@@ -3720,28 +3729,31 @@ function voorraadHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
   };
 
-  /* grondstoffen */
+  /* ── grondstoffen ── */
   const grond=alles.filter(v=>artSoort(v.product)==='ingredient');
   const opRaken=grond.filter(grondOnder);
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Grondstoffen</span>
-      <span class="tel">${opRaken.length?opRaken.length+' bijna op':(grond.length?grond.length+(grond.length===1?' product':' producten'):'')}</span></div>`;
+      <span class="tel ${opRaken.length?'let':''}">${opRaken.length?opRaken.length+' bijna op'
+        :(grond.length?grond.length+(grond.length===1?' product':' producten'):'')}</span></div>`;
   h+=grond.length?`<div class="paneel">${grond.map(rij).join('')}</div>`
-   :`<div class="paneel"><div class="geen">Nog geen grondstoffen. Leg een levering vast bij Ontvangst.</div></div>`;
+   :leegRij('Nog geen grondstoffen','leg een levering vast bij Ontvangst','data-sheet="ontvangst"');
 
-  /* halffabricaat: ganache, gelei en alles wat je vooruit maakt */
+  /* ── halffabricaat ── */
   const half=alles.filter(v=>artSoort(v.product)==='half');
   if(half.length){
     const laagHf=half.filter(grondOnder);
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Halffabricaat</span>
-        <span class="tel">${laagHf.length?laagHf.length+' bijna op':half.length+(half.length===1?' product':' producten')}</span></div>
+        <span class="tel ${laagHf.length?'let':''}">${laagHf.length?laagHf.length+' bijna op'
+          :half.length+(half.length===1?' product':' producten')}</span></div>
       <div class="paneel">${half.map(rij).join('')}</div>`;
   }
 
-  /* verpakking, als raster van maat × kleur */
+  /* ── verpakking ── */
   const verp=alles.filter(v=>artSoort(v.product)==='verpakking');
   const laagV=verp.filter(grondOnder);
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Verpakking</span>
-      <span class="tel">${laagV.length?laagV.length+' bijna op':(verp.length?verp.length+(verp.length===1?' artikel':' artikelen'):'')}</span></div>`;
+      <span class="tel ${laagV.length?'let':''}">${laagV.length?laagV.length+' bijna op'
+        :(verp.length?verp.length+(verp.length===1?' artikel':' artikelen'):'')}</span></div>`;
   if(verp.length){
     const maten=[...new Set(verp.map(v=>art(v.product).maat).filter(Boolean))].sort((a,b2)=>a-b2);
     const kleuren=[...new Set(verp.map(v=>art(v.product).kleur).filter(Boolean))];
@@ -3759,33 +3771,24 @@ function voorraadHTML(){
           }).join('')}`).join('')}
       </div></div>`;
     }
-    if(los.length) h+=`<div class="paneel" style="margin-top:10px">${los.map(rij).join('')}</div>`;
+    if(los.length) h+=`<div class="paneel" style="margin-top:${maten.length&&kleuren.length?'10px':'0'}">${
+      los.map(rij).join('')}</div>`;
   } else {
-    h+=`<div class="paneel"><div class="geen">Nog geen verpakking. Voeg je doosjes in één keer toe.</div></div>`;
-  }
-  h+=`<button class="knop2" data-verpnieuw style="margin-top:10px">${svg(I.plus)}Verpakking toevoegen</button>`;
-
-  /* hulpmiddelen */
-  const hulp=alles.filter(v=>artSoort(v.product)==='hulp');
-  if(hulp.length){
-    const laagH=hulp.filter(grondOnder);
-    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Hulpmiddelen</span>
-        <span class="tel">${laagH.length?laagH.length+' bijna op':hulp.length+(hulp.length===1?' artikel':' artikelen')}</span></div>
-      <div class="paneel">${hulp.map(rij).join('')}</div>`;
+    h+=leegRij('Nog geen verpakking','maak je doosjes in één keer aan','data-verpnieuw');
   }
 
-  const teBestellen=grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0).length;
+  /* ── beheer ── */
+  const teBestellen=alles.filter(v=>grondOnder(v)||v.saldo<=0).length;
   const vl=verlopenPartijen(), vlOver=vl.filter(x=>x.dagen<0).length;
-  const w2=voorraadWaarde();
   const brij=(attr,icoon,label,waarde,let2)=>`<button class="beheerrij" ${attr}>
     ${svg(icoon)}<span class="l">${label}</span>
     ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
 
-  h+=`<button class="prim" data-sheet="ontvangst" style="margin-top:22px">${svg(I.plus)}Ontvangst vastleggen</button>
-
-    <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
     <div class="paneel">
+      ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
+      ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
       ${brij('data-tht',I.klok,'Houdbaarheid',
         vl.length?(vlOver?vlOver+' over datum':vl.length+' binnenkort'):'niets loopt af',!!vlOver)}
       ${brij('data-bestel',I.vracht,'Bestellijst',
@@ -3798,6 +3801,7 @@ function voorraadHTML(){
     </div>`;
   return h;
 }
+
 
 /* ---------- één grondstof: saldo, lots en bijboeken of afboeken ---------- */
 function sheetGrondstof(product){
