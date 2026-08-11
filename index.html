@@ -213,20 +213,43 @@ main>.blokkop:first-child{margin-top:8px}
 .weekstrip{display:flex;gap:6px;overflow-x:auto;margin:0 -20px 4px;padding:2px 20px 10px;
   scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .weekstrip::-webkit-scrollbar{display:none}
-.wdag{flex:none;width:46px;padding:8px 0 9px;border-radius:14px;background:var(--bg);
-  display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
+.wdag{flex:none;width:48px;padding:9px 0 8px;border-radius:15px;background:var(--card);
+  border:1px solid var(--lijn);display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
 .wdag .wd{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--grijs2)}
-.wdag .wn{font-size:16px;font-weight:600;letter-spacing:-.03em;color:var(--ink);
-  font-variant-numeric:tabular-nums}
-.wdag.nu{background:var(--ink)}
+.wdag .wn{font-size:17px;font-weight:600;letter-spacing:-.03em;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.15}
+
+/* vandaag: zwart blokje */
+.wdag.nu{background:var(--ink);border-color:var(--ink)}
 .wdag.nu .wd{color:#8f8f98} .wdag.nu .wn{color:#fff}
+
+/* een dag met werk krijgt een gekleurde onderrand en een balkje */
+.wdag.leeg{background:var(--bg);border-color:transparent}
 .wdag.leeg .wn{color:var(--grijs3)}
-.wstippen{display:flex;gap:3px;height:5px;margin-top:3px}
-.wstippen i{width:5px;height:5px;border-radius:99px;display:block}
-.wstippen i.b{background:var(--ink)}
-.wstippen i.o{background:var(--amber)}
-.wstippen i.l{background:var(--grijs3)}
-.wdag.nu .wstippen i.b{background:#fff}
+.wdag.vol{box-shadow:0 1px 2px rgba(24,24,27,.04),0 10px 20px -16px rgba(24,24,27,.28)}
+.wstippen{display:flex;gap:2px;height:6px;margin-top:5px;align-items:center}
+.wstippen i{height:4px;border-radius:99px;display:block;width:9px}
+.s-boodschappen{background:var(--amber)}
+.s-voorbereiden{background:#7c8fa8}
+.s-half{background:#9a9aa4}
+.s-productie{background:var(--ink)}
+.s-live{background:#c0392b}
+.s-overig{background:#5b7c6b}
+.s-leveren{background:var(--grijs3)}
+.wdag.nu .s-productie{background:#fff}
+.wdag.nu .s-boodschappen{background:#fbbf24}
+.wdag.nu .s-voorbereiden{background:#a8bcd4}
+.wdag.nu .s-half{background:#c4c4ce}
+.wdag.nu .s-live{background:#f87171}
+.wdag.nu .s-overig{background:#86b39a}
+.wdag.nu .s-leveren{background:#71717a}
+.wlegenda i{width:9px;height:4px;border-radius:99px;display:block;flex:none}
+
+/* legenda onder de strip */
+.wlegenda{display:flex;gap:14px;flex-wrap:wrap;padding:0 2px 4px;
+  font-size:12px;color:var(--grijs2);letter-spacing:-.01em}
+.wlegenda span{display:inline-flex;align-items:center;gap:6px}
+.wlegenda i{width:9px;height:4px;border-radius:99px;display:block}
 
 /* ── instructie met de stap waaraan hij hangt ── */
 .insblok{padding:14px 0;border-bottom:1px solid var(--lijn)}
@@ -1094,7 +1117,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v106 · 11 aug 2026';
+const APPVERSIE='v110 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1270,7 +1293,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1295,7 +1318,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1782,6 +1805,41 @@ function ringHTML(gedaan,totaal,klas){
    daaronder alleen wat daarbij hoort. De toestand wordt op volgorde bepaald:
    het meest dringende wint. */
 
+/* een week in beeld: welke dagen zijn bezet en waarmee */
+function weekstripHTML(dagenVooruit){
+  const n=dagenVooruit||7;
+  const perDag={};
+  allePlanTaken().forEach(t=>{(perDag[t.datum]=perDag[t.datum]||[]).push(t)});
+  (S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum).forEach(o=>{
+    (perDag[o.leverdatum]=perDag[o.leverdatum]||[]).push({soort:'leveren',tekst:klantNaam(o.klantId)});
+  });
+  const loopt=lopende();
+  if(loopt.length) (perDag[vandaag()]=perDag[vandaag()]||[])
+    .push({soort:'productie',tekst:'batch onderweg'});
+
+  let uit='<div class="weekstrip">';
+  for(let i=0;i<n;i++){
+    const d=datumPlus(vandaag(),i), dt=new Date(d);
+    const taken=perDag[d]||[];
+    /* per soort één balkje, in vaste volgorde */
+    const volgorde=['boodschappen','voorbereiden','half','productie','live','overig','leveren'];
+    const soorten2=volgorde.filter(k=>taken.some(t=>t.soort===k));
+    const titel=soorten2.map(k=>k==='leveren'?'leveren':(DAGSOORT[k]||{}).n).join(' · ');
+    uit+=`<button class="wdag ${i===0?'nu':''} ${taken.length?'vol':'leeg'}" data-weekdag="${d}"
+      title="${esc(titel||'niets gepland')}">
+      <span class="wd">${DAG[dt.getDay()].slice(0,2)}</span>
+      <span class="wn">${dt.getDate()}</span>
+      <span class="wstippen">${soorten2.map(k=>`<i class="s-${k}"></i>`).join('')}</span>
+    </button>`;
+  }
+  uit+='</div>';
+  uit+=`<div class="wlegenda">
+    ${Object.keys(DAGSOORT).map(k=>`<span><i class="s-${k}"></i>${DAGSOORT[k].n.toLowerCase()}</span>`).join('')}
+    <span><i class="s-leveren"></i>leveren</span>
+  </div>`;
+  return uit;
+}
+
 function dashboardToestand(){
   const open=lopende();
   const bezig=open.find(x=>lopendWerk(x))||open[0];
@@ -1793,6 +1851,11 @@ function dashboardToestand(){
 
   const boodNu=plan.filter(p=>{const bd=boodschapDatum(p);return bd&&dagenTussen(vandaag(),bd)<=0});
   if(boodNu.length) return {soort:'boodschappen',p:boodNu[0],alle:boodNu};
+
+  /* een live of andere losse klus vandaag */
+  const vandaagTaken=allePlanTaken().filter(x=>x.datum===vandaag()
+    &&x.soort!=='productie'&&!(x.soort==='boodschappen'&&!x.los));
+  if(vandaagTaken.length) return {soort:'taakdag',taken:vandaagTaken};
 
   if(plan.length) return {soort:'gepland',p:plan[0]};
 
@@ -1810,7 +1873,10 @@ function dashboardToestand(){
 function dashboardHTML(){
   const t=dashboardToestand();
   const sig=signalen();
-  let h='';
+  const d0=new Date();
+  let h=`<div class="blokkop" style="margin:0 2px 10px"><span class="eyebrow">Deze week</span>
+      <span class="tel">${DAG[d0.getDay()]} ${d0.getDate()} ${MND[d0.getMonth()]}</span></div>`
+    +weekstripHTML(7);
 
   /* ── de hoofdkaart ── */
   if(t.soort==='bezig'){
@@ -1916,6 +1982,25 @@ function dashboardHTML(){
               <span class="waarde gevuld">${hoev}</span></div>`}).join('')}</div>`;
       });
     }
+  }
+
+  else if(t.soort==='taakdag'){
+    const taken=t.taken;
+    const eerste=taken[0];
+    h+=`<div class="hoofdkaart">
+      <div class="stap" style="color:${DAGSOORT[eerste.soort].kleur}">${
+        DAGSOORT[eerste.soort].n}${eerste.tijd?' · '+esc(eerste.tijd):''}</div>
+      <h2 style="margin-top:6px">${esc(eerste.tekst)}</h2>
+      <div class="sub">${taken.length>1?taken.length+' klussen vandaag'
+        :(eerste.plan?'voor de batch van '+kort(new Date(eerste.plan.datum)):'vandaag op de rol')}</div>
+      <button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button></div>
+      <div class="blokkop"><span class="eyebrow">Vandaag</span><span class="tel">${taken.length}</span></div>
+      <div class="paneel">${taken.map(x=>`<div class="arij" style="cursor:default">
+        <span class="ivak" style="background:${DAGSOORT[x.soort].kleur}22;color:${DAGSOORT[x.soort].kleur}">
+          ${svg(I[DAGSOORT[x.soort].ico])}</span>
+        <span class="naam">${esc(x.tekst)}<small>${DAGSOORT[x.soort].n.toLowerCase()}${
+          x.tijd?' · '+esc(x.tijd):''}${x.plan?' · batch van '+kort(new Date(x.plan.datum)):''}</small></span>
+        </div>`).join('')}</div>`;
   }
 
   else if(t.soort==='gepland'){
@@ -2026,6 +2111,7 @@ function dashboardHTML(){
   h+=`<div class="blokkop"><span class="eyebrow">Snel naar</span></div>
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
+    <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
@@ -4509,8 +4595,86 @@ function boodschapUitBatch(regels,receptenBron){
    Op de dag zelf maak je er met één tik een echte batch van. De app rekent
    zelf uit wanneer je boodschappen moet doen, op basis van je levertijden. */
 
+/* wat je op een dag kunt doen, elk met een eigen kleur in de strip */
+const DAGSOORT={
+  boodschappen:{n:'Boodschappen',kleur:'var(--amber)',ico:'vracht'},
+  voorbereiden:{n:'Voorbereiden',kleur:'#7c8fa8',ico:'spark'},
+  half:{n:'Halffabricaat',kleur:'#9a9aa4',ico:'vorm'},
+  productie:{n:'Productiedag',kleur:'var(--ink)',ico:'vorm'},
+  live:{n:'Live',kleur:'#c0392b',ico:'spark'},
+  overig:{n:'Overig',kleur:'#5b7c6b',ico:'klembord'}
+};
+/* losse taken staan los van een batch: een live, een afspraak, een klus */
+const TAAKSOORTEN=[
+  {k:'live',n:'Live gaan'},
+  {k:'boodschappen',n:'Boodschappen'},
+  {k:'voorbereiden',n:'Voorbereiden'},
+  {k:'half',n:'Halffabricaat'},
+  {k:'overig',n:'Iets anders'}
+];
+const takenOp=d=>(S.taken||[]).filter(t=>t.datum===d);
+/* welke stap uit je werkplan hoort bij welke soort */
+function stapSoort(naam){
+  const t=String(naam||'').toLowerCase();
+  if(/gelei|ganache|karamel|prali|vulling|crunch/.test(t)) return 'half';
+  return 'voorbereiden';
+}
+
 const planLijst=()=>(S.planning||[]).slice()
   .sort((a,b2)=>String(a.datum).localeCompare(String(b2.datum)));
+
+/* alle losse dagtaken van een geplande batch, inclusief de boodschapdag */
+function planTaken(p){
+  const uit=[];
+  const bd=boodschapDatum(p);
+  if(bd) uit.push({datum:bd,soort:'boodschappen',tekst:'Boodschappen doen',plan:p});
+  (p.voorbereiding||[]).forEach(v=>{
+    if(v.datum) uit.push({datum:v.datum,soort:stapSoort(v.stap),tekst:v.stap,plan:p});
+  });
+  uit.push({datum:p.datum,soort:'productie',
+    tekst:p.regels.map(r=>smaakNaam(r.receptId)).join(', '),plan:p});
+  return uit;
+}
+const allePlanTaken=()=>planLijst().flatMap(planTaken)
+  .concat((S.taken||[]).map(t=>({datum:t.datum,soort:t.soort,tekst:t.tekst,los:t,tijd:t.tijd||''})));
+
+/* een losse taak inplannen: een live, een klus, een afspraak */
+function sheetTaakNieuw(datum){
+  const T={soort:'live',datum:datum||vandaag(),tekst:'',tijd:''};
+  const teken=()=>{
+    sheet('Wat ga je doen?',
+      `<p class="hint">Iets wat los staat van een batch — een live, een afspraak of een klus.
+        Je ziet het terug in je planning met een eigen kleur.</p>
+       <div class="veld"><label>Soort</label>
+         <div class="keuzeraster twee" id="tkS">${TAAKSOORTEN.map(x=>
+           `<button class="chip ${T.soort===x.k?'aan':''}" data-v="${x.k}">
+             <i style="width:9px;height:4px;border-radius:99px;display:inline-block;margin-right:7px;
+               background:${DAGSOORT[x.k].kleur}"></i>${x.n}</button>`).join('')}</div></div>
+       <div class="veld"><label>Omschrijving</label>
+         <input class="inp" id="tkT" value="${esc(T.tekst)}"
+           placeholder="${T.soort==='live'?'Bijv. live op TikTok':'Wat ga je doen?'}"></div>
+       <div class="veld" style="display:grid;grid-template-columns:1fr 110px;gap:12px">
+         <div><label>Wanneer</label>
+           <input class="inp" id="tkD" type="date" value="${T.datum}"></div>
+         <div><label>Tijd</label>
+           <input class="inp" id="tkTd" type="time" value="${T.tijd}"></div></div>`,
+      `<button class="prim" style="margin-top:0" id="tkOk">Inplannen</button>`);
+    chips('#tkS',false,()=>{
+      T.soort=chipV('#tkS');
+      T.tekst=$('#tkT').value; T.datum=$('#tkD').value; T.tijd=$('#tkTd').value;
+      teken();
+    });
+    $('#tkOk').onclick=()=>{
+      const tekst=$('#tkT').value.trim()
+        || (TAAKSOORTEN.find(x=>x.k===chipV('#tkS'))||{}).n || 'Taak';
+      S.taken=S.taken||[];
+      S.taken.push({id:uid(),datum:$('#tkD').value||vandaag(),soort:chipV('#tkS')||'overig',
+        tekst,tijd:$('#tkTd').value||''});
+      bewaarNu(); dicht(); render(); toast('Ingepland.');
+    };
+  };
+  teken();
+}
 const planOpDatum=d=>(S.planning||[]).filter(x=>x.datum===d);
 
 /* de langste levertijd van wat je voor deze batch nodig hebt */
@@ -4547,7 +4711,7 @@ function sheetPlanBatch(vooraf){
            ${[[1,'Morgen'],[2,'Overmorgen'],[7,'Volgende week']].map(([n,l])=>
              `<button class="chip" data-snel="${n}">${l}</button>`).join('')}
          </div></div>`,
-      `<button class="prim" style="margin-top:0" id="pb1">Volgende</button>`,'Stap 1 van 3');
+      `<button class="prim" style="margin-top:0" id="pb1">Volgende</button>`,'Stap 1 van 4');
     $$('[data-snel]').forEach(b=>b.onclick=()=>{
       P.datum=datumPlus(vandaag(),parseInt(b.dataset.snel));
       $('#pbD').value=P.datum;
@@ -4568,7 +4732,7 @@ function sheetPlanBatch(vooraf){
           <span class="ct"><span class="cn">${c.naam}</span>
             <span class="cs">${n?n+(n===1?' smaak':' smaken'):'nog geen smaken'}</span></span>
           <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`,
-      `<button class="sec" id="pb2T">Terug</button>`,'Stap 2 van 3');
+      `<button class="sec" id="pb2T">Terug</button>`,'Stap 2 van 4');
     $$('#pbC [data-c]').forEach(b=>b.onclick=()=>{P.choc=b.dataset.c;stap3()});
     $('#pb2T').onclick=stap1;
   };
@@ -4602,18 +4766,64 @@ function sheetPlanBatch(vooraf){
               <span class="v">alles in huis</span></div>`}
          </div>`:''}`,
       `<button class="prim" style="margin-top:0" id="pb3" ${tot?'':'disabled'}>
-         ${tot?'Inplannen op '+kort(new Date(P.datum)):'Kies eerst mallen'}</button>
-       <button class="sec" id="pb3T">Terug</button>`,'Stap 3 van 3');
+         ${tot?'Volgende':'Kies eerst mallen'}</button>
+       <button class="sec" id="pb3T">Terug</button>`,'Stap 3 van 4');
 
     $$('[data-pp]').forEach(b=>b.onclick=()=>{P.mallen[b.dataset.pp]=(P.mallen[b.dataset.pp]||0)+1;stap3()});
     $$('[data-pm]').forEach(b=>b.onclick=()=>{P.mallen[b.dataset.pm]=Math.max(0,(P.mallen[b.dataset.pm]||0)-1);stap3()});
     $('#pb3T').onclick=stap2;
-    if($('#pb3')) $('#pb3').onclick=()=>{
+    if($('#pb3')) $('#pb3').onclick=()=>{P.regels=regels;P.lt=lt;stap4()};
+  };
+
+  /* voorbereidingsstappen op een dag zetten */
+  const stap4=()=>{
+    const stappen=(S.werkplan||[]).slice(0,4);
+    P.voor=P.voor||{};
+    /* eerste keer: een redelijk voorstel */
+    if(!P.voorGezet){
+      stappen.forEach((st,i)=>{
+        P.voor[st]= i===0 ? datumPlus(P.datum,-1) : '';
+      });
+      P.voorGezet=true;
+    }
+    const opties=[0,-1,-2,-3];
+    sheet('Voorbereiden',
+      `<p class="hint">Doe je iets al een dag eerder? Zet het hier op een dag, dan zie je het
+        terug in je planning met een eigen kleur. Laat leeg wat je op de dag zelf doet.</p>
+       ${stappen.map(st=>{
+         const soort=stapSoort(st);
+         return `<div class="veld">
+           <label style="display:flex;align-items:center;gap:8px">
+             <i style="width:9px;height:4px;border-radius:99px;display:block;background:${
+               DAGSOORT[soort].kleur}"></i>${esc(st)}</label>
+           <div class="keuzeraster" data-vst="${esc(st)}">
+             ${opties.map(o=>{
+               const d=datumPlus(P.datum,o);
+               const l=o===0?'Op de dag':o===-1?'Dag ervoor':Math.abs(o)+' dagen ervoor';
+               const aan=(o===0? !P.voor[st] : P.voor[st]===d);
+               return `<button class="chip ${aan?'aan':''}" data-vd="${o===0?'':d}">${l}</button>`}).join('')}
+           </div></div>`}).join('')}`,
+      `<button class="prim" style="margin-top:0" id="pb4">Inplannen op ${kort(new Date(P.datum))}</button>
+       <button class="sec" id="pb4T">Terug</button>`,'Stap 4 van 4');
+
+    $$('[data-vst]').forEach(rij=>{
+      const st=rij.dataset.vst;
+      rij.querySelectorAll('[data-vd]').forEach(b=>b.onclick=()=>{
+        rij.querySelectorAll('[data-vd]').forEach(x=>x.classList.remove('aan'));
+        b.classList.add('aan');
+        P.voor[st]=b.dataset.vd||'';
+      });
+    });
+    $('#pb4T').onclick=stap3;
+    $('#pb4').onclick=()=>{
+      const voorbereiding=Object.keys(P.voor).filter(st=>P.voor[st])
+        .map(st=>({stap:st,datum:P.voor[st]}));
       S.planning=S.planning||[];
-      S.planning.push({id:uid(),datum:P.datum,chocolade:P.choc,regels,levertijd:lt,
-        gemaakt:vandaag()});
+      S.planning.push({id:uid(),datum:P.datum,chocolade:P.choc,regels:P.regels,
+        levertijd:P.lt,voorbereiding,gemaakt:vandaag()});
       bewaarNu(); dicht(); render();
-      toast('Ingepland op '+kort(new Date(P.datum))+(bd?' · boodschappen '+kort(new Date(bd)):''));
+      const bd2=P.lt?datumPlus(P.datum,-(P.lt+1)):null;
+      toast('Ingepland op '+kort(new Date(P.datum))+(bd2?' · boodschappen '+kort(new Date(bd2)):''));
     };
   };
   stap1();
@@ -4638,17 +4848,18 @@ function planStart(id){
 function sheetPlanning(){
   const lijst=planLijst();
   const dagen={};
-  lijst.forEach(p=>{
-    (dagen[p.datum]=dagen[p.datum]||{batches:[],bood:[]}).batches.push(p);
-    const bd=boodschapDatum(p);
-    if(bd) (dagen[bd]=dagen[bd]||{batches:[],bood:[]}).bood.push(p);
+  allePlanTaken().forEach(t=>{
+    const d=(dagen[t.datum]=dagen[t.datum]||{batches:[],bood:[],voor:[]});
+    if(t.soort==='productie'&&t.plan) d.batches.push(t.plan);
+    else if(t.soort==='boodschappen'&&t.plan&&!t.los) d.bood.push(t.plan);
+    else d.voor.push(t);
   });
   /* orders met leverdatum horen ook in je agenda */
   const ord={};
   (S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum).forEach(o=>{
     (ord[o.leverdatum]=ord[o.leverdatum]||[]).push(o);
   });
-  Object.keys(ord).forEach(d=>{dagen[d]=dagen[d]||{batches:[],bood:[]}});
+  Object.keys(ord).forEach(d=>{dagen[d]=dagen[d]||{batches:[],bood:[],voor:[]}});
 
   const datums=Object.keys(dagen).sort();
   const labelVan=d=>{
@@ -4660,35 +4871,10 @@ function sheetPlanning(){
     return kort(new Date(d));
   };
 
-  /* veertien dagen vooruit, met een stip per soort dat er die dag is */
-  const strip=(()=>{
-    let uit='<div class="weekstrip">';
-    for(let i=0;i<14;i++){
-      const d=datumPlus(vandaag(),i), dt=new Date(d);
-      const dag=dagen[d]||{batches:[],bood:[]};
-      const ords=(ord[d]||[]).length;
-      const iets=dag.batches.length||dag.bood.length||ords;
-      uit+=`<button class="wdag ${i===0?'nu':''} ${iets?'':'leeg'}" data-naardag="${d}">
-        <span class="wd">${DAG[dt.getDay()].slice(0,2)}</span>
-        <span class="wn">${dt.getDate()}</span>
-        <span class="wstippen">${
-          (dag.batches.length?'<i class="b"></i>':'')+
-          (dag.bood.length?'<i class="o"></i>':'')+
-          (ords?'<i class="l"></i>':'')}</span></button>`;
-    }
-    return uit+'</div>';
-  })();
+  const strip=weekstripHTML(14);
 
   sheet('Planning',
     `${strip}
-     <div class="geen" style="padding:0 2px 14px;display:flex;gap:14px;flex-wrap:wrap">
-       <span style="display:inline-flex;align-items:center;gap:6px">
-         <i style="width:6px;height:6px;border-radius:99px;background:var(--ink);display:block"></i>batch</span>
-       <span style="display:inline-flex;align-items:center;gap:6px">
-         <i style="width:6px;height:6px;border-radius:99px;background:var(--amber);display:block"></i>boodschappen</span>
-       <span style="display:inline-flex;align-items:center;gap:6px">
-         <i style="width:6px;height:6px;border-radius:99px;background:var(--grijs3);display:block"></i>leveren</span>
-     </div>
      ${datums.length?datums.map(d=>{
        const dag=dagen[d], dn=new Date(d);
        const nu6=dagenTussen(vandaag(),d);
@@ -4699,6 +4885,14 @@ function sheetPlanning(){
            <span class="ivak amber">${svg(I.vracht)}</span>
            <span class="naam">Boodschappen doen<small>voor de batch van ${kort(new Date(p.datum))}</small></span>
            <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}
+         ${(dag.voor||[]).map(t=>`<div class="arij" style="cursor:default">
+           <span class="ivak" style="background:${DAGSOORT[t.soort].kleur}1f;color:${DAGSOORT[t.soort].kleur}">
+             ${svg(I[DAGSOORT[t.soort].ico])}</span>
+           <span class="naam">${esc(t.tekst)}<small>${t.los
+             ? DAGSOORT[t.soort].n.toLowerCase()+(t.tijd?' · '+esc(t.tijd):'')
+             : 'voor de batch van '+kort(new Date(t.plan.datum))}</small></span>
+           ${t.los?`<button class="wisbtn" data-taakwis="${t.los.id}">${svg(I.kruis,'2')}</button>`:''}
+         </div>`).join('')}
          ${dag.batches.map(p=>{
            const tot=p.regels.reduce((n,r)=>n+r.aantal,0);
            const namen=p.regels.map(r=>smaakNaam(r.receptId)).join(', ');
@@ -4716,14 +4910,20 @@ function sheetPlanning(){
        </div>`}).join('')
       :`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.klok,'2.2')}</div>
          <p>Nog niets gepland.<br>Plan een batch, dan zie je hier wanneer je wat moet doen.</p></div></div>`}`,
-    `<button class="prim" style="margin-top:0" id="plNieuw">${svg(I.plus)}Batch inplannen</button>`);
+    `<button class="prim" style="margin-top:0" id="plNieuw">${svg(I.plus)}Batch inplannen</button>
+     <button class="sec" id="plTaak">${svg(I.plus)}Iets anders inplannen</button>`);
 
   $('#plNieuw').onclick=()=>sheetPlanBatch();
-  $$('[data-naardag]').forEach(b=>b.onclick=()=>{
-    const d=b.dataset.naardag;
+  $('#plTaak').onclick=()=>sheetTaakNieuw();
+  $$('[data-taakwis]').forEach(b=>b.onclick=()=>{
+    S.taken=(S.taken||[]).filter(x=>x.id!==b.dataset.taakwis);
+    bewaarNu(); sheetPlanning(); render(); toast('Uit je planning gehaald.');
+  });
+  $$('[data-weekdag]').forEach(b=>b.onclick=()=>{
+    const d=b.dataset.weekdag;
     const doel=document.querySelector('[data-dag="'+d+'"]');
-    if(doel){ doel.scrollIntoView({behavior:'smooth',block:'start'}); }
-    else { sheetPlanBatch(d); }
+    if(doel) doel.scrollIntoView({behavior:'smooth',block:'start'});
+    else sheetPlanBatch(d);
   });
   $$('[data-planstart]').forEach(b=>b.onclick=()=>planStart(b.dataset.planstart));
   $$('[data-planwis]').forEach(b=>b.onclick=()=>{
@@ -5845,6 +6045,13 @@ function bind(){
   $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
+  $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw());
+  $$('[data-weekdag]').forEach(x=>x.onclick=()=>{
+    const d=x.dataset.weekdag;
+    const heeft=planLijst().some(p=>p.datum===d||boodschapDatum(p)===d)
+      || (S.orders||[]).some(o=>o.status==='nieuw'&&o.leverdatum===d);
+    if(heeft||d===vandaag()) sheetPlanning(); else sheetPlanBatch(d);
+  });
   $$('[data-planstart]').forEach(x=>x.onclick=()=>planStart(x.dataset.planstart));
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-tht]').forEach(x=>x.onclick=sheetTHT);
@@ -6013,7 +6220,7 @@ function wizard1(){
          <span class="ct"><span class="cn">${c.naam}</span>
            <span class="cs">${n?n+(n===1?' smaak':' smaken'):'nog geen smaken'}</span></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`,
-    '','Stap 1 van 3');
+    '','Stap 1 van 4');
   $$('#wC [data-c]').forEach(b=>b.onclick=()=>{W.choc=b.dataset.c;wizard2()});
 }
 
@@ -6041,7 +6248,7 @@ function wizard2(){
       : `<p class="hint">Je hebt nog geen smaken met ${chocNaam(W.choc).toLowerCase()}. Voeg er één toe, dan kun je verder.</p>`,
     `<button class="prim" style="margin-top:0" id="w2Ok">Uitwerking tonen</button>
      <button class="sec" id="w2N">Nieuwe smaak toevoegen</button>
-     <button class="sec" id="w2T">Andere chocolade kiezen</button>`,'Stap 2 van 3');
+     <button class="sec" id="w2T">Andere chocolade kiezen</button>`,'Stap 2 van 4');
   $$('[data-m]').forEach(b=>b.onclick=()=>{
     const r=recept(b.dataset.r);
     W.mallen[r.id]=Math.max(0,(W.mallen[r.id]||0)+(b.dataset.m==='plus'?1:-1));
