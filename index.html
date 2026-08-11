@@ -87,12 +87,12 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
 .snelrij{display:flex;gap:8px;overflow-x:auto;margin:0 -20px;padding:2px 20px 4px;
   scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .snelrij::-webkit-scrollbar{display:none}
-.snel{flex:none;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px;
+.snelknop{flex:none;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px;
   border-radius:99px;background:var(--card);border:1px solid var(--lijn);
   font-size:14px;font-weight:600;letter-spacing:-.015em;color:var(--ink2);white-space:nowrap;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 10px 22px -18px rgba(24,24,27,.2)}
-.snel svg{width:16px;height:16px;stroke-width:1.9;color:var(--grijs);flex:none}
-.snel:active{background:var(--bg)}
+.snelknop svg{width:16px;height:16px;stroke-width:1.9;color:var(--grijs);flex:none}
+.snelknop:active{background:var(--bg)}
 .hbtn{width:34px;height:32px;border-radius:99px;display:grid;place-items:center;color:var(--grijs);flex:none;margin-top:2px}
 .hbtn svg{width:18px;height:18px}
 .hbtn.terug{margin-left:-8px}
@@ -312,6 +312,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .chip.nieuw svg{width:13px;height:12px;stroke-width:2.2}
 .inlineform{background:var(--bg);border-radius:14px;padding:12px;margin-top:12px;display:none}
 .inlineform.open{display:block}
+.rijtje{display:flex;gap:8px}
 .inlineform .rijtje{display:flex;gap:8px;margin-bottom:8px}
 .inlineform .rijtje:last-child{margin-bottom:0}
 .mini{height:48px;border-radius:14px;border:none;background:#fff;padding:0 12px;font-size:16px;font-weight:500;outline:none;width:100%}
@@ -944,7 +945,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v77 · 11 aug 2026';
+const APPVERSIE='v78 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1000,6 +1001,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
+  gmut:[], drempels:{},
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1024,7 +1026,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1079,7 +1081,7 @@ function firebaseStart(){
         if(!d||negeerRemote) return;
         /* alleen overnemen als de server nieuwer is dan wat hier staat */
         if((d.bijgewerkt||0)>(S.bijgewerkt||0)){
-          zetData(d); migreerChecks(); migreerBatches(); lokaalSchrijf(d); render();
+          zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
           fbRef.set(pakData()).catch(()=>{});
@@ -1094,7 +1096,7 @@ async function laden(){
   const d=await lokaalLees();
   if(d) zetData(d);
   opslagOk=true;
-  migreerChecks(); migreerBatches();
+  migreerChecks(); migreerBatches(); migreerGrond();
   if(!S.checksGezet){ standaardChecks(); S.checksGezet=true; bewaarNu(); }
   if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; bewaarNu(); }
   if(!S.werkGezet2){
@@ -1530,12 +1532,12 @@ function dashboardHTML(){
   /* snelacties: waar je op een dag het vaakst heen wil */
   h+=`<div class="blokkop"><span class="eyebrow">Snel naar</span></div>
   <div class="snelrij">
-    <button class="snel" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
-    <button class="snel" data-sheet="recepten">${svg(I.boek)}Smaken</button>
-    <button class="snel" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
-    <button class="snel" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
-    <button class="snel" data-naar="voorraad">${svg(I.doos)}Voorraad</button>
-    <button class="snel" data-sheet="instellingen">${svg(I.instel)}Instellingen</button>
+    <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
+    <button class="snelknop" data-sheet="recepten">${svg(I.boek)}Smaken</button>
+    <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
+    <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
+    <button class="snelknop" data-naar="voorraad">${svg(I.doos)}Voorraad</button>
+    <button class="snelknop" data-sheet="instellingen">${svg(I.instel)}Instellingen</button>
   </div>`;
   return h;
 }
@@ -2824,6 +2826,10 @@ function voorraadHTML(){
       Boek ${over.length===1?'die':'die'} af als breuk.</span></div>`;
   else if(bijna.length) h+=`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}
     <span>${bijna.length===1?'Eén partij loopt':bijna.length+' partijen lopen'} binnen twee weken af.</span></div>`;
+  const laagNu=grondVoorraad().filter(grondOnder);
+  if(laagNu.length) h+=`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}
+    <span>${laagNu.map(v=>esc(v.product)).slice(0,3).join(', ')}${laagNu.length>3?' en meer':''}
+      ${laagNu.length===1?'is':'zijn'} bijna op.</span></div>`;
 
   h+=`<div class="blokkop"><span class="eyebrow">Gereed product</span>
       <span class="tel">${gereed.length?gereed.length+(gereed.length===1?' partij':' partijen'):''}</span></div>`;
@@ -2837,23 +2843,106 @@ function voorraadHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
    :`<div class="paneel"><div class="geen">Zodra je een batch afrondt, komt het gereed product hier vanzelf te staan.</div></div>`;
 
-  const partijen=(S.lots||[]).filter(l=>l.lot);
+  const grond=grondVoorraad();
+  const opRaken=grond.filter(grondOnder);
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Grondstoffen</span>
-      <span class="tel">${partijen.length?partijen.length+' partijen':''}</span></div>`;
-  h+=partijen.length?`<div class="paneel">${partijen.slice(0,8).map(l=>{
-    const d=dagenTotTHT(l.tht), st=d===null?'':(d<0?'rood':d<=30?'amber':'');
-    return `<button class="arij" data-lot2="${esc(l.lot)}">
-      <span class="naam">${esc(l.product)}<small>lot ${esc(l.lot)}${
-        l.leverancier?' · '+esc(l.leverancier):''}</small></span>
-      ${st?`<span class="stip ${st}"></span>`:''}
-      <span class="waarde ${l.tht?'gevuld':''}">${l.tht?kort(new Date(l.tht)):'—'}</span>
+      <span class="tel">${opRaken.length?opRaken.length+' bijna op':(grond.length?grond.length+' producten':'')}</span></div>`;
+  h+=grond.length?`<div class="paneel">${grond.map(v=>{
+    const d=grondDrempel(v.product), laag=grondOnder(v), leeg=v.saldo<=0;
+    const lots=Object.keys(v.lots).filter(k=>v.lots[k]>0);
+    return `<button class="arij" data-gs="${esc(v.product)}">
+      <span class="naam">${esc(v.product)}<small>${
+        lots.length?lots.length+(lots.length===1?' lot':' lots')+' · '+esc(lots.slice(0,2).join(', '))+(lots.length>2?'…':'')
+                   :'geen lot bekend'}${d?' · drempel '+toonHoeveel(d,v.basis):''}</small></span>
+      ${laag||leeg?`<span class="stip ${leeg?'rood':'amber'}"></span>`:''}
+      <span class="waarde gevuld">${toonHoeveel(v.saldo,v.basis)}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
-   :`<div class="paneel"><div class="geen">Nog geen partijen. Leg een levering vast bij Ontvangst.</div></div>`;
+   :`<div class="paneel"><div class="geen">Nog geen grondstoffen. Leg een levering vast bij Ontvangst.</div></div>`;
 
   h+=`<div class="voet">
     <button data-vmut>Alle mutaties${(S.mutaties||[]).length?' ('+S.mutaties.length+')':''}</button>
     <button data-sheet="ontvangst">Ontvangst vastleggen</button></div>`;
   return h;
+}
+
+/* ---------- één grondstof: saldo, lots en bijboeken of afboeken ---------- */
+function sheetGrondstof(product){
+  const v=grondVoorraad().find(x=>gKey(x.product)===gKey(product));
+  if(!v) return;
+  const basis=v.basis;
+  const eenheden=basis==='g'?['kg','g']:basis==='ml'?['l','ml']:['st'];
+  const lots=Object.entries(v.lots).filter(([k,n])=>n>0)
+    .sort((a,b2)=>b2[1]-a[1]);
+  const regels=(S.gmut||[]).filter(m=>gKey(m.product)===gKey(product))
+    .sort((a,b2)=>(b2.datum+b2.tijd).localeCompare(a.datum+a.tijd));
+  const d=grondDrempel(product);
+
+  sheet(v.product,
+    `<div class="vrkop"><div class="vrgetal">${toonHoeveel(v.saldo,basis)}<em>op voorraad</em></div>
+      <div class="vrmeta">${d?'drempel '+toonHoeveel(d,basis)+(grondOnder(v)?' — bijna op':''):'geen drempel ingesteld'}</div></div>
+
+     <div class="veld"><label>Wat wil je doen?</label>
+       <div class="duo3" id="gS">
+         <button class="aan" data-v="bij">Bijboeken</button>
+         <button data-v="af">Afboeken</button>
+         <button data-v="tel">Tellen</button></div></div>
+
+     <div class="veld" style="display:grid;grid-template-columns:1fr 92px;gap:12px">
+       <div><label id="gLab">Hoeveelheid erbij</label>
+         <input class="inp" id="gH" type="number" inputmode="decimal" placeholder="0"></div>
+       <div><label>Eenheid</label>
+         <select class="inp" id="gE" style="text-align:center">${eenheden.map(e=>`<option>${e}</option>`).join('')}</select></div></div>
+
+     <div class="veld" id="gLotV"><label>Van welk lot?</label>
+       <div class="chips" id="gL">
+         ${lots.map((l,i)=>`<button class="chip ${i?'':'aan'}" data-v="${esc(l[0])}">${esc(l[0])}<small style="opacity:.6;margin-left:6px">${toonHoeveel(l[1],basis)}</small></button>`).join('')}
+         <button class="chip ${lots.length?'':'aan'}" data-v="">Geen lot</button></div></div>
+
+     <div class="veld"><label>Reden</label>
+       <input class="inp" id="gR" placeholder="Bijv. breuk, weggegooid, verbruikt"></div>
+
+     <div class="veld"><label>Drempel voor 'bijna op'</label>
+       <div class="rijtje">
+         <input class="mini" id="gD" type="number" inputmode="decimal" placeholder="0" value="${d?(basis==='g'||basis==='ml'?d:d):''}">
+         <button class="miniknop" id="gDOk">Instellen</button></div>
+       <div class="hint" style="margin:8px 0 0">In ${basis==='g'?'gram':basis==='ml'?'milliliter':'stuks'}. Leeg laten zet de drempel uit.</div></div>
+
+     ${regels.length?`<div class="blokkop"><span class="eyebrow">Historie</span></div>
+       <div class="paneel">${regels.slice(0,10).map(m=>`<div class="arij" style="cursor:default">
+         <span class="naam">${esc(m.reden||'Mutatie')}<small>${kort(new Date(m.datum))} ${esc(m.tijd)}${m.lot?' · lot '+esc(m.lot):''}</small></span>
+         <span class="waarde gevuld">${m.aantal<0?'−':'+'}${toonHoeveel(Math.abs(naarBasis(m.aantal,m.eenheid)),basis)}</span>
+       </div>`).join('')}</div>`:''}`,
+    `<button class="prim" style="margin-top:0" id="gOk">Vastleggen</button>`);
+
+  chips('#gS',false,()=>{
+    const k=chipV('#gS');
+    $('#gLab').textContent=k==='bij'?'Hoeveelheid erbij':k==='af'?'Hoeveelheid eraf':'Wat heb je geteld?';
+    $('#gLotV').style.display=k==='tel'?'none':'';
+  });
+  chips('#gL');
+  $('#gDOk').onclick=()=>{
+    const w=$('#gD').value.trim();
+    S.drempels=S.drempels||{};
+    if(w==='') delete S.drempels[gKey(product)];
+    else S.drempels[gKey(product)]=Math.max(0,parseFloat(w)||0);
+    bewaarNu(); sheetGrondstof(product); toast(w===''?'Drempel uitgezet.':'Drempel ingesteld.');
+  };
+  $('#gOk').onclick=()=>{
+    const k=chipV('#gS'), n=parseFloat($('#gH').value)||0, e=$('#gE').value, r=$('#gR').value.trim();
+    if(!n) return toast('Vul een hoeveelheid in.');
+    if(k==='tel'){
+      const geteld=naarBasis(n,e);
+      const verschil=geteld-v.saldo;
+      if(!verschil) { dicht(); return toast('Voorraad klopte al.') }
+      gBoek(product,verschil,basis,r||'Geteld');
+      bewaarNu(); dicht(); render();
+      return toast('Voorraad bijgesteld naar '+toonHoeveel(geteld,basis)+'.');
+    }
+    const lot=chipV('#gL')||'';
+    gBoek(product,k==='bij'?n:-n,e,r||(k==='bij'?'Bijgeboekt':'Afgeboekt'),lot);
+    bewaarNu(); dicht(); render();
+    toast((k==='bij'?'Bijgeboekt: ':'Afgeboekt: ')+getal(n)+' '+e+'.');
+  };
 }
 
 function sheetVoorraadRegel(sleutel){
@@ -3294,6 +3383,7 @@ function bind(){
     };
   });
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
+  $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
@@ -3852,6 +3942,7 @@ function sheetOntvangst(){
     if(staat==='ok'){
       S.lots.push({id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:h,eenheid:e,
         ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''});
+      if(h) gBoek(p,parseFloat(h)||0,e,'Ontvangst '+lev,l);
     }
     if(!b){
       S.ontvangsten.push({id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
@@ -5270,6 +5361,55 @@ const voorraadPerSmaak=()=>{
   return map;
 };
 const dagenTotTHT=t=>t?Math.round((new Date(t)-new Date(vandaag()))/86400000):null;
+
+/* ---------- grondstofvoorraad ----------
+   Net als bij gereed product is elke wijziging een regel; het saldo volgt uit de historie.
+   Alles wordt binnen een product omgerekend naar één eenheid, zodat kg en g optellen. */
+const BASIS={kg:['g',1000],g:['g',1],l:['ml',1000],ml:['ml',1],st:['st',1]};
+const naarBasis=(n,e)=>n*((BASIS[e]||BASIS.st)[1]);
+function toonHoeveel(n,basis){
+  if(basis==='g') return n>=1000?getal(n/1000)+' kg':getal(n)+' g';
+  if(basis==='ml') return n>=1000?getal(n/1000)+' l':getal(n)+' ml';
+  return getal(n)+' st';
+}
+/* naam netjes vergelijkbaar maken, zodat 'Melkchocolade' en 'melkchocolade ' samenvallen */
+const gKey=p=>String(p||'').trim().toLowerCase();
+
+function grondVoorraad(){
+  const map={};
+  (S.gmut||[]).forEach(m=>{
+    const k=gKey(m.product); if(!k) return;
+    const basis=(BASIS[m.eenheid]||BASIS.st)[0];
+    map[k]=map[k]||{product:m.product,basis:basis,saldo:0,lots:{}};
+    map[k].saldo+=naarBasis(m.aantal||0,m.eenheid);
+    if(m.lot){
+      map[k].lots[m.lot]=(map[k].lots[m.lot]||0)+naarBasis(m.aantal||0,m.eenheid);
+    }
+  });
+  return Object.values(map).sort((a,b2)=>{
+    const da=grondOnder(a), db=grondOnder(b2);
+    if(da!==db) return da?-1:1;
+    return a.product.localeCompare(b2.product);
+  });
+}
+const grondDrempel=p=>((S.drempels||{})[gKey(p)]||0);
+const grondOnder=v=>{const d=grondDrempel(v.product);return d>0&&v.saldo<=d};
+
+/* boekt een wijziging bij de grondstoffen */
+function gBoek(product,aantal,eenheid,reden,lot){
+  if(!product||!aantal) return;
+  S.gmut=S.gmut||[];
+  S.gmut.push({id:uid(),datum:vandaag(),tijd:nu(),product:product,lot:lot||'',
+    aantal:aantal,eenheid:eenheid||'g',reden:reden||''});
+}
+/* eenmalig: wat al als partij is vastgelegd telt alsnog mee als beginvoorraad */
+function migreerGrond(){
+  if(S.gmutGezet) return;
+  (S.lots||[]).forEach(l=>{
+    if(l.product&&l.hoeveel) gBoek(l.product,parseFloat(l.hoeveel)||0,l.eenheid||'g','Ontvangst',l.lot);
+  });
+  S.gmutGezet=true;
+}
 const smaakNaam=id=>{const r=(S.recepten||[]).find(x=>x.id===id);return r?r.naam:'onbekende smaak'};
 
 /* orders */
