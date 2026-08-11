@@ -875,7 +875,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v72 · 11 aug 2026';
+const APPVERSIE='v73 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -933,7 +933,9 @@ const S={
   klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
-  bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:''},
+  bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
+    adres:'Alcoalaan 8D, 5151 RW Drunen', kvk:'93971818', btw:'NL005058641B30',
+    contact:'info@cacaoboetiek.nl · www.cacaoboetiek.nl'},
   batches:[]
 };
 
@@ -1074,9 +1076,29 @@ function leesGraden(t){
 
 /* ---------- het merk van de gebruiker ----------
    Zolang er geen logo is geüpload blijft de naam in tekst staan, precies zoals eerst. */
+const BEDRIJFLEEG={naam:'Cacaoboetiek',regel:'RAFFINEMENT',logo:'',
+  adres:'Alcoalaan 8D, 5151 RW Drunen',kvk:'93971818',btw:'NL005058641B30',
+  contact:'info@cacaoboetiek.nl · www.cacaoboetiek.nl'};
 function bedrijf(){
-  if(!S.bedrijf||typeof S.bedrijf!=='object') S.bedrijf={naam:'Cacaoboetiek',regel:'RAFFINEMENT',logo:''};
+  if(!S.bedrijf||typeof S.bedrijf!=='object') S.bedrijf=Object.assign({},BEDRIJFLEEG);
+  /* velden die er nog niet waren krijgen alsnog een waarde */
+  Object.keys(BEDRIJFLEEG).forEach(k=>{if(S.bedrijf[k]===undefined)S.bedrijf[k]=BEDRIJFLEEG[k]});
   return S.bedrijf;
+}
+/* de naam in hoofdletters, zoals hij op documenten staat */
+const merkNaam=()=>(bedrijf().naam||'Cacaoboetiek').toUpperCase();
+/* regel met kamer van koophandel en btw, alleen wat is ingevuld */
+function merkNummers(){
+  const b=bedrijf(), d=[];
+  if(b.kvk) d.push('KvK '+b.kvk);
+  if(b.btw) d.push('btw '+b.btw);
+  return d.join(' · ');
+}
+/* het merk op een afdruk: logo als dat er is, anders de naam in letters */
+function merkPrint(klasse){
+  const b=bedrijf();
+  if(b.logo) return `<div class="${klasse}"><img src="${b.logo}" alt="${esc(b.naam||'')}" style="max-height:11mm;max-width:52mm;object-fit:contain"></div>`;
+  return `<div class="${klasse}">${esc(merkNaam())}${b.regel?`<small>${esc(b.regel.toUpperCase())}</small>`:''}</div>`;
 }
 function merkKop(){
   const b=bedrijf();
@@ -1086,8 +1108,12 @@ function merkKop(){
   return `<span class="merk">${naam}${regel}</span>`;
 }
 
-const BEDRIJF={naam:'Cacaoboetiek',adres:'Alcoalaan 8D, 5151 RW Drunen',
-  contact:'info@cacaoboetiek.nl · www.cacaoboetiek.nl'};
+/* blijft BEDRIJF heten, maar haalt zijn waarden nu uit het bedrijfsprofiel */
+const BEDRIJF={
+  get naam(){return bedrijf().naam||'Cacaoboetiek'},
+  get adres(){return bedrijf().adres||''},
+  get contact(){return bedrijf().contact||''}
+};
 
 /* ingrediënten van één smaak, per bonbon, van zwaar naar licht */
 function smaakIngredienten(r){
@@ -1341,7 +1367,7 @@ function render(){
     $('#kopTitel').textContent='Productie';
     $('#kopOnder').textContent=datumtekst;
   } else {
-    $('#kopTitel').textContent='Cacaoboetiek HQ';
+    $('#kopTitel').textContent=(bedrijf().naam||'Cacaoboetiek')+' HQ';
     $('#kopOnder').textContent=TABS.find(x=>x.key===S.tab).label;
   }
 
@@ -1718,7 +1744,7 @@ function kaartHTML(tekst,font,pt){
     <div class="wktekst" style="font-family:${f.css};font-size:${g}pt;line-height:${f.hoog}">
       ${kaartRegels(tekst).map(r=>r.trim()?esc(r):'&nbsp;').join('<br>')}
     </div>
-    <div class="wkmerk">CACAOBOETIEK</div>
+    <div class="wkmerk">${esc(merkNaam())}</div>
   </div>`;
 }
 
@@ -4071,7 +4097,7 @@ function voorraadLabelHTML(b,receptId){
   const gemaakt=kort(b.eindDatum?new Date(b.eindDatum):new Date());
   const qrTekst=b.regels.length>1?`${b.code}/${nr}`:b.code;
   return `<div class="etiket et-partij">
-      <div class="kop"><div class="merkregel">CACAOBOETIEK</div></div>
+      <div class="kop"><div class="merkregel">${esc(merkNaam())}</div></div>
       <div class="body">
         <div class="kerf l"></div><div class="kerf r"></div>
         <div class="qrvak">${qrSvg(qrTekst,20)}</div>
@@ -4512,8 +4538,9 @@ function sheetStapDoen(naam){
 
 /* ================= rapporten ================= */
 const rKop=(titel,sub)=>`<div class="rkop">
-  <div class="rmerk">CACAOBOETIEK<small>RAFFINEMENT</small></div>
-  <div class="rtitel"><b>${esc(titel)}</b>${esc(sub)}<br>${BEDRIJF.adres}<br>KvK 93971818 · btw NL005058641B30</div></div>`;
+  ${merkPrint('rmerk')}
+  <div class="rtitel"><b>${esc(titel)}</b>${esc(sub)}<br>${esc(BEDRIJF.adres)}${
+    merkNummers()?'<br>'+esc(merkNummers()):''}</div></div>`;
 const rVoet=()=>`<div class="voet"><span>${BEDRIJF.naam} · productieregistratie</span>
   <span>Afgedrukt ${kort(new Date())} om ${nu()}</span></div>`;
 const rHand=()=>`<div class="hand"><div>Uitgevoerd door — ${esc(S.naam)}</div><div>Gecontroleerd door / datum</div></div>`;
@@ -5773,15 +5800,27 @@ function sheetBedrijf(){
 
      <div class="veld"><label>Bedrijfsnaam</label>
        <input class="inp" id="bpNaam" value="${esc(b.naam||'')}" placeholder="Cacaoboetiek"></div>
-     <div class="veld" style="margin-top:14px"><label>Ondertitel</label>
+     <div class="veld"><label>Ondertitel</label>
        <input class="inp" id="bpRegel" value="${esc(b.regel||'')}" placeholder="Bijv. Raffinement">
-       <div class="hint" style="margin:8px 0 0">Klein woord onder de naam. Mag leeg blijven.</div></div>`,
+       <div class="hint" style="margin:8px 0 0">Klein woord onder de naam. Mag leeg blijven.</div></div>
+
+     <div class="mkop" style="margin-top:26px">Op je documenten</div>
+     <p class="hint">Deze gegevens komen op je etiketten, stickers en registraties te staan.</p>
+     <div class="veld"><label>Adres</label>
+       <input class="inp" id="bpAdres" value="${esc(b.adres||'')}" placeholder="Straat 1, 1234 AB Plaats"></div>
+     <div class="veld"><label>KvK-nummer</label>
+       <input class="inp" id="bpKvk" value="${esc(b.kvk||'')}" placeholder="12345678"></div>
+     <div class="veld"><label>Btw-nummer</label>
+       <input class="inp" id="bpBtw" value="${esc(b.btw||'')}" placeholder="NL000000000B00"></div>
+     <div class="veld"><label>Contact</label>
+       <input class="inp" id="bpContact" value="${esc(b.contact||'')}" placeholder="info@bedrijf.nl · www.bedrijf.nl">
+       <div class="hint" style="margin:8px 0 0">Staat onderaan het productetiket.</div></div>`,
     `<button class="prim" style="margin-top:0" id="bpOk">Klaar</button>`);
 
+  const VELDEN={naam:'bpNaam',regel:'bpRegel',adres:'bpAdres',kvk:'bpKvk',btw:'bpBtw',contact:'bpContact'};
   const bewaarVelden=()=>{
     const d=bedrijf();
-    d.naam=($('#bpNaam')?$('#bpNaam').value.trim():d.naam)||'';
-    d.regel=($('#bpRegel')?$('#bpRegel').value.trim():d.regel)||'';
+    Object.keys(VELDEN).forEach(k=>{const el=$('#'+VELDEN[k]); if(el) d[k]=el.value.trim()});
   };
 
   $('#bpKies').onclick=()=>{ bewaarVelden(); $('#bpBestand').click(); };
