@@ -945,7 +945,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v79 · 11 aug 2026';
+const APPVERSIE='v80 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3090,6 +3090,35 @@ function pasSjabloonToe(key){
   return n;
 }
 
+/* ---------- verbruik van grondstoffen bij het afronden ----------
+   De brug bestaat al: per ingrediënt koos je een lotnummer, en dat lot hoort
+   bij een product uit je voorraad. Zijn er meerdere lots gekozen, dan wordt het
+   verbruik daarover verdeeld. Zonder lot valt de app terug op de productnaam. */
+function verbruikVanBatch(b){
+  const uit=[];
+  bIngredienten(b).forEach(i=>{
+    const lots=lotLijst(b,i.naam);
+    if(lots.length){
+      const deel=i.hoeveel/lots.length;
+      lots.forEach(l=>{
+        const p=(S.lots||[]).find(x=>x.lot===l);
+        uit.push({product:p?p.product:i.naam,lot:l,gram:deel});
+      });
+    } else {
+      const bekend=grondVoorraad().find(v=>gKey(v.product)===gKey(i.naam));
+      uit.push({product:bekend?bekend.product:i.naam,lot:'',gram:i.hoeveel,onbekend:!bekend});
+    }
+  });
+  return uit;
+}
+function boekVerbruik(b){
+  if(b.verbruikGeboekt) return 0;
+  const lijst=verbruikVanBatch(b);
+  lijst.forEach(v=>{ if(v.gram>0) gBoek(v.product,-v.gram,'g','Verbruik batch '+b.code,v.lot) });
+  b.verbruikGeboekt=true;
+  return lijst.length;
+}
+
 function sheetBranche(eerste){
   const nu2=S.branche||'chocolaterie';
   sheet(eerste?'Waar werk je mee?':'Branche en sjabloon',
@@ -4298,6 +4327,19 @@ function sheetAfronden(){
         <div class="qty"><input class="lotinp" style="width:70px" data-goed="${rg.receptId}" type="number" inputmode="numeric" value="${rg.aantal}" placeholder="goed">
           <input class="lotinp" style="width:70px" data-afkeur="${rg.receptId}" type="number" inputmode="numeric" value="0" placeholder="afkeur"></div></div>`).join('')}
       <div class="geen" style="padding-top:8px">Links het aantal goed, rechts de afkeur.</div></div>
+     ${(()=>{const v=verbruikVanBatch(b); if(!v.length) return '';
+       const per={}; v.forEach(x=>{const k=gKey(x.product);
+         per[k]=per[k]||{product:x.product,gram:0,onbekend:x.onbekend};
+         per[k].gram+=x.gram});
+       const rijen=Object.values(per).sort((a,b2)=>b2.gram-a.gram);
+       const nogniet=rijen.filter(r=>r.onbekend);
+       return `<div class="veld"><label>Gaat van je voorraad af</label>
+         <div class="paneel">${rijen.map(r=>`<div class="arij" style="cursor:default">
+           <span class="naam">${esc(r.product)}${r.onbekend?'<small>staat nog niet in je voorraad</small>':''}</span>
+           <span class="waarde gevuld">−${toonHoeveel(r.gram,'g')}</span></div>`).join('')}</div>
+         ${nogniet.length?`<div class="geen" style="padding-top:8px">Voor ${
+           nogniet.length===1?'dit product':'deze producten'} wordt een nieuwe voorraadregel aangemaakt.
+           Leg een ontvangst vast om de beginvoorraad kloppend te maken.</div>`:''}</div>`})()}
      <div class="veld"><label>Notitie</label><textarea class="inp" id="fN" placeholder="Optioneel"></textarea></div>
      <p class="hint">${niet.length?'Nog niet compleet: '+niet.map(s=>s.label.toLowerCase()).join(', ')+'. Je kunt toch afronden — het komt als aandachtspunt in je dagrapport.':'Alles compleet. Na afronden staat deze batch vast.'}</p>`,
     `<button class="prim" style="margin-top:0" id="fOk">Batch afronden om ${nu()}</button>`);
@@ -4315,6 +4357,7 @@ function sheetAfronden(){
     perSmaak.filter(ps=>ps.afkeur>0).forEach(ps=>muteer({soort:'breuk',receptId:ps.receptId,
       lot:b.code,tht:iso(thtVan(b,receptVan(b,ps.receptId))),aantal:0,
       reden:ps.afkeur+' afkeur bij productie'}));
+    boekVerbruik(b);
     bLog(b,{type:'afronden',titel:goed+' goed, '+afk+' afkeur',
       sub:perSmaak.map(p=>receptVan(b,p.receptId).naam+' '+p.goed).join(' · ')+(n?' — '+n:''),
       status:niet.length?'let':'ok'});
