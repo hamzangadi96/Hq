@@ -1094,7 +1094,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v105 · 11 aug 2026';
+const APPVERSIE='v106 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1777,24 +1777,44 @@ function ringHTML(gedaan,totaal,klas){
 }
 
 /* ---------- dashboard ---------- */
-function dashboardHTML(){
-  const sig=signalen(), open=lopende();
-  const b=open.find(x=>lopendWerk(x))||open[0];
-  const kb=S.batches.filter(x=>x.status==='klaar');
-  const goed=kb.reduce((n,x)=>n+(x.resultaat?x.resultaat.goed:0),0);
-  const gepland=S.batches.reduce((n,x)=>n+bTotaal(x),0);
-  const afk=kb.reduce((n,x)=>n+(x.resultaat?x.resultaat.afkeur:0),0);
-  const vandaagPlan=planLijst().filter(p2=>dagenTussen(vandaag(),p2.datum)<=1);
-  const boodVandaag=planLijst().filter(p2=>{
-    const bd=boodschapDatum(p2); return bd&&dagenTussen(vandaag(),bd)<=0});
-  const openOrders=(S.orders||[]).filter(o=>o.status==='nieuw');
-  const d0=new Date();
+/* ================= het dashboard =================
+   Geen vaste tegels, maar één hoofdkaart die past bij waar je nu staat, met
+   daaronder alleen wat daarbij hoort. De toestand wordt op volgorde bepaald:
+   het meest dringende wint. */
 
+function dashboardToestand(){
+  const open=lopende();
+  const bezig=open.find(x=>lopendWerk(x))||open[0];
+  if(bezig) return {soort:'bezig',b:bezig};
+
+  const plan=planLijst();
+  const vandaagP=plan.filter(p=>dagenTussen(vandaag(),p.datum)<=0);
+  if(vandaagP.length) return {soort:'vandaag',p:vandaagP[0],rest:vandaagP.slice(1)};
+
+  const boodNu=plan.filter(p=>{const bd=boodschapDatum(p);return bd&&dagenTussen(vandaag(),bd)<=0});
+  if(boodNu.length) return {soort:'boodschappen',p:boodNu[0],alle:boodNu};
+
+  if(plan.length) return {soort:'gepland',p:plan[0]};
+
+  /* net afgerond vandaag, en er ligt product klaar */
+  const afVandaag=S.batches.filter(x=>x.status==='klaar'&&x.eindDatum===vandaag());
+  if(afVandaag.length) return {soort:'afgerond',lijst:afVandaag};
+
+  const openOrd=(S.orders||[]).filter(o=>o.status==='nieuw');
+  if(openOrd.length) return {soort:'orders',lijst:openOrd};
+
+  if(!S.recepten.length) return {soort:'start'};
+  return {soort:'rustig'};
+}
+
+function dashboardHTML(){
+  const t=dashboardToestand();
+  const sig=signalen();
   let h='';
 
-  /* ── waar je nu mee bezig bent ── */
-  if(b){
-    const v=bVolgende(b), w=lopendWerk(b);
+  /* ── de hoofdkaart ── */
+  if(t.soort==='bezig'){
+    const b=t.b, v=bVolgende(b), w=lopendWerk(b);
     h+=`<div class="hoofdkaart">
       <div class="hkkop">
         <div class="hkl">
@@ -1806,96 +1826,198 @@ function dashboardHTML(){
       <div class="sub">${b.code} · volgende stap: ${v?v.label.toLowerCase():'afronden'}</div>
       ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
         <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
-      <button class="prim" data-batch="${b.id}">Verder met deze batch</button>`;
+      <button class="prim" data-batch="${b.id}">${b.status==='pauze'?'Batch hervatten':'Verder met deze batch'}</button>`;
     if(b.regels.length){
       const rg=b.regels[0], per=S.malGrootte||1, aant=Math.max(1,Math.ceil(rg.aantal/per));
       const qt=b.regels.length>1?`${b.code}/1`:b.code;
       h+=`<button class="stickerblok" data-stickers="${b.id}">
         <span class="qrmini">${qrSvg(qt,20)}</span>
         <span class="sbnaam">Voorraadstickers</span>
-        <span class="sbaant">${aant}</span>
-        ${svg(I.pijl,'2')}</button>`;
+        <span class="sbaant">${aant}</span>${svg(I.pijl,'2')}</button>`;
     }
     h+=`</div>`;
-  } else {
-    const kop = !S.recepten.length ? {t:'Begin met je eerste smaak',
-        s:'Beschrijf één bonbon: de schelp en de lagen erin. Daarna rekent de app elke batch voor je uit.',
-        k:'Smaak toevoegen',a:'data-sheet="receptnieuw"'}
-      : vandaagPlan.filter(p2=>dagenTussen(vandaag(),p2.datum)<=0).length
-        ? {t:'Klaar om te beginnen',
-           s:vandaagPlan[0].regels.map(r=>smaakNaam(r.receptId)).join(', ')+' staat voor vandaag gepland.',
-           k:'Batch starten',a:'data-planstart="'+vandaagPlan[0].id+'"'}
-      : kb.length ? {t:'Alles afgerond',
-          s:kb.length+(kb.length===1?' batch':' batches')+' klaar'+(goed?' · '+goed+' bonbons':'')+'. Nog een ronde?',
-          k:'Nieuwe batch',a:'data-sheet="nieuwbatch"'}
-      : {t:'Nog geen batch vandaag',
-         s:'Kies je '+(branche().basis||'basissoort').toLowerCase()+', zet je mallen klaar, en je krijgt de uitwerking met alle hoeveelheden.',
-         k:'Nieuwe batch',a:'data-sheet="nieuwbatch"'};
+
+    /* wat er bij déze batch nog open staat */
+    const ing=bIngredienten(b).filter(i=>!heeftLot(b,i.naam));
+    const d=dagVan(b,vandaag());
+    const geenTemp=!b.logs.some(l=>l.type==='temperatuur'&&l.datum===vandaag());
+    const open2=[];
+    if(ing.length) open2.push({ico:I.doos,t:ing.length+(ing.length===1?' ingrediënt zonder lotnummer':' ingrediënten zonder lotnummer'),
+      s:'nodig voor je traceerbaarheid',a:'data-sheet="ingredienten"',let:true});
+    if(!(d&&d.opening)) open2.push({ico:I.vink,t:'Openingscheck nog niet gedaan',
+      s:'vandaag, voor deze batch',a:'data-sheet="opening"',let:true});
+    if(geenTemp) open2.push({ico:I.temp,t:'Nog geen temperatuur gemeten',
+      s:'vandaag nog niets vastgelegd',a:'data-sheet="temp"'});
+    if(open2.length){
+      h+=`<div class="blokkop"><span class="eyebrow">Bij deze batch</span>
+          <span class="tel let">${open2.length}</span></div>
+        <div class="paneel">${open2.map(x=>`<button class="arij" ${x.a}>
+          <span class="ivak ${x.let?'amber':''}">${svg(x.ico)}</span>
+          <span class="naam">${esc(x.t)}<small>${esc(x.s)}</small></span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+    }
+  }
+
+  else if(t.soort==='vandaag'){
+    const p=t.p, tot=p.regels.reduce((n,r)=>n+r.aantal,0);
+    const dek=dekkingGrond(p.regels).filter(x=>x.tekort>0);
     h+=`<div class="hoofdkaart">
-      <h2>${kop.t}</h2><div class="sub">${esc(kop.s)}</div>
-      <button class="prim" ${kop.a}>${svg(I.plus)}${kop.k}</button></div>`;
+      <div class="stap">Vandaag gepland · ${tot} stuks</div>
+      <h2 style="margin-top:6px">${esc(p.regels.map(r=>smaakNaam(r.receptId)).join(', '))}</h2>
+      <div class="sub">${chocNaam(p.chocolade).toLowerCase()} · ${p.regels.reduce((n,r)=>n+r.mallen,0)} mallen${
+        dek.length?' · '+dek.length+' grondstof'+(dek.length===1?'':'fen')+' tekort':' · alles in huis'}</div>
+      <button class="prim" data-planstart="${p.id}">${svg(I.plus)}Batch starten</button></div>`;
+    if(dek.length){
+      h+=`<div class="blokkop"><span class="eyebrow">Kom je tekort</span>
+          <span class="tel let">${dek.length}</span></div>
+        <div class="paneel">${dek.map(x=>`<div class="arij" style="cursor:default">
+          <span class="ivak ${x.onbekend?'amber':'rood'}">${svg(I.doos)}</span>
+          <span class="naam">${esc(x.naam)}<small>${x.onbekend?'staat niet in je voorraad'
+            :'nodig '+toonHoeveel(x.nodig,'g')+' · aanwezig '+toonHoeveel(x.op,'g')}</small></span>
+          <span class="waarde gevuld">−${toonHoeveel(x.tekort,'g')}</span></div>`).join('')}
+          <button class="meer" data-boodschap>Op de boodschappenlijst zetten</button></div>`;
+    }
+    if(t.rest.length){
+      h+=`<div class="blokkop"><span class="eyebrow">Ook vandaag</span><span class="tel">${t.rest.length}</span></div>
+        <div class="paneel">${t.rest.map(p2=>`<div class="arij">
+          <span class="ivak ink">${svg(I.vorm)}</span>
+          <span class="naam">${esc(p2.regels.map(r=>smaakNaam(r.receptId)).join(', '))}
+            <small>${p2.regels.reduce((n,r)=>n+r.aantal,0)} bonbons</small></span>
+          <button class="miniknop" data-planstart="${p2.id}">Starten</button></div>`).join('')}</div>`;
+    }
   }
 
-  /* ── de dag in vier tegels ── */
-  const tegel=(attr,icoon,kop,waarde,sub,klas)=>`<button class="tegel" ${attr}>
-    <span class="tk">${svg(icoon)}${kop}</span>
-    <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
-    <span class="ts ${klas||''}">${sub}</span></button>`;
-
-  h+=`<div class="blokkop"><span class="eyebrow">Vandaag</span>
-      <span class="tel">${DAG[d0.getDay()]} ${d0.getDate()} ${MND[d0.getMonth()]}</span></div>
-    <div class="tegels">
-      ${tegel('data-naar="productie"',I.vorm,'Gemaakt',goed||'—',
-        gepland?'van '+gepland+' gepland':'nog niets afgerond')}
-      ${tegel('data-naar="productie"',I.vink,'Batches',S.batches.length?kb.length+'/'+S.batches.length:'—',
-        S.batches.length?(open.length?open.length+' onderweg':'allemaal klaar'):'nog geen batch')}
-      ${tegel('data-naar="orders"',I.doos,'Orders',openOrders.length||'—',
-        openOrders.length?openOrders.reduce((n,o)=>n+orderAantal(o),0)+' bonbons':'niets open')}
-      ${tegel('data-naar="productie"',I.alarm,'Aandacht',sig.length||'—',
-        sig.length?'vraagt om actie':(afk?afk+' afkeur vandaag':'niets aan de hand'),
-        sig.length?'let':'')}
-    </div>`;
-
-  /* ── op de rol ── */
-  if(vandaagPlan.length||boodVandaag.length){
-    h+=`<div class="blokkop"><span class="eyebrow">Op de rol</span></div>
-      <div class="paneel">
-        ${boodVandaag.length?`<button class="arij" data-boodschap>
-          <span class="ivak amber">${svg(I.vracht)}</span>
-          <span class="naam">Boodschappen doen<small>voor ${boodVandaag.length===1
-            ?'de batch van '+kort(new Date(boodVandaag[0].datum))
-            :boodVandaag.length+' geplande batches'}</small></span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>`:''}
-        ${vandaagPlan.map(p2=>{
-          const n=dagenTussen(vandaag(),p2.datum);
-          const tot=p2.regels.reduce((x,r)=>x+r.aantal,0);
-          return `<div class="arij">
-            <span class="ivak ${n<=0?'ink':'amber'}">${svg(I.vorm)}</span>
-            <span class="naam">${esc(p2.regels.map(r=>smaakNaam(r.receptId)).join(', '))}
-              <small>${n<=0?'vandaag draaien':'morgen draaien'} · ${tot} bonbons</small></span>
-            ${n<=0?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
-                  :`<span class="pijl" data-planning>${svg(I.pijl,'2')}</span>`}
-          </div>`}).join('')}
-      </div>`;
+  else if(t.soort==='boodschappen'){
+    const n=dagenTussen(vandaag(),t.p.datum);
+    const lijst=(S.boodschappen||[]).slice();
+    grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0).forEach(v=>{
+      if(!lijst.some(x=>gKey(x.product)===gKey(v.product)))
+        lijst.push({product:v.product,gram:Math.max(0,(grondDrempel(v.product)||0)-v.saldo)});
+    });
+    h+=`<div class="hoofdkaart">
+      <div class="stap">Boodschapdag</div>
+      <h2 style="margin-top:6px">Vandaag inkopen</h2>
+      <div class="sub">Je batch van ${n===0?'vandaag':n===1?'morgen':kort(new Date(t.p.datum))}
+        heeft ${lijst.length?lijst.length+' '+(lijst.length===1?'product':'producten'):'grondstoffen'} nodig.</div>
+      <button class="prim" data-boodschap>${svg(I.vracht)}Boodschappenlijst openen</button></div>`;
+    if(lijst.length){
+      const per={};
+      lijst.forEach(x=>{const l=leverancierVan(x.product)||'Nog geen leverancier';(per[l]=per[l]||[]).push(x)});
+      Object.keys(per).sort().forEach(g=>{
+        h+=`<div class="blokkop"><span class="eyebrow">${esc(g)}</span><span class="tel">${per[g].length}</span></div>
+          <div class="paneel">${per[g].map(x=>{
+            const v=grondVoorraad().find(y=>gKey(y.product)===gKey(x.product));
+            const ink=inkoopVan(x.product);
+            const hoev=ink&&x.gram>0?Math.max(1,Math.ceil(x.gram/ink.basis))+' × '+inkoopTekst(ink)
+              :(x.gram>0?toonHoeveel(x.gram,v?v.basis:'g'):'aanvullen');
+            return `<div class="arij" style="cursor:default">
+              <span class="ivak amber">${svg(I.doos)}</span>
+              <span class="naam">${esc(x.product)}<small>${v?'nu '+toonHoeveel(v.saldo,v.basis):'niet op voorraad'}</small></span>
+              <span class="waarde gevuld">${hoev}</span></div>`}).join('')}</div>`;
+      });
+    }
   }
 
-  /* ── andere batches die openstaan ── */
-  const rest=open.filter(x=>x!==b);
-  if(rest.length){
-    h+=`<div class="blokkop"><span class="eyebrow">Ook open</span><span class="tel">${rest.length}</span></div>
-      <div class="paneel">${rest.map(x=>`<button class="arij" data-batch="${x.id}">
-        ${ringHTML(bGedaan(x),KERN.length,x.status==='pauze'?'amber':'')}
-        <span class="naam">${esc(bNamen(x))}<small>${x.code} · ${bTotaal(x)} st · stap ${bGedaan(x)} van ${KERN.length}</small></span>
-        <span class="dagenbadge ${dagNummer(x)>2?'let':''}">${dagNummer(x)===1?'dag 1':dagNummer(x)+' dagen'}</span>
+  else if(t.soort==='gepland'){
+    const p=t.p, n=dagenTussen(vandaag(),p.datum);
+    const bd=boodschapDatum(p), bn=bd?dagenTussen(vandaag(),bd):null;
+    const dek=dekkingGrond(p.regels).filter(x=>x.tekort>0);
+    h+=`<div class="hoofdkaart">
+      <div class="stap">Volgende batch · over ${n} ${n===1?'dag':'dagen'}</div>
+      <h2 style="margin-top:6px">${esc(p.regels.map(r=>smaakNaam(r.receptId)).join(', '))}</h2>
+      <div class="sub">${kort(new Date(p.datum))} · ${p.regels.reduce((x,r)=>x+r.aantal,0)} bonbons${
+        bd?' · boodschappen '+(bn===0?'vandaag':bn===1?'morgen':'over '+bn+' dagen'):' · alles in huis'}</div>
+      <button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button></div>`;
+    if(dek.length){
+      h+=`<div class="blokkop"><span class="eyebrow">Nog te halen</span>
+          <span class="tel ${bn!==null&&bn<=1?'let':''}">${dek.length}</span></div>
+        <div class="paneel">${dek.map(x=>`<div class="arij" style="cursor:default">
+          <span class="ivak amber">${svg(I.doos)}</span>
+          <span class="naam">${esc(x.naam)}<small>${x.onbekend?'staat niet in je voorraad'
+            :'aanwezig '+toonHoeveel(x.op,'g')+' van '+toonHoeveel(x.nodig,'g')}</small></span>
+          <span class="waarde gevuld">−${toonHoeveel(x.tekort,'g')}</span></div>`).join('')}
+          <button class="meer" data-boodschap>Naar je boodschappenlijst</button></div>`;
+    }
+  }
+
+  else if(t.soort==='afgerond'){
+    const goed=t.lijst.reduce((n,x)=>n+(x.resultaat?x.resultaat.goed:0),0);
+    const afk=t.lijst.reduce((n,x)=>n+(x.resultaat?x.resultaat.afkeur:0),0);
+    const klaar=(S.orders||[]).filter(o=>o.status==='nieuw'&&!dekking(o).some(x=>x.tekort>0));
+    h+=`<div class="hoofdkaart">
+      <div class="vinkje">${svg(I.vink,'2.2')}</div>
+      <h2 style="text-align:center">${goed} bonbons klaar</h2>
+      <div class="sub" style="text-align:center">${t.lijst.length}
+        ${t.lijst.length===1?'batch':'batches'} afgerond vandaag${afk?' · '+afk+' afkeur':''}</div>
+      <button class="prim" data-sheet="nieuwbatch">${svg(I.plus)}Nieuwe batch</button></div>`;
+    if(klaar.length){
+      h+=`<div class="blokkop"><span class="eyebrow">Kun je nu inpakken</span>
+          <span class="tel">${klaar.length}</span></div>
+        <div class="paneel">${klaar.slice(0,4).map(o=>`<button class="arij" data-order="${o.id}">
+          <span class="ivak groen">${svg(I.doos)}</span>
+          <span class="naam">${esc(klantNaam(o.klantId))}<small>${esc(o.nummer)} · ${orderAantal(o)} bonbons${
+            o.leverdatum?' · leveren '+kort(new Date(o.leverdatum)):''}</small></span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+    }
+  }
+
+  else if(t.soort==='orders'){
+    const met=t.lijst.map(o=>({o,d:o.leverdatum?dagenTussen(vandaag(),o.leverdatum):999,
+      tekort:dekking(o).filter(x=>x.tekort>0).reduce((n,x)=>n+x.tekort,0)}))
+      .sort((a,b2)=>a.d-b2.d);
+    const eerst=met[0];
+    h+=`<div class="hoofdkaart">
+      <div class="stap">${t.lijst.length} ${t.lijst.length===1?'order open':'orders open'}</div>
+      <h2 style="margin-top:6px">${eerst.tekort?eerst.tekort+' bonbons maken':'Klaar om in te pakken'}</h2>
+      <div class="sub">${esc(klantNaam(eerst.o.klantId))}${eerst.d<999
+        ? ' · '+(eerst.d<0?'was '+Math.abs(eerst.d)+' dagen geleden':eerst.d===0?'vandaag leveren'
+          :eerst.d===1?'morgen leveren':'over '+eerst.d+' dagen')
+        :''}</div>
+      <button class="prim" data-sheet="nieuwbatch">${svg(I.plus)}Batch maken</button></div>
+      <div class="blokkop"><span class="eyebrow">Openstaand</span><span class="tel">${t.lijst.length}</span></div>
+      <div class="paneel">${met.slice(0,5).map(x=>`<button class="arij" data-order="${x.o.id}">
+        <span class="ivak ${x.d<0?'rood':x.d<=2?'amber':''}">${svg(I.doos)}</span>
+        <span class="naam">${esc(klantNaam(x.o.klantId))}<small>${orderAantal(x.o)} bonbons${
+          x.d<999?' · '+(x.d<0?Math.abs(x.d)+' dagen te laat':x.d===0?'vandaag':x.d===1?'morgen':'over '+x.d+' dagen'):''}${
+          x.tekort?' · '+x.tekort+' maken':' · voorraad is genoeg'}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
   }
 
-  /* ── wat aandacht vraagt ── */
-  if(sig.length){
-    h+=`<div class="blokkop"><span class="eyebrow">Vraagt aandacht</span>
-        <span class="tel let">${sig.length}</span></div>
-      <div class="paneel">${sig.slice(0,5).map(s2=>`<button class="arij" data-naar="productie">
-        <span class="ivak ${s2.ernst==='rood'?'rood':'amber'}">${svg(I.alarm)}</span>
+  else if(t.soort==='start'){
+    h+=`<div class="hoofdkaart">
+      <h2>Begin met je eerste smaak</h2>
+      <div class="sub">Beschrijf één bonbon: de schelp en de lagen erin. Daarna rekent de app
+        elke batch voor je uit en weet hij precies wat je nodig hebt.</div>
+      <button class="prim" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button></div>`;
+  }
+
+  else {
+    const vw=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
+    h+=`<div class="hoofdkaart">
+      <div class="vinkje">${svg(I.vink,'2.2')}</div>
+      <h2 style="text-align:center">Niets op de rol</h2>
+      <div class="sub" style="text-align:center">${vw?vw+' bonbons op voorraad. ':''}Plan een batch
+        of begin er meteen een.</div>
+      <button class="prim" data-sheet="nieuwbatch">${svg(I.plus)}Nieuwe batch</button>
+      <button class="knop2" data-planning style="margin-top:8px">${svg(I.klok)}Batch inplannen</button></div>`;
+  }
+
+  /* ── wat er echt mis gaat: alleen rood en de dingen met een datum ── */
+  const dringend=sig.filter(x=>x.ernst==='rood');
+  const later=sig.filter(x=>x.ernst!=='rood');
+  if(dringend.length){
+    h+=`<div class="blokkop"><span class="eyebrow">Moet nu</span>
+        <span class="tel let">${dringend.length}</span></div>
+      <div class="paneel">${dringend.slice(0,4).map(s2=>`<button class="arij" data-naar="productie">
+        <span class="ivak rood">${svg(I.alarm)}</span>
+        <span class="naam">${esc(s2.tekst)}<small>${esc(s2.extra)}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+  }
+  if(later.length){
+    h+=`<div class="blokkop"><span class="eyebrow">Een keer doen</span>
+        <span class="tel">${later.length}</span></div>
+      <div class="paneel">${later.slice(0,4).map(s2=>`<button class="arij" data-naar="productie">
+        <span class="ivak">${svg(I.alarm)}</span>
         <span class="naam">${esc(s2.tekst)}<small>${esc(s2.extra)}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
   }
