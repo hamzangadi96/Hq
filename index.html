@@ -264,7 +264,13 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
   background:none;border:none;padding:2px 0}
 .rltitel{font-size:17px;font-weight:600;letter-spacing:-.03em;line-height:1.3}
 .rltekst{font-size:14px;color:#c4c4ce;line-height:1.5;margin-top:5px;letter-spacing:-.01em}
-.rldoor{width:100%;margin-top:14px;height:44px;border-radius:14px;background:#fff;color:var(--ink);
+.rlknoppen{display:flex;gap:8px;margin-top:14px}
+.rlterug{width:44px;height:44px;border-radius:14px;flex:none;border:1px solid #3f3f46;
+  background:none;color:#fff;display:none;place-items:center}
+.rlterug.aan{display:grid}
+.rlterug svg{width:18px;height:18px;stroke-width:2;transform:rotate(180deg)}
+.rlterug:active{background:#27272a}
+.rldoor{flex:1;height:44px;border-radius:14px;background:#fff;color:var(--ink);
   font-size:15px;font-weight:600;letter-spacing:-.02em;border:none}
 .rldoor:active{background:#e4e4e7}
 
@@ -1216,7 +1222,10 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
       <button class="rlweg" id="rlWeg">Overslaan</button></div>
     <div class="rltitel" id="rlTitel"></div>
     <div class="rltekst" id="rlTekst"></div>
-    <button class="rldoor" id="rlDoor">Volgende</button>
+    <div class="rlknoppen">
+      <button class="rlterug" id="rlTerug" aria-label="Vorige stap"></button>
+      <button class="rldoor" id="rlDoor">Volgende</button>
+    </div>
   </div>
   <div class="toast" id="toast"></div>
 </div>
@@ -1283,7 +1292,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v129 · 12 aug 2026';
+const APPVERSIE='v130 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6515,6 +6524,14 @@ function dicht(){stopStap();let ververs=false;
 $('#overlay').onclick=dicht;$('#sheetSluit').onclick=dicht;
 $('#hulpSluit').onclick=hulpDicht;
 $('#rlWeg').onclick=rlStop;
+$('#rlTerug').onclick=()=>{
+  if(!RL||RL.i<=0) return;
+  rlLosmaken();
+  RL.klaar=false;
+  RL.i--;
+  $('#rlBlok').classList.remove('open');
+  setTimeout(rlToon,150);
+};
 $('#rlDoor').onclick=()=>{
   if(!RL||RL.klaar) return rlStop();
   rlLosmaken();
@@ -6954,6 +6971,7 @@ function sheetTemp(voor,bij){
       const n=$('#mpN').value.trim(), mi=parseFloat($('#mpMin').value), ma=parseFloat($('#mpMax').value);
       if(!n) return toast('Geef het meetpunt een naam.');
       if(isNaN(mi)||isNaN(ma)) return toast('Vul een minimum en maximum in.');
+    if(S.meetpunten.some(x=>gKey(x.naam)===gKey(n))) return toast(n+' staat er al bij.');
       S.meetpunten.push({id:uid(),naam:n,min:mi,max:ma}); sheetTemp(); toast('Meetpunt toegevoegd.');
     };
     return;
@@ -6997,6 +7015,7 @@ function sheetTemp(voor,bij){
     const n=$('#tFN').value.trim(), mi=parseFloat($('#tFMin').value), ma=parseFloat($('#tFMax').value);
     if(!n) return toast('Geef het meetpunt een naam.');
     if(isNaN(mi)||isNaN(ma)) return toast('Vul een minimum en maximum in.');
+    if(S.meetpunten.some(x=>gKey(x.naam)===gKey(n))) return toast(n+' staat er al bij.');
     S.meetpunten.push({id:uid(),naam:n,min:mi,max:ma}); sheetTemp(); toast('Meetpunt toegevoegd.');
   });
   $('#tOk').onclick=()=>{
@@ -7051,6 +7070,8 @@ function sheetOntvangst(){
   chips('#oC'); chips('#oPl');
   koppelInline('oNieuw','oForm','oFN',()=>{
     const v=$('#oFN').value.trim(); if(!v) return toast('Vul een naam in.');
+    if(S.leveranciers.some(x=>gKey(x)===gKey(v)))
+      return toast(v+' staat er al bij.');
     S.leveranciers.push(v); bewaarNu(); sheetOntvangst(); toast('Leverancier toegevoegd.');
   });
   let staat='ok', gekoeld='nee';
@@ -7231,10 +7252,12 @@ function sheetSchoonmaak(){
   tel();
   koppelInline('sZNieuw','sZForm','sZN',()=>{
     const v=$('#sZN').value.trim(); if(!v) return toast('Vul een onderdeel in.');
+    if(S.zones.some(x=>gKey(x)===gKey(v))) return toast(v+' staat er al bij.');
     S.zones.push(v); bewaarNu(); sheetSchoonmaak(); toast('Onderdeel toegevoegd.');
   });
   koppelInline('sMNieuw','sMForm','sMN',()=>{
     const v=$('#sMN').value.trim(); if(!v) return toast('Vul een middel in.');
+    if(S.middelen.some(x=>gKey(x)===gKey(v))) return toast(v+' staat er al bij.');
     S.middelen.push(v); bewaarNu(); sheetSchoonmaak(); toast('Middel toegevoegd.');
   });
   $('#sOk').onclick=()=>{
@@ -7655,6 +7678,7 @@ function sheetWerk(){
   });
   koppelInline('wNieuw','wForm','wN',()=>{
     const v=$('#wN').value.trim(); if(!v) return toast('Vul een activiteit in.');
+    if(S.activiteiten.some(x=>gKey(x)===gKey(v))) return toast(v+' staat er al bij.');
     S.activiteiten.push(v); bewaarNu(); sheetWerk(); toast('Activiteit toegevoegd.');
   });
 }
@@ -9793,6 +9817,8 @@ function rlToon(){
   $('#rlTekst').textContent=st.u||'';
   $('#rlTekst').style.display=st.u?'':'none';
   $('#rlDoor').textContent=RL.i===RL.stappen.length-1?'Klaar':'Volgende';
+  const tb=$('#rlTerug');
+  if(tb){ tb.classList.toggle('aan',RL.i>0); if(!tb.innerHTML) tb.innerHTML=svg(I.pijl,'2') }
 
   /* boven of onder, net waar het element staat */
   setTimeout(()=>{
@@ -9849,8 +9875,11 @@ function rlKlaar(){
   $('#rlTekst').textContent='Je weet nu hoe het werkt. Vul de rest in je eigen tempo in.';
   $('#rlTekst').style.display='';
   $('#rlDoor').textContent='Sluiten';
+  const tb2=$('#rlTerug');
+  if(tb2){ tb2.classList.add('aan'); if(!tb2.innerHTML) tb2.innerHTML=svg(I.pijl,'2') }
   document.querySelectorAll('.rlmerk').forEach(e=>e.classList.remove('rlmerk'));
   RL.klaar=true;
+  RL.i=RL.stappen.length;
 }
 
 /* ================= zoeken =================
@@ -10236,6 +10265,7 @@ function sheetMeetpunten(){
     const n=$('#mN').value.trim(), mi=parseFloat($('#mMin').value), ma=parseFloat($('#mMax').value);
     if(!n) return toast('Geef het meetpunt een naam.');
     if(isNaN(mi)||isNaN(ma)) return toast('Vul een minimum en maximum in.');
+    if(S.meetpunten.some(x=>gKey(x.naam)===gKey(n))) return toast(n+' staat er al bij.');
     if(mi>ma) return toast('Het minimum moet lager zijn dan het maximum.');
     S.meetpunten.push({id:uid(),naam:n,min:mi,max:ma}); sheetMeetpunten(); toast('Meetpunt toegevoegd.');
   };
