@@ -750,6 +750,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .weegrij .wgn{flex:1;font-size:15px;font-weight:450;letter-spacing:-.01em}
 .weegrij .wgg{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .weegrij.af .wgn,.weegrij.af .wgg{color:var(--grijs3);text-decoration:line-through}
+.wzt .wzbij{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--grijs2);margin-top:3px}
 .wzrij{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid var(--lijn);align-items:flex-start}
 .wzrij:last-of-type{border-bottom:none}
 .wzrij .wznr{width:24px;height:24px;border-radius:99px;background:var(--bg);flex:none;display:grid;place-items:center;
@@ -1058,7 +1059,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v94 · 11 aug 2026';
+const APPVERSIE='v95 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6463,8 +6464,16 @@ function sheetProductie(){
 /* ============ geleide modus: één handeling tegelijk ============ */
 function geleideLijst(b,naam){
   const uit=[];
+  const insT=x=>typeof x==='string'?x:(x&&x.t)||'';
+  const insB=x=>(x&&typeof x!=='string'&&x.stap)||'';
   b.regels.forEach(rg=>{
     const r=receptVan(b,rg.receptId);
+    /* eigen werkinstructies van de smaak komen eerst */
+    (r.stappen||[]).filter(x=>insB(x)===naam).forEach((x,i)=>{
+      const t=insT(x);
+      uit.push({soort:'doe',smaak:r.naam,deel:'werkinstructie',
+        tekst:t,sec:leesTijd(t),graden:leesGraden(t),k:naam+'|'+rg.receptId+'|ins|'+i});
+    });
     (r.onderdelen||[]).filter(o=>(o.stap||'')===naam).forEach((o,oi)=>{
       const tot=(parseFloat(o.gram)||0)*rg.aantal;
       verdeel(o,tot).forEach((x,i)=>uit.push({soort:'weeg',smaak:r.naam,deel:o.naam,
@@ -6561,13 +6570,29 @@ function sheetStapDoen(naam){
   b.afvink=b.afvink||{};
   const sleutel=(rid,soort,i)=>naam+'|'+rid+'|'+soort+'|'+i;
 
+  /* werkinstructies uit de smaak zelf, gekoppeld aan deze stap */
+  const insTekst=x=>typeof x==='string'?x:(x&&x.t)||'';
+  const insBij=x=>(x&&typeof x!=='string'&&x.stap)||'';
+
   /* welke onderdelen horen bij deze stap? */
   let blokken='';
   b.regels.forEach(rg=>{
     const r=receptVan(b,rg.receptId);
     const bij=(r.onderdelen||[]).filter(o=>(o.stap||'')===naam);
-    if(!bij.length) return;
+    const ins=(r.stappen||[]).filter(x=>insBij(x)===naam);
+    if(!bij.length&&!ins.length) return;
     blokken+=`<div class="uvsmaak">${esc(r.naam)} · ${rg.aantal} st</div>`;
+    if(ins.length){
+      blokken+=`<div class="veld" style="margin-bottom:14px">${ins.map((x,i)=>{
+        const t=insTekst(x);
+        const k=sleutel(rg.receptId,'ins',i);
+        const sec=leesTijd(t), gr=leesGraden(t);
+        return `<button type="button" class="wzrij ${b.afvink[k]?'af':''}" data-af="${k}">
+          <span class="wznr">${b.afvink[k]?'✓':i+1}</span>
+          <span class="wzt">${esc(t)}${sec||gr!==null?`<em class="wzbij">${
+            [sec?duurKort(sec):'',gr!==null?komma(gr)+' °C':''].filter(Boolean).join(' · ')}</em>`:''}</span>
+        </button>`}).join('')}</div>`;
+    }
     bij.forEach((o,oi)=>{
       const tot=(parseFloat(o.gram)||0)*rg.aantal;
       const del=verdeel(o,tot);
@@ -7144,13 +7169,27 @@ function leesRecept(){
   if($('#rNaam')) R.naam=$('#rNaam').value.trim();
   if($('#rT')) R.tht=parseInt($('#rT').value)||1;
   if(document.querySelector('#rC .chip.aan')) R.chocolade=chipV('#rC');
-  if($('#rS')) R.stappen=$$('[data-stap]').map(i=>i.value.trim()).filter(Boolean);
+  if($('#rS')) R.stappen=$$('#rS .ingrij').map(rij=>{
+    const t=rij.querySelector('[data-stap]');
+    const k=rij.querySelector('[data-stapbij]');
+    const tekst=t?t.value.trim():'';
+    if(!tekst) return null;
+    const bij=k?k.value:'';
+    return bij?{t:tekst,stap:bij}:tekst;   /* platte tekst blijft werken */
+  }).filter(Boolean);
 }
 
 function tekenRecept(){
   const totaal=gramPerBonbon(R);
-  const stapRij=s=>`<div class="ingrij"><input class="nm" data-stap value="${esc(s)}" placeholder="Wat doe je?">
-    <button class="wisbtn" data-wis-s>${svg(I.kruis,'2')}</button></div>`;
+  const stapTekst=x=>typeof x==='string'?x:(x&&x.t)||'';
+  const stapBij=x=>(x&&typeof x!=='string'&&x.stap)||'';
+  const stapRij=s=>`<div class="ingrij" style="flex-wrap:wrap;gap:6px">
+    <input class="nm" data-stap value="${esc(stapTekst(s))}" placeholder="Wat doe je?">
+    <button class="wisbtn" data-wis-s>${svg(I.kruis,'2')}</button>
+    <select class="mini" data-stapbij style="flex-basis:100%;font-size:13px;height:40px">
+      <option value="">— bij welke productiestap? —</option>
+      ${(S.werkplan||[]).map(w=>`<option value="${esc(w)}" ${stapBij(s)===w?'selected':''}>${esc(w)}</option>`).join('')}
+    </select></div>`;
   const onderdelen = R.onderdelen.length
     ? R.onderdelen.map((o,i)=>`<button class="ondrij" data-ond="${i}">
         <span class="on"><span class="onn">${esc(o.naam||'Naamloos onderdeel')}</span>
@@ -7171,9 +7210,11 @@ function tekenRecept(){
       ${onderdelen}
       <button class="sec" id="rOnd" style="margin-top:10px">${svg(I.plus)}&nbsp; Onderdeel toevoegen</button>
       <div class="totaalregel"><span class="l">Eén bonbon weegt</span><span class="w">${getal(totaal)} g</span></div></div>
-     <div class="veld"><label>Werkwijze</label>
+     <div class="veld"><label>Werkinstructies</label>
+      <p class="hint" style="margin:0 0 12px">Schrijf hier wat je moet doen. Koppel een instructie aan een
+        productiestap, dan krijg je hem tijdens het maken vanzelf te zien — met timer als je een tijd noemt.</p>
       <div id="rS">${(R.stappen.length?R.stappen:['']).map(stapRij).join('')}</div>
-      <button class="sec" id="rPS" style="margin-top:2px">${svg(I.plus)}&nbsp; Stap toevoegen</button></div>
+      <button class="sec" id="rPS" style="margin-top:2px">${svg(I.plus)}&nbsp; Instructie toevoegen</button></div>
      ${R.id?`<div class="veld"><label>Etiket voor de klant</label>
        <button class="knop2" id="rEt" style="margin-top:0">${svg(I.doc)}Productetiket instellen</button></div>`:''}`,
     `<button class="prim" style="margin-top:0" id="rOk">${R.id?'Klaar':'Smaak opslaan'}</button>
