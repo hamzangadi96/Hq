@@ -420,6 +420,9 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .kaartje{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:20px 16px 12px;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
 .balken{display:flex;align-items:flex-end;gap:4px;height:88px}
+.balk2{flex:1;background:var(--ink);border-radius:4px 4px 0 0;min-height:3px}
+.balklabels{display:flex;gap:4px;margin-top:8px}
+.balklabels span{flex:1;text-align:center;font-size:10.5px;font-weight:600;color:var(--grijs2)}
 .bkol{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
 .bstaaf{width:100%;max-width:22px;background:var(--ink);border-radius:4px 4px 0 0;min-height:2px;
   display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
@@ -978,7 +981,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v83 · 11 aug 2026';
+const APPVERSIE='v84 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1154,7 +1157,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, artikelen:{}, branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1179,7 +1182,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -3055,6 +3058,15 @@ function voorraadHTML(){
   h+=grond.length?`<div class="paneel">${grond.map(rij).join('')}</div>`
    :`<div class="paneel"><div class="geen">Nog geen grondstoffen. Leg een levering vast bij Ontvangst.</div></div>`;
 
+  /* halffabricaat: ganache, gelei en alles wat je vooruit maakt */
+  const half=alles.filter(v=>artSoort(v.product)==='half');
+  if(half.length){
+    const laagHf=half.filter(grondOnder);
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Halffabricaat</span>
+        <span class="tel">${laagHf.length?laagHf.length+' bijna op':half.length+(half.length===1?' product':' producten')}</span></div>
+      <div class="paneel">${half.map(rij).join('')}</div>`;
+  }
+
   /* verpakking, als raster van maat × kleur */
   const verp=alles.filter(v=>artSoort(v.product)==='verpakking');
   const laagV=verp.filter(grondOnder);
@@ -3093,7 +3105,10 @@ function voorraadHTML(){
   }
 
   const teBestellen=grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0).length;
+  const vl=verlopenPartijen(), vlOver=vl.filter(x=>x.dagen<0).length;
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+    <button class="knop2" data-tht style="margin:0 0 10px">${svg(I.klok)}Houdbaarheid${
+      vl.length?` <span class="tel ${vlOver?'let':''}" style="margin-left:auto">${vl.length}</span>`:''}</button>
     <button class="knop2" data-bestel style="margin:0 0 10px">${svg(I.vracht)}Bestellijst${
       teBestellen?` <span class="tel let" style="margin-left:auto">${teBestellen}</span>`:''}</button>
     <button class="knop2" data-telronde style="margin:0 0 10px">${svg(I.vink)}Telronde</button>
@@ -3154,6 +3169,13 @@ function sheetGrondstof(product){
          <button class="miniknop" id="gDOk">Instellen</button></div>
        <div class="hint" style="margin:8px 0 0">In ${basis==='g'?'gram':basis==='ml'?'milliliter':'stuks'}. Leeg laten zet de drempel uit.</div></div>
 
+     ${verbruikBlok(product,basis)}
+     ${(()=>{const pl=(S.lots||[]).filter(x=>gKey(x.product)===gKey(product)&&x.plek)
+        .map(x=>x.plek); const uniek=[...new Set(pl)];
+       return uniek.length?`<div class="blokkop"><span class="eyebrow">Opslag</span></div>
+         <div class="paneel"><div class="arij" style="cursor:default">
+           <span class="naam">${esc(uniek.join(' · '))}<small>waar je het bij ontvangst hebt neergelegd</small></span>
+         </div></div>`:''})()}
      ${regels.length?`<div class="blokkop"><span class="eyebrow">Historie</span></div>
        <div class="paneel">${regels.slice(0,10).map(m=>`<div class="arij" style="cursor:default">
          <span class="naam">${esc(m.reden||'Mutatie')}<small>${kort(new Date(m.datum))} ${esc(m.tijd)}${m.lot?' · lot '+esc(m.lot):''}</small></span>
@@ -3398,6 +3420,108 @@ function sheetTelronde(){
     bewaarNu(); dicht(); render();
     toast(n?n+(n===1?' artikel bijgesteld.':' artikelen bijgesteld.'):'Alles klopte al.');
   };
+}
+
+/* ---------- verlopen partijen en derving ----------
+   Hier komt samen wat er in de kast staat en wat de datum zegt. Wat verlopen is
+   boek je in één keer af; wat je weggooit blijft als bedrag zichtbaar. */
+function verlopenPartijen(){
+  const uit=[];
+  grondVoorraad().forEach(v=>{
+    Object.keys(v.lots).forEach(l=>{
+      if(v.lots[l]<=0) return;
+      const p=(S.lots||[]).find(x=>x.lot===l);
+      if(!p||!p.tht) return;
+      const d=dagenTotTHT(p.tht);
+      if(d===null||d>14) return;
+      uit.push({product:v.product,basis:v.basis,lot:l,rest:v.lots[l],tht:p.tht,dagen:d});
+    });
+  });
+  return uit.sort((a,b2)=>a.tht.localeCompare(b2.tht));
+}
+function dervingBedrag(jaar){
+  const j=jaar||String(new Date().getFullYear());
+  return (S.gmut||[]).filter(m=>m.aantal<0&&/derving|breuk|weggegooid|verlopen/i.test(m.reden||'')
+      &&String(m.datum||'').indexOf(j)===0)
+    .reduce((n,m)=>{const pr=gPrijs(m.product);
+      return pr===null?n:n+Math.abs(naarBasis(m.aantal,m.eenheid))*pr},0);
+}
+function sheetTHT(){
+  const lijst=verlopenPartijen();
+  const over=lijst.filter(x=>x.dagen<0), bijna=lijst.filter(x=>x.dagen>=0);
+  const jaar=String(new Date().getFullYear());
+  const bedrag=dervingBedrag(jaar);
+
+  const rij=x=>`<div class="rrij">
+    <div class="rinfo"><div class="rnaam">${esc(x.product)}</div>
+      <div class="rsub">lot ${esc(x.lot)} · ${toonHoeveel(x.rest,x.basis)} · THT ${kort(new Date(x.tht))}
+        ${x.dagen<0?'— '+Math.abs(x.dagen)+' dagen over datum':'— nog '+x.dagen+' dagen'}</div></div>
+    ${x.dagen<0?`<button class="miniknop" data-derf="${esc(x.product)}|${esc(x.lot)}">Afboeken</button>`:''}</div>`;
+
+  sheet('Houdbaarheid',
+    `<p class="hint">Alles wat binnen twee weken verloopt of er al overheen is.
+      Wat je afboekt telt mee als derving.</p>
+     ${over.length?`<div class="melding rood" style="margin-bottom:14px">${svg(I.alarm,'2')}
+       <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT.
+         Deze mag je niet meer verwerken.</span></div>
+       <div class="blokkop"><span class="eyebrow">Over datum</span><span class="tel let">${over.length}</span></div>
+       ${over.map(rij).join('')}`:''}
+     ${bijna.length?`<div class="blokkop" style="margin-top:${over.length?'24px':'0'}">
+       <span class="eyebrow">Loopt binnenkort af</span><span class="tel">${bijna.length}</span></div>
+       ${bijna.map(rij).join('')}`:''}
+     ${!lijst.length?`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
+       <p>Niets loopt af.<br>Alles heeft nog meer dan twee weken.</p></div></div>`:''}
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Derving ${jaar}</span></div>
+     <div class="paneel"><div class="arij" style="cursor:default">
+       <span class="naam">Weggegooid dit jaar<small>alleen wat je met prijs hebt vastgelegd</small></span>
+       <span class="waarde gevuld">${euro(bedrag)}</span></div></div>`,
+    over.length?`<button class="prim" style="margin-top:0" id="thtAlles">Alles over datum afboeken</button>`:'');
+
+  const boek=(product,lot)=>{
+    const v=grondVoorraad().find(x=>gKey(x.product)===gKey(product)); if(!v) return 0;
+    const rest=v.lots[lot]||0; if(rest<=0) return 0;
+    gBoek(product,-rest,v.basis,'Derving — over THT',lot);
+    return 1;
+  };
+  $$('[data-derf]').forEach(b=>b.onclick=()=>{
+    const [p2,l]=b.dataset.derf.split('|');
+    if(boek(p2,l)){ bewaarNu(); sheetTHT(); render(); toast('Afgeboekt als derving.') }
+  });
+  if($('#thtAlles')) $('#thtAlles').onclick=()=>{
+    if(!confirm(over.length+' partijen afboeken als derving?')) return;
+    let n=0; over.forEach(x=>{n+=boek(x.product,x.lot)});
+    bewaarNu(); dicht(); render(); toast(n+' partijen afgeboekt als derving.');
+  };
+}
+
+/* ---------- verbruik per maand: onderbouwt je drempel ---------- */
+function verbruikPerMaand(product,maanden){
+  const n=maanden||6, uit=[];
+  const nu3=new Date();
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(nu3.getFullYear(),nu3.getMonth()-i,1);
+    const sleutel=d.getFullYear()+'-'+pad(d.getMonth()+1);
+    const som=(S.gmut||[]).filter(m=>gKey(m.product)===gKey(product)&&m.aantal<0
+        &&String(m.datum||'').indexOf(sleutel)===0)
+      .reduce((t,m)=>t+Math.abs(naarBasis(m.aantal,m.eenheid)),0);
+    uit.push({maand:MND[d.getMonth()],waarde:som});
+  }
+  return uit;
+}
+function verbruikBlok(product,basis){
+  const r=verbruikPerMaand(product,6);
+  const max=Math.max.apply(null,r.map(x=>x.waarde).concat([1]));
+  if(!r.some(x=>x.waarde>0)) return '';
+  const gem=r.reduce((n,x)=>n+x.waarde,0)/r.length;
+  return `<div class="blokkop"><span class="eyebrow">Verbruik per maand</span>
+      <span class="tel">gem. ${toonHoeveel(gem,basis)}</span></div>
+    <div class="paneel" style="padding:16px">
+      <div class="balken">${r.map(x=>`<div class="balk2" style="height:${Math.max(3,Math.round(x.waarde/max*100))}%"
+        title="${toonHoeveel(x.waarde,basis)}"></div>`).join('')}</div>
+      <div class="balklabels">${r.map(x=>`<span>${x.maand.slice(0,3)}</span>`).join('')}</div>
+      <div class="geen" style="padding-top:10px">Een drempel rond ${toonHoeveel(gem/4,basis)}
+        dekt ongeveer een week verbruik.</div>
+    </div>`;
 }
 
 function sheetVerpakkingNieuw(){
@@ -3935,6 +4059,7 @@ function bind(){
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
   $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
+  $$('[data-tht]').forEach(x=>x.onclick=sheetTHT);
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
@@ -4462,6 +4587,10 @@ function sheetOntvangst(){
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
        <div><label>Hoeveelheid</label><input class="inp" id="oH" type="number" inputmode="decimal" placeholder="0"></div>
        <div><label>Eenheid</label><select class="inp" id="oE" style="text-align:center">${['kg','g','l','ml','st'].map(e=>`<option>${e}</option>`).join('')}</select></div></div>
+     <div class="veld"><label>Waar leg je het neer?</label>
+       <div class="chips" id="oPl">${(S.opslagplekken||[]).map((x,i)=>
+         `<button class="chip ${i?'':'aan'}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}
+         <button class="chip" data-v="">Niet nu</button></div></div>
      <div class="veld"><label>Prijs — mag leeg</label>
        <input class="inp" id="oPr" type="number" inputmode="decimal" placeholder="Totaalbedrag van deze levering">
        <div class="hint" style="margin:8px 0 0">Voor je voorraadwaarde. Zonder btw.</div></div>
@@ -4475,7 +4604,7 @@ function sheetOntvangst(){
      <div class="veld" id="oAV" style="display:none"><label>Wat was er mis en wat deed je?</label>
       <textarea class="inp" id="oA" placeholder="Bijv. doos beschadigd, geweigerd en gemeld"></textarea></div>`,
     `<button class="prim" style="margin-top:0" id="oOk">Partij vastleggen</button>`);
-  chips('#oC');
+  chips('#oC'); chips('#oPl');
   koppelInline('oNieuw','oForm','oFN',()=>{
     const v=$('#oFN').value.trim(); if(!v) return toast('Vul een naam in.');
     S.leveranciers.push(v); bewaarNu(); sheetOntvangst(); toast('Leverancier toegevoegd.');
@@ -4495,7 +4624,7 @@ function sheetOntvangst(){
     if(staat==='fout'&&!a) return toast('Beschrijf kort wat er mis was.');
     if(staat==='ok'){
       S.lots.push({id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:h,eenheid:e,
-        ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''});
+        plek:chipV('#oPl')||'',ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''});
       if(h) gBoek(p,parseFloat(h)||0,e,'Ontvangst '+lev,l);
       const pr=parseFloat($('#oPr').value)||0;
       if(pr>0&&h){ const basisAantal=naarBasis(parseFloat(h)||0,e);
@@ -5950,7 +6079,8 @@ function grondVoorraad(){
   const map={};
   (S.gmut||[]).forEach(m=>{
     const k=gKey(m.product); if(!k) return;
-    const basis=artSoort(m.product)==='ingredient'?(BASIS[m.eenheid]||BASIS.st)[0]:'st';
+    const soort=artSoort(m.product);
+    const basis=(soort==='ingredient'||soort==='half')?(BASIS[m.eenheid]||BASIS.st)[0]:'st';
     map[k]=map[k]||{product:m.product,basis:basis,saldo:0,lots:{}};
     map[k].saldo+=naarBasis(m.aantal||0,m.eenheid);
     if(m.lot){
@@ -5966,6 +6096,7 @@ function grondVoorraad(){
 /* elk artikel heeft een soort; verpakking en hulpmiddelen tellen anders dan grondstoffen */
 const SOORTEN={
   ingredient:{naam:'Grondstoffen',enk:'Grondstof',eenheid:'g'},
+  half:{naam:'Halffabricaat',enk:'Halffabricaat',eenheid:'g'},
   verpakking:{naam:'Verpakking',enk:'Verpakkingsartikel',eenheid:'st'},
   hulp:{naam:'Hulpmiddelen',enk:'Hulpmiddel',eenheid:'st'}
 };
