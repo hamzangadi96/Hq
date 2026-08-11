@@ -190,6 +190,24 @@ main>.blokkop:first-child{margin-top:8px}
 .ivak.amber{background:#fffbeb;color:var(--amber)}
 .ivak.rood{background:#fef2f2;color:var(--rood)}
 .ivak.ink{background:var(--ink);color:#fff}
+
+/* ── voortgangsring: compacter dan een balk, past naast de tekst ── */
+.ring{width:38px;height:38px;flex:none;position:relative;display:grid;place-items:center}
+.ring svg{width:38px;height:38px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:3.4}
+.ring .baan{stroke:var(--bg)}
+.ring .vul{stroke:var(--ink);stroke-linecap:round;transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
+.ring.groen .vul{stroke:var(--groen)}
+.ring.amber .vul{stroke:var(--amber)}
+.hkkop{display:flex;align-items:center;gap:12px}
+.hkkop .hkl{flex:1;min-width:0}
+.ring .rt{position:absolute;font-size:10.5px;font-weight:700;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+
+/* ── hoe lang loopt dit al ── */
+.dagenbadge{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--grijs);
+  background:var(--bg);border-radius:99px;padding:3px 8px;white-space:nowrap;flex:none}
+.dagenbadge.let{background:#fffbeb;color:var(--amber)}
 .groep:last-child .arij{border-bottom:none}
 .arij .naam{flex:1;font-size:15px;font-weight:500;letter-spacing:-.015em}
 .arij .bol{width:20px;height:20px;border-radius:99px;border:1.5px solid #d8d8dc;flex:none;
@@ -1060,7 +1078,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v96 · 11 aug 2026';
+const APPVERSIE='v97 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1731,6 +1749,18 @@ function schermOnder(tab){
   return datumtekst;
 }
 
+/* een ring die laat zien hoe ver je bent — compacter dan een balk */
+function ringHTML(gedaan,totaal,klas){
+  const pct=totaal?Math.min(100,Math.round(gedaan/totaal*100)):0;
+  const omtrek=2*Math.PI*16;
+  const vul=omtrek*pct/100;
+  return `<span class="ring ${klas||''}">
+    <svg viewBox="0 0 38 38"><circle class="baan" cx="19" cy="19" r="16"></circle>
+      <circle class="vul" cx="19" cy="19" r="16"
+        stroke-dasharray="${vul.toFixed(1)} ${(omtrek-vul).toFixed(1)}"></circle></svg>
+    <span class="rt">${pct}</span></span>`;
+}
+
 /* ---------- dashboard ---------- */
 function dashboardHTML(){
   const sig=signalen(), open=lopende();
@@ -1740,7 +1770,10 @@ function dashboardHTML(){
   if(b){
     const v=bVolgende(b), w=lopendWerk(b);
     h+=`<div class="balk">${KERN.map(s=>`<div class="seg ${s.klaar(b)?'vol':''}"></div>`).join('')}</div>
-      <div class="stap">Dag ${dagNummer(b)} · stap ${bGedaan(b)+1} van ${KERN.length} · ${v?v.label:'Afronden'}</div>
+      <div class="hkkop">
+        <div class="hkl"><div class="stap">Dag ${dagNummer(b)} · stap ${bGedaan(b)+1} van ${KERN.length} · ${v?v.label:'Afronden'}</div></div>
+        ${ringHTML(bGedaan(b),KERN.length,b.status==='pauze'?'amber':'')}
+      </div>
       <h2>${esc(bNamen(b))}</h2>
       <div class="sub">${b.code} · ${bTotaal(b)} stuks · volgende stap: ${v?v.label.toLowerCase():'afronden'}</div>
       ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
@@ -1896,14 +1929,16 @@ function productieHTML(){
 
   /* ── de batches zelf ── */
   const rij=b=>{const k=b.status==='klaar', p2=b.status==='pauze';
+    const dg=dagNummer(b);
     return `<button class="arij" data-batch="${b.id}">
-      <span class="ivak ${k?(b.afgebroken?'rood':'groen'):p2?'amber':'ink'}">${
-        svg(k?(b.afgebroken?I.kruis:I.vink):p2?I.klok:I.vorm)}</span>
+      ${k?`<span class="ivak ${b.afgebroken?'rood':'groen'}">${svg(b.afgebroken?I.kruis:I.vink)}</span>`
+         :ringHTML(bGedaan(b),KERN.length,p2?'amber':'')}
       <span class="naam">${esc(bNamen(b))}
         <small>${b.code} · ${chocNaam(b.chocolade).toLowerCase()} · ${bTotaal(b)} st${
-          k?(b.afgebroken?' · afgebroken':(b.resultaat?' · '+b.resultaat.goed+' goed':'')) 
+          k?(b.afgebroken?' · afgebroken':(b.resultaat?' · '+b.resultaat.goed+' goed':''))
            :p2?' · stilgelegd':' · stap '+bGedaan(b)+' van '+KERN.length}</small></span>
-      <span class="waarde gevuld">${k?(b.afgebroken?'—':'Klaar'):p2?'Pauze':'Dag '+dagNummer(b)}</span>
+      ${k?`<span class="waarde gevuld">${b.afgebroken?'—':'Klaar'}</span>`
+         :`<span class="dagenbadge ${dg>2?'let':''}">${p2?'pauze':dg===1?'dag 1':dg+' dagen'}</span>`}
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`};
 
   if(!S.batches.length){
