@@ -233,6 +233,19 @@ main>.blokkop:first-child{margin-top:8px}
 .wdag.nu .wn,.wdag.nu.leeg .wn{color:#fff}
 .wstippen{display:flex;gap:2px;height:6px;margin-top:5px;align-items:center}
 
+/* ── uitleg: genummerde stappen met een lijn ertussen ── */
+.uitlegstappen{position:relative}
+.ustap{display:flex;gap:14px;padding:0 0 24px;position:relative}
+.ustap:last-child{padding-bottom:4px}
+.ustap::before{content:'';position:absolute;left:13px;top:30px;bottom:0;width:1.5px;background:var(--lijn)}
+.ustap:last-child::before{display:none}
+.unr{width:27px;height:27px;border-radius:99px;background:var(--ink);color:#fff;flex:none;
+  display:grid;place-items:center;font-size:13px;font-weight:700;position:relative;z-index:1}
+.uin{flex:1;min-width:0;padding-top:2px}
+.ut{font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.35}
+.uu{font-size:14px;color:var(--grijs);line-height:1.5;margin-top:5px;letter-spacing:-.01em}
+.uin .knop2{justify-content:space-between}
+
 /* het paletknopje aan het eind van de strip */
 .wkleuren{width:32px;height:32px;border-radius:99px;background:var(--bg);flex:none;
   display:grid;place-items:center;color:var(--grijs2);align-self:center;margin-left:2px}
@@ -1131,7 +1144,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v120 · 11 aug 2026';
+const APPVERSIE='v121 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2180,6 +2193,7 @@ function dashboardHTML(){
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
     <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
+    <button class="snelknop" data-uitlegopen>${svg(I.boek)}Hoe werkt het?</button>
     <button class="snelknop" data-sheet="instellingen">${svg(I.instel)}Instellingen</button>
   </div>`;
   return h;
@@ -6205,6 +6219,7 @@ function bind(){
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw());
+  $$('[data-uitlegopen]').forEach(x=>x.onclick=sheetUitleg);
   $$('[data-legenda]').forEach(x=>x.onclick=()=>{
     const l=document.getElementById('wLeg');
     if(!l) return;
@@ -9293,9 +9308,130 @@ function sheetAllergenen(){
   $('#alOk').onclick=sheetInstellingen;
 }
 
+/* ================= uitleg =================
+   Elk onderwerp is een korte reeks stappen, met knoppen die je direct naar
+   het juiste scherm brengen. Zo hoef je niet te zoeken waar iets zit. */
+
+const UITLEG=[
+  {id:'start',ico:'spark',titel:'Voor het eerst instellen',
+   kort:'Het minimum om te kunnen beginnen',
+   stappen:[
+     {t:'Vul je bedrijfsgegevens in',u:'Naam, adres, KvK en btw-nummer. Die komen op je etiketten, facturen en het HACCP-dossier.',knop:'Bedrijfsprofiel',doe:'bedrijf'},
+     {t:'Kies je branche',u:'Daarmee krijgt de app de juiste woorden en een werkplan dat bij jouw vak past. Je kunt alles later aanpassen.',knop:'Branche kiezen',doe:'branche'},
+     {t:'Zeg hoeveel bonbons er in een mal gaan',u:'De app rekent daarmee je batchgroottes uit.',knop:'Bonbons per mal',doe:'mal'},
+     {t:'Maak je eerste smaak aan',u:'Beschrijf één bonbon: de lagen en het gewicht per laag. Daarna rekent de app elke batch voor je uit.',knop:'Smaak toevoegen',doe:'receptnieuw'}
+   ]},
+  {id:'smaak',ico:'boek',titel:'Een smaak opbouwen',
+   kort:'Lagen, gewichten en werkinstructies',
+   stappen:[
+     {t:'Geef de smaak een naam',u:'Meer heb je in de eerste stap niet nodig. Hij is meteen bewaard, dus je kunt later verder.'},
+     {t:'Kies de chocoladesoort en houdbaarheid',u:'De houdbaarheid bepaalt de THT-datum op je etiket en in je voorraad.'},
+     {t:'Voeg de lagen toe',u:'Schelp, ganache, gelei — met het gewicht per bonbon. De app telt op wat één bonbon weegt en rekent dat om naar de hele batch.'},
+     {t:'Koppel elke laag aan een productiestap',u:'Doe je dat, dan krijg je tijdens het maken precies te zien wat je in die stap moet afwegen.'},
+     {t:'Schrijf je werkinstructies',u:'Noem je een tijd of temperatuur, dan leest de app die eruit en krijg je een timer tijdens het werk.',knop:'Naar je smaken',doe:'recepten'}
+   ]},
+  {id:'batch',ico:'vorm',titel:'Een batch draaien',
+   kort:'Van plannen tot afronden',
+   stappen:[
+     {t:'Plan of start je batch',u:'Plan je vooruit, dan rekent de app uit wanneer je boodschappen moet doen. Start je meteen, dan krijg je direct de uitwerking.',knop:'Batch genereren',doe:'nieuwbatch'},
+     {t:'Leg je lotnummers vast',u:'Per ingrediënt welk lot je gebruikt. Dit is het hart van je traceerbaarheid — zonder dit kun je bij een recall niets aantonen.'},
+     {t:'Loop de stappen af',u:'Per stap zie je wat je moet afwegen en doen. In de geleide modus krijg je één handeling tegelijk, groot in beeld.'},
+     {t:'Meet je temperaturen',u:'Elke meting wordt vastgelegd met tijd en meetpunt, en komt automatisch in je HACCP-dossier.'},
+     {t:'Rond af met het aantal goede stuks',u:'Wat goed is gaat naar je voorraad, wat afkeur is wordt geregistreerd. Je grondstoffen worden automatisch afgeboekt.'}
+   ]},
+  {id:'voorraad',ico:'doos',titel:'Voorraad bijhouden',
+   kort:'Grondstoffen, verpakking en gereed product',
+   stappen:[
+     {t:'Leg elke ontvangst vast',u:'Product, hoeveelheid, lotnummer, THT en leverancier. Dat is meteen je ingangscontrole voor de HACCP.',knop:'Ontvangst vastleggen',doe:'ontvangst'},
+     {t:'Stel drempels in',u:'Onder welke hoeveelheid wil je een signaal? De app kan een drempel voorstellen op basis van je verbruik en de levertijd.'},
+     {t:'Vul je inkoopeenheden in',u:'Koop je in zakken van 10 kg, zeg dat dan. Je bestellijst rekent dan in zakken in plaats van in grammen.'},
+     {t:'Laat de app zelf afboeken',u:'Bij het afronden van een batch verdwijnen de gebruikte grondstoffen vanzelf uit je voorraad, volgens FEFO — het lot met de kortste THT eerst.',knop:'Naar je voorraad',doe:'naarvoorraad'}
+   ]},
+  {id:'haccp',ico:'klembord',titel:'HACCP en de inspectie',
+   kort:'Wat je moet vastleggen en hoe je het laat zien',
+   stappen:[
+     {t:'IJk je thermometer',u:'Zonder ijking zijn al je metingen aanvechtbaar. Doe het minstens elk half jaar, met ijswater en kokend water.',knop:'Thermometer ijken',doe:'ijking'},
+     {t:'Stel je meetpunten in',u:'Waar meet je, en wat is de norm? De app kleurt een meting rood zodra hij buiten die norm valt.',knop:'Meetpunten',doe:'meetpunten'},
+     {t:'Doe je openingscheck',u:'Elke productiedag opnieuw. Het duurt een halve minuut en het is het eerste waar een inspecteur naar vraagt.'},
+     {t:'Houd je periodieke controles bij',u:'Ongediertecontrole elk kwartaal, terugroepoefening één keer per jaar. De app waarschuwt je als het te lang geleden is.'},
+     {t:'Draai je dossier uit',u:'Kies een periode en je krijgt een compleet document: batches, lotnummers, metingen, afwijkingen en handtekeningregels.',knop:'Dossier maken',doe:'dossier'}
+   ]},
+  {id:'orders',ico:'lijst',titel:'Orders en facturen',
+   kort:'Van bestelling tot betaald',
+   stappen:[
+     {t:'Maak een order aan',u:'Klant, aantallen per smaak en een leverdatum. De app controleert meteen of je genoeg voorraad hebt.',knop:'Naar je orders',doe:'naarorders'},
+     {t:'Pak in als alles er is',u:'Bij het inpakken worden de bonbons én de doosjes van je voorraad afgeboekt.'},
+     {t:'Stuur op tijd',u:'Besteld voor je afgesproken tijdstip gaat dezelfde werkdag weg. De app zet de verzenddag zelf in je planning.',knop:'Verzendregel',doe:'verzend'},
+     {t:'Maak je factuur',u:'In je huisstijl, met de btw gesplitst in 9% voor producten en 21% voor verzending en kado-opties.'}
+   ]},
+  {id:'geld',ico:'euro',titel:'Cijfers en belasting',
+   kort:'Btw, marges en wat je overhoudt',
+   stappen:[
+     {t:'Vul je verkoopprijzen in',u:'Per smaak, per bonbon inclusief btw. Zonder die prijzen kan de app geen marge berekenen.',knop:'Verkoopprijzen',doe:'verkoop'},
+     {t:'Stel je uurtarief in',u:'Daarmee rekent de app arbeidskosten door in je marge per smaak. Anders lijkt alles winstgevender dan het is.'},
+     {t:'Bekijk je marges',u:'Per smaak zie je wat er overblijft na grondstoffen en arbeid. Onder de 40% kleurt het amber.'},
+     {t:'Draai je btw-aangifte',u:'Per kwartaal, met 9% en 21% apart. Er zit een kopieerknop bij voor je boekhouder.',knop:'Naar financiën',doe:'naargeld'}
+   ]},
+  {id:'trace',ico:'qr',titel:'Traceerbaarheid en recall',
+   kort:'Terugvinden waar iets vandaan komt',
+   stappen:[
+     {t:'Leg lotnummers vast bij elke batch',u:'Zonder dit werkt traceren niet. Het is de enige stap die je echt niet mag overslaan.'},
+     {t:'Plak je voorraadstickers',u:'Elke bak krijgt een QR-code met de batchcode erin. Scan je die later, dan weet je meteen wat erin zit.'},
+     {t:'Zoek terug via een lotnummer',u:'Voer een lotnummer, batchcode of ordernummer in en je ziet de hele keten: van leverancier tot klant.'},
+     {t:'Oefen één keer per jaar',u:'Pak een willekeurig lot en volg het helemaal terug. De NVWA vraagt hierom, en je ontdekt meteen waar je registratie hapert.'}
+   ]}
+];
+
+function sheetUitleg(){
+  sheet('Hoe werkt het?',
+    `<p class="hint">Kies een onderwerp. Je krijgt de stappen op volgorde, met een knop
+      die je meteen op de juiste plek brengt.</p>
+     <div class="paneel">${UITLEG.map(u=>`<button class="arij" data-uitleg="${u.id}">
+       <span class="ivak">${svg(I[u.ico])}</span>
+       <span class="naam">${esc(u.titel)}<small>${esc(u.kort)}</small></span>
+       <span class="waarde gevuld">${u.stappen.length}</span>
+       <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`,'');
+  $$('[data-uitleg]').forEach(b=>b.onclick=()=>sheetUitlegOnderwerp(b.dataset.uitleg));
+}
+
+function sheetUitlegOnderwerp(id){
+  const u=UITLEG.find(x=>x.id===id); if(!u) return;
+  sheet(u.titel,
+    `<div class="uitlegstappen">${u.stappen.map((st,i)=>`<div class="ustap">
+       <span class="unr">${i+1}</span>
+       <div class="uin">
+         <div class="ut">${esc(st.t)}</div>
+         <div class="uu">${esc(st.u)}</div>
+         ${st.knop?`<button class="knop2" data-udoe="${esc(st.doe)}" style="margin:12px 0 0">
+           ${esc(st.knop)}${svg(I.pijl,'2')}</button>`:''}
+       </div></div>`).join('')}</div>`,
+    `<button class="sec" style="margin-top:0" id="uTerug">Andere onderwerpen</button>`);
+  $('#uTerug').onclick=sheetUitleg;
+  $$('[data-udoe]').forEach(b=>b.onclick=()=>{
+    const d=b.dataset.udoe;
+    if(d==='bedrijf') return sheetBedrijf();
+    if(d==='branche') return sheetBranche(false);
+    if(d==='mal') return sheetMal();
+    if(d==='receptnieuw') return sheetReceptForm(null);
+    if(d==='recepten') return sheetRecepten();
+    if(d==='nieuwbatch') return sheetNieuweBatch();
+    if(d==='ontvangst') return sheetOntvangst();
+    if(d==='ijking') return sheetIjking();
+    if(d==='meetpunten') return sheetMeetpunten();
+    if(d==='dossier') return sheetDossier();
+    if(d==='verkoop') return sheetVerkoopprijzen();
+    if(d==='verzend') return sheetVerzendregel();
+    if(d==='naarvoorraad'){ S.tab='voorraad'; dicht(); render(); return }
+    if(d==='naarorders'){ S.tab='orders'; dicht(); render(); return }
+    if(d==='naargeld'){ S.tab='geld'; dicht(); render(); return }
+  });
+}
+
 function sheetInstellingen(){
   sheet('Instellingen',
-    `<button class="menurij" data-ins="bedrijf">${svg(I.spark)}Bedrijfsprofiel<span class="tel">${
+    `<button class="menurij" data-ins="uitleg">${svg(I.boek)}Hoe werkt het?<span class="tel">${
+       UITLEG.length} onderwerpen</span></button>
+     <button class="menurij" data-ins="bedrijf">${svg(I.spark)}Bedrijfsprofiel<span class="tel">${
        bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
      <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
        esc(branche().naam)}</span></button>
@@ -9321,6 +9457,7 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>`,'');
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
+    if(k==='uitleg') return sheetUitleg();
     if(k==='bedrijf') return sheetBedrijf();
     if(k==='branche') return sheetBranche(false);
     if(k==='verkoop') return sheetVerkoopprijzen();
