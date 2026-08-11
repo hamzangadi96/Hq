@@ -782,8 +782,8 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .lotchip.aan{background:var(--ink);color:#fff}
 .lotchip.over{color:var(--rood)}
 .lotchip em{font-style:normal;font-weight:500;opacity:.65;font-size:12.5px}
-.lotrij{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--lijn)}
-.lotrij:last-child{border-bottom:none}
+.lotregel{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--lijn)}
+.lotregel:last-child{border-bottom:none}
 .lotnaam{flex:1;min-width:0;font-size:14px;font-weight:450;letter-spacing:-.01em}
 .lotnaam em{font-style:normal;display:block;font-size:12.5px;color:var(--grijs2);margin-top:2px;font-variant-numeric:tabular-nums}
 .lotinp{width:104px;height:48px;border-radius:14px;border:none;background:var(--bg);padding:0 12px;font-size:16px;font-weight:600;outline:none;flex:none}
@@ -962,42 +962,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .rapport .rkop{display:flex;justify-content:space-between;align-items:flex-start;
   border-bottom:.4mm solid #000;padding-bottom:3mm;margin-bottom:5mm}
 .rapport .ordlijst{display:flex;flex-direction:column;gap:8px}
-.ordkaart{display:block;width:100%;text-align:left;background:var(--card);
-  border:1px solid var(--lijn);border-radius:16px;padding:14px 16px}
-.ordkaart.let{border-color:#f6ddb0}
-.ordkaart:active{background:#fafafa}
-.okop{display:flex;align-items:baseline;gap:8px}
-.onr{font-size:15px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.okl{font-size:14px;font-weight:500;color:var(--grijs);flex:1;min-width:0;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.obadge{font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:99px;flex:none}
-.obadge.af{background:var(--ink);color:#fff}
-.obadge.let{background:#fffbeb;color:#92400e}
-.owat{font-size:13.5px;line-height:1.55;color:var(--ink);margin-top:8px}
-.ovoet{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  margin-top:12px;padding-top:10px;border-top:1px solid var(--lijn);
-  font-size:12px;color:var(--grijs3)}
-.odocs{display:flex;gap:4px;flex:none}
-.odocs i{width:20px;height:20px;border-radius:6px;background:var(--bg);color:var(--grijs3);
-  font-style:normal;font-size:10.5px;font-weight:700;display:grid;place-items:center}
-.odocs i.aan{background:var(--ink);color:#fff}
-.macbalk{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;
-  background:var(--card);border:1px solid var(--lijn)}
-.macbalk.aan{background:var(--ink);border-color:var(--ink);color:#fff}
-.macbol{width:8px;height:8px;border-radius:99px;background:var(--grijs3);flex:none}
-.macbalk.aan .macbol{background:#4ade80;animation:pols 2s infinite}
-.mactekst{flex:1;min-width:0;font-size:14.5px;font-weight:600;letter-spacing:-.015em}
-.mactekst em{display:block;font-size:12.5px;font-weight:500;font-style:normal;opacity:.6;margin-top:2px}
-.macdraai{width:16px;height:16px;border-radius:99px;border:2px solid rgba(255,255,255,.25);
-  border-top-color:#fff;animation:draai .9s linear infinite;flex:none}
-@keyframes draai{to{transform:rotate(360deg)}}
-.doclabel{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--lijn)}
-.doclabel:last-child{border-bottom:none}
-.doclabel input{width:20px;height:20px;flex:none;margin:0;accent-color:var(--ink)}
-.doclabel .dn{flex:1;font-size:15px;font-weight:500;letter-spacing:-.015em}
-.doclabel .ds{font-size:12.5px;color:var(--grijs3);font-weight:500}
-.doclabel .ds.klaar{color:var(--groen);font-weight:600}
-.rmerk{font-size:13pt;font-weight:700;letter-spacing:.12em}
+.rapport .rmerk{font-size:13pt;font-weight:700;letter-spacing:.12em}
 .rapport .rmerk small{display:block;font-size:6.5pt;font-weight:600;letter-spacing:.3em;color:#555;margin-top:.6mm}
 .rapport .rtitel{text-align:right;font-size:8pt;color:#333;line-height:1.5}
 .rapport .rtitel b{display:block;font-size:11pt;color:#000;letter-spacing:-.01em}
@@ -1292,7 +1257,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v130 · 12 aug 2026';
+const APPVERSIE='v131 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5653,7 +5618,7 @@ async function scanCode(klaar){
    administratie bij. */
 
 /* wat is dit voor code? */
-function zoekLot(code){
+function zoekCode(code){
   const c=String(code||'').trim();
   if(!c) return null;
   const laag=c.toLowerCase();
@@ -5694,7 +5659,7 @@ const restVanBatch=code=>voorraadGereed().filter(v=>v.lot===code)
 
 function sheetTrace(vooraf){
   const teken=(code)=>{
-    const r=code?zoekLot(code):null;
+    const r=code?zoekCode(code):null;
     let body=`<p class="hint">Typ een lotnummer van een leverancier, een batchcode of een ordernummer.
       Je ziet dan waar het vandaan komt en waar het heen is gegaan.</p>
      <div class="veld"><div class="rijtje">
