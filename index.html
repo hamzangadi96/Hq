@@ -239,6 +239,21 @@ main>.blokkop:first-child{margin-top:8px}
 .ustap:last-child{padding-bottom:4px}
 .ustap::before{content:'';position:absolute;left:13px;top:30px;bottom:0;width:1.5px;background:var(--lijn)}
 .ustap:last-child::before{display:none}
+/* de uitleg schuift over het scherm heen; wat eronder ligt blijft intact */
+.hulppaneel{position:absolute;inset:0;background:var(--card);border-radius:26px 26px 0 0;
+  display:none;flex-direction:column;z-index:5}
+.hulppaneel.open{display:flex;animation:hulpin .28s cubic-bezier(.32,.72,0,1)}
+@keyframes hulpin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.hulpkop{display:flex;align-items:center;gap:12px;padding:22px 20px 14px;
+  border-bottom:1px solid var(--lijn)}
+.hulpkop h3{margin:0;flex:1;font-size:19px;font-weight:600;letter-spacing:-.03em}
+.hulpbody{flex:1;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch}
+.hulpvoet{padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
+.hulpknop{width:32px;height:32px;border-radius:99px;background:var(--bg);flex:none;
+  display:none;place-items:center;color:var(--grijs2);margin-right:4px}
+.hulpknop svg{width:17px;height:17px;stroke-width:1.8}
+.hulpknop.aan{display:grid}
+.hulpknop:active{background:var(--lijn);color:var(--ink)}
 .unr{width:27px;height:27px;border-radius:99px;background:var(--ink);color:#fff;flex:none;
   display:grid;place-items:center;font-size:13px;font-weight:700;position:relative;z-index:1}
 .uin{flex:1;min-width:0;padding-top:2px}
@@ -1095,9 +1110,17 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   <div class="sheet" id="sheet" role="dialog" aria-modal="true">
     <div class="grip"></div>
     <div class="sheetkop"><h2 id="sheetTitel"></h2><span class="wstap" id="sheetStap"></span>
+      <button class="hulpknop" id="sheetHulp" aria-label="Uitleg over dit scherm"></button>
       <button class="sluit" id="sheetSluit" aria-label="Sluiten"></button></div>
     <div class="sheetbody" id="sheetBody"></div>
     <div class="sheetvoet" id="sheetVoet"></div>
+    <div class="hulppaneel" id="hulpPaneel">
+      <div class="hulpkop"><h3 id="hulpTitel"></h3>
+        <button class="sluit" id="hulpSluit" aria-label="Uitleg sluiten"></button></div>
+      <div class="hulpbody" id="hulpBody"></div>
+      <div class="hulpvoet"><button class="sec" style="margin-top:0" id="hulpAlles">
+        Alle onderwerpen</button></div>
+    </div>
   </div>
   <div class="toast" id="toast"></div>
 </div>
@@ -1118,6 +1141,9 @@ const I={
   klok:'<circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.1 1.9"/>',
   palet:'<path d="M12 3a9 9 0 0 0 0 18c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6h1.9A4.7 4.7 0 0 0 21 11c0-4.4-4-8-9-8z"/>'
     +'<circle cx="7.8" cy="11.2" r="1.05"/><circle cx="11.4" cy="7.6" r="1.05"/><circle cx="15.9" cy="9.4" r="1.05"/>',
+  hulp:'<circle cx="12" cy="12" r="9"/>'
+    +'<path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.1-2.4 3.6"/>'
+    +'<path d="M12 17.2h.01"/>',
   huis:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.6V21h14V9.6"/>',
   vorm:'<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
   lijst:'<path d="M9 5h10M9 12h10M9 19h10M4.5 5h.01M4.5 12h.01M4.5 19h.01"/>',
@@ -1144,7 +1170,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v121 · 11 aug 2026';
+const APPVERSIE='v123 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6349,14 +6375,31 @@ let sheetOpen=false, bijSluiten=null;
 function sheet(t,b,v,stapLabel){
   bijSluiten=null;
   $('#sheetTitel').textContent=t; $('#sheetStap').textContent=stapLabel||'';
+  /* hulpknopje alleen tonen als er uitleg bij dit scherm hoort */
+  hulpDicht();
+  const hk=$('#sheetHulp');
+  if(hk){
+    const ond=(typeof hulpVoor==='function')?hulpVoor(t):null;
+    hk.classList.toggle('aan',!!ond&&t!=='Hoe werkt het?');
+    hk.dataset.ond=ond||'';
+    if(!hk.innerHTML) hk.innerHTML=svg(I.hulp);
+  }
   $('#sheetBody').innerHTML=b; $('#sheetVoet').innerHTML=v||'';
   $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true}
 function dicht(){stopStap();let ververs=false;
   if(bijSluiten){try{bijSluiten();ververs=true}catch(e){};bijSluiten=null}
   if(ververs)setTimeout(render,0);
+  hulpDicht();
   $('#sheet').classList.remove('open');$('#overlay').classList.remove('open');sheetOpen=false}
 $('#overlay').onclick=dicht;$('#sheetSluit').onclick=dicht;
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sheetOpen)dicht()});
+$('#hulpSluit').onclick=hulpDicht;
+$('#hulpAlles').onclick=hulpLijst;
+$('#sheetHulp').onclick=()=>hulpOpen($('#sheetHulp').dataset.ond);
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if($('#hulpPaneel')&&$('#hulpPaneel').classList.contains('open')) return hulpDicht();
+  if(sheetOpen) dicht();
+});
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('open');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('open'),2600)}
 function bLog(b,o){b.logs.push(Object.assign({id:uid(),datum:vandaag(),tijd:nu(),status:'ok'},o))}
 function chips(sel,multi,cb){$$(sel+' .chip:not(.nieuw)').forEach(c=>c.onclick=()=>{
@@ -9381,6 +9424,95 @@ const UITLEG=[
      {t:'Oefen één keer per jaar',u:'Pak een willekeurig lot en volg het helemaal terug. De NVWA vraagt hierom, en je ontdekt meteen waar je registratie hapert.'}
    ]}
 ];
+
+/* welk onderwerp hoort bij welk scherm — zo weet het hulpknopje wat het moet tonen */
+const SCHERMHULP={
+  'Nieuwe smaak':'smaak','Smaak wijzigen':'smaak','Hoe heet je smaak?':'smaak',
+  'Waar maak je het van?':'smaak','Waar bestaat het uit?':'smaak','Hoe maak je het?':'smaak',
+  'Onderdeel toevoegen':'smaak','Onderdeel':'smaak','Smaken':'smaak',
+  'Uitwerking':'batch','Welke chocolade?':'batch','Hoeveel mallen?':'batch',
+  'Wanneer wil je maken?':'batch','Voorbereiden':'batch','Batch afronden':'batch',
+  'Ontvangst vastleggen':'voorraad','Bestellijst':'voorraad','Boodschappenlijst':'voorraad',
+  'Houdbaarheid':'voorraad','Telronde':'voorraad','Voorraadwaardering':'voorraad',
+  'Alle mutaties':'voorraad','Verpakking toevoegen':'voorraad','Levertijden':'voorraad',
+  'HACCP-registraties':'haccp','Thermometer ijken':'haccp','Meetpunten':'haccp',
+  'Openingscheck':'haccp','Temperatuur meten':'haccp','Dossier voor de inspectie':'haccp',
+  'Nieuwe order':'orders','Order':'orders','Factuur':'orders','Verzendregel':'orders',
+  'Btw-aangifte':'geld','Verkoopprijzen':'geld','Marge per smaak':'geld',
+  'Winst en verlies':'geld','Uurtarief':'geld','Openstaand':'geld',
+  'Voorraadstickers':'trace','Traceren':'trace','Lot zoeken':'trace',
+  'Instellingen':'start','Bedrijfsprofiel':'start','Branche en sjabloon':'start',
+  'Bonbons per mal':'start','Productiestappen':'start','Planning':'batch'
+};
+
+function hulpVoor(titel){
+  if(SCHERMHULP[titel]) return SCHERMHULP[titel];
+  /* valt de titel niet exact, dan zoeken op sleutelwoorden */
+  const t=String(titel||'').toLowerCase();
+  if(/smaak|recept|onderdeel/.test(t)) return 'smaak';
+  if(/batch|mallen|productie|stap/.test(t)) return 'batch';
+  if(/voorraad|ontvangst|bestel|boodschap|partij|lot/.test(t)) return 'voorraad';
+  if(/haccp|temperatuur|ijk|meetpunt|check|dossier|schoonmaak/.test(t)) return 'haccp';
+  if(/order|klant|factuur|verzend|inpak/.test(t)) return 'orders';
+  if(/btw|prijs|marge|winst|uurtarief|openstaand|kilometer/.test(t)) return 'geld';
+  if(/trace|sticker|qr|recall/.test(t)) return 'trace';
+  return null;
+}
+
+/* de uitleg openen als paneel over het huidige scherm */
+function hulpOpen(ond){
+  const p2=$('#hulpPaneel'); if(!p2) return;
+  const u=UITLEG.find(x=>x.id===ond);
+  if(u) hulpToon(u); else hulpLijst();
+  p2.classList.add('open');
+}
+function hulpDicht(){ const p2=$('#hulpPaneel'); if(p2) p2.classList.remove('open') }
+
+function hulpToon(u){
+  $('#hulpTitel').textContent=u.titel;
+  $('#hulpBody').innerHTML=`<div class="uitlegstappen">${u.stappen.map((st,i)=>`<div class="ustap">
+    <span class="unr">${i+1}</span>
+    <div class="uin"><div class="ut">${esc(st.t)}</div><div class="uu">${esc(st.u)}</div>
+      ${st.knop?`<button class="knop2" data-udoe="${esc(st.doe)}" style="margin:12px 0 0">
+        ${esc(st.knop)}${svg(I.pijl,'2')}</button>`:''}
+    </div></div>`).join('')}</div>`;
+  bindHulpKnoppen();
+}
+
+function hulpLijst(){
+  $('#hulpTitel').textContent='Hoe werkt het?';
+  $('#hulpBody').innerHTML=`<p class="hint">Kies een onderwerp. Je krijgt de stappen op volgorde.</p>
+    <div class="paneel">${UITLEG.map(u=>`<button class="arij" data-hulpond="${u.id}">
+      <span class="ivak">${svg(I[u.ico])}</span>
+      <span class="naam">${esc(u.titel)}<small>${esc(u.kort)}</small></span>
+      <span class="waarde gevuld">${u.stappen.length}</span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+  $$('[data-hulpond]').forEach(b=>b.onclick=()=>{
+    const u=UITLEG.find(x=>x.id===b.dataset.hulpond); if(u) hulpToon(u);
+  });
+}
+
+function bindHulpKnoppen(){
+  $$('#hulpBody [data-udoe]').forEach(b=>b.onclick=()=>{
+    hulpDicht();
+    const d=b.dataset.udoe;
+    if(d==='bedrijf') return sheetBedrijf();
+    if(d==='branche') return sheetBranche(false);
+    if(d==='mal') return sheetMal();
+    if(d==='receptnieuw') return sheetReceptForm(null);
+    if(d==='recepten') return sheetRecepten();
+    if(d==='nieuwbatch') return sheetNieuweBatch();
+    if(d==='ontvangst') return sheetOntvangst();
+    if(d==='ijking') return sheetIjking();
+    if(d==='meetpunten') return sheetMeetpunten();
+    if(d==='dossier') return sheetDossier();
+    if(d==='verkoop') return sheetVerkoopprijzen();
+    if(d==='verzend') return sheetVerzendregel();
+    if(d==='naarvoorraad'){ S.tab='voorraad'; dicht(); render(); return }
+    if(d==='naarorders'){ S.tab='orders'; dicht(); render(); return }
+    if(d==='naargeld'){ S.tab='geld'; dicht(); render(); return }
+  });
+}
 
 function sheetUitleg(){
   sheet('Hoe werkt het?',
