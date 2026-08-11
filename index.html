@@ -246,19 +246,6 @@ main>.blokkop:first-child{margin-top:8px}
 .wdag.nu .s-live{background:#f87171}
 .wdag.nu .s-overig{background:#86b39a}
 .wdag.nu .s-leveren{background:#71717a}
-.wlegenda i{width:9px;height:4px;border-radius:99px;display:block;flex:none}
-
-/* legenda onder de strip */
-.wkopregel{display:flex;align-items:center;gap:8px;margin:0 2px 10px}
-.wkopregel .eyebrow{flex:1}
-.wuitleg{width:22px;height:22px;border-radius:99px;background:var(--bg);flex:none;
-  display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--grijs2)}
-.wuitleg.aan{background:var(--ink);color:#fff}
-.wlegenda{display:none;gap:10px 14px;flex-wrap:wrap;padding:2px 2px 10px;
-  font-size:12px;color:var(--grijs2);letter-spacing:-.01em}
-.wlegenda.open{display:flex}
-.wlegenda span{display:inline-flex;align-items:center;gap:6px}
-.wlegenda i{width:9px;height:4px;border-radius:99px;display:block}
 
 /* ── instructie met de stap waaraan hij hangt ── */
 .insblok{padding:14px 0;border-bottom:1px solid var(--lijn)}
@@ -1126,7 +1113,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v113 · 11 aug 2026';
+const APPVERSIE='v114 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1834,18 +1821,15 @@ function weekstripHTML(dagenVooruit){
     const volgorde=['boodschappen','voorbereiden','half','productie','verzenden','live','overig','leveren'];
     const soorten2=volgorde.filter(k=>taken.some(t=>t.soort===k));
     const titel=soorten2.map(k=>k==='leveren'?'leveren':(DAGSOORT[k]||{}).n).join(' · ');
+    const nieuweMaand=i>0&&dt.getDate()===1;
     uit+=`<button class="wdag ${i===0?'nu':''} ${taken.length?'vol':'leeg'}" data-weekdag="${d}"
       title="${esc(titel||'niets gepland')}">
-      <span class="wd">${DAG[dt.getDay()].slice(0,2)}</span>
+      <span class="wd">${nieuweMaand?MND[dt.getMonth()].slice(0,3):DAG[dt.getDay()].slice(0,2)}</span>
       <span class="wn">${dt.getDate()}</span>
       <span class="wstippen">${soorten2.map(k=>`<i class="s-${k}"></i>`).join('')}</span>
     </button>`;
   }
   uit+='</div>';
-  uit+=`<div class="wlegenda" id="wLeg">
-    ${Object.keys(DAGSOORT).map(k=>`<span><i class="s-${k}"></i>${DAGSOORT[k].n.toLowerCase()}</span>`).join('')}
-    <span><i class="s-leveren"></i>leveren</span>
-  </div>`;
   return uit;
 }
 
@@ -1885,11 +1869,7 @@ function dashboardToestand(){
 function dashboardHTML(){
   const t=dashboardToestand();
   const sig=signalen();
-  const d0=new Date();
-  let h=`<div class="wkopregel"><span class="eyebrow">Deze week</span>
-      <span class="tel">${DAG[d0.getDay()]} ${d0.getDate()} ${MND[d0.getMonth()]}</span>
-      <button class="wuitleg" data-legenda aria-label="Wat betekenen de kleuren?">?</button></div>`
-    +weekstripHTML(7);
+  let h=weekstripHTML(7);
 
   /* ── de hoofdkaart ── */
   if(t.soort==='bezig'){
@@ -4998,9 +4978,7 @@ function sheetPlanning(){
   const strip=weekstripHTML(14);
 
   sheet('Planning',
-    `<div class="wkopregel"><span class="eyebrow">Komende twee weken</span>
-       <button class="wuitleg" data-legenda aria-label="Wat betekenen de kleuren?">?</button></div>
-     ${strip}
+    `${strip}
      ${datums.length?datums.map(d=>{
        const dag=dagen[d], dn=new Date(d);
        const nu6=dagenTussen(vandaag(),d);
@@ -6180,10 +6158,7 @@ function bind(){
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw());
-  $$('[data-legenda]').forEach(x=>x.onclick=()=>{
-    const l=document.getElementById('wLeg');
-    if(l){ l.classList.toggle('open'); x.classList.toggle('aan',l.classList.contains('open')) }
-  });
+
   $$('[data-weekdag]').forEach(x=>x.onclick=()=>{
     const d=x.dataset.weekdag;
     const heeft=planLijst().some(p=>p.datum===d||boodschapDatum(p)===d)
