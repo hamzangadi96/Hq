@@ -223,6 +223,9 @@ main>.blokkop:first-child{margin-top:8px}
 .wdag.leeg{background:var(--bg);border-color:transparent}
 .wdag.leeg .wn{color:var(--grijs3)}
 .wdag.vol{box-shadow:0 1px 2px rgba(24,24,27,.04),0 10px 20px -16px rgba(24,24,27,.28)}
+.wdag.maand{margin-left:8px;position:relative}
+.wdag.maand::before{content:'';position:absolute;left:-8px;top:8px;bottom:8px;width:1px;background:var(--lijn)}
+.wdag.maand .wd{color:var(--ink)}
 
 /* vandaag wint altijd: zwart blokje */
 .wdag.nu,.wdag.nu.leeg,.wdag.nu.vol{background:var(--ink);border-color:var(--ink)}
@@ -1087,6 +1090,8 @@ const I={
   qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>'
     +'<rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 19h2M14 21h3"/>',
   klok:'<circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.1 1.9"/>',
+  palet:'<path d="M12 3a9 9 0 0 0 0 18c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6h1.9A4.7 4.7 0 0 0 21 11c0-4.4-4-8-9-8z"/>'
+    +'<circle cx="7.8" cy="11.2" r="1.05"/><circle cx="11.4" cy="7.6" r="1.05"/><circle cx="15.9" cy="9.4" r="1.05"/>',
   huis:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.6V21h14V9.6"/>',
   vorm:'<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
   lijst:'<path d="M9 5h10M9 12h10M9 19h10M4.5 5h.01M4.5 12h.01M4.5 19h.01"/>',
@@ -1113,7 +1118,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v114 · 11 aug 2026';
+const APPVERSIE='v116 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1813,7 +1818,15 @@ function weekstripHTML(dagenVooruit){
   if(loopt.length) (perDag[vandaag()]=perDag[vandaag()]||[])
     .push({soort:'productie',tekst:'batch onderweg'});
 
-  let uit='<div class="weekstrip">';
+  const eind=new Date(datumPlus(vandaag(),n-1));
+  const start=new Date(vandaag());
+  const maandTekst = start.getMonth()===eind.getMonth()
+    ? MND[start.getMonth()]+' '+start.getFullYear()
+    : MND[start.getMonth()]+' — '+MND[eind.getMonth()]+' '+eind.getFullYear();
+
+  let uit=`<div class="wmaand"><span class="mnd">${maandTekst}</span>
+    <button class="wkleuren" data-legenda aria-label="Wat betekenen de kleuren?">${svg(I.palet)}</button></div>
+    <div class="weekstrip">`;
   for(let i=0;i<n;i++){
     const d=datumPlus(vandaag(),i), dt=new Date(d);
     const taken=perDag[d]||[];
@@ -1822,14 +1835,17 @@ function weekstripHTML(dagenVooruit){
     const soorten2=volgorde.filter(k=>taken.some(t=>t.soort===k));
     const titel=soorten2.map(k=>k==='leveren'?'leveren':(DAGSOORT[k]||{}).n).join(' · ');
     const nieuweMaand=i>0&&dt.getDate()===1;
-    uit+=`<button class="wdag ${i===0?'nu':''} ${taken.length?'vol':'leeg'}" data-weekdag="${d}"
-      title="${esc(titel||'niets gepland')}">
+    uit+=`<button class="wdag ${i===0?'nu':''} ${taken.length?'vol':'leeg'} ${nieuweMaand?'maand':''}"
+      data-weekdag="${d}" title="${esc(titel||'niets gepland')}">
       <span class="wd">${nieuweMaand?MND[dt.getMonth()].slice(0,3):DAG[dt.getDay()].slice(0,2)}</span>
       <span class="wn">${dt.getDate()}</span>
       <span class="wstippen">${soorten2.map(k=>`<i class="s-${k}"></i>`).join('')}</span>
     </button>`;
   }
   uit+='</div>';
+  uit+=`<div class="wlegenda" id="wLeg">
+    ${Object.keys(DAGSOORT).map(k=>`<span><i class="s-${k}"></i>${DAGSOORT[k].n.toLowerCase()}</span>`).join('')}
+    <span><i class="s-leveren"></i>leveren</span></div>`;
   return uit;
 }
 
@@ -6158,6 +6174,12 @@ function bind(){
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw());
+  $$('[data-legenda]').forEach(x=>x.onclick=()=>{
+    const l=document.getElementById('wLeg');
+    if(!l) return;
+    const open=l.classList.toggle('open');
+    x.classList.toggle('aan',open);
+  });
 
   $$('[data-weekdag]').forEach(x=>x.onclick=()=>{
     const d=x.dataset.weekdag;
