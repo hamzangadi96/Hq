@@ -1058,7 +1058,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v92 · 11 aug 2026';
+const APPVERSIE='v94 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1234,7 +1234,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, artikelen:{}, levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, controleur:'', levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1259,7 +1259,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1807,32 +1807,91 @@ function dagStrook(){
 
 /* ---------- productie ---------- */
 function productieHTML(){
-  let h=`<button class="prim los" data-sheet="nieuwbatch">${svg(I.plus)}Batch genereren</button>
-    <button class="knop2" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>`;
-  const rij=b=>{const k=b.status==='klaar';
-    return `<button class="rij" data-batch="${b.id}">
-      <span class="stip ${k?'groen':'amber'}"></span>
-      <span class="tekst"><span class="t1">${esc(bNamen(b))}</span>
-        <span class="t2">${b.code} · ${chocNaam(b.chocolade).toLowerCase()} · ${bMallen(b)} ${bMallen(b)===1?'mal':'mallen'} · ${bTotaal(b)} st</span></span>
-      <span class="rechts ${k?'klaar':'bezig'}">${k?'Klaar':'Dag '+dagNummer(b)}
-        <em>${k?(b.resultaat?b.resultaat.goed+' goed':''):bGedaan(b)+'/'+KERN.length}</em></span>
+  const loopt=S.batches.filter(b=>b.status!=='klaar');
+  const afVandaag=S.batches.filter(b=>b.status==='klaar'&&b.eindDatum===vandaag());
+  const eerder=S.batches.filter(b=>b.status==='klaar'&&b.eindDatum!==vandaag());
+  const goedVandaag=afVandaag.reduce((n,b)=>n+(b.resultaat?b.resultaat.goed:0),0);
+  const afkVandaag=afVandaag.reduce((n,b)=>n+(b.resultaat?b.resultaat.afkeur:0),0);
+  const inProductie=loopt.reduce((n,b)=>n+bTotaal(b),0);
+
+  /* afkeur over alles wat af is: je kwaliteitsgraadmeter */
+  const alleAf=S.batches.filter(b=>b.status==='klaar'&&b.resultaat);
+  const totGoed=alleAf.reduce((n,b)=>n+b.resultaat.goed,0);
+  const totAfk=alleAf.reduce((n,b)=>n+b.resultaat.afkeur,0);
+  const afkPct=(totGoed+totAfk)?Math.round(totAfk/(totGoed+totAfk)*100):null;
+
+  let h=`<h1>Productie</h1><div class="datum">${loopt.length
+    ? loopt.length+(loopt.length===1?' batch loopt':' batches lopen')+' · '+inProductie+' bonbons onderweg'
+    : (S.recepten.length?'geen batch onderweg':'begin met je eerste smaak')}</div>`;
+
+  const tegel=(attr,icoon,kop,waarde,sub,klas)=>`<button class="tegel" ${attr}>
+    <span class="tk">${svg(icoon)}${kop}</span>
+    <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
+    <span class="ts ${klas||''}">${sub}</span></button>`;
+
+  h+=`<div class="tegels" style="margin-top:4px">
+    ${tegel('data-sheet="nieuwbatch"',I.plus,'Onderweg',loopt.length||'—',
+      loopt.length?inProductie+' bonbons':'nieuwe batch starten')}
+    ${tegel('',I.vink,'Vandaag af',goedVandaag||'—',
+      afVandaag.length?afVandaag.length+(afVandaag.length===1?' batch':' batches')
+        +(afkVandaag?' · '+afkVandaag+' afkeur':''):'nog niets afgerond',afkVandaag?'let':'')}
+    ${tegel('data-sheet="recepten"',I.boek,'Smaken',S.recepten.length||'—',
+      S.recepten.length?'in je bibliotheek':'nog geen smaak')}
+    ${tegel('',I.spark,'Afkeur',afkPct!==null?afkPct+'%':'—',
+      afkPct!==null?'over '+alleAf.length+' '+(alleAf.length===1?'batch':'batches'):'nog geen cijfers',
+      afkPct!==null&&afkPct>5?'let':'')}
+  </div>`;
+
+  /* ── wat er deze week de deur uit moet ── */
+  const open=(S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum)
+    .sort((a,b2)=>a.leverdatum.localeCompare(b2.leverdatum)).slice(0,4);
+  if(open.length){
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Moet gemaakt worden</span>
+        <span class="tel">${open.length}</span></div>
+      <div class="paneel">${open.map(o=>{
+        const d=Math.round((new Date(o.leverdatum)-new Date(vandaag()))/86400000);
+        const dek=dekking(o), tekort=dek.filter(x=>x.tekort>0);
+        const tk=tekort.reduce((n,x)=>n+x.tekort,0);
+        return `<button class="arij" data-order="${o.id}">
+          <span class="ivak ${d<0?'rood':d<=2?'amber':''}">${svg(I.klok)}</span>
+          <span class="naam">${esc(klantNaam(o.klantId))}<small>${
+            d<0?Math.abs(d)+' dagen te laat':d===0?'vandaag leveren':d===1?'morgen leveren'
+              :'over '+d+' dagen'} · ${orderAantal(o)} bonbons${
+            tk?' · '+tk+' nog maken':' · voorraad is genoeg'}</small></span>
+          ${tk?'<span class="stip amber"></span>':'<span class="stip groen"></span>'}
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`;
+  }
+
+  /* ── de batches zelf ── */
+  const rij=b=>{const k=b.status==='klaar', p2=b.status==='pauze';
+    return `<button class="arij" data-batch="${b.id}">
+      <span class="ivak ${k?(b.afgebroken?'rood':'groen'):p2?'amber':'ink'}">${
+        svg(k?(b.afgebroken?I.kruis:I.vink):p2?I.klok:I.vorm)}</span>
+      <span class="naam">${esc(bNamen(b))}
+        <small>${b.code} · ${chocNaam(b.chocolade).toLowerCase()} · ${bTotaal(b)} st${
+          k?(b.afgebroken?' · afgebroken':(b.resultaat?' · '+b.resultaat.goed+' goed':'')) 
+           :p2?' · stilgelegd':' · stap '+bGedaan(b)+' van '+KERN.length}</small></span>
+      <span class="waarde gevuld">${k?(b.afgebroken?'—':'Klaar'):p2?'Pauze':'Dag '+dagNummer(b)}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`};
 
   if(!S.batches.length){
-    h+=`<div class="blokkop"><span class="eyebrow">Batches</span></div>
-      <div class="paneel"><div class="rustig"><p>${S.recepten.length
-        ? 'Nog geen batch.<br>Genereer er één, dan gebeurt alles daarbinnen.'
-        : 'Nog geen batch.<br>Voeg eerst een smaak toe.'}</p></div></div>`;
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Batches</span></div>
+      <div class="paneel"><button class="arij" data-sheet="${S.recepten.length?'nieuwbatch':'receptnieuw'}">
+        <span class="ivak">${svg(I.plus)}</span>
+        <span class="naam">${S.recepten.length?'Nog geen batch':'Nog geen smaak'}
+          <small>${S.recepten.length?'genereer er één, dan gebeurt alles daarbinnen'
+            :'voeg eerst een smaak toe'}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
   } else {
-    const loopt=S.batches.filter(b=>b.status!=='klaar');
-    const nu=S.batches.filter(b=>b.status==='klaar'&&b.eindDatum===vandaag());
-    const eerder=S.batches.filter(b=>b.status==='klaar'&&b.eindDatum!==vandaag());
-    if(loopt.length) h+=`<div class="blokkop"><span class="eyebrow">Loopt nu</span><span class="tel">${loopt.length}</span></div>
+    if(loopt.length) h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Loopt nu</span>
+      <span class="tel">${loopt.length}</span></div>
       <div class="paneel">${loopt.map(rij).join('')}</div>`;
-    if(nu.length) h+=`<div class="blokkop"><span class="eyebrow">Vandaag afgerond</span><span class="tel">${nu.length}</span></div>
-      <div class="paneel">${nu.map(rij).join('')}</div>`;
+    if(afVandaag.length) h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Vandaag afgerond</span>
+      <span class="tel">${afVandaag.length}</span></div>
+      <div class="paneel">${afVandaag.map(rij).join('')}</div>`;
     if(eerder.length){
-      h+=`<div class="blokkop"><span class="eyebrow">Eerdere dagen</span><span class="tel">${eerder.length}</span></div>`;
+      h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Eerdere dagen</span>
+        <span class="tel">${eerder.length}</span></div>`;
       h+= S.toonEerder
         ? `<div class="paneel">${eerder.slice().reverse().map(rij).join('')}
            <button class="meer" data-eerder="dicht">Inklappen</button></div>`
@@ -1840,13 +1899,46 @@ function productieHTML(){
            ${eerder.length} eerdere ${eerder.length===1?'batch':'batches'} tonen</button></div>`;
     }
   }
-  h+=`<div class="voet">
-    <button data-sheet="ontvangst">Ontvangst vastleggen</button>
-    <button data-sheet="recepten">Smaken beheren${S.recepten.length?' ('+S.recepten.length+')':''}</button>
-    <button data-sheet="instellingen">Instellingen</button>
-</div>`;
+
+  /* ── smaken: je kernbezit, niet weggestopt ── */
+  if(S.recepten.length){
+    const perSoort={};
+    S.recepten.forEach(rc=>{perSoort[rc.chocolade]=(perSoort[rc.chocolade]||0)+1});
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Smaken</span>
+        <span class="tel">${S.recepten.length}</span></div>
+      <div class="paneel">${S.recepten.slice(0,5).map(rc=>{
+        const vp=verkoopPrijs(rc.id), m=margeVan(rc);
+        const opv=voorraadPerSmaak()[rc.id]||0;
+        return `<button class="arij" data-recept="${rc.id}">
+          <span class="ivak">${svg(I.boek)}</span>
+          <span class="naam">${esc(rc.naam)}<small>${chocNaam(rc.chocolade).toLowerCase()}${
+            rc.tht?' · THT '+rc.tht+' dagen':''}${vp!==null?' · '+euro(vp):' · geen prijs'}${
+            m&&m.pct!==null?' · marge '+m.pct+'%':''}</small></span>
+          <span class="waarde ${opv?'gevuld':''}">${opv?opv+' op voorraad':'—'}</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}
+        ${S.recepten.length>5?`<button class="meer" data-sheet="recepten">Alle ${S.recepten.length} smaken</button>`:''}
+      </div>`;
+  }
+
+  /* ── beheer ── */
+  const brij=(attr,icoon,label,waarde,let2)=>`<button class="beheerrij" ${attr}>
+    ${svg(icoon)}<span class="l">${label}</span>
+    ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
+    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+    <div class="paneel">
+      ${brij('data-sheet="nieuwbatch"',I.plus,'Batch genereren','')}
+      ${brij('data-sheet="receptnieuw"',I.plus,'Smaak toevoegen','')}
+      ${brij('data-sheet="recepten"',I.boek,'Smaken beheren',S.recepten.length||'geen')}
+      ${brij('data-sheet="ontvangst"',I.vracht,'Ontvangst vastleggen','')}
+      ${brij('data-haccp',I.klembord,'HACCP-registraties','')}
+      ${brij('data-dossier',I.doc,'Dossier voor de inspectie','')}
+      ${brij('data-sheet="instellingen"',I.instel,'Instellingen','')}
+    </div>`;
   return h;
 }
+
 
 /* ---------- receptuitwerking ---------- */
 function uitwerkingHTML(b){
@@ -1986,11 +2078,25 @@ function batchHTML(){
     <div class="paneel">${groepen}</div>
     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Naslag</span></div>
     <div class="paneel">${naslag}</div>
-    <div class="voet"><button data-rapport="batch">Batchrapport bekijken</button>
-      <button data-rapport="dag">Dagrapport van vandaag</button>
-      ${b.status==='klaar'?'':'<button data-bwijzig>Batch aanpassen</button>'}
-      <button data-bkopie="${b.id}">Nieuwe batch met deze opzet</button>
-      <button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`;
+    ${(()=>{
+      const brij=(attr,icoon,label,waarde)=>`<button class="beheerrij" ${attr}>
+        ${svg(icoon)}<span class="l">${label}</span>
+        ${waarde?`<span class="w">${waarde}</span>`:''}
+        <span class="p">${svg(I.pijl,'2')}</span></button>`;
+      const loopt=b.status!=='klaar';
+      return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Deze batch</span></div>
+      <div class="paneel">
+        ${loopt?brij('data-bcorrectie',I.vorm,'Aantallen bijstellen',bTotaal(b)+' st'):''}
+        ${loopt?brij('data-bnotitie',I.doc,'Notitie toevoegen',''):''}
+        ${loopt?brij('data-bstatus',I.klok,b.status==='pauze'?'Batch hervatten':'Onderbreken of afbreken',
+          b.status==='pauze'?'stilgelegd':''):''}
+        ${loopt&&dagNummer(b)>=1?brij('data-bdag',I.vink,'Werkdag afsluiten','dag '+dagNummer(b)):''}
+        ${brij('data-rapport="batch"',I.klembord,'Batchrapport','')}
+        ${brij('data-rapport="dag"',I.doc,'Dagrapport van vandaag','')}
+        ${brij('data-dossier',I.klembord,'HACCP-dossier','voor de inspectie')}
+        ${brij('data-bkopie="'+b.id+'"',I.plus,'Nieuwe batch met deze opzet','')}
+      </div>
+      <div class="voet"><button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`})()}`;
   if(verw&&b.status!=='klaar'){
     const st=batchDuurStat();
     h=h.replace('<div class="blokkop"><span class="eyebrow">De route</span>',
@@ -5138,6 +5244,13 @@ function bind(){
   $$('[data-btw]').forEach(x=>x.onclick=sheetBtw);
   $$('[data-verkoop]').forEach(x=>x.onclick=sheetVerkoopprijzen);
   $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
+  $$('[data-recept]').forEach(x=>x.onclick=()=>sheetReceptForm(x.dataset.recept));
+  $$('[data-haccp]').forEach(x=>x.onclick=sheetHaccp);
+  $$('[data-bcorrectie]').forEach(x=>x.onclick=sheetBatchCorrectie);
+  $$('[data-bnotitie]').forEach(x=>x.onclick=sheetNotitie);
+  $$('[data-bstatus]').forEach(x=>x.onclick=sheetBatchStatus);
+  $$('[data-bdag]').forEach(x=>x.onclick=sheetDagAfsluiten);
+  $$('[data-dossier]').forEach(x=>x.onclick=sheetDossier);
   $$('[data-winst]').forEach(x=>x.onclick=sheetWinst);
   $$('[data-uurtarief]').forEach(x=>x.onclick=sheetUurtarief);
   $$('[data-openstaand]').forEach(x=>x.onclick=sheetOpenstaand);
@@ -6717,6 +6830,252 @@ function verwijderBatch(id){
   S.batches=S.batches.filter(x=>x.id!==id);
   if(S.batchId===id) S.batchId=null;
   S.open=null; bewaarNu(); dicht(); render(); toast('Batch '+b.code+' verwijderd.');
+}
+
+/* ================= corrigeren, pauzeren en notities =================
+   Er gaat weleens iets anders dan gepland. Kun je dat niet in de app kwijt,
+   dan ga je het op papier bijhouden — en dan klopt het dossier niet meer. */
+
+/* ---------- aantallen bijstellen tijdens de rit ---------- */
+function sheetBatchCorrectie(){
+  const b=batch(); if(!b) return;
+  const W2={};
+  b.regels.forEach(rg=>{W2[rg.receptId]=rg.aantal});
+  const teken=()=>{
+    const tot=Object.values(W2).reduce((n,v)=>n+v,0);
+    const oud=bTotaal(b);
+    sheet('Aantallen bijstellen',
+      `<p class="hint">Ging er een mal niet vol, of maakte je er meer? Pas het hier aan.
+        Wat je al vastlegde blijft staan; de wijziging komt in je logboek.</p>
+       ${b.regels.map(rg=>{
+         const r=receptVan(b,rg.receptId);
+         return `<div class="rrij">
+           <div class="rinfo"><div class="rnaam">${esc(r.naam)}</div>
+             <div class="rsub">gepland ${rg.aantal} st${rg.mallen?' · '+rg.mallen+' mallen':''}</div></div>
+           <div class="ostep"><button class="stepbtn klein" data-cm="${rg.receptId}">${svg(I.min)}</button>
+             <span class="oa aan">${W2[rg.receptId]}</span>
+             <button class="stepbtn klein" data-cp="${rg.receptId}">${svg(I.plus)}</button></div></div>`}).join('')}
+       <div class="totaalregel" style="margin-top:18px"><span class="l">Nieuw totaal</span>
+         <span class="w">${tot} bonbons${tot!==oud?' (was '+oud+')':''}</span></div>
+       <div class="veld" style="margin-top:18px"><label>Waarom wijkt het af?</label>
+         <input class="inp" id="cReden" placeholder="Bijv. mal niet vol gegaan"></div>`,
+      `<button class="prim" style="margin-top:0" id="cOk" ${tot===oud?'disabled':''}>
+        ${tot===oud?'Nog niets gewijzigd':'Bijstellen naar '+tot+' bonbons'}</button>`);
+    const stap=S.malGrootte||1;
+    $$('[data-cp]').forEach(x=>x.onclick=()=>{W2[x.dataset.cp]+=1;teken()});
+    $$('[data-cm]').forEach(x=>x.onclick=()=>{W2[x.dataset.cm]=Math.max(0,W2[x.dataset.cm]-1);teken()});
+    if($('#cOk')) $('#cOk').onclick=()=>{
+      const reden=$('#cReden').value.trim();
+      const oudTot=bTotaal(b);
+      b.regels=b.regels.map(rg=>Object.assign({},rg,{aantal:W2[rg.receptId],
+        mallen:S.malGrootte?Math.round(W2[rg.receptId]/S.malGrootte*10)/10:rg.mallen}))
+        .filter(rg=>rg.aantal>0);
+      bLog(b,{type:'correctie',titel:'Aantallen bijgesteld',
+        sub:oudTot+' → '+bTotaal(b)+' bonbons'+(reden?' — '+reden:''),status:'let'});
+      bewaarNu(); render(); klaarSheet('Bijgesteld naar '+bTotaal(b)+' bonbons.');
+    };
+  };
+  teken();
+}
+
+/* ---------- pauzeren, hervatten en afbreken ---------- */
+function sheetBatchStatus(){
+  const b=batch(); if(!b) return;
+  const gepauzeerd=b.status==='pauze';
+  sheet(gepauzeerd?'Batch hervatten':'Batch onderbreken',
+    gepauzeerd
+      ? `<p class="hint">Deze batch staat sinds ${esc(b.pauzeSinds||'eerder')} stil.
+          Hervatten zet hem weer op lopend; je gaat verder waar je gebleven was.</p>`
+      : `<p class="hint">Kies wat er aan de hand is. Alles wat je hebt vastgelegd blijft bewaard —
+          ook bij afbreken, want ook een mislukte batch hoort in je dossier.</p>
+         <div class="veld"><label>Wat is er?</label>
+           <div class="duo" id="bsK">
+             <button class="aan" data-v="pauze">Even stilleggen</button>
+             <button data-v="afbreken">Afbreken</button></div></div>
+         <div class="veld"><label>Reden</label>
+           <textarea class="inp" id="bsR" placeholder="Bijv. tempereermachine stuk, ganache geschift"></textarea></div>`,
+    gepauzeerd
+      ? `<button class="prim" style="margin-top:0" id="bsHerv">Hervatten</button>`
+      : `<button class="prim" style="margin-top:0" id="bsOk">Vastleggen</button>`);
+  if(!gepauzeerd) chips('#bsK');
+  if($('#bsHerv')) $('#bsHerv').onclick=()=>{
+    b.status='bezig'; b.pauzeSinds=null;
+    bLog(b,{type:'status',titel:'Batch hervat',sub:'weer in productie',status:'ok'});
+    bewaarNu(); render(); klaarSheet('Batch hervat.');
+  };
+  if($('#bsOk')) $('#bsOk').onclick=()=>{
+    const k=chipV('#bsK'), reden=$('#bsR').value.trim();
+    if(!reden) return toast('Vul kort in wat er aan de hand is.');
+    stopWerk(b);
+    if(k==='pauze'){
+      b.status='pauze'; b.pauzeSinds=kort(new Date())+' '+nu();
+      bLog(b,{type:'status',titel:'Batch stilgelegd',sub:reden,status:'let'});
+      bewaarNu(); render(); return klaarSheet('Batch stilgelegd.');
+    }
+    if(!confirm('Batch '+b.code+' afbreken?\n\nAlles wat je vastlegde blijft in je dossier staan, maar er komt geen product uit.')) return;
+    b.status='klaar'; b.afgebroken=true; b.eind=nu(); b.eindDatum=vandaag();
+    b.resultaat={goed:0,afkeur:bTotaal(b),perSmaak:b.regels.map(rg=>({receptId:rg.receptId,goed:0,afkeur:rg.aantal}))};
+    boekVerbruik(b);
+    bLog(b,{type:'afronden',titel:'Batch afgebroken',sub:reden,status:'fout'});
+    bewaarNu(); render(); klaarSheet('Batch afgebroken en vastgelegd.');
+  };
+}
+
+/* ---------- losse notitie bij een batch ---------- */
+function sheetNotitie(){
+  const b=batch(); if(!b) return;
+  sheet('Notitie',
+    `<p class="hint">Een opmerking bij deze batch — iets wat opviel, maar geen afwijking is.
+      Komt in je logboek en op je rapport.</p>
+     <div class="veld"><label>Wat wil je vastleggen?</label>
+       <textarea class="inp" id="ntT" placeholder="Bijv. chocolade was wat dik, extra geroerd"></textarea></div>`,
+    `<button class="prim" style="margin-top:0" id="ntOk">Vastleggen</button>`);
+  $('#ntOk').onclick=()=>{
+    const t=$('#ntT').value.trim();
+    if(!t) return toast('Schrijf eerst iets.');
+    bLog(b,{type:'notitie',titel:'Notitie',sub:t,status:'ok'});
+    bewaarNu(); render(); klaarSheet('Notitie vastgelegd.');
+  };
+}
+
+/* ---------- werkdag afsluiten bij een meerdaagse batch ---------- */
+function sheetDagAfsluiten(){
+  const b=batch(); if(!b) return;
+  const d=dagVan(b,vandaag());
+  sheet('Werkdag afsluiten',
+    `<p class="hint">Je sluit vandaag af voor deze batch. Morgen pak je hem weer op,
+      met een verse openingscheck. De batch blijft gewoon lopen.</p>
+     <div class="info">
+       <div class="inforij"><span class="k">Batch</span><span class="v">${b.code}</span></div>
+       <div class="inforij"><span class="k">Dag</span><span class="v">${dagNummer(b)}</span></div>
+       <div class="inforij"><span class="k">Gewerkt</span><span class="v">${duurTekst(werkTotaal(b))}</span></div>
+     </div>
+     <div class="veld" style="margin-top:18px"><label>Waar sta je? — mag leeg</label>
+       <textarea class="inp" id="daT" placeholder="Bijv. ganache staat te rusten, morgen gieten"></textarea></div>`,
+    `<button class="prim" style="margin-top:0" id="daOk">Dag afsluiten</button>`);
+  $('#daOk').onclick=()=>{
+    const t=$('#daT').value.trim();
+    stopWerk(b);
+    if(d) d.afgesloten=nu();
+    bLog(b,{type:'dag',titel:'Werkdag '+dagNummer(b)+' afgesloten',
+      sub:(t||'geen bijzonderheden'),status:'ok'});
+    bewaarNu(); S.batchId=null; render(); klaarSheet('Dag afgesloten. Morgen verder.');
+  };
+}
+
+/* ================= het dossier voor de inspectie =================
+   Eén knop, alles erin: wat je maakte, waarvan, of het binnen norm bleef,
+   en waar het heen ging. Met je bedrijfsgegevens en handtekeningregels. */
+function dossierHTML(vanaf,tot){
+  const bs=(S.batches||[]).filter(b=>{
+    const d=b.startDatum||b.eindDatum; if(!d) return false;
+    return d>=vanaf&&d<=tot;
+  }).sort((a,b2)=>String(a.startDatum||'').localeCompare(String(b2.startDatum||'')));
+
+  const periode=kort(new Date(vanaf))+' t/m '+kort(new Date(tot));
+  let h=`<div class="rapport">${rKop('HACCP-dossier',periode)}`;
+
+  /* samenvatting */
+  const tot2=bs.reduce((n,b)=>n+bTotaal(b),0);
+  const goed=bs.reduce((n,b)=>n+(b.resultaat?b.resultaat.goed:0),0);
+  const afk=bs.reduce((n,b)=>n+(b.resultaat?b.resultaat.afkeur:0),0);
+  const afw=bs.reduce((n,b)=>n+b.logs.filter(l=>l.type==='afwijking').length,0);
+  const buitenNorm=bs.reduce((n,b)=>n+b.logs.filter(l=>l.status==='fout').length,0);
+
+  h+=`<h3>Samenvatting</h3><div class="paar">
+    <div><div class="rij"><span>Periode</span><b>${periode}</b></div>
+      <div class="rij"><span>Aantal batches</span><b>${bs.length}</b></div>
+      <div class="rij"><span>Gepland</span><b>${tot2} stuks</b></div></div>
+    <div><div class="rij"><span>Goedgekeurd</span><b>${goed} stuks</b></div>
+      <div class="rij"><span>Afkeur</span><b>${afk} stuks</b></div>
+      <div class="rij"><span>Afwijkingen</span><b>${afw}${buitenNorm?' · '+buitenNorm+' buiten norm':''}</b></div></div></div>`;
+
+  /* per batch: waar het vandaan komt en waar het heen ging */
+  bs.forEach(b=>{
+    const gs=grondstoffenVan(b), ords=ordersMetBatch(b.code);
+    const temps=b.logs.filter(l=>l.type==='temperatuur');
+    const fout=b.logs.filter(l=>l.status==='fout'||l.status==='let');
+
+    h+=`<h3>${b.code} — ${esc(bNamen(b))}${b.afgebroken?' (afgebroken)':''}</h3>
+      <div class="paar">
+        <div><div class="rij"><span>Gemaakt</span><b>${b.startDatum?kort(new Date(b.startDatum)):'—'}${
+          b.eindDatum&&b.eindDatum!==b.startDatum?' t/m '+kort(new Date(b.eindDatum)):''}</b></div>
+          <div class="rij"><span>${branche().basis||'Basis'}</span><b>${chocNaam(b.chocolade)}</b></div>
+          <div class="rij"><span>Uitgevoerd door</span><b>${esc(S.naam||'—')}</b></div></div>
+        <div><div class="rij"><span>Gepland</span><b>${bTotaal(b)} stuks</b></div>
+          <div class="rij"><span>Resultaat</span><b>${b.resultaat
+            ? b.resultaat.goed+' goed, '+b.resultaat.afkeur+' afkeur':'nog niet afgerond'}</b></div>
+          <div class="rij"><span>Registraties</span><b>${b.logs.length}</b></div></div></div>
+
+      <table><tr><th>Ingrediënt</th><th>Lot</th><th>Leverancier</th><th>THT</th></tr>
+      ${gs.length?gs.map(g=>g.lots.map(l=>`<tr><td>${esc(g.naam)}</td><td>${esc(l.lot)}</td>
+        <td>${esc(l.leverancier||'—')}</td><td>${l.tht?kort(new Date(l.tht)):'—'}</td></tr>`).join('')).join('')
+        :'<tr><td colspan="4">Geen lotnummers vastgelegd</td></tr>'}</table>
+
+      ${temps.length?`<table style="margin-top:3mm"><tr><th>Meting</th><th>Waarde</th><th>Datum</th><th>Binnen norm</th></tr>
+        ${temps.map(l=>`<tr><td>${esc(l.titel||'—')}</td><td>${esc(l.sub||'')}</td>
+          <td>${l.datum?kort(new Date(l.datum)):''} ${esc(l.tijd||'')}</td>
+          <td>${l.status==='ok'?'ja':'nee'}</td></tr>`).join('')}</table>`:''}
+
+      ${fout.length?`<table style="margin-top:3mm"><tr><th>Aandachtspunt</th><th>Toelichting</th><th>Datum</th></tr>
+        ${fout.map(l=>`<tr><td>${esc(l.titel||'—')}</td><td>${esc(l.sub||'')}</td>
+          <td>${l.datum?kort(new Date(l.datum)):''} ${esc(l.tijd||'')}</td></tr>`).join('')}</table>`:''}
+
+      ${ords.length?`<table style="margin-top:3mm"><tr><th>Geleverd aan</th><th>Order</th><th>Aantal</th><th>Datum</th></tr>
+        ${ords.map(o=>{const n=Object.keys(o.lots||{}).reduce((t,rid)=>t+(o.lots[rid]||[])
+            .filter(g=>g.lot===b.code).reduce((x,g)=>x+g.aantal,0),0);
+          return `<tr><td>${esc(klantNaam(o.klantId))}</td><td>${esc(o.nummer)}</td>
+            <td class="n">${n}</td><td>${o.ingepakt?kort(new Date(o.ingepakt)):'—'}</td></tr>`}).join('')}</table>`
+        :`<div class="leeg" style="margin-top:2mm">Nog niet uitgeleverd${
+            restVanBatch(b.code)?' — '+restVanBatch(b.code)+' stuks op voorraad':''}</div>`}`;
+  });
+
+  if(!bs.length) h+=rLeeg('Geen batches in deze periode.');
+
+  /* ijking en periodieke controles horen erbij */
+  const ijk=laatsteIjking();
+  h+=`<h3>Beheersmaatregelen</h3>
+    <div class="rij"><span>Thermometer geijkt</span><b>${ijk?kort(new Date(ijk.datum)):'nog nooit'}</b></div>
+    <div class="rij"><span>Openingscheck</span><b>${S.checks.length} punten vastgelegd</b></div>
+    <div class="rij"><span>Meetpunten met norm</span><b>${S.meetpunten.length}</b></div>`;
+
+  h+=`<div class="hand"><div>Uitgevoerd door — ${esc(S.naam||'')}</div>
+    <div>Gecontroleerd door — ${esc(S.controleur||'')} / datum</div></div>${rVoet()}</div>`;
+  return h;
+}
+
+function sheetDossier(){
+  const nu5=new Date();
+  const teken=(vanaf,tot,label)=>{
+    const html=dossierHTML(vanaf,tot);
+    sheet('HACCP-dossier',
+      `<p class="hint">Alles wat je in deze periode hebt vastgelegd, in één document:
+        wat je maakte, van welke partijen, of het binnen norm bleef en waar het heen ging.</p>
+       <div class="veld"><label>Periode</label>
+         <div class="duo3" id="dsP">
+           <button class="${label==='maand'?'aan':''}" data-v="maand">Deze maand</button>
+           <button class="${label==='kwartaal'?'aan':''}" data-v="kwartaal">Kwartaal</button>
+           <button class="${label==='jaar'?'aan':''}" data-v="jaar">Dit jaar</button></div></div>
+       <div class="etvoorbeeld" style="padding:0"><div class="schaal" id="dsSchaal">${html}</div></div>
+       <div class="veld" style="margin-top:16px"><label>Gecontroleerd door — mag leeg</label>
+         <input class="inp" id="dsC" value="${esc(S.controleur||'')}" placeholder="Naam van wie controleert">
+         <div class="hint" style="margin:8px 0 0">Komt op de handtekeningregel van al je rapporten.</div></div>`,
+      `<button class="prim" style="margin-top:0" id="dsPrint">${svg(I.doc)}Printen of bewaren</button>`);
+    setTimeout(()=>pasSchaal('dsSchaal'),30);
+    chips('#dsP',false,()=>{
+      const k=chipV('#dsP');
+      const j=nu5.getFullYear();
+      if(k==='maand') return teken(iso(new Date(j,nu5.getMonth(),1)),vandaag(),'maand');
+      if(k==='kwartaal') return teken(iso(new Date(j,(kwartaalVan(nu5)-1)*3,1)),vandaag(),'kwartaal');
+      return teken(j+'-01-01',vandaag(),'jaar');
+    });
+    $('#dsC').onchange=()=>{S.controleur=$('#dsC').value.trim();bewaarNu()};
+    $('#dsPrint').onclick=()=>{
+      S.controleur=$('#dsC').value.trim(); bewaarNu();
+      drukAf(dossierHTML(vanaf,tot),'HACCP-dossier','@page{size:A4;margin:8mm}');
+    };
+  };
+  teken(iso(new Date(nu5.getFullYear(),nu5.getMonth(),1)),vandaag(),'maand');
 }
 
 function sheetRapport(soort,batchId,datum){
