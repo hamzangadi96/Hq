@@ -989,7 +989,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v85 · 11 aug 2026';
+const APPVERSIE='v86 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2012,6 +2012,110 @@ function kaartGrootte(tekst,font){
   while(pt>18&&(langste*pt*0.46>860||regels.length*pt*font.hoog>640)) pt-=2;
   return Math.max(18,pt);
 }
+/* ---------- de wenskaart als afbeelding ----------
+   Printen via de browser werkt niet in een app op je telefoon: een webview
+   heeft geen printvenster. Daarom tekenen we de kaart op een canvas en geven
+   we hem aan het deelmenu van je toestel — daar zit Print en Bewaar in. */
+const KAART_DPI=300;
+const mmNaarPx=mm=>Math.round(mm/25.4*KAART_DPI);
+
+async function kaartCanvas(tekst,font,pt){
+  const f=font||kaartFont(), g=pt||kaartGrootte(tekst,f);
+  const B=mmNaarPx(210), H=mmNaarPx(148);
+  const c=document.createElement('canvas');
+  c.width=B; c.height=H;
+  const x=c.getContext('2d');
+  x.fillStyle='#ffffff'; x.fillRect(0,0,B,H);
+
+  /* wachten tot het handschrift geladen is, anders tekent hij een systeemletter */
+  const pxPerPt=KAART_DPI/72;
+  const groot=Math.round(g*pxPerPt);
+  const fam=f.css;
+  try{ if(document.fonts&&document.fonts.load) await document.fonts.load(`${groot}px ${fam}`); }catch(e){}
+
+  x.fillStyle='#1a1a1a';
+  x.textAlign='center';
+  x.textBaseline='middle';
+  x.font=`${groot}px ${fam}`;
+
+  const regels=kaartRegels(tekst);
+  const regelHoogte=groot*f.hoog;
+  const totaal=regels.length*regelHoogte;
+  let y=H/2-totaal/2+regelHoogte/2;
+  regels.forEach(r=>{ if(r.trim()) x.fillText(r,B/2,y); y+=regelHoogte });
+
+  /* woordmerk onderaan */
+  const mGroot=Math.round(7.5*pxPerPt);
+  try{ if(document.fonts&&document.fonts.load) await document.fonts.load(`600 ${mGroot}px 'Cormorant Garamond'`); }catch(e){}
+  x.font=`600 ${mGroot}px 'Cormorant Garamond',Georgia,serif`;
+  x.fillStyle='#8a8a8a';
+  const naam=merkNaam(), sp=mGroot*0.34;
+  const breedte=naam.split('').reduce((n,ch)=>n+x.measureText(ch).width+sp,0)-sp;
+  let mx=B/2-breedte/2;
+  x.textAlign='left';
+  naam.split('').forEach(ch=>{ x.fillText(ch,mx,H-mmNaarPx(14)); mx+=x.measureText(ch).width+sp });
+
+  return c;
+}
+
+function canvasNaarBlob(c){
+  return new Promise(k=>{ c.toBlob(b=>k(b),'image/png') });
+}
+
+async function kaartDelen(tekst){
+  const c=await kaartCanvas(tekst);
+  const blob=await canvasNaarBlob(c);
+  if(!blob) return toast('De kaart kon niet gemaakt worden.');
+  const naam='wenskaart-'+vandaag()+'.png';
+  const bestand=new File([blob],naam,{type:'image/png'});
+
+  /* het deelmenu van je toestel: daar zit Print, Bewaar en Mail in */
+  if(navigator.canShare&&navigator.canShare({files:[bestand]})){
+    try{ await navigator.share({files:[bestand],title:'Wenskaart'}); return }
+    catch(e){ if(e&&e.name==='AbortError') return }
+  }
+  /* anders: gewoon downloaden */
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=naam; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url); a.remove()},1500);
+  toast('Kaart opgeslagen als afbeelding.');
+}
+
+/* ---------- afdrukken dat ook op een telefoon werkt ----------
+   Een webview heeft geen printvenster. We openen daarom een echt tabblad met
+   alleen het vel erin; daar werkt Deel → Print wél. Lukt dat niet, dan vallen
+   we terug op het printvenster van de browser zelf. */
+function drukAf(html,titel,paginaCss){
+  const stijlen=[...document.querySelectorAll('style')].map(x=>x.textContent).join('\n');
+  const fonts=[...document.querySelectorAll('link[rel="stylesheet"]')]
+    .map(l=>`<link rel="stylesheet" href="${l.href}">`).join('');
+  const doc=`<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${esc(titel||'Afdruk')}</title>${fonts}
+    <style>${stijlen}
+      body{margin:0;background:#fff}
+      .app{display:none!important}
+      #printvel{display:block!important}
+      ${paginaCss||'@page{size:A4;margin:8mm}'}
+    </style></head>
+    <body><div id="printvel">${html}</div>
+    <script>window.addEventListener('load',function(){setTimeout(function(){try{window.print()}catch(e){}},400)})<\/script>
+    </body></html>`;
+
+  const w=window.open('','_blank');
+  if(!w){
+    /* pop-up geblokkeerd of geen nieuw venster mogelijk: oude manier proberen */
+    $('#printvel').innerHTML=html;
+    let st=document.getElementById('printstijl');
+    if(!st){st=document.createElement('style');st.id='printstijl';document.head.appendChild(st)}
+    st.textContent='@media print{'+(paginaCss||'@page{size:A4;margin:8mm}')+'}';
+    setTimeout(()=>{try{window.print()}catch(e){toast('Afdrukken lukt niet in de app. Open de site in Safari.')}},80);
+    return;
+  }
+  w.document.open(); w.document.write(doc); w.document.close();
+}
+
 function kaartHTML(tekst,font,pt){
   const f=font||kaartFont();
   const g=pt||kaartGrootte(tekst,f);
@@ -2039,7 +2143,8 @@ function sheetWenskaart(vooraf){
          <div class="chips" id="wkF">${KAARTFONTS.map(x=>
            `<button class="chip klein ${x.k===f.k?'aan':''}" data-wkf="${x.k}"
              style="font-family:${x.css};font-size:15px">${x.n}</button>`).join('')}</div></div>`,
-      `<button class="prim" style="margin-top:0" id="wkPrint">${svg(I.doc)}Printen of opslaan als pdf</button>`);
+      `<button class="prim" style="margin-top:0" id="wkDeel">${svg(I.doc)}Printen of bewaren</button>
+       <button class="sec" id="wkPrint">Printen via de browser</button>`);
     setTimeout(()=>pasSchaal('wkSchaal'),20);
     const bij=()=>{
       const t=$('#wkT').value;
@@ -2057,14 +2162,19 @@ function sheetWenskaart(vooraf){
       $$('[data-wkf]').forEach(y=>y.classList.remove('aan')); c.classList.add('aan');
       bij();
     });
+    $('#wkDeel').onclick=async()=>{
+      const t=$('#wkT').value;
+      if(!t.trim()) return toast('Schrijf eerst iets.');
+      const k=$('#wkDeel'); k.disabled=true; const oud=k.innerHTML; k.textContent='Even geduld…';
+      try{ await kaartDelen(t) }
+      catch(e){ toast('Het maken van de kaart lukte niet.') }
+      k.disabled=false; k.innerHTML=oud;
+    };
     $('#wkPrint').onclick=()=>{
       const t=$('#wkT').value;
       if(!t.trim()) return toast('Schrijf eerst iets.');
-      $('#printvel').innerHTML=`<div class="vel wenskaartvel">${kaartHTML(t,kaartFont(),kaartGrootte(t,kaartFont()))}</div>`;
-      let st=document.getElementById('printstijl');
-      if(!st){st=document.createElement('style');st.id='printstijl';document.head.appendChild(st)}
-      st.textContent='@media print{@page{size:210mm 148mm;margin:0}}';
-      setTimeout(()=>window.print(),80);
+      drukAf(`<div class="vel wenskaartvel">${kaartHTML(t,kaartFont(),kaartGrootte(t,kaartFont()))}</div>`,
+        'Wenskaart','@page{size:210mm 148mm;margin:0}');
     };
   };
   teken();
@@ -2285,10 +2395,7 @@ function sheetRitten(){
     `<button class="prim" style="margin-top:0" id="rtPrint">${svg(I.doc)}Printen of opslaan als pdf</button>
      <button class="sec" id="rtT">Sluiten</button>`);
   setTimeout(()=>pasSchaal('rtSchaal'),30);
-  $('#rtPrint').onclick=()=>{$('#printvel').innerHTML=html;
-    const st=document.getElementById('printstijl');
-    if(st) st.textContent='@media print{@page{size:210mm 297mm;margin:12mm}}';
-    setTimeout(()=>window.print(),80)};
+  $('#rtPrint').onclick=()=>drukAf(html,'Rittenregistratie','@page{size:210mm 297mm;margin:12mm}');
   $('#rtT').onclick=dicht;
 }
 
@@ -3701,6 +3808,192 @@ async function scanCode(klaar){
     requestAnimationFrame(lus);
   };
   vid.onloadedmetadata=()=>lus();
+}
+
+/* ================= traceerbaarheid =================
+   Eén stap terug en één stap vooruit, precies zoals de NVWA het vraagt.
+   Alles wordt afgeleid uit wat je al hebt vastgelegd; er komt geen nieuwe
+   administratie bij. */
+
+/* wat is dit voor code? */
+function zoekLot(code){
+  const c=String(code||'').trim();
+  if(!c) return null;
+  const laag=c.toLowerCase();
+  const batch2=(S.batches||[]).find(b=>String(b.code||'').toLowerCase()===laag);
+  if(batch2) return {soort:'batch',batch:batch2};
+  const order=(S.orders||[]).find(x=>String(x.nummer||'').toLowerCase()===laag);
+  if(order) return {soort:'order',order};
+  const partij=(S.lots||[]).filter(l=>String(l.lot||'').toLowerCase()===laag);
+  if(partij.length) return {soort:'grondstof',partijen:partij,lot:partij[0].lot};
+  /* misschien een lot dat alleen in mutaties voorkomt */
+  const gm=(S.gmut||[]).filter(m=>String(m.lot||'').toLowerCase()===laag);
+  if(gm.length) return {soort:'grondstof',partijen:[],lot:gm[0].lot};
+  return {soort:'niets',code:c};
+}
+
+/* van grondstoflot naar de batches waarin het is verwerkt */
+const batchesMetLot=lot=>(S.batches||[]).filter(b=>
+  Object.keys(b.lots||{}).some(naam=>lotLijst(b,naam).some(l=>String(l).toLowerCase()===String(lot).toLowerCase())));
+
+/* van batch naar de orders waarin die bonbons zijn meegegaan */
+function ordersMetBatch(code){
+  return (S.orders||[]).filter(o=>Object.keys(o.lots||{}).some(rid=>
+    (o.lots[rid]||[]).some(g=>String(g.lot||'').toLowerCase()===String(code).toLowerCase())));
+}
+/* de grondstoffen die in een batch zaten, met leverancier en THT */
+function grondstoffenVan(b){
+  return Object.keys(b.lots||{}).map(naam=>({
+    naam,
+    lots:lotLijst(b,naam).map(l=>{
+      const p=(S.lots||[]).find(x=>x.lot===l);
+      return {lot:l,leverancier:p?p.leverancier:'',tht:p?p.tht:'',ontvangen:p?p.ontvangen:''};
+    })
+  })).filter(x=>x.lots.length);
+}
+/* nog op voorraad van deze batch? */
+const restVanBatch=code=>voorraadGereed().filter(v=>v.lot===code)
+  .reduce((n,v)=>n+v.aantal,0);
+
+function sheetTrace(vooraf){
+  const teken=(code)=>{
+    const r=code?zoekLot(code):null;
+    let body=`<p class="hint">Typ een lotnummer van een leverancier, een batchcode of een ordernummer.
+      Je ziet dan waar het vandaan komt en waar het heen is gegaan.</p>
+     <div class="veld"><div class="rijtje">
+       <input class="inp" id="trZ" value="${esc(code||'')}" placeholder="Bijv. CB-20260810-01"
+         autocapitalize="characters">
+       ${kanScannen()?`<button class="miniknop" data-scan="trZ" style="flex:none">${svg(I.qr)}</button>`:''}
+       <button class="miniknop" id="trOk2" style="flex:none">Zoek</button></div></div>`;
+
+    if(r&&r.soort==='niets'){
+      body+=`<div class="melding amber">${svg(I.alarm,'2')}
+        <span>Niets gevonden voor "${esc(r.code)}". Controleer of je het nummer goed hebt overgenomen.</span></div>`;
+    }
+
+    /* ---- een grondstoflot: vooruit lezen ---- */
+    if(r&&r.soort==='grondstof'){
+      const bs=batchesMetLot(r.lot);
+      const p=r.partijen[0];
+      body+=`<div class="vrkop"><div class="vrgetal" style="font-size:22px">${esc(r.lot)}<em>grondstoflot</em></div>
+        <div class="vrmeta">${p?esc(p.product):''}${p&&p.leverancier?'<br>'+esc(p.leverancier):''}${
+          p&&p.tht?'<br>THT '+kort(new Date(p.tht)):''}${
+          p&&p.ontvangen?'<br>ontvangen '+esc(p.ontvangen):''}</div></div>`;
+
+      body+=`<div class="blokkop"><span class="eyebrow">Verwerkt in</span><span class="tel">${bs.length}</span></div>`;
+      body+=bs.length?`<div class="paneel">${bs.map(b=>{
+        const rest=restVanBatch(b.code), ords=ordersMetBatch(b.code);
+        return `<button class="arij" data-trace="${esc(b.code)}">
+          <span class="naam">${esc(bNamen(b))}<small>${esc(b.code)} · ${
+            b.status==='klaar'?'afgerond '+(b.eindDatum?kort(new Date(b.eindDatum)):''):'nog bezig'} · ${
+            ords.length?ords.length+(ords.length===1?' order':' orders'):'nog niet verkocht'}</small></span>
+          <span class="waarde gevuld">${rest?rest+' op voorraad':'—'}</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
+       :`<div class="paneel"><div class="geen">Dit lot is nog niet in een batch verwerkt.</div></div>`;
+
+      const klanten=[...new Set(bs.flatMap(b=>ordersMetBatch(b.code).map(o=>klantNaam(o.klantId))))];
+      if(klanten.length) body+=`<div class="blokkop"><span class="eyebrow">Uiteindelijk naar</span>
+        <span class="tel">${klanten.length}</span></div>
+        <div class="paneel">${klanten.map(k=>`<div class="arij" style="cursor:default">
+          <span class="naam">${esc(k)}</span></div>`).join('')}</div>`;
+    }
+
+    /* ---- een batch: beide kanten op ---- */
+    if(r&&r.soort==='batch'){
+      const b=r.batch, gs=grondstoffenVan(b), ords=ordersMetBatch(b.code), rest=restVanBatch(b.code);
+      body+=`<div class="vrkop"><div class="vrgetal" style="font-size:22px">${esc(b.code)}<em>batch</em></div>
+        <div class="vrmeta">${esc(bNamen(b))}<br>${bTotaal(b)} bonbons${
+          b.resultaat?' · '+b.resultaat.goed+' goed, '+b.resultaat.afkeur+' afkeur':''}${
+          b.eindDatum?'<br>afgerond '+kort(new Date(b.eindDatum)):''}</div></div>`;
+
+      body+=`<div class="blokkop"><span class="eyebrow">Eén stap terug — wat erin zat</span>
+        <span class="tel">${gs.length}</span></div>`;
+      body+=gs.length?`<div class="paneel">${gs.map(g=>`<div class="arij" style="cursor:default">
+        <span class="naam">${esc(g.naam)}<small>${g.lots.map(l=>
+          'lot '+esc(l.lot)+(l.leverancier?' · '+esc(l.leverancier):'')+
+          (l.tht?' · THT '+kort(new Date(l.tht)):'')).join('<br>')}</small></span></div>`).join('')}</div>`
+       :`<div class="paneel"><div class="geen">Geen lotnummers vastgelegd bij deze batch.</div></div>`;
+
+      body+=`<div class="blokkop"><span class="eyebrow">Eén stap vooruit — waar het heen ging</span>
+        <span class="tel">${ords.length}</span></div>`;
+      body+=ords.length?`<div class="paneel">${ords.map(o=>{
+        const n=Object.keys(o.lots||{}).reduce((t,rid)=>t+(o.lots[rid]||[])
+          .filter(g=>g.lot===b.code).reduce((x,g)=>x+g.aantal,0),0);
+        return `<button class="arij" data-trace="${esc(o.nummer)}">
+          <span class="naam">${esc(klantNaam(o.klantId))}<small>${esc(o.nummer)}${
+            o.ingepakt?' · ingepakt '+kort(new Date(o.ingepakt)):''}</small></span>
+          <span class="waarde gevuld">${n} st</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
+       :`<div class="paneel"><div class="geen">Nog niet verkocht.</div></div>`;
+
+      if(rest) body+=`<div class="melding amber" style="margin-top:14px">${svg(I.alarm,'2')}
+        <span>Er ligt nog ${rest} ${rest===1?'bonbon':'bonbons'} van deze batch op voorraad.</span></div>`;
+    }
+
+    /* ---- een order: terug lezen ---- */
+    if(r&&r.soort==='order'){
+      const o=r.order;
+      body+=`<div class="vrkop"><div class="vrgetal" style="font-size:22px">${esc(o.nummer)}<em>order</em></div>
+        <div class="vrmeta">${esc(klantNaam(o.klantId))}<br>${orderAantal(o)} bonbons${
+          o.ingepakt?'<br>ingepakt '+kort(new Date(o.ingepakt)):''}</div></div>`;
+      const rijen=Object.keys(o.lots||{});
+      body+=`<div class="blokkop"><span class="eyebrow">Meegegeven batches</span></div>`;
+      body+=rijen.length?`<div class="paneel">${rijen.map(rid=>(o.lots[rid]||[]).map(g=>
+        `<button class="arij" data-trace="${esc(g.lot)}">
+          <span class="naam">${esc(smaakNaam(rid))}<small>batch ${esc(g.lot)}</small></span>
+          <span class="waarde gevuld">${g.aantal} st</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')).join('')}</div>`
+       :`<div class="paneel"><div class="geen">Nog niet ingepakt, dus nog geen batches gekoppeld.</div></div>`;
+      if(o.verpakking&&o.verpakking.length) body+=`<div class="blokkop"><span class="eyebrow">Verpakking</span></div>
+        <div class="paneel">${o.verpakking.map(v=>`<div class="arij" style="cursor:default">
+          <span class="naam">${esc(v.product)}</span><span class="waarde gevuld">${v.aantal} st</span></div>`).join('')}</div>`;
+    }
+
+    sheet('Lot terugzoeken', body,
+      (r&&(r.soort==='batch'||r.soort==='grondstof'))
+        ? `<button class="prim" style="margin-top:0" id="trRap">Recallrapport</button>`:'');
+
+    const zoek=()=>{const w=$('#trZ').value.trim(); teken(w)};
+    $('#trOk2').onclick=zoek;
+    $('#trZ').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();zoek()}};
+    $$('[data-trace]').forEach(x=>x.onclick=()=>teken(x.dataset.trace));
+    $$('[data-scan]').forEach(x=>x.onclick=()=>scanCode(w=>teken(w)));
+    if($('#trRap')) $('#trRap').onclick=()=>recallRapport(r);
+  };
+  teken(vooraf||'');
+}
+
+/* ---------- het rapport dat je meegeeft aan een inspecteur ---------- */
+function recallRapport(r){
+  const bs=r.soort==='batch'?[r.batch]:batchesMetLot(r.lot);
+  const titel=r.soort==='batch'?'Batch '+r.batch.code:'Grondstoflot '+r.lot;
+  let h=`<div class="rapport">${rKop('Traceerbaarheidsrapport',titel+' · '+kort(new Date()))}`;
+  bs.forEach(b=>{
+    const gs=grondstoffenVan(b), ords=ordersMetBatch(b.code), rest=restVanBatch(b.code);
+    h+=`<div class="rblok"><div class="rkop2">${esc(b.code)} — ${esc(bNamen(b))}</div>
+      <table class="rtab"><tr><th>Gemaakt</th><td>${b.startDatum?kort(new Date(b.startDatum)):'—'}${
+        b.eindDatum?' t/m '+kort(new Date(b.eindDatum)):''}</td></tr>
+      <tr><th>Aantal</th><td>${bTotaal(b)} gepland${
+        b.resultaat?' · '+b.resultaat.goed+' goed, '+b.resultaat.afkeur+' afkeur':''}</td></tr>
+      <tr><th>Nog op voorraad</th><td>${rest?rest+' stuks':'niets'}</td></tr></table>
+
+      <div class="rkop3">Ingaande grondstoffen</div>
+      <table class="rtab"><tr><th>Ingrediënt</th><th>Lot</th><th>Leverancier</th><th>THT</th></tr>
+      ${gs.length?gs.map(g=>g.lots.map(l=>`<tr><td>${esc(g.naam)}</td><td>${esc(l.lot)}</td>
+        <td>${esc(l.leverancier||'—')}</td><td>${l.tht?kort(new Date(l.tht)):'—'}</td></tr>`).join('')).join('')
+        :'<tr><td colspan="4">Geen lotnummers vastgelegd</td></tr>'}</table>
+
+      <div class="rkop3">Uitgaande leveringen</div>
+      <table class="rtab"><tr><th>Order</th><th>Klant</th><th>Aantal</th><th>Datum</th></tr>
+      ${ords.length?ords.map(o=>{
+        const n=Object.keys(o.lots||{}).reduce((t,rid)=>t+(o.lots[rid]||[])
+          .filter(g=>g.lot===b.code).reduce((x,g)=>x+g.aantal,0),0);
+        return `<tr><td>${esc(o.nummer)}</td><td>${esc(klantNaam(o.klantId))}</td>
+          <td>${n}</td><td>${o.ingepakt?kort(new Date(o.ingepakt)):'—'}</td></tr>`}).join('')
+        :'<tr><td colspan="4">Nog niet uitgeleverd</td></tr>'}</table></div>`;
+  });
+  h+=`${rHand()}${rVoet()}</div>`;
+  toonRapport(h,'Traceerbaarheidsrapport');
 }
 
 function sheetVerpakkingNieuw(){
@@ -5163,10 +5456,7 @@ function printEtiketten(bron,n,vel){
     uit+=`<div class="vel ${vel||'a4'}">${cel}</div>`;
   }
   $('#printvel').innerHTML=uit;
-  let st=document.getElementById('printstijl');
-  if(!st){st=document.createElement('style');st.id='printstijl';document.head.appendChild(st)}
-  st.textContent=`@media print{@page{size:${v.mm[0]}mm ${v.mm[1]}mm;margin:0}}`;
-  setTimeout(()=>window.print(),80);
+  drukAf(uit,'Etiketten',`@page{size:${v.mm[0]}mm ${v.mm[1]}mm;margin:0}`);
 }
 
 /* label voor op je voorraadbakjes */
@@ -5830,7 +6120,7 @@ function sheetRapport(soort,batchId,datum){
      <button class="sec" id="rpTerug">Sluiten</button>`);
   setTimeout(()=>pasSchaal('rpSchaal'),30);
   $('#rpTerug').onclick=dicht;
-  $('#rpPrint').onclick=()=>{$('#printvel').innerHTML=html;setTimeout(()=>window.print(),60)};
+  $('#rpPrint').onclick=()=>drukAf(html,'Rapport','@page{size:A4;margin:8mm}');
 }
 
 /* ================= smaken / recepten ================= */
