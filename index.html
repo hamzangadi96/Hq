@@ -29,16 +29,16 @@ button{cursor:pointer;border:none;background:none;padding:0;text-align:left}
 .app{position:relative;width:100%;max-width:440px;margin:0 auto;height:100dvh;background:var(--bg);
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 70px rgba(0,0,0,.10)}
 
-header{flex:none;padding:20px 20px 4px;display:flex;align-items:flex-start;gap:12px}
+header{flex:none;padding:calc(20px + env(safe-area-inset-top)) 20px 4px;display:flex;align-items:flex-start;gap:12px}
 header h1{margin:0;font-size:21px;font-weight:600;letter-spacing:-.035em;line-height:1.2}
-header.gecentreerd{position:relative;display:block;padding:20px 20px 20px;border-bottom:1px solid var(--lijn);
+header.gecentreerd{position:relative;display:block;padding:calc(20px + env(safe-area-inset-top)) 20px 20px;border-bottom:1px solid var(--lijn);
   transition:padding .24s cubic-bezier(.32,.72,0,1),border-color .24s ease}
-header.gecentreerd.klein{padding:12px 20px 12px}
-header.gecentreerd.klein .hbtn.menu{top:6px}
+header.gecentreerd.klein{padding:calc(12px + env(safe-area-inset-top)) 20px 12px}
+header.gecentreerd.klein .hbtn.menu{top:calc(6px + env(safe-area-inset-top))}
 header.gecentreerd .vlak{text-align:center}
 header.gecentreerd .onder{display:none}
 header.gecentreerd .hbtn.terug{display:none}
-header.gecentreerd .hbtn.menu{position:absolute;top:14px;right:12px;margin:0}
+header.gecentreerd .hbtn.menu{position:absolute;top:calc(14px + env(safe-area-inset-top));right:12px;margin:0}
 
 .merk{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600;
   letter-spacing:.16em;line-height:1;color:var(--ink);padding-left:.16em;
@@ -48,6 +48,13 @@ header.klein .merk{font-size:15px;letter-spacing:.12em;padding-left:.12em}
   letter-spacing:.38em;color:var(--grijs2);margin-top:8px;padding-left:.38em;overflow:hidden;max-height:12px;
   transition:opacity .16s ease,max-height .24s cubic-bezier(.32,.72,0,1),margin-top .24s ease}
 header.klein .merk small{opacity:0;max-height:0;margin-top:0}
+.merklogo{display:block;margin:0 auto;max-width:200px;max-height:52px;width:auto;height:auto;object-fit:contain;
+  transition:max-height .24s cubic-bezier(.32,.72,0,1)}
+header.klein .merklogo{max-height:30px}
+.logovak{border:1px dashed var(--grijs3);border-radius:14px;background:var(--bg);padding:18px;
+  display:grid;place-items:center;min-height:104px;margin:0 0 14px}
+.logovak img{max-width:100%;max-height:68px;object-fit:contain}
+.logovak .geenlogo{font-size:13.5px;color:var(--grijs2);text-align:center;line-height:1.5}
 header .onder{margin-top:4px;font-size:14px;font-weight:450;color:var(--grijs);letter-spacing:-.01em}
 header .vlak{flex:1;min-width:0}
 .hbtn{width:34px;height:32px;border-radius:99px;display:grid;place-items:center;color:var(--grijs);flex:none;margin-top:2px}
@@ -868,7 +875,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v71 · 11 aug 2026';
+const APPVERSIE='v72 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -925,6 +932,8 @@ const S={
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   ontvangsten:[], ijkingen:[],
+  /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
+  bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:''},
   batches:[]
 };
 
@@ -944,7 +953,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1061,6 +1070,20 @@ function leesTijd(t){
 function leesGraden(t){
   const m=String(t).match(/(\d+(?:[.,]\d+)?)\s*(?:°\s*)?C(?![a-z])/i);
   return m?parseFloat(m[1].replace(',','.')):null;
+}
+
+/* ---------- het merk van de gebruiker ----------
+   Zolang er geen logo is geüpload blijft de naam in tekst staan, precies zoals eerst. */
+function bedrijf(){
+  if(!S.bedrijf||typeof S.bedrijf!=='object') S.bedrijf={naam:'Cacaoboetiek',regel:'RAFFINEMENT',logo:''};
+  return S.bedrijf;
+}
+function merkKop(){
+  const b=bedrijf();
+  if(b.logo) return `<img class="merklogo" src="${b.logo}" alt="${esc(b.naam||'Logo')}">`;
+  const naam=esc((b.naam||'Cacaoboetiek').toUpperCase());
+  const regel=b.regel?`<small>${esc(b.regel.toUpperCase())}</small>`:'';
+  return `<span class="merk">${naam}${regel}</span>`;
 }
 
 const BEDRIJF={naam:'Cacaoboetiek',adres:'Alcoalaan 8D, 5151 RW Drunen',
@@ -1312,7 +1335,7 @@ function render(){
     const dn=dagNummer(b);
     $('#kopOnder').textContent=`${b.code} · dag ${dn} · ${bMallen(b)} ${bMallen(b)===1?'mal':'mallen'} · ${bTotaal(b)} st`;
   } else if(S.tab==='dashboard'){
-    $('#kopTitel').innerHTML=`<span class="merk">CACAOBOETIEK<small>RAFFINEMENT</small></span>`;
+    $('#kopTitel').innerHTML=merkKop();
     $('#kopOnder').textContent='';
   } else if(S.tab==='productie'){
     $('#kopTitel').textContent='Productie';
@@ -5643,7 +5666,9 @@ function sheetAllergenen(){
 
 function sheetInstellingen(){
   sheet('Instellingen',
-    `<button class="menurij" data-ins="recepten">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
+    `<button class="menurij" data-ins="bedrijf">${svg(I.spark)}Bedrijfsprofiel<span class="tel">${
+       bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
+     <button class="menurij" data-ins="recepten">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
      <button class="menurij" data-ins="mal">${svg(I.vorm)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
      <button class="menurij" data-ins="ijking">${svg(I.temp)}Thermometer ijken<span class="tel">${
        laatsteIjking()?kort(new Date(laatsteIjking().datum)):'nooit'}</span></button>
@@ -5660,6 +5685,7 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>`,'');
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
+    if(k==='bedrijf') return sheetBedrijf();
     if(k==='recepten') return sheetRecepten();
     if(k==='meetpunten') return sheetMeetpunten();
     if(k==='mal') return sheetMal();
@@ -5696,6 +5722,82 @@ function sheetLijst(key){
   $$('[data-wis]').forEach(b=>b.onclick=()=>{arr.splice(parseInt(b.dataset.wis),1);sheetLijst(key);toast('Verwijderd.')});
   $('#lTerug').onclick=sheetInstellingen;
 }
+/* ================= bedrijfsprofiel =================
+   Naam, ondertitel en logo. Het logo wordt verkleind naar maximaal 480 px breed,
+   zodat het klein genoeg blijft om mee te reizen in de database. */
+const LOGO_MAX_BREED=480, LOGO_MAX_BYTES=280*1024;
+
+function verkleinLogo(bestand){
+  return new Promise((klaar,fout)=>{
+    if(!/^image\//.test(bestand.type)) return fout('geen afbeelding');
+    const lezer=new FileReader();
+    lezer.onerror=()=>fout('lezen mislukt');
+    lezer.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>fout('afbeelding onleesbaar');
+      img.onload=()=>{
+        const schaal=Math.min(1,LOGO_MAX_BREED/(img.width||1));
+        const b=Math.max(1,Math.round(img.width*schaal)), h=Math.max(1,Math.round(img.height*schaal));
+        const c=document.createElement('canvas'); c.width=b; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,b,h);
+        /* png houdt een doorzichtige achtergrond heel; is het te zwaar, dan jpeg */
+        let uit=c.toDataURL('image/png');
+        if(uit.length>LOGO_MAX_BYTES){
+          const c2=document.createElement('canvas'); c2.width=b; c2.height=h;
+          const x=c2.getContext('2d');
+          x.fillStyle='#ffffff'; x.fillRect(0,0,b,h); x.drawImage(img,0,0,b,h);
+          uit=c2.toDataURL('image/jpeg',0.86);
+        }
+        if(uit.length>LOGO_MAX_BYTES) return fout('te groot');
+        klaar(uit);
+      };
+      img.src=lezer.result;
+    };
+    lezer.readAsDataURL(bestand);
+  });
+}
+
+function sheetBedrijf(){
+  const b=bedrijf();
+  sheet('Bedrijfsprofiel',
+    `<p class="hint">Dit is het merk dat bovenin je dashboard staat. Laat je het logo leeg,
+      dan wordt de naam in tekst getoond.</p>
+
+     <div class="logovak" id="bpVak">${b.logo
+       ? `<img src="${b.logo}" alt="Logo">`
+       : `<div class="geenlogo">Nog geen logo<br>png met doorzichtige achtergrond werkt het mooist</div>`}</div>
+
+     <input type="file" id="bpBestand" accept="image/*" style="display:none">
+     <button class="knop2" id="bpKies" style="margin:0 0 10px">${svg(I.doc)}${b.logo?'Ander logo kiezen':'Logo kiezen'}</button>
+     ${b.logo?`<button class="knop2" id="bpWeg" style="margin:0 0 22px;color:var(--rood)">${svg(I.kruis,'2')}Logo verwijderen</button>`:'<div style="height:12px"></div>'}
+
+     <div class="veld"><label>Bedrijfsnaam</label>
+       <input class="inp" id="bpNaam" value="${esc(b.naam||'')}" placeholder="Cacaoboetiek"></div>
+     <div class="veld" style="margin-top:14px"><label>Ondertitel</label>
+       <input class="inp" id="bpRegel" value="${esc(b.regel||'')}" placeholder="Bijv. Raffinement">
+       <div class="hint" style="margin:8px 0 0">Klein woord onder de naam. Mag leeg blijven.</div></div>`,
+    `<button class="prim" style="margin-top:0" id="bpOk">Klaar</button>`);
+
+  const bewaarVelden=()=>{
+    const d=bedrijf();
+    d.naam=($('#bpNaam')?$('#bpNaam').value.trim():d.naam)||'';
+    d.regel=($('#bpRegel')?$('#bpRegel').value.trim():d.regel)||'';
+  };
+
+  $('#bpKies').onclick=()=>{ bewaarVelden(); $('#bpBestand').click(); };
+  $('#bpBestand').onchange=e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    toast('Logo wordt klaargemaakt…');
+    verkleinLogo(f).then(data=>{
+      bedrijf().logo=data; bewaarNu(); sheetBedrijf(); render(); toast('Logo ingesteld.');
+    }).catch(()=>toast('Dat bestand lukte niet. Probeer een png of jpg.'));
+  };
+  if($('#bpWeg')) $('#bpWeg').onclick=()=>{
+    bewaarVelden(); bedrijf().logo=''; bewaarNu(); sheetBedrijf(); render(); toast('Logo verwijderd.');
+  };
+  $('#bpOk').onclick=()=>{ bewaarVelden(); bewaarNu(); dicht(); render(); toast('Bedrijfsprofiel bewaard.'); };
+}
+
 function sheetLots(){
   sheet('Partijen in huis',
     `<p class="hint">Alles wat je bij ontvangst hebt vastgelegd. Hieruit kies je bij het loggen van je ingrediënten.</p>
