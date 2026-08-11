@@ -242,13 +242,18 @@ main>.blokkop:first-child{margin-top:8px}
 /* de uitleg schuift over het scherm heen; wat eronder ligt blijft intact */
 /* ── branchekeuze: kaarten met een icoon, twee per rij ── */
 /* ── rondleiding: een blokje uitleg dat naast het veld gaat staan ── */
-.rlblok{position:fixed;left:50%;transform:translateX(-50%) translateY(10px);
-  bottom:calc(22px + env(safe-area-inset-bottom));width:min(400px,calc(100% - 32px));
-  background:var(--ink);color:#fff;border-radius:20px;padding:16px 18px 14px;z-index:80;
+.rlblok{position:absolute;left:50%;transform:translateX(-50%) translateY(10px);
+  bottom:calc(22px + env(safe-area-inset-bottom));width:calc(100% - 32px);max-width:400px;
+  background:var(--ink);color:#fff;border-radius:20px;padding:16px 18px 14px;z-index:200;
   opacity:0;pointer-events:none;transition:opacity .3s,transform .34s cubic-bezier(.32,.72,0,1);
   box-shadow:0 8px 20px -6px rgba(24,24,27,.4),0 24px 50px -20px rgba(24,24,27,.5)}
 .rlblok.open{opacity:1;transform:translateX(-50%);pointer-events:auto}
 .rlblok.boven{bottom:auto;top:calc(22px + env(safe-area-inset-top))}
+/* zolang de rondleiding loopt maken we onderin ruimte vrij */
+body.rlbezig .sheetbody{padding-bottom:230px}
+body.rlbezig .sheetvoet{padding-bottom:calc(230px + env(safe-area-inset-bottom))}
+body.rlbezig.rlboven .sheetbody{padding-bottom:32px;padding-top:200px}
+body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
 .rlkop{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .rlnr{flex:1;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8f8f98}
 .rlweg{font-size:12.5px;font-weight:600;color:#a1a1aa;letter-spacing:-.01em;
@@ -260,7 +265,7 @@ main>.blokkop:first-child{margin-top:8px}
 .rldoor:active{background:#e4e4e7}
 
 /* het element waar de tip bij hoort krijgt een zachte ring */
-.rlmerk{position:relative;z-index:20;border-radius:14px;
+.rlmerk{position:relative;z-index:20;border-radius:14px;background:var(--card);
   box-shadow:0 0 0 2.5px var(--ink),0 0 0 7px rgba(24,24,27,.12);
   animation:rlpuls 2.2s ease-in-out infinite}
 @keyframes rlpuls{0%,100%{box-shadow:0 0 0 2.5px var(--ink),0 0 0 7px rgba(24,24,27,.12)}
@@ -1267,7 +1272,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v126 · 12 aug 2026';
+const APPVERSIE='v127 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6495,20 +6500,11 @@ $('#overlay').onclick=dicht;$('#sheetSluit').onclick=dicht;
 $('#hulpSluit').onclick=hulpDicht;
 $('#rlWeg').onclick=rlStop;
 $('#rlDoor').onclick=()=>{
-  if(!RL) return rlStop();
-  if(RL.klaar) return rlStop();
-  const st=RL.stappen[RL.i];
-  if(st&&st.wacht){
-    /* de gebruiker moet zelf tikken; wij doen het voor hem */
-    const el=document.querySelector(st.kies);
-    $('#rlBlok').classList.remove('open');
-    if(el) el.click();
-    setTimeout(()=>{RL.i++;rlToon()},430);
-    return;
-  }
+  if(!RL||RL.klaar) return rlStop();
+  rlLosmaken();
   RL.i++;
   $('#rlBlok').classList.remove('open');
-  setTimeout(rlToon,120);
+  setTimeout(rlToon,150);
 };
 $('#hulpAlles').onclick=hulpLijst;
 $('#sheetHulp').onclick=()=>hulpOpen($('#sheetHulp').dataset.ond);
@@ -9649,14 +9645,11 @@ const RONDLEIDINGEN={
     stappen:[
       {kies:'#swN',t:'Begin met de naam',
        u:'Alleen dit veld. Zodra je op Volgende tikt is je smaak bewaard — je kunt altijd stoppen en later verder.'},
-      {kies:'#sw1',t:'Ga verder',u:'Elke stap wordt meteen bewaard.',wacht:true},
       {kies:'#swC',t:'Kies je basissoort',u:'Dit bepaalt onder welke soort je smaak straks in de lijst staat.'},
       {kies:'#swT',t:'Hoe lang blijft het goed?',
        u:'Deze houdbaarheid komt op je etiket en bepaalt de THT in je voorraad.'},
-      {kies:'#sw2',t:'Volgende',u:'',wacht:true},
       {kies:'#swO',t:'Voeg je lagen toe',
        u:'Tik een voorstel aan, of kies Andere laag. Per laag vul je het gewicht per bonbon in — daarmee rekent de app je hele batch uit.'},
-      {kies:'#sw3',t:'Bijna klaar',u:'',wacht:true},
       {kies:'#swI',t:'Schrijf wat je doet',
        u:'Bijvoorbeeld: tempereren tot 31,5 °C. Noem je een tijd of temperatuur, dan krijg je daar tijdens het werk automatisch een timer bij.'},
       {kies:'#swS',t:'Bij welke stap hoort het?',
@@ -9696,8 +9689,10 @@ function rondleidingStart(id){
 
 function rlStop(){
   RL=null;
+  rlLosmaken();
   const b=$('#rlBlok'); if(b) b.classList.remove('open');
   document.querySelectorAll('.rlmerk').forEach(e=>e.classList.remove('rlmerk'));
+  document.body.classList.remove('rlbezig','rlboven');
 }
 
 function rlToon(){
@@ -9705,36 +9700,69 @@ function rlToon(){
   const st=RL.stappen[RL.i];
   if(!st) return rlKlaar();
   const el=document.querySelector(st.kies);
-  if(!el){ /* element nog niet in beeld: sla over */ RL.i++; return rlToon() }
+  if(!el){ RL.i++; return rlToon() }
 
+  rlLosmaken();
   document.querySelectorAll('.rlmerk').forEach(e=>e.classList.remove('rlmerk'));
   el.classList.add('rlmerk');
-  el.scrollIntoView({behavior:'smooth',block:'center'});
+  document.body.classList.add('rlbezig');
 
   const blok=$('#rlBlok');
   $('#rlNr').textContent=(RL.i+1)+' van '+RL.stappen.length;
   $('#rlTitel').textContent=st.t;
   $('#rlTekst').textContent=st.u||'';
   $('#rlTekst').style.display=st.u?'':'none';
-  $('#rlDoor').textContent=st.wacht?'Doe dit'
-    :(RL.i===RL.stappen.length-1?'Klaar':'Volgende');
+  $('#rlDoor').textContent=RL.i===RL.stappen.length-1?'Klaar':'Volgende';
 
-  /* boven of onder plaatsen, net waar ruimte is */
+  /* boven of onder, net waar het element staat */
   setTimeout(()=>{
     const r2=el.getBoundingClientRect();
-    const onder=window.innerHeight-r2.bottom;
-    blok.classList.toggle('boven',onder<210);
+    const boven=r2.top>window.innerHeight*0.5;
+    blok.classList.toggle('boven',boven);
+    document.body.classList.toggle('rlboven',boven);
+    el.scrollIntoView({behavior:'smooth',block:'center'});
     blok.classList.add('open');
-  },220);
+  },200);
 
-  /* loopt de gebruiker zelf door? dan schuiven we mee */
-  if(st.wacht){
-    const door=()=>{ el.removeEventListener('click',door); setTimeout(()=>{RL.i++;rlToon()},420) };
-    el.addEventListener('click',door);
+  /* meekijken met wat je doet: klaar? dan zelf door */
+  rlLuister(el,st);
+}
+
+/* de rondleiding luistert mee, zodat hij vanzelf meeloopt */
+let rlAf=[];
+function rlLosmaken(){ rlAf.forEach(f=>{try{f()}catch(e){}}); rlAf=[] }
+
+function rlLuister(el,st){
+  const door=()=>{ rlLosmaken(); setTimeout(()=>{ if(!RL) return; RL.i++; 
+    $('#rlBlok').classList.remove('open'); setTimeout(rlToon,180) },520) };
+
+  /* een invoerveld: door zodra je iets getypt hebt en het veld verlaat */
+  if(el.matches('input,textarea,select')){
+    const kijk=()=>{ if(String(el.value||'').trim()) door() };
+    el.addEventListener('change',kijk); el.addEventListener('blur',kijk);
+    rlAf.push(()=>{el.removeEventListener('change',kijk);el.removeEventListener('blur',kijk)});
+    return;
   }
+  /* een rij chips of knoppen: door zodra je er een kiest */
+  const klik=e=>{
+    const k=e.target.closest('button,.chip,.arij,.chocknop,.brkaart,.orij');
+    if(k) door();
+  };
+  el.addEventListener('click',klik);
+  rlAf.push(()=>el.removeEventListener('click',klik));
+
+  /* verandert het scherm door jouw actie? dan ook door */
+  const wacht=new MutationObserver(()=>{
+    if(!document.contains(el)){ wacht.disconnect(); door() }
+  });
+  const body=$('#sheetBody');
+  if(body){ wacht.observe(body,{childList:true,subtree:true});
+    rlAf.push(()=>wacht.disconnect()) }
 }
 
 function rlKlaar(){
+  rlLosmaken();
+  document.body.classList.remove('rlbezig','rlboven');
   const blok=$('#rlBlok');
   $('#rlNr').textContent='Klaar';
   $('#rlTitel').textContent='Dat was het';
