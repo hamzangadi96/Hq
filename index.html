@@ -797,7 +797,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v67 · 11 aug 2026';
+const APPVERSIE='v68 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -852,7 +852,7 @@ const S={
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
-  klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[],
+  klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   ontvangsten:[], ijkingen:[],
   batches:[]
 };
@@ -1571,15 +1571,17 @@ function maandBalken(){
   });
   const hoogste=Math.max(1,...per.map(x=>x.zak+x.pri));
   if(!per.some(x=>x.zak+x.pri>0)) return '';
+  const toonPri=autoVanDeZaak();
   return `<div class="balken">${per.map((x,i)=>{
     const tot=x.zak+x.pri, h=tot/hoogste*100;
     const leeg=i<=nu2&&tot===0;
     return `<div class="bkol ${i===nu2?'nu':''}" title="${MND[i]} ${Math.round(tot)} km">
       <div class="bstaaf ${leeg?'leeg':''}" style="height:${Math.max(tot?4:0,h)}%">
-        ${x.pri?`<div class="bpri" style="height:${x.pri/Math.max(tot,1)*100}%"></div>`:''}</div>
+        ${toonPri&&x.pri?`<div class="bpri" style="height:${x.pri/Math.max(tot,1)*100}%"></div>`:''}</div>
       <span>${MND[i].slice(0,1).toUpperCase()}</span></div>`}).join('')}</div>
-    <div class="balklegenda"><span><i class="bl zak"></i>zakelijk</span>
-      <span><i class="bl pri"></i>privé</span>
+    <div class="balklegenda">${toonPri
+      ?'<span><i class="bl zak"></i>zakelijk</span><span><i class="bl pri"></i>privé</span>'
+      :'<span>zakelijke kilometers per maand</span>'}
       <span class="rechts">hoogste maand ${getal(Math.round(hoogste))} km</span></div>`;
 }
 
@@ -1930,7 +1932,7 @@ function geldHTML(){
   h+=lijst.length?`<div class="paneel">${lijst.slice(0,20).map(x=>{
     const m=ritMankeert(x);
     return `<button class="arij rrij2" data-rit="${x.id}">
-      <span class="rmerk ${x.zakelijk?'zak':'pri'}">${x.zakelijk?'Z':'P'}</span>
+      ${autoVanDeZaak()?`<span class="rmerk ${x.zakelijk?'zak':'pri'}">${x.zakelijk?'Z':'P'}</span>`:''}
       <span class="naam">${esc(x.reden||'geen reden ingevuld')}
         <small>${kort(new Date(x.datum))} · ${esc(toonPlek(x.start)||'vertrek')} → ${esc(toonPlek(x.eind)||'aankomst')}${
           m.length?' · <b>mist '+m.join(', ')+'</b>':''}</small></span>
@@ -1953,12 +1955,10 @@ function geldHTML(){
         <span class="b">Dit kwartaal<em>${euro(zakKw*kmTarief())} aftrekbaar · Q${kw}</em></span></div>
       <div class="item"><span class="t">${getal(Math.round(zak))}</span>
         <span class="b">Dit jaar<em>${euro(zak*kmTarief())} aftrekbaar · ${komma(kmTarief())} per km</em></span></div>
-      ${pri&&S.autoSoort==='zaak'?`<div class="item ${pri>500?'let':''}"><span class="t">${getal(Math.round(pri))}</span>
+      ${autoVanDeZaak()?`<div class="item ${pri>500?'let':''}"><span class="t">${getal(Math.round(pri))}</span>
         <span class="b">Privé dit jaar<em>${pri>500
           ?'meer dan 500 km — je ontkomt niet aan bijtelling'
-          :'nog '+getal(Math.round(500-pri))+' km tot de grens van 500'}</em></span></div>`
-        :(pri?`<div class="item"><span class="t">${getal(Math.round(pri))}</span>
-        <span class="b">Privé dit jaar<em>niet aftrekbaar</em></span></div>`:'')}
+          :'nog '+getal(Math.round(500-pri))+' km tot de grens van 500'}</em></span></div>`:''}
     </div>`;
 
   h+=`<div class="voet">
@@ -2031,8 +2031,8 @@ async function ritStop(){
      <div class="veld"><label>Waarvoor was deze rit?</label>
        <input class="inp" id="rrR" placeholder="Bijv. levering Bakkerij De Vries">
        <div class="chips" id="rrSug" style="padding-top:10px"></div></div>
-     <div class="veld"><label>Soort rit</label><div class="duo" id="rrZ">
-       <button class="aan" data-v="zak">Zakelijk</button><button data-v="pri">Privé</button></div></div>
+     ${autoVanDeZaak()?`<div class="veld"><label>Soort rit</label><div class="duo" id="rrZ">
+       <button class="aan" data-v="zak">Zakelijk</button><button data-v="pri">Privé</button></div></div>`:''}
 
      <button class="klapkop" id="rrMeer">${svg(I.pijl,'2')}<span>Gegevens controleren</span></button>
      <div class="klapin" id="rrDetail">
@@ -2060,7 +2060,7 @@ async function ritStop(){
        <div class="geen" id="rrNauw">Vertrek gemeten op ${r.nauw||'?'} m nauwkeurig.</div>
      </div>`,
     `<button class="prim" style="margin-top:0" id="rrOk">Rit vastleggen</button>`);
-  let zak=true;
+  let zak=true;                       /* met een privéauto leg je alleen zakelijke ritten vast */
   $$('#rrZ button').forEach(x=>x.onclick=()=>{sluitToetsenbord();
     $$('#rrZ button').forEach(y=>y.classList.remove('aan'));x.classList.add('aan');zak=x.dataset.v==='zak'});
   verfijnen.then(async beter=>{
@@ -2091,9 +2091,12 @@ async function ritStop(){
       data-zak="${x.zakelijk?1:0}">${esc(x.reden)}</button>`).join('');
     $$('[data-sug]').forEach(c=>c.onclick=()=>{
       $('#rrR').value=c.dataset.sug;
-      const wilZak=c.dataset.zak==='1';
-      $$('#rrZ button').forEach(b=>b.classList.toggle('aan',(b.dataset.v==='zak')===wilZak));
-      zak=wilZak; sluitToetsenbord();
+      if(autoVanDeZaak()){
+        const wilZak=c.dataset.zak==='1';
+        $$('#rrZ button').forEach(b=>b.classList.toggle('aan',(b.dataset.v==='zak')===wilZak));
+        zak=wilZak;
+      }
+      sluitToetsenbord();
     });
   };
   suggesties();
@@ -2984,7 +2987,8 @@ function bind(){
         +' op elkaar aansluiten. De app controleert dat voor je.'
       : 'Je trekt ' + komma(kmTarief()) + ' per zakelijke kilometer van je winst af.'
         +' Je hoeft alleen je <b>zakelijke</b> ritten vast te leggen, met vertrekadres,'
-        +' aankomstadres en de afstand. Kilometerstanden hoeven niet.'; };
+        +' aankomstadres en de afstand. Kilometerstanden hoeven niet, en privéritten'
+        +' laat je gewoon weg — daarom vraagt de app er ook niet naar.'; };
     $$('#asK button').forEach(b=>b.onclick=()=>{
       $$('#asK button').forEach(y=>y.classList.remove('aan')); b.classList.add('aan');
       soort=b.dataset.v; uitleg();
@@ -5178,7 +5182,7 @@ function kmControle(){
    onder de 500 privékilometers blijft.
    Privéauto: alleen je zakelijke ritten, met adressen en afstand. Kilometerstanden
    hoeven niet, en privéritten hoef je helemaal niet te verantwoorden. */
-const autoVanDeZaak=()=>S.autoSoort==='zaak';
+const autoVanDeZaak=()=>S.autoSoort==='zaak';   /* alles anders telt als privéauto */
 function ritMankeert(r){
   if(!autoVanDeZaak()&&!r.zakelijk) return [];      /* privérit, privéauto: vrij */
   const m=[];
