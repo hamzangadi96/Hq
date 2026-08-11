@@ -1131,7 +1131,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v119 · 11 aug 2026';
+const APPVERSIE='v120 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1870,7 +1870,16 @@ function dashboardToestand(){
   if(verz.length&&!bezig) return {soort:'verzenden',lijst:verz,plan:vandaagP};
   if(vandaagP.length) return {soort:'vandaag',p:vandaagP[0],rest:vandaagP.slice(1)};
 
-  const boodNu=plan.filter(p=>{const bd=boodschapDatum(p);return bd&&dagenTussen(vandaag(),bd)<=0});
+  /* boodschappen: alleen op de dag zelf, en niet meer 's avonds laat.
+     Na sluitingstijd schuift het naar morgen — dan is het ook niet urgent meer. */
+  const uurNu=new Date().getHours();
+  const boodNu=plan.filter(p=>{
+    const bd=boodschapDatum(p); if(!bd) return false;
+    const n=dagenTussen(vandaag(),bd);
+    if(n<0) return true;                    /* had al gemoeten: blijft staan */
+    if(n>0) return false;                   /* nog niet aan de beurt */
+    return uurNu>=6&&uurNu<20;              /* vandaag, maar wel op een normaal tijdstip */
+  });
   if(boodNu.length) return {soort:'boodschappen',p:boodNu[0],alle:boodNu};
 
   /* een live of andere losse klus vandaag */
@@ -2011,11 +2020,15 @@ function dashboardHTML(){
       if(!lijst.some(x=>gKey(x.product)===gKey(v.product)))
         lijst.push({product:v.product,gram:Math.max(0,(grondDrempel(v.product)||0)-v.saldo)});
     });
+    const bd0=boodschapDatum(t.p);
+    const bn0=bd0?dagenTussen(vandaag(),bd0):0;
     h+=`<div class="hoofdkaart">
-      <div class="stap">Boodschapdag</div>
-      <h2 style="margin-top:6px">Vandaag inkopen</h2>
-      <div class="sub">Je batch van ${n===0?'vandaag':n===1?'morgen':kort(new Date(t.p.datum))}
-        heeft ${lijst.length?lijst.length+' '+(lijst.length===1?'product':'producten'):'grondstoffen'} nodig.</div>
+      <div class="stap" style="color:${DAGSOORT.boodschappen.kleur}">${
+        bn0<0?'Boodschappen · '+Math.abs(bn0)+(Math.abs(bn0)===1?' dag':' dagen')+' te laat':'Boodschapdag'}</div>
+      <h2 style="margin-top:6px">${bn0<0?'Nog inkopen':'Vandaag inkopen'}</h2>
+      <div class="sub">Voor je batch van ${kort(new Date(t.p.datum))}${
+        n>1?' — over '+n+' dagen':n===1?' — morgen':''}. ${
+        lijst.length?lijst.length+' '+(lijst.length===1?'product':'producten')+' nodig.':'Grondstoffen nodig.'}</div>
       <button class="prim" data-boodschap>${svg(I.vracht)}Boodschappenlijst openen</button></div>`;
     if(lijst.length){
       const per={};
