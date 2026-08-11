@@ -173,6 +173,19 @@ main{flex:1;overflow-y:auto;padding:20px 20px 32px;-webkit-overflow-scrolling:to
 .ccel .w{font-size:17px;font-weight:600;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
 .ccel .w.nul{color:var(--grijs3)}
 .ccel .l{font-size:11px;font-weight:600;color:var(--grijs2);margin-top:4px;letter-spacing:.03em}
+
+.dagkaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:20px}
+.dagtop{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.daggetal{font-size:34px;font-weight:600;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.daggetal.nul{color:var(--grijs3)}
+.dageenheid{font-size:15px;font-weight:500;color:var(--grijs);letter-spacing:-.01em;margin-left:8px}
+.dagpct{font-size:14px;font-weight:600;color:var(--grijs2);font-variant-numeric:tabular-nums}
+.dagbalk{height:6px;border-radius:99px;background:var(--bg);overflow:hidden;margin:14px 0 10px}
+.dagbalk span{display:block;height:100%;border-radius:99px;background:var(--ink);
+  transition:width .4s cubic-bezier(.32,.72,0,1)}
+.dagonder{font-size:13.5px;color:var(--grijs);letter-spacing:-.01em}
+.dagstatus{display:flex;align-items:center;gap:9px;margin-top:16px;padding-top:14px;
+  border-top:1px solid var(--lijn);font-size:13.5px;font-weight:500;color:var(--ink2);letter-spacing:-.01em}
 .rustig{text-align:center;padding:24px 20px}
 .rustig .ico{width:40px;height:40px;border-radius:99px;background:var(--bg);color:var(--groen);display:grid;place-items:center;margin:0 auto 12px}
 .rustig .ico svg{width:19px;height:20px}
@@ -239,7 +252,7 @@ nav{flex:none;display:grid;grid-template-columns:repeat(5,1fr);background:var(--
 .inp{width:100%;height:48px;border-radius:14px;border:none;background:var(--bg);padding:0 16px;font-size:16px;font-weight:500;outline:none}
 .inp:focus{box-shadow:inset 0 0 0 1.5px var(--ink);background:#fff}
 textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Inter,sans-serif}
-.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px}
+textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{padding:12px 16px;border-radius:14px;background:var(--bg);font-size:14px;font-weight:600;letter-spacing:-.01em;
   color:var(--ink2);display:inline-flex;align-items:center;gap:8px}
@@ -875,7 +888,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v73 · 11 aug 2026';
+const APPVERSIE='v74 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1455,9 +1468,32 @@ function dashboardHTML(){
   const goed=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.goed:0),0);
   const afk=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.afkeur:0),0);
   const afw=S.batches.reduce((s,x)=>s+x.logs.filter(l=>l.type==='afwijking').length,0);
-  const cel=(w,l)=>`<div class="ccel"><div class="w ${w?'':'nul'}">${w}</div><div class="l">${l}</div></div>`;
-  h+=`<div class="blokkop"><span class="eyebrow">Vandaag in cijfers</span></div>
-  <div class="cijfers">${cel(kb.length,'BATCHES')}${cel(goed,'BONBONS')}${cel(afk,'AFKEUR')}${cel(afw,'AFWIJKING')}</div>`;
+  /* wat er vandaag gepland staat: alle batches bij elkaar */
+  const gepland=S.batches.reduce((s,x)=>s+bTotaal(x),0);
+  const pct=gepland?Math.min(100,Math.round(goed/gepland*100)):0;
+  const nb=S.batches.length;
+
+  h+=`<div class="blokkop"><span class="eyebrow">Vandaag in cijfers</span></div>`;
+  if(!nb){
+    h+=`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vorm,'2.2')}</div>
+      <p>Nog geen batch vandaag.<br>Zodra je er een aanmaakt zie je hier je voortgang.</p></div></div>`;
+  } else {
+    const meldingen=[];
+    if(afk) meldingen.push(afk+' afkeur');
+    if(afw) meldingen.push(afw+(afw===1?' afwijking':' afwijkingen'));
+    h+=`<div class="dagkaart">
+      <div class="dagtop">
+        <div class="daggetal ${goed?'':'nul'}">${goed}<span class="dageenheid">${goed===1?'bonbon':'bonbons'}</span></div>
+        <div class="dagpct">${pct}%</div>
+      </div>
+      <div class="dagbalk"><span style="width:${pct}%"></span></div>
+      <div class="dagonder">van ${gepland} gepland · ${kb.length} van ${nb} ${nb===1?'batch':'batches'} af</div>
+      <div class="dagstatus">
+        <span class="stip ${meldingen.length?'amber':'groen'}"></span>
+        ${meldingen.length?esc(meldingen.join(' · ')):'Geen afkeur, geen afwijkingen'}
+      </div>
+    </div>`;
+  }
   return h;
 }
 
