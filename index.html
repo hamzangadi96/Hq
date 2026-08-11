@@ -241,6 +241,32 @@ main>.blokkop:first-child{margin-top:8px}
 .ustap:last-child::before{display:none}
 /* de uitleg schuift over het scherm heen; wat eronder ligt blijft intact */
 /* ── branchekeuze: kaarten met een icoon, twee per rij ── */
+/* ── rondleiding: een blokje uitleg dat naast het veld gaat staan ── */
+.rlblok{position:fixed;left:50%;transform:translateX(-50%) translateY(10px);
+  bottom:calc(22px + env(safe-area-inset-bottom));width:min(400px,calc(100% - 32px));
+  background:var(--ink);color:#fff;border-radius:20px;padding:16px 18px 14px;z-index:80;
+  opacity:0;pointer-events:none;transition:opacity .3s,transform .34s cubic-bezier(.32,.72,0,1);
+  box-shadow:0 8px 20px -6px rgba(24,24,27,.4),0 24px 50px -20px rgba(24,24,27,.5)}
+.rlblok.open{opacity:1;transform:translateX(-50%);pointer-events:auto}
+.rlblok.boven{bottom:auto;top:calc(22px + env(safe-area-inset-top))}
+.rlkop{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.rlnr{flex:1;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8f8f98}
+.rlweg{font-size:12.5px;font-weight:600;color:#a1a1aa;letter-spacing:-.01em;
+  background:none;border:none;padding:2px 0}
+.rltitel{font-size:17px;font-weight:600;letter-spacing:-.03em;line-height:1.3}
+.rltekst{font-size:14px;color:#c4c4ce;line-height:1.5;margin-top:5px;letter-spacing:-.01em}
+.rldoor{width:100%;margin-top:14px;height:44px;border-radius:14px;background:#fff;color:var(--ink);
+  font-size:15px;font-weight:600;letter-spacing:-.02em;border:none}
+.rldoor:active{background:#e4e4e7}
+
+/* het element waar de tip bij hoort krijgt een zachte ring */
+.rlmerk{position:relative;z-index:20;border-radius:14px;
+  box-shadow:0 0 0 2.5px var(--ink),0 0 0 7px rgba(24,24,27,.12);
+  animation:rlpuls 2.2s ease-in-out infinite}
+@keyframes rlpuls{0%,100%{box-shadow:0 0 0 2.5px var(--ink),0 0 0 7px rgba(24,24,27,.12)}
+  50%{box-shadow:0 0 0 2.5px var(--ink),0 0 0 11px rgba(24,24,27,.05)}}
+@media (prefers-reduced-motion:reduce){.rlmerk{animation:none}}
+
 .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .brkaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
   padding:18px 14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
@@ -1170,6 +1196,13 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
         Alle onderwerpen</button></div>
     </div>
   </div>
+  <div class="rlblok" id="rlBlok">
+    <div class="rlkop"><span class="rlnr" id="rlNr"></span>
+      <button class="rlweg" id="rlWeg">Overslaan</button></div>
+    <div class="rltitel" id="rlTitel"></div>
+    <div class="rltekst" id="rlTekst"></div>
+    <button class="rldoor" id="rlDoor">Volgende</button>
+  </div>
   <div class="toast" id="toast"></div>
 </div>
 <div id="printvel"></div>
@@ -1234,7 +1267,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v125 · 11 aug 2026';
+const APPVERSIE='v126 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6456,10 +6489,27 @@ function sheet(t,b,v,stapLabel){
 function dicht(){stopStap();let ververs=false;
   if(bijSluiten){try{bijSluiten();ververs=true}catch(e){};bijSluiten=null}
   if(ververs)setTimeout(render,0);
-  hulpDicht();
+  hulpDicht(); rlStop();
   $('#sheet').classList.remove('open');$('#overlay').classList.remove('open');sheetOpen=false}
 $('#overlay').onclick=dicht;$('#sheetSluit').onclick=dicht;
 $('#hulpSluit').onclick=hulpDicht;
+$('#rlWeg').onclick=rlStop;
+$('#rlDoor').onclick=()=>{
+  if(!RL) return rlStop();
+  if(RL.klaar) return rlStop();
+  const st=RL.stappen[RL.i];
+  if(st&&st.wacht){
+    /* de gebruiker moet zelf tikken; wij doen het voor hem */
+    const el=document.querySelector(st.kies);
+    $('#rlBlok').classList.remove('open');
+    if(el) el.click();
+    setTimeout(()=>{RL.i++;rlToon()},430);
+    return;
+  }
+  RL.i++;
+  $('#rlBlok').classList.remove('open');
+  setTimeout(rlToon,120);
+};
 $('#hulpAlles').onclick=hulpLijst;
 $('#sheetHulp').onclick=()=>hulpOpen($('#sheetHulp').dataset.ond);
 document.addEventListener('keydown',e=>{
@@ -9536,14 +9586,20 @@ function hulpOpen(ond){
 function hulpDicht(){ const p2=$('#hulpPaneel'); if(p2) p2.classList.remove('open') }
 
 function hulpToon(u){
+  const rl=Object.keys(RONDLEIDINGEN).find(k=>k===u.id
+    ||(u.id==='voorraad'&&k==='ontvangst'));
   $('#hulpTitel').textContent=u.titel;
-  $('#hulpBody').innerHTML=`<div class="uitlegstappen">${u.stappen.map((st,i)=>`<div class="ustap">
+  $('#hulpBody').innerHTML=`${rl?`<button class="prim" style="margin:0 0 20px" data-rlstart="${rl}">
+      ${svg(I.spark)}Leid me er stap voor stap doorheen</button>
+     <p class="hint" style="margin:-12px 0 18px">De app opent het scherm en wijst je aan wat je waar invult.</p>`:''}
+    <div class="uitlegstappen">${u.stappen.map((st,i)=>`<div class="ustap">
     <span class="unr">${i+1}</span>
     <div class="uin"><div class="ut">${esc(st.t)}</div><div class="uu">${esc(st.u)}</div>
       ${st.knop?`<button class="knop2" data-udoe="${esc(st.doe)}" style="margin:12px 0 0">
         ${esc(st.knop)}${svg(I.pijl,'2')}</button>`:''}
     </div></div>`).join('')}</div>`;
   bindHulpKnoppen();
+  $$('#hulpBody [data-rlstart]').forEach(b=>b.onclick=()=>rondleidingStart(b.dataset.rlstart));
 }
 
 function hulpLijst(){
@@ -9579,6 +9635,114 @@ function bindHulpKnoppen(){
     if(d==='naarorders'){ S.tab='orders'; dicht(); render(); return }
     if(d==='naargeld'){ S.tab='geld'; dicht(); render(); return }
   });
+}
+
+/* ================= rondleiding =================
+   Opent het echte scherm en zet een klein blokje uitleg naast het element
+   waar het om gaat — nooit eroverheen. Je vult zelf in; de tip loopt mee. */
+
+let RL=null;   /* {stappen, i, opruimen} */
+
+const RONDLEIDINGEN={
+  smaak:{titel:'Een smaak opbouwen',
+    start:()=>sheetReceptForm(null),
+    stappen:[
+      {kies:'#swN',t:'Begin met de naam',
+       u:'Alleen dit veld. Zodra je op Volgende tikt is je smaak bewaard — je kunt altijd stoppen en later verder.'},
+      {kies:'#sw1',t:'Ga verder',u:'Elke stap wordt meteen bewaard.',wacht:true},
+      {kies:'#swC',t:'Kies je basissoort',u:'Dit bepaalt onder welke soort je smaak straks in de lijst staat.'},
+      {kies:'#swT',t:'Hoe lang blijft het goed?',
+       u:'Deze houdbaarheid komt op je etiket en bepaalt de THT in je voorraad.'},
+      {kies:'#sw2',t:'Volgende',u:'',wacht:true},
+      {kies:'#swO',t:'Voeg je lagen toe',
+       u:'Tik een voorstel aan, of kies Andere laag. Per laag vul je het gewicht per bonbon in — daarmee rekent de app je hele batch uit.'},
+      {kies:'#sw3',t:'Bijna klaar',u:'',wacht:true},
+      {kies:'#swI',t:'Schrijf wat je doet',
+       u:'Bijvoorbeeld: tempereren tot 31,5 °C. Noem je een tijd of temperatuur, dan krijg je daar tijdens het werk automatisch een timer bij.'},
+      {kies:'#swS',t:'Bij welke stap hoort het?',
+       u:'Koppel je de instructie aan een productiestap, dan verschijnt hij vanzelf op het juiste moment tijdens het maken.'}
+    ]},
+  ontvangst:{titel:'Een levering vastleggen',
+    start:()=>sheetOntvangst(),
+    stappen:[
+      {kies:'#oC',t:'Van wie kwam het?',
+       u:'Kies je leverancier, of maak een nieuwe aan. Daarmee kent de app je levertijd en groepeert hij je boodschappenlijst.'},
+      {kies:'#oP',t:'Welk product kwam binnen?',
+       u:'Typ de naam zoals je hem in je recepten gebruikt, dan boekt de app het verbruik vanzelf af bij productie.'},
+      {kies:'#oL',t:'Het lotnummer',
+       u:'Dit is het belangrijkste veld van de hele app. Staat op de verpakking. Zonder lotnummer kun je bij een terugroepactie niets aantonen.'},
+      {kies:'#oT',t:'De THT van deze partij',
+       u:'Bij productie pakt de app automatisch het lot dat het eerst afloopt, zodat je niets weggooit.'},
+      {kies:'#oH',t:'Hoeveel kwam er binnen?',
+       u:'Met de eenheid ernaast. Dit telt op bij je voorraad en wordt bij elke batch weer afgeboekt.'}
+    ]},
+  batch:{titel:'Een batch draaien',
+    start:()=>sheetNieuweBatch(),
+    stappen:[
+      {kies:'.choc',t:'Kies je basissoort',
+       u:'Je krijgt daarna alleen de smaken te zien die met deze soort gemaakt worden.'},
+      {kies:'.orij',t:'Hoeveel mallen per smaak?',
+       u:'De app rekent dat om naar bonbons, en controleert meteen of je genoeg grondstoffen in huis hebt.'}
+    ]}
+};
+
+function rondleidingStart(id){
+  const r=RONDLEIDINGEN[id]; if(!r) return;
+  hulpDicht();
+  RL={id,stappen:r.stappen,i:0};
+  if(r.start) r.start();
+  setTimeout(()=>rlToon(),380);
+}
+
+function rlStop(){
+  RL=null;
+  const b=$('#rlBlok'); if(b) b.classList.remove('open');
+  document.querySelectorAll('.rlmerk').forEach(e=>e.classList.remove('rlmerk'));
+}
+
+function rlToon(){
+  if(!RL) return;
+  const st=RL.stappen[RL.i];
+  if(!st) return rlKlaar();
+  const el=document.querySelector(st.kies);
+  if(!el){ /* element nog niet in beeld: sla over */ RL.i++; return rlToon() }
+
+  document.querySelectorAll('.rlmerk').forEach(e=>e.classList.remove('rlmerk'));
+  el.classList.add('rlmerk');
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+
+  const blok=$('#rlBlok');
+  $('#rlNr').textContent=(RL.i+1)+' van '+RL.stappen.length;
+  $('#rlTitel').textContent=st.t;
+  $('#rlTekst').textContent=st.u||'';
+  $('#rlTekst').style.display=st.u?'':'none';
+  $('#rlDoor').textContent=st.wacht?'Doe dit'
+    :(RL.i===RL.stappen.length-1?'Klaar':'Volgende');
+
+  /* boven of onder plaatsen, net waar ruimte is */
+  setTimeout(()=>{
+    const r2=el.getBoundingClientRect();
+    const onder=window.innerHeight-r2.bottom;
+    blok.classList.toggle('boven',onder<210);
+    blok.classList.add('open');
+  },220);
+
+  /* loopt de gebruiker zelf door? dan schuiven we mee */
+  if(st.wacht){
+    const door=()=>{ el.removeEventListener('click',door); setTimeout(()=>{RL.i++;rlToon()},420) };
+    el.addEventListener('click',door);
+  }
+}
+
+function rlKlaar(){
+  const blok=$('#rlBlok');
+  $('#rlNr').textContent='Klaar';
+  $('#rlTitel').textContent='Dat was het';
+  $('#rlTekst').textContent='Je weet nu hoe het werkt. Vul de rest in je eigen tempo in.';
+  $('#rlTekst').style.display='';
+  $('#rlDoor').textContent='Sluiten';
+  document.querySelectorAll('.rlmerk').forEach(e=>e.classList.remove('rlmerk'));
+  RL.klaar=true;
 }
 
 function sheetUitleg(){
