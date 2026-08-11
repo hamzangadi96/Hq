@@ -93,6 +93,22 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 10px 22px -18px rgba(24,24,27,.2)}
 .snelknop svg{width:16px;height:16px;stroke-width:1.9;color:var(--grijs);flex:none}
 .snelknop:active{background:var(--bg)}
+
+/* verpakking als raster: kleuren onder elkaar, maten naast elkaar */
+.vraster{display:grid;grid-template-columns:1fr repeat(auto-fit,minmax(58px,68px));
+  align-items:stretch;padding:0 14px 10px}
+.vrhoek{height:34px}
+.vrmaat{height:34px;display:grid;place-items:center;font-size:12px;font-weight:700;
+  color:var(--grijs2);letter-spacing:.02em}
+.vrmaat small{font-size:9.5px;font-weight:600;margin-left:2px;opacity:.75}
+.vrkleur{display:flex;align-items:center;font-size:14.5px;font-weight:500;letter-spacing:-.015em;
+  padding:0 8px 0 2px;min-height:46px;border-top:1px solid var(--lijn)}
+.vrcel{display:grid;place-items:center;min-height:46px;border-top:1px solid var(--lijn);
+  font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);
+  border-radius:0;text-align:center}
+.vrcel.leeg{color:var(--grijs3);font-weight:500}
+.vrcel.amber{color:var(--amber)} .vrcel.rood{color:var(--rood)}
+.vrcel:active{background:var(--bg)}
 .hbtn{width:34px;height:32px;border-radius:99px;display:grid;place-items:center;color:var(--grijs);flex:none;margin-top:2px}
 .hbtn svg{width:18px;height:18px}
 .hbtn.terug{margin-left:-8px}
@@ -202,6 +218,22 @@ main{flex:1;overflow-y:auto;padding:20px 20px 32px;-webkit-overflow-scrolling:to
 .snel{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .snelknop{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:16px 16px;display:flex;align-items:center;gap:12px}
 .snelknop:active{background:var(--bg)}
+
+/* verpakking als raster: kleuren onder elkaar, maten naast elkaar */
+.vraster{display:grid;grid-template-columns:1fr repeat(auto-fit,minmax(58px,68px));
+  align-items:stretch;padding:0 14px 10px}
+.vrhoek{height:34px}
+.vrmaat{height:34px;display:grid;place-items:center;font-size:12px;font-weight:700;
+  color:var(--grijs2);letter-spacing:.02em}
+.vrmaat small{font-size:9.5px;font-weight:600;margin-left:2px;opacity:.75}
+.vrkleur{display:flex;align-items:center;font-size:14.5px;font-weight:500;letter-spacing:-.015em;
+  padding:0 8px 0 2px;min-height:46px;border-top:1px solid var(--lijn)}
+.vrcel{display:grid;place-items:center;min-height:46px;border-top:1px solid var(--lijn);
+  font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);
+  border-radius:0;text-align:center}
+.vrcel.leeg{color:var(--grijs3);font-weight:500}
+.vrcel.amber{color:var(--amber)} .vrcel.rood{color:var(--rood)}
+.vrcel:active{background:var(--bg)}
 .snelknop svg{width:19px;height:20px;color:var(--grijs);flex:none;stroke-width:1.7}
 .snelknop span{font-size:14px;font-weight:500;letter-spacing:-.015em;line-height:1.25}
 .cijfers{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid var(--lijn);border-radius:18px;overflow:hidden}
@@ -945,7 +977,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v80 · 11 aug 2026';
+const APPVERSIE='v81 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1121,7 +1153,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1146,7 +1178,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -2969,11 +3001,8 @@ function voorraadHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
    :`<div class="paneel"><div class="geen">Zodra je een batch afrondt, komt het gereed product hier vanzelf te staan.</div></div>`;
 
-  const grond=grondVoorraad();
-  const opRaken=grond.filter(grondOnder);
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Grondstoffen</span>
-      <span class="tel">${opRaken.length?opRaken.length+' bijna op':(grond.length?grond.length+' producten':'')}</span></div>`;
-  h+=grond.length?`<div class="paneel">${grond.map(v=>{
+  const alles=grondVoorraad();
+  const rij=v=>{
     const d=grondDrempel(v.product), laag=grondOnder(v), leeg=v.saldo<=0;
     const lots=Object.keys(v.lots).filter(k=>v.lots[k]>0);
     return `<button class="arij" data-gs="${esc(v.product)}">
@@ -2982,8 +3011,53 @@ function voorraadHTML(){
                    :'geen lot bekend'}${d?' · drempel '+toonHoeveel(d,v.basis):''}</small></span>
       ${laag||leeg?`<span class="stip ${leeg?'rood':'amber'}"></span>`:''}
       <span class="waarde gevuld">${toonHoeveel(v.saldo,v.basis)}</span>
-      <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+  };
+
+  /* grondstoffen */
+  const grond=alles.filter(v=>artSoort(v.product)==='ingredient');
+  const opRaken=grond.filter(grondOnder);
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Grondstoffen</span>
+      <span class="tel">${opRaken.length?opRaken.length+' bijna op':(grond.length?grond.length+' producten':'')}</span></div>`;
+  h+=grond.length?`<div class="paneel">${grond.map(rij).join('')}</div>`
    :`<div class="paneel"><div class="geen">Nog geen grondstoffen. Leg een levering vast bij Ontvangst.</div></div>`;
+
+  /* verpakking, als raster van maat × kleur */
+  const verp=alles.filter(v=>artSoort(v.product)==='verpakking');
+  const laagV=verp.filter(grondOnder);
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Verpakking</span>
+      <span class="tel">${laagV.length?laagV.length+' bijna op':(verp.length?verp.length+' artikelen':'')}</span></div>`;
+  if(verp.length){
+    const maten=[...new Set(verp.map(v=>art(v.product).maat).filter(Boolean))].sort((a,b2)=>a-b2);
+    const kleuren=[...new Set(verp.map(v=>art(v.product).kleur).filter(Boolean))];
+    const los=verp.filter(v=>!art(v.product).maat||!art(v.product).kleur);
+    if(maten.length&&kleuren.length){
+      h+=`<div class="paneel" style="padding:4px 0"><div class="vraster">
+        <div class="vrhoek"></div>
+        ${maten.map(m=>`<div class="vrmaat">${m}<small>st</small></div>`).join('')}
+        ${kleuren.map(k=>`<div class="vrkleur">${esc(k)}</div>
+          ${maten.map(m=>{
+            const v=verp.find(x=>art(x.product).maat===m&&art(x.product).kleur===k);
+            if(!v) return `<div class="vrcel leeg">—</div>`;
+            const st=grondOnder(v)?(v.saldo<=0?'rood':'amber'):'';
+            return `<button class="vrcel ${st}" data-gs="${esc(v.product)}">${getal(v.saldo)}</button>`;
+          }).join('')}`).join('')}
+      </div></div>`;
+    }
+    if(los.length) h+=`<div class="paneel" style="margin-top:10px">${los.map(rij).join('')}</div>`;
+  } else {
+    h+=`<div class="paneel"><div class="geen">Nog geen verpakking. Voeg je doosjes in één keer toe.</div></div>`;
+  }
+  h+=`<button class="knop2" data-verpnieuw style="margin-top:10px">${svg(I.plus)}Verpakking toevoegen</button>`;
+
+  /* hulpmiddelen */
+  const hulp=alles.filter(v=>artSoort(v.product)==='hulp');
+  if(hulp.length){
+    const laagH=hulp.filter(grondOnder);
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Hulpmiddelen</span>
+        <span class="tel">${laagH.length?laagH.length+' bijna op':hulp.length+' artikelen'}</span></div>
+      <div class="paneel">${hulp.map(rij).join('')}</div>`;
+  }
 
   h+=`<div class="voet">
     <button data-vmut>Alle mutaties${(S.mutaties||[]).length?' ('+S.mutaties.length+')':''}</button>
@@ -3027,6 +3101,10 @@ function sheetGrondstof(product){
      <div class="veld"><label>Reden</label>
        <input class="inp" id="gR" placeholder="Bijv. breuk, weggegooid, verbruikt"></div>
 
+     <div class="veld"><label>Soort</label>
+       <div class="chips" id="gSo">${Object.keys(SOORTEN).map(k=>
+         `<button class="chip ${artSoort(product)===k?'aan':''}" data-v="${k}">${SOORTEN[k].enk}</button>`).join('')}</div></div>
+
      <div class="veld"><label>Drempel voor 'bijna op'</label>
        <div class="rijtje">
          <input class="mini" id="gD" type="number" inputmode="decimal" placeholder="0" value="${d?(basis==='g'||basis==='ml'?d:d):''}">
@@ -3046,6 +3124,9 @@ function sheetGrondstof(product){
     $('#gLotV').style.display=k==='tel'?'none':'';
   });
   chips('#gL');
+  chips('#gSo',false,()=>{
+    zetArt(product,{soort:chipV('#gSo')}); bewaarNu(); render();
+  });
   $('#gDOk').onclick=()=>{
     const w=$('#gD').value.trim();
     S.drempels=S.drempels||{};
@@ -3117,6 +3198,78 @@ function boekVerbruik(b){
   lijst.forEach(v=>{ if(v.gram>0) gBoek(v.product,-v.gram,'g','Verbruik batch '+b.code,v.lot) });
   b.verbruikGeboekt=true;
   return lijst.length;
+}
+
+/* ---------- verpakking in één keer aanmaken ----------
+   Twee maten in zes kleuren zijn twaalf artikelen. Die typ je niet los;
+   je geeft de maten en de kleuren, en de app maakt de combinaties. */
+const V={maten:'',kleuren:'',naam:'Doosje',start:0,drempel:0};
+function sheetVerpakkingNieuw(){
+  sheet('Verpakking toevoegen',
+    `<p class="hint">Geef je maten en kleuren op. De app maakt er losse artikelen van,
+      zodat je per kleur en maat ziet hoeveel er nog is.</p>
+
+     <div class="veld"><label>Hoe noem je het?</label>
+       <input class="inp" id="vN" value="${esc(V.naam)}" placeholder="Doosje"></div>
+
+     <div class="veld"><label>Maten — aantal bonbons per doos</label>
+       <input class="inp" id="vM" value="${esc(V.maten)}" placeholder="16, 25" inputmode="numeric">
+       <div class="hint" style="margin:8px 0 0">Scheiden met een komma. Laat leeg als er geen maten zijn.</div></div>
+
+     <div class="veld"><label>Kleuren</label>
+       <input class="inp" id="vK" value="${esc(V.kleuren)}" placeholder="Bordeaux, goud, zwart, wit, groen, roze">
+       <div class="hint" style="margin:8px 0 0">Scheiden met een komma.</div></div>
+
+     <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+       <div><label>Beginvoorraad per stuk</label>
+         <input class="inp" id="vS" type="number" inputmode="numeric" placeholder="0"></div>
+       <div><label>Drempel per stuk</label>
+         <input class="inp" id="vD" type="number" inputmode="numeric" placeholder="0"></div></div>
+
+     <div id="vVoor"></div>`,
+    `<button class="prim" style="margin-top:0" id="vOk">Aanmaken</button>`);
+
+  const deel=t=>String(t||'').split(',').map(x=>x.trim()).filter(Boolean);
+  const maak=()=>{
+    const naam=$('#vN').value.trim()||'Doosje';
+    const maten=deel($('#vM').value).map(x=>parseInt(x,10)).filter(x=>x>0);
+    const kleuren=deel($('#vK').value);
+    const uit=[];
+    if(maten.length&&kleuren.length) kleuren.forEach(k=>maten.forEach(m=>uit.push({naam:`${naam} ${m} · ${k}`,maat:m,kleur:k})));
+    else if(maten.length) maten.forEach(m=>uit.push({naam:`${naam} ${m}`,maat:m,kleur:''}));
+    else if(kleuren.length) kleuren.forEach(k=>uit.push({naam:`${naam} ${k}`,maat:0,kleur:k}));
+    else if(naam) uit.push({naam:naam,maat:0,kleur:''});
+    return uit;
+  };
+  const teken=()=>{
+    const lijst=maak();
+    $('#vVoor').innerHTML=lijst.length
+      ? `<div class="blokkop"><span class="eyebrow">Wordt aangemaakt</span><span class="tel">${lijst.length}</span></div>
+         <div class="paneel">${lijst.slice(0,14).map(x=>`<div class="arij" style="cursor:default">
+           <span class="naam">${esc(x.naam)}</span></div>`).join('')}
+           ${lijst.length>14?`<div class="geen">en nog ${lijst.length-14}…</div>`:''}</div>`
+      : '';
+    $('#vOk').textContent=lijst.length?`${lijst.length} ${lijst.length===1?'artikel':'artikelen'} aanmaken`:'Aanmaken';
+  };
+  ['vN','vM','vK'].forEach(id=>$('#'+id).oninput=teken);
+  teken();
+
+  $('#vOk').onclick=()=>{
+    const lijst=maak();
+    if(!lijst.length) return toast('Vul minstens een naam in.');
+    const start=parseInt($('#vS').value)||0, drem=parseInt($('#vD').value)||0;
+    let n=0;
+    lijst.forEach(x=>{
+      zetArt(x.naam,{soort:'verpakking',maat:x.maat,kleur:x.kleur});
+      if(drem>0){S.drempels=S.drempels||{};S.drempels[gKey(x.naam)]=drem}
+      if(start>0) gBoek(x.naam,start,'st','Beginvoorraad');
+      else if(!(S.gmut||[]).some(m=>gKey(m.product)===gKey(x.naam))) gBoek(x.naam,0,'st','Aangemaakt');
+      n++;
+    });
+    V.naam=$('#vN').value.trim()||'Doosje'; V.maten=$('#vM').value; V.kleuren=$('#vK').value;
+    bewaarNu(); dicht(); render();
+    toast(n+' verpakkingsartikelen aangemaakt.');
+  };
 }
 
 function sheetBranche(eerste){
@@ -3583,6 +3736,7 @@ function bind(){
   });
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
+  $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
@@ -5592,7 +5746,7 @@ function grondVoorraad(){
   const map={};
   (S.gmut||[]).forEach(m=>{
     const k=gKey(m.product); if(!k) return;
-    const basis=(BASIS[m.eenheid]||BASIS.st)[0];
+    const basis=artSoort(m.product)==='ingredient'?(BASIS[m.eenheid]||BASIS.st)[0]:'st';
     map[k]=map[k]||{product:m.product,basis:basis,saldo:0,lots:{}};
     map[k].saldo+=naarBasis(m.aantal||0,m.eenheid);
     if(m.lot){
@@ -5605,6 +5759,24 @@ function grondVoorraad(){
     return a.product.localeCompare(b2.product);
   });
 }
+/* elk artikel heeft een soort; verpakking en hulpmiddelen tellen anders dan grondstoffen */
+const SOORTEN={
+  ingredient:{naam:'Grondstoffen',enk:'Grondstof',eenheid:'g'},
+  verpakking:{naam:'Verpakking',enk:'Verpakkingsartikel',eenheid:'st'},
+  hulp:{naam:'Hulpmiddelen',enk:'Hulpmiddel',eenheid:'st'}
+};
+function art(product){
+  const k=gKey(product);
+  S.artikelen=S.artikelen||{};
+  return S.artikelen[k]||{soort:'ingredient'};
+}
+function zetArt(product,d){
+  const k=gKey(product); if(!k) return;
+  S.artikelen=S.artikelen||{};
+  S.artikelen[k]=Object.assign({soort:'ingredient'},S.artikelen[k]||{},d);
+}
+const artSoort=p=>art(p).soort||'ingredient';
+
 const grondDrempel=p=>((S.drempels||{})[gKey(p)]||0);
 const grondOnder=v=>{const d=grondDrempel(v.product);return d>0&&v.saldo<=d};
 
