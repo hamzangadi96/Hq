@@ -989,7 +989,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v86 · 11 aug 2026';
+const APPVERSIE='v87 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1164,7 +1164,7 @@ const S={
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
-  klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
+  klanten:[], orders:[], verkoop:{}, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   gmut:[], drempels:{}, artikelen:{}, levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
@@ -1190,7 +1190,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1572,7 +1572,7 @@ const TABS=[
   {key:'productie',label:'Productie',icon:I.vorm,klaar:true},
   {key:'orders',label:'Orders',icon:I.lijst,klaar:true},
   {key:'voorraad',label:'Voorraad',icon:I.doos,klaar:true},
-  {key:'geld',label:'Geld',icon:I.euro,klaar:true}
+  {key:'geld',label:'Financiën',icon:I.euro,klaar:true}
 ];
 const tabsInBalk=()=>TABS.filter(t=>t.klaar||t.key===S.tab);
 const STRAKS={
@@ -2399,10 +2399,198 @@ function sheetRitten(){
   $('#rtT').onclick=dicht;
 }
 
+/* ================= omzet, marge en btw =================
+   De verkoopprijs leg je per smaak vast, per bonbon. Daaruit volgt je omzet,
+   je marge en je btw-aangifte. Alles wat hier staat komt uit orders die je
+   daadwerkelijk hebt ingepakt. */
+const BTW_ETEN=0.09, BTW_REST=0.21;
+const verkoopPrijs=id=>{const v=(S.verkoop||{})[id];return typeof v==='number'?v:null};
+function orderBedrag(o){
+  let bekend=0, mist=0;
+  (o.regels||[]).forEach(r=>{
+    const p=verkoopPrijs(r.receptId);
+    if(p===null) mist+=r.aantal; else bekend+=p*r.aantal;
+  });
+  return {bedrag:bekend,mist};
+}
+function orders_in(jaar,kwartaal){
+  const j=String(jaar);
+  return (S.orders||[]).filter(o=>{
+    if(o.status!=='ingepakt'&&o.status!=='geleverd') return false;
+    const d=o.ingepakt||o.datum; if(!d) return false;
+    if(String(d).slice(0,4)!==j) return false;
+    return kwartaal?kwartaalVan(d)===kwartaal:true;
+  });
+}
+function omzetVan(jaar,kwartaal){
+  let bruto=0, mist=0, n=0;
+  orders_in(jaar,kwartaal).forEach(o=>{
+    const b=orderBedrag(o); bruto+=b.bedrag; mist+=b.mist; n++;
+  });
+  return {bruto,mist,orders:n,btw:bruto-bruto/(1+BTW_ETEN),excl:bruto/(1+BTW_ETEN)};
+}
+/* wat je aan grondstoffen inkocht in een periode */
+function inkoopVanPeriode(jaar,kwartaal){
+  return (S.gmut||[]).filter(m=>{
+    if(m.aantal<=0) return false;
+    if(!/ontvangst/i.test(m.reden||'')) return false;
+    const d=String(m.datum||''); if(d.slice(0,4)!==String(jaar)) return false;
+    return kwartaal?kwartaalVan(d)===kwartaal:true;
+  }).reduce((n,m)=>{const pr=gPrijs(m.product);
+    return pr===null?n:n+naarBasis(m.aantal,m.eenheid)*pr},0);
+}
+function bonnenPeriode(jaar,kwartaal){
+  return (S.bonnen||[]).filter(b=>{
+    const d=String(b.datum||''); if(d.slice(0,4)!==String(jaar)) return false;
+    return kwartaal?kwartaalVan(d)===kwartaal:true;
+  });
+}
+/* marge per smaak */
+function margeVan(r){
+  const vk=verkoopPrijs(r.id), kp=kostprijs(r);
+  if(vk===null) return null;
+  const exclBtw=vk/(1+BTW_ETEN);
+  const kost=kp.compleet?kp.per:null;
+  return {vk,excl:exclBtw,kost,
+    marge:kost===null?null:exclBtw-kost,
+    pct:kost===null||exclBtw<=0?null:Math.round((exclBtw-kost)/exclBtw*100),
+    mist:kp.mist};
+}
+
+function sheetVerkoopprijzen(){
+  const lijst=(S.recepten||[]).slice().sort((a,b2)=>a.naam.localeCompare(b2.naam));
+  sheet('Verkoopprijzen',
+    `<p class="hint">De prijs per bonbon die je aan de klant rekent, inclusief 9% btw.
+      Hieruit rekent de app je omzet, je marge en je aangifte.</p>
+     ${lijst.length?lijst.map(r=>{
+       const m=margeVan(r);
+       return `<div class="rrij">
+         <div class="rinfo"><div class="rnaam">${esc(r.naam)}</div>
+           <div class="rsub">${m&&m.marge!==null
+             ? 'kostprijs '+euro(m.kost)+' · marge '+euro(m.marge)+' ('+m.pct+'%)'
+             : (m?'kostprijs onbekend — vul je inkoopprijzen aan':'nog geen prijs')}</div></div>
+         <div class="qty"><input class="lotinp" style="width:88px" data-vk="${r.id}" type="number"
+           inputmode="decimal" step="0.05" placeholder="€" value="${verkoopPrijs(r.id)!==null?verkoopPrijs(r.id):''}"></div>
+       </div>`}).join('')
+      :'<div class="geen">Nog geen smaken. Voeg er eerst een toe.</div>'}`,
+    lijst.length?`<button class="prim" style="margin-top:0" id="vkOk">Opslaan</button>`:'');
+  if($('#vkOk')) $('#vkOk').onclick=()=>{
+    S.verkoop=S.verkoop||{};
+    $$('[data-vk]').forEach(i=>{
+      const w=i.value.trim(), k=i.dataset.vk;
+      if(w==='') delete S.verkoop[k]; else S.verkoop[k]=Math.max(0,parseFloat(w)||0);
+    });
+    bewaarNu(); dicht(); render(); toast('Verkoopprijzen opgeslagen.');
+  };
+}
+
+function sheetBtw(){
+  const teken=(jaar,kw)=>{
+    const om=omzetVan(jaar,kw);
+    const bns=bonnenPeriode(jaar,kw);
+    const voorbelasting=bns.reduce((n,b)=>n+(b.btw||0),0);
+    const bonBedrag=bns.reduce((n,b)=>n+b.bedrag,0);
+    const teBetalen=om.btw-voorbelasting;
+    const kmKw=kmPeriode(true,kw);
+
+    const tekst=`Btw-aangifte ${jaar} Q${kw}
+Omzet incl. btw: ${euro(om.bruto)}
+Omzet excl. btw: ${euro(om.excl)}
+Btw over omzet (9%): ${euro(om.btw)}
+Voorbelasting uit bonnen: ${euro(voorbelasting)}
+Te betalen: ${euro(teBetalen)}`;
+
+    sheet('Btw-aangifte',
+      `<p class="hint">Een hulpmiddel, geen aangifte. Controleer alles bij je boekhouder —
+        dit rekent met 9% over je producten en met de btw die je bij je bonnen invulde.</p>
+
+       <div class="veld"><label>Periode</label>
+         <div class="duo3" id="btwK">
+           ${[1,2,3,4].slice(0,3).map(q=>`<button class="${q===kw?'aan':''}" data-v="${q}">Q${q}</button>`).join('')}
+         </div>
+         <div class="duo3" id="btwK2" style="margin-top:6px">
+           <button class="${kw===4?'aan':''}" data-v="4">Q4</button>
+           <button data-v="0" class="${!kw?'aan':''}">Heel ${jaar}</button>
+           <button data-v="-1">Vorig jaar</button>
+         </div></div>
+
+       <div class="vrkop"><div class="vrgetal">${euro(teBetalen)}<em>${teBetalen>=0?'te betalen':'terug te krijgen'}</em></div>
+         <div class="vrmeta">${jaar}${kw?' · kwartaal '+kw:''}<br>${om.orders} ${om.orders===1?'order':'orders'} verwerkt</div></div>
+
+       <div class="blokkop"><span class="eyebrow">Omzet</span></div>
+       <div class="paneel">
+         <div class="arij" style="cursor:default"><span class="naam">Inclusief btw</span>
+           <span class="waarde gevuld">${euro(om.bruto)}</span></div>
+         <div class="arij" style="cursor:default"><span class="naam">Exclusief btw</span>
+           <span class="waarde gevuld">${euro(om.excl)}</span></div>
+         <div class="arij" style="cursor:default"><span class="naam">Btw 9% over producten</span>
+           <span class="waarde gevuld">${euro(om.btw)}</span></div>
+       </div>
+       ${om.mist?`<div class="melding amber" style="margin-top:12px">${svg(I.alarm,'2')}
+         <span>${om.mist} bonbons zonder verkoopprijs — die tellen niet mee.
+           Vul je prijzen aan voor een kloppend beeld.</span></div>`:''}
+
+       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Voorbelasting</span></div>
+       <div class="paneel">
+         <div class="arij" style="cursor:default"><span class="naam">Bonnen<small>${bns.length} stuks · ${euro(bonBedrag)}</small></span>
+           <span class="waarde gevuld">${euro(voorbelasting)}</span></div>
+       </div>
+
+       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Ook aftrekbaar</span></div>
+       <div class="paneel">
+         <div class="arij" style="cursor:default"><span class="naam">Zakelijke kilometers<small>${
+           getal(Math.round(kmKw))} km · geen btw, wel van de winst af</small></span>
+           <span class="waarde gevuld">${euro(kmKw*kmTarief())}</span></div>
+       </div>
+
+       <div class="hint" style="margin-top:20px">Verzendkosten en kado-opties vallen onder 21%.
+         Zodra je die apart vastlegt bij een order rekent de app ze mee.</div>`,
+      `<button class="prim" style="margin-top:0" id="btwKopie">Overzicht kopiëren</button>`);
+
+    chips('#btwK',false,()=>teken(jaar,parseInt(chipV('#btwK'))));
+    $$('#btwK2 [data-v]').forEach(b=>b.onclick=()=>{
+      const v=parseInt(b.dataset.v);
+      if(v===-1) return teken(jaar-1,0);
+      teken(jaar,v||0);
+    });
+    $('#btwKopie').onclick=()=>{
+      try{ navigator.clipboard.writeText(tekst); toast('Overzicht gekopieerd.') }
+      catch(e){ toast('Kopiëren lukte niet.') }
+    };
+  };
+  teken(new Date().getFullYear(),kwartaalVan(new Date()));
+}
+
+function sheetMarges(){
+  const lijst=(S.recepten||[]).map(r=>({r,m:margeVan(r)}))
+    .filter(x=>x.m).sort((a,b2)=>(b2.m.marge||0)-(a.m.marge||0));
+  const zonder=(S.recepten||[]).length-lijst.length;
+  sheet('Marge per smaak',
+    `<p class="hint">Wat houd je over per bonbon, na btw en na grondstofkosten?
+      Arbeid en vaste lasten zitten er niet in.</p>
+     ${lijst.length?`<div class="paneel">${lijst.map(x=>`<button class="arij" data-vkprijs>
+       <span class="naam">${esc(x.r.naam)}<small>${x.m.kost!==null
+         ? 'verkoop '+euro(x.m.vk)+' · excl. btw '+euro(x.m.excl)+' · kostprijs '+euro(x.m.kost)
+         : 'kostprijs onbekend — '+x.m.mist.length+' ingrediënten zonder inkoopprijs'}</small></span>
+       ${x.m.pct!==null?`<span class="stip ${x.m.pct<40?'amber':'groen'}"></span>`:''}
+       <span class="waarde gevuld">${x.m.marge!==null?euro(x.m.marge)+(x.m.pct!==null?' · '+x.m.pct+'%':''):'—'}</span>
+     </button>`).join('')}</div>`
+      :`<div class="paneel"><div class="geen">Nog geen verkoopprijzen ingevuld.</div></div>`}
+     ${zonder?`<div class="geen" style="padding-top:10px">${zonder} ${zonder===1?'smaak heeft':'smaken hebben'}
+       nog geen verkoopprijs.</div>`:''}`,
+    `<button class="prim" style="margin-top:0" id="mgPr">Verkoopprijzen aanpassen</button>`);
+  $('#mgPr').onclick=sheetVerkoopprijzen;
+  $$('[data-vkprijs]').forEach(x=>x.onclick=sheetVerkoopprijzen);
+}
+
 function geldHTML(){
   const r=S.rit, lijst=ritten();
   const zak=kmDitJaar(true), pri=kmDitJaar(false);
-  let h=`<h1>Geld</h1><div class="datum">Kilometers, facturen en bonnen</div>`;
+  const jr0=new Date().getFullYear(), kw0=kwartaalVan(new Date());
+  const omJ=omzetVan(jr0,0);
+  let h=`<h1>Financiën</h1><div class="datum">${omJ.bruto
+    ? euro(omJ.bruto)+' omzet dit jaar · '+omJ.orders+' '+(omJ.orders===1?'order':'orders')
+    : 'omzet, btw, kilometers en bonnen'}</div>`;
 
   if(r){
     const min=Math.round((Date.now()-r.begonnen)/60000);
@@ -2424,6 +2612,30 @@ function geldHTML(){
         Laat de app open voor een precieze meting. Sluit je hem, dan berekent hij de route bij aankomst.${
         S.kmStand?'<br>Teller staat op '+getal(S.kmStand)+' km':''}</div>`;
   }
+
+  /* omzet en btw: het eerste wat je wil zien */
+  const omK=omzetVan(jr0,kw0);
+  const bnsK=bonnenPeriode(jr0,kw0);
+  const voorK=bnsK.reduce((n,b)=>n+(b.btw||0),0);
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Omzet</span>
+      <span class="tel">${omJ.mist?omJ.mist+' zonder prijs':''}</span></div>
+    <div class="paneel">
+      <button class="arij" data-btw>
+        <span class="naam">Dit kwartaal<small>Q${kw0} · ${euro(omK.btw)} btw over de omzet</small></span>
+        <span class="waarde ${omK.bruto?'gevuld':''}">${omK.bruto?euro(omK.bruto):'—'}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+      <button class="arij" data-btw>
+        <span class="naam">Te betalen btw<small>na aftrek van ${euro(voorK)} uit je bonnen</small></span>
+        <span class="waarde ${omK.btw-voorK?'gevuld':''}">${euro(omK.btw-voorK)}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+      <button class="arij" data-marges>
+        <span class="naam">Marge per smaak<small>${(()=>{
+          const l=(S.recepten||[]).map(margeVan).filter(m=>m&&m.pct!==null);
+          if(!l.length) return 'nog geen verkoopprijzen ingevuld';
+          const g=Math.round(l.reduce((n,m)=>n+m.pct,0)/l.length);
+          return 'gemiddeld '+g+'% over '+l.length+' '+(l.length===1?'smaak':'smaken')})()}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+    </div>`;
 
   const gaten=kmControle(), mist=onvolledig();
   if(gaten.length||mist.length){
@@ -2472,11 +2684,18 @@ function geldHTML(){
           :'nog '+getal(Math.round(500-pri))+' km tot de grens van 500'}</em></span></div>`:''}
     </div>`;
 
-  h+=`<div class="voet">
-    ${lijst.length?'<button data-kmexport>Rittenoverzicht printen</button>':''}
-    <button data-plekken>Vaste plekken${(S.plekken||[]).length?' ('+S.plekken.length+')':''}</button>
-    <button data-autosoort>Soort auto · ${S.autoSoort==='zaak'?'van de zaak':'privé'}</button>
-    <button data-kmtarief>Kilometervergoeding · ${komma(kmTarief())} per km</button></div>`;
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+    <button class="knop2" data-btw style="margin:0 0 10px">${svg(I.doc)}Btw-aangifte</button>
+    <button class="knop2" data-verkoop style="margin:0 0 10px">${svg(I.spark)}Verkoopprijzen${
+      (()=>{const n=(S.recepten||[]).filter(r=>verkoopPrijs(r.id)===null).length;
+        return n?` <span class="tel let" style="margin-left:auto">${n}</span>`:''})()}</button>
+    ${lijst.length?`<button class="knop2" data-kmexport style="margin:0 0 10px">${svg(I.doc)}Rittenoverzicht printen</button>`:''}
+    <button class="knop2" data-plekken style="margin:0 0 10px">${svg(I.huis)}Vaste plekken${
+      (S.plekken||[]).length?` <span class="tel" style="margin-left:auto">${S.plekken.length}</span>`:''}</button>
+    <button class="knop2" data-autosoort style="margin:0 0 10px">${svg(I.auto)}Soort auto${
+      ` <span class="tel" style="margin-left:auto">${S.autoSoort==='zaak'?'van de zaak':'privé'}</span>`}</button>
+    <button class="knop2" data-kmtarief style="margin:0">${svg(I.spark)}Kilometervergoeding${
+      ` <span class="tel" style="margin-left:auto">${komma(kmTarief())} per km</span>`}</button>`;
   return h;
 }
 
@@ -4534,6 +4753,9 @@ function bind(){
   $$('[data-tht]').forEach(x=>x.onclick=sheetTHT);
   $$('[data-waardering]').forEach(x=>x.onclick=sheetWaardering);
   $$('[data-levertijd]').forEach(x=>x.onclick=sheetLevertijden);
+  $$('[data-btw]').forEach(x=>x.onclick=sheetBtw);
+  $$('[data-verkoop]').forEach(x=>x.onclick=sheetVerkoopprijzen);
+  $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
   $$('[data-scan]').forEach(x=>x.onclick=()=>scanCode(w=>{
     const doel=$('#'+x.dataset.scan); if(doel){doel.value=w; toast('Code gescand.')}
   }));
@@ -7137,6 +7359,9 @@ function sheetInstellingen(){
        bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
      <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
        esc(branche().naam)}</span></button>
+     <button class="menurij" data-ins="verkoop">${svg(I.spark)}Verkoopprijzen<span class="tel">${
+       (()=>{const n=(S.recepten||[]).filter(r=>verkoopPrijs(r.id)!==null).length;
+         return n?n+' van '+(S.recepten||[]).length:'nog niets'})()}</span></button>
      <button class="menurij" data-ins="recepten">${svg(I.boek)}Smaken<span class="tel">${S.recepten.length}</span></button>
      <button class="menurij" data-ins="mal">${svg(I.vorm)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
      <button class="menurij" data-ins="ijking">${svg(I.temp)}Thermometer ijken<span class="tel">${
@@ -7156,6 +7381,7 @@ function sheetInstellingen(){
     const k=b.dataset.ins;
     if(k==='bedrijf') return sheetBedrijf();
     if(k==='branche') return sheetBranche(false);
+    if(k==='verkoop') return sheetVerkoopprijzen();
     if(k==='recepten') return sheetRecepten();
     if(k==='meetpunten') return sheetMeetpunten();
     if(k==='mal') return sheetMal();
