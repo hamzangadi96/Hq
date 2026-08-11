@@ -977,7 +977,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v81 · 11 aug 2026';
+const APPVERSIE='v82 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2870,6 +2870,7 @@ function sheetNieuweOrder(){
 function sheetInpakken(id){
   const o=(S.orders||[]).find(x=>x.id===id); if(!o) return;
   const keuze={};                                  /* receptId -> [{lot, aantal}] */
+  const dozen={};                                  /* product -> aantal dozen */
   const teken=()=>{
     const rijen=o.regels.map(rg=>{
       const beschikbaar=voorraadGereed().filter(v=>v.receptId===rg.receptId&&v.aantal>0)
@@ -2891,9 +2892,26 @@ function sheetInpakken(id){
       </div>`;
     }).join('');
     const compleet=o.regels.every(rg=>(keuze[rg.receptId]||[]).reduce((n,x)=>n+x.aantal,0)===rg.aantal);
+
+    /* welke doosjes gaan eraan op */
+    const verp=grondVoorraad().filter(v=>artSoort(v.product)==='verpakking');
+    const totBonbon=orderAantal(o);
+    const gedekt=Object.entries(dozen).reduce((n,[p,a])=>n+a*(art(p).maat||0),0);
+    const doosBlok=verp.length?`<div class="blokkop"><span class="eyebrow">Verpakking</span>
+        <span class="tel ${gedekt>=totBonbon?'':'let'}">${gedekt} van ${totBonbon} bonbons</span></div>
+      <div class="paneel">${verp.map(v=>{
+        const a=dozen[v.product]||0, m=art(v.product).maat||0;
+        const tekort=a>v.saldo;
+        return `<div class="orij"><span class="on">${esc(v.product)}
+          <em>${getal(v.saldo)} op voorraad${m?' · '+m+' bonbons per doos':''}${tekort?' — te weinig':''}</em></span>
+          <div class="ostep"><button class="stepbtn klein" data-dm="${esc(v.product)}">${svg(I.min)}</button>
+            <span class="oa ${a?'aan':''}">${a}</span>
+            <button class="stepbtn klein" data-dp="${esc(v.product)}">${svg(I.plus)}</button></div></div>`}).join('')}</div>
+      <div class="geen" style="padding-top:8px">Laat op nul staan wat je niet gebruikt. Wordt afgeboekt bij het inpakken.</div>`:'';
+
     sheet('Inpakken voor '+klantNaam(o.klantId),
       `<p class="hint">Kies uit welke partij je pakt. De app boekt het af en legt vast welk lot
-        naar deze klant is gegaan — daarmee is je keten compleet.</p>${rijen}`,
+        naar deze klant is gegaan — daarmee is je keten compleet.</p>${rijen}${doosBlok}`,
       `<button class="prim" style="margin-top:0" id="ipOk" ${compleet?'':'disabled'}>
         ${compleet?'Afboeken en inpakken':'Kies eerst alle aantallen'}</button>
        ${compleet?`<button class="sec" id="ipEt">${svg(I.doc)}Productetiketten printen</button>`:''}`);
@@ -2912,6 +2930,9 @@ function sheetInpakken(id){
     };
     $$('[data-ip]').forEach(x=>x.onclick=()=>pas(x.dataset.ip,S.malGrootte||1));
     $$('[data-im]').forEach(x=>x.onclick=()=>pas(x.dataset.im,-(S.malGrootte||1)));
+    $$('[data-dp]').forEach(x=>x.onclick=()=>{const p=x.dataset.dp;dozen[p]=(dozen[p]||0)+1;teken()});
+    $$('[data-dm]').forEach(x=>x.onclick=()=>{const p=x.dataset.dm;dozen[p]=Math.max(0,(dozen[p]||0)-1);
+      if(!dozen[p])delete dozen[p]; teken()});
     if($('#ipEt')) $('#ipEt').onclick=()=>{
       const eerste=o.regels[0];
       sheetProductEtiket(eerste.receptId);
@@ -2927,8 +2948,14 @@ function sheetInpakken(id){
           o.lots[rg.receptId]=(o.lots[rg.receptId]||[]).concat([{lot:g.lot,aantal:g.aantal}]);
         });
       });
+      o.verpakking=[];
+      Object.entries(dozen).forEach(([prod,a])=>{
+        if(a>0){ gBoek(prod,-a,'st','Order '+o.nummer+' · '+naar); o.verpakking.push({product:prod,aantal:a}) }
+      });
       o.status='ingepakt'; o.ingepakt=iso(new Date());
-      bewaarNu(); render(); klaarSheet('Ingepakt en afgeboekt voor '+naar+'.');
+      const nd=Object.values(dozen).reduce((n,a)=>n+a,0);
+      bewaarNu(); render();
+      klaarSheet('Ingepakt en afgeboekt voor '+naar+(nd?' · '+nd+(nd===1?' doosje':' doosjes'):'')+'.');
     };
   };
   teken();
