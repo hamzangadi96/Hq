@@ -208,6 +208,16 @@ main>.blokkop:first-child{margin-top:8px}
 .dagenbadge{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--grijs);
   background:var(--bg);border-radius:99px;padding:3px 8px;white-space:nowrap;flex:none}
 .dagenbadge.let{background:#fffbeb;color:var(--amber)}
+
+/* ── instructie met de stap waaraan hij hangt ── */
+.insblok{padding:14px 0;border-bottom:1px solid var(--lijn)}
+.insblok:first-child{padding-top:0}
+.insblok:last-of-type{border-bottom:none;padding-bottom:6px}
+.insblok .ingrij{margin-bottom:0}
+.inschips{display:flex;gap:6px;overflow-x:auto;margin:10px -20px 0;padding:0 20px 2px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.inschips::-webkit-scrollbar{display:none}
+.inschips .chip{flex:none}
 .groep:last-child .arij{border-bottom:none}
 .arij .naam{flex:1;font-size:15px;font-weight:500;letter-spacing:-.015em}
 .arij .bol{width:20px;height:20px;border-radius:99px;border:1.5px solid #d8d8dc;flex:none;
@@ -1078,7 +1088,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v97 · 11 aug 2026';
+const APPVERSIE='v98 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7228,9 +7238,9 @@ function leesRecept(){
   if($('#rNaam')) R.naam=$('#rNaam').value.trim();
   if($('#rT')) R.tht=parseInt($('#rT').value)||1;
   if(document.querySelector('#rC .chip.aan')) R.chocolade=chipV('#rC');
-  if($('#rS')) R.stappen=$$('#rS .ingrij').map(rij=>{
-    const t=rij.querySelector('[data-stap]');
-    const k=rij.querySelector('[data-stapbij]');
+  if($('#rS')) R.stappen=$$('#rS .insblok').map(blok=>{
+    const t=blok.querySelector('[data-stap]');
+    const k=blok.querySelector('[data-stapbij]');
     const tekst=t?t.value.trim():'';
     if(!tekst) return null;
     const bij=k?k.value:'';
@@ -7242,37 +7252,41 @@ function tekenRecept(){
   const totaal=gramPerBonbon(R);
   const stapTekst=x=>typeof x==='string'?x:(x&&x.t)||'';
   const stapBij=x=>(x&&typeof x!=='string'&&x.stap)||'';
-  const stapRij=s=>`<div class="ingrij" style="flex-wrap:wrap;gap:6px">
-    <input class="nm" data-stap value="${esc(stapTekst(s))}" placeholder="Wat doe je?">
-    <button class="wisbtn" data-wis-s>${svg(I.kruis,'2')}</button>
-    <select class="mini" data-stapbij style="flex-basis:100%;font-size:13px;height:40px">
-      <option value="">— bij welke productiestap? —</option>
-      ${(S.werkplan||[]).map(w=>`<option value="${esc(w)}" ${stapBij(s)===w?'selected':''}>${esc(w)}</option>`).join('')}
-    </select></div>`;
-  const onderdelen = R.onderdelen.length
-    ? R.onderdelen.map((o,i)=>`<button class="ondrij" data-ond="${i}">
-        <span class="on"><span class="onn">${esc(o.naam||'Naamloos onderdeel')}</span>
-          <span class="ons">${(o.ing||[]).length?((o.ing.length===1)?esc(o.ing[0].naam||'1 ingrediënt'):o.ing.length+' ingrediënten'):'nog geen ingrediënten'}${
-            (o.werkwijze||[]).length?' · '+o.werkwijze.length+' stappen':''}${o.stap?' · '+esc(o.stap.toLowerCase()):''}</span></span>
-        <span class="ong">${getal(o.gram||0)} <em>g</em></span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')
-    : `<div class="geen">Nog geen onderdelen. Denk aan de schelp, een gelei-laag en een ganache-laag.</div>`;
-
+  const stapRij=(s,i)=>`<div class="insblok">
+    <div class="ingrij">
+      <input class="nm" data-stap value="${esc(stapTekst(s))}" placeholder="Bijv. tempereren tot 31,5 °C">
+      <button class="wisbtn" data-wis-s>${svg(I.kruis,'2')}</button></div>
+    <div class="inschips">
+      <button type="button" class="chip klein ${!stapBij(s)?'aan':''}" data-bij="${i}" data-w="">Los</button>
+      ${(S.werkplan||[]).map(w=>`<button type="button" class="chip klein ${stapBij(s)===w?'aan':''}"
+        data-bij="${i}" data-w="${esc(w)}">${esc(w)}</button>`).join('')}
+    </div>
+    <input type="hidden" data-stapbij value="${esc(stapBij(s))}"></div>`;
   sheet(R.id?'Smaak wijzigen':'Nieuwe smaak',
     `<div class="veld"><label>Naam van de smaak</label>
       <input class="inp" id="rNaam" value="${esc(R.naam)}" placeholder="Bijv. pistache & rode vruchten"></div>
      <div class="veld"><label>Chocolade</label><div class="chips" id="rC">
       ${soorten().map(c=>`<button class="chip ${c.key===R.chocolade?'aan':''}" data-v="${c.key}">${c.naam}</button>`).join('')}</div></div>
      <div class="veld"><label>Houdbaar na productie</label>
-      <div class="stepper"><div class="stepval"><input id="rT" type="number" inputmode="numeric" value="${R.tht}"><span class="eenh">dagen</span></div></div></div>
+      <div class="rijtje"><input class="mini" id="rT" type="number" inputmode="numeric" value="${R.tht}"
+        style="max-width:96px"><span class="hint" style="margin:0;align-self:center">dagen na productie</span></div></div>
      <div class="veld"><label>Opbouw van één bonbon</label>
-      ${onderdelen}
-      <button class="sec" id="rOnd" style="margin-top:10px">${svg(I.plus)}&nbsp; Onderdeel toevoegen</button>
-      <div class="totaalregel"><span class="l">Eén bonbon weegt</span><span class="w">${getal(totaal)} g</span></div></div>
+      ${R.onderdelen.length?`<div class="paneel" style="margin-bottom:10px">${
+        R.onderdelen.map((o,i)=>`<button class="arij" data-ond="${i}">
+          <span class="ivak">${svg(I.vorm)}</span>
+          <span class="naam">${esc(o.naam||'Naamloos onderdeel')}<small>${
+            (o.ing||[]).length?((o.ing.length===1)?esc(o.ing[0].naam||'1 ingrediënt'):o.ing.length+' ingrediënten'):'nog geen ingrediënten'}${
+            (o.werkwijze||[]).length?' · '+o.werkwijze.length+' stappen':''}${o.stap?' · '+esc(o.stap.toLowerCase()):''}</small></span>
+          <span class="waarde gevuld">${getal(o.gram||0)} g</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
+        :`<p class="hint" style="margin:0 0 10px">Denk aan de schelp, een gelei-laag en een ganache-laag.</p>`}
+      <button class="knop2" id="rOnd" style="margin:0">${svg(I.plus)}Onderdeel toevoegen</button>
+      ${totaal?`<div class="totaalregel"><span class="l">Eén bonbon weegt</span>
+        <span class="w">${getal(totaal)} g</span></div>`:''}</div>
      <div class="veld"><label>Werkinstructies</label>
-      <p class="hint" style="margin:0 0 12px">Schrijf hier wat je moet doen. Koppel een instructie aan een
-        productiestap, dan krijg je hem tijdens het maken vanzelf te zien — met timer als je een tijd noemt.</p>
-      <div id="rS">${(R.stappen.length?R.stappen:['']).map(stapRij).join('')}</div>
+      <p class="hint" style="margin:0 0 14px">Kies bij welke stap een instructie hoort, dan krijg je hem
+        tijdens het maken vanzelf te zien. Noem je een tijd of temperatuur, dan leest de app die eruit.</p>
+      <div id="rS">${(R.stappen.length?R.stappen:['']).map((x,i)=>stapRij(x,i)).join('')}</div>
       <button class="sec" id="rPS" style="margin-top:2px">${svg(I.plus)}&nbsp; Instructie toevoegen</button></div>
      ${R.id?`<div class="veld"><label>Etiket voor de klant</label>
        <button class="knop2" id="rEt" style="margin-top:0">${svg(I.doc)}Productetiket instellen</button></div>`:''}`,
@@ -7282,9 +7296,25 @@ function tekenRecept(){
   bijSluiten=()=>{leesRecept();bewaarSmaak()};
 
   chips('#rC');
-  const bindWis=()=>$$('[data-wis-s]').forEach(b=>b.onclick=()=>{if($$('#rS .ingrij').length>1)b.parentElement.remove()});
-  bindWis();
-  $('#rPS').onclick=()=>{$('#rS').insertAdjacentHTML('beforeend',stapRij(''));bindWis()};
+  const bindIns=()=>{
+    $$('#rS [data-wis-s]').forEach(b=>b.onclick=()=>{
+      if($$('#rS .insblok').length>1) b.closest('.insblok').remove();
+      else { b.closest('.insblok').querySelector('[data-stap]').value=''; }
+    });
+    $$('#rS [data-bij]').forEach(c=>c.onclick=()=>{
+      const blok=c.closest('.insblok');
+      blok.querySelectorAll('[data-bij]').forEach(x=>x.classList.remove('aan'));
+      c.classList.add('aan');
+      blok.querySelector('[data-stapbij]').value=c.dataset.w||'';
+    });
+  };
+  bindIns();
+  $('#rPS').onclick=()=>{
+    $('#rS').insertAdjacentHTML('beforeend',stapRij('',$$('#rS .insblok').length));
+    bindIns();
+    const laatst=$$('#rS .insblok').pop();
+    if(laatst) laatst.querySelector('[data-stap]').focus();
+  };
   if($('#rEt')) $('#rEt').onclick=()=>{leesRecept();bewaarSmaak();sheetProductEtiket(R.id)};
   $('#rOnd').onclick=()=>{
     leesRecept();
