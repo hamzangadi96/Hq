@@ -1088,7 +1088,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v98 · 11 aug 2026';
+const APPVERSIE='v99 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5450,7 +5450,7 @@ function koppelInline(knopId,formId,inputId,opslaan){
   const b=$('#'+formId+'Ok'); if(b) b.onclick=opslaan;
 }
 
-const R={id:null,naam:'',chocolade:'melk',tht:14,onderdelen:[],stappen:[]};
+const R={id:null,naam:'',chocolade:'melk',tht:14,onderdelen:[],stappen:[],wizard:null,voorstel:''};
 /* bewaart de smaak zodra hij een naam heeft — niets gaat verloren bij sluiten */
 function bewaarSmaak(){
   if(!R.naam) return false;
@@ -7231,7 +7231,8 @@ function sheetReceptForm(id,voorChoc){
   R.tht=best?best.tht:14;
   R.onderdelen=best?JSON.parse(JSON.stringify(best.onderdelen||[])):[];
   R.stappen=best?(best.stappen||[]).slice():[];
-  tekenRecept();
+  R.wizard=null; R.voorstel='';
+  if(best) tekenRecept(); else sheetSmaakWizard(1);
 }
 
 function leesRecept(){
@@ -7246,6 +7247,137 @@ function leesRecept(){
     const bij=k?k.value:'';
     return bij?{t:tekst,stap:bij}:tekst;   /* platte tekst blijft werken */
   }).filter(Boolean);
+}
+
+/* ================= nieuwe smaak: één vraag tegelijk =================
+   Bij een nieuwe smaak loop je een korte wizard door. Na de eerste stap is
+   de smaak al bewaard, dus je kunt altijd stoppen en later verder.
+   Bewerken van een bestaande smaak gaat via het overzicht. */
+
+function sheetSmaakWizard(stap){
+  stap=stap||1;
+  if(stap===1) return smaakStap1();
+  if(stap===2) return smaakStap2();
+  if(stap===3) return smaakStap3();
+  return smaakStap4();
+}
+
+function smaakStap1(){
+  sheet('Hoe heet je smaak?',
+    `<p class="hint">Alleen de naam. De rest vul je zo in — je kunt altijd stoppen en later verder.</p>
+     <div class="veld"><input class="inp" id="swN" value="${esc(R.naam)}"
+       placeholder="Bijv. pistache & rode vruchten" autocapitalize="sentences"></div>`,
+    `<button class="prim" style="margin-top:0" id="sw1">Volgende</button>`,'Stap 1 van 4');
+  setTimeout(()=>{const el=$('#swN'); if(el) el.focus()},250);
+  const door=()=>{
+    const n=$('#swN').value.trim();
+    if(!n) return toast('Geef je smaak een naam.');
+    R.naam=n; bewaarSmaak(); bewaarNu(); sheetSmaakWizard(2);
+  };
+  $('#sw1').onclick=door;
+  $('#swN').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();door()}};
+}
+
+function smaakStap2(){
+  sheet('Waar maak je het van?',
+    `<p class="hint">Kies je ${(branche().basis||'basissoort').toLowerCase()} en hoe lang het product houdbaar is.</p>
+     <div class="veld"><label>${esc(branche().basis||'Basissoort')}</label>
+       <div class="chips" id="swC">${soorten().map(c=>
+         `<button class="chip ${c.key===R.chocolade?'aan':''}" data-v="${c.key}">${c.naam}</button>`).join('')}</div></div>
+     <div class="veld"><label>Houdbaar na productie</label>
+       <div class="chips" id="swT">${[7,14,21,30,60,90].map(d=>
+         `<button class="chip ${R.tht===d?'aan':''}" data-v="${d}">${d} dagen</button>`).join('')}
+         <button class="chip ${[7,14,21,30,60,90].includes(R.tht)?'':'aan'}" data-v="anders">Anders</button></div>
+       <div class="inlineform ${[7,14,21,30,60,90].includes(R.tht)?'':'open'}" id="swTF" style="margin-top:10px">
+         <div class="rijtje"><input class="mini" id="swTN" type="number" inputmode="numeric"
+           value="${R.tht}" style="max-width:96px">
+           <span class="hint" style="margin:0;align-self:center">dagen</span></div></div></div>`,
+    `<button class="prim" style="margin-top:0" id="sw2">Volgende</button>
+     <button class="sec" id="sw2T">Terug</button>`,'Stap 2 van 4');
+  chips('#swC');
+  chips('#swT',false,()=>{
+    const v=chipV('#swT');
+    $('#swTF').classList.toggle('open',v==='anders');
+  });
+  $('#sw2T').onclick=()=>sheetSmaakWizard(1);
+  $('#sw2').onclick=()=>{
+    R.chocolade=chipV('#swC')||R.chocolade;
+    const v=chipV('#swT');
+    R.tht = v==='anders' ? (parseInt($('#swTN').value)||14) : (parseInt(v)||14);
+    bewaarSmaak(); bewaarNu(); sheetSmaakWizard(3);
+  };
+}
+
+const ONDERDEELVOORSTEL=['Schelp','Ganache','Gelei','Praliné','Karamel','Crunch'];
+
+function smaakStap3(){
+  const totaal=gramPerBonbon(R);
+  sheet('Waar bestaat het uit?',
+    `<p class="hint">Voeg de lagen toe waaruit één bonbon bestaat, met het gewicht per laag.
+      Je kunt dit later altijd aanvullen.</p>
+     ${R.onderdelen.length?`<div class="paneel" style="margin-bottom:12px">${
+       R.onderdelen.map((o,i)=>`<button class="arij" data-ond="${i}">
+         <span class="ivak">${svg(I.vorm)}</span>
+         <span class="naam">${esc(o.naam||'Naamloos')}<small>${
+           (o.ing||[]).filter(x=>x.naam).length?((o.ing.filter(x=>x.naam).length===1)
+             ? esc(o.ing.find(x=>x.naam).naam) : o.ing.filter(x=>x.naam).length+' ingrediënten')
+           :'nog geen ingrediënten'}</small></span>
+         <span class="waarde gevuld">${getal(o.gram||0)} g</span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
+       <div class="totaalregel" style="margin:0 0 14px"><span class="l">Eén bonbon weegt</span>
+         <span class="w">${getal(totaal)} g</span></div>`
+      :''}
+     <div class="veld"><label>${R.onderdelen.length?'Nog een laag toevoegen':'Begin met een laag'}</label>
+       <div class="chips" id="swO">${ONDERDEELVOORSTEL.filter(x=>
+         !R.onderdelen.some(o=>gKey(o.naam)===gKey(x))).map(x=>
+         `<button class="chip" data-nieuwond="${esc(x)}">${svg(I.plus)}${x}</button>`).join('')}
+         <button class="chip nieuw" data-nieuwond="">${svg(I.plus)}Anders</button></div></div>`,
+    `<button class="prim" style="margin-top:0" id="sw3">${R.onderdelen.length?'Volgende':'Overslaan'}</button>
+     <button class="sec" id="sw3T">Terug</button>`,'Stap 3 van 4');
+  $$('[data-ond]').forEach(b=>b.onclick=()=>{R.wizard=3;sheetOnderdeel(parseInt(b.dataset.ond))});
+  $$('[data-nieuwond]').forEach(b=>b.onclick=()=>{R.wizard=3;R.voorstel=b.dataset.nieuwond;sheetOnderdeel(null)});
+  $('#sw3T').onclick=()=>sheetSmaakWizard(2);
+  $('#sw3').onclick=()=>sheetSmaakWizard(4);
+}
+
+function smaakStap4(){
+  const insT=x=>typeof x==='string'?x:(x&&x.t)||'';
+  const insB=x=>(x&&typeof x!=='string'&&x.stap)||'';
+  sheet('Hoe maak je het?',
+    `<p class="hint">Schrijf per stap wat je doet. Tijdens het maken krijg je ze vanzelf te zien,
+      met timer als je een tijd noemt. Mag ook leeg blijven.</p>
+     ${(R.stappen||[]).length?`<div class="paneel" style="margin-bottom:12px">${
+       R.stappen.map((x,i)=>`<div class="arij" style="cursor:default">
+         <span class="ivak">${svg(I.doc)}</span>
+         <span class="naam">${esc(insT(x))}<small>${insB(x)?esc(insB(x).toLowerCase()):'niet aan een stap gekoppeld'}</small></span>
+         <button class="wisbtn" data-wisins="${i}">${svg(I.kruis,'2')}</button></div>`).join('')}</div>`:''}
+     <div class="veld"><label>Instructie toevoegen</label>
+       <input class="inp" id="swI" placeholder="Bijv. tempereren tot 31,5 °C"></div>
+     <div class="veld"><label>Hoort bij welke stap?</label>
+       <div class="chips" id="swS">
+         <button class="chip klein aan" data-v="">Los</button>
+         ${(S.werkplan||[]).map(w=>`<button class="chip klein" data-v="${esc(w)}">${esc(w)}</button>`).join('')}
+       </div></div>
+     <button class="knop2" id="swIOk" style="margin:0">${svg(I.plus)}Toevoegen</button>`,
+    `<button class="prim" style="margin-top:0" id="sw4">Klaar</button>
+     <button class="sec" id="sw4T">Terug</button>`,'Stap 4 van 4');
+  chips('#swS');
+  $$('[data-wisins]').forEach(b=>b.onclick=()=>{
+    R.stappen.splice(parseInt(b.dataset.wisins),1); bewaarSmaak(); bewaarNu(); smaakStap4();
+  });
+  $('#swIOk').onclick=()=>{
+    const t=$('#swI').value.trim();
+    if(!t) return toast('Schrijf eerst een instructie.');
+    const bij=chipV('#swS')||'';
+    R.stappen=R.stappen||[];
+    R.stappen.push(bij?{t,stap:bij}:t);
+    bewaarSmaak(); bewaarNu(); smaakStap4();
+  };
+  $('#sw4T').onclick=()=>sheetSmaakWizard(3);
+  $('#sw4').onclick=()=>{
+    bewaarSmaak(); bewaarNu(); R.wizard=null; dicht(); render();
+    toast(R.naam+' opgeslagen.');
+  };
 }
 
 function tekenRecept(){
@@ -7340,7 +7472,9 @@ function raadStap(naam){
 }
 function sheetOnderdeel(idx){
   const nieuw = idx===null;
-  const o = nieuw ? {naam:'',gram:'',ing:[{naam:'',deel:''}],werkwijze:[''],stap:''} : JSON.parse(JSON.stringify(R.onderdelen[idx]));
+  const o = nieuw ? {naam:R.voorstel||'',gram:'',ing:[{naam:'',deel:''}],werkwijze:[''],stap:''}
+                  : JSON.parse(JSON.stringify(R.onderdelen[idx]));
+  if(nieuw) R.voorstel='';
   if(!o.ing||!o.ing.length) o.ing=[{naam:'',deel:''}];
   if(!o.werkwijze||!o.werkwijze.length) o.werkwijze=[''];
   const ingRij=i=>`<div class="ingrij">
@@ -7427,8 +7561,10 @@ function sheetOnderdeel(idx){
   $('#oW').oninput=wzUit; wzUit();
   $('#oMin').onclick=()=>{$('#oG').value=Math.max(0,(parseFloat($('#oG').value||0)-0.25)).toFixed(2).replace(/\.?0+$/,'');ververs()};
   $('#oPlus').onclick=()=>{$('#oG').value=((parseFloat($('#oG').value||0)+0.25)).toFixed(2).replace(/\.?0+$/,'');ververs()};
-  $('#oTerug').onclick=()=>{bewaarSmaak();tekenRecept()};
-  if($('#oWis')) $('#oWis').onclick=()=>{R.onderdelen.splice(idx,1);bewaarSmaak();render();tekenRecept();toast('Onderdeel verwijderd.')};
+  const terug=()=>{bewaarSmaak();bewaarNu();R.wizard?smaakStap3():tekenRecept()};
+  $('#oTerug').onclick=terug;
+  if($('#oWis')) $('#oWis').onclick=()=>{R.onderdelen.splice(idx,1);bewaarSmaak();render();
+    R.wizard?smaakStap3():tekenRecept();toast('Onderdeel verwijderd.')};
   $('#oOk').onclick=()=>{
     const naam=$('#oN').value.trim(), gram=parseFloat($('#oG').value);
     const ing=rijenLezen();
@@ -7440,7 +7576,7 @@ function sheetOnderdeel(idx){
     const werkwijze=$('#oW').value.split('\n').map(x=>x.trim()).filter(Boolean);
     const d={naam,gram,ing,werkwijze,stap:chipV('#oStap')||raadStap(naam)};
     if(nieuw) R.onderdelen.push(d); else R.onderdelen[idx]=d;
-    bewaarSmaak(); render(); tekenRecept();
+    bewaarSmaak(); bewaarNu(); render(); R.wizard?smaakStap3():tekenRecept();
     toast(nieuw?'Onderdeel toegevoegd en smaak opgeslagen.':'Onderdeel bijgewerkt.');
   };
 }
