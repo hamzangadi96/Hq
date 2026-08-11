@@ -57,6 +57,31 @@ header.klein .merklogo{max-height:30px}
 .logovak .geenlogo{font-size:13.5px;color:var(--grijs2);text-align:center;line-height:1.5}
 header .onder{margin-top:4px;font-size:14px;font-weight:450;color:var(--grijs);letter-spacing:-.01em}
 header .vlak{flex:1;min-width:0}
+
+/* de donkere kopband op het dashboard, met de dagcijfers erin */
+header.donker{background:var(--ink);border-bottom-color:transparent}
+header.donker .merk{color:#fff}
+header.donker .merk small{color:#a1a1aa}
+header.donker .hbtn{color:#a1a1aa}
+.kpi{display:none;text-align:left;margin-top:20px;
+  transition:opacity .2s ease,max-height .24s cubic-bezier(.32,.72,0,1),margin-top .24s ease}
+header.donker .kpi{display:block}
+.kstrook{display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.kstrook::-webkit-scrollbar{display:none}
+header.donker.klein .kpi{opacity:0;max-height:0;margin-top:0;overflow:hidden}
+.kcel{flex:none;padding-right:26px;min-width:76px}
+.kcel .kl{font-size:11.5px;font-weight:600;color:#a1a1aa;letter-spacing:.02em;white-space:nowrap}
+.kcel .kw{font-size:21px;font-weight:600;color:#fff;letter-spacing:-.035em;margin-top:5px;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.kcel .kw.nul{color:#52525b}
+.kcel .kw em{font-style:normal;font-size:13px;font-weight:500;color:#71717a;margin-left:5px}
+.kbalk{height:5px;border-radius:99px;background:#27272a;overflow:hidden;margin-top:16px}
+.kbalk span{display:block;height:100%;border-radius:99px;background:#fff;
+  transition:width .4s cubic-bezier(.32,.72,0,1)}
+header.donker.klein .kbalk{opacity:0;max-height:0;margin-top:0}
+
+/* het lichte vlak schuift over de donkere band heen */
+main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;position:relative;z-index:2}
 .hbtn{width:34px;height:32px;border-radius:99px;display:grid;place-items:center;color:var(--grijs);flex:none;margin-top:2px}
 .hbtn svg{width:18px;height:18px}
 .hbtn.terug{margin-left:-8px}
@@ -833,7 +858,8 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 <div class="app">
   <header>
     <button class="hbtn terug" id="btnTerug" aria-label="Terug" style="display:none"></button>
-    <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div></div>
+    <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
+      <div class="kpi" id="kopKpi"></div></div>
     <button class="hbtn menu" id="btnMenu" aria-label="Menu"></button>
   </header>
   <main id="scherm"></main>
@@ -888,7 +914,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v74 · 11 aug 2026';
+const APPVERSIE='v75 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1366,7 +1392,11 @@ function render(){
   $('#btnTerug').style.visibility='visible';
 
   const kopEl=document.querySelector('header');
-  kopEl.classList.toggle('gecentreerd',S.tab==='dashboard'&&!inBatch);
+  const opDash=S.tab==='dashboard'&&!inBatch;
+  kopEl.classList.toggle('gecentreerd',opDash);
+  kopEl.classList.toggle('donker',opDash);
+  $('#scherm').classList.toggle('opdonker',opDash);
+  if(!opDash) $('#kopKpi').innerHTML='';
   if(!(S.tab==='dashboard'&&!inBatch)||$('#scherm').scrollTop<14) kopEl.classList.remove('klein');
   if(inBatch){
     const b=batch();
@@ -1376,6 +1406,7 @@ function render(){
   } else if(S.tab==='dashboard'){
     $('#kopTitel').innerHTML=merkKop();
     $('#kopOnder').textContent='';
+    $('#kopKpi').innerHTML=dagStrook();
   } else if(S.tab==='productie'){
     $('#kopTitel').textContent='Productie';
     $('#kopOnder').textContent=datumtekst;
@@ -1468,33 +1499,31 @@ function dashboardHTML(){
   const goed=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.goed:0),0);
   const afk=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.afkeur:0),0);
   const afw=S.batches.reduce((s,x)=>s+x.logs.filter(l=>l.type==='afwijking').length,0);
-  /* wat er vandaag gepland staat: alle batches bij elkaar */
-  const gepland=S.batches.reduce((s,x)=>s+bTotaal(x),0);
-  const pct=gepland?Math.min(100,Math.round(goed/gepland*100)):0;
-  const nb=S.batches.length;
-
-  h+=`<div class="blokkop"><span class="eyebrow">Vandaag in cijfers</span></div>`;
-  if(!nb){
-    h+=`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vorm,'2.2')}</div>
-      <p>Nog geen batch vandaag.<br>Zodra je er een aanmaakt zie je hier je voortgang.</p></div></div>`;
-  } else {
-    const meldingen=[];
-    if(afk) meldingen.push(afk+' afkeur');
-    if(afw) meldingen.push(afw+(afw===1?' afwijking':' afwijkingen'));
-    h+=`<div class="dagkaart">
-      <div class="dagtop">
-        <div class="daggetal ${goed?'':'nul'}">${goed}<span class="dageenheid">${goed===1?'bonbon':'bonbons'}</span></div>
-        <div class="dagpct">${pct}%</div>
-      </div>
-      <div class="dagbalk"><span style="width:${pct}%"></span></div>
-      <div class="dagonder">van ${gepland} gepland · ${kb.length} van ${nb} ${nb===1?'batch':'batches'} af</div>
-      <div class="dagstatus">
-        <span class="stip ${meldingen.length?'amber':'groen'}"></span>
-        ${meldingen.length?esc(meldingen.join(' · ')):'Geen afkeur, geen afwijkingen'}
-      </div>
-    </div>`;
-  }
   return h;
+}
+
+/* ---------- de dagcijfers in de donkere kopband ----------
+   Vier korte cellen die je opzij kunt schuiven, met een balk voor je voortgang.
+   Bij het scrollen schuift dit blok dicht, zodat je merk klein bovenin blijft. */
+function dagStrook(){
+  const kb=S.batches.filter(x=>x.status==='klaar');
+  const goed=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.goed:0),0);
+  const afk=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.afkeur:0),0);
+  const afw=S.batches.reduce((s,x)=>s+x.logs.filter(l=>l.type==='afwijking').length,0);
+  const gepland=S.batches.reduce((s,x)=>s+bTotaal(x),0);
+  const nb=S.batches.length;
+  const pct=gepland?Math.min(100,Math.round(goed/gepland*100)):0;
+
+  const cel=(label,waarde,bij)=>`<div class="kcel"><div class="kl">${label}</div>
+    <div class="kw ${waarde?'':'nul'}">${waarde}${bij?`<em>${bij}</em>`:''}</div></div>`;
+
+  return `<div class="kstrook">
+      ${cel('Bonbons',goed,gepland?'van '+gepland:'')}
+      ${cel('Batches',nb?kb.length+'/'+nb:0,'')}
+      ${cel('Afkeur',afk,'')}
+      ${cel('Afwijkingen',afw,'')}
+    </div>
+    ${gepland?`<div class="kbalk"><span style="width:${pct}%"></span></div>`:''}`;
 }
 
 /* ---------- productie ---------- */
