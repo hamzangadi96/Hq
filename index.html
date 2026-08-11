@@ -164,6 +164,31 @@ main{flex:1;overflow-y:auto;padding:20px 20px 32px;-webkit-overflow-scrolling:to
 .meer{width:100%;padding:12px 16px;font-size:14px;font-weight:600;color:var(--grijs);text-align:center;border-top:1px solid var(--lijn)}
 
 .arij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 20px;border-bottom:1px solid var(--lijn)}
+
+/* ── tegels: elk cijfer eigen ruimte, en meteen een knop ── */
+.tegels{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tegel{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:16px;
+  text-align:left;display:flex;flex-direction:column;gap:2px;min-height:92px;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
+.tegel:active{background:var(--bg)}
+.tegel .tk{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--grijs2)}
+.tegel .tw{font-size:25px;font-weight:600;letter-spacing:-.04em;line-height:1.1;margin-top:auto;
+  font-variant-numeric:tabular-nums}
+.tegel .tw.nul{color:var(--grijs3)}
+.tegel .ts{font-size:12.5px;color:var(--grijs);letter-spacing:-.01em;line-height:1.35}
+.tegel .ts.let{color:var(--amber);font-weight:600}
+.tegel .ts.fout{color:var(--rood);font-weight:600}
+.tegel.breed{grid-column:1 / -1}
+
+/* ── icoonvlakje voor in lijstrijen ── */
+.ivak{width:34px;height:34px;border-radius:11px;flex:none;display:grid;place-items:center;
+  background:var(--bg);color:var(--grijs)}
+.ivak svg{width:17px;height:17px;stroke-width:1.9}
+.ivak.groen{background:#f0fdf4;color:var(--groen)}
+.ivak.amber{background:#fffbeb;color:var(--amber)}
+.ivak.rood{background:#fef2f2;color:var(--rood)}
+.ivak.ink{background:var(--ink);color:#fff}
 .groep:last-child .arij{border-bottom:none}
 .arij .naam{flex:1;font-size:15px;font-weight:500;letter-spacing:-.015em}
 .arij .bol{width:20px;height:20px;border-radius:99px;border:1.5px solid #d8d8dc;flex:none;
@@ -1032,7 +1057,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v90 · 11 aug 2026';
+const APPVERSIE='v91 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2912,52 +2937,34 @@ function geldHTML(){
   }
 
   /* ── omzet ── */
-  h+=`<div class="blokkop" style="margin-top:${r?'24px':'0'}"><span class="eyebrow">Omzet</span>
-      <span class="tel">kwartaal ${kw0}</span></div>
-    <div class="paneel">
-      <button class="arij" data-btw>
-        <span class="naam">Dit kwartaal<small>${omK.orders} ${omK.orders===1?'order':'orders'} · ${
-          euro(btwK.laagExcl+btwK.hoogExcl)} exclusief btw</small></span>
-        <span class="waarde ${omK.bruto?'gevuld':''}">${omK.bruto?euro(omK.bruto):'—'}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>
-      <button class="arij" data-btw>
-        <span class="naam">Te betalen btw<small>na aftrek van ${euro(voorK)} voorbelasting</small></span>
-        <span class="waarde ${(omK.btw-voorK)?'gevuld':''}">${euro(omK.btw-voorK)}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>
-      <button class="arij" data-openstaand>
-        <span class="naam">Openstaand<small>${openst.length
-          ?openst.length+(openst.length===1?' order nog niet betaald':' orders nog niet betaald')
-          :'alles betaald'}</small></span>
-        ${openst.some(x=>x.dagen>30)?'<span class="stip rood"></span>'
-          :openst.some(x=>x.dagen>14)?'<span class="stip amber"></span>':''}
-        <span class="waarde ${openTot?'gevuld':''}">${openTot?euro(openTot):'—'}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+  const tegel=(attr,icoon,kop,waarde,sub,klas,breed)=>`<button class="tegel ${breed?'breed':''}" ${attr}>
+    <span class="tk">${svg(icoon)}${kop}</span>
+    <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
+    <span class="ts ${klas||''}">${sub}</span></button>`;
+
+  const margeGem=(()=>{const l=(S.recepten||[]).map(margeVan).filter(m=>m&&m.pct!==null);
+    return l.length?Math.round(l.reduce((n,m)=>n+m.pct,0)/l.length):null})();
+
+  h+=`<div class="blokkop" style="margin-top:${r?'24px':'0'}"><span class="eyebrow">Kwartaal ${kw0}</span>
+      <span class="tel">${jr0}</span></div>
+    <div class="tegels">
+      ${tegel('data-btw',I.euro,'Omzet',omK.bruto?euro(omK.bruto):'—',
+        omK.orders?omK.orders+(omK.orders===1?' order':' orders'):'nog geen orders')}
+      ${tegel('data-btw',I.doc,'Btw',euro(omK.btw-voorK),
+        (omK.btw-voorK)>=0?'te betalen':'terug te krijgen')}
+      ${tegel('data-winst',I.spark,'Resultaat',
+        (wv.resultaat<0?'−':'')+euro(Math.abs(wv.resultaat)),
+        wv.resultaat<0?'verlies dit kwartaal':'na alle kosten',wv.resultaat<0?'fout':'')}
+      ${tegel('data-openstaand',I.klok,'Openstaand',openTot?euro(openTot):'—',
+        openst.length?openst.length+(openst.length===1?' order open':' orders open'):'alles betaald',
+        openst.some(x=>x.dagen>30)?'fout':openst.some(x=>x.dagen>14)?'let':'')}
+      ${tegel('data-marges',I.vorm,'Marge',margeGem!==null?margeGem+'%':'—',
+        margeGem!==null?'gemiddeld per bonbon':'geen verkoopprijzen',margeGem!==null&&margeGem<40?'let':'')}
+      ${tegel('data-bonnen',I.doos,'Bonnen',bonTotaal(jr0)?euro(bonTotaal(jr0)):'—',
+        (S.bonnen||[]).length?euro(btwTotaal(jr0))+' btw terug':'nog niets vastgelegd')}
     </div>
     ${omJ.mist?`<div class="melding amber" style="margin-top:12px">${svg(I.alarm,'2')}
       <span>${omJ.mist} bonbons zonder verkoopprijs — die tellen niet mee in je omzet.</span></div>`:''}`;
-
-  /* ── resultaat ── */
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Resultaat</span></div>
-    <div class="paneel">
-      <button class="arij" data-winst>
-        <span class="naam">Winst en verlies<small>na grondstoffen, bonnen, kilometers${
-          wv.arbeid?' en arbeid':''}</small></span>
-        <span class="waarde gevuld">${wv.resultaat<0?'−':''}${euro(Math.abs(wv.resultaat))}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>
-      <button class="arij" data-marges>
-        <span class="naam">Marge per smaak<small>${(()=>{
-          const l=(S.recepten||[]).map(margeVan).filter(m=>m&&m.pct!==null);
-          if(!l.length) return 'nog geen verkoopprijzen ingevuld';
-          const g=Math.round(l.reduce((n,m)=>n+m.pct,0)/l.length);
-          return 'gemiddeld '+g+'% over '+l.length+' '+(l.length===1?'smaak':'smaken')})()}</small></span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>
-      <button class="arij" data-bonnen>
-        <span class="naam">Bonnen<small>${(S.bonnen||[]).length
-          ?bonnen(jr0).length+' dit jaar · '+euro(btwTotaal(jr0))+' btw terug te vragen'
-          :'nog niets vastgelegd'}</small></span>
-        <span class="waarde ${bonTotaal(jr0)?'gevuld':''}">${bonTotaal(jr0)?euro(bonTotaal(jr0)):'—'}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>
-    </div>`;
 
   /* ── kilometers ── */
   const gaten=kmControle(), mist=onvolledig();
@@ -3696,6 +3703,28 @@ function voorraadHTML(){
     <span>${laagNu.map(v=>esc(v.product)).slice(0,3).join(', ')}${laagNu.length>3?' en meer':''}
       ${laagNu.length===1?'is':'zijn'} bijna op.</span></div>`;
 
+  /* ── overzicht in tegels ── */
+  const grondT=alles.filter(v=>artSoort(v.product)==='ingredient');
+  const verpT=alles.filter(v=>artSoort(v.product)==='verpakking');
+  const teBestellenT=alles.filter(v=>grondOnder(v)||v.saldo<=0).length;
+  const vlT=verlopenPartijen(), vlOverT=vlT.filter(x=>x.dagen<0).length;
+  const tegel=(attr,icoon,kop,waarde,sub,klas)=>`<button class="tegel" ${attr}>
+    <span class="tk">${svg(icoon)}${kop}</span>
+    <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
+    <span class="ts ${klas||''}">${sub}</span></button>`;
+
+  h+=`<div class="tegels" style="margin-top:4px">
+    ${tegel('data-naar="productie"',I.doos,'Gereed',totaal||'—',
+      gereed.length?gereed.length+(gereed.length===1?' partij':' partijen'):'nog geen product')}
+    ${tegel('data-waardering',I.euro,'Waarde',w2.bekend?euro(w2.bekend):'—',
+      w2.onbekend?w2.onbekend+' zonder prijs':'aan grondstoffen',w2.onbekend?'let':'')}
+    ${tegel('data-bestel',I.vracht,'Bestellen',teBestellenT||'—',
+      teBestellenT?'onder de drempel':'niets nodig',teBestellenT?'let':'')}
+    ${tegel('data-tht',I.klok,'Houdbaarheid',vlT.length||'—',
+      vlOverT?vlOverT+' over datum':(vlT.length?'binnen twee weken':'niets loopt af'),
+      vlOverT?'fout':vlT.length?'let':'')}
+  </div>`;
+
   /* een lege categorie wordt één rij die je verder helpt, geen groot leeg vlak */
   const leegRij=(tekst,sub,attr)=>`<div class="paneel"><button class="arij" ${attr||''}>
     <span class="naam">${tekst}<small>${sub}</small></span>
@@ -3707,9 +3736,9 @@ function voorraadHTML(){
   h+=gereed.length?`<div class="paneel">${gereed.map(v=>{
     const d=dagenTotTHT(v.tht), st=d===null?'':(d<0?'rood':d<=14?'amber':'');
     return `<button class="arij" data-vr="${v.receptId}|${v.lot}">
+      <span class="ivak ${st||'groen'}">${svg(I.vorm)}</span>
       <span class="naam">${esc(smaakNaam(v.receptId))}<small>lot ${esc(v.lot)}${
         v.tht?' · THT '+kort(new Date(v.tht))+(d<0?' — verlopen':d<=14?' — nog '+d+' dagen':''):''}</small></span>
-      ${st?`<span class="stip ${st}"></span>`:''}
       <span class="waarde gevuld">${v.aantal}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
    :leegRij('Nog geen gereed product','komt hier zodra je een batch afrondt','data-naar="productie"');
@@ -3722,9 +3751,11 @@ function voorraadHTML(){
       ? `eerst lot ${esc(f.lot)}${fd!==null?(fd<0?' — verlopen':' · nog '+fd+' dagen'):''}`
       : (lots.length?lots.length+(lots.length===1?' lot':' lots')+' · '+esc(lots.slice(0,2).join(', '))+(lots.length>2?'…':'')
                    :'geen lot bekend');
+    const soort=artSoort(v.product);
+    const ico=soort==='verpakking'?I.doos:soort==='hulp'?I.spark:soort==='half'?I.vorm:I.doos;
     return `<button class="arij" data-gs="${esc(v.product)}">
+      <span class="ivak ${leeg?'rood':laag?'amber':''}">${svg(ico)}</span>
       <span class="naam">${esc(v.product)}<small>${onder}${d?' · drempel '+toonHoeveel(d,v.basis):''}</small></span>
-      ${laag||leeg?`<span class="stip ${leeg?'rood':'amber'}"></span>`:''}
       <span class="waarde gevuld">${toonHoeveel(v.saldo,v.basis)}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
   };
