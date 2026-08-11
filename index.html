@@ -421,6 +421,12 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
 .balken{display:flex;align-items:flex-end;gap:4px;height:88px}
 .balk2{flex:1;background:var(--ink);border-radius:4px 4px 0 0;min-height:3px}
+.scanlaag{position:fixed;inset:0;z-index:90;background:#000;display:grid;place-items:center}
+.scanlaag video{width:100%;height:100%;object-fit:cover}
+.scankader{position:absolute;width:72%;max-width:300px;aspect-ratio:1.6;border:2px solid #fff;
+  border-radius:18px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45)}
+.scanstop{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  background:#fff;color:var(--ink);height:48px;padding:0 26px;border-radius:99px;font-size:15px;font-weight:600}
 .balklabels{display:flex;gap:4px;margin-top:8px}
 .balklabels span{flex:1;text-align:center;font-size:10.5px;font-weight:600;color:var(--grijs2)}
 .bkol{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
@@ -954,6 +960,8 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 const I={
   klembord:'<path d="M9 4H7.5A1.5 1.5 0 0 0 6 5.5v14A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5v-14A1.5 1.5 0 0 0 16.5 4H15"/>'
     +'<rect x="9" y="2.6" width="6" height="3.2" rx="1"/><path d="M9.2 12.4l1.8 1.8 3.8-3.8"/>',
+  qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>'
+    +'<rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 19h2M14 21h3"/>',
   klok:'<circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.1 1.9"/>',
   huis:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.6V21h14V9.6"/>',
   vorm:'<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
@@ -981,7 +989,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v84 · 11 aug 2026';
+const APPVERSIE='v85 · 11 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1157,7 +1165,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, artikelen:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1182,7 +1190,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -3112,6 +3120,8 @@ function voorraadHTML(){
     <button class="knop2" data-bestel style="margin:0 0 10px">${svg(I.vracht)}Bestellijst${
       teBestellen?` <span class="tel let" style="margin-left:auto">${teBestellen}</span>`:''}</button>
     <button class="knop2" data-telronde style="margin:0 0 10px">${svg(I.vink)}Telronde</button>
+    <button class="knop2" data-waardering style="margin:0 0 10px">${svg(I.doc)}Voorraadwaardering</button>
+    <button class="knop2" data-levertijd style="margin:0 0 10px">${svg(I.vracht)}Levertijden</button>
     <button class="knop2" data-sheet="ontvangst" style="margin:0">${svg(I.plus)}Ontvangst vastleggen</button>
     <div class="voet"><button data-vmut>Alle mutaties${(S.mutaties||[]).length?' ('+S.mutaties.length+')':''}</button></div>`;
   return h;
@@ -3163,11 +3173,26 @@ function sheetGrondstof(product){
        <div class="chips" id="gSo">${Object.keys(SOORTEN).map(k=>
          `<button class="chip ${artSoort(product)===k?'aan':''}" data-v="${k}">${SOORTEN[k].enk}</button>`).join('')}</div></div>
 
+     <div class="veld"><label>Hoe koop je het in?</label>
+       <div class="rijtje">
+         <input class="mini" id="gIA" type="number" inputmode="decimal" placeholder="10"
+           value="${art(product).inkAantal||''}" style="max-width:96px">
+         <select class="mini" id="gIE" style="max-width:96px;text-align:center">${
+           (basis==='g'?['kg','g']:basis==='ml'?['l','ml']:['st']).map(e=>
+             `<option ${art(product).inkEenheid===e?'selected':''}>${e}</option>`).join('')}</select>
+         <button class="miniknop" id="gIOk">Opslaan</button></div>
+       <div class="hint" style="margin:8px 0 0">Bijvoorbeeld een zak van 10 kg. De bestellijst rekent er dan mee.</div></div>
+
      <div class="veld"><label>Drempel voor 'bijna op'</label>
        <div class="rijtje">
          <input class="mini" id="gD" type="number" inputmode="decimal" placeholder="0" value="${d?(basis==='g'||basis==='ml'?d:d):''}">
          <button class="miniknop" id="gDOk">Instellen</button></div>
-       <div class="hint" style="margin:8px 0 0">In ${basis==='g'?'gram':basis==='ml'?'milliliter':'stuks'}. Leeg laten zet de drempel uit.</div></div>
+       ${(()=>{const a=drempelAdvies(product,basis); if(!a) return
+         `<div class="hint" style="margin:8px 0 0">In ${basis==='g'?'gram':basis==='ml'?'milliliter':'stuks'}. Leeg laten zet de drempel uit.</div>`;
+         return `<button class="knop2" id="gDAdv" style="margin:10px 0 0;height:42px;font-size:14px">
+             Voorstel: ${toonHoeveel(a.advies,basis)}</button>
+           <div class="hint" style="margin:8px 0 0">Je gebruikt ongeveer ${toonHoeveel(a.perDag,basis)} per dag
+             en ${esc(a.lev||'je leverancier')} levert in ${a.dagen} dagen.</div>`})()}</div>
 
      ${verbruikBlok(product,basis)}
      ${(()=>{const pl=(S.lots||[]).filter(x=>gKey(x.product)===gKey(product)&&x.plek)
@@ -3192,6 +3217,16 @@ function sheetGrondstof(product){
   chips('#gSo',false,()=>{
     zetArt(product,{soort:chipV('#gSo')}); bewaarNu(); render();
   });
+  $('#gIOk').onclick=()=>{
+    const a=parseFloat($('#gIA').value)||0, e=$('#gIE').value;
+    zetArt(product,{inkAantal:a>0?a:null,inkEenheid:a>0?e:null});
+    bewaarNu(); sheetGrondstof(product); toast(a>0?'Inkoopeenheid opgeslagen.':'Inkoopeenheid gewist.');
+  };
+  if($('#gDAdv')) $('#gDAdv').onclick=()=>{
+    const a=drempelAdvies(product,basis); if(!a) return;
+    S.drempels=S.drempels||{}; S.drempels[gKey(product)]=a.advies;
+    bewaarNu(); sheetGrondstof(product); render(); toast('Drempel op het voorstel gezet.');
+  };
   $('#gDOk').onclick=()=>{
     const w=$('#gD').value.trim();
     S.drempels=S.drempels||{};
@@ -3358,9 +3393,14 @@ function sheetBestellijst(){
     per[lev].push({v,tekort:Math.max(d-v.saldo,0)});
   });
   const groepen=Object.keys(per).sort();
-  const tekst=groepen.map(g=>g+':\n'+per[g].map(x=>
-    '- '+x.v.product+' (nog '+toonHoeveel(x.v.saldo,x.v.basis)+
-    (x.tekort?', aanvullen tot '+toonHoeveel(grondDrempel(x.v.product),x.v.basis):'')+')').join('\n')).join('\n\n');
+  const tekst=groepen.map(g=>g+':\n'+per[g].map(x=>{
+    const ink=inkoopVan(x.v.product);
+    const hoe=x.tekort
+      ? (ink?Math.max(1,Math.ceil(x.tekort/ink.basis))+' × '+inkoopTekst(ink)
+            :'minstens '+toonHoeveel(x.tekort,x.v.basis))
+      : 'aanvullen';
+    return '- '+x.v.product+' — '+hoe+' (nog '+toonHoeveel(x.v.saldo,x.v.basis)+')';
+  }).join('\n')).join('\n\n');
 
   sheet('Bestellijst',
     laag.length
@@ -3370,7 +3410,11 @@ function sheetBestellijst(){
            <span class="tel">${per[g].length}</span></div>
            <div class="paneel">${per[g].map(x=>`<button class="arij" data-gs="${esc(x.v.product)}">
              <span class="naam">${esc(x.v.product)}<small>nog ${toonHoeveel(x.v.saldo,x.v.basis)}${
-               x.tekort?' · aanvullen met minstens '+toonHoeveel(x.tekort,x.v.basis):''}</small></span>
+               (()=>{const ink=inkoopVan(x.v.product);
+                 if(!x.tekort) return '';
+                 if(ink){const n=Math.max(1,Math.ceil(x.tekort/ink.basis));
+                   return ' · bestel '+n+' × '+inkoopTekst(ink)}
+                 return ' · aanvullen met minstens '+toonHoeveel(x.tekort,x.v.basis)})()}</small></span>
              <span class="stip ${x.v.saldo<=0?'rood':'amber'}"></span>
              <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`).join('')}`
       : `<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
@@ -3522,6 +3566,141 @@ function verbruikBlok(product,basis){
       <div class="geen" style="padding-top:10px">Een drempel rond ${toonHoeveel(gem/4,basis)}
         dekt ongeveer een week verbruik.</div>
     </div>`;
+}
+
+/* ---------- drempel op basis van levertijd ----------
+   De gangbare vuistregel: gemiddeld verbruik per dag × levertijd, plus een
+   halve levertijd als marge. Alles blijft een voorstel dat je kunt overrulen. */
+const levertijdVan=lev=>((S.levertijden||{})[String(lev||'').toLowerCase()]||0);
+function drempelAdvies(product,basis){
+  const r=verbruikPerMaand(product,6);
+  const gem=r.reduce((n,x)=>n+x.waarde,0)/(r.length||1);
+  if(gem<=0) return null;
+  const perDag=gem/30;
+  const lev=leverancierVan(product), dagen=levertijdVan(lev)||7;
+  const advies=Math.round(perDag*dagen*1.5);
+  return {advies,perDag,dagen,lev,gem};
+}
+function sheetLevertijden(){
+  const levs=[...new Set((S.lots||[]).map(l=>l.leverancier).filter(Boolean))].concat(
+    (S.leveranciers||[]).filter(Boolean));
+  const uniek=[...new Set(levs)].sort();
+  sheet('Levertijden',
+    `<p class="hint">Hoeveel dagen zit er tussen bestellen en ontvangen? Daarmee rekent de app
+      je drempels uit: wat je in die tijd opmaakt, plus een marge.</p>
+     ${uniek.length?uniek.map(l=>`<div class="rrij">
+       <div class="rinfo"><div class="rnaam">${esc(l)}</div>
+         <div class="rsub">${levertijdVan(l)?levertijdVan(l)+' dagen':'nog niet ingevuld'}</div></div>
+       <div class="qty"><input class="lotinp" style="width:74px" data-lt="${esc(l)}" type="number"
+         inputmode="numeric" placeholder="dgn" value="${levertijdVan(l)||''}"></div></div>`).join('')
+      :'<div class="geen">Nog geen leveranciers. Die komen erbij zodra je een ontvangst vastlegt.</div>'}`,
+    uniek.length?`<button class="prim" style="margin-top:0" id="ltOk">Opslaan</button>`:'');
+  if($('#ltOk')) $('#ltOk').onclick=()=>{
+    S.levertijden=S.levertijden||{};
+    $$('[data-lt]').forEach(i=>{
+      const k=i.dataset.lt.toLowerCase(), w=i.value.trim();
+      if(w==='') delete S.levertijden[k]; else S.levertijden[k]=Math.max(0,parseInt(w)||0);
+    });
+    bewaarNu(); dicht(); render(); toast('Levertijden opgeslagen.');
+  };
+}
+
+/* ---------- inkoopeenheid: je koopt zakken, geen grammen ---------- */
+function inkoopVan(product){
+  const a=art(product);
+  return (a.inkAantal&&a.inkEenheid)?{aantal:a.inkAantal,eenheid:a.inkEenheid,
+    basis:naarBasis(a.inkAantal,a.inkEenheid)}:null;
+}
+const inkoopTekst=i=>getal(i.aantal)+' '+i.eenheid;
+
+/* ---------- voorraad op een datum, voor je jaarafsluiting ---------- */
+function voorraadOp(datum){
+  const map={};
+  (S.gmut||[]).forEach(m=>{
+    if(String(m.datum||'')>datum) return;
+    const k=gKey(m.product); if(!k) return;
+    const soort=artSoort(m.product);
+    const basis=(soort==='ingredient'||soort==='half')?(BASIS[m.eenheid]||BASIS.st)[0]:'st';
+    map[k]=map[k]||{product:m.product,basis:basis,saldo:0,soort:soort};
+    map[k].saldo+=naarBasis(m.aantal||0,m.eenheid);
+  });
+  return Object.values(map).filter(x=>x.saldo>0).sort((a,b2)=>a.product.localeCompare(b2.product));
+}
+function sheetWaardering(){
+  const teken=(datum)=>{
+    const lijst=voorraadOp(datum);
+    const perSoort={};
+    let tot=0, zonderPrijs=0;
+    lijst.forEach(v=>{
+      const pr=gPrijs(v.product), w=pr===null?null:v.saldo*pr;
+      if(w===null) zonderPrijs++; else tot+=w;
+      perSoort[v.soort]=perSoort[v.soort]||{n:0,w:0};
+      perSoort[v.soort].n++; if(w!==null) perSoort[v.soort].w+=w;
+    });
+    const tekst='Voorraadwaardering '+datum+'\n'+lijst.map(v=>{
+      const pr=gPrijs(v.product);
+      return v.product+'\t'+toonHoeveel(v.saldo,v.basis)+'\t'+(pr===null?'geen prijs':euro(v.saldo*pr));
+    }).join('\n')+'\n\nTotaal\t'+euro(tot);
+
+    sheet('Voorraadwaardering',
+      `<p class="hint">Wat lag er op een bepaalde datum, en wat was het waard?
+        De app rekent terug door je mutaties. Handig voor je jaarafsluiting.</p>
+       <div class="veld"><label>Peildatum</label>
+         <input class="inp" id="wdD" type="date" value="${datum}"></div>
+
+       <div class="vrkop"><div class="vrgetal">${euro(tot)}<em>voorraadwaarde</em></div>
+         <div class="vrmeta">${lijst.length} ${lijst.length===1?'artikel':'artikelen'}${
+           zonderPrijs?'<br>'+zonderPrijs+' zonder inkoopprijs — niet meegeteld':''}</div></div>
+
+       ${Object.keys(perSoort).map(k=>`<div class="blokkop"><span class="eyebrow">${
+         (SOORTEN[k]||{naam:k}).naam}</span><span class="tel">${euro(perSoort[k].w)}</span></div>
+         <div class="paneel">${lijst.filter(v=>v.soort===k).map(v=>{
+           const pr=gPrijs(v.product);
+           return `<div class="arij" style="cursor:default">
+             <span class="naam">${esc(v.product)}<small>${toonHoeveel(v.saldo,v.basis)}${
+               pr===null?' · geen inkoopprijs':''}</small></span>
+             <span class="waarde ${pr===null?'':'gevuld'}">${pr===null?'—':euro(v.saldo*pr)}</span></div>`}).join('')}</div>`).join('')}`,
+      `<button class="prim" style="margin-top:0" id="wdKopie">Overzicht kopiëren</button>`);
+    $('#wdD').onchange=()=>teken($('#wdD').value||datum);
+    $('#wdKopie').onclick=()=>{
+      try{ navigator.clipboard.writeText(tekst); toast('Overzicht gekopieerd.') }
+      catch(e){ toast('Kopiëren lukte niet.') }
+    };
+  };
+  teken(vandaag());
+}
+
+/* ---------- streepjescode scannen ----------
+   Werkt waar de browser een scanner meelevert. Safari op iPhone doet dat
+   (nog) niet; daar typ je het lotnummer gewoon zelf. */
+const kanScannen=()=>typeof window!=='undefined'&&'BarcodeDetector' in window;
+async function scanCode(klaar){
+  if(!kanScannen()) return toast('Scannen kan niet in deze browser. Typ de code zelf in.');
+  let stroom=null;
+  try{
+    stroom=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  }catch(e){ return toast('Geen toegang tot de camera.') }
+  const laag=document.createElement('div');
+  laag.className='scanlaag';
+  laag.innerHTML=`<video autoplay playsinline muted></video>
+    <div class="scankader"></div>
+    <button class="scanstop">Sluiten</button>`;
+  document.body.appendChild(laag);
+  const vid=laag.querySelector('video');
+  vid.srcObject=stroom;
+  const det=new window.BarcodeDetector();
+  let bezig=true;
+  const stop=()=>{ bezig=false; stroom.getTracks().forEach(t=>t.stop()); laag.remove() };
+  laag.querySelector('.scanstop').onclick=stop;
+  const lus=async()=>{
+    if(!bezig) return;
+    try{
+      const codes=await det.detect(vid);
+      if(codes&&codes.length){ const w=codes[0].rawValue; stop(); klaar(w); return }
+    }catch(e){}
+    requestAnimationFrame(lus);
+  };
+  vid.onloadedmetadata=()=>lus();
 }
 
 function sheetVerpakkingNieuw(){
@@ -4060,6 +4239,11 @@ function bind(){
   $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-tht]').forEach(x=>x.onclick=sheetTHT);
+  $$('[data-waardering]').forEach(x=>x.onclick=sheetWaardering);
+  $$('[data-levertijd]').forEach(x=>x.onclick=sheetLevertijden);
+  $$('[data-scan]').forEach(x=>x.onclick=()=>scanCode(w=>{
+    const doel=$('#'+x.dataset.scan); if(doel){doel.value=w; toast('Code gescand.')}
+  }));
   $$('[data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers); if(!b||!b.regels.length) return;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
@@ -4582,7 +4766,9 @@ function sheetOntvangst(){
         <button class="miniknop" id="oFormOk">Opslaan</button></div></div></div>
      <div class="veld"><label>Product</label><input class="inp" id="oP" placeholder="Bijv. witte chocolade 33%"></div>
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-       <div><label>Lotnummer</label><input class="inp" id="oL" placeholder="Van de verpakking"></div>
+       <div><label>Lotnummer</label>
+         <div class="rijtje"><input class="inp" id="oL" placeholder="Van de verpakking">
+         ${kanScannen()?`<button class="miniknop" data-scan="oL" style="flex:none">${svg(I.qr)}</button>`:''}</div></div>
        <div><label>THT</label><input class="inp" id="oT" type="date"></div></div>
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
        <div><label>Hoeveelheid</label><input class="inp" id="oH" type="number" inputmode="decimal" placeholder="0"></div>
