@@ -282,6 +282,24 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
   50%{box-shadow:0 0 0 2.5px var(--ink),0 0 0 11px rgba(24,24,27,.05)}}
 @media (prefers-reduced-motion:reduce){.rlmerk{animation:none}}
 
+/* het voorbeeld van je balk */
+.balkvoor{display:flex;gap:8px;justify-content:center;padding:18px;background:var(--ink);
+  border-radius:20px}
+.bvak{width:44px;height:44px;border-radius:14px;background:#27272a;display:grid;place-items:center;
+  color:#fff;flex:none}
+.bvak svg{width:20px;height:20px;stroke-width:1.8}
+.bvak.vast{background:#3f3f46;color:#a1a1aa}
+.bvak.leeg{background:none;border:1.5px dashed #3f3f46}
+.kiesvink{width:24px;height:24px;border-radius:99px;border:1.5px solid var(--lijn);flex:none;
+  display:grid;place-items:center;color:#fff}
+.kiesvink.aan{background:var(--ink);border-color:var(--ink)}
+.kiesvink svg{width:13px;height:13px}
+.arij.uit{opacity:.4}
+.tab.meer svg{opacity:.9}
+/* met zes knoppen wordt het krap: het label van de actieve tab mag korter */
+.tabpil{gap:1px}
+.tab.actief span{max-width:96px}
+
 .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .brkaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
   padding:18px 14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
@@ -490,7 +508,7 @@ nav{flex:none;position:absolute;left:0;right:0;z-index:30;
 .tabpil{display:flex;align-items:center;gap:2px;pointer-events:auto;
   background:rgba(24,24,27,.94);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
   border-radius:99px;padding:6px;box-shadow:0 8px 28px rgba(24,24,27,.28),0 2px 6px rgba(24,24,27,.16)}
-.tab{display:flex;align-items:center;gap:0;color:#8f8f98;height:42px;padding:0 12px;
+.tab{display:flex;align-items:center;gap:0;color:#8f8f98;height:42px;padding:0 9px;
   border-radius:99px;white-space:nowrap;
   transition:background .22s ease,padding .22s cubic-bezier(.32,.72,0,1),color .22s ease}
 .tab svg{width:20px;height:20px;stroke-width:1.7;flex:none}
@@ -1257,7 +1275,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v132 · 12 aug 2026';
+const APPVERSIE='v133 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1433,7 +1451,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
-  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], verzendgrens:14, levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
@@ -1458,7 +1476,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1844,6 +1862,32 @@ const TABS=[
   {key:'voorraad',label:'Voorraad',icon:I.doos,klaar:true},
   {key:'geld',label:'Financiën',icon:I.euro,klaar:true}
 ];
+/* alles wat je in de balk kunt zetten, en alles wat in het meer-paneel staat */
+const SNELITEMS=[
+  {key:'productie',label:'Productie',icon:'vorm',soort:'tab'},
+  {key:'orders',label:'Orders',icon:'lijst',soort:'tab'},
+  {key:'voorraad',label:'Voorraad',icon:'doos',soort:'tab'},
+  {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
+  {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
+  {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
+  {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
+  {key:'smaken',label:'Smaken',icon:'boek',soort:'sheet',doe:()=>sheetRecepten()},
+  {key:'haccp',label:'HACCP',icon:'klembord',soort:'sheet',doe:()=>sheetHaccp()},
+  {key:'dossier',label:'Dossier',icon:'doc',soort:'sheet',doe:()=>sheetDossier()},
+  {key:'wenskaart',label:'Wenskaart',icon:'spark',soort:'sheet',doe:()=>sheetWenskaart()},
+  {key:'traceren',label:'Traceren',icon:'qr',soort:'sheet',doe:()=>sheetTrace()},
+  {key:'ontvangst',label:'Ontvangst',icon:'vracht',soort:'sheet',doe:()=>sheetOntvangst()},
+  {key:'zoeken',label:'Zoeken',icon:'loep',soort:'sheet',doe:()=>sheetZoek()},
+  {key:'uitleg',label:'Hoe werkt het?',icon:'hulp',soort:'sheet',doe:()=>sheetUitleg()},
+  {key:'instellingen',label:'Instellingen',icon:'instel',soort:'sheet',doe:()=>sheetInstellingen()}
+];
+const snelItem=k=>SNELITEMS.find(x=>x.key===k);
+const STANDAARDBALK=['productie','orders','voorraad','geld'];
+const balkKeuze=()=>{
+  const eigen=(S.balk||[]).filter(k=>snelItem(k));
+  return (eigen.length?eigen:STANDAARDBALK).slice(0,4);
+};
+
 const tabsInBalk=()=>TABS.filter(t=>t.klaar||t.key===S.tab);
 const STRAKS={
   orders:{titel:'Orders',intro:'Bestellingen van binnenkomst tot factuur, met de verwerkingsagent die het voorwerk doet.',
@@ -1888,10 +1932,20 @@ function render(){
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
     S.tab==='geld'?geldHTML():straksHTML(S.tab);
-  $('#tabbar').innerHTML=`<div class="tabpil">${tabsInBalk().map(t=>
-    `<button class="tab ${t.key===S.tab?'actief':''}" data-tab="${t.key}" aria-label="${esc(t.label)}">${
-      svg(t.icon)}<span>${t.label}</span></button>`).join('')}</div>`;
+  const balk=balkKeuze();
+  $('#tabbar').innerHTML=`<div class="tabpil">
+    <button class="tab ${S.tab==='dashboard'?'actief':''}" data-tab="dashboard" aria-label="Dashboard">${
+      svg(I.huis)}<span>Dashboard</span></button>
+    ${balk.map(k=>{const it=snelItem(k); if(!it) return '';
+      const aan=it.soort==='tab'&&S.tab===it.key;
+      return `<button class="tab ${aan?'actief':''}" ${
+        it.soort==='tab'?`data-tab="${it.key}"`:`data-snel="${it.key}"`}
+        aria-label="${esc(it.label)}">${svg(I[it.icon])}<span>${it.label}</span></button>`}).join('')}
+    <button class="tab meer" data-meer aria-label="Meer">${svg(I.meer)}<span>Meer</span></button>
+  </div>`;
   $$('[data-tab]').forEach(x=>x.onclick=()=>{S.tab=x.dataset.tab;S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0});
+  $$('[data-snel]').forEach(x=>x.onclick=()=>{const it=snelItem(x.dataset.snel); if(it&&it.doe) it.doe()});
+  $$('[data-meer]').forEach(x=>x.onclick=sheetMeer);
   bind();
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
@@ -9954,6 +10008,79 @@ function sheetZoek(){
   teken('');
   let wacht;
   $('#zkQ').oninput=()=>{ clearTimeout(wacht); wacht=setTimeout(()=>teken($('#zkQ').value.trim()),160) };
+}
+
+/* ================= meer =================
+   Alles wat niet in de balk past, plus de mogelijkheid om zelf te bepalen
+   welke vier onderdelen daar wel staan. */
+
+function sheetMeer(){
+  const balk=balkKeuze();
+  const rest=SNELITEMS.filter(x=>!balk.includes(x.key));
+  const groep=(titel,lijst)=>lijst.length?`<div class="blokkop"><span class="eyebrow">${titel}</span>
+      <span class="tel">${lijst.length}</span></div>
+    <div class="paneel">${lijst.map(it=>`<button class="arij" data-meerdoe="${it.key}">
+      <span class="ivak">${svg(I[it.icon])}</span>
+      <span class="naam">${esc(it.label)}<small>${
+        it.soort==='tab'?'eigen tabblad':'opent een scherm'}</small></span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`:'';
+
+  sheet('Alles',
+    `${groep('In je balk',balk.map(snelItem).filter(Boolean))}
+     ${groep('Verder',rest)}
+     <button class="knop2" id="meerKies" style="margin-top:20px">${svg(I.instel)}
+       Kies wat er in je balk staat</button>`,'');
+
+  $$('[data-meerdoe]').forEach(b=>b.onclick=()=>{
+    const it=snelItem(b.dataset.meerdoe); if(!it) return;
+    if(it.soort==='tab'){ S.tab=it.key;S.batchId=null;S.open=null;dicht();render();
+      $('#scherm').scrollTop=0; return }
+    if(it.doe) it.doe();
+  });
+  $('#meerKies').onclick=sheetBalkKiezen;
+}
+
+function sheetBalkKiezen(){
+  const gekozen=balkKeuze();
+  const teken=()=>{
+    sheet('Wat staat er in je balk?',
+      `<p class="hint">Kies er vier. Dashboard staat er altijd links, en Meer altijd rechts —
+        zo kun je bij alles wat je hier niet kiest.</p>
+       <div class="balkvoor">
+         <span class="bvak vast">${svg(I.huis)}</span>
+         ${gekozen.map(k=>{const it=snelItem(k);
+           return `<span class="bvak">${svg(I[it.icon])}</span>`}).join('')}
+         ${Array.from({length:Math.max(0,4-gekozen.length)}).map(()=>
+           `<span class="bvak leeg"></span>`).join('')}
+         <span class="bvak vast">${svg(I.meer)}</span>
+       </div>
+       <div class="paneel" style="margin-top:20px">${SNELITEMS.map(it=>{
+         const aan=gekozen.includes(it.key);
+         const vol=gekozen.length>=4&&!aan;
+         return `<button class="arij ${vol?'uit':''}" data-kies="${it.key}">
+           <span class="ivak ${aan?'ink':''}">${svg(I[it.icon])}</span>
+           <span class="naam">${esc(it.label)}<small>${
+             aan?'staat in je balk':vol?'je balk zit vol':'tik om toe te voegen'}</small></span>
+           <span class="kiesvink ${aan?'aan':''}">${aan?svg(I.vink,'2.6'):''}</span>
+         </button>`}).join('')}</div>`,
+      `<button class="prim" style="margin-top:0" id="bkOk">Klaar</button>
+       <button class="sec" id="bkReset">Terug naar standaard</button>`);
+
+    $$('[data-kies]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.kies;
+      const i=gekozen.indexOf(k);
+      if(i>=0) gekozen.splice(i,1);
+      else if(gekozen.length<4) gekozen.push(k);
+      else return toast('Je balk is vol — haal er eerst een weg.');
+      S.balk=gekozen.slice(); bewaarNu(); render(); teken();
+    });
+    $('#bkOk').onclick=()=>{dicht();render()};
+    $('#bkReset').onclick=()=>{
+      S.balk=STANDAARDBALK.slice(); bewaarNu(); render();
+      toast('Terug naar de standaardindeling.'); sheetBalkKiezen();
+    };
+  };
+  teken();
 }
 
 function sheetUitleg(){
