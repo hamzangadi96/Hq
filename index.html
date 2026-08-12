@@ -1391,7 +1391,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v168 · 12 aug 2026';
+const APPVERSIE='v172 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1611,8 +1611,308 @@ async function lokaalLees(){
   try{ const v=localStorage.getItem(SLEUTEL); return v?JSON.parse(v):null }catch(e){ return null }
 }
 
-function pakData(){ const d={}; BEWAARVELDEN.forEach(k=>d[k]=S[k]); d.bijgewerkt=Date.now(); return d }
+/* Velden die je nog nooit hebt gebruikt zijn undefined. Firebase weigert een
+   object met undefined-waarden, dus die laten we weg in plaats van meesturen. */
+function pakData(){
+  const d={};
+  BEWAARVELDEN.forEach(k=>{ if(S[k]!==undefined) d[k]=S[k] });
+  d.bijgewerkt=Date.now();
+  return d;
+}
 function zetData(d){ BEWAARVELDEN.forEach(k=>{if(d[k]!==undefined&&d[k]!==null)S[k]=d[k]}); S.bijgewerkt=d.bijgewerkt||0 }
+
+/* ═══════════ fotokast voor bonnetjes ═══════════
+   Bewust buiten S: bewaarNu() schrijft de hele toestand naar Firebase én
+   localStorage bij elke wijziging. Foto's daarin zouden bij elke opslag
+   opnieuw de lucht in gaan, en localStorage (±5 MB) loopt vol — dat falen
+   wordt stil weggeslikt, dus je zou data verliezen zonder melding. */
+const FOTOKAST='cb-bonfotos';
+let fotoDbP=null;
+function fotoDb(){
+  if(fotoDbP) return fotoDbP;
+  fotoDbP=new Promise((ok,mis)=>{
+    if(!window.indexedDB) return mis(new Error('geen indexedDB'));
+    const v=indexedDB.open(FOTOKAST,1);
+    v.onupgradeneeded=()=>{ if(!v.result.objectStoreNames.contains('fotos')) v.result.createObjectStore('fotos') };
+    v.onsuccess=()=>ok(v.result);
+    v.onerror=()=>mis(v.error);
+  });
+  return fotoDbP;
+}
+function fotoAktie(modus,doe){
+  return fotoDb().then(db=>new Promise((ok,mis)=>{
+    const tx=db.transaction('fotos',modus), st=tx.objectStore('fotos');
+    const vz=doe(st);
+    vz.onsuccess=()=>ok(vz.result); vz.onerror=()=>mis(vz.error);
+  }));
+}
+const fotoBewaar=(id,data)=>fotoAktie('readwrite',st=>st.put(data,id));
+const fotoLees  =id=>fotoAktie('readonly', st=>st.get(id));
+const fotoWis   =id=>fotoAktie('readwrite',st=>st.delete(id));
+const fotoSleutels=()=>fotoAktie('readonly',st=>st.getAllKeys());
+
+/* ═══════════ document scannen ═══════════
+   Apple's eigen scanner is niet te openen vanuit een webpagina, dus doen we
+   het hier: randen zoeken, hoeken laten bijstellen, rechttrekken. */
+
+/* Zoekt het lichte vlak (het papier) op een donkerdere ondergrond en geeft de
+   vier hoeken terug. Lukt dat niet overtuigend, dan een nette marge. */
+function zoekRanden(img){
+  const B=240, H=Math.max(1,Math.round(img.height/img.width*B));
+  const c=document.createElement('canvas'); c.width=B; c.height=H;
+  const x=c.getContext('2d'); x.drawImage(img,0,0,B,H);
+  const d=x.getImageData(0,0,B,H).data;
+  const grijs=new Uint8Array(B*H);
+  let som=0;
+  for(let i=0;i<B*H;i++){
+    const g=(d[i*4]*0.299+d[i*4+1]*0.587+d[i*4+2]*0.114)|0;
+    grijs[i]=g; som+=g;
+  }
+  /* drempel tussen gemiddeld en licht: papier is lichter dan de tafel */
+  const gem=som/(B*H);
+  let licht=0, somL=0;
+  for(let i=0;i<B*H;i++) if(grijs[i]>gem){ licht++; somL+=grijs[i] }
+  const drempel=(gem+(licht?somL/licht:255))/2;
+
+  /* De uiterste punten langs de diagonalen geven de echte hoeken, ook als de
+     bon scheef ligt. Met alleen min/max per as krijg je een rechthoek eromheen
+     en valt er niets recht te trekken. */
+  let tel=0, l=B, r=0, b=H, o=0;
+  let sMin=1e9,sMax=-1e9,vMin=1e9,vMax=-1e9;
+  let lb=null, ro=null, rb=null, lo=null;
+  for(let y=0;y<H;y++) for(let xx=0;xx<B;xx++){
+    if(grijs[y*B+xx]<drempel) continue;
+    tel++;
+    if(xx<l)l=xx; if(xx>r)r=xx; if(y<b)b=y; if(y>o)o=y;
+    const s=xx+y, v=xx-y;
+    if(s<sMin){sMin=s; lb=[xx,y]}          /* linksboven  */
+    if(s>sMax){sMax=s; ro=[xx,y]}          /* rechtsonder */
+    if(v>vMax){vMax=v; rb=[xx,y]}          /* rechtsboven */
+    if(v<vMin){vMin=v; lo=[xx,y]}          /* linksonder  */
+  }
+  const deel=tel/(B*H);
+  const marge=(f)=>[[img.width*f,img.height*f],[img.width*(1-f),img.height*f],
+                    [img.width*(1-f),img.height*(1-f)],[img.width*f,img.height*(1-f)]];
+  /* te weinig of bijna alles licht: dan is er niets herkend */
+  if(deel<0.06||deel>0.97||r-l<B*0.2||o-b<H*0.2||!lb||!rb||!ro||!lo)
+    return {hoeken:marge(0.06),gevonden:false};
+  const sx=img.width/B, sy=img.height/H;
+  const naarBron=p=>[Math.max(0,Math.min(img.width,p[0]*sx)),
+                     Math.max(0,Math.min(img.height,p[1]*sy))];
+  const hk=[naarBron(lb),naarBron(rb),naarBron(ro),naarBron(lo)];
+  /* ontaarde vierhoek? dan liever een nette marge dan onzin */
+  const zij=(a,c)=>Math.hypot(a[0]-c[0],a[1]-c[1]);
+  const kleinste=Math.min(zij(hk[0],hk[1]),zij(hk[1],hk[2]),zij(hk[2],hk[3]),zij(hk[3],hk[0]));
+  if(kleinste<Math.min(img.width,img.height)*0.15)
+    return {hoeken:marge(0.06),gevonden:false};
+  return {hoeken:hk,gevonden:true};
+}
+
+/* homografie van vier bronhoeken naar een rechthoek, opgelost met
+   Gauss-eliminatie; daarna per doelpixel terugrekenen naar de bron */
+function homografie(bron,br,ho){
+  const doel=[[0,0],[br,0],[br,ho],[0,ho]];
+  const A=[], b=[];
+  for(let i=0;i<4;i++){
+    const [u,v]=bron[i], [xx,yy]=doel[i];
+    A.push([xx,yy,1,0,0,0,-xx*u,-yy*u]); b.push(u);
+    A.push([0,0,0,xx,yy,1,-xx*v,-yy*v]); b.push(v);
+  }
+  for(let i=0;i<8;i++){
+    let p=i;
+    for(let k=i+1;k<8;k++) if(Math.abs(A[k][i])>Math.abs(A[p][i])) p=k;
+    [A[i],A[p]]=[A[p],A[i]]; [b[i],b[p]]=[b[p],b[i]];
+    const dv=A[i][i]||1e-9;
+    for(let k=i+1;k<8;k++){
+      const f=A[k][i]/dv;
+      for(let j=i;j<8;j++) A[k][j]-=f*A[i][j];
+      b[k]-=f*b[i];
+    }
+  }
+  const h=new Array(8).fill(0);
+  for(let i=7;i>=0;i--){
+    let s=b[i];
+    for(let j=i+1;j<8;j++) s-=A[i][j]*h[j];
+    h[i]=s/(A[i][i]||1e-9);
+  }
+  return h;
+}
+
+/* trekt het vlak recht en maakt er een leesbaar document van */
+function trekRecht(img,hoeken,zwartwit,maxBreed){
+  const afst=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  let br=Math.round(Math.max(afst(hoeken[0],hoeken[1]),afst(hoeken[3],hoeken[2])));
+  let ho=Math.round(Math.max(afst(hoeken[0],hoeken[3]),afst(hoeken[1],hoeken[2])));
+  const m=maxBreed||1200;
+  if(Math.max(br,ho)>m){ const f=m/Math.max(br,ho); br=Math.round(br*f); ho=Math.round(ho*f) }
+  br=Math.max(40,br); ho=Math.max(40,ho);
+
+  const bron=document.createElement('canvas');
+  bron.width=img.width; bron.height=img.height;
+  bron.getContext('2d').drawImage(img,0,0);
+  const src=bron.getContext('2d').getImageData(0,0,img.width,img.height).data;
+
+  const h=homografie(hoeken,br,ho);
+  const uit=document.createElement('canvas'); uit.width=br; uit.height=ho;
+  const ctx=uit.getContext('2d');
+  const beeld=ctx.createImageData(br,ho), dst=beeld.data;
+  const W=img.width, H2=img.height;
+
+  for(let y=0;y<ho;y++) for(let x=0;x<br;x++){
+    const n=h[6]*x+h[7]*y+1;
+    const u=Math.round((h[0]*x+h[1]*y+h[2])/n);
+    const v=Math.round((h[3]*x+h[4]*y+h[5])/n);
+    const di=(y*br+x)*4;
+    if(u<0||v<0||u>=W||v>=H2){ dst[di]=dst[di+1]=dst[di+2]=255; dst[di+3]=255; continue }
+    const si=(v*W+u)*4;
+    dst[di]=src[si]; dst[di+1]=src[si+1]; dst[di+2]=src[si+2]; dst[di+3]=255;
+  }
+
+  if(zwartwit){
+    /* grijs maken en het contrast oprekken tot papier wit wordt en inkt zwart */
+    let mn=255, mx=0;
+    const g=new Uint8Array(br*ho);
+    for(let i=0;i<br*ho;i++){
+      const v=(dst[i*4]*0.299+dst[i*4+1]*0.587+dst[i*4+2]*0.114)|0;
+      g[i]=v; if(v<mn)mn=v; if(v>mx)mx=v;
+    }
+    const sp=Math.max(1,mx-mn);
+    for(let i=0;i<br*ho;i++){
+      let v=(g[i]-mn)/sp;
+      v=v<=0.5 ? 2*v*v : 1-2*(1-v)*(1-v);   /* zachte S-curve */
+      const q=Math.max(0,Math.min(255,Math.round(v*255)));
+      dst[i*4]=dst[i*4+1]=dst[i*4+2]=q;
+    }
+  }
+  ctx.putImageData(beeld,0,0);
+  return uit.toDataURL('image/jpeg',0.7);
+}
+
+/* het bijsnijscherm: sleep de vier hoeken naar de randen van de bon */
+function sheetBijsnijden(bestand,klaar,terug){
+  const lezer=new FileReader();
+  lezer.onload=()=>{
+    const img=new Image();
+    img.onerror=()=>{ toast('Die foto kon ik niet openen.'); if(terug)terug() };
+    img.onload=()=>{
+      const gevonden=zoekRanden(img);
+      let hoeken=gevonden.hoeken.map(p=>[p[0],p[1]]);
+      let zwartwit=true;
+
+      sheet('Bon bijsnijden',
+        `<p class="hint">${gevonden.gevonden
+          ? 'De randen zijn herkend. Kloppen ze niet, sleep de punten dan bij.'
+          : 'Sleep de vier punten naar de hoeken van de bon.'}</p>
+         <div style="position:relative;border-radius:14px;overflow:hidden;background:#111">
+           <canvas id="bsDoek" style="display:block;width:100%;touch-action:none"></canvas></div>
+         <div class="duo" id="bsK" style="margin-top:14px">
+           <button class="aan" data-v="zw">Document</button>
+           <button data-v="kleur">Kleur</button></div>`,
+        `<button class="prim" style="margin-top:0" id="bsOk">Rechttrekken</button>
+         <button class="sec" id="bsOver">Opnieuw</button>`);
+
+      const doek=$('#bsDoek'), ctx=doek.getContext('2d');
+      const breed=Math.min(360,(doek.parentElement.clientWidth||340));
+      const schaal=breed/img.width;
+      doek.width=Math.round(breed);
+      doek.height=Math.round(img.height*schaal);
+
+      const teken=()=>{
+        ctx.clearRect(0,0,doek.width,doek.height);
+        ctx.drawImage(img,0,0,doek.width,doek.height);
+        const p=hoeken.map(h=>[h[0]*schaal,h[1]*schaal]);
+        /* alles buiten het vlak dimmen */
+        ctx.save();
+        ctx.fillStyle='rgba(0,0,0,.45)';
+        ctx.beginPath(); ctx.rect(0,0,doek.width,doek.height);
+        ctx.moveTo(p[0][0],p[0][1]);
+        for(let i=3;i>=1;i--) ctx.lineTo(p[i][0],p[i][1]);
+        ctx.closePath(); ctx.fill('evenodd');
+        ctx.restore();
+        ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]);
+        for(let i=1;i<4;i++) ctx.lineTo(p[i][0],p[i][1]);
+        ctx.closePath(); ctx.stroke();
+        p.forEach(q=>{
+          ctx.beginPath(); ctx.arc(q[0],q[1],11,0,7);
+          ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fill();
+          ctx.lineWidth=2; ctx.strokeStyle='#18181b'; ctx.stroke();
+        });
+      };
+      teken();
+
+      let sleep=-1;
+      const punt=e=>{
+        const r=doek.getBoundingClientRect();
+        const t=(e.touches&&e.touches[0])||e;
+        return [(t.clientX-r.left)*(doek.width/r.width),(t.clientY-r.top)*(doek.height/r.height)];
+      };
+      const pak=e=>{
+        const [x,y]=punt(e);
+        let best=-1, bd=28;
+        hoeken.forEach((h,i)=>{
+          const d=Math.hypot(h[0]*schaal-x,h[1]*schaal-y);
+          if(d<bd){ bd=d; best=i }
+        });
+        sleep=best; if(best>=0) e.preventDefault();
+      };
+      const beweeg=e=>{
+        if(sleep<0) return;
+        e.preventDefault();
+        const [x,y]=punt(e);
+        hoeken[sleep]=[Math.max(0,Math.min(img.width,x/schaal)),
+                       Math.max(0,Math.min(img.height,y/schaal))];
+        teken();
+      };
+      const los=()=>{ sleep=-1 };
+      doek.addEventListener('touchstart',pak,{passive:false});
+      doek.addEventListener('touchmove',beweeg,{passive:false});
+      doek.addEventListener('touchend',los);
+      doek.addEventListener('mousedown',pak);
+      doek.addEventListener('mousemove',beweeg);
+      window.addEventListener('mouseup',los);
+
+      $$('#bsK button').forEach(x=>x.onclick=()=>{
+        $$('#bsK button').forEach(y=>y.classList.remove('aan'));
+        x.classList.add('aan'); zwartwit=x.dataset.v==='zw';
+      });
+      $('#bsOver').onclick=()=>{ if(terug) terug() };
+      $('#bsOk').onclick=()=>{
+        const k=$('#bsOk'); k.disabled=true; k.textContent='Bezig…';
+        setTimeout(()=>{
+          try{ klaar(trekRecht(img,hoeken,zwartwit,1200)) }
+          catch(e){ toast('Rechttrekken lukte niet.'); if(terug)terug() }
+        },30);
+      };
+    };
+    img.src=lezer.result;
+  };
+  lezer.onerror=()=>{ toast('Die foto kon ik niet lezen.'); if(terug)terug() };
+  lezer.readAsDataURL(bestand);
+}
+
+/* verkleinen vóór opslag: een telefoonfoto van 4 MB wordt zo ±120 kB,
+   ruim genoeg om een bon te kunnen lezen */
+function fotoVerklein(bestand,maxZij){
+  return new Promise((ok,mis)=>{
+    const lezer=new FileReader();
+    lezer.onerror=()=>mis(new Error('lezen mislukt'));
+    lezer.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>mis(new Error('geen afbeelding'));
+      img.onload=()=>{
+        const m=maxZij||1400;
+        let b=img.width, h=img.height;
+        if(Math.max(b,h)>m){ const f=m/Math.max(b,h); b=Math.round(b*f); h=Math.round(h*f) }
+        const c=document.createElement('canvas'); c.width=b; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,b,h);
+        ok(c.toDataURL('image/jpeg',0.65));
+      };
+      img.src=lezer.result;
+    };
+    lezer.readAsDataURL(bestand);
+  });
+}
 
 function bewaarNu(){
   const d=pakData(); S.bijgewerkt=d.bijgewerkt;
@@ -3245,7 +3545,10 @@ function sheetBon(id){
   const bestaand=id?(S.bonnen||[]).find(x=>x.id===id):null;
   const b=bestaand||{datum:iso(new Date()),soort:'Grondstoffen',bedrag:0,btw:0,wie:'',wat:''};
   sheet(bestaand?'Bon bewerken':'Bon vastleggen',
-    `<div class="veld"><label>Bij wie</label>
+    `${bestaand?'':`<button class="prim" style="margin:0 0 18px" id="bnScan">${svg(I.loep)}Bon scannen</button>
+      <div class="hint" style="margin:-10px 0 18px">Foto van de bon; de app vult in wat hij leest.
+        Loop het daarna even na — jij blijft verantwoordelijk voor wat er in je boekhouding staat.</div>`}
+     <div class="veld"><label>Bij wie</label>
        <input class="inp" id="bnW" value="${esc(b.wie)}" placeholder="Bijv. Callebaut, of Makro"></div>
      <div class="veld"><label>Waarvoor</label>
        <input class="inp" id="bnT" value="${esc(b.wat)}" placeholder="Bijv. 10 kg witte chocolade"></div>
@@ -3261,7 +3564,15 @@ function sheetBon(id){
        <div class="duo" id="bnP" style="margin-top:8px">
          <button data-p="9">9% berekenen</button><button data-p="21">21% berekenen</button></div></div>
      <div class="veld"><label>Datum</label>
-       <input class="inp" id="bnD" type="date" value="${b.datum}"></div>`,
+       <input class="inp" id="bnD" type="date" value="${b.datum}"></div>
+
+     <div class="veld"><label>Foto van de bon <span class="opt">bewaarplicht zeven jaar</span></label>
+       <div id="bnFoto"><div class="geen" style="padding:0">Nog geen foto.</div></div>
+       <input type="file" id="bnBestand" accept="image/*" style="display:none">
+       <button class="knop2" id="bnCam" style="margin-top:10px">${svg(I.doc)}Foto of scan kiezen</button>
+       <div class="hint" style="margin:8px 0 0">Je kunt ook de scanfunctie van je iPhone gebruiken
+         (Bestanden → Scannen) en dat bestand hier kiezen. De foto blijft op dit toestel; hij gaat
+         niet mee in de synchronisatie omdat je opslag daar anders van volloopt.</div></div>`,
     `<button class="prim" style="margin-top:0" id="bnOk">${bestaand?'Opslaan':'Vastleggen'}</button>
      ${bestaand?`<button class="sec" id="bnWis" style="color:var(--rood)">Bon verwijderen</button>`:''}`);
   let soort=b.soort;
@@ -3274,20 +3585,121 @@ function sheetBon(id){
     const pct=parseInt(x.dataset.p);
     $('#bnV').value=(bed-bed/(1+pct/100)).toFixed(2);
   });
+  /* de foto hangt aan de bon-id; bij een nieuwe bon kennen we die pas bij
+     het opslaan, dus zetten we hem alvast vast */
+  /* Het bijsnijden opent een eigen scherm en daarna komt dit scherm opnieuw.
+     Voor een nieuwe bon zou dat een nieuw id geven en hing de scan aan het
+     oude. Daarom onthouden we id én scan tussen die twee schermen door. */
+  const hangend=window.__bonScan||null;
+  const bonId=bestaand?bestaand.id:((hangend&&hangend.id)||uid());
+  let nieuweFoto=(hangend&&hangend.id===bonId)?hangend.foto:null;
+  const toonFoto=data=>{
+    const vak=$('#bnFoto'); if(!vak) return;
+    if(!data){ vak.innerHTML='<div class="geen" style="padding:0">Nog geen foto.</div>'; return }
+    vak.innerHTML=`<button id="bnGroot" style="display:block;width:100%;border-radius:14px;
+      overflow:hidden;border:1px solid var(--lijn);background:#fff">
+      <img src="${data}" style="display:block;width:100%;max-height:220px;object-fit:cover"></button>
+      <button class="sec" id="bnFotoWis" style="margin-top:8px;color:var(--rood)">Foto verwijderen</button>`;
+    $('#bnGroot').onclick=()=>{
+      sheet('Bon',`<img src="${data}" style="display:block;width:100%;border-radius:14px">`,
+        `<button class="sec" style="margin-top:0" id="bgTerug">Terug</button>`);
+      $('#bgTerug').onclick=()=>sheetBon(id);
+    };
+    $('#bnFotoWis').onclick=()=>{
+      nieuweFoto=null;
+      fotoWis(bonId).catch(()=>{});
+      toonFoto(null); toast('Foto verwijderd.');
+    };
+  };
+  if(nieuweFoto) toonFoto(nieuweFoto);
+  else fotoLees(bonId).then(d=>{ if(d) toonFoto(d) }).catch(()=>{});
+  /* scannen gaat via dezelfde camera-invoer; we onthouden waarvoor */
+  let scanModus=false;
+  const zetSoort=w=>{
+    const g=BONSOORT.find(x=>x.toLowerCase()===String(w||'').toLowerCase());
+    if(!g) return;
+    soort=g;
+    $$('[data-bs]').forEach(y=>y.classList.toggle('aan',y.dataset.bs===g));
+  };
+  const vulIn=d=>{
+    if(!d||typeof d!=='object') return 0;
+    let n=0;
+    const zet=(sel,w)=>{const e=$(sel); if(e&&w!==undefined&&w!==null&&w!==''){e.value=w;n++}};
+    zet('#bnW',d.wie); zet('#bnT',d.wat);
+    if(typeof d.bedrag==='number'&&d.bedrag>0) zet('#bnB',d.bedrag.toFixed(2));
+    if(typeof d.btw==='number'&&d.btw>=0)      zet('#bnV',d.btw.toFixed(2));
+    if(d.datum&&/^\d{4}-\d{2}-\d{2}$/.test(d.datum)) zet('#bnD',d.datum);
+    if(d.soort){ zetSoort(d.soort); n++ }
+    return n;
+  };
+  if($('#bnScan')) $('#bnScan').onclick=()=>{
+    if(!fbUser) return toast('Log eerst in bij App & opslag; het scannen loopt via je eigen server.');
+    scanModus=true; $('#bnBestand').click();
+  };
+  $('#bnCam').onclick=()=>{ scanModus=false; $('#bnBestand').click() };
+  $('#bnBestand').onchange=e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    const scannen=scanModus; scanModus=false;
+    e.target.value='';
+    /* eerst rechttrekken; de uitkomst zetten we klaar vóór we terugkeren */
+    sheetBijsnijden(f,
+      data=>{ window.__bonScan={id:bonId,foto:data,lezen:scannen}; dicht(); sheetBon(id) },
+      ()=>{ dicht(); sheetBon(id) });
+  };
+
+  if(hangend&&hangend.id===bonId){
+    window.__bonScan=null;
+    toonFoto(hangend.foto);
+    if(hangend.lezen) leesDeScan(hangend.foto);
+    else toast('Scan toegevoegd ('+Math.round(hangend.foto.length*0.75/1024)+' kB).');
+  }
+
+  function leesDeScan(data){
+    (function(){
+      const knop=$('#bnScan');
+      if(knop){ knop.disabled=true; knop.textContent='Bezig\u2026' }
+      /* de scan is al bewaard; lukt het lezen niet, dan vul je zelf in */
+      roep('leesBon',{foto:data})
+        .then(d=>{
+          const n=vulIn(d);
+          toast(n?'Ingevuld uit de bon \u2014 loop het even na.':'Niets kunnen lezen; vul zelf in.');
+        })
+        .catch(err=>{
+          const m=String((err&&err.message)||'');
+          toast(/not-found|niet gevonden|internal/i.test(m)
+            ? 'De scanfunctie staat nog niet op je server. De foto is wel bewaard.'
+            : 'Lezen mislukte. De foto is bewaard; vul zelf in.');
+        })
+        .then(()=>{ const k=$('#bnScan'); if(k){k.disabled=false;k.innerHTML=svg(I.loep)+'Opnieuw scannen'} });
+    })();
+  }
+
   $('#bnOk').onclick=()=>{
     const bed=parseFloat(($('#bnB').value||'0').replace(',','.'));
     if(!bed||bed<=0) return toast('Vul het bedrag in.');
     const wie=$('#bnW').value.trim();
     if(!wie) return toast('Vul in bij wie je dit hebt gekocht.');
-    const nieuw={id:bestaand?bestaand.id:uid(),datum:$('#bnD').value||iso(new Date()),
+    const nieuw={id:bonId,datum:$('#bnD').value||iso(new Date()),
       soort,bedrag:bed,btw:parseFloat(($('#bnV').value||'0').replace(',','.'))||0,
-      wie,wat:$('#bnT').value.trim()};
+      wie,wat:$('#bnT').value.trim(),foto:false};
     S.bonnen=S.bonnen||[];
-    if(bestaand) Object.assign(bestaand,nieuw); else S.bonnen.push(nieuw);
-    bewaarNu(); render(); klaarSheet('Bon vastgelegd.');
+    const klaar=()=>{
+      if(bestaand) Object.assign(bestaand,nieuw); else S.bonnen.push(nieuw);
+      bewaarNu(); render(); klaarSheet('Bon vastgelegd.');
+    };
+    if(nieuweFoto){
+      nieuw.foto=true;
+      fotoBewaar(bonId,nieuweFoto).then(klaar).catch(()=>{
+        nieuw.foto=false; klaar(); toast('De bon is bewaard, de foto niet.');
+      });
+    } else {
+      /* stond er al een foto, dan blijft die staan */
+      fotoLees(bonId).then(d=>{ nieuw.foto=!!d; klaar() }).catch(()=>klaar());
+    }
   };
   if($('#bnWis')) $('#bnWis').onclick=()=>{
     if(!confirm('Deze bon verwijderen?')) return;
+    fotoWis(bestaand.id).catch(()=>{});
     S.bonnen=S.bonnen.filter(x=>x.id!==bestaand.id); bewaarNu(); render(); dicht();
   };
 }
@@ -3316,9 +3728,14 @@ function sheetBonnen(){
          `<div class="item"><span class="t">${euro(bonTotaal(j,x))}</span>
            <span class="b">${x}</span></div>`).join('')}</div>`:''}
      <div class="blokkop"><span class="eyebrow">Alle bonnen</span><span class="tel">${lijst.length||''}</span></div>
+     ${(()=>{const zonder=lijst.filter(b=>!b.foto).length;
+       return zonder?`<div class="melding amber">${svg(I.alarm,'2')}
+         <span>${zonder} ${zonder===1?'bon heeft':'bonnen hebben'} nog geen foto.
+           De Belastingdienst wil ze zeven jaar kunnen inzien.</span></div>`:''})()}
      ${lijst.length?`<div class="paneel">${lijst.map(b=>`
        <button class="arij" data-bon="${b.id}"><span class="naam">${esc(b.wie)}
-         <small>${kort(new Date(b.datum))} · ${b.soort.toLowerCase()}${b.wat?' · '+esc(b.wat):''}</small></span>
+         <small>${kort(new Date(b.datum))} · ${b.soort.toLowerCase()}${b.wat?' · '+esc(b.wat):''}${
+           b.foto?' · met foto':''}</small></span>
          <span class="waarde gevuld">${euro(b.bedrag)}</span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
       :'<div class="paneel"><div class="geen">Nog geen bonnen.</div></div>'}`,
@@ -4987,6 +5404,7 @@ function sheetKoppelingen(){
      <div class="paneel">
        ${rij('shopify','Shopify','je webshop, voor de orders')}
        ${rij('myparcel','MyParcel','voor je verzendlabels')}
+       ${rij('bonscan','Bonnen scannen','leest je kassabonnen uit')}
      </div>
      ${(S.werk||{}).laatstOpgehaald?`<div class="geen" style="padding-top:12px">
        Laatst opgehaald ${kort(new Date(S.werk.laatstOpgehaald))} om
