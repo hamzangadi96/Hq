@@ -28,6 +28,22 @@
   --groen:#15803d; --amber:#b45309; --rood:#c0392b;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+/* iOS' eigen tikoplichting staat hierboven uit. Zonder eigen :active zie je
+   dus niet of je tik is aangekomen, en druk je nog eens. En nog eens. */
+.prim,.sec,.knop2,.miniknop,.wisbtn,.stepbtn,.sluit,.hbtn,.chip,.arij,.menurij,
+.orij,.rrij,.crij,.item,.aanpasknop,.hulpknop,.kiesvak,.duo button,.duo3 button{
+  transition:transform .08s ease,background-color .12s ease,opacity .12s ease}
+.prim:active,.sec:active,.knop2:active,.miniknop:active,.wisbtn:active,
+.stepbtn:active,.sluit:active,.hbtn:active,.chip:active,.kiesvak:active,
+.duo button:active,.duo3 button:active{transform:scale(.95)}
+.wisbtn:active,.sluit:active,.stepbtn:active{background:var(--grijs3)}
+.sec:active,.menurij:active{background:var(--lijn)}
+button.arij:active,.menurij:active,.orij:active{background:var(--bg)}
+@media (prefers-reduced-motion:reduce){
+  .prim:active,.sec:active,.knop2:active,.miniknop:active,.wisbtn:active,
+  .stepbtn:active,.sluit:active,.hbtn:active,.chip:active,.kiesvak:active,
+  .duo button:active,.duo3 button:active{transform:none}
+}
 /* Het document zelf mag niet scrollen: anders schuift de kop mee weg zodra
    iOS de layout een tik groter maakt dan het scherm. Alleen de inhoud en de
    bottom-sheets scrollen. */
@@ -1370,7 +1386,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v165 · 12 aug 2026';
+const APPVERSIE='v166 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4322,12 +4338,25 @@ function sheetKostenbasis(){
     toast('Marge op '+komma(n)+'% gezet.');
   };
   $('#vlOk').onclick=()=>{
+    const knop=$('#vlOk');
+    /* twee keer tikken gaf twee posten; je zag de eerste niet omdat de lijst
+       boven het formulier staat en dus buiten beeld */
+    if(knop.dataset.bezig) return;
     const n=$('#vlN').value.trim(), b=parseFloat($('#vlB').value)||0;
     if(!n) return toast('Geef de post een naam.');
     if(b<=0) return toast('Vul een bedrag in.');
+    knop.dataset.bezig='1';
+    setTimeout(()=>{ const k=$('#vlOk'); if(k) delete k.dataset.bezig },600);
     S.vasteLasten=S.vasteLasten||[];
     S.vasteLasten.push({id:uid(),naam:n,bedrag:b,per:vlPer});
-    bewaarNu(); sheetKostenbasis(); render(); toast('Post toegevoegd.');
+    bewaarNu(); sheetKostenbasis(); render();
+    /* naar de nieuwe post toe, anders lijkt het alsof er niets gebeurde */
+    setTimeout(()=>{
+      const rijen=$$('[data-vlwis]');
+      const laatste=rijen[rijen.length-1];
+      if(laatste&&laatste.scrollIntoView) laatste.scrollIntoView({block:'center'});
+    },40);
+    toast(esc(n)+' toegevoegd.');
   };
   ['#vlN','#vlB'].forEach(sel=>{ const el=$(sel); if(el)
     el.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sluitToetsenbord();$('#vlOk').click()}} });
