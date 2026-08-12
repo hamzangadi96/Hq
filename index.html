@@ -576,7 +576,9 @@ main{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
 .sheetvoet{flex:none;padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
 .sheetvoet:empty{display:none}
 .sec{width:100%;height:48px;border-radius:14px;background:var(--bg);font-size:15px;font-weight:600;
-  margin-top:8px;text-align:center;display:flex;align-items:center;justify-content:center}
+  margin-top:8px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
+/* zonder maat schaalt een svg op tot de hoogte van de knop */
+.sec svg{width:16px;height:16px;stroke-width:2.2;flex:none}
 .mkop{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:var(--grijs3);padding:20px 0 4px}
 .mkop:first-child{padding-top:0}
@@ -1030,6 +1032,9 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .rapport th{font-size:7pt;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em}
 .rapport td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rapport td.t{width:16mm;color:#555;font-variant-numeric:tabular-nums}
+/* urenstaat heeft smalle kolommen naast elkaar; die hebben lucht nodig */
+.rapport table.uren td,.rapport table.uren th{padding-right:4mm}
+.rapport table.uren td:last-child,.rapport table.uren th:last-child{padding-right:0}
 .rapport .paar{display:grid;grid-template-columns:1fr 1fr;gap:0 10mm}
 .rapport .rij{display:flex;justify-content:space-between;gap:6mm;padding:1.3mm 0;border-bottom:.15mm solid #e2e2e2}
 .rapport .rij span:first-child{color:#555}
@@ -1314,7 +1319,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v140 · 12 aug 2026';
+const APPVERSIE='v141 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1490,6 +1495,7 @@ const S={
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
+  klussen:[], klus:null, klussoorten:[], urennorm:1225,
   gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
@@ -1515,7 +1521,8 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk'];
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk',
+  'klussen','klus','klussoorten','urennorm'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1756,6 +1763,72 @@ function werkPerActiviteit(b){
 }
 const werkTotaal=b=>werkLijst(b).reduce((s,w)=>s+seconden(w),0);
 
+/* ================= urenregistratie =================
+   Je productie-uren zitten al in je batches. Alles eromheen — coderen,
+   de website, administratie, terugkerende checks — was tot nu toe onzichtbaar.
+   Dat telt wel mee voor het urencriterium van 1225 uur, dus het hoort erbij. */
+
+const KLUSSOORTEN=[
+  {k:'coderen',    n:'Coderen',        ico:'vorm',     kleur:'#5b7c6b'},
+  {k:'website',    n:'Website & shop', ico:'spark',    kleur:'#7c8fa8'},
+  {k:'administratie',n:'Administratie',ico:'doc',      kleur:'#6b5b95'},
+  {k:'inkoop',     n:'Inkoop',         ico:'vracht',   kleur:'var(--amber)'},
+  {k:'marketing',  n:'Marketing',      ico:'spark',    kleur:'#b06a8f'},
+  {k:'onderhoud',  n:'Onderhoud & checks',ico:'klembord',kleur:'#9a9aa4'},
+  {k:'overig',     n:'Overig',         ico:'klembord', kleur:'var(--grijs2)'}
+];
+/* eigen soorten mogen erbij, de vaste lijst blijft staan */
+const klusSoorten=()=>KLUSSOORTEN.concat((S.klussoorten||[]).map(x=>
+  ({k:x.k,n:x.n,ico:'klembord',kleur:'var(--grijs2)',eigen:true})));
+const klusSoort=k=>klusSoorten().find(x=>x.k===k)||{k:k,n:k||'Overig',ico:'klembord',kleur:'var(--grijs2)'};
+
+const klusSec=x=>{
+  if(x.sec!==undefined&&x.sec!==null) return x.sec;
+  if(!x.start) return 0;
+  return Math.max(0,Math.round(((x.eind||Date.now())-x.start)/1000));
+};
+const klusLijst=()=>(S.klussen||[]).slice().sort((a,b)=>
+  (b.datum+(b.tijd||'')).localeCompare(a.datum+(a.tijd||'')));
+
+/* de klok loopt; hij overleeft het afsluiten van de app omdat we
+   met tijdstempels werken en niet met een teller */
+function klusStart(soort,tekst){
+  if(S.klus) klusStop();
+  S.klus={id:uid(),soort:soort,tekst:tekst||'',start:Date.now(),datum:vandaag(),tijd:nu()};
+  bewaarNu(); schermWakker(true);
+}
+function klusStop(){
+  const k=S.klus; if(!k) return null;
+  k.eind=Date.now(); k.sec=Math.max(0,Math.round((k.eind-k.start)/1000));
+  S.klussen=S.klussen||[];
+  if(k.sec>=30) S.klussen.push(k);      /* iets van tien seconden is een misklik */
+  S.klus=null; bewaarNu(); schermWakker(false);
+  return k;
+}
+/* uren over een periode; productie-uren tellen mee want die heb je al */
+function urenPeriode(van,tot){
+  const klus={}, binnen=d=>d>=van&&d<=tot;
+  let losSec=0;
+  (S.klussen||[]).forEach(x=>{ if(!binnen(x.datum)) return;
+    klus[x.soort]=(klus[x.soort]||0)+klusSec(x); losSec+=klusSec(x); });
+  let prodSec=0;
+  (S.batches||[]).forEach(b=>{
+    (werkLijst(b)||[]).forEach(w=>{
+      const d=iso(new Date(w.start));
+      if(binnen(d)) prodSec+=seconden(w);
+    });
+  });
+  return {klus,losSec,prodSec,totaalSec:losSec+prodSec};
+}
+const urenTekst=sec=>{
+  const u=Math.floor(sec/3600), m=Math.round(sec%3600/60);
+  return m===60?(u+1)+'u 00':u+'u '+pad(m);
+};
+const urenGetal=sec=>Math.round(sec/360)/10;   /* uren met één decimaal */
+const jaarBegin=()=>new Date().getFullYear()+'-01-01';
+const jaarEind=()=>new Date().getFullYear()+'-12-31';
+
+
 /* een stap timet zichzelf: lopende activiteit pauzeren, na afloop hervatten */
 let stapTimer=null;
 function startStap(b,naam){
@@ -1908,6 +1981,7 @@ const SNELITEMS=[
   {key:'voorraad',label:'Voorraad',icon:'doos',soort:'tab'},
   {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
+  {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
   {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
   {key:'smaken',label:'Smaken',icon:'boek',soort:'sheet',doe:()=>sheetRecepten()},
@@ -3191,6 +3265,219 @@ function sheetRit(id){
     if(!confirm('Deze rit verwijderen?')) return;
     S.ritten=S.ritten.filter(x=>x.id!==id); bewaarNu(); render(); dicht();
   };
+}
+
+function sheetUren(){
+  const vd=vandaag(), jr=new Date().getFullYear();
+  const wkVan=(()=>{const d=new Date(); const dag=(d.getDay()+6)%7;
+    d.setDate(d.getDate()-dag); return iso(d)})();
+  const week=urenPeriode(wkVan,vd), jaar=urenPeriode(jaarBegin(),jaarEind());
+  const norm=S.urennorm||1225, gedaan=urenGetal(jaar.totaalSec);
+  const pct=Math.min(100,Math.round(gedaan/norm*100));
+  const lopend=S.klus;
+
+  const recent=klusLijst().slice(0,8);
+
+  sheet('Uren',
+    `${lopend?`<div class="kiesbalk" style="background:var(--ink)">
+       <span class="kt">${esc(klusSoort(lopend.soort).n)}${lopend.tekst?' · '+esc(lopend.tekst):''}
+         <br><small style="opacity:.7;font-weight:500">sinds ${lopend.tijd}</small></span>
+       <button class="weg" id="ukStop">Stoppen</button></div>`
+      :`<p class="uitleg">Waar ga je aan werken? Tik een soort om de klok te starten.</p>
+        <div class="paneel">${klusSoorten().map(so=>`<button class="arij" data-ustart="${so.k}">
+          <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
+          <span class="naam">${esc(so.n)}</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`}
+
+     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Deze week</span>
+       <span class="tel">${urenTekst(week.totaalSec)}</span></div>
+     <div class="paneel">
+       <div class="rij"><span>Productie</span><b>${urenTekst(week.prodSec)}</b></div>
+       ${Object.keys(week.klus).sort((a,b)=>week.klus[b]-week.klus[a]).map(k=>
+         `<div class="rij"><span>${esc(klusSoort(k).n)}</span><b>${urenTekst(week.klus[k])}</b></div>`).join('')}
+       ${!week.totaalSec?`<div class="rij"><span>Nog niets geregistreerd deze week</span></div>`:''}
+     </div>
+
+     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Urencriterium ${jr}</span>
+       <span class="tel">${pct}%</span></div>
+     <div class="paneel" style="padding:18px 20px">
+       <div class="balk top" style="margin-bottom:10px">
+         <div class="seg ${pct>=100?'vol':''}" style="flex:${pct};${pct?'':'display:none'}"></div>
+         <div class="seg" style="flex:${100-pct};${pct>=100?'display:none':''}"></div></div>
+       <div class="stap" style="margin:0">${komma(gedaan)} van ${norm} uur
+         ${pct>=100?' · gehaald':' · nog '+komma(Math.round((norm-gedaan)*10)/10)+' uur te gaan'}</div>
+       <p class="uitleg" style="margin:10px 0 0">Haal je 1225 uur, dan kom je in aanmerking voor
+         zelfstandigenaftrek. Productie-uren tellen automatisch mee. Dit is een hulpmiddel,
+         geen belastingadvies — leg het naast je eigen administratie.</p>
+     </div>
+
+     ${recent.length?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Laatst geregistreerd</span>
+       <span class="tel">${(S.klussen||[]).length}</span></div>
+       <div class="paneel">${recent.map(x=>{const so=klusSoort(x.soort);
+         return veegRij(`<div class="arij">
+           <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
+           <span class="naam">${esc(so.n)}${x.tekst?' · '+esc(x.tekst):''}
+             <small>${kort(new Date(x.datum))}${x.tijd?' · '+x.tijd:''}</small></span>
+           <span class="waarde gevuld">${urenTekst(klusSec(x))}</span></div>`,
+           'data-uwis="'+x.id+'"')}).join('')}</div>`:''}`,
+
+    `<button class="prim" style="margin-top:0" id="uHand">${svg(I.plus)}Uren achteraf invoeren</button>
+     <button class="sec" id="uStaat">${svg(I.doc)}Urenstaat printen</button>`);
+
+  $$('[data-ustart]').forEach(b=>b.onclick=()=>sheetKlusStart(b.dataset.ustart));
+  if($('#ukStop')) $('#ukStop').onclick=()=>{
+    const k=klusStop();
+    sheetUren(); render();
+    toast(k&&k.sec>=30?'Gestopt · '+urenTekst(k.sec)+' geregistreerd.':'Gestopt, te kort om te bewaren.');
+  };
+  $$('[data-uwis]').forEach(b=>b.onclick=()=>{
+    const herstel=terugpunt(['klussen']);
+    S.klussen=(S.klussen||[]).filter(x=>x.id!==b.dataset.uwis);
+    sluitVeeg(); bewaarNu(); sheetUren(); render(); toast('Registratie verwijderd.',herstel);
+  });
+  $('#uHand').onclick=()=>sheetUrenHand();
+  $('#uStaat').onclick=()=>sheetUrenstaat();
+  setTimeout(bindVeeg,20);
+}
+
+/* een klus starten: soort staat vast, de omschrijving mag je overslaan */
+/* een klok die de hele nacht doorloopt maakt je urenstaat waardeloos.
+   Bij zes uur vragen we of het klopt, en je mag de eindtijd bijstellen. */
+function klusVergeten(){
+  const k=S.klus; if(!k) return null;
+  const uren=(Date.now()-k.start)/3600000;
+  return uren>=6?{k,uren:Math.round(uren)}:null;
+}
+function sheetKlusCorrectie(){
+  const v=klusVergeten(); if(!v) return;
+  const k=v.k, start=new Date(k.start);
+  sheet('Loopt deze klok nog?',
+    `<p class="uitleg">${esc(klusSoort(k.soort).n)}${k.tekst?' · '+esc(k.tekst):''}<br>
+       Loopt sinds ${pad(start.getHours())}:${pad(start.getMinutes())} — dat is ${v.uren} uur.</p>
+     <div class="veld"><label>Tot hoe laat heb je gewerkt?</label>
+       <input class="inp" id="kcE" type="time" value="${pad(start.getHours()+1)}:${pad(start.getMinutes())}"></div>`,
+    `<button class="prim" style="margin-top:0" id="kcJa">Eindtijd vastleggen</button>
+     <button class="sec" id="kcDoor">Nee, ik werk nog door</button>
+     <button class="sec" id="kcWeg" style="color:var(--rood)">Weggooien</button>`);
+  $('#kcDoor').onclick=()=>{k.gevraagd=Date.now();bewaarNu();dicht()};
+  $('#kcWeg').onclick=()=>{S.klus=null;bewaarNu();dicht();render();toast('Klok weggegooid.')};
+  $('#kcJa').onclick=()=>{
+    const t=($('#kcE').value||'').split(':');
+    if(t.length!==2){ toast('Vul een eindtijd in.'); return }
+    const e=new Date(k.start); e.setHours(parseInt(t[0]),parseInt(t[1]),0,0);
+    if(e<=k.start){ toast('De eindtijd ligt voor de starttijd.'); return }
+    k.eind=e.getTime(); k.sec=Math.round((k.eind-k.start)/1000);
+    S.klussen=S.klussen||[]; S.klussen.push(k); S.klus=null;
+    bewaarNu(); dicht(); render(); toast(urenTekst(k.sec)+' geregistreerd.');
+  };
+}
+
+function sheetKlusStart(soort){
+  const so=klusSoort(soort);
+  sheet('Klok starten',
+    `<p class="uitleg">${esc(so.n)}</p>
+     <div class="veld"><label>Waar werk je aan? <span class="opt">mag leeg</span></label>
+       <input class="inp" id="ksT" placeholder="Bijv. lotnummer terugzoeken" autocomplete="off"></div>`,
+    `<button class="prim" style="margin-top:0" id="ksJa">${svg(I.klok)}Start de klok</button>`);
+  setTimeout(()=>{const e=$('#ksT'); if(e) e.focus()},250);
+  $('#ksJa').onclick=()=>{
+    klusStart(soort,$('#ksT').value.trim());
+    sheetUren(); render(); toast('Klok loopt.');
+  };
+}
+
+/* achteraf invoeren: voor als je 's avonds bedenkt dat je drie uur aan de site zat */
+function sheetUrenHand(){
+  sheet('Uren invoeren',
+    `<div class="veld"><label>Soort werk</label>
+       <div class="chips" id="uhS">${klusSoorten().map((so,i)=>
+         `<button class="chip ${i===0?'aan':''}" data-v="${so.k}">${esc(so.n)}</button>`).join('')}</div></div>
+     <div class="veld"><label>Datum</label>
+       <input class="inp" id="uhD" type="date" value="${vandaag()}"></div>
+     <div class="veld"><label>Hoeveel uur</label>
+       <input class="inp" id="uhU" type="text" inputmode="decimal"
+         placeholder="Bijv. 2,5" autocomplete="off"></div>
+     <div class="veld"><label>Waar werk je aan? <span class="opt">mag leeg</span></label>
+       <input class="inp" id="uhT" placeholder="Korte omschrijving" autocomplete="off"></div>`,
+    `<button class="prim" style="margin-top:0" id="uhJa">Vastleggen</button>`);
+  chips('#uhS');
+  $('#uhJa').onclick=()=>{
+    const u=parseFloat(($('#uhU').value||'').replace(',','.'));
+    if(!u||u<=0){ toast('Vul in hoeveel uur je gewerkt hebt.'); $('#uhU').focus(); return }
+    if(u>24){ toast('Meer dan 24 uur op één dag kan niet.'); return }
+    S.klussen=S.klussen||[];
+    S.klussen.push({id:uid(),soort:chipV('#uhS')||'overig',tekst:$('#uhT').value.trim(),
+      datum:$('#uhD').value||vandaag(),tijd:'',sec:Math.round(u*3600),handmatig:true});
+    bewaarNu(); sheetUren(); render(); toast(komma(u)+' uur vastgelegd.');
+  };
+}
+
+/* de urenstaat: één regel per dag per soort, zoals de Belastingdienst
+   het wil zien — datum, omschrijving, uren. Productie-uren staan erbij,
+   met het batchnummer als onderbouwing. */
+function urenstaatHTML(jaar){
+  const van=jaar+'-01-01', tot=jaar+'-12-31';
+  const regels=[];
+  (S.klussen||[]).forEach(x=>{ if(x.datum<van||x.datum>tot) return;
+    regels.push({datum:x.datum,soort:klusSoort(x.soort).n,
+      oms:x.tekst||klusSoort(x.soort).n,sec:klusSec(x),bron:x.handmatig?'handmatig':'geklokt'}) });
+  (S.batches||[]).forEach(b=>{
+    const per={};
+    (werkLijst(b)||[]).forEach(w=>{const d=iso(new Date(w.start));
+      if(d<van||d>tot) return; per[d]=(per[d]||0)+seconden(w)});
+    Object.keys(per).forEach(d=>regels.push({datum:d,soort:'Productie',
+      oms:'Batch '+b.code+' — '+bNamen(b),sec:per[d],bron:'geklokt'}));
+  });
+  regels.sort((a,b)=>a.datum.localeCompare(b.datum));
+
+  const totSec=regels.reduce((n,r)=>n+r.sec,0), tot2=urenGetal(totSec);
+  const norm=S.urennorm||1225;
+  const perSoort={}; regels.forEach(r=>{perSoort[r.soort]=(perSoort[r.soort]||0)+r.sec});
+  const mnd={}; regels.forEach(r=>{const m=r.datum.slice(0,7); mnd[m]=(mnd[m]||0)+r.sec});
+
+  let h=`<div class="rapport">${rKop('Urenregistratie','Kalenderjaar '+jaar)}
+    <div class="rij"><span>Totaal geregistreerde uren</span><b>${komma(tot2)} uur</b></div>
+    <div class="rij"><span>Urencriterium</span><b>${tot2>=norm?'gehaald':'nog '+komma(Math.round((norm-tot2)*10)/10)+' uur'} van ${norm}</b></div>
+    <div class="rij"><span>Aantal registraties</span><b>${regels.length}</b></div>
+
+    <h3>Per soort werk</h3>
+    <table class="uren"><tr><th>Soort</th><th>Uren</th><th>Aandeel</th></tr>
+    ${Object.keys(perSoort).sort((a,b)=>perSoort[b]-perSoort[a]).map(k=>
+      `<tr><td>${esc(k)}</td><td class="n">${komma(urenGetal(perSoort[k]))}</td>
+       <td class="n">${totSec?Math.round(perSoort[k]/totSec*100):0}%</td></tr>`).join('')}</table>
+
+    <h3>Per maand</h3>
+    <table><tr><th>Maand</th><th>Uren</th></tr>
+    ${Object.keys(mnd).sort().map(m=>{const d=new Date(m+'-01');
+      return `<tr><td>${MND[d.getMonth()]} ${d.getFullYear()}</td>
+        <td class="n">${komma(urenGetal(mnd[m]))}</td></tr>`}).join('')}</table>
+
+    <h3>Alle registraties</h3>
+    ${regels.length?`<table class="uren"><tr><th>Datum</th><th>Soort</th><th>Omschrijving</th><th>Uren</th><th>Vastgelegd</th></tr>
+      ${regels.map(r=>`<tr><td class="t">${kort(new Date(r.datum))}</td>
+        <td>${esc(r.soort)}</td><td>${esc(r.oms)}</td>
+        <td class="n">${komma(urenGetal(r.sec))}</td><td>${r.bron}</td></tr>`).join('')}</table>`
+     :rLeeg('Nog geen uren geregistreerd in '+jaar+'.')}
+
+    <div class="leeg" style="text-align:left">Uren zijn met een klok in de app vastgelegd of
+      achteraf ingevoerd; de kolom Vastgelegd laat zien welke van de twee. Productie-uren komen
+      uit de batchregistratie en zijn herleidbaar tot het batchnummer. Bewaartermijn zeven jaar.</div>
+    ${rHand()}${rVoet('urenregistratie')}</div>`;
+  return h;
+}
+
+function sheetUrenstaat(){
+  const jaar=new Date().getFullYear();
+  const html=urenstaatHTML(jaar);
+  sheet('Urenstaat '+jaar,
+    `<p class="hint">Op A4. Tik Printen en kies in het deelmenu van je telefoon voor
+       <b>Bewaar in Bestanden</b> om er een pdf van te maken.</p>
+     <div class="etvoorbeeld" style="padding:0"><div class="schaal" id="usSchaal">${html}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="usPrint">${svg(I.doc)}Printen of opslaan als pdf</button>
+     <button class="sec" id="usT">Sluiten</button>`);
+  setTimeout(()=>pasSchaal('usSchaal'),30);
+  $('#usT').onclick=()=>sheetUren();
+  $('#usPrint').onclick=()=>drukAf(html,'Urenregistratie '+jaar,'@page{size:A4;margin:8mm}');
 }
 
 function sheetRitten(){
@@ -6576,6 +6863,9 @@ $('#btnMenu').onclick=()=>{
         <span class="tel">bekijken</span></button>`).join('')}`:''}
 
     <div class="mkop">Beheer</div>
+    <button class="menurij" id="mUren">${svg(I.klok)}Urenregistratie<span class="tel ${
+      S.klus?'let':''}">${S.klus?'klok loopt':(()=>{const j=urenPeriode(jaarBegin(),jaarEind());
+      return j.totaalSec?komma(urenGetal(j.totaalSec))+' uur dit jaar':'nog niets'})()}</span></button>
     <button class="menurij" id="mIns">${svg(I.instel)}Instellingen</button>
     <button class="menurij" id="mData">${svg(I.doc)}Gegevens meenemen</button>
     <button class="menurij" id="mNieuw">${svg(I.ververs)}Nieuwe dag beginnen</button>
@@ -6587,6 +6877,7 @@ $('#btnMenu').onclick=()=>{
     <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
   $('#mHaccp').onclick=sheetHaccp;
+  $('#mUren').onclick=sheetUren;
   $('#mKaart').onclick=()=>sheetWenskaart('');
   $('#mKop').onclick=sheetKoppelingen;
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
@@ -8106,7 +8397,7 @@ const rKop=(titel,sub)=>`<div class="rkop">
   ${merkPrint('rmerk')}
   <div class="rtitel"><b>${esc(titel)}</b>${esc(sub)}<br>${esc(BEDRIJF.adres)}${
     merkNummers()?'<br>'+esc(merkNummers()):''}</div></div>`;
-const rVoet=()=>`<div class="voet"><span>${BEDRIJF.naam} · productieregistratie</span>
+const rVoet=(wat)=>`<div class="voet"><span>${BEDRIJF.naam} · ${wat||'productieregistratie'}</span>
   <span>Afgedrukt ${kort(new Date())} om ${nu()}</span></div>`;
 const rHand=()=>`<div class="hand"><div>Uitgevoerd door — ${esc(S.naam)}</div><div>Gecontroleerd door / datum</div></div>`;
 const rLeeg=t=>`<div class="leeg">${t}</div>`;
@@ -10690,7 +10981,10 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 
-(async()=>{ await laden(); render(); })();
+(async()=>{ await laden(); render();
+  /* liep de klok nog toen je de app wegklikte? even navragen */
+  setTimeout(()=>{ if(klusVergeten()&&!sheetOpen) sheetKlusCorrectie() },1200);
+})();
 </script>
 </body>
 </html>
