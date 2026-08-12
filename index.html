@@ -25,7 +25,10 @@
   --groen:#15803d; --amber:#b45309; --rood:#c0392b;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html,body{margin:0;padding:0}
+/* Het document zelf mag niet scrollen: anders schuift de kop mee weg zodra
+   iOS de layout een tik groter maakt dan het scherm. Alleen de inhoud en de
+   bottom-sheets scrollen. */
+html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
 body{-webkit-text-size-adjust:100%;text-size-adjust:100%;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:#e8e8ea;color:var(--ink);-webkit-font-smoothing:antialiased}
 button,input,textarea{font-family:inherit;font-size:16px;color:inherit}
@@ -36,10 +39,14 @@ button:focus{outline:none}
 button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .tab:focus-visible{outline-color:#fff}
 
-.app{position:relative;width:100%;max-width:440px;margin:0 auto;height:100dvh;background:var(--bg);
+.app{position:relative;width:100%;max-width:440px;margin:0 auto;height:100%;height:100dvh;
+  max-height:100%;background:var(--bg);
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 70px rgba(0,0,0,.10)}
 
-header{flex:none;padding:calc(12px + var(--veiligBoven)) 20px 10px;display:flex;align-items:flex-start;gap:12px}
+/* De kop ligt boven de inhoud en schuift weg zodra je scrollt, zodat je
+   het hele scherm voor je lijst hebt. Scroll je terug, dan komt hij terug. */
+header{position:absolute;top:0;left:0;right:0;z-index:20;background:var(--bg);
+  padding:calc(12px + var(--veiligBoven)) 20px 10px;display:flex;align-items:flex-start;gap:12px}
 header h1{margin:0;font-size:27px;font-weight:600;letter-spacing:-.04em;line-height:1.15}
 header.gecentreerd{position:relative;display:block;padding:calc(20px + var(--veiligBoven)) 20px 20px;border-bottom:1px solid var(--lijn);
   transition:padding .24s cubic-bezier(.32,.72,0,1),border-color .24s ease}
@@ -124,7 +131,8 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
 .hbtn.terug{margin-left:-8px}
 .hbtn.menu{margin-right:-8px}
 
-main{flex:1;overflow-y:auto;padding:12px 20px 32px;-webkit-overflow-scrolling:touch}
+main{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:calc(var(--kopHoogte,72px) + 12px) 20px 32px;-webkit-overflow-scrolling:touch}
 .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--grijs2)}
 .blokkop{display:flex;align-items:baseline;gap:12px;margin:32px 2px 12px}
 main>.blokkop:first-child{margin-top:8px}
@@ -597,7 +605,7 @@ nav#tabbar{view-transition-name:tabbalk}
 .sheetkop .wstap{font-size:12.5px;font-weight:600;color:var(--grijs2);flex:none}
 .sluit{width:30px;height:30px;border-radius:99px;background:var(--bg);display:grid;place-items:center;color:var(--grijs);flex:none}
 .sluit svg{width:15px;height:15px}
-.sheetbody{flex:1;overflow-y:auto;padding:8px 20px 12px}
+.sheetbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 20px 12px}
 .sheetvoet{flex:none;padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
 .sheetvoet:empty{display:none}
 .sec{width:100%;height:48px;border-radius:14px;background:var(--bg);font-size:15px;font-weight:600;
@@ -1346,7 +1354,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v151 · 12 aug 2026';
+const APPVERSIE='v153 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2091,7 +2099,31 @@ const STRAKS={
     punten:['Facturen in huisstijl met btw gesplitst 9% en 21%','PDF met optionele BETAALD-stempel','Bonnen en inkomende facturen uploaden','Per maand gebundeld voor de boekhouder','Km-registratie met vaste adressen'],stap:4}
 };
 
-/* ================= render ================= */
+/* ================= render =================
+   De kop ligt los boven de inhoud. We meten hoe hoog hij is, zetten dat als
+   ruimte bovenin de lijst, en schuiven hem bij het scrollen precies zover
+   omhoog tot hij uit beeld is. */
+let kopHoogte=72;
+function meetKop(){
+  const kop=document.querySelector('header'); if(!kop) return;
+  const h=kop.offsetHeight||72;
+  if(h!==kopHoogte){
+    kopHoogte=h;
+    document.documentElement.style.setProperty('--kopHoogte',h+'px');
+  }
+}
+function kopSchuif(){
+  const kop=document.querySelector('header'), scr=$('#scherm');
+  if(!kop||!scr) return;
+  /* de hoogte hier vers opvragen: meten we alleen bij het renderen, dan klopt
+     het niet meer zodra het lettertype alsnog laadt en de kop groeit. Er bleef
+     dan een randje staan. */
+  const h=kop.offsetHeight||kopHoogte;
+  if(h!==kopHoogte){ kopHoogte=h; document.documentElement.style.setProperty('--kopHoogte',h+'px'); }
+  const y=Math.max(0,Math.min(scr.scrollTop,h));
+  kop.style.transform=y?'translate3d(0,'+(-y)+'px,0)':'';
+}
+
 let vorigScherm=null;
 /* Schermwissel met een echte kruisvervaging (View Transitions, iOS 18+).
    Hetzelfde scherm opnieuw tekenen (opslaan, klok) blijft zonder animatie;
@@ -2180,6 +2212,7 @@ function renderNu(){
     x.classList.toggle('actief', !!k && k===S.tab);
   });
   bind();
+  meetKop(); kopSchuif();
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnTerug').onclick=()=>{S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0};
@@ -11126,16 +11159,19 @@ function sheetMeetpunten(){
   $('#mTerug').onclick=sheetInstellingen;
 }
 
-/* merkbalk krimpt zodra je gaat scrollen */
+/* de kop schuift weg zodra je gaat scrollen */
 (function(){
-  const kop=document.querySelector('header'), scr=$('#scherm');
-  if(!kop||!scr) return;
+  const scr=$('#scherm'); if(!scr) return;
+  let wacht=false;
   scr.addEventListener('scroll',()=>{
-    if(!kop.classList.contains('gecentreerd')) return;
-    const t=scr.scrollTop;
-    if(t>34) kop.classList.add('klein');
-    else if(t<14) kop.classList.remove('klein');
+    if(wacht) return;
+    wacht=true;
+    requestAnimationFrame(()=>{ wacht=false; kopSchuif() });
   },{passive:true});
+  window.addEventListener('resize',()=>{ meetKop(); kopSchuif() });
+  /* het merklettertype laadt na, waardoor de kop nog groeit */
+  if(document.fonts&&document.fonts.ready)
+    document.fonts.ready.then(()=>{ meetKop(); kopSchuif() }).catch(()=>{});
 })();
 
 /* een sheet sluit je op de telefoon door omlaag te vegen */
