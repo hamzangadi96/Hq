@@ -1406,7 +1406,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v182 · 12 aug 2026';
+const APPVERSIE='v183 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5120,6 +5120,61 @@ function factuurHTML(o){
   </div>`;
 }
 
+/* ═══════════ alle facturen bij elkaar ═══════════
+   Facturen bestonden alleen als eigenschap van een order, dus wilde je weten
+   wat er openstaat, dan moest je je orders één voor één langs. */
+function factuurBedrag(o){
+  const totStuks=(o.regels||[]).reduce((n,x)=>n+(x.aantal||0),0);
+  const laag=(o.regels||[]).reduce((n,r)=>{
+    const pr=prijsVoor(o.klantId,r.receptId,totStuks);
+    return n+(pr===null?0:pr*r.aantal);
+  },0);
+  return laag+(parseFloat(o.verzending)||0)+(parseFloat(o.kado)||0);
+}
+const facturen=()=>(S.orders||[]).filter(o=>o.factuurNr)
+  .slice().sort((a,b2)=>String(b2.factuurDatum||'').localeCompare(String(a.factuurDatum||'')));
+
+function sheetFacturen(){
+  const l=facturen();
+  const open=l.filter(o=>!o.betaald), betaald=l.filter(o=>o.betaald);
+  const som=x=>x.reduce((n,o)=>n+factuurBedrag(o),0);
+  const dagenOud=o=>o.factuurDatum?Math.round((new Date(vandaag())-new Date(o.factuurDatum))/86400000):null;
+
+  const rij=o=>{
+    const d=dagenOud(o), laat=!o.betaald&&d!==null&&d>14;
+    return `<button class="arij" data-factuur="${o.id}">
+      <span class="naam">${esc(factuurNr(o))}<small>${esc(klantNaam(o.klantId))}${
+        o.factuurDatum?' · '+kort(new Date(o.factuurDatum)):''}${
+        laat?' · '+d+' dagen open':''}</small></span>
+      <span class="waarde gevuld" ${laat?'style="color:var(--rood)"':''}>${euro(factuurBedrag(o))}</span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+  };
+
+  sheet('Facturen',
+    !l.length
+    ? `<p class="hint">Nog geen facturen. Zodra je bij een order een factuur opent,
+        krijgt hij een nummer en verschijnt hij hier.</p>`
+    : `<div class="vrkop"><div class="vrgetal" style="font-size:22px">${euro(som(open))}<em>${
+         open.length?'openstaand':'alles betaald'}</em></div>
+       <div class="vrmeta">${l.length} ${l.length===1?'factuur':'facturen'}<br>${
+         euro(som(l))} totaal</div></div>
+
+       ${(()=>{const laat=open.filter(o=>{const d=dagenOud(o);return d!==null&&d>14});
+         return laat.length?`<div class="melding amber">${svg(I.alarm,'2')}
+           <span>${laat.length} ${laat.length===1?'factuur staat':'facturen staan'} langer dan
+             veertien dagen open, samen ${euro(som(laat))}.</span></div>`:''})()}
+
+       ${open.length?`<div class="blokkop"><span class="eyebrow">Openstaand</span>
+         <span class="tel">${open.length}</span></div>
+         <div class="paneel">${open.map(rij).join('')}</div>`:''}
+
+       ${betaald.length?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Betaald</span>
+         <span class="tel">${betaald.length}</span></div>
+         <div class="paneel">${betaald.map(rij).join('')}</div>`:''}`,
+    '');
+  $$('[data-factuur]').forEach(b=>b.onclick=()=>sheetFactuur(b.dataset.factuur));
+}
+
 function sheetFactuur(id){
   const o=(S.orders||[]).find(x=>x.id===id); if(!o) return;
   const html=factuurHTML(o);
@@ -5737,7 +5792,20 @@ function ordersHTML(){
 
   /* een prijs uitrekenen doe je met een klant in gedachten, dus hier en niet
      ergens onderin je boekhouding */
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Prijzen</span></div>
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Facturen</span></div>
+    <div class="paneel">
+      <button class="arij" data-facturen><span class="ivak">${svg(I.doc)}</span>
+        <span class="naam">Alle facturen<small>${(()=>{
+          const l=(S.orders||[]).filter(o=>o.factuurNr);
+          const op=l.filter(o=>!o.betaald);
+          if(!l.length) return 'nog geen facturen';
+          return op.length? op.length+' openstaand · '+euro(op.reduce((n,o)=>n+factuurBedrag(o),0))
+                          : l.length+' facturen · alles betaald';
+        })()}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+    </div>
+
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Prijzen</span></div>
     <div class="paneel">
       <button class="arij" data-prijzen><span class="ivak">${svg(I.spark)}</span>
         <span class="naam">Prijzen<small>${(()=>{
@@ -8263,7 +8331,7 @@ function bind(){
   $$('[data-uren]').forEach(x=>x.onclick=sheetUren);
   $$('[data-b2b]').forEach(x=>x.onclick=sheetB2B);
   $$('[data-prijzen]').forEach(x=>x.onclick=()=>sheetPrijzen());
-  $$('[data-prijzen]').forEach(x=>x.onclick=()=>sheetPrijzen());
+  $$('[data-facturen]').forEach(x=>x.onclick=sheetFacturen);
   $$('[data-afspraken]').forEach(x=>x.onclick=sheetAfspraken);
   $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
   $$('[data-recept]').forEach(x=>x.onclick=()=>sheetReceptForm(x.dataset.recept));
