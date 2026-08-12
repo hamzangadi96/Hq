@@ -1341,7 +1341,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v146 · 12 aug 2026';
+const APPVERSIE='v147 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1599,7 +1599,8 @@ function firebaseStart(){
         if(!d||negeerRemote) return;
         /* alleen overnemen als de server nieuwer is dan wat hier staat */
         if((d.bijgewerkt||0)>(S.bijgewerkt||0)){
-          zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); lokaalSchrijf(d); render();
+          zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
+          lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
           fbRef.set(pakData()).catch(()=>{});
@@ -1614,7 +1615,7 @@ async function laden(){
   const d=await lokaalLees();
   if(d) zetData(d);
   opslagOk=true;
-  migreerChecks(); migreerBatches(); migreerGrond();
+  migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
   if(!S.checksGezet){ standaardChecks(); S.checksGezet=true; bewaarNu(); }
   if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; bewaarNu(); }
   if(!S.werkGezet2){
@@ -5351,6 +5352,31 @@ function stapSoort(naam){
   return 'voorbereiden';
 }
 
+/* Een planning zonder id was niet te verwijderen: het kruisje filterde dan
+   op "undefined" en haalde er niets uit, terwijl je wel een bevestiging zag.
+   Twee planningen met hetzelfde id gingen samen weg. Allebei nu afgevangen. */
+function migreerPlanning(){
+  const gezien=new Set(); let hersteld=0;
+  (S.planning||[]).forEach(p=>{
+    if(!p||typeof p!=='object') return;
+    if(!p.id||gezien.has(p.id)){ p.id=uid(); hersteld++; }
+    gezien.add(p.id);
+  });
+  return hersteld;
+}
+
+/* dezelfde dag, dezelfde chocolade, dezelfde smaken en aantallen: dubbel */
+const planKenmerk=p=>[p.datum,p.chocolade,
+  (p.regels||[]).map(r=>r.receptId+':'+r.aantal).sort().join(',')].join('|');
+function planDubbel(){
+  const gezien={}, extra=[];
+  (S.planning||[]).forEach(p=>{
+    const k=planKenmerk(p);
+    if(gezien[k]) extra.push(p); else gezien[k]=true;
+  });
+  return extra;
+}
+
 const planLijst=()=>(S.planning||[]).slice()
   .sort((a,b2)=>String(a.datum).localeCompare(String(b2.datum)));
 
@@ -5572,22 +5598,30 @@ function sheetPlanBatch(vooraf){
     });
     $('#pb4T').onclick=stap3;
     $('#pb4').onclick=()=>{
+      const knop=$('#pb4');
+      /* twee keer tikken gaf twee planningen. Eén keer is genoeg. */
+      if(knop.dataset.bezig) return;
+      let regels2, voorbereiding;
       try{
-        const regels2=(P.regels&&P.regels.length)?P.regels
+        regels2=(P.regels&&P.regels.length)?P.regels
           :Object.keys(P.mallen||{}).filter(k=>P.mallen[k]>0)
             .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*S.malGrootte}));
-        if(!regels2.length) return toast('Kies eerst hoeveel mallen je draait.');
-        const voorbereiding=Object.keys(P.voor).filter(st=>P.voor[st])
+        voorbereiding=Object.keys(P.voor).filter(st=>P.voor[st])
           .map(st=>({stap:st,datum:P.voor[st]}));
-        S.planning=S.planning||[];
-        S.planning.push({id:uid(),datum:P.datum,chocolade:P.choc,regels:regels2,
-          levertijd:P.lt||0,voorbereiding,gemaakt:vandaag()});
-        bewaarNu(); dicht(); render();
+      }catch(e){ return toast('Inplannen lukte niet. Probeer het nog eens.'); }
+      if(!regels2||!regels2.length) return toast('Kies eerst hoeveel mallen je draait.');
+      knop.dataset.bezig='1';
+      S.planning=S.planning||[];
+      S.planning.push({id:uid(),datum:P.datum,chocolade:P.choc,regels:regels2,
+        levertijd:P.lt||0,voorbereiding,gemaakt:vandaag()});
+      bewaarNu();
+      /* de planning staat er nu. Gaat het tekenen daarna mis, dan is dat geen
+         reden om je te laten denken dat je opnieuw moet inplannen. */
+      try{
+        dicht(); render();
         const bd2=P.lt?datumPlus(P.datum,-(P.lt+1)):null;
-        toast('Ingepland op '+kort(new Date(P.datum))+(bd2?' · boodschappen '+kort(new Date(bd2)):''));
-      }catch(e){
-        toast('Inplannen lukte niet. Probeer het nog eens.');
-      }
+        toast('Ingepland op '+kort(new Date(P.datum))+(bd2?' \u00b7 boodschappen '+kort(new Date(bd2)):''));
+      }catch(e){ toast('Ingepland op '+P.datum+'.'); }
     };
   };
   stap1();
@@ -5612,6 +5646,15 @@ function planStart(id){
 let plKies=null;   /* null = uit, anders een Set met gekozen planning-id's */
 
 function sheetPlanning(){
+  migreerPlanning();
+  /* stond de planning al open, dan blijf je waar je was. Anders lijkt het
+     na het weghalen van een rij alsof er niets is gebeurd. */
+  const kopNu=document.querySelector('#sheet.open .sheetkop h2');
+  const bodyNu=document.querySelector('#sheet.open .sheetbody');
+  const scrollNu=(kopNu&&kopNu.textContent.trim()==='Planning'&&bodyNu)?bodyNu.scrollTop:0;
+  /* de rijen verwijzen naar de planning zelf, niet naar een id. Zo blijft
+     het kruisje werken wat er ook met die id's gebeurd is. */
+  const plRegister=[];
   const lijst=planLijst();
   const dagen={};
   allePlanTaken().forEach(t=>{
@@ -5649,8 +5692,17 @@ function sheetPlanning(){
        <button id="plKlaar">Klaar</button></div>`
     : '';
 
+  const dub=plKies?[]:planDubbel();
+  const dubbelmelding = dub.length
+    ? `<div class="melding amber" style="align-items:center">${svg(I.alarm,'2')}
+       <span style="flex:1">${dub.length===1
+         ?'Er staat 1 dubbele planning in je agenda.'
+         :'Er staan '+dub.length+' dubbele planningen in je agenda.'}</span>
+       <button class="miniknop" id="plOpruim" style="height:38px;padding:0 14px">Opruimen</button></div>`
+    : '';
+
   sheet('Planning',
-    `${kiesbalk}${strip}
+    `${kiesbalk}${dubbelmelding}${strip}
      ${datums.length?datums.map(d=>{
        const dag=dagen[d], dn=new Date(d);
        const nu6=dagenTussen(vandaag(),d);
@@ -5679,10 +5731,11 @@ function sheetPlanning(){
              <span class="naam">${esc(namen)}<small>${chocNaam(p.chocolade).toLowerCase()} · ${tot} bonbons</small></span>`;
            if(plKies) return `<button class="arij" data-plkies="${p.id}">${binnen}
              <span class="kiesvak ${plKies.has(p.id)?'aan':''}">${svg(I.vink,'3')}</span></button>`;
+           plRegister.push(p); const rij=plRegister.length-1;
            /* ook een batch die al mag starten moet je kwijt kunnen */
            return `<div class="arij">${binnen}
-             ${kanNu?`<button class="miniknop" data-planstart="${p.id}">Starten</button>`:''}
-             <button class="wisbtn" data-planwis="${p.id}">${svg(I.kruis,'2')}</button>
+             ${kanNu?`<button class="miniknop" data-planstart="${rij}">Starten</button>`:''}
+             <button class="wisbtn" data-planwis="${rij}">${svg(I.kruis,'2')}</button>
            </div>`}).join('')}
          ${(ord[d]||[]).map(o=>`<button class="arij" data-order="${o.id}">
            <span class="ivak">${svg(I.doos)}</span>
@@ -5738,12 +5791,27 @@ function sheetPlanning(){
     if(doel) doel.scrollIntoView({behavior:'smooth',block:'start'});
     else sheetPlanBatch(d);
   });
-  $$('[data-planstart]').forEach(b=>b.onclick=()=>planStart(b.dataset.planstart));
+  $$('[data-planstart]').forEach(b=>b.onclick=()=>{
+    const p=plRegister[+b.dataset.planstart]; if(p) planStart(p.id);
+  });
   $$('[data-planwis]').forEach(b=>b.onclick=()=>{
+    const p=plRegister[+b.dataset.planwis];
+    const i=p?(S.planning||[]).indexOf(p):-1;
+    if(i<0) return toast('Deze planning stond er al niet meer in.');
     const herstel=terugpunt(['planning']);
-    S.planning=S.planning.filter(x=>x.id!==b.dataset.planwis);
+    S.planning.splice(i,1);
     bewaarNu(); sheetPlanning(); render(); toast('Uit je planning gehaald.',herstel);
   });
+  if($('#plOpruim')) $('#plOpruim').onclick=()=>{
+    const extra=planDubbel(); if(!extra.length) return;
+    const herstel=terugpunt(['planning']);
+    S.planning=(S.planning||[]).filter(p=>!extra.includes(p));
+    bewaarNu(); sheetPlanning(); render();
+    toast(extra.length+(extra.length===1?' dubbele planning':' dubbele planningen')+' opgeruimd.',herstel);
+  };
+  /* scrollpositie terugzetten zodat je ziet dat er iets is weggehaald */
+  if(scrollNu){ const nb=document.querySelector('#sheet .sheetbody');
+    if(nb) nb.scrollTop=scrollNu; }
 }
 
 function sheetBoodschappen(){
