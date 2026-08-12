@@ -1204,7 +1204,12 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .vel.a4{width:210mm;height:297mm;padding:8mm;box-sizing:border-box;
   display:grid;grid-template-columns:repeat(2,73mm);grid-template-rows:repeat(5,47mm);
   gap:2mm;justify-content:center;align-content:start}
-.vel.postnl .etiket,.vel.a4 .etiket{outline:.12mm dashed #b8b8b8;outline-offset:0}
+/* het productetiket is 99,1 x 67,7 mm: acht per A4, twee naast elkaar.
+   Stond eerst in een raster van 73 x 47 mm en liep dus over. */
+.vel.etiket8{width:210mm;height:297mm;padding:13mm 5mm;box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(2,99.1mm);grid-template-rows:repeat(4,67.7mm);
+  gap:0;justify-content:center;align-content:start}
+.vel.postnl .etiket,.vel.a4 .etiket,.vel.etiket8 .etiket{outline:.12mm dashed #b8b8b8;outline-offset:0}
 @media print{
   html,body{background:#fff!important;margin:0!important;padding:0!important;height:auto!important}
   .app{display:none!important}
@@ -1386,7 +1391,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v166 · 12 aug 2026';
+const APPVERSIE='v168 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3951,7 +3956,10 @@ function sheetOfferte(klantId){
   const a=afspraak(klantId); if(!a) return toast('Leg eerst een prijsafspraak vast.');
   const html=offerteHTML(klantId);
   sheet('Offerte',
-    `<p class="hint">Op A4. Tik Printen en kies in het deelmenu van je telefoon voor
+    `${!bedrijf().iban?`<div class="melding amber">${svg(I.alarm,'2')}
+      <span>Je IBAN staat er nog niet in. Op dit document staat nu letterlijk
+        \u201cIBAN nog invullen\u201d. <b>Vul hem in bij Bedrijfsprofiel.</b></span></div>`:''}
+     <p class="hint">Op A4. Tik Printen en kies in het deelmenu van je telefoon voor
       <b>Bewaar in Bestanden</b> om er een pdf van te maken.</p>
      <div class="etvoorbeeld" style="padding:12px"><div class="schaal" id="ofSchaal">${html}</div></div>`,
     `<button class="prim" style="margin-top:0" id="ofPrint">${svg(I.doc)}Printen of opslaan als pdf</button>
@@ -4014,7 +4022,7 @@ function sheetAfspraak(klantId){
      : `<button class="prim" style="margin-top:0" id="afNieuw">Prijzen vastleggen</button>
         <button class="sec" id="afTerug2">Terug</button>`);
 
-  if($('#afTerug2')) $('#afTerug2').onclick=sheetAfspraken;
+  if($('#afTerug2')) $('#afTerug2').onclick=()=>sheetKlant(klantId);
   if($('#afOff')) $('#afOff').onclick=()=>sheetOfferte(klantId);
   if($('#afNieuw')) $('#afNieuw').onclick=()=>{
     if(!vormen().length) zetStandaardVormen();
@@ -4749,6 +4757,9 @@ function geldHTML(){
       ${rij('data-btw',I.doc,'Btw-aangifte','')}
       ${rij('data-verkoop',I.spark,'Verkoopprijzen',
         zonderPrijs?zonderPrijs+' zonder prijs':(S.recepten||[]).length+' ingevuld',!!zonderPrijs)}
+      ${rij('data-bedrijfsprofiel',I.doc,'Bedrijfsprofiel',
+        bedrijf().iban?'IBAN '+esc(bedrijf().iban):'IBAN ontbreekt — staat zo op je facturen',
+        !bedrijf().iban)}
       ${rij('data-uurtarief',I.klok,'Uurtarief',uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld',!uurtarief())}
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
         return rij('data-kostenbasis',I.doos,'Kostenbasis',
@@ -5201,6 +5212,81 @@ function ordersHTML(){
   return h;
 }
 
+/* Tikken op een klant vroeg voorheen meteen of je hem wilde verwijderen.
+   Dat is de enige actie die een tik deed. Nu open je hem gewoon. */
+function sheetKlant(id){
+  const k=(S.klanten||[]).find(x=>x.id===id);
+  if(!k) return sheetKlanten();
+  const orders=(S.orders||[]).filter(o=>o.klantId===id)
+    .sort((a,b2)=>String(b2.leverdatum||'').localeCompare(String(a.leverdatum||'')));
+  const open=orders.filter(o=>o.status==='nieuw');
+  const a=afspraak(id), v=a?vorm(a.vormId):null;
+  const omzet=orders.reduce((n,o)=>{
+    const tot=(o.regels||[]).reduce((m,rg)=>m+(rg.aantal||0),0);
+    return n+(o.regels||[]).reduce((m,rg)=>{
+      const pr=prijsVoor(id,rg.receptId,tot);
+      return m+(pr===null?0:pr*rg.aantal)},0)},0);
+
+  sheet(k.naam,
+    `<div class="vrkop"><div class="vrgetal" style="font-size:22px">${orders.length}<em>${
+       orders.length===1?'order':'orders'}</em></div>
+       <div class="vrmeta">${k.zakelijk?'zakelijk':'particulier'}${
+         k.plaats?'<br>'+esc(k.plaats):''}${omzet>0?'<br>'+euro(omzet)+' totaal':''}</div></div>
+
+     <div class="blokkop"><span class="eyebrow">Gegevens</span></div>
+     <div class="veld"><label>Naam</label><input class="inp" id="klN" value="${esc(k.naam||'')}"></div>
+     <div class="veld"><label>Soort</label><div class="duo" id="klT">
+       <button class="${k.zakelijk?'':'aan'}" data-v="particulier">Particulier</button>
+       <button class="${k.zakelijk?'aan':''}" data-v="zakelijk">Zakelijk</button></div></div>
+     <div class="veld"><label>Plaats</label><input class="inp" id="klP" value="${esc(k.plaats||'')}"></div>
+     <div class="veld"><label>E-mail</label><input class="inp" id="klE" type="email" value="${esc(k.email||'')}"></div>
+     <div class="veld"><label>Adres <span class="opt">voor op de factuur</span></label>
+       <textarea class="inp" id="klA" rows="2" placeholder="Straat en huisnummer&#10;Postcode en plaats">${esc(k.adres||'')}</textarea></div>
+
+     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Prijsafspraak</span></div>
+     <div class="paneel"><button class="arij" id="klPrijs">
+       <span class="ivak">${svg(I.doc)}</span>
+       <span class="naam">${a?'Vastgelegd op '+a.marge+'% marge':'Nog geen afspraak'}<small>${a
+         ? (v?esc(v.naam)+' · ':'')+Object.keys(a.prijzen).length+' prijzen · '+kort(new Date(a.datum))
+         : 'reken een prijs uit en leg hem hier vast'}</small></span>
+       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
+
+     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Orders</span>
+       <span class="tel">${open.length?open.length+' open':orders.length||'geen'}</span></div>
+     <div class="paneel">${orders.length?orders.slice(0,8).map(o=>{
+       const n=(o.regels||[]).reduce((m,rg)=>m+(rg.aantal||0),0);
+       return `<div class="arij" style="cursor:default">
+         <span class="naam">${esc(o.nummer||'order')}<small>${n} ${n===1?'bonbon':'bonbons'}${
+           o.leverdatum?' · '+kort(new Date(o.leverdatum)):''}</small></span>
+         <span class="waarde ${o.status==='nieuw'?'gevuld':''}">${o.status==='nieuw'?'open':'klaar'}</span>
+       </div>`}).join('')
+      :'<div class="geen">Nog geen orders van deze klant.</div>'}</div>`,
+    `<button class="prim" style="margin-top:0" id="klOk">Bewaren</button>
+     <button class="sec" id="klWeg" style="color:var(--rood)">${svg(I.kruis,'2')}Klant verwijderen</button>`);
+
+  let zak=!!k.zakelijk;
+  $$('#klT button').forEach(x=>x.onclick=()=>{sluitToetsenbord();
+    $$('#klT button').forEach(y=>y.classList.remove('aan'));
+    x.classList.add('aan'); zak=x.dataset.v==='zakelijk'});
+  $('#klPrijs').onclick=()=>sheetAfspraak(id);
+  $('#klOk').onclick=()=>{
+    const n=$('#klN').value.trim();
+    if(!n) return toast('Vul een naam in.');
+    k.naam=n; k.zakelijk=zak; k.plaats=$('#klP').value.trim();
+    k.email=$('#klE').value.trim(); k.adres=$('#klA').value.trim();
+    bewaarNu(); render(); sheetKlanten(); toast('Klant bewaard.');
+  };
+  $('#klWeg').onclick=()=>{
+    if(orders.length && !confirm(k.naam+' heeft '+orders.length+' '+
+       (orders.length===1?'order':'orders')+'. Toch verwijderen?')) return;
+    if(!orders.length && !confirm('Klant '+k.naam+' verwijderen?')) return;
+    const herstel=terugpunt(['klanten','afspraken']);
+    S.klanten=(S.klanten||[]).filter(y=>y.id!==id);
+    if(afspraak(id)){const kop=Object.assign({},afspraken()); delete kop[id]; S.afspraken=kop}
+    bewaarNu(); render(); sheetKlanten(); toast('Klant verwijderd.',herstel);
+  };
+}
+
 function sheetKlanten(kies){
   S.klanten=S.klanten||[];
   const lijst=S.klanten.slice().sort((a,b2)=>a.naam.localeCompare(b2.naam,'nl'));
@@ -5223,10 +5309,7 @@ function sheetKlanten(kies){
     $$('#kT button').forEach(y=>y.classList.remove('aan')); x.classList.add('aan'); zak=x.dataset.v==='zakelijk'});
   $$('[data-klant]').forEach(x=>x.onclick=()=>{
     if(kies) return kies(x.dataset.klant);
-    const k=S.klanten.find(y=>y.id===x.dataset.klant);
-    if(k&&confirm('Klant '+k.naam+' verwijderen?')){
-      S.klanten=S.klanten.filter(y=>y.id!==k.id); bewaarNu(); sheetKlanten(kies);
-    }
+    sheetKlant(x.dataset.klant);
   });
   $('#kOk').onclick=()=>{
     const n=$('#kN').value.trim();
@@ -5346,10 +5429,7 @@ function sheetInpakken(id){
     $$('[data-dp]').forEach(x=>x.onclick=()=>{const p=x.dataset.dp;dozen[p]=(dozen[p]||0)+1;teken()});
     $$('[data-dm]').forEach(x=>x.onclick=()=>{const p=x.dataset.dm;dozen[p]=Math.max(0,(dozen[p]||0)-1);
       if(!dozen[p])delete dozen[p]; teken()});
-    if($('#ipEt')) $('#ipEt').onclick=()=>{
-      const eerste=o.regels[0];
-      sheetProductEtiket(eerste.receptId);
-    };
+    if($('#ipEt')) $('#ipEt').onclick=()=>sheetEtikettenOrder(o.id);
     if($('#ipOk')&&compleet) $('#ipOk').onclick=()=>{
       const naar=klantNaam(o.klantId);
       o.lots={};
@@ -7621,6 +7701,7 @@ function bind(){
   $$('[data-btw]').forEach(x=>x.onclick=sheetBtw);
   $$('[data-verkoop]').forEach(x=>x.onclick=sheetVerkoopprijzen);
   $$('[data-kostenbasis]').forEach(x=>x.onclick=sheetKostenbasis);
+  $$('[data-bedrijfsprofiel]').forEach(x=>x.onclick=sheetBedrijf);
   $$('[data-b2b]').forEach(x=>x.onclick=sheetB2B);
   $$('[data-afspraken]').forEach(x=>x.onclick=sheetAfspraken);
   $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
@@ -8841,6 +8922,70 @@ function sheetVoorraadLabel(batchId,receptId){
 }
 
 /* consumentenetiket: hoort bij de smaak, wordt geprint bij het inpakken van een order */
+/* ═══════════ etiketten printen voor één order ═══════════
+   Eén etiket per doos, met het lot en de THT van de partij die je bij het
+   inpakken hebt gekozen. Zonder dit mag je klant niet doorverkopen aan
+   consumenten: ingrediënten, allergenen en houdbaarheid moeten erop. */
+function etiketVoor(receptId,lot,tht){
+  const r=recept(receptId); if(!r) return '';
+  const e=etiketData(r);
+  const g=smaakAllergenen(r);
+  return `<div class="etiket et-product">
+    <div class="en">${esc(r.naam)}</div>
+    <div class="ing"><b>Ingrediënten:</b> ${declaratie(r)}</div>
+    ${g.length?`<div class="r"><b>Bevat:</b> ${g.map(k=>esc(alNaam(k).toLowerCase())).join(', ')}</div>`:''}
+    <div class="r">${esc(e.bewaar||'')}</div>
+    <div class="er r"><span>${e.netto?'Netto '+esc(e.netto):'Netto \u2014 invullen'}</span>
+      <span><b>THT ${tht?kort(new Date(tht)):'\u2014'}</b></span></div>
+    <div class="er r"><span class="ek">Lotnummer</span><span class="eb">${esc(lot||'\u2014')}</span></div>
+    <div class="voet">${BEDRIJF.naam} \u00b7 ${BEDRIJF.adres}<br>${BEDRIJF.contact}</div>
+  </div>`;
+}
+
+/* welke etiketten horen bij deze order? */
+function etikettenVan(o){
+  const uit=[];
+  Object.keys(o.lots||{}).forEach(rid=>{
+    const r=recept(rid); if(!r) return;
+    const perDoos=Math.max(1,parseInt(etiketData(r).perDoos,10)||1);
+    (o.lots[rid]||[]).forEach(g=>{
+      const bron=voorraadGereed().find(v=>v.receptId===rid&&v.lot===g.lot);
+      const tht=bron?bron.tht:null;
+      const dozen=Math.ceil((g.aantal||0)/perDoos);
+      for(let i=0;i<dozen;i++) uit.push({receptId:rid,lot:g.lot,tht,perDoos});
+    });
+  });
+  return uit;
+}
+
+function sheetEtikettenOrder(orderId){
+  const o=(S.orders||[]).find(x=>x.id===orderId);
+  if(!o) return toast('Order niet gevonden.');
+  const lijst=etikettenVan(o);
+  if(!lijst.length) return toast('Kies eerst bij welke partij je pakt.');
+  const zonderNetto=[...new Set(lijst.map(x=>x.receptId))]
+    .filter(rid=>!(etiketData(recept(rid)).netto||'').trim());
+  const PER_VEL=8;
+  const vellen=[];
+  for(let i=0;i<lijst.length;i+=PER_VEL) vellen.push(lijst.slice(i,i+PER_VEL));
+  const html=vellen.map(v=>`<div class="vel etiket8">${
+    v.map(x=>etiketVoor(x.receptId,x.lot,x.tht)).join('')}</div>`).join('');
+
+  sheet('Etiketten',
+    `${zonderNetto.length?`<div class="melding amber">${svg(I.alarm,'2')}
+       <span>Geen netto-hoeveelheid bij ${zonderNetto.map(rid=>esc(smaakNaam(rid))).join(', ')}.
+         Die hoort wettelijk op het etiket. Vul hem in bij de smaak.</span></div>`:''}
+     <p class="hint">${lijst.length} ${lijst.length===1?'etiket':'etiketten'} op
+       ${vellen.length} ${vellen.length===1?'vel':'vellen'} A4, acht per vel (99 \u00d7 68 mm).
+       Lotnummer en THT komen uit de partij die je hebt gekozen.</p>
+     <div class="etvoorbeeld" style="padding:12px"><div class="schaal" id="eoSchaal">${html}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="eoPrint">${svg(I.doc)}Printen</button>
+     <button class="sec" id="eoDicht">Sluiten</button>`);
+  setTimeout(()=>pasSchaal('eoSchaal'),30);
+  $('#eoDicht').onclick=dicht;
+  $('#eoPrint').onclick=()=>drukAf(html,'Etiketten','@page{size:A4;margin:0}');
+}
+
 function sheetProductEtiket(receptId){
   const r=recept(receptId), e=etiketData(r);
   const ing=smaakIngredienten(r);
@@ -8869,7 +9014,8 @@ function sheetProductEtiket(receptId){
          return (g.length?'Deze smaak bevat '+g.map(k=>alNaam(k).toLowerCase()).join(', ')+'. ':'')
            +(mist.length?'Nog niet ingevuld: '+mist.map(i=>esc(i.naam)).join(', ')+'.':'Alles is ingevuld.')})()}</div>
        <button class="sec" style="margin-top:0" id="peAl">Allergenen per ingrediënt instellen</button></div>
-     <div class="wachtlabel"><span class="stip"></span>Printen gebeurt straks bij Orders, stap 3</div>`,
+     <div class="hint">Printen doe je bij het inpakken van een order: daar weet de app
+       welk lot en welke THT erop moeten.</div>`,
     `<button class="prim" style="margin-top:0" id="peOk">Opslaan</button>
      <button class="sec" id="peTerug">Terug naar smaak</button>`);
   setTimeout(()=>pasSchaal('peSchaal'),20);
