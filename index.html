@@ -1269,7 +1269,7 @@ const I={
   terug:'<path d="m15 18-6-6 6-6"/>',
   vink:'<path d="M20 6 9 17l-5-5"/>',
   kruis:'<path d="M18 6 6 18M6 6l12 12"/>',
-  meer:'<circle cx="5" cy="12" r="1.65" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.65" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.65" fill="currentColor" stroke="none"/>',
+  meer:'<circle cx="4" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r="2" fill="currentColor" stroke="none"/>',
   camera:'<path d="M3 8.5A2 2 0 0 1 5 6.5h2.2l1.3-2h7l1.3 2H19a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.4"/>',
   auto:'<path d="M5 17h14"/><path d="M6.5 17 5 11l1.8-4h10.4L19 11l-1.5 6"/><path d="M4.5 11h15"/><circle cx="7.5" cy="17.5" r="1.6"/><circle cx="16.5" cy="17.5" r="1.6"/>',
   temp:'<path d="M14 14.8V4.5a2.5 2.5 0 0 0-5 0v10.3a4.5 4.5 0 1 0 5 0z"/>',
@@ -1286,7 +1286,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v138 · 12 aug 2026';
+const APPVERSIE='v139 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1952,7 +1952,7 @@ function render(){
       return `<button class="tab ${aan?'actief':''}" ${
         it.soort==='tab'?`data-tab="${it.key}"`:`data-snel="${it.key}"`}
         aria-label="${esc(it.label)}">${svg(I[it.icon])}<span>${it.label}</span></button>`}).join('')}
-    <button class="tab meer" data-meer aria-label="Meer">${svg(I.meer)}<span>Meer</span></button>
+    <button class="tab tabmeer" data-meer aria-label="Meer">${svg(I.meer)}<span>Meer</span></button>
   </div>`;
   $$('[data-tab]').forEach(x=>x.onclick=()=>{S.tab=x.dataset.tab;S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0});
   $$('[data-snel]').forEach(x=>x.onclick=()=>{const it=snelItem(x.dataset.snel); if(it&&it.doe) it.doe()});
