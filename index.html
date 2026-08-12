@@ -51,14 +51,15 @@ header h1{margin:0;font-size:27px;font-weight:600;letter-spacing:-.04em;line-hei
 /* absoluut, net als de gewone kop. Stond hier relative, dan bleef de
    dashboardkop in de stroom staan én kreeg main er nog eens dezelfde
    hoogte aan marge bovenop: alles stond dubbel zo laag. */
-header.gecentreerd{position:absolute;display:block;padding:calc(20px + var(--veiligBoven)) 20px 20px;border-bottom:1px solid var(--lijn);
+/* Alleen het woordmerk. Zoeken en menu stonden al onderin bij Meer, dus die
+   zijn hier weg — twee icoontjes minder en een compactere kop. */
+header.gecentreerd{position:absolute;display:block;text-align:center;
+  padding:calc(14px + var(--veiligBoven)) 20px 14px;border-bottom:1px solid var(--lijn);
   transition:padding .24s cubic-bezier(.32,.72,0,1),border-color .24s ease}
-header.gecentreerd.klein{padding:calc(12px + var(--veiligBoven)) 20px 12px}
-header.gecentreerd.klein .hbtn.menu{top:calc(6px + var(--veiligBoven))}
-header.gecentreerd .vlak{text-align:center}
+header.gecentreerd.klein{padding:calc(10px + var(--veiligBoven)) 20px 10px}
+header.gecentreerd .vlak{text-align:center;min-width:0}
 header.gecentreerd .onder{display:none}
 header.gecentreerd .hbtn.terug{display:none}
-header.gecentreerd .hbtn.menu{position:absolute;top:calc(14px + var(--veiligBoven));right:12px;margin:0}
 
 .merk{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600;
   letter-spacing:.16em;line-height:1;color:var(--ink);padding-left:.16em;
@@ -1259,8 +1260,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
     <button class="hbtn terug" id="btnTerug" aria-label="Terug" style="display:none"></button>
     <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
       <div class="kpi" id="kopKpi"></div></div>
-    <button class="hbtn zoek" id="btnZoek" aria-label="Zoeken"></button>
-    <button class="hbtn menu" id="btnMenu" aria-label="Menu"></button>
+
   </header>
   <main id="scherm"></main>
   <nav id="tabbar"></nav>
@@ -1357,7 +1357,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v157 · 12 aug 2026';
+const APPVERSIE='v159 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7641,11 +7641,10 @@ function bind(){
 }
 
 /* ================= chrome ================= */
-$('#btnMenu').innerHTML=svg(I.meer);
-$('#btnZoek').innerHTML=svg(I.loep);
-$('#btnZoek').onclick=sheetZoek;
 $('#sheetSluit').innerHTML=svg(I.kruis,'2');
-$('#btnMenu').onclick=()=>{
+/* Zat aan een knop in de kop, maar alles daarin stond al onderin bij Meer.
+   Nu een functie, bereikbaar via "App & opslag". */
+function sheetMenu(){
   const hOpen=(()=>{let n=0;['ongedierte','recall'].forEach(t=>{if(controleOver(t))n++});
     if(!laatsteIjking())n++; return n})();
   sheet('Menu',
@@ -7700,7 +7699,7 @@ $('#btnMenu').onclick=()=>{
     if(S.batches.length&&!confirm('De batches van vandaag worden gewist. Je smaken en instellingen blijven staan. Doorgaan?')) return;
     S.batches=[];S.dagOpening=null;S.batchId=null;S.open=null;
     dicht();bewaarNu();render();toast('Nieuwe dag. Smaken en instellingen blijven staan.')};
-};
+}
 
 let sheetOpen=false, bijSluiten=null;
 function sheet(t,b,v,stapLabel){
@@ -11511,7 +11510,12 @@ function sheetMeer(){
          <span class="ivak">${svg(I[it.icon])}</span>
          <span class="naam">${esc(it.label)}<small>${esc(bij(it))}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
-     ${groep('Verder',rest)}`,'');
+     ${groep('Verder',rest)}
+     <div class="blokkop"><span class="eyebrow">App</span></div>
+     <div class="paneel"><button class="arij" id="meerApp">
+       <span class="ivak">${svg(I.instel)}</span>
+       <span class="naam">App &amp; opslag<small>koppelingen, gegevens meenemen, synchronisatie</small></span>
+       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`,'');
 
   $$('[data-meerdoe]').forEach(b=>b.onclick=()=>{
     const it=snelItem(b.dataset.meerdoe); if(!it) return;
@@ -11520,6 +11524,7 @@ function sheetMeer(){
     if(it.doe) it.doe();
   });
   $('#meerKies').onclick=sheetBalkKiezen;
+  $('#meerApp').onclick=sheetMenu;
 }
 
 function sheetBalkKiezen(){
