@@ -1341,7 +1341,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v149 · 12 aug 2026';
+const APPVERSIE='v150 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5709,10 +5709,15 @@ function sheetPlanning(){
        return `<div class="blokkop" data-dag="${d}"><span class="eyebrow">${DAG[dn.getDay()]} ${dn.getDate()} ${MND[dn.getMonth()]}</span>
          <span class="tel ${nu6<=0?'let':''}">${labelVan(d)}</span></div>
        <div class="paneel">
-         ${dag.bood.map(p=>`<button class="arij" data-boodschap>
-           <span class="ivak amber">${svg(I.vracht)}</span>
-           <span class="naam">Boodschappen doen<small>voor de batch van ${kort(new Date(p.datum))}</small></span>
-           <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}
+         ${dag.bood.map(p=>{
+           const binnenB=`<span class="ivak amber">${svg(I.vracht)}</span>
+           <span class="naam">Boodschappen doen<small>voor de batch van ${kort(new Date(p.datum))}</small></span>`;
+           /* in de verwijderstand hoort deze rij bij zijn batch: aanvinken doet
+              hetzelfde als de batch aanvinken, zodat je ziet wat er meegaat */
+           if(plKies) return `<button class="arij" data-plkies="${p.id}">${binnenB}
+             <span class="kiesvak ${plKies.has(p.id)?'aan':''}">${svg(I.vink,'3')}</span></button>`;
+           return `<button class="arij" data-boodschap>${binnenB}
+             <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}
          ${(dag.voor||[]).map(t=>{
            /* hoort de rij bij een geplande batch, dan kun je hem aantikken en
               daar de hele planning weghalen. Anders vind je nooit waar het
@@ -5728,6 +5733,9 @@ function sheetPlanning(){
              : 'voor de batch van '+kort(new Date(t.plan.datum))}</small></span>`;
            if(bijPlan) return `<button class="arij" data-plandetail="${rij}">${binnen}
              <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+           if(plKies && t.plan && !t.los && !t.verzend)
+             return `<button class="arij" data-plkies="${t.plan.id}">${binnen}
+               <span class="kiesvak ${plKies.has(t.plan.id)?'aan':''}">${svg(I.vink,'3')}</span></button>`;
            return `<div class="arij" style="cursor:default">${binnen}
              ${t.los?`<button class="wisbtn" data-taakwis="${t.los.id}">${svg(I.kruis,'2')}</button>`:''}
              ${t.verzend&&t.verzend.o?`<button class="miniknop" data-verzonden="${t.verzend.o.id}">Verzonden</button>`:''}
