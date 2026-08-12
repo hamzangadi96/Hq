@@ -1400,7 +1400,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v173 · 12 aug 2026';
+const APPVERSIE='v174 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3119,17 +3119,26 @@ function productieHTML(){
     ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
 
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+  /* Stond allemaal onder één kopje "Beheer": negen dingen van vijf soorten.
+     Ontvangst is verhuisd naar Voorraad, waar hij al stond, en Instellingen
+     naar het tandwiel — die stonden dubbel. */
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Maken</span></div>
     <div class="paneel">
       ${brij('data-sheet="nieuwbatch"',I.plus,'Batch genereren','')}
       ${brij('data-planning',I.klok,'Planning',(S.planning||[]).length||'niets gepland')}
-      ${brij('data-trace',I.loep,'Lot terugzoeken','')}
+    </div>
+
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Bibliotheek</span></div>
+    <div class="paneel">
       ${brij('data-sheet="receptnieuw"',I.plus,'Smaak toevoegen','')}
       ${brij('data-sheet="recepten"',I.boek,'Smaken beheren',S.recepten.length||'geen')}
-      ${brij('data-sheet="ontvangst"',I.vracht,'Ontvangst vastleggen','')}
+    </div>
+
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Voedselveiligheid</span></div>
+    <div class="paneel">
       ${brij('data-haccp',I.klembord,'HACCP-registraties','')}
       ${brij('data-dossier',I.doc,'Dossier voor de inspectie','')}
-      ${brij('data-sheet="instellingen"',I.instel,'Instellingen','')}
+      ${brij('data-trace',I.loep,'Lot terugzoeken','')}
     </div>`;
   return h;
 }
@@ -5183,19 +5192,27 @@ function geldHTML(){
   };
 
   const zonderPrijs=(S.recepten||[]).filter(x=>verkoopPrijs(x.id)===null).length;
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Prijzen en kosten</span></div>
     <div class="paneel">
-      ${rij('data-btw',I.doc,'Btw-aangifte','')}
       ${rij('data-verkoop',I.spark,'Verkoopprijzen',
         zonderPrijs?zonderPrijs+' zonder prijs':(S.recepten||[]).length+' ingevuld',!!zonderPrijs)}
-      ${rij('data-bedrijfsprofiel',I.doc,'Bedrijfsprofiel',
-        bedrijf().iban?'IBAN '+esc(bedrijf().iban):'IBAN ontbreekt — staat zo op je facturen',
-        !bedrijf().iban)}
       ${rij('data-uurtarief',I.klok,'Uurtarief',uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld',!uurtarief())}
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
         return rij('data-kostenbasis',I.doos,'Kostenbasis',
           m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
            : 'vaste lasten, derving en prijsbeleid', !m||vb.per===null)})()}
+    </div>
+
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Belasting</span></div>
+    <div class="paneel">
+      ${rij('data-btw',I.doc,'Btw-aangifte','')}
+      ${rij('data-bedrijfsprofiel',I.doc,'Bedrijfsprofiel',
+        bedrijf().iban?'IBAN '+esc(bedrijf().iban):'IBAN ontbreekt — staat zo op je facturen',
+        !bedrijf().iban)}
+    </div>
+
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Auto</span></div>
+    <div class="paneel">
       ${rij('data-kmtarief',I.spark,'Kilometervergoeding',komma(kmTarief())+' per km')}
       ${rij('data-autosoort',I.auto,'Soort auto',S.autoSoort==='zaak'?'van de zaak':'privé')}
       ${rij('data-plekken',I.huis,'Vaste plekken',(S.plekken||[]).length||'geen')}
@@ -5640,7 +5657,17 @@ function ordersHTML(){
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
     </div>`;
 
-  h+=`<div class="voet"><button data-klanten>Klanten${(S.klanten||[]).length?' ('+S.klanten.length+')':''}</button></div>`;
+  /* stond als losse knop onderaan; hoort gewoon bij de rest */
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Klanten</span></div>
+    <div class="paneel">
+      <button class="arij" data-klanten><span class="ivak">${svg(I.klant||I.doc)}</span>
+        <span class="naam">Klanten<small>${(S.klanten||[]).length
+          ? (S.klanten||[]).length+' '+((S.klanten||[]).length===1?'klant':'klanten')+
+            ((()=>{const n=Object.keys(afspraken()).length;
+              return n?' \u00b7 '+n+' met prijsafspraak':''})())
+          : 'nog geen klanten'}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+    </div>`;
   return h;
 }
 
@@ -6059,10 +6086,16 @@ function voorraadHTML(){
     ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
 
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bijhouden</span></div>
     <div class="paneel">
       ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
       ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
+      ${brij('data-telronde',I.vink,'Telronde','')}
+      ${brij('data-vmut',I.ververs,'Alle mutaties',(S.mutaties||[]).length||'geen')}
+    </div>
+
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Bewaken</span></div>
+    <div class="paneel">
       ${brij('data-tht',I.klok,'Houdbaarheid',
         vl.length?(vlOver?vlOver+' over datum':vl.length+' binnenkort'):'niets loopt af',!!vlOver)}
       ${brij('data-boodschap',I.vracht,'Boodschappenlijst',(()=>{
@@ -6070,11 +6103,9 @@ function voorraadHTML(){
           .filter(v=>!(S.boodschappen||[]).some(x=>gKey(x.product)===gKey(v.product))).length;
         return n?n+' te halen':'niets nodig'})(),(()=>{
         const n=(S.boodschappen||[]).length+teBestellen; return !!n})())}
-      ${brij('data-telronde',I.vink,'Telronde','')}
-      ${brij('data-waardering',I.doc,'Voorraadwaardering',w2.bekend?euro(w2.bekend):'geen prijzen')}
       ${brij('data-levertijd',I.vracht,'Levertijden',
         Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld')}
-      ${brij('data-vmut',I.ververs,'Alle mutaties',(S.mutaties||[]).length||'geen')}
+      ${brij('data-waardering',I.doc,'Voorraadwaardering',w2.bekend?euro(w2.bekend):'geen prijzen')}
     </div>`;
   return h;
 }
