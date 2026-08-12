@@ -440,7 +440,13 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .hulpbody{flex:1;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch}
 .hulpvoet{padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
 .hulpknop{width:32px;height:32px;border-radius:99px;background:var(--bg);flex:none;
-  display:none;place-items:center;color:var(--grijs2);margin-right:4px}
+  display:none;place-items:center;color:var(--grijs2);margin-right:4px;position:relative}
+/* Het knopje is 32px en de sluitknop 30px, ruim onder de 44px die je nodig hebt
+   om er met een vinger betrouwbaar op te tikken. Ze blijven er even groot
+   uitzien, maar het gebied dat je kunt raken wordt groter. */
+.hulpknop::after,.sheetkop .sluit::after{content:'';position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:99px}
+.sheetkop .sluit{position:relative}
 .hulpknop svg{width:17px;height:17px;stroke-width:1.8}
 .hulpknop.aan{display:grid}
 .hulpknop:active{background:var(--lijn);color:var(--ink)}
@@ -1400,7 +1406,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v178 · 12 aug 2026';
+const APPVERSIE='v179 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
