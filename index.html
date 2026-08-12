@@ -147,6 +147,7 @@ main>.blokkop:first-child{margin-top:8px}
 .prim:active{opacity:.85}
 .prim svg{width:16px;height:16px;stroke-width:2.2}
 .prim.los{margin-top:0}
+.prim.wis{background:var(--rood)}
 .knop2{width:100%;height:48px;border-radius:14px;background:var(--card);border:1px solid var(--lijn);
   font-size:15px;font-weight:600;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
 .knop2:active{background:var(--bg)}
@@ -306,6 +307,32 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .kiesvink.aan{background:var(--ink);border-color:var(--ink)}
 .kiesvink svg{width:13px;height:13px}
 .arij.uit{opacity:.4}
+
+/* ── veeg naar links om te verwijderen ──
+   De rij schuift opzij en legt een rode knop bloot. Niets gaat weg zonder
+   dat je die knop ook echt raakt; per ongeluk vegen kost je dus niets. */
+.veeg{position:relative;overflow:hidden}
+.veeg>.veeginhoud{position:relative;z-index:2;background:var(--card);
+  transition:transform .26s cubic-bezier(.32,.72,0,1);will-change:transform}
+.veeg.open>.veeginhoud{transform:translateX(-92px)}
+.veeg>.veegweg{position:absolute;top:0;right:0;bottom:0;width:92px;z-index:1;
+  display:grid;place-items:center;gap:3px;background:var(--rood);color:#fff;
+  font-size:12px;font-weight:600;letter-spacing:-.01em}
+.veeg>.veegweg svg{width:17px;height:17px;stroke-width:1.9}
+.veeg>.veegweg:active{filter:brightness(.9)}
+
+/* ── meerdere tegelijk kiezen ── */
+.kiesbalk{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--ink);
+  color:#fff;border-radius:14px;margin-bottom:10px}
+.kiesbalk .kt{flex:1;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.kiesbalk button{font-size:13.5px;font-weight:600;color:#fff;padding:7px 12px;
+  border-radius:99px;background:#3f3f46}
+.kiesbalk button.weg{background:var(--rood)}
+.kiesbalk button:disabled{opacity:.4}
+.kiesvak{width:22px;height:22px;border-radius:7px;border:1.5px solid #d8d8dc;flex:none;
+  display:grid;place-items:center;color:#fff;background:#fff}
+.kiesvak.aan{background:var(--ink);border-color:var(--ink)}
+.kiesvak svg{width:12px;height:12px;stroke-width:2.6}
 
 /* met zes knoppen wordt het krap: het label van de actieve tab mag korter */
 .tabpil{gap:1px}
@@ -1270,6 +1297,7 @@ const I={
   vink:'<path d="M20 6 9 17l-5-5"/>',
   kruis:'<path d="M18 6 6 18M6 6l12 12"/>',
   meer:'<circle cx="4" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r="2" fill="currentColor" stroke="none"/>',
+  prul:'<path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
   camera:'<path d="M3 8.5A2 2 0 0 1 5 6.5h2.2l1.3-2h7l1.3 2H19a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.4"/>',
   auto:'<path d="M5 17h14"/><path d="M6.5 17 5 11l1.8-4h10.4L19 11l-1.5 6"/><path d="M4.5 11h15"/><circle cx="7.5" cy="17.5" r="1.6"/><circle cx="16.5" cy="17.5" r="1.6"/>',
   temp:'<path d="M14 14.8V4.5a2.5 2.5 0 0 0-5 0v10.3a4.5 4.5 0 1 0 5 0z"/>',
@@ -1286,7 +1314,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v139 · 12 aug 2026';
+const APPVERSIE='v140 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2452,14 +2480,14 @@ function productieHTML(){
         const n=dagenTussen(vandaag(),p2.datum);
         const tot=p2.regels.reduce((x,r)=>x+r.aantal,0);
         const bd=boodschapDatum(p2), bn=bd?dagenTussen(vandaag(),bd):null;
-        return `<div class="arij">
+        return veegRij(`<div class="arij">
           <span class="ivak ${n<=0?'ink':n===1?'amber':''}">${svg(I.vorm)}</span>
           <span class="naam">${esc(p2.regels.map(r=>smaakNaam(r.receptId)).join(', '))}
             <small>${n<0?Math.abs(n)+' dagen geleden gepland':n===0?'vandaag':n===1?'morgen':'over '+n+' dagen'
               } · ${tot} bonbons${bd&&bn>=0?' · boodschappen '+(bn===0?'vandaag':bn===1?'morgen':'over '+bn+' dagen'):''}</small></span>
           ${n<=0?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
                 :`<span class="pijl" data-planning>${svg(I.pijl,'2')}</span>`}
-        </div>`}).join('')}
+        </div>`,'data-planwis="'+p2.id+'"')}).join('')}
         <button class="meer" data-planning>Hele planning</button></div>`;
   }
 
@@ -2486,7 +2514,7 @@ function productieHTML(){
   /* ── de batches zelf ── */
   const rij=b=>{const k=b.status==='klaar', p2=b.status==='pauze';
     const dg=dagNummer(b);
-    return `<button class="arij" data-batch="${b.id}">
+    return veegRij(`<button class="arij" data-batch="${b.id}">
       ${k?`<span class="ivak ${b.afgebroken?'rood':'groen'}">${svg(b.afgebroken?I.kruis:I.vink)}</span>`
          :ringHTML(bGedaan(b),KERN.length,p2?'amber':'')}
       <span class="naam">${esc(bNamen(b))}
@@ -2495,7 +2523,7 @@ function productieHTML(){
            :p2?' · stilgelegd':' · stap '+bGedaan(b)+' van '+KERN.length}</small></span>
       ${k?`<span class="waarde gevuld">${b.afgebroken?'—':'Klaar'}</span>`
          :`<span class="dagenbadge ${dg>2?'let':''}">${p2?'pauze':dg===1?'dag 1':dg+' dagen'}</span>`}
-      <span class="pijl">${svg(I.pijl,'2')}</span></button>`};
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`,'data-verwijder="'+b.id+'"')};
 
   if(!S.batches.length){
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Batches</span></div>
@@ -5191,6 +5219,8 @@ function planStart(id){
   toast('Batch '+b.code+' gestart.'); $('#scherm').scrollTop=0;
 }
 
+let plKies=null;   /* null = uit, anders een Set met gekozen planning-id's */
+
 function sheetPlanning(){
   const lijst=planLijst();
   const dagen={};
@@ -5219,8 +5249,18 @@ function sheetPlanning(){
 
   const strip=weekstripHTML(14);
 
+  const aantalPlan=Object.keys(dagen).reduce((n,d)=>n+dagen[d].batches.length,0);
+  const kiesbalk = plKies
+    ? `<div class="kiesbalk"><span class="kt">${plKies.size
+        ?plKies.size+(plKies.size===1?' gekozen':' gekozen')
+        :'Kies wat weg mag'}</span>
+       <button id="plAlles">${plKies.size===aantalPlan?'Geen':'Alles'}</button>
+       <button class="weg" id="plWeg" ${plKies.size?'':'disabled'}>Verwijder</button>
+       <button id="plKlaar">Klaar</button></div>`
+    : '';
+
   sheet('Planning',
-    `${strip}
+    `${kiesbalk}${strip}
      ${datums.length?datums.map(d=>{
        const dag=dagen[d], dn=new Date(d);
        const nu6=dagenTussen(vandaag(),d);
@@ -5245,11 +5285,14 @@ function sheetPlanning(){
            const tot=p.regels.reduce((n,r)=>n+r.aantal,0);
            const namen=p.regels.map(r=>smaakNaam(r.receptId)).join(', ');
            const kanNu=d<=vandaag();
-           return `<div class="arij">
-             <span class="ivak ${kanNu?'ink':''}">${svg(I.vorm)}</span>
-             <span class="naam">${esc(namen)}<small>${chocNaam(p.chocolade).toLowerCase()} · ${tot} bonbons</small></span>
-             ${kanNu?`<button class="miniknop" data-planstart="${p.id}">Starten</button>`
-                   :`<button class="wisbtn" data-planwis="${p.id}">${svg(I.kruis,'2')}</button>`}
+           const binnen=`<span class="ivak ${plKies?'':kanNu?'ink':''}">${svg(I.vorm)}</span>
+             <span class="naam">${esc(namen)}<small>${chocNaam(p.chocolade).toLowerCase()} · ${tot} bonbons</small></span>`;
+           if(plKies) return `<button class="arij" data-plkies="${p.id}">${binnen}
+             <span class="kiesvak ${plKies.has(p.id)?'aan':''}">${svg(I.vink,'3')}</span></button>`;
+           /* ook een batch die al mag starten moet je kwijt kunnen */
+           return `<div class="arij">${binnen}
+             ${kanNu?`<button class="miniknop" data-planstart="${p.id}">Starten</button>`:''}
+             <button class="wisbtn" data-planwis="${p.id}">${svg(I.kruis,'2')}</button>
            </div>`}).join('')}
          ${(ord[d]||[]).map(o=>`<button class="arij" data-order="${o.id}">
            <span class="ivak">${svg(I.doos)}</span>
@@ -5258,11 +5301,35 @@ function sheetPlanning(){
        </div>`}).join('')
       :`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.klok,'2.2')}</div>
          <p>Nog niets gepland.<br>Plan een batch, dan zie je hier wanneer je wat moet doen.</p></div></div>`}`,
-    `<button class="prim" style="margin-top:0" id="plNieuw">${svg(I.plus)}Batch inplannen</button>
-     <button class="sec" id="plTaak">${svg(I.plus)}Iets anders inplannen</button>`);
+    plKies
+      ? `<button class="sec" id="plKlaar2">Klaar met selecteren</button>`
+      : `<button class="prim" style="margin-top:0" id="plNieuw">${svg(I.plus)}Batch inplannen</button>
+     <button class="sec" id="plTaak">${svg(I.plus)}Iets anders inplannen</button>
+     ${aantalPlan>1?`<button class="sec" id="plKies">${svg(I.vink)}Meerdere selecteren</button>`:''}`);
 
-  $('#plNieuw').onclick=()=>sheetPlanBatch();
-  $('#plTaak').onclick=()=>sheetTaakNieuw();
+  if($('#plNieuw')) $('#plNieuw').onclick=()=>sheetPlanBatch();
+  if($('#plTaak')) $('#plTaak').onclick=()=>sheetTaakNieuw();
+  if($('#plKies')) $('#plKies').onclick=()=>{plKies=new Set();sheetPlanning()};
+  const stopKiezen=()=>{plKies=null;sheetPlanning()};
+  if($('#plKlaar')) $('#plKlaar').onclick=stopKiezen;
+  if($('#plKlaar2')) $('#plKlaar2').onclick=stopKiezen;
+  if($('#plAlles')) $('#plAlles').onclick=()=>{
+    const alle=[]; Object.keys(dagen).forEach(d=>dagen[d].batches.forEach(p=>alle.push(p.id)));
+    plKies = plKies.size===alle.length ? new Set() : new Set(alle);
+    sheetPlanning();
+  };
+  $$('[data-plkies]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.plkies;
+    if(plKies.has(id)) plKies.delete(id); else plKies.add(id);
+    sheetPlanning();
+  });
+  if($('#plWeg')) $('#plWeg').onclick=()=>{
+    const weg=new Set(plKies), n=weg.size;
+    const herstel=terugpunt(['planning']);
+    S.planning=(S.planning||[]).filter(x=>!weg.has(x.id));
+    plKies=new Set(); bewaarNu(); sheetPlanning(); render();
+    toast(n+(n===1?' planning':' planningen')+' verwijderd.',herstel);
+  };
   $$('[data-verzonden]').forEach(b=>b.onclick=()=>{
     const o2=(S.orders||[]).find(x=>x.id===b.dataset.verzonden); if(!o2) return;
     const herstel=terugpunt(['orders']);
@@ -6474,6 +6541,15 @@ function bind(){
   $$('[data-bkopie]').forEach(b=>b.onclick=()=>sheetBatchKopie(b.dataset.bkopie));
   const tb=$('#tijdbalk'); if(tb) tb.onclick=()=>tb.hasAttribute('data-klok')?sheetKlok():sheetWerk();
   const dw=$('[data-werk]'); if(dw) dw.onclick=sheetWerk;
+  /* planning weggooien vanuit de lijst, met undo */
+  /* alleen de rijen op het hoofdscherm; de Planning-sheet bindt zijn eigen versie */
+  [...($('#scherm')||document).querySelectorAll('[data-planwis]')].forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const herstel=terugpunt(['planning']);
+    S.planning=(S.planning||[]).filter(x=>x.id!==b.dataset.planwis);
+    sluitVeeg(); bewaarNu(); render(); toast('Uit je planning gehaald.',herstel);
+  });
+  bindVeeg();
   bewaar();
 }
 
@@ -6550,7 +6626,7 @@ function sheet(t,b,v,stapLabel){
   }
   $('#sheetBody').innerHTML=b; $('#sheetVoet').innerHTML=v||'';
   $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true}
-function dicht(){stopStap();let ververs=false;
+function dicht(){stopStap();plKies=null;sluitVeeg();let ververs=false;
   if(bijSluiten){try{bijSluiten();ververs=true}catch(e){};bijSluiten=null}
   if(ververs)setTimeout(render,0);
   hulpDicht(); rlStop();
@@ -6610,6 +6686,71 @@ function terugpunt(velden){
   return ()=>{ Object.keys(kopie).forEach(v=>{S[v]=kopie[v]}); bewaarNu(); render() };
 }
 function bLog(b,o){b.logs.push(Object.assign({id:uid(),datum:vandaag(),tijd:nu(),status:'ok'},o))}
+
+/* ================= vegen om te verwijderen =================
+   Eén rij tegelijk staat open. Vegen op een andere sluit de vorige,
+   zodat er nooit twee rode knoppen tegelijk klaarstaan. */
+let veegOpen=null;
+function sluitVeeg(){ if(veegOpen){veegOpen.classList.remove('open'); veegOpen=null} }
+function veegRij(inhoud,attr,label){
+  return `<div class="veeg"><button class="veegweg" ${attr}>${svg(I.prul||I.kruis)}${label||'Verwijder'}</button>
+    <div class="veeginhoud">${inhoud}</div></div>`;
+}
+function bindVeeg(){
+  $$('.veeg').forEach(el=>{
+    if(el.dataset.gebonden) return; el.dataset.gebonden='1';
+    let x0=null,y0=null,richting=null;
+    const inh=el.querySelector('.veeginhoud');
+    el.addEventListener('touchstart',e=>{
+      x0=e.touches[0].clientX; y0=e.touches[0].clientY; richting=null;
+      inh.style.transition='none';
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      if(x0===null) return;
+      const dx=e.touches[0].clientX-x0, dy=e.touches[0].clientY-y0;
+      if(richting===null){ if(Math.abs(dx)<6&&Math.abs(dy)<6) return;
+        richting=Math.abs(dx)>Math.abs(dy)?'x':'y'; }
+      if(richting!=='x') return;
+      const basis=el.classList.contains('open')?-92:0;
+      let v=Math.max(-92,Math.min(0,basis+dx));
+      inh.style.transform='translateX('+v+'px)';
+    },{passive:true});
+    el.addEventListener('touchend',e=>{
+      if(x0===null) return;
+      inh.style.transition='';
+      inh.style.transform='';
+      if(richting==='x'){
+        const dx=e.changedTouches[0].clientX-x0;
+        const wasOpen=el.classList.contains('open');
+        const open = wasOpen ? dx<40 : dx<-40;
+        if(open){ if(veegOpen&&veegOpen!==el) veegOpen.classList.remove('open');
+          el.classList.add('open'); veegOpen=el; }
+        else { el.classList.remove('open'); if(veegOpen===el) veegOpen=null; }
+      }
+      x0=null;richting=null;
+    });
+  });
+}
+
+/* ================= opruimen bij het verwijderen van een batch =================
+   Een afgeronde batch heeft bonbons in je voorraad gezet en grondstoffen
+   afgeschreven. Haal je de batch weg zonder dat terug te draaien, dan houd je
+   voorraad over met een lotnummer waar geen dossier meer bij hoort. */
+function batchSporen(b){
+  const lot=b.code;
+  const vm=(S.mutaties||[]).filter(m=>m.lot===lot&&(m.soort==='batch'||m.soort==='breuk'));
+  const gm=(S.gmut||[]).filter(m=>(m.reden||'').indexOf('Verbruik batch '+lot)===0);
+  const stuks=vm.reduce((n,m)=>n+(m.aantal>0?m.aantal:0),0);
+  return {lot,vm,gm,stuks};
+}
+function ruimBatchOp(b){
+  const sp=batchSporen(b);
+  const wegV=new Set(sp.vm.map(m=>m.id)), wegG=new Set(sp.gm.map(m=>m.id));
+  S.mutaties=(S.mutaties||[]).filter(m=>!wegV.has(m.id));
+  S.gmut=(S.gmut||[]).filter(m=>!wegG.has(m.id));
+  return sp;
+}
+
 function chips(sel,multi,cb){$$(sel+' .chip:not(.nieuw)').forEach(c=>c.onclick=()=>{
   sluitToetsenbord();
   if(multi)c.classList.toggle('aan');else{$$(sel+' .chip').forEach(x=>x.classList.remove('aan'));c.classList.add('aan')}
@@ -8156,12 +8297,32 @@ function dagRapportHTML(datum){
 
 function verwijderBatch(id){
   const b=S.batches.find(x=>x.id===id); if(!b) return;
-  const n=b.logs.length;
-  if(!confirm('Batch '+b.code+' definitief verwijderen?\n\n'+
-     bNamen(b)+'\n'+n+' registraties, tijden en metingen gaan weg. Dit kun je niet terugdraaien.')) return;
-  S.batches=S.batches.filter(x=>x.id!==id);
-  if(S.batchId===id) S.batchId=null;
-  S.open=null; bewaarNu(); dicht(); render(); toast('Batch '+b.code+' verwijderd.');
+  const sp=batchSporen(b), af=b.status==='klaar';
+  const regels=[
+    b.logs.length+' registraties, tijden en metingen',
+    sp.stuks?sp.stuks+(sp.stuks===1?' bonbon gaat':' bonbons gaan')+' uit je voorraad':'',
+    sp.gm.length?sp.gm.length+(sp.gm.length===1?' grondstof wordt':' grondstoffen worden')+' teruggeboekt':''
+  ].filter(Boolean);
+
+  sheet('Batch verwijderen',
+    `<p class="uitleg">${esc(bNamen(b))} · ${b.code}</p>
+     <div class="paneel">${regels.map(r=>`<div class="rij"><span>${r}</span></div>`).join('')}</div>
+     ${af?`<p class="uitleg" style="margin-top:14px;color:var(--rood)">
+        Deze batch is afgerond en hoort bij je HACCP-dossier. Een inspecteur mag
+        verwachten dat die er nog is. Twijfel je? Breek de batch dan af in plaats
+        van verwijderen — dan blijft het spoor bestaan.</p>`:''}`,
+    `<button class="prim wis" id="vbJa">${svg(I.prul)}Ja, verwijderen</button>
+     <button class="sec" id="vbNee">Toch niet</button>`);
+
+  $('#vbNee').onclick=dicht;
+  $('#vbJa').onclick=()=>{
+    const herstel=terugpunt(['batches','mutaties','gmut']);
+    ruimBatchOp(b);
+    S.batches=S.batches.filter(x=>x.id!==id);
+    if(S.batchId===id) S.batchId=null;
+    S.open=null; bewaarNu(); dicht(); render();
+    toast('Batch '+b.code+' verwijderd.',herstel);
+  };
 }
 
 /* ================= corrigeren, pauzeren en notities =================
