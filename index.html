@@ -659,10 +659,19 @@ nav#tabbar{view-transition-name:tabbalk}
 .beheerrij:last-child{border-bottom:none}
 .beheerrij:active{background:var(--bg)}
 .beheerrij>svg{width:18px;height:18px;color:var(--grijs);flex:none}
-.beheerrij .l{flex:1;min-width:0;letter-spacing:-.015em}
-.beheerrij .w{font-size:13px;font-weight:600;color:var(--grijs2);white-space:nowrap;
+.beheerrij{align-items:flex-start}
+.beheerrij>svg{margin-top:1px}
+.beheerrij .l{flex:1 1 auto;min-width:0;letter-spacing:-.015em}
+/* een lange status past niet naast de naam en liep er dwars doorheen;
+   die zetten we eronder, zoals bij de andere rijen in de app */
+.beheerrij .l small{display:block;font-size:12.5px;font-weight:500;
+  color:var(--grijs2);margin-top:3px;letter-spacing:0}
+.beheerrij .l small.let{color:var(--amber)}
+.beheerrij .w{font-size:13px;font-weight:600;color:var(--grijs2);
+  flex:0 1 auto;min-width:0;text-align:right;overflow-wrap:anywhere;
   font-variant-numeric:tabular-nums}
 .beheerrij .w.let{color:var(--amber)}
+.beheerrij .p{margin-top:3px}
 .beheerrij .p{width:14px;height:14px;color:var(--grijs3);flex:none}
 
 /* chocolade-keuze */
@@ -1391,7 +1400,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v172 · 12 aug 2026';
+const APPVERSIE='v173 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5163,10 +5172,15 @@ function geldHTML(){
   }
 
   /* ── beheer ── */
-  const rij=(attr,icoon,label,waarde,let2)=>`<button class="beheerrij" ${attr}>
-    ${svg(icoon)}<span class="l">${label}</span>
-    ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
-    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+  const rij=(attr,icoon,label,waarde,let2)=>{
+    const w=String(waarde||'');
+    const lang=w.length>20;          /* past niet meer naast de naam */
+    return `<button class="beheerrij" ${attr}>
+      ${svg(icoon)}
+      <span class="l">${label}${lang?`<small class="${let2?'let':''}">${w}</small>`:''}</span>
+      ${(w&&!lang)?`<span class="w ${let2?'let':''}">${w}</span>`:''}
+      <span class="p">${svg(I.pijl,'2')}</span></button>`;
+  };
 
   const zonderPrijs=(S.recepten||[]).filter(x=>verkoopPrijs(x.id)===null).length;
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Beheer</span></div>
