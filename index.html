@@ -935,6 +935,8 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .tijdbalk .tn{flex:1;min-width:0;font-size:15px;font-weight:600;letter-spacing:-.015em;text-align:left}
 .tijdbalk .tn small{display:block;font-size:11px;font-weight:500;opacity:.6;margin-top:2px}
 .tijdbalk .tt{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;flex:none}
+/* de globale klokbalk staat bovenaan elk scherm, boven de eerste kaart */
+.klokbalk{margin-bottom:16px}
 .werkrij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-bottom:1px solid var(--lijn);text-align:left}
 .vinkknop{width:36px;height:36px;border-radius:10px;background:var(--bg);flex:none;display:grid;place-items:center;color:transparent}
 .vinkknop svg{width:15px;height:15px}
@@ -1319,7 +1321,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v141 · 12 aug 2026';
+const APPVERSIE='v142 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1522,7 +1524,7 @@ const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk',
-  'klussen','klus','klussoorten','urennorm'];
+  'klussen','klus','klussoorten','urennorm','badgeGevraagd'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -1795,14 +1797,14 @@ const klusLijst=()=>(S.klussen||[]).slice().sort((a,b)=>
 function klusStart(soort,tekst){
   if(S.klus) klusStop();
   S.klus={id:uid(),soort:soort,tekst:tekst||'',start:Date.now(),datum:vandaag(),tijd:nu()};
-  bewaarNu(); schermWakker(true);
+  bewaarNu(); schermWakker(true); badgeVraag().then(badgeBij);
 }
 function klusStop(){
   const k=S.klus; if(!k) return null;
   k.eind=Date.now(); k.sec=Math.max(0,Math.round((k.eind-k.start)/1000));
   S.klussen=S.klussen||[];
   if(k.sec>=30) S.klussen.push(k);      /* iets van tien seconden is een misklik */
-  S.klus=null; bewaarNu(); schermWakker(false);
+  S.klus=null; bewaarNu(); schermWakker(false); badgeBij();
   return k;
 }
 /* uren over een periode; productie-uren tellen mee want die heb je al */
@@ -1827,6 +1829,37 @@ const urenTekst=sec=>{
 const urenGetal=sec=>Math.round(sec/360)/10;   /* uren met één decimaal */
 const jaarBegin=()=>new Date().getFullYear()+'-01-01';
 const jaarEind=()=>new Date().getFullYear()+'-12-31';
+
+/* de balk die op elk tabblad laat zien dat de klok loopt */
+function klokbalkHTML(){
+  const k=S.klus; if(!k) return '';
+  const so=klusSoort(k.soort);
+  return `<button class="tijdbalk klokbalk" id="klokbalk">
+    <span class="tp"></span>
+    <span class="tn">${esc(so.n)}${k.tekst?' · '+esc(k.tekst):''}
+      <small>sinds ${k.tijd}</small></span>
+    <span class="tt klustikker">${duurTekst(Date.now()-k.start)}</span></button>`;
+}
+
+/* ================= badge op het app-icoon =================
+   iOS laat een PWA geen timer op het vergrendelscherm zetten, maar een badge
+   op het icoon mag wel. Dat is genoeg om je eraan te herinneren dat de klok loopt. */
+function badgeBij(){
+  if(!('setAppBadge' in navigator)) return;
+  try{ S.klus ? navigator.setAppBadge(1) : navigator.clearAppBadge() }catch(e){}
+}
+/* de badge vraagt om notificatietoestemming; dat vragen we één keer,
+   op het moment dat het ergens over gaat en niet bij het opstarten */
+async function badgeVraag(){
+  if(!('setAppBadge' in navigator)) return false;
+  if(!('Notification' in window)) return false;
+  if(Notification.permission==='granted') return true;
+  if(Notification.permission==='denied') return false;
+  if(S.badgeGevraagd) return false;
+  S.badgeGevraagd=true; bewaarNu();
+  try{ return (await Notification.requestPermission())==='granted' }catch(e){ return false }
+}
+
 
 
 /* een stap timet zichzelf: lopende activiteit pauzeren, na afloop hervatten */
@@ -2041,10 +2074,12 @@ function render(){
     $('#kopOnder').textContent=schermOnder(S.tab)||datumtekst;
   }
 
-  $('#scherm').innerHTML = inBatch?batchHTML():
+  /* loopt de urenklok, dan hoort dat op elk tabblad zichtbaar te zijn —
+     anders vergeet je hem juist op het tabblad waar je toevallig bent */
+  $('#scherm').innerHTML = klokbalkHTML() + (inBatch?batchHTML():
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
-    S.tab==='geld'?geldHTML():straksHTML(S.tab);
+    S.tab==='geld'?geldHTML():straksHTML(S.tab));
   const balk=balkKeuze();
   $('#tabbar').innerHTML=`<div class="tabpil">
     <button class="tab ${S.tab==='dashboard'?'actief':''}" data-tab="dashboard" aria-label="Dashboard">${
@@ -6827,6 +6862,7 @@ function bind(){
   $$('[data-bwijzig]').forEach(b=>b.onclick=sheetBatchWijzig);
   $$('[data-bkopie]').forEach(b=>b.onclick=()=>sheetBatchKopie(b.dataset.bkopie));
   const tb=$('#tijdbalk'); if(tb) tb.onclick=()=>tb.hasAttribute('data-klok')?sheetKlok():sheetWerk();
+  const kb=$('#klokbalk'); if(kb) kb.onclick=sheetUren;
   const dw=$('[data-werk]'); if(dw) dw.onclick=sheetWerk;
   /* planning weggooien vanuit de lijst, met undo */
   /* alleen de rijen op het hoofdscherm; de Planning-sheet bindt zijn eigen versie */
@@ -10977,11 +11013,28 @@ setInterval(()=>{
   }
 },1000);
 
+/* de urenklok tikt onafhankelijk van de batchtimer door */
+setInterval(()=>{
+  if(!S.klus) return;
+  const t=duurTekst(Date.now()-S.klus.start);
+  $$('.klustikker').forEach(el=>{ if(el.textContent!==t) el.textContent=t });
+},1000);
+
+/* terug uit de achtergrond: tijd kan flink verder zijn, dus opnieuw tekenen */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  badgeBij();
+  if(S.klus){
+    render();
+    if(klusVergeten()&&!sheetOpen) setTimeout(()=>sheetKlusCorrectie(),600);
+  }
+});
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 
-(async()=>{ await laden(); render();
+(async()=>{ await laden(); render(); badgeBij();
   /* liep de klok nog toen je de app wegklikte? even navragen */
   setTimeout(()=>{ if(klusVergeten()&&!sheetOpen) sheetKlusCorrectie() },1200);
 })();
