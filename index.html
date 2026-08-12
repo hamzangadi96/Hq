@@ -1341,7 +1341,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v147 · 12 aug 2026';
+const APPVERSIE='v149 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5713,16 +5713,25 @@ function sheetPlanning(){
            <span class="ivak amber">${svg(I.vracht)}</span>
            <span class="naam">Boodschappen doen<small>voor de batch van ${kort(new Date(p.datum))}</small></span>
            <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}
-         ${(dag.voor||[]).map(t=>`<div class="arij" style="cursor:default">
-           <span class="ivak" style="background:${DAGSOORT[t.soort].kleur}1f;color:${DAGSOORT[t.soort].kleur}">
+         ${(dag.voor||[]).map(t=>{
+           /* hoort de rij bij een geplande batch, dan kun je hem aantikken en
+              daar de hele planning weghalen. Anders vind je nooit waar het
+              kruisje zit: dat staat op een andere dag. */
+           const bijPlan = t.plan && !t.los && !t.verzend && !plKies;
+           let rij=-1;
+           if(bijPlan){ plRegister.push(t.plan); rij=plRegister.length-1; }
+           const binnen=`<span class="ivak" style="background:${DAGSOORT[t.soort].kleur}1f;color:${DAGSOORT[t.soort].kleur}">
              ${svg(I[DAGSOORT[t.soort].ico])}</span>
            <span class="naam">${esc(t.tekst)}<small>${
              t.verzend ? 'verzenden · '+esc(t.verzend.nummer||'')+(t.verzend.shop?' · uit je webshop':'')
              : t.los ? DAGSOORT[t.soort].n.toLowerCase()+(t.tijd?' · '+esc(t.tijd):'')
-             : 'voor de batch van '+kort(new Date(t.plan.datum))}</small></span>
-           ${t.los?`<button class="wisbtn" data-taakwis="${t.los.id}">${svg(I.kruis,'2')}</button>`:''}
-           ${t.verzend&&t.verzend.o?`<button class="miniknop" data-verzonden="${t.verzend.o.id}">Verzonden</button>`:''}
-         </div>`).join('')}
+             : 'voor de batch van '+kort(new Date(t.plan.datum))}</small></span>`;
+           if(bijPlan) return `<button class="arij" data-plandetail="${rij}">${binnen}
+             <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+           return `<div class="arij" style="cursor:default">${binnen}
+             ${t.los?`<button class="wisbtn" data-taakwis="${t.los.id}">${svg(I.kruis,'2')}</button>`:''}
+             ${t.verzend&&t.verzend.o?`<button class="miniknop" data-verzonden="${t.verzend.o.id}">Verzonden</button>`:''}
+           </div>`}).join('')}
          ${dag.batches.map(p=>{
            const tot=p.regels.reduce((n,r)=>n+r.aantal,0);
            const namen=p.regels.map(r=>smaakNaam(r.receptId)).join(', ');
@@ -5733,7 +5742,9 @@ function sheetPlanning(){
              <span class="kiesvak ${plKies.has(p.id)?'aan':''}">${svg(I.vink,'3')}</span></button>`;
            plRegister.push(p); const rij=plRegister.length-1;
            /* ook een batch die al mag starten moet je kwijt kunnen */
-           return `<div class="arij">${binnen}
+           return `<div class="arij">
+             <button data-plandetail="${rij}" style="flex:1;min-width:0;display:flex;
+               align-items:center;gap:12px;text-align:left">${binnen}</button>
              ${kanNu?`<button class="miniknop" data-planstart="${rij}">Starten</button>`:''}
              <button class="wisbtn" data-planwis="${rij}">${svg(I.kruis,'2')}</button>
            </div>`}).join('')}
@@ -5748,11 +5759,14 @@ function sheetPlanning(){
       ? `<button class="sec" id="plKlaar2">Klaar met selecteren</button>`
       : `<button class="prim" style="margin-top:0" id="plNieuw">${svg(I.plus)}Batch inplannen</button>
      <button class="sec" id="plTaak">${svg(I.plus)}Iets anders inplannen</button>
-     ${aantalPlan>1?`<button class="sec" id="plKies">${svg(I.vink)}Meerdere selecteren</button>`:''}`);
+     ${aantalPlan?`<button class="sec" id="plKies" style="color:var(--rood)">${svg(I.kruis,'2')}${
+       aantalPlan===1?'Planning verwijderen':'Planningen verwijderen'}</button>`:''}`);
 
   if($('#plNieuw')) $('#plNieuw').onclick=()=>sheetPlanBatch();
   if($('#plTaak')) $('#plTaak').onclick=()=>sheetTaakNieuw();
-  if($('#plKies')) $('#plKies').onclick=()=>{plKies=new Set();sheetPlanning()};
+  /* bij het aanzetten naar boven, anders staat de keuzebalk half uit beeld */
+  const naarBoven=()=>{const nb=document.querySelector('#sheet .sheetbody'); if(nb) nb.scrollTop=0};
+  if($('#plKies')) $('#plKies').onclick=()=>{plKies=new Set();sheetPlanning();naarBoven()};
   const stopKiezen=()=>{plKies=null;sheetPlanning()};
   if($('#plKlaar')) $('#plKlaar').onclick=stopKiezen;
   if($('#plKlaar2')) $('#plKlaar2').onclick=stopKiezen;
@@ -5791,6 +5805,9 @@ function sheetPlanning(){
     if(doel) doel.scrollIntoView({behavior:'smooth',block:'start'});
     else sheetPlanBatch(d);
   });
+  $$('[data-plandetail]').forEach(b=>b.onclick=()=>{
+    const p=plRegister[+b.dataset.plandetail]; if(p) sheetPlanDetail(p.id);
+  });
   $$('[data-planstart]').forEach(b=>b.onclick=()=>{
     const p=plRegister[+b.dataset.planstart]; if(p) planStart(p.id);
   });
@@ -5812,6 +5829,59 @@ function sheetPlanning(){
   /* scrollpositie terugzetten zodat je ziet dat er iets is weggehaald */
   if(scrollNu){ const nb=document.querySelector('#sheet .sheetbody');
     if(nb) nb.scrollTop=scrollNu; }
+}
+
+/* Het detailscherm van één geplande batch. Je komt hier vanaf elke rij die
+   bij die batch hoort, ook vanaf "Mallen wassen" op een heel andere dag.
+   Daarmee is er altijd één plek waar je de hele planning kunt weghalen. */
+function sheetPlanDetail(id){
+  const p=(S.planning||[]).find(x=>x.id===id);
+  if(!p) return toast('Deze planning staat er niet meer in.');
+  const dn=new Date(p.datum);
+  const tot=(p.regels||[]).reduce((n,r)=>n+r.aantal,0);
+  const namen=(p.regels||[]).map(r=>smaakNaam(r.receptId)).join(', ');
+  const bd=boodschapDatum(p);
+  const kanNu=p.datum<=vandaag();
+
+  const stappen=[];
+  if(bd) stappen.push({tekst:'Boodschappen doen',datum:bd,vast:true});
+  (p.voorbereiding||[]).forEach(v=>{ if(v.datum) stappen.push({tekst:v.stap,datum:v.datum}) });
+  stappen.sort((a,b2)=>String(a.datum).localeCompare(String(b2.datum)));
+
+  sheet(namen||'Geplande batch',
+    `<div class="vrkop"><div class="vrgetal" style="font-size:22px">${tot}<em>bonbons</em></div>
+       <div class="vrmeta">${chocNaam(p.chocolade)}<br>${DAG[dn.getDay()]} ${dn.getDate()} ${MND[dn.getMonth()]}</div></div>
+
+     <div class="blokkop"><span class="eyebrow">Voorbereiding</span>
+       <span class="tel">${stappen.length}</span></div>
+     <div class="paneel">${stappen.length?stappen.map((s,i)=>`<div class="arij" style="cursor:default">
+       <span class="naam">${esc(s.tekst)}<small>${kort(new Date(s.datum))}</small></span>
+       ${s.vast?`<span class="waarde">volgt uit de levertijd</span>`
+         :`<button class="wisbtn" data-stapwis="${i}">${svg(I.kruis,'2')}</button>`}
+       </div>`).join('')
+      :'<div class="geen">Geen voorbereiding ingepland.</div>'}</div>
+
+     <p class="hint" style="margin-top:16px">Verwijder je deze planning, dan verdwijnen
+       ook de voorbereidingsdagen die erbij horen.</p>`,
+    `${kanNu?`<button class="prim" style="margin-top:0" id="pdStart">Batch starten</button>`:''}
+     <button class="sec" id="pdWeg" style="color:var(--rood)">${svg(I.kruis,'2')}Planning verwijderen</button>`);
+
+  if($('#pdStart')) $('#pdStart').onclick=()=>planStart(p.id);
+  $('#pdWeg').onclick=()=>{
+    const i=(S.planning||[]).indexOf(p);
+    if(i<0) return toast('Deze planning staat er niet meer in.');
+    const herstel=terugpunt(['planning']);
+    S.planning.splice(i,1);
+    bewaarNu(); render(); sheetPlanning();
+    toast('Planning verwijderd, met alle voorbereiding.',herstel);
+  };
+  $$('[data-stapwis]').forEach(b=>b.onclick=()=>{
+    const s=stappen[+b.dataset.stapwis]; if(!s) return;
+    const herstel=terugpunt(['planning']);
+    p.voorbereiding=(p.voorbereiding||[]).filter(v=>!(v.stap===s.tekst&&v.datum===s.datum));
+    bewaarNu(); render(); sheetPlanDetail(p.id);
+    toast(s.tekst+' uit je planning gehaald.',herstel);
+  });
 }
 
 function sheetBoodschappen(){
