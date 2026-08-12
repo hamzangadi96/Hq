@@ -1354,7 +1354,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v155 · 12 aug 2026';
+const APPVERSIE='v156 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1556,7 +1556,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','vormGezet',
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -3885,6 +3885,151 @@ function sheetMarges(){
   $$('[data-vkprijs]').forEach(x=>x.onclick=sheetVerkoopprijzen);
 }
 
+/* ---------- offerte in je huisstijl ---------- */
+function offerteHTML(klantId){
+  const b=bedrijf();
+  const k=(S.klanten||[]).find(x=>x.id===klantId)||{};
+  const a=afspraak(klantId); if(!a) return '';
+  const v=vorm(a.vormId);
+  const inh=v?Math.max(1,parseInt(v.inhoud,10)||1):1;
+  const vandaagD=new Date();
+  const geldig=new Date(vandaagD.getTime()+30*864e5);
+
+  const regels=(S.recepten||[])
+    .filter(r=>typeof a.prijzen[r.id]==='number')
+    .sort((x,y)=>x.naam.localeCompare(y.naam));
+
+  return `<div class="factuur">
+    <div class="fkop">
+      <div class="fmerk">${b.logo?`<img src="${b.logo}" alt="">`:esc(merkNaam())}</div>
+      ${!b.logo&&b.regel?`<div class="fsub">${esc(b.regel.toUpperCase())}</div>`:''}
+    </div>
+
+    <div class="frij">
+      <div><h4>Voor</h4>${esc(k.naam||'')}${k.adres?'<br>'+esc(k.adres).replace(/\n/g,'<br>'):''}${
+        k.plaats?'<br>'+esc(k.plaats):''}${k.email?'<br>'+esc(k.email):''}</div>
+      <div style="text-align:right"><h4>Offerte</h4>
+        ${kort(vandaagD)}<br>geldig tot ${kort(geldig)}</div>
+    </div>
+
+    <div class="ftitel">Groothandelsprijzen</div>
+    <table>
+      <tr><th>Smaak</th><th class="n">Per bonbon</th><th class="n">Per ${inh}</th></tr>
+      ${regels.map(r=>`<tr><td>${esc(r.naam)}</td>
+        <td class="n">${euro(a.prijzen[r.id])}</td>
+        <td class="n">${euro(a.prijzen[r.id]*inh)}</td></tr>`).join('')}
+    </table>
+    <p style="font-size:8.5pt;margin:6px 0 0">Alle bedragen exclusief btw.${
+      v?' Levering '+esc(v.naam.toLowerCase())+', '+inh+' bonbons per eenheid.':''}</p>
+
+    <div class="ftitel" style="margin-top:14px">Staffel</div>
+    <table>
+      <tr><th>Aantal</th><th class="n">Korting</th></tr>
+      ${staffel().map((t,i,l)=>`<tr><td>${t.van}${
+        l[i+1]?' t/m '+(l[i+1].van-1):' of meer'} stuks</td>
+        <td class="n">${t.pct?t.pct+'%':'—'}</td></tr>`).join('')}
+    </table>
+
+    <div class="ftitel" style="margin-top:14px">Voorwaarden</div>
+    <p style="font-size:9pt;line-height:1.6;margin:0">
+      Btw 9% op bonbons, 21% op verzending en kado-opties.<br>
+      Bonbons zijn handgemaakt en halal. Allergenen en houdbaarheid staan op het productetiket.<br>
+      Bewaren tussen 15 en 18 °C. Bij verzending boven 22 °C rekenen wij koeltransport door.<br>
+      Betaling binnen 14 dagen na levering.
+    </p>
+
+    <div class="fvoet">
+      <span>${esc(b.naam||'')}<br>${esc(b.adres||'')}<br>${esc(b.contact||'')}</span>
+      <span style="text-align:right">${merkNummers()?esc(merkNummers())+'<br>':''}${
+        b.iban?'IBAN '+esc(b.iban):'IBAN nog invullen bij Bedrijfsprofiel'}</span>
+    </div>
+  </div>`;
+}
+
+function sheetOfferte(klantId){
+  const a=afspraak(klantId); if(!a) return toast('Leg eerst een prijsafspraak vast.');
+  const html=offerteHTML(klantId);
+  sheet('Offerte',
+    `<p class="hint">Op A4. Tik Printen en kies in het deelmenu van je telefoon voor
+      <b>Bewaar in Bestanden</b> om er een pdf van te maken.</p>
+     <div class="etvoorbeeld" style="padding:12px"><div class="schaal" id="ofSchaal">${html}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="ofPrint">${svg(I.doc)}Printen of opslaan als pdf</button>
+     <button class="sec" id="ofTerug">Terug</button>`);
+  setTimeout(()=>pasSchaal('ofSchaal'),30);
+  $('#ofTerug').onclick=()=>sheetAfspraken();
+  $('#ofPrint').onclick=()=>drukAf(html,'Offerte','@page{size:A4;margin:8mm}');
+}
+
+/* ---------- prijsafspraken per klant ---------- */
+function sheetAfspraken(){
+  const kl=(S.klanten||[]).slice().sort((a,b)=>a.naam.localeCompare(b.naam));
+  sheet('Prijsafspraken',
+    `<p class="hint">Leg per klant een prijslijst vast. Orders en facturen pakken
+      die prijs dan vanzelf, met de staffel over het orderaantal.</p>
+     <div class="paneel">${kl.length?kl.map(k=>{
+       const a=afspraak(k.id), v=a?vorm(a.vormId):null;
+       const n=a?Object.keys(a.prijzen).length:0;
+       return `<button class="arij" data-afspr="${k.id}">
+         <span class="naam">${esc(k.naam)}<small>${a
+           ? (v?esc(v.naam)+' · ':'')+n+' '+(n===1?'prijs':'prijzen')+' · '+a.marge+'% marge'
+           : 'nog geen afspraak'}</small></span>
+         ${a?'':`<span class="stip" style="background:var(--grijs3)"></span>`}
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
+      :'<div class="geen">Nog geen klanten.</div>'}</div>`,
+    `<button class="sec" style="margin-top:0" id="apTerug">Terug</button>`);
+  $('#apTerug').onclick=sheetB2B;
+  $$('[data-afspr]').forEach(b=>b.onclick=()=>sheetAfspraak(b.dataset.afspr));
+}
+
+function sheetAfspraak(klantId){
+  const k=(S.klanten||[]).find(x=>x.id===klantId); if(!k) return sheetAfspraken();
+  const a=afspraak(klantId);
+  const v=a?vorm(a.vormId):null;
+  const inh=v?Math.max(1,parseInt(v.inhoud,10)||1):1;
+  const lijst=(S.recepten||[]).filter(r=>a&&typeof a.prijzen[r.id]==='number');
+
+  sheet(k.naam,
+    a? `<div class="vrkop"><div class="vrgetal" style="font-size:22px">${a.marge}%<em>marge</em></div>
+          <div class="vrmeta">${v?esc(v.naam):'vorm verwijderd'}<br>vastgelegd ${kort(new Date(a.datum))}</div></div>
+
+        <div class="blokkop"><span class="eyebrow">Lijstprijs excl. btw</span>
+          <span class="tel">${lijst.length}</span></div>
+        <div class="paneel">${lijst.map(r=>`<div class="arij" style="cursor:default">
+          <span class="naam">${esc(r.naam)}<small>${euro(a.prijzen[r.id]*inh)} per ${inh}</small></span>
+          <span class="waarde gevuld">${euro(a.prijzen[r.id])}</span></div>`).join('')}</div>
+
+        <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Staffel</span></div>
+        <div class="paneel">${staffel().map(t=>`<div class="arij" style="cursor:default">
+          <span class="naam">Vanaf ${t.van} stuks</span>
+          <span class="waarde gevuld">${t.pct?t.pct+'%':'—'}</span></div>`).join('')}</div>
+
+        <p class="hint" style="margin-top:16px">De staffel rekent bij elke order opnieuw,
+          over het totale aantal bonbons in die order.</p>`
+     : `<p class="hint">Nog geen afspraak. Reken eerst een prijs uit in de calculator
+          en leg hem hier vast — de app zet dan alle smaken in één keer op die marge.</p>`,
+    a? `<button class="prim" style="margin-top:0" id="afOff">${svg(I.doc)}Offerte maken</button>
+        <button class="sec" id="afNieuw">Opnieuw vastleggen</button>
+        <button class="sec" id="afWeg" style="color:var(--rood)">Afspraak verwijderen</button>`
+     : `<button class="prim" style="margin-top:0" id="afNieuw">Prijzen vastleggen</button>
+        <button class="sec" id="afTerug2">Terug</button>`);
+
+  if($('#afTerug2')) $('#afTerug2').onclick=sheetAfspraken;
+  if($('#afOff')) $('#afOff').onclick=()=>sheetOfferte(klantId);
+  if($('#afNieuw')) $('#afNieuw').onclick=()=>{
+    if(!vormen().length) zetStandaardVormen();
+    const vId=B2B.vorm&&vorm(B2B.vorm)?B2B.vorm:vormen()[0].id;
+    zetAfspraak(klantId,vId,b2bMarge());
+    render(); sheetAfspraak(klantId);
+    toast('Prijzen vastgelegd op '+b2bMarge()+'% marge.');
+  };
+  if($('#afWeg')) $('#afWeg').onclick=()=>{
+    const herstel=terugpunt(['afspraken']);
+    const kopie=Object.assign({},afspraken()); delete kopie[klantId];
+    S.afspraken=kopie; bewaarNu(); render(); sheetAfspraken();
+    toast('Afspraak verwijderd.',herstel);
+  };
+}
+
 /* ---------- B2B-calculator ---------- */
 let B2B={smaak:null,vorm:null,stuks:96};
 
@@ -3964,7 +4109,8 @@ function sheetB2B(){
          <button class="miniknop" id="bqMOk">Instellen</button></div>
        <div class="hint" style="margin:8px 0 0">${b.marge}% marge is ${
          b.marge<100?Math.round(b.marge/(100-b.marge)*100):'—'}% opslag op je kostprijs.</div></div>`,
-    `<button class="prim" style="margin-top:0" id="bqVormen">${svg(I.doos)}Leveringsvormen</button>
+    `<button class="prim" style="margin-top:0" id="bqKlant">${svg(I.doc)}Vastleggen bij een klant</button>
+     <button class="sec" id="bqVormen">Leveringsvormen</button>
      <button class="sec" id="bqStaffel">Staffel aanpassen</button>`);
 
   chips('#bqS',false,()=>{B2B.smaak=chipV('#bqS');sheetB2B()});
@@ -3979,6 +4125,7 @@ function sheetB2B(){
   };
   $('#bqVormen').onclick=sheetVormen;
   $('#bqStaffel').onclick=sheetStaffel;
+  $('#bqKlant').onclick=sheetAfspraken;
 }
 
 function zetStandaardVormen(){
@@ -4338,8 +4485,11 @@ const factuurNr=o=>o.factuurNr||('F-'+new Date().getFullYear()+'-'+pad(
 function factuurHTML(o){
   const b=bedrijf();
   const k=(S.klanten||[]).find(x=>x.id===o.klantId)||{};
+  const totStuks=(o.regels||[]).reduce((n,x)=>n+(x.aantal||0),0);
   const regels=(o.regels||[]).map(r=>{
-    const pr=verkoopPrijs(r.receptId);
+    /* heeft deze klant een prijsafspraak, dan geldt die — met de staffel over
+       het hele orderaantal, niet per regel */
+    const pr=prijsVoor(o.klantId,r.receptId,totStuks);
     return {naam:smaakNaam(r.receptId),aantal:r.aantal,prijs:pr,bedrag:pr===null?null:pr*r.aantal};
   });
   const laag=regels.reduce((n,r)=>n+(r.bedrag||0),0);
@@ -4559,6 +4709,9 @@ function geldHTML(){
            : 'vaste lasten en derving', !m||vb.per===null)})()}
       ${rij('data-b2b',I.spark,'B2B-calculator',
         vormen().length?vormen().length+' leveringsvormen · '+b2bMarge()+'% marge':'prijs per bonbon voor je afnemers')}
+      ${(()=>{const n=Object.keys(afspraken()).length;
+        return rij('data-afspraken',I.doc,'Prijsafspraken',
+          n?n+' '+(n===1?'klant':'klanten'):'nog geen')})()}
       ${rij('data-kmtarief',I.spark,'Kilometervergoeding',komma(kmTarief())+' per km')}
       ${rij('data-autosoort',I.auto,'Soort auto',S.autoSoort==='zaak'?'van de zaak':'privé')}
       ${rij('data-plekken',I.huis,'Vaste plekken',(S.plekken||[]).length||'geen')}
@@ -7414,6 +7567,7 @@ function bind(){
   $$('[data-verkoop]').forEach(x=>x.onclick=sheetVerkoopprijzen);
   $$('[data-kostenbasis]').forEach(x=>x.onclick=sheetKostenbasis);
   $$('[data-b2b]').forEach(x=>x.onclick=sheetB2B);
+  $$('[data-afspraken]').forEach(x=>x.onclick=sheetAfspraken);
   $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
   $$('[data-recept]').forEach(x=>x.onclick=()=>sheetReceptForm(x.dataset.recept));
   $$('[data-haccp]').forEach(x=>x.onclick=sheetHaccp);
@@ -10370,6 +10524,35 @@ function b2bBereken(r,v,aantalBonbons){
     onderKost: prijs!==null&&kostBonbon!==null&&prijs<kostBonbon,
     mist: (kv.mist||[]).concat(vp.mist)
   };
+}
+
+/* ═══════════ prijsafspraak per klant ═══════════
+   Je legt de lijstprijs vast, niet de kortingsprijs: de staffel hangt aan het
+   aantal en rekent bij elke order opnieuw. */
+const afspraken=()=>(S.afspraken||{});
+const afspraak=klantId=>afspraken()[klantId]||null;
+
+function zetAfspraak(klantId,vormId,marge){
+  const v=vorm(vormId); if(!v) return null;
+  const prijzen={};
+  (S.recepten||[]).forEach(r=>{
+    const b=b2bBereken(r,v,1);            /* trede 1 = lijstprijs, zonder korting */
+    if(b.lijst!==null) prijzen[r.id]=b.lijst;
+  });
+  S.afspraken=Object.assign({},afspraken());
+  S.afspraken[klantId]={vormId,marge:marge,prijzen,datum:iso(new Date())};
+  bewaarNu();
+  return S.afspraken[klantId];
+}
+
+/* de prijs die deze klant betaalt, inclusief btw zodat hij in de factuur past */
+function prijsVoor(klantId,receptId,aantal){
+  const a=klantId?afspraak(klantId):null;
+  if(a&&typeof a.prijzen[receptId]==='number'){
+    const korting=(staffelTrede(aantal||1).pct||0)/100;
+    return a.prijzen[receptId]*(1-korting)*(1+BTW_ETEN);
+  }
+  return verkoopPrijs(receptId);
 }
 
 /* wat houdt je afnemer over als hij doorverkoopt tegen jouw adviesprijs? */
