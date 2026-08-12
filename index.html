@@ -1400,7 +1400,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v175 · 12 aug 2026';
+const APPVERSIE='v178 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3651,7 +3651,7 @@ function sheetBon(id){
     return n;
   };
   if($('#bnScan')) $('#bnScan').onclick=()=>{
-    if(!fbUser) return toast('Log eerst in bij App & opslag; het scannen loopt via je eigen server.');
+    if(!fbUser) return toast('Log eerst in via het tandwiel rechtsboven; het scannen loopt via je eigen server.');
     scanModus=true; $('#bnBestand').click();
   };
   $('#bnCam').onclick=()=>{ scanModus=false; $('#bnBestand').click() };
@@ -4478,7 +4478,7 @@ function sheetAfspraak(klantId){
 let B2B={smaak:null,vorm:null,stuks:96};
 
 function sheetB2B(){
-  const rec=(S.recepten||[]);
+  const rec=(S.recepten||[]).filter(smaakActief);
   if(!rec.length) return toast('Voeg eerst een smaak toe.');
   if(!vormen().length){ zetStandaardVormen(); }
   if(!B2B.smaak||!rec.some(r=>r.id===B2B.smaak)) B2B.smaak=rec[0].id;
@@ -6664,7 +6664,7 @@ function sheetPlanBatch(vooraf){
   const stap2=()=>{
     sheet('Welke '+(branche().basis||'basissoort').toLowerCase()+'?',
       `<div class="choc" id="pbC">${soorten().map(c=>{
-        const n=S.recepten.filter(r=>r.chocolade===c.key).length;
+        const n=S.recepten.filter(r=>r.chocolade===c.key&&smaakActief(r)).length;
         return `<button class="chocknop ${P.choc===c.key?'aan':''}" data-c="${c.key}">
           <span class="schijf ${c.key}"></span>
           <span class="ct"><span class="cn">${c.naam}</span>
@@ -6676,7 +6676,7 @@ function sheetPlanBatch(vooraf){
   };
 
   const stap3=()=>{
-    const lijst=S.recepten.filter(r=>r.chocolade===P.choc);
+    const lijst=S.recepten.filter(r=>r.chocolade===P.choc&&smaakActief(r));
     const regels=Object.keys(P.mallen).filter(k=>P.mallen[k]>0)
       .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*S.malGrootte}));
     const tot=regels.reduce((n,r)=>n+r.aantal,0);
@@ -8232,54 +8232,11 @@ $('#btnInstel').innerHTML=svg(I.instel);
 $('#btnInstel').onclick=()=>sheetMenu();
 /* Zat aan een knop in de kop, maar alles daarin stond al onderin bij Meer.
    Nu een functie, bereikbaar via "App & opslag". */
-function sheetMenu(){
-  const hOpen=(()=>{let n=0;['ongedierte','recall'].forEach(t=>{if(controleOver(t))n++});
-    if(!laatsteIjking())n++; return n})();
-  /* Hier stonden HACCP, Smaken, Wenskaart en Uren onder het kopje
-     "Voedselveiligheid" — die kloppen daar niet en staan bovendien al op hun
-     eigen tabblad. Wat overblijft is waar het tandwiel voor is: de app zelf. */
-  sheet('Menu',
-   `<div class="mkop">Instellingen</div>
-    <button class="menurij" id="mIns">${svg(I.instel)}Instellingen<span class="tel">alles instelbaar</span></button>
-    <button class="menurij" id="mKop">${svg(I.vracht)}Koppelingen<span class="tel">${(()=>{
-      const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
-      return n?n+' van 2':'nog geen'})()}</span></button>
-
-    ${TABS.filter(t=>!t.klaar).length?`<div class="mkop">Nog in aanbouw</div>
-      ${TABS.filter(t=>!t.klaar).map(t=>`<button class="menurij" data-naar="${t.key}">${svg(t.icon)}${t.label}
-        <span class="tel">bekijken</span></button>`).join('')}`:''}
-
-    <div class="mkop">Gegevens</div>
-    <button class="menurij" id="mData">${svg(I.doc)}Gegevens meenemen<span class="tel">naar een ander toestel</span></button>
-    <button class="menurij" id="mNieuw">${svg(I.ververs)}Nieuwe dag beginnen<span class="tel">wist de batches van vandaag</span></button>
-
-    <div class="mkop">Opslag</div>
-    <button class="menurij" id="mAccount">${svg(fbUser?I.vink:I.alarm)}
-      ${fbUser?esc(fbUser.email||'Ingelogd'):'Inloggen voor synchronisatie'}
-      <span class="tel">${!fbKlaar?'niet ingesteld':(fbUser?(fbOnline?'online':'offline'):'uit')}</span></button>
-    <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
-      Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
-  $('#mKop').onclick=sheetKoppelingen;
-  $$('[data-naar]').forEach(x=>x.onclick=()=>{
-    S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
-  });
-  $('#mVers').onclick=()=>{
-    if(!confirm('De app opnieuw ophalen? Je gegevens blijven staan.')) return;
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister())))
-        .then(()=>caches&&caches.keys().then(k=>Promise.all(k.map(n=>caches.delete(n)))))
-        .catch(()=>{})
-        .then(()=>location.reload(true));
-    } else location.reload(true);
-  };
-  $('#mAccount').onclick=sheetAccount;
-  $('#mIns').onclick=sheetInstellingen;
-  $('#mData').onclick=sheetData;
-  $('#mNieuw').onclick=()=>{
-    if(S.batches.length&&!confirm('De batches van vandaag worden gewist. Je smaken en instellingen blijven staan. Doorgaan?')) return;
-    S.batches=[];S.dagOpening=null;S.batchId=null;S.open=null;
-    dicht();bewaarNu();render();toast('Nieuwe dag. Smaken en instellingen blijven staan.')};
-}
+/* Het tandwiel opende een tussenscherm met de titel "Menu" waarin
+   Instellingen maar één van de regels was. Drie tikken voor iets wat er in
+   één hoort. sheetMenu blijft bestaan als naam, maar opent nu gewoon de
+   instellingen. */
+function sheetMenu(){ return sheetInstellingen(); }
 
 let sheetOpen=false, bijSluiten=null;
 function sheet(t,b,v,stapLabel){
@@ -8477,7 +8434,7 @@ function wizard1(){
   sheet('Welke '+(branche().basis||'Basissoort').toLowerCase()+'?',
     `<p class="hint">Je tempereert één soort per batch. Daarna kies je de smaken die je ermee maakt.</p>
      <div class="choc" id="wC">${soorten().map(c=>{
-       const n=S.recepten.filter(r=>r.chocolade===c.key).length;
+       const n=S.recepten.filter(r=>r.chocolade===c.key&&smaakActief(r)).length;
        return `<button class="chocknop ${W.choc===c.key?'aan':''}" data-c="${c.key}">
          <span class="schijf ${c.key}"></span>
          <span class="ct"><span class="cn">${c.naam}</span>
@@ -8510,7 +8467,7 @@ function hintTekst(r,mallen){
   return `${mallen} ${mallen===1?'mal':'mallen'} = ${n} bonbons · ${getal(g*n)} g`;
 }
 function wizard2(){
-  const lijst=S.recepten.filter(r=>r.chocolade===W.choc);
+  const lijst=S.recepten.filter(r=>r.chocolade===W.choc&&smaakActief(r));
   sheet('Welke smaken?',
     lijst.length
       ? `<p class="hint">Tel in mallen. Eén mal is ${S.malGrootte} bonbons — aan te passen bij Instellingen.</p>
@@ -10319,9 +10276,70 @@ function sheetRapport(soort,batchId,datum){
 }
 
 /* ================= smaken / recepten ================= */
+/* Een smaak verwijderen kon nergens. Maar zomaar weggooien mag ook niet:
+   recept() valt terug op {naam:'?'}, dus een afgeronde batch of een factuur
+   zou daarna een vraagteken tonen en je traceerbaarheid is stuk. Daarom
+   eerst kijken waar hij nog in zit. */
+function smaakGebruik(id){
+  const b=(S.batches||[]).filter(x=>(x.regels||[]).some(r=>r.receptId===id)).length;
+  const o=(S.orders||[]).filter(x=>(x.regels||[]).some(r=>r.receptId===id)).length;
+  const p=(S.planning||[]).filter(x=>(x.regels||[]).some(r=>r.receptId===id)).length;
+  const m=(S.mutaties||[]).filter(x=>x.receptId===id).length;
+  const pr=(S.verkoop||{})[id]!==undefined;
+  const af=Object.values(afspraken()).filter(a=>a&&a.prijzen&&a.prijzen[id]!==undefined).length;
+  /* batches, orders en voorraad zijn je administratie: die moeten kloppen */
+  const vast=b+o+m;
+  return {batches:b,orders:o,planning:p,mutaties:m,prijs:pr,afspraken:af,
+          vast, totaal:b+o+p+m+af+(pr?1:0)};
+}
+const smaakActief=r=>!r.archief;
+
+function verwijderSmaak(id){
+  const r=(S.recepten||[]).find(x=>x.id===id); if(!r) return;
+  const g=smaakGebruik(id);
+  const waar=[];
+  if(g.batches) waar.push(g.batches+(g.batches===1?' batch':' batches'));
+  if(g.orders)  waar.push(g.orders+(g.orders===1?' order':' orders'));
+  if(g.mutaties)waar.push('voorraad');
+
+  if(g.vast){
+    sheet('Smaak verwijderen',
+      `<div class="melding amber">${svg(I.alarm,'2')}
+        <span><b>${esc(r.naam)}</b> zit nog in ${waar.join(' en ')}.
+          Weggooien maakt die administratie onleesbaar — er staat dan een
+          vraagteken waar de smaak hoorde te staan.</span></div>
+       <p class="hint">Archiveren doet wat je wilt: de smaak verdwijnt uit je
+         keuzelijsten en je nieuwe batches, maar alles wat er al mee gemaakt is
+         blijft kloppen. Je kunt hem later terugzetten.</p>`,
+      `<button class="prim" style="margin-top:0" id="vsArch">Archiveren</button>
+       <button class="sec" id="vsTerug">Laat maar</button>`);
+    $('#vsTerug').onclick=sheetRecepten;
+    $('#vsArch').onclick=()=>{
+      const herstel=terugpunt(['recepten']);
+      r.archief=true; bewaarNu(); render(); sheetRecepten();
+      toast(esc(r.naam)+' gearchiveerd.',herstel);
+    };
+    return;
+  }
+
+  const rest=[];
+  if(g.planning) rest.push(g.planning+' geplande '+(g.planning===1?'batch':'batches'));
+  if(g.afspraken) rest.push(g.afspraken+' '+(g.afspraken===1?'prijsafspraak':'prijsafspraken'));
+  if(!confirm(r.naam+' verwijderen?'+(rest.length?' Hij staat nog in '+rest.join(' en ')+'.':''))) return;
+  const herstel=terugpunt(['recepten','planning','verkoop','afspraken']);
+  S.recepten=(S.recepten||[]).filter(x=>x.id!==id);
+  /* meenemen wat anders naar een smaak wijst die niet meer bestaat */
+  S.planning=(S.planning||[]).map(pl=>Object.assign({},pl,
+    {regels:(pl.regels||[]).filter(x=>x.receptId!==id)})).filter(pl=>(pl.regels||[]).length);
+  if(S.verkoop) delete S.verkoop[id];
+  Object.values(afspraken()).forEach(a=>{ if(a&&a.prijzen) delete a.prijzen[id] });
+  bewaarNu(); render(); sheetRecepten();
+  toast(r.naam+' verwijderd.',herstel);
+}
+
 function sheetRecepten(){
   const perChoc=soorten().map(c=>{
-    const l=S.recepten.filter(r=>r.chocolade===c.key);
+    const l=S.recepten.filter(r=>r.chocolade===c.key&&smaakActief(r));
     if(!l.length) return '';
     return `<div class="uwkop" style="border-bottom:none;padding-top:16px"><span class="n">${c.naam}</span>
         <span class="a">${l.length}</span></div>`+
@@ -10330,15 +10348,33 @@ function sheetRecepten(){
           ? getal(gramPerBonbon(r))+' g per bonbon · '+r.onderdelen.length+(r.onderdelen.length===1?' onderdeel':' onderdelen')+' · THT '+r.tht+' dg'
             +(()=>{const k=kostprijs(r);return k.compleet&&k.per>0?' · '+euro(k.per)+' grondstof':''})()
           : 'nog niet af — voeg de onderdelen toe'}</div></div>
-        <button class="chip klein" data-edit="${r.id}">Wijzig</button></div>`).join('');
+        <button class="chip klein" data-edit="${r.id}">Wijzig</button>
+        <button class="wisbtn" data-smaakwis="${r.id}">${svg(I.kruis,'2')}</button></div>`).join('');
   }).join('');
+
+  const gearchiveerd=(S.recepten||[]).filter(r=>!smaakActief(r));
+  const archief=gearchiveerd.length?`
+    <div class="uwkop" style="border-bottom:none;padding-top:20px"><span class="n">Archief</span>
+      <span class="a">${gearchiveerd.length}</span></div>
+    <p class="hint" style="margin:0 0 8px">Deze maak je niet meer, maar ze blijven bestaan
+      zodat je oude batches en facturen kloppen.</p>
+    ${gearchiveerd.map(r=>`<div class="rrij"><div class="rinfo">
+      <div class="rnaam" style="color:var(--grijs)">${esc(r.naam)}</div>
+      <div class="rsub">${chocNaam(r.chocolade)}</div></div>
+      <button class="chip klein" data-smaakterug="${r.id}">Terugzetten</button></div>`).join('')}`:'';
   sheet('Smaken',
     S.recepten.length
     ? `${S.recepten.length>6?`<div class="veld" style="margin-bottom:4px">
          <input class="inp" id="rzZ" placeholder="Zoek een smaak" autocomplete="off"></div>`:''}
-       <div id="rzL">${perChoc}</div>`
+       <div id="rzL">${perChoc}</div>${archief}`
     :`<p class="hint">Nog geen smaken. Een smaak is de opbouw van één bonbon: de schelp, de lagen erin, en hoeveel gram elk onderdeel weegt. Hoeveel bonbons je maakt kies je pas bij een batch.</p>`,
     `<button class="prim" style="margin-top:0" id="rN">Nieuwe smaak</button>`);
+  $$('[data-smaakwis]').forEach(b=>b.onclick=()=>verwijderSmaak(b.dataset.smaakwis));
+  $$('[data-smaakterug]').forEach(b=>b.onclick=()=>{
+    const r=(S.recepten||[]).find(x=>x.id===b.dataset.smaakterug); if(!r) return;
+    delete r.archief; bewaarNu(); render(); sheetRecepten();
+    toast(r.naam+' staat weer in je lijst.');
+  });
   if($('#rzZ')) $('#rzZ').oninput=()=>{
     const t=$('#rzZ').value.trim().toLowerCase();
     let zichtbaar=0;
@@ -12158,10 +12194,22 @@ function sheetMeer(){
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
      ${groep('Verder',rest)}
      <div class="blokkop"><span class="eyebrow">App</span></div>
-     <div class="paneel"><button class="arij" id="meerApp">
-       <span class="ivak">${svg(I.instel)}</span>
-       <span class="naam">App &amp; opslag<small>koppelingen, gegevens meenemen, synchronisatie</small></span>
-       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`,'');
+     <div class="paneel">
+       <button class="arij" id="meerApp"><span class="ivak">${svg(I.instel)}</span>
+         <span class="naam">Instellingen<small>je bedrijf, productie, voedselveiligheid</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" id="meerAcc"><span class="ivak">${svg(fbUser?I.vink:I.alarm)}</span>
+         <span class="naam">${fbUser?esc(fbUser.email||'Ingelogd'):'Inloggen'}<small>${
+           !fbKlaar?'synchronisatie niet ingesteld'
+           :(fbUser?(fbOnline?'online \u00b7 je gegevens staan veilig':'offline'):'voor synchronisatie')}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" id="meerData"><span class="ivak">${svg(I.doc)}</span>
+         <span class="naam">Gegevens meenemen<small>naar een ander toestel</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" id="meerNieuw"><span class="ivak">${svg(I.ververs)}</span>
+         <span class="naam">Nieuwe dag beginnen<small>wist de batches van vandaag</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+     </div>`,'');
 
   $$('[data-meerdoe]').forEach(b=>b.onclick=()=>{
     const it=snelItem(b.dataset.meerdoe); if(!it) return;
@@ -12170,7 +12218,14 @@ function sheetMeer(){
     if(it.doe) it.doe();
   });
   $('#meerKies').onclick=sheetBalkKiezen;
-  $('#meerApp').onclick=sheetMenu;
+  $('#meerApp').onclick=sheetInstellingen;
+  $('#meerAcc').onclick=sheetAccount;
+  $('#meerData').onclick=sheetData;
+  $('#meerNieuw').onclick=()=>{
+    if(S.batches.length&&!confirm('De batches van vandaag worden gewist. Je smaken en instellingen blijven staan. Doorgaan?')) return;
+    S.batches=[];S.dagOpening=null;S.batchId=null;S.open=null;
+    dicht();bewaarNu();render();toast('Nieuwe dag. Smaken en instellingen blijven staan.');
+  };
 }
 
 function sheetBalkKiezen(){
@@ -12289,7 +12344,41 @@ function sheetInstellingen(){
        (()=>{const t=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
              return t?(g?g+' van '+t:'nog niets'):'geen ingrediënten'})()}</span></button>
      <button class="menurij" data-ins="lots">${svg(I.doos)}Partijen in huis<span class="tel">${S.lots.length}</span></button>
-     <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>`,'');
+     <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>
+
+     <div class="mkop">Koppelingen</div>
+     <button class="menurij" id="mKop">${svg(I.vracht)}Koppelingen<span class="tel">${(()=>{
+       const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
+       return n?n+' van 2':'nog geen'})()}</span></button>
+
+     ${TABS.filter(t=>!t.klaar).length?`<div class="mkop">Nog in aanbouw</div>
+       ${TABS.filter(t=>!t.klaar).map(t=>`<button class="menurij" data-naar="${t.key}">${svg(t.icon)}${t.label}
+         <span class="tel">bekijken</span></button>`).join('')}`:''}
+
+     <button class="menurij" id="mVers" style="color:var(--grijs2);margin-top:18px">${svg(I.ververs)}
+       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
+
+  /* Deze zaten in een tussenscherm dat "Menu" heette terwijl je op een tandwiel
+     drukte. Nu staan ze hier, en opent het tandwiel meteen dit scherm. */
+  if($('#mKop')) $('#mKop').onclick=sheetKoppelingen;
+  $$('[data-naar]').forEach(x=>x.onclick=()=>{
+    S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
+  });
+  if($('#mData')) $('#mData').onclick=sheetData;
+  if($('#mAccount')) $('#mAccount').onclick=sheetAccount;
+  if($('#mVers')) $('#mVers').onclick=()=>{
+    if(!confirm('De app opnieuw ophalen? Je gegevens blijven staan.')) return;
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister())))
+        .then(()=>caches&&caches.keys().then(k=>Promise.all(k.map(n=>caches.delete(n)))))
+        .catch(()=>{})
+        .then(()=>location.reload(true));
+    } else location.reload(true);
+  };
+  if($('#mNieuw')) $('#mNieuw').onclick=()=>{
+    if(S.batches.length&&!confirm('De batches van vandaag worden gewist. Je smaken en instellingen blijven staan. Doorgaan?')) return;
+    S.batches=[];S.dagOpening=null;S.batchId=null;S.open=null;
+    dicht();bewaarNu();render();toast('Nieuwe dag. Smaken en instellingen blijven staan.')};
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
     if(k==='uitleg') return sheetUitleg();
