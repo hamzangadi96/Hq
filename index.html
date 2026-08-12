@@ -1354,7 +1354,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v153 · 12 aug 2026';
+const APPVERSIE='v154 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1556,7 +1556,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk',
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -3725,16 +3725,17 @@ function bonnenPeriode(jaar,kwartaal){
 }
 /* marge per smaak */
 function margeVan(r){
-  const vk=verkoopPrijs(r.id), kp=kostprijs(r);
+  const vk=verkoopPrijs(r.id);
   if(vk===null) return null;
   const exclBtw=vk/(1+BTW_ETEN);
-  const ap=arbeidPerBonbon();
-  const arbeid=ap?ap.perStuk:0;
-  const kost=kp.compleet?kp.per+arbeid:null;
-  return {vk,excl:exclBtw,kost,arbeid,grond:kp.compleet?kp.per:null,
+  const kv=kostprijsVol(r);
+  const kost=kv.totaal;
+  return {vk,excl:exclBtw,kost,
+    arbeid:kv.arbeid, grond:kv.grond, grondNa:kv.grondNa,
+    derving:kv.dervingPct, verlies:kv.verlies, vast:kv.vast,
     marge:kost===null?null:exclBtw-kost,
     pct:kost===null||exclBtw<=0?null:Math.round((exclBtw-kost)/exclBtw*100),
-    mist:kp.mist};
+    mist:kv.mist};
 }
 
 function sheetVerkoopprijzen(){
@@ -3854,12 +3855,24 @@ function sheetMarges(){
     .filter(x=>x.m).sort((a,b2)=>(b2.m.marge||0)-(a.m.marge||0));
   const zonder=(S.recepten||[]).length-lijst.length;
   sheet('Marge per smaak',
-    `<p class="hint">Wat houd je over per bonbon, na btw en na grondstofkosten?
-      Arbeid en vaste lasten zitten er niet in.</p>
+    `<p class="hint">Wat houd je over per bonbon, na btw en na alle kosten:
+      grondstoffen, derving, arbeid en vaste lasten.</p>
+     ${(()=>{const vb=vastPerBonbon(), d=dervingInfo();
+       const mist=[];
+       if(!vasteLastenPerMaand()) mist.push('vaste lasten');
+       if(d.pct===null) mist.push('derving');
+       if(!uurtarief()) mist.push('uurtarief');
+       return mist.length?`<div class="melding amber">${svg(I.alarm,'2')}
+         <span>Nog niet ingevuld: ${mist.join(', ')}. Je marge ziet er dan rooskleuriger
+           uit dan hij is.</span></div>`
+        :(vb.per!==null&&vb.per>0?`<div class="melding" style="background:var(--bg);color:var(--ink)">
+           ${svg(I.doos,'2')}<span>Inclusief ${euro(vb.per)} vaste lasten en
+             ${komma(d.pct||0)}% derving per bonbon.</span></div>`:'')})()}
      ${lijst.length?`<div class="paneel">${lijst.map(x=>`<button class="arij" data-vkprijs>
        <span class="naam">${esc(x.r.naam)}<small>${x.m.kost!==null
-         ? 'verkoop '+euro(x.m.vk)+' · excl. btw '+euro(x.m.excl)+' · grondstof '+euro(x.m.grond)+
-           (x.m.arbeid?' + arbeid '+euro(x.m.arbeid):'')
+         ? 'excl. btw '+euro(x.m.excl)+' − kostprijs '+euro(x.m.kost)+
+           ' (grondstof '+euro(x.m.grondNa)+(x.m.arbeid?' · arbeid '+euro(x.m.arbeid):'')+
+           (x.m.vast?' · vast '+euro(x.m.vast):'')+')'
          : 'kostprijs onbekend — '+x.m.mist.length+' ingrediënten zonder inkoopprijs'}</small></span>
        ${x.m.pct!==null?`<span class="stip ${x.m.pct<40?'amber':'groen'}"></span>`:''}
        <span class="waarde gevuld">${x.m.marge!==null?euro(x.m.marge)+(x.m.pct!==null?' · '+x.m.pct+'%':''):'—'}</span>
@@ -3870,6 +3883,103 @@ function sheetMarges(){
     `<button class="prim" style="margin-top:0" id="mgPr">Verkoopprijzen aanpassen</button>`);
   $('#mgPr').onclick=sheetVerkoopprijzen;
   $$('[data-vkprijs]').forEach(x=>x.onclick=sheetVerkoopprijzen);
+}
+
+/* ---------- kostenbasis: vaste lasten en derving ---------- */
+function sheetKostenbasis(){
+  const d=dervingInfo(), p=productiePerMaand(), vb=vastPerBonbon();
+  const posten=(S.vasteLasten||[]);
+  const maand=vasteLastenPerMaand();
+
+  sheet('Kostenbasis',
+    `<p class="hint">Twee dingen die je kostprijs compleet maken: wat je sowieso
+      kwijt bent, en wat er onderweg sneuvelt. Ze gelden voor elke smaak.</p>
+
+     <div class="blokkop"><span class="eyebrow">Vaste lasten</span>
+       <span class="tel">${maand?euro(maand)+' per maand':'nog niets'}</span></div>
+     <div class="paneel">${posten.length?posten.map((x,i)=>`<div class="arij" style="cursor:default">
+       <span class="naam">${esc(x.naam)}<small>${x.per==='jaar'?'per jaar':'per maand'}</small></span>
+       <span class="waarde gevuld">${euro(parseFloat(x.bedrag)||0)}</span>
+       <button class="wisbtn" data-vlwis="${i}">${svg(I.kruis,'2')}</button>
+     </div>`).join('')
+      :'<div class="geen">Huur, energie, verzekering, KvK, abonnementen.</div>'}</div>
+
+     <div class="veld" style="margin-top:12px"><label>Post toevoegen</label>
+       <div class="rijtje">
+         <input class="inp" id="vlN" placeholder="Bijv. huur werkruimte">
+         <input class="mini" id="vlB" type="number" inputmode="decimal" placeholder="0" style="max-width:96px"></div>
+       <div class="duo" id="vlP" style="margin-top:10px">
+         <button class="aan" data-v="maand">Per maand</button>
+         <button data-v="jaar">Per jaar</button></div>
+       <button class="knop2" id="vlOk" style="margin-top:10px">Toevoegen</button></div>
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Waar smeer je dat over uit</span></div>
+     <div class="paneel"><div class="arij" style="cursor:default">
+       <span class="naam">Bonbons per maand<small>${
+         p.bron==='gemeten'?'gemeten uit '+p.stuks+' stuks over '+p.dagen+' dagen'
+         :p.bron==='ingesteld'?'zelf ingesteld'
+         :'nog geen afgeronde batches — vul zelf iets in'}</small></span>
+       <span class="waarde gevuld">${p.n?p.n:'—'}</span></div></div>
+     <div class="veld" style="margin-top:12px">
+       <div class="rijtje">
+         <input class="inp" id="pmN" type="number" inputmode="numeric" placeholder="${p.n||'Bijv. 800'}"
+           value="${typeof S.prodPerMaand==='number'?S.prodPerMaand:''}">
+         <button class="miniknop" id="pmOk">Instellen</button></div>
+       <div class="hint" style="margin:8px 0 0">Leeg laten laat de app het zelf meten
+         zodra je batches hebt afgerond.</div></div>
+
+     ${maand?`<div class="melding ${vb.per===null?'amber':''}" style="margin-top:14px;${
+        vb.per===null?'':'background:var(--bg);color:var(--ink)'}">${svg(I.alarm,'2')}
+       <span>${vb.per===null
+         ? 'Zonder aantal bonbons per maand kan de app je vaste lasten niet verdelen.'
+         : 'Dat is <b>'+euro(vb.per)+'</b> per bonbon. '+(vb.per>0.30
+             ? 'Fors — bij dit volume eten je vaste lasten je marge op.'
+             : 'Blijft netjes binnen de perken.')}</span></div>`:''}
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Derving</span></div>
+     <div class="paneel"><div class="arij" style="cursor:default">
+       <span class="naam">Wat sneuvelt er<small>${
+         d.bron==='gemeten'?'gemeten uit '+d.batches+' '+(d.batches===1?'batch':'batches')+
+           ' · '+d.afkeur+' afkeur op '+(d.goed+d.afkeur)
+         :d.bron==='ingesteld'?'zelf ingesteld'
+         :'nog geen afgeronde batches'}</small></span>
+       <span class="waarde gevuld">${d.pct!==null?komma(d.pct)+'%':'—'}</span></div></div>
+     <div class="veld" style="margin-top:12px">
+       <div class="rijtje">
+         <input class="inp" id="dvN" type="number" inputmode="decimal" step="0.1" placeholder="${d.pct!==null?komma(d.pct):'Bijv. 4'}"
+           value="${typeof S.derving==='number'?S.derving:''}">
+         <button class="miniknop" id="dvOk">Instellen</button></div>
+       <div class="hint" style="margin:8px 0 0">Je arbeid rekent al met goede stuks.
+         Je grondstoffen nog niet — dat rechtte dit percentage.</div></div>`,
+    `<button class="prim" style="margin-top:0" id="kbKlaar">Klaar</button>`);
+
+  chips('#vlP');
+  $('#kbKlaar').onclick=dicht;
+  $('#vlOk').onclick=()=>{
+    const n=$('#vlN').value.trim(), b=parseFloat($('#vlB').value)||0;
+    if(!n) return toast('Geef de post een naam.');
+    if(b<=0) return toast('Vul een bedrag in.');
+    S.vasteLasten=S.vasteLasten||[];
+    S.vasteLasten.push({id:uid(),naam:n,bedrag:b,per:chipV('#vlP')||'maand'});
+    bewaarNu(); sheetKostenbasis(); render(); toast('Post toegevoegd.');
+  };
+  $$('[data-vlwis]').forEach(b=>b.onclick=()=>{
+    const herstel=terugpunt(['vasteLasten']);
+    S.vasteLasten.splice(parseInt(b.dataset.vlwis,10),1);
+    bewaarNu(); sheetKostenbasis(); render(); toast('Post verwijderd.',herstel);
+  });
+  $('#pmOk').onclick=()=>{
+    const w=$('#pmN').value.trim(), n=parseInt(w,10);
+    S.prodPerMaand = w&&n>0 ? n : null;
+    bewaarNu(); sheetKostenbasis(); render();
+    toast(S.prodPerMaand?'Op '+n+' per maand gezet.':'Weer op meten gezet.');
+  };
+  $('#dvOk').onclick=()=>{
+    const w=$('#dvN').value.trim(), n=parseFloat(w);
+    S.derving = w&&!isNaN(n)&&n>=0 ? Math.min(n,90) : null;
+    bewaarNu(); sheetKostenbasis(); render();
+    toast(S.derving!==null?'Derving op '+komma(S.derving)+'% gezet.':'Weer op meten gezet.');
+  };
 }
 
 /* ---------- arbeid in je kostprijs ----------
@@ -4240,6 +4350,10 @@ function geldHTML(){
       ${rij('data-verkoop',I.spark,'Verkoopprijzen',
         zonderPrijs?zonderPrijs+' zonder prijs':(S.recepten||[]).length+' ingevuld',!!zonderPrijs)}
       ${rij('data-uurtarief',I.klok,'Uurtarief',uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld',!uurtarief())}
+      ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
+        return rij('data-kostenbasis',I.doos,'Kostenbasis',
+          m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
+           : 'vaste lasten en derving', !m||vb.per===null)})()}
       ${rij('data-kmtarief',I.spark,'Kilometervergoeding',komma(kmTarief())+' per km')}
       ${rij('data-autosoort',I.auto,'Soort auto',S.autoSoort==='zaak'?'van de zaak':'privé')}
       ${rij('data-plekken',I.huis,'Vaste plekken',(S.plekken||[]).length||'geen')}
@@ -5087,6 +5201,25 @@ function sheetGrondstof(product){
        <div class="chips" id="gSo">${Object.keys(SOORTEN).map(k=>
          `<button class="chip ${artSoort(product)===k?'aan':''}" data-v="${k}">${SOORTEN[k].enk}</button>`).join('')}</div></div>
 
+     ${artSoort(product)==='verpakking'?`
+     <div class="veld"><label>Waar hoort dit bij?</label>
+       <div class="chips" id="gSc">${Object.keys(VERPAKSCHAAL).map(k=>
+         `<button class="chip ${artSchaal(product)===k?'aan':''}" data-v="${k}">${VERPAKSCHAAL[k].n}</button>`).join('')}</div>
+       <div class="hint" style="margin:8px 0 0">Een lint per doos is iets anders dan een lint
+         per bonbon. Bij 96 stuks scheelt dat een factor 96.</div></div>
+
+     ${artSchaal(product)==='doos'?`
+     <div class="veld"><label>Hoeveel bonbons gaan erin?</label>
+       <div class="rijtje">
+         <input class="mini" id="gIn" type="number" inputmode="numeric" placeholder="96"
+           value="${artInhoud(product)||''}" style="max-width:110px">
+         <button class="miniknop" id="gInOk">Vastleggen</button></div>
+       <div class="hint" style="margin:8px 0 0">${(()=>{
+         const inh=artInhoud(product), pr=art(product).prijs;
+         return (inh&&typeof pr==='number'&&pr>0)
+           ? 'Dat is '+euro(pr/inh)+' per bonbon.'
+           : 'Nodig om de verpakkingskosten per bonbon uit te rekenen. Leeg laten mag.'})()}</div></div>`:''}`:''}
+
      <div class="veld"><label>Hoe koop je het in?</label>
        <div class="rijtje">
          <input class="mini" id="gIA" type="number" inputmode="decimal" placeholder="10"
@@ -5129,8 +5262,17 @@ function sheetGrondstof(product){
   });
   chips('#gL');
   chips('#gSo',false,()=>{
-    zetArt(product,{soort:chipV('#gSo')}); bewaarNu(); render();
+    zetArt(product,{soort:chipV('#gSo')}); bewaarNu(); render(); sheetGrondstof(product);
   });
+  if($('#gSc')) chips('#gSc',false,()=>{
+    zetArt(product,{schaal:chipV('#gSc')}); bewaarNu(); render(); sheetGrondstof(product);
+  });
+  if($('#gInOk')) $('#gInOk').onclick=()=>{
+    const w=$('#gIn').value.trim(), n=parseInt(w,10);
+    zetArt(product,{inhoud:(w&&n>0)?n:null});
+    bewaarNu(); sheetGrondstof(product); render();
+    toast(w&&n>0?n+' bonbons per stuk vastgelegd.':'Inhoud gewist.');
+  };
   $('#gIOk').onclick=()=>{
     const a=parseFloat($('#gIA').value)||0, e=$('#gIE').value;
     zetArt(product,{inkAantal:a>0?a:null,inkEenheid:a>0?e:null});
@@ -7065,6 +7207,7 @@ function bind(){
   $$('[data-levertijd]').forEach(x=>x.onclick=sheetLevertijden);
   $$('[data-btw]').forEach(x=>x.onclick=sheetBtw);
   $$('[data-verkoop]').forEach(x=>x.onclick=sheetVerkoopprijzen);
+  $$('[data-kostenbasis]').forEach(x=>x.onclick=sheetKostenbasis);
   $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
   $$('[data-recept]').forEach(x=>x.onclick=()=>sheetReceptForm(x.dataset.recept));
   $$('[data-haccp]').forEach(x=>x.onclick=sheetHaccp);
@@ -9873,6 +10016,75 @@ function kostprijs(r){
   return {per:cent,mist,compleet:mist.length===0};
 }
 const euro=n=>'€ '+n.toFixed(2).replace('.',',');
+
+/* ═══════════ kostenbasis: derving, vaste lasten, volledige kostprijs ═══════════
+   kostprijs() geeft alleen je grondstoffen. Je arbeid rekent al met goede
+   stuks, je grondstoffen niet — je betaalt je afkeur dus stilzwijgend zelf.
+   Hier komen de ontbrekende lagen erbij. */
+
+/* hoeveel gaat er onderweg verloren? */
+function dervingInfo(){
+  if(typeof S.derving==='number') return {pct:S.derving,bron:'ingesteld'};
+  const af=(S.batches||[]).filter(b=>b.status==='klaar'&&b.resultaat);
+  const goed=af.reduce((n,b)=>n+(b.resultaat.goed||0),0);
+  const afk=af.reduce((n,b)=>n+(b.resultaat.afkeur||0),0);
+  if(goed+afk<1) return {pct:null,bron:'geen'};
+  return {pct:Math.round(afk/(goed+afk)*1000)/10,bron:'gemeten',goed,afkeur:afk,batches:af.length};
+}
+
+/* vaste lasten bij elkaar, alles omgerekend naar per maand */
+const vasteLastenPerMaand=()=>(S.vasteLasten||[])
+  .reduce((n,p)=>n+(p.per==='jaar'?(parseFloat(p.bedrag)||0)/12:(parseFloat(p.bedrag)||0)),0);
+
+/* waar smeren we die lasten over uit? */
+function productiePerMaand(){
+  if(typeof S.prodPerMaand==='number'&&S.prodPerMaand>0)
+    return {n:S.prodPerMaand,bron:'ingesteld'};
+  const af=(S.batches||[]).filter(b=>b.status==='klaar'&&b.resultaat&&b.eindDatum);
+  if(!af.length) return {n:null,bron:'geen'};
+  const stuks=af.reduce((n,b)=>n+(b.resultaat.goed||0),0);
+  const d=af.map(b=>b.eindDatum).sort();
+  const dagen=Math.max(30,dagenTussen(d[0],d[d.length-1])+1);
+  return {n:Math.max(1,Math.round(stuks/(dagen/30.4))),bron:'gemeten',stuks,dagen};
+}
+
+function vastPerBonbon(){
+  const maand=vasteLastenPerMaand();
+  const p=productiePerMaand();
+  if(!maand) return {per:0,maand:0,prod:p.n,bron:p.bron};
+  if(!p.n) return {per:null,maand,prod:null,bron:'geen'};
+  return {per:maand/p.n,maand,prod:p.n,bron:p.bron};
+}
+
+/* de volledige kostprijs van één bonbon, met alle vier de lagen apart */
+function kostprijsVol(r){
+  const kp=kostprijs(r);
+  const dv=dervingInfo().pct||0;
+  const grond=kp.compleet?kp.per:null;
+  /* derving deel je erdoor, niet bij op: bij 5% afkeur heb je voor 100 goede
+     bonbons grondstof voor 105 nodig */
+  const grondNa=grond===null?null:grond/(1-Math.min(Math.max(dv,0),90)/100);
+  const ap=arbeidPerBonbon();
+  const arbeid=ap?ap.perStuk:0;
+  const vb=vastPerBonbon();
+  const vast=vb.per||0;
+  return {grond,dervingPct:dv,grondNa,
+    verlies:(grondNa===null||grond===null)?0:grondNa-grond,
+    arbeid,vast,vastOnbekend:vb.per===null&&vb.maand>0,
+    totaal:grondNa===null?null:grondNa+arbeid+vast,
+    mist:kp.mist,compleet:kp.compleet};
+}
+
+/* ═══════════ verpakking: op welke schaal telt een artikel mee? ═══════════
+   Een lint per doos is iets heel anders dan een lint per bonbon. Bij 96 stuks
+   zit je er anders een factor 96 naast. */
+const VERPAKSCHAAL={
+  bonbon: {n:'Per bonbon', u:'elke bonbon'},
+  doos:   {n:'Per doos',   u:'elke doos'},
+  zending:{n:'Per zending',u:'elke levering'}
+};
+const artSchaal=p=>VERPAKSCHAAL[art(p).schaal]?art(p).schaal:'doos';
+const artInhoud=p=>{const i=art(p).inhoud;return (typeof i==='number'&&i>0)?i:null};
 
 function batchDuurStat(){
   const af=(S.batches||[]).filter(b=>b.status==='klaar'&&werkTotaal(b)>60);
