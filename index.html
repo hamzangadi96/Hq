@@ -48,7 +48,10 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 header{position:absolute;top:0;left:0;right:0;z-index:20;background:var(--bg);
   padding:calc(12px + var(--veiligBoven)) 20px 10px;display:flex;align-items:flex-start;gap:12px}
 header h1{margin:0;font-size:27px;font-weight:600;letter-spacing:-.04em;line-height:1.15}
-header.gecentreerd{position:relative;display:block;padding:calc(20px + var(--veiligBoven)) 20px 20px;border-bottom:1px solid var(--lijn);
+/* absoluut, net als de gewone kop. Stond hier relative, dan bleef de
+   dashboardkop in de stroom staan én kreeg main er nog eens dezelfde
+   hoogte aan marge bovenop: alles stond dubbel zo laag. */
+header.gecentreerd{position:absolute;display:block;padding:calc(20px + var(--veiligBoven)) 20px 20px;border-bottom:1px solid var(--lijn);
   transition:padding .24s cubic-bezier(.32,.72,0,1),border-color .24s ease}
 header.gecentreerd.klein{padding:calc(12px + var(--veiligBoven)) 20px 12px}
 header.gecentreerd.klein .hbtn.menu{top:calc(6px + var(--veiligBoven))}
@@ -1354,7 +1357,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v156 · 12 aug 2026';
+const APPVERSIE='v157 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2103,7 +2106,7 @@ const STRAKS={
    De kop ligt los boven de inhoud. We meten hoe hoog hij is, zetten dat als
    ruimte bovenin de lijst, en schuiven hem bij het scrollen precies zover
    omhoog tot hij uit beeld is. */
-let kopHoogte=72;
+let kopHoogte=72, kopVolger=null;
 function meetKop(){
   const kop=document.querySelector('header'); if(!kop) return;
   const h=kop.offsetHeight||72;
@@ -2112,13 +2115,22 @@ function meetKop(){
     document.documentElement.style.setProperty('--kopHoogte',h+'px');
   }
 }
+/* de kop verandert van hoogte met een overgang van een kwart seconde; direct
+   na het tekenen meet je dus een tussenstand. Even later nog eens kijken. */
+let kopTimer=null;
+function kopHermeet(){
+  clearTimeout(kopTimer);
+  kopTimer=setTimeout(()=>{ meetKop(); kopSchuif() },320);
+}
 function kopSchuif(){
   const kop=document.querySelector('header'), scr=$('#scherm');
   if(!kop||!scr) return;
   /* de hoogte hier vers opvragen: meten we alleen bij het renderen, dan klopt
      het niet meer zodra het lettertype alsnog laadt en de kop groeit. Er bleef
      dan een randje staan. */
-  const h=kop.offsetHeight||kopHoogte;
+  /* de echte hoogte, niet de afgeronde: offsetHeight rondt 131,05 af op 131
+     en dan blijft er een streepje van de kop in beeld staan */
+  const h=Math.ceil(kop.getBoundingClientRect().height)||kopHoogte;
   if(h!==kopHoogte){ kopHoogte=h; document.documentElement.style.setProperty('--kopHoogte',h+'px'); }
   const y=Math.max(0,Math.min(scr.scrollTop,h));
   kop.style.transform=y?'translate3d(0,'+(-y)+'px,0)':'';
@@ -2213,6 +2225,7 @@ function renderNu(){
   });
   bind();
   meetKop(); kopSchuif();
+  kopHermeet();
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnTerug').onclick=()=>{S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0};
@@ -11862,6 +11875,27 @@ function sheetMeetpunten(){
   /* het merklettertype laadt na, waardoor de kop nog groeit */
   if(document.fonts&&document.fonts.ready)
     document.fonts.ready.then(()=>{ meetKop(); kopSchuif() }).catch(()=>{});
+  /* De kop verandert van hoogte door een tabwissel, een ladend lettertype of
+     een lopende padding-overgang. Meten we maar één keer, dan klopt de ruimte
+     eronder niet meer. Dus volgen we hem. */
+  const kop=document.querySelector('header');
+  if(kop&&window.ResizeObserver){
+    let bezig=false;
+    /* de verwijzing vasthouden: zonder variabele ruimt de browser de
+       observer op en blijft de kophoogte op zijn eerste meting hangen */
+    kopVolger=new ResizeObserver(()=>{
+      if(bezig) return; bezig=true;
+      requestAnimationFrame(()=>{ bezig=false; meetKop(); kopSchuif() });
+    });
+    /* op de border-box letten, niet op de content-box. Bij de dashboardkop
+       verandert alleen de padding, en daar gaat een content-box-observer
+       niet van af — de hoogte bleef dan op zijn eerste meting hangen. */
+    try{ kopVolger.observe(kop,{box:'border-box'}) }catch(e){ kopVolger.observe(kop) }
+  }
+  /* en voor de zekerheid nog na de padding-overgang */
+  if(kop) kop.addEventListener('transitionend',e=>{
+    if(e.propertyName&&e.propertyName.indexOf('padding')===0){ meetKop(); kopSchuif() }
+  });
 })();
 
 /* een sheet sluit je op de telefoon door omlaag te vegen */
