@@ -40,7 +40,11 @@ button:focus{outline:none}
 button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .tab:focus-visible{outline-color:#fff}
 
-.app{position:relative;width:100%;max-width:440px;margin:0 auto;height:100%;height:100dvh;
+/* --toetsenbord is de hoogte die het toetsenbord afdekt. iOS legt dat over de
+   app heen en verschuift daarbij het beeld; omdat de pagina vastzit, kwam een
+   tik dan niet aan waar je hem zag. Door mee te krimpen blijft alles staan. */
+.app{position:relative;width:100%;max-width:440px;margin:0 auto;height:100%;
+  height:calc(100dvh - var(--toetsenbord,0px));
   max-height:100%;background:var(--bg);
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 70px rgba(0,0,0,.10)}
 
@@ -1358,7 +1362,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v160 · 12 aug 2026';
+const APPVERSIE='v161 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11846,6 +11850,26 @@ function sheetMeetpunten(){
   $$('[data-wis]').forEach(b=>b.onclick=()=>{S.meetpunten.splice(parseInt(b.dataset.wis),1);sheetMeetpunten();toast('Verwijderd.')});
   $('#mTerug').onclick=sheetInstellingen;
 }
+
+/* ── hoeveel dekt het toetsenbord af? ──
+   visualViewport is het stukje dat je echt ziet. Wordt dat kleiner dan het
+   venster, dan staat er een toetsenbord voor. Die hoogte geven we door aan
+   de CSS, zodat de app en dus ook de bottom-sheet erboven blijven. */
+(function(){
+  const vv=window.visualViewport; if(!vv) return;
+  let vorig=-1;
+  const pas=()=>{
+    const dek=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));
+    /* kleine schommelingen negeren, anders springt de layout bij het scrollen */
+    if(Math.abs(dek-vorig)<4) return;
+    vorig=dek;
+    document.documentElement.style.setProperty('--toetsenbord',dek+'px');
+  };
+  vv.addEventListener('resize',pas);
+  vv.addEventListener('scroll',pas);
+  window.addEventListener('orientationchange',()=>setTimeout(pas,300));
+  pas();
+})();
 
 /* de kop schuift weg zodra je gaat scrollen */
 (function(){
