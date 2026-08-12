@@ -1406,7 +1406,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v179 · 12 aug 2026';
+const APPVERSIE='v180 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12281,18 +12281,28 @@ function sheetUitleg(){
   sheet('Hoe werkt het?',
     `<p class="hint">Kies een onderwerp. Je krijgt de stappen op volgorde, met een knop
       die je meteen op de juiste plek brengt.</p>
-     <div class="paneel">${UITLEG.map(u=>`<button class="arij" data-uitleg="${u.id}">
+     <div class="paneel">${UITLEG.map(u=>{
+       const rl=Object.keys(RONDLEIDINGEN).find(k=>k===u.id||(u.id==='voorraad'&&k==='ontvangst'));
+       return `<button class="arij" data-uitleg="${u.id}">
        <span class="ivak">${svg(I[u.ico])}</span>
-       <span class="naam">${esc(u.titel)}<small>${esc(u.kort)}</small></span>
+       <span class="naam">${esc(u.titel)}<small>${esc(u.kort)}${
+         rl?' \u00b7 met rondleiding':''}</small></span>
        <span class="waarde gevuld">${u.stappen.length}</span>
-       <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`,'');
+       <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`,'');
   $$('[data-uitleg]').forEach(b=>b.onclick=()=>sheetUitlegOnderwerp(b.dataset.uitleg));
 }
 
 function sheetUitlegOnderwerp(id){
   const u=UITLEG.find(x=>x.id===id); if(!u) return;
+  /* Deze knop zat alleen in het hulppaneel achter het vraagteken, dus via
+     "Hoe werkt het?" kwam je nooit bij een rondleiding. Zelfde logica. */
+  const rl=Object.keys(RONDLEIDINGEN).find(k=>k===u.id||(u.id==='voorraad'&&k==='ontvangst'));
   sheet(u.titel,
-    `<div class="uitlegstappen">${u.stappen.map((st,i)=>`<div class="ustap">
+    `${rl?`<button class="prim" style="margin:0 0 8px" data-rlstart="${rl}">
+       ${svg(I.spark)}Leid me er stap voor stap doorheen</button>
+      <p class="hint" style="margin:0 0 18px">De app opent het scherm en wijst je aan
+        wat je waar invult.</p>`:''}
+     <div class="uitlegstappen">${u.stappen.map((st,i)=>`<div class="ustap">
        <span class="unr">${i+1}</span>
        <div class="uin">
          <div class="ut">${esc(st.t)}</div>
@@ -12302,6 +12312,7 @@ function sheetUitlegOnderwerp(id){
        </div></div>`).join('')}</div>`,
     `<button class="sec" style="margin-top:0" id="uTerug">Andere onderwerpen</button>`);
   $('#uTerug').onclick=sheetUitleg;
+  $$('[data-rlstart]').forEach(b=>b.onclick=()=>rondleidingStart(b.dataset.rlstart));
   $$('[data-udoe]').forEach(b=>b.onclick=()=>{
     const d=b.dataset.udoe;
     if(d==='bedrijf') return sheetBedrijf();
@@ -12325,7 +12336,10 @@ function sheetUitlegOnderwerp(id){
 
 function sheetInstellingen(){
   sheet('Instellingen',
-    `<div class="mkop">Je bedrijf</div>
+    `<button class="menurij" data-ins="uitleg" style="margin-bottom:6px">${svg(I.hulp)}Hoe werkt het?<span class="tel">${
+       UITLEG.length} onderwerpen</span></button>
+
+     <div class="mkop">Je bedrijf</div>
      <button class="menurij" data-ins="bedrijf">${svg(I.spark)}Bedrijfsprofiel<span class="tel">${
        bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
      <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
