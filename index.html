@@ -560,6 +560,17 @@ nav{flex:none;position:absolute;left:0;right:0;z-index:30;
 /* ruimte onderin zodat de laatste kaart niet onder de capsule verdwijnt */
 main{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
 
+/* ── overgang tussen schermen ──
+   De inhoud komt op, in plaats van er ineens te staan. We animeren de
+   kaarten zelf en niet het scrollvlak: een transform op de scroller
+   laat het scrollen haperen. */
+@keyframes schermIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.schermIn>*{animation:schermIn .28s cubic-bezier(.32,.72,0,1) both}
+@media (prefers-reduced-motion:reduce){
+  .schermIn>*{animation:none}
+  .tab,.tab span{transition:none}
+}
+
 .overlay{position:absolute;inset:0;background:rgba(24,24,27,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
 .overlay.open{opacity:1;pointer-events:auto}
 .sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:#fff;border-radius:18px 26px 0 0;
@@ -1321,7 +1332,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v142 · 12 aug 2026';
+const APPVERSIE='v144 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2045,6 +2056,7 @@ const STRAKS={
 };
 
 /* ================= render ================= */
+let vorigScherm=null;
 function render(){
   const d=S.datum, u=d.getHours();
   const groet=u<12?'Goedemorgen':u<18?'Goedemiddag':'Goedenavond';
@@ -2076,24 +2088,45 @@ function render(){
 
   /* loopt de urenklok, dan hoort dat op elk tabblad zichtbaar te zijn —
      anders vergeet je hem juist op het tabblad waar je toevallig bent */
+  /* alleen bij een echte schermwissel animeren; niet na elke opslag,
+     want dan flikkert de hele app bij het minste wat je doet */
+  const schermKenmerk=S.tab+(inBatch?':'+S.batchId:'');
+  const gewisseld=vorigScherm!==null&&schermKenmerk!==vorigScherm;
+  vorigScherm=schermKenmerk;
+
   $('#scherm').innerHTML = klokbalkHTML() + (inBatch?batchHTML():
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
     S.tab==='geld'?geldHTML():straksHTML(S.tab));
+  if(gewisseld){
+    const el=$('#scherm');
+    el.classList.remove('schermIn'); void el.offsetWidth; el.classList.add('schermIn');
+  }
   const balk=balkKeuze();
-  $('#tabbar').innerHTML=`<div class="tabpil">
-    <button class="tab ${S.tab==='dashboard'?'actief':''}" data-tab="dashboard" aria-label="Dashboard">${
-      svg(I.huis)}<span>Dashboard</span></button>
-    ${balk.map(k=>{const it=snelItem(k); if(!it) return '';
-      const aan=it.soort==='tab'&&S.tab===it.key;
-      return `<button class="tab ${aan?'actief':''}" ${
-        it.soort==='tab'?`data-tab="${it.key}"`:`data-snel="${it.key}"`}
-        aria-label="${esc(it.label)}">${svg(I[it.icon])}<span>${it.label}</span></button>`}).join('')}
-    <button class="tab tabmeer" data-meer aria-label="Meer">${svg(I.meer)}<span>Meer</span></button>
-  </div>`;
-  $$('[data-tab]').forEach(x=>x.onclick=()=>{S.tab=x.dataset.tab;S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0});
-  $$('[data-snel]').forEach(x=>x.onclick=()=>{const it=snelItem(x.dataset.snel); if(it&&it.doe) it.doe()});
-  $$('[data-meer]').forEach(x=>x.onclick=sheetMeer);
+  /* De balk alleen echt opnieuw bouwen als de samenstelling verandert. Blijft hij
+     gelijk, dan wisselen we enkel de actieve knop — dán kan de witte pil
+     meebewegen in plaats van verspringen. */
+  const balkKenmerk=balk.join('|');
+  if($('#tabbar').dataset.kenmerk!==balkKenmerk){
+    $('#tabbar').dataset.kenmerk=balkKenmerk;
+    $('#tabbar').innerHTML=`<div class="tabpil">
+      <button class="tab" data-tab="dashboard" aria-label="Dashboard">${
+        svg(I.huis)}<span>Dashboard</span></button>
+      ${balk.map(k=>{const it=snelItem(k); if(!it) return '';
+        return `<button class="tab" ${
+          it.soort==='tab'?`data-tab="${it.key}"`:`data-snel="${it.key}"`}
+          aria-label="${esc(it.label)}">${svg(I[it.icon])}<span>${it.label}</span></button>`}).join('')}
+      <button class="tab tabmeer" data-meer aria-label="Meer">${svg(I.meer)}<span>Meer</span></button>
+    </div>`;
+    $$('[data-tab]').forEach(x=>x.onclick=()=>{if(S.tab===x.dataset.tab&&!S.batchId)return;
+      S.tab=x.dataset.tab;S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0});
+    $$('[data-snel]').forEach(x=>x.onclick=()=>{const it=snelItem(x.dataset.snel); if(it&&it.doe) it.doe()});
+    $$('[data-meer]').forEach(x=>x.onclick=sheetMeer);
+  }
+  $$('#tabbar .tab').forEach(x=>{
+    const k=x.dataset.tab;
+    x.classList.toggle('actief', !!k && k===S.tab);
+  });
   bind();
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
@@ -3317,6 +3350,7 @@ function sheetUren(){
     `${lopend?`<div class="kiesbalk" style="background:var(--ink)">
        <span class="kt">${esc(klusSoort(lopend.soort).n)}${lopend.tekst?' · '+esc(lopend.tekst):''}
          <br><small style="opacity:.7;font-weight:500">sinds ${lopend.tijd}</small></span>
+       <button id="ukOms">${lopend.tekst?'Wijzig':'Waaraan?'}</button>
        <button class="weg" id="ukStop">Stoppen</button></div>`
       :`<p class="uitleg">Waar ga je aan werken? Tik een soort om de klok te starten.</p>
         <div class="paneel">${klusSoorten().map(so=>`<button class="arij" data-ustart="${so.k}">
@@ -3359,7 +3393,12 @@ function sheetUren(){
     `<button class="prim" style="margin-top:0" id="uHand">${svg(I.plus)}Uren achteraf invoeren</button>
      <button class="sec" id="uStaat">${svg(I.doc)}Urenstaat printen</button>`);
 
-  $$('[data-ustart]').forEach(b=>b.onclick=()=>sheetKlusStart(b.dataset.ustart));
+  $$('[data-ustart]').forEach(b=>b.onclick=()=>{
+    klusStart(b.dataset.ustart,'');
+    sheetUren(); render();
+    toast('Klok loopt · '+klusSoort(b.dataset.ustart).n);
+  });
+  if($('#ukOms')) $('#ukOms').onclick=()=>sheetKlusOms();
   if($('#ukStop')) $('#ukStop').onclick=()=>{
     const k=klusStop();
     sheetUren(); render();
@@ -3375,7 +3414,6 @@ function sheetUren(){
   setTimeout(bindVeeg,20);
 }
 
-/* een klus starten: soort staat vast, de omschrijving mag je overslaan */
 /* een klok die de hele nacht doorloopt maakt je urenstaat waardeloos.
    Bij zes uur vragen we of het klopt, en je mag de eindtijd bijstellen. */
 function klusVergeten(){
@@ -3395,29 +3433,34 @@ function sheetKlusCorrectie(){
      <button class="sec" id="kcDoor">Nee, ik werk nog door</button>
      <button class="sec" id="kcWeg" style="color:var(--rood)">Weggooien</button>`);
   $('#kcDoor').onclick=()=>{k.gevraagd=Date.now();bewaarNu();dicht()};
-  $('#kcWeg').onclick=()=>{S.klus=null;bewaarNu();dicht();render();toast('Klok weggegooid.')};
+  $('#kcWeg').onclick=()=>{S.klus=null;bewaarNu();badgeBij();dicht();render();toast('Klok weggegooid.')};
   $('#kcJa').onclick=()=>{
     const t=($('#kcE').value||'').split(':');
     if(t.length!==2){ toast('Vul een eindtijd in.'); return }
     const e=new Date(k.start); e.setHours(parseInt(t[0]),parseInt(t[1]),0,0);
-    if(e<=k.start){ toast('De eindtijd ligt voor de starttijd.'); return }
+    /* begonnen om 22:00 en gestopt om 01:00? Dan is dat de volgende dag. */
+    if(e<=k.start) e.setDate(e.getDate()+1);
+    if(e-k.start>24*3600000){ toast('Dat is meer dan een etmaal — klopt de tijd?'); return }
     k.eind=e.getTime(); k.sec=Math.round((k.eind-k.start)/1000);
     S.klussen=S.klussen||[]; S.klussen.push(k); S.klus=null;
-    bewaarNu(); dicht(); render(); toast(urenTekst(k.sec)+' geregistreerd.');
+    bewaarNu(); badgeBij(); dicht(); render(); toast(urenTekst(k.sec)+' geregistreerd.');
   };
 }
 
-function sheetKlusStart(soort){
-  const so=klusSoort(soort);
-  sheet('Klok starten',
-    `<p class="uitleg">${esc(so.n)}</p>
-     <div class="veld"><label>Waar werk je aan? <span class="opt">mag leeg</span></label>
-       <input class="inp" id="ksT" placeholder="Bijv. lotnummer terugzoeken" autocomplete="off"></div>`,
-    `<button class="prim" style="margin-top:0" id="ksJa">${svg(I.klok)}Start de klok</button>`);
-  setTimeout(()=>{const e=$('#ksT'); if(e) e.focus()},250);
-  $('#ksJa').onclick=()=>{
-    klusStart(soort,$('#ksT').value.trim());
-    sheetUren(); render(); toast('Klok loopt.');
+/* de omschrijving hoeft niet vooraf; je weet vaak pas achteraf
+   hoe je het zou noemen. De klok loopt ondertussen gewoon door. */
+function sheetKlusOms(){
+  const k=S.klus; if(!k) return;
+  sheet('Waar werk je aan?',
+    `<p class="uitleg">${esc(klusSoort(k.soort).n)} · loopt sinds ${k.tijd}</p>
+     <div class="veld"><label>Omschrijving — mag leeg</label>
+       <input class="inp" id="koT" placeholder="Bijv. lotnummer terugzoeken"
+         value="${esc(k.tekst||'')}" autocomplete="off"></div>`,
+    `<button class="prim" style="margin-top:0" id="koJa">Bewaren</button>`);
+  setTimeout(()=>{const e=$('#koT'); if(e) e.focus()},250);
+  $('#koJa').onclick=()=>{
+    k.tekst=$('#koT').value.trim();
+    bewaarNu(); sheetUren(); render(); toast('Genoteerd.');
   };
 }
 
@@ -3432,7 +3475,7 @@ function sheetUrenHand(){
      <div class="veld"><label>Hoeveel uur</label>
        <input class="inp" id="uhU" type="text" inputmode="decimal"
          placeholder="Bijv. 2,5" autocomplete="off"></div>
-     <div class="veld"><label>Waar werk je aan? <span class="opt">mag leeg</span></label>
+     <div class="veld"><label>Waar werk je aan? — mag leeg</label>
        <input class="inp" id="uhT" placeholder="Korte omschrijving" autocomplete="off"></div>`,
     `<button class="prim" style="margin-top:0" id="uhJa">Vastleggen</button>`);
   chips('#uhS');
