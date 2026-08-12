@@ -1406,7 +1406,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v180 · 12 aug 2026';
+const APPVERSIE='v181 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1608,7 +1608,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','vormGezet','afspraken',
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -2408,7 +2408,7 @@ const SNELITEMS=[
   {key:'dossier',label:'Dossier',icon:'doc',soort:'sheet',doe:()=>sheetDossier()},
   {key:'wenskaart',label:'Wenskaart',icon:'spark',soort:'sheet',doe:()=>sheetWenskaart()},
   {key:'traceren',label:'Traceren',icon:'loep',soort:'sheet',doe:()=>sheetTrace('')},
-  {key:'b2b',label:'Prijs berekenen',icon:'spark',soort:'sheet',doe:()=>sheetB2B()},
+  {key:'b2b',label:'Prijzen',icon:'spark',soort:'sheet',doe:()=>sheetPrijzen()},
   {key:'ontvangst',label:'Ontvangst',icon:'vracht',soort:'sheet',doe:()=>sheetOntvangst()},
   {key:'zoeken',label:'Zoeken',icon:'loep',soort:'sheet',doe:()=>sheetZoek()},
   {key:'uitleg',label:'Hoe werkt het?',icon:'hulp',soort:'sheet',doe:()=>sheetUitleg()},
@@ -4483,6 +4483,79 @@ function sheetAfspraak(klantId){
 /* ---------- B2B-calculator ---------- */
 let B2B={smaak:null,vorm:null,stuks:96};
 
+/* Eén scherm voor je prijzen; je kiest bovenin voor wie je rekent.
+   Consument en zakelijk delen dezelfde kostprijs — alleen je marge,
+   de btw en de staffel verschillen. */
+function sheetPrijzen(voor){
+  if(voor) S.prijsVoor=voor;
+  if(S.prijsVoor!=='consument'&&S.prijsVoor!=='zakelijk') S.prijsVoor='consument';
+  if(S.prijsVoor==='zakelijk') return sheetB2B();
+  return sheetPrijzenConsument();
+}
+
+function sheetPrijzenConsument(){
+  const lijst=(S.recepten||[]).filter(smaakActief).slice().sort((a,b2)=>a.naam.localeCompare(b2.naam));
+  const m=consMarge();
+  sheet('Prijzen',
+    `<div class="duo" id="pvK" style="margin-bottom:16px">
+       <button class="aan" data-v="consument">Consument</button>
+       <button data-v="zakelijk">Zakelijk</button></div>
+
+     <p class="hint">De prijs per bonbon in je webshop, inclusief 9% btw.
+       De app rekent een advies uit je kostprijs; je mag er zelf van afwijken.</p>
+
+     ${lijst.length?`<div class="paneel">${lijst.map(r=>{
+       const a=prijsAdvies(r), eigen=verkoopPrijs(r.id);
+       const onder=a.kost!==null&&eigen!==null&&(eigen/(1+BTW_ETEN))<a.kost;
+       return `<div class="arij" style="cursor:default">
+         <span class="naam">${esc(r.naam)}<small>${a.kost===null
+           ? 'kostprijs onbekend \u2014 vul je inkoopprijzen aan'
+           : 'kostprijs '+euro(a.kost)+(a.incl!==null?' \u00b7 advies '+euro(a.incl):'')}</small></span>
+         <span class="qty"><input class="lotinp" style="width:92px" data-vk="${r.id}" type="number"
+           inputmode="decimal" step="0.05" placeholder="${a.incl!==null?komma(a.incl.toFixed(2)):'\u20ac'}"
+           value="${eigen!==null?eigen:''}"></span>
+       </div>${onder?`<div class="melding rood" style="margin:0 0 8px">${svg(I.alarm,'2')}
+         <span>Onder je kostprijs \u2014 je legt geld toe op ${esc(r.naam)}.</span></div>`:''}`}).join('')}</div>`
+      :'<div class="geen">Nog geen smaken. Voeg er eerst een toe.</div>'}
+
+     <div class="veld" style="margin-top:18px"><label>Marge waarmee de app adviseert</label>
+       <div class="rijtje">
+         <input class="mini" id="pcM" type="number" inputmode="decimal" value="${m}" style="max-width:96px">
+         <button class="miniknop" id="pcMOk">Instellen</button></div>
+       <div class="hint" style="margin:8px 0 0">${m}% marge is ${
+         m<100?Math.round(m/(100-m)*100):'\u2014'}% opslag. Het advies is exclusief btw berekend
+         en daarna verhoogd met 9%.</div></div>`,
+    lijst.length?`<button class="prim" style="margin-top:0" id="pcOk">Opslaan</button>
+      <button class="sec" id="pcAdvies">Advies overnemen</button>`:'');
+
+  $$('#pvK button').forEach(x=>x.onclick=()=>{
+    if(x.dataset.v==='zakelijk'){ S.prijsVoor='zakelijk'; bewaar(); sheetB2B() }
+  });
+  $('#pcMOk').onclick=()=>{
+    const n=parseFloat($('#pcM').value);
+    if(isNaN(n)||n<0||n>=100) return toast('Vul een marge tussen 0 en 99 in.');
+    S.consMarge=n; bewaarNu(); sheetPrijzenConsument(); toast('Marge op '+komma(n)+'% gezet.');
+  };
+  if($('#pcAdvies')) $('#pcAdvies').onclick=()=>{
+    let n=0;
+    $$('[data-vk]').forEach(i=>{
+      const r=(S.recepten||[]).find(x=>x.id===i.dataset.vk); if(!r) return;
+      const a=prijsAdvies(r);
+      if(a.incl!==null){ i.value=a.incl.toFixed(2); n++ }
+    });
+    toast(n?n+' '+(n===1?'prijs':'prijzen')+' op advies gezet \u2014 nog niet opgeslagen.'
+           :'Geen advies mogelijk; vul eerst je inkoopprijzen aan.');
+  };
+  if($('#pcOk')) $('#pcOk').onclick=()=>{
+    S.verkoop=S.verkoop||{};
+    $$('[data-vk]').forEach(i=>{
+      const w=i.value.trim(), k=i.dataset.vk;
+      if(w==='') delete S.verkoop[k]; else S.verkoop[k]=Math.max(0,parseFloat(w)||0);
+    });
+    bewaarNu(); dicht(); render(); toast('Prijzen opgeslagen.');
+  };
+}
+
 function sheetB2B(){
   const rec=(S.recepten||[]).filter(smaakActief);
   if(!rec.length) return toast('Voeg eerst een smaak toe.');
@@ -4498,7 +4571,11 @@ function sheetB2B(){
     <span class="waarde gevuld">${w}</span></div>`;
 
   sheet('B2B-calculator',
-    `<div class="veld"><label>Smaak</label>
+    `<div class="duo" id="pvK" style="margin-bottom:16px">
+       <button data-v="consument">Consument</button>
+       <button class="aan" data-v="zakelijk">Zakelijk</button></div>
+
+     <div class="veld"><label>Smaak</label>
        <div class="chips" id="bqS">${rec.map(x=>
          `<button class="chip ${x.id===B2B.smaak?'aan':''}" data-v="${x.id}">${esc(x.naam)}</button>`).join('')}</div></div>
 
@@ -4558,6 +4635,9 @@ function sheetB2B(){
     `<button class="prim" style="margin-top:0" id="bqKlant">${svg(I.doc)}Vastleggen bij een klant</button>
      <button class="sec" id="bqOfferte">${svg(I.doc)}Offerte maken</button>`);
 
+  $$('#pvK button').forEach(x=>x.onclick=()=>{
+    if(x.dataset.v==='consument'){ S.prijsVoor='consument'; bewaar(); sheetPrijzenConsument() }
+  });
   chips('#bqS',false,()=>{B2B.smaak=chipV('#bqS');sheetB2B()});
   chips('#bqV',false,()=>{B2B.vorm=chipV('#bqV');sheetB2B()});
   const lees=()=>{const n=parseInt($('#bqN').value,10); B2B.stuks=n>0?n:1; sheetB2B()};
@@ -5198,11 +5278,8 @@ function geldHTML(){
   };
 
   const zonderPrijs=(S.recepten||[]).filter(x=>verkoopPrijs(x.id)===null).length;
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Prijzen en kosten</span></div>
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Kosten</span></div>
     <div class="paneel">
-      ${rij('data-verkoop',I.spark,'Verkoopprijzen',
-        zonderPrijs?zonderPrijs+' zonder prijs':(S.recepten||[]).length+' ingevuld',!!zonderPrijs)}
-      ${rij('data-uurtarief',I.klok,'Uurtarief',uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld',!uurtarief())}
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
         return rij('data-kostenbasis',I.doos,'Kostenbasis',
           m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
@@ -5654,8 +5731,11 @@ function ordersHTML(){
      ergens onderin je boekhouding */
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Prijzen</span></div>
     <div class="paneel">
-      <button class="arij" data-b2b><span class="ivak">${svg(I.spark)}</span>
-        <span class="naam">Prijs berekenen<small>wat vraag je, en kan dat uit?</small></span>
+      <button class="arij" data-prijzen><span class="ivak">${svg(I.spark)}</span>
+        <span class="naam">Prijzen<small>${(()=>{
+          const n=(S.recepten||[]).filter(smaakActief).length;
+          const z=(S.recepten||[]).filter(r=>smaakActief(r)&&verkoopPrijs(r.id)===null).length;
+          return z?z+' van '+n+' zonder consumentenprijs':'consument en zakelijk'})()}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>
       <button class="arij" data-afspraken><span class="ivak">${svg(I.doc)}</span>
         <span class="naam">Prijsafspraken<small>${(()=>{const n=Object.keys(afspraken()).length;
@@ -8172,6 +8252,8 @@ function bind(){
   $$('[data-kostenbasis]').forEach(x=>x.onclick=sheetKostenbasis);
   $$('[data-bedrijfsprofiel]').forEach(x=>x.onclick=sheetBedrijf);
   $$('[data-b2b]').forEach(x=>x.onclick=sheetB2B);
+  $$('[data-prijzen]').forEach(x=>x.onclick=()=>sheetPrijzen());
+  $$('[data-prijzen]').forEach(x=>x.onclick=()=>sheetPrijzen());
   $$('[data-afspraken]').forEach(x=>x.onclick=sheetAfspraken);
   $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
   $$('[data-recept]').forEach(x=>x.onclick=()=>sheetReceptForm(x.dataset.recept));
@@ -11195,6 +11277,18 @@ function staffelTrede(aantal){
   return uit;
 }
 const b2bMarge=()=>typeof S.b2bMarge==='number'?S.b2bMarge:35;
+const consMarge=()=>typeof S.consMarge==='number'?S.consMarge:55;
+
+/* De consumentenprijs vulde je met de hand in, de zakelijke werd berekend.
+   Twee manieren voor dezelfde vraag, terwijl je kostprijs dezelfde is —
+   alleen je marge en de btw verschillen. Dit rekent ze allebei. */
+function prijsAdvies(r){
+  const kv=kostprijsVol(r);
+  if(kv.totaal===null) return {kost:null};
+  const m=consMarge();
+  const excl=m<100?kv.totaal/(1-m/100):null;
+  return {kost:kv.totaal, excl, incl:excl===null?null:excl*(1+BTW_ETEN), marge:m};
+}
 
 /* de hele som voor één smaak, één vorm, één aantal bonbons */
 function b2bBereken(r,v,aantalBonbons){
@@ -12173,7 +12267,7 @@ function sheetMeer(){
       return n?n+(n===1?' batch loopt':' batches lopen'):'niets onderweg'}
     if(it.key==='ontvangst') return 'levering vastleggen';
     if(it.key==='traceren') return 'lot of batch terugzoeken';
-    if(it.key==='b2b') return (S.recepten||[]).length?'wat vraag je een klant?':'eerst een smaak toevoegen';
+    if(it.key==='b2b') return (S.recepten||[]).length?'consument en zakelijk':'eerst een smaak toevoegen';
     if(it.key==='dossier') return 'voor de inspectie';
     if(it.key==='haccp') return 'metingen en checks';
     if(it.key==='wenskaart') return 'kaartje bij een order';
@@ -12346,6 +12440,10 @@ function sheetInstellingen(){
        esc(branche().naam)}</span></button>
      <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
        verzendgrens()}:00</span></button>
+     <div class="mkop">Prijzen</div>
+     <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
+       uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
+
      <div class="mkop">Productie</div>
      <button class="menurij" data-ins="mal">${svg(I.vorm)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
      <button class="menurij" data-ins="werkplan">${svg(I.vorm)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
@@ -12403,6 +12501,7 @@ function sheetInstellingen(){
     const k=b.dataset.ins;
     if(k==='uitleg') return sheetUitleg();
     if(k==='bedrijf') return sheetBedrijf();
+    if(k==='uurtarief') return sheetUurtarief();
     if(k==='branche') return sheetBranche(false);
     if(k==='verkoop') return sheetVerkoopprijzen();
     if(k==='verzend') return sheetVerzendregel();
