@@ -15,10 +15,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Petit+Formal+Script&family=Caveat:wght@400;500&family=Parisienne&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* Ruimte boven de kop. iOS zet een PWA met status-bar-style "default" al
-     onder de statusbalk; tellen we env() daar bovenop, dan staat alles dubbel
-     zo laag. Bij het starten meten we het echt en zetten we dit zo nodig op 0.
-     Lukt dat meten niet, dan blijft het oude gedrag staan. */
+  /* Ruimte boven de kop: de hoogte van de statusbalk.
+     Hier zat een meting die bij het opstarten besloot of die ruimte nodig was,
+     maar window.innerHeight is op dat moment nog niet definitief — dan viel de
+     kop te hoog uit. Die meting loste bovendien een verkeerd gestelde diagnose
+     op; de echte oorzaken zaten in de scrollende pagina en de dashboardkop. */
   --veiligBoven: env(safe-area-inset-top);
   --ink:#18181b; --ink2:#3f3f46; --grijs:#71717a; --grijs2:#a1a1aa; --grijs3:#d4d4d8;
   --bg:#f4f4f5; --lijn:#ececee; --card:#fff;
@@ -1357,7 +1358,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v159 · 12 aug 2026';
+const APPVERSIE='v160 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1626,27 +1627,6 @@ function firebaseStart(){
     });
   }catch(e){ fbKlaar=false }
 }
-
-/* Meet of de app al onder de statusbalk begint. Staat de webview er onder,
-   dan heeft iOS die ruimte zelf al gereserveerd en moeten we hem niet nog
-   eens optellen. Alleen in een geïnstalleerde app; in de browser blijft
-   env() gewoon leidend. */
-function meetVeiligBoven(){
-  try{
-    const staat=window.navigator.standalone===true
-      ||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
-    if(!staat) return;
-    const scherm=(window.screen&&window.screen.height)||0;
-    const zicht=window.innerHeight||0;
-    if(!scherm||!zicht) return;
-    const alIngesprongen=(scherm-zicht)>20;
-    document.documentElement.style.setProperty('--veiligBoven',
-      alIngesprongen?'0px':'env(safe-area-inset-top)');
-  }catch(e){}
-}
-meetVeiligBoven();
-window.addEventListener('orientationchange',()=>setTimeout(meetVeiligBoven,300));
-window.addEventListener('resize',()=>setTimeout(meetVeiligBoven,300));
 
 async function laden(){
   const d=await lokaalLees();
