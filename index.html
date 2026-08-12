@@ -15,12 +15,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Petit+Formal+Script&family=Caveat:wght@400;500&family=Parisienne&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* Ruimte boven de kop: de hoogte van de statusbalk.
-     Hier zat een meting die bij het opstarten besloot of die ruimte nodig was,
-     maar window.innerHeight is op dat moment nog niet definitief — dan viel de
-     kop te hoog uit. Die meting loste bovendien een verkeerd gestelde diagnose
-     op; de echte oorzaken zaten in de scrollende pagina en de dashboardkop. */
-  --veiligBoven: env(safe-area-inset-top);
+  /* De app draait met apple-mobile-web-app-status-bar-style "default": iOS zet
+     de webview dan al ónder de statusbalk. Tellen we env(safe-area-inset-top)
+     daar bovenop, dan staat die ruimte er twee keer. Dus 0.
+     Komt de titel ooit tóch onder de statusbalk, zet hier env(safe-area-inset-top). */
+  --veiligBoven: 0px;
+  /* Vaste kophoogte. Stond hier een in JS gemeten waarde, en die herberekende
+     tijdens het scrollen — dan groeide de balk onder je handen. */
+  --kopHoogte: calc(60px + var(--veiligBoven));
   --ink:#18181b; --ink2:#3f3f46; --grijs:#71717a; --grijs2:#a1a1aa; --grijs3:#d4d4d8;
   --bg:#f4f4f5; --lijn:#ececee; --card:#fff;
   --groen:#15803d; --amber:#b45309; --rood:#c0392b;
@@ -51,20 +53,24 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 /* De kop ligt boven de inhoud en schuift weg zodra je scrollt, zodat je
    het hele scherm voor je lijst hebt. Scroll je terug, dan komt hij terug. */
 header{position:absolute;top:0;left:0;right:0;z-index:20;background:var(--bg);
-  padding:calc(12px + var(--veiligBoven)) 20px 10px;display:flex;align-items:flex-start;gap:12px}
+  height:var(--kopHoogte);padding:var(--veiligBoven) 20px 0;
+  display:flex;align-items:center;gap:12px}
 header h1{margin:0;font-size:27px;font-weight:600;letter-spacing:-.04em;line-height:1.15}
 /* absoluut, net als de gewone kop. Stond hier relative, dan bleef de
    dashboardkop in de stroom staan én kreeg main er nog eens dezelfde
    hoogte aan marge bovenop: alles stond dubbel zo laag. */
 /* Alleen het woordmerk. Zoeken en menu stonden al onderin bij Meer, dus die
    zijn hier weg — twee icoontjes minder en een compactere kop. */
-header.gecentreerd{position:absolute;display:block;text-align:center;
-  padding:calc(14px + var(--veiligBoven)) 20px 14px;border-bottom:1px solid var(--lijn);
-  transition:padding .24s cubic-bezier(.32,.72,0,1),border-color .24s ease}
-header.gecentreerd.klein{padding:calc(10px + var(--veiligBoven)) 20px 10px}
-header.gecentreerd .vlak{text-align:center;min-width:0}
+/* Drie kolommen zodat het woordmerk gecentreerd blijft, met het tandwiel
+   rechts en een even brede lege kolom links als tegenwicht. */
+header.gecentreerd{position:absolute;display:grid;grid-template-columns:34px 1fr 34px;
+  align-items:center;gap:10px;text-align:center;
+  height:var(--kopHoogte);padding:var(--veiligBoven) 16px 0;
+  border-bottom:1px solid var(--lijn)}
+header.gecentreerd .vlak{grid-column:2;grid-row:1;text-align:center;min-width:0}
 header.gecentreerd .onder{display:none}
 header.gecentreerd .hbtn.terug{display:none}
+header.gecentreerd .hbtn.instel{grid-column:3;grid-row:1;justify-self:end}
 
 .merk{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600;
   letter-spacing:.16em;line-height:1;color:var(--ink);padding-left:.16em;
@@ -139,9 +145,10 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
 .hbtn svg{width:18px;height:18px}
 .hbtn.terug{margin-left:-8px}
 .hbtn.menu{margin-right:-8px}
+.hbtn.instel{margin-right:-6px}
 
 main{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
-  padding:calc(var(--kopHoogte,72px) + 12px) 20px 32px;-webkit-overflow-scrolling:touch}
+  padding:calc(var(--kopHoogte) + 12px) 20px 32px;-webkit-overflow-scrolling:touch}
 .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--grijs2)}
 .blokkop{display:flex;align-items:baseline;gap:12px;margin:32px 2px 12px}
 main>.blokkop:first-child{margin-top:8px}
@@ -1265,6 +1272,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
     <button class="hbtn terug" id="btnTerug" aria-label="Terug" style="display:none"></button>
     <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
       <div class="kpi" id="kopKpi"></div></div>
+    <button class="hbtn instel" id="btnInstel" aria-label="App en opslag"></button>
 
   </header>
   <main id="scherm"></main>
@@ -1362,7 +1370,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v161 · 12 aug 2026';
+const APPVERSIE='v162 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2090,32 +2098,12 @@ const STRAKS={
    De kop ligt los boven de inhoud. We meten hoe hoog hij is, zetten dat als
    ruimte bovenin de lijst, en schuiven hem bij het scrollen precies zover
    omhoog tot hij uit beeld is. */
-let kopHoogte=72, kopVolger=null;
-function meetKop(){
-  const kop=document.querySelector('header'); if(!kop) return;
-  const h=kop.offsetHeight||72;
-  if(h!==kopHoogte){
-    kopHoogte=h;
-    document.documentElement.style.setProperty('--kopHoogte',h+'px');
-  }
-}
-/* de kop verandert van hoogte met een overgang van een kwart seconde; direct
-   na het tekenen meet je dus een tussenstand. Even later nog eens kijken. */
-let kopTimer=null;
-function kopHermeet(){
-  clearTimeout(kopTimer);
-  kopTimer=setTimeout(()=>{ meetKop(); kopSchuif() },320);
-}
+/* De kop heeft een vaste hoogte in CSS. Er wordt dus niets meer gemeten:
+   eerder herberekende dat tijdens het scrollen en groeide de balk mee. */
 function kopSchuif(){
   const kop=document.querySelector('header'), scr=$('#scherm');
   if(!kop||!scr) return;
-  /* de hoogte hier vers opvragen: meten we alleen bij het renderen, dan klopt
-     het niet meer zodra het lettertype alsnog laadt en de kop groeit. Er bleef
-     dan een randje staan. */
-  /* de echte hoogte, niet de afgeronde: offsetHeight rondt 131,05 af op 131
-     en dan blijft er een streepje van de kop in beeld staan */
-  const h=Math.ceil(kop.getBoundingClientRect().height)||kopHoogte;
-  if(h!==kopHoogte){ kopHoogte=h; document.documentElement.style.setProperty('--kopHoogte',h+'px'); }
+  const h=kop.offsetHeight||60;
   const y=Math.max(0,Math.min(scr.scrollTop,h));
   kop.style.transform=y?'translate3d(0,'+(-y)+'px,0)':'';
 }
@@ -2208,8 +2196,7 @@ function renderNu(){
     x.classList.toggle('actief', !!k && k===S.tab);
   });
   bind();
-  meetKop(); kopSchuif();
-  kopHermeet();
+  kopSchuif();
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnTerug').onclick=()=>{S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0};
@@ -7626,6 +7613,8 @@ function bind(){
 
 /* ================= chrome ================= */
 $('#sheetSluit').innerHTML=svg(I.kruis,'2');
+$('#btnInstel').innerHTML=svg(I.instel);
+$('#btnInstel').onclick=()=>sheetMenu();
 /* Zat aan een knop in de kop, maar alles daarin stond al onderin bij Meer.
    Nu een functie, bereikbaar via "App & opslag". */
 function sheetMenu(){
@@ -11880,31 +11869,7 @@ function sheetMeetpunten(){
     wacht=true;
     requestAnimationFrame(()=>{ wacht=false; kopSchuif() });
   },{passive:true});
-  window.addEventListener('resize',()=>{ meetKop(); kopSchuif() });
-  /* het merklettertype laadt na, waardoor de kop nog groeit */
-  if(document.fonts&&document.fonts.ready)
-    document.fonts.ready.then(()=>{ meetKop(); kopSchuif() }).catch(()=>{});
-  /* De kop verandert van hoogte door een tabwissel, een ladend lettertype of
-     een lopende padding-overgang. Meten we maar één keer, dan klopt de ruimte
-     eronder niet meer. Dus volgen we hem. */
-  const kop=document.querySelector('header');
-  if(kop&&window.ResizeObserver){
-    let bezig=false;
-    /* de verwijzing vasthouden: zonder variabele ruimt de browser de
-       observer op en blijft de kophoogte op zijn eerste meting hangen */
-    kopVolger=new ResizeObserver(()=>{
-      if(bezig) return; bezig=true;
-      requestAnimationFrame(()=>{ bezig=false; meetKop(); kopSchuif() });
-    });
-    /* op de border-box letten, niet op de content-box. Bij de dashboardkop
-       verandert alleen de padding, en daar gaat een content-box-observer
-       niet van af — de hoogte bleef dan op zijn eerste meting hangen. */
-    try{ kopVolger.observe(kop,{box:'border-box'}) }catch(e){ kopVolger.observe(kop) }
-  }
-  /* en voor de zekerheid nog na de padding-overgang */
-  if(kop) kop.addEventListener('transitionend',e=>{
-    if(e.propertyName&&e.propertyName.indexOf('padding')===0){ meetKop(); kopSchuif() }
-  });
+  window.addEventListener('resize',kopSchuif);
 })();
 
 /* een sheet sluit je op de telefoon door omlaag te vegen */
