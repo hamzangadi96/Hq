@@ -1444,7 +1444,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v215 · 13 aug 2026';
+const APPVERSIE='v217 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3207,6 +3207,9 @@ function productieHTML(){
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Voedselveiligheid</span></div>
     <div class="paneel">
       ${brij('data-haccp',I.klembord,'HACCP-registraties','')}
+      ${brij('data-ins2="ijking"',I.temp,'Thermometer ijken',
+        laatsteIjking()?kort(new Date(laatsteIjking().datum)):'nooit',!laatsteIjking())}
+      ${brij('data-ins2="checks"',I.vink,'Openingscheck instellen',S.checks.length||'geen')}
       ${brij('data-dossier',I.doc,'Dossier voor de inspectie','')}
       ${brij('data-trace',I.loep,'Lot terugzoeken','')}
     </div>`;
@@ -5432,12 +5435,11 @@ function geldHTML(){
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Kosten</span></div>
     <div class="paneel">
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
-        /* Wat je invult staat achter het tandwiel; wat eruit rolt zie je hier. */
-        return `<div class="beheerrij" style="cursor:default">${svg(I.doos)}
-          <span class="l">Kostenbasis</span>
-          <span class="w ${!m||vb.per===null?'let':''}">${
-            m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
-             : 'nog niet ingevuld'}</span></div>`})()}
+        /* Stond even achter het tandwiel, maar je vaste lasten en derving
+           veranderen elke maand. Dat is bijhouden, geen instellen. */
+        return rij('data-kostenbasis',I.doos,'Kostenbasis',
+          m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
+           : 'vaste lasten, derving en prijsbeleid', !m||vb.per===null)})()}
       ${rij('data-bonnen',I.doos,'Bonnen',(()=>{
         const n=(S.bonnen||[]).length;
         const z=(S.bonnen||[]).filter(x=>!x.foto).length;
@@ -5758,14 +5760,15 @@ function sheetKoppel(welke){
   const shop=welke==='shopify';
   sheet(shop?'Shopify koppelen':'MyParcel koppelen',
     shop
-    ? `<p class="hint">Maak in Shopify een app aan via het Dev Dashboard met leesrechten op orders
-        en klanten. Plak hier het adres van je winkel en het toegangstoken.</p>
+    ? `<p class="hint">Shopify geeft sinds 2026 geen vaste tokens meer uit. Je vindt je
+        Klant-ID en Geheim in het Dev Dashboard onder je app, bij Instellingen. Je server
+        haalt daarmee zelf een token op dat elke dag ververst.</p>
        <div class="veld"><label>Adres van je winkel</label>
          <input class="inp" id="kpW" placeholder="jouwwinkel.myshopify.com" autocapitalize="off"></div>
-       <div class="veld"><label>Toegangstoken</label>
-         <input class="inp" id="kpT" placeholder="shpat_…" autocapitalize="off"></div>
-       <div class="veld"><label>Webhook-geheim <span style="font-weight:400">— mag leeg</span></label>
-         <input class="inp" id="kpG" placeholder="alleen als je webhooks gebruikt" autocapitalize="off"></div>`
+       <div class="veld"><label>Klant-ID</label>
+         <input class="inp" id="kpT" placeholder="b97b5798a654…" autocapitalize="off"></div>
+       <div class="veld"><label>Geheim</label>
+         <input class="inp" id="kpG" type="password" placeholder="het Geheim uit je Dev Dashboard" autocapitalize="off"></div>`
     : `<p class="hint">Je vindt je sleutel in MyParcel onder Instellingen, bij API-instellingen.</p>
        <div class="veld"><label>API-sleutel</label>
          <input class="inp" id="kpS" placeholder="je MyParcel-sleutel" autocapitalize="off"></div>`,
@@ -5775,9 +5778,9 @@ function sheetKoppel(welke){
     const knop=$('#kpOk'); knop.disabled=true; knop.textContent='Uitproberen…';
     try{
       if(shop){
-        const w=$('#kpW').value.trim(), t=$('#kpT').value.trim();
-        if(!w||!t) throw new Error('Vul beide velden in.');
-        await roep('zetKoppeling',{shopify:{winkel:w,token:t,webhook_geheim:$('#kpG').value.trim()||null}});
+        const w=$('#kpW').value.trim(), id=$('#kpT').value.trim(), g=$('#kpG').value.trim();
+        if(!w||!id||!g) throw new Error('Vul winkel, Klant-ID en Geheim in.');
+        await roep('zetKoppeling',{shopify:{winkel:w,klant_id:id,geheim:g}});
       } else {
         const sl=$('#kpS').value.trim();
         if(!sl) throw new Error('Vul je sleutel in.');
@@ -8885,6 +8888,11 @@ function bind(){
   $$('[data-marges]').forEach(x=>x.onclick=sheetMarges);
   $$('[data-recept]').forEach(x=>x.onclick=()=>sheetReceptForm(x.dataset.recept));
   $$('[data-haccp]').forEach(x=>x.onclick=sheetHaccp);
+  $$('[data-ins2]').forEach(x=>x.onclick=()=>{
+    const k=x.dataset.ins2;
+    if(k==='ijking') return sheetIjking();
+    if(k==='checks') return sheetChecks();
+  });
   $$('[data-bcorrectie]').forEach(x=>x.onclick=sheetBatchCorrectie);
   $$('[data-bnotitie]').forEach(x=>x.onclick=sheetNotitie);
   $$('[data-bstatus]').forEach(x=>x.onclick=sheetBatchStatus);
@@ -13171,7 +13179,12 @@ function sheetMeer(){
      <div class="blokkop"><span class="eyebrow">App</span></div>
      <div class="paneel">
        <button class="arij" id="meerApp"><span class="ivak">${svg(I.instel)}</span>
-         <span class="naam">Instellingen<small>je bedrijf, productie, voedselveiligheid</small></span>
+         <span class="naam">Instellingen<small>waardes die je een keer bepaalt</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" id="meerKop"><span class="ivak">${svg(I.vracht)}</span>
+         <span class="naam">Koppelingen<small>${(()=>{
+           const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
+           return n?n+' van 2 gekoppeld':'webshop en verzendlabels'})()}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerAcc"><span class="ivak">${svg(fbUser?I.vink:I.alarm)}</span>
          <span class="naam">${fbUser?esc(fbUser.email||'Ingelogd'):'Inloggen'}<small>${
@@ -13194,6 +13207,7 @@ function sheetMeer(){
   });
   $('#meerKies').onclick=sheetBalkKiezen;
   $('#meerApp').onclick=sheetInstellingen;
+  if($('#meerKop')) $('#meerKop').onclick=sheetKoppelingen;
   $('#meerAcc').onclick=sheetAccount;
   $('#meerData').onclick=sheetData;
   $('#meerNieuw').onclick=()=>{
@@ -13305,38 +13319,26 @@ function sheetUitlegOnderwerp(id){
 
 function sheetInstellingen(){
   sheet('Instellingen',
+    /* Alleen waardes die je invult en laat staan. Wat je dóét hoort in het
+       scherm waar dat werk plaatsvindt, niet hier.
+       Eruit gegaan: Thermometer ijken en Openingscheck (handelingen met een
+       datum, staan nu bij Voedselveiligheid in Productie), Kostenbasis (vaste
+       lasten veranderen elke maand, hoort bij Financiën) en Koppelingen
+       (daar ga je heen om te kijken, dat is navigatie). */
     `<div class="mkop" style="margin-top:2px">Je bedrijf</div>
      <button class="menurij" data-ins="bedrijf">${svg(I.spark)}Bedrijfsprofiel<span class="tel">${
        bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
-     <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
-       esc(branche().naam)}</span></button>
      <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
        verzendgrens()}:00</span></button>
-     <div class="mkop">Prijzen</div>
      <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
-     <button class="menurij" data-ins="kostenbasis">${svg(I.doos)}Kostenbasis<span class="tel">${
-       vasteLastenPerMaand()?euro(vasteLastenPerMaand())+' per maand':'niet ingevuld'}</span></button>
-
-     <div class="mkop">Auto</div>
-     <button class="menurij" data-ins="kmtarief">${svg(I.spark)}Kilometervergoeding<span class="tel">${
-       komma(kmTarief())} per km</span></button>
-     <button class="menurij" data-ins="autosoort">${svg(I.auto)}Soort auto<span class="tel">${
-       S.autoSoort==='zaak'?'van de zaak':'privé'}</span></button>
-     <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
-       (S.plekken||[]).length||'geen'}</span></button>
 
      <div class="mkop">Productie</div>
      <button class="menurij" data-ins="mal">${svg(I.vorm)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
      <button class="menurij" data-ins="werkplan">${svg(I.vorm)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
      <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
-
-     <div class="mkop">Voedselveiligheid</div>
-     <button class="menurij" data-ins="ijking">${svg(I.temp)}Thermometer ijken<span class="tel">${
-       laatsteIjking()?kort(new Date(laatsteIjking().datum)):'nooit'}</span></button>
      <button class="menurij" data-ins="meetpunten">${svg(I.temp)}Meetpunten<span class="tel">${S.meetpunten.length}</span></button>
-     <button class="menurij" data-ins="checks">${svg(I.vink)}Openingscheck<span class="tel">${S.checks.length}</span></button>
-     <button class="menurij" data-ins="zones">${svg(I.spark)}Schoonmaak-onderdelen<span class="tel">${S.zones.length}</span></button>
+     <button class="menurij" data-ins="zones">${svg(I.spark)}Schoonmaakzones<span class="tel">${S.zones.length}</span></button>
      <button class="menurij" data-ins="middelen">${svg(I.spark)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
 
      <div class="mkop">Stamgegevens</div>
@@ -13346,16 +13348,18 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>
      <button class="menurij" data-ins="levertijd">${svg(I.vracht)}Levertijden<span class="tel">${
        Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld'}</span></button>
+     <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
+       (S.plekken||[]).length||'geen'}</span></button>
 
-     <div class="mkop">Koppelingen</div>
-     <button class="menurij" id="mKop">${svg(I.vracht)}Koppelingen<span class="tel">${(()=>{
-       const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
-       return n?n+' van 2':'nog geen'})()}</span></button>
+     <div class="mkop">Auto</div>
+     <button class="menurij" data-ins="kmtarief">${svg(I.spark)}Kilometervergoeding<span class="tel">${
+       komma(kmTarief())} per km</span></button>
+     <button class="menurij" data-ins="autosoort">${svg(I.auto)}Soort auto<span class="tel">${
+       S.autoSoort==='zaak'?'van de zaak':'privé'}</span></button>
 
-     <!-- Hier stond "Nog in aanbouw" met knoppen naar tabbladen. Dat is
-          navigatie, en die hoort achter de drie puntjes, niet in instellingen. -->
-
-     <div class="mkop" style="opacity:0">&nbsp;</div>
+     <div class="mkop">Zelden</div>
+     <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
+       esc(branche().naam)}</span></button>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
        Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
 
