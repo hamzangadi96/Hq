@@ -1440,7 +1440,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v199 · 13 aug 2026';
+const APPVERSIE='v200 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12762,10 +12762,7 @@ function sheetUitlegOnderwerp(id){
 
 function sheetInstellingen(){
   sheet('Instellingen',
-    `<button class="menurij" data-ins="uitleg" style="margin-bottom:6px">${svg(I.hulp)}Hoe werkt het?<span class="tel">${
-       UITLEG.length} onderwerpen</span></button>
-
-     <div class="mkop">Je bedrijf</div>
+    `<div class="mkop" style="margin-top:2px">Je bedrijf</div>
      <button class="menurij" data-ins="bedrijf">${svg(I.spark)}Bedrijfsprofiel<span class="tel">${
        bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
      <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
@@ -12812,9 +12809,8 @@ function sheetInstellingen(){
        const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
        return n?n+' van 2':'nog geen'})()}</span></button>
 
-     ${TABS.filter(t=>!t.klaar).length?`<div class="mkop">Nog in aanbouw</div>
-       ${TABS.filter(t=>!t.klaar).map(t=>`<button class="menurij" data-naar="${t.key}">${svg(t.icon)}${t.label}
-         <span class="tel">bekijken</span></button>`).join('')}`:''}
+     <!-- Hier stond "Nog in aanbouw" met knoppen naar tabbladen. Dat is
+          navigatie, en die hoort achter de drie puntjes, niet in instellingen. -->
 
      <div class="mkop" style="opacity:0">&nbsp;</div>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
