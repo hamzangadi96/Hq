@@ -1426,7 +1426,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v193 · 13 aug 2026';
+const APPVERSIE='v194 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12878,15 +12878,25 @@ function sheetInstellingen(){
     const dvh=Math.round(proef.getBoundingClientRect().height);
     proef.remove();
     const bodyH=Math.round(document.body.getBoundingClientRect().height);
+    /* env() kun je niet direct uitlezen; via een hulpelement wel */
+    const hulp=document.createElement('div');
+    hulp.style.cssText='position:fixed;bottom:0;left:0;width:1px;visibility:hidden;'+
+      'pointer-events:none;height:env(safe-area-inset-bottom,0px)';
+    document.body.appendChild(hulp);
+    const onderVeilig=Math.round(hulp.getBoundingClientRect().height);
+    hulp.remove();
+    const sh=document.querySelector('#sheet');
+    const rs=sh?sh.getBoundingClientRect():{top:0,bottom:0};
     el.innerHTML='<span class="tel" style="max-width:none;text-align:right;font-size:11px;'+
-      'line-height:1.5">scherm '+window.innerHeight+
+      'line-height:1.5">toestel '+screen.height+
+      ' \u00b7 venster '+window.innerHeight+
       ' \u00b7 body '+bodyH+
-      ' \u00b7 dvh '+dvh+
-      ' \u00b7 app '+Math.round(r.height)+
-      '<br>top '+Math.round(r.top)+' \u00b7 onder '+Math.round(window.innerHeight-r.bottom)+
+      '<br>dvh '+dvh+' \u00b7 app '+Math.round(r.height)+
+      ' \u00b7 onder '+Math.round(window.innerHeight-r.bottom)+
+      '<br>sheet '+Math.round(rs.top)+'\u2013'+Math.round(rs.bottom)+
       ' \u00b7 vv '+(vv?Math.round(vv.height):'?')+
-      '<br>toets '+(st.getPropertyValue('--toetsenbord').trim()||'0px')+
-      ' \u00b7 veilig '+(st.getPropertyValue('--veiligBoven').trim()||'0px')+'</span>';
+      '<br>veilig boven '+(st.getPropertyValue('--veiligBoven').trim()||'0px')+
+      ' \u00b7 onder '+onderVeilig+'px</span>';
   },80);
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
