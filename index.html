@@ -1442,7 +1442,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v204 · 13 aug 2026';
+const APPVERSIE='v205 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5442,8 +5442,22 @@ async function ritStart(doel){
     if(n.adres&&S.rit){S.rit.start.adres=n.adres;S.rit.start.naam=n.naam;
       S.rit.start.bekend=n.bekend;S.rit.start.vestiging=n.vestiging;bewaarNu();render()}
   }catch(e){
-    toast(e&&e.code===1?'Geef de app toegang tot je locatie.':'Locatie niet gevonden. Probeer het buiten opnieuw.');
+    /* "Locatie niet gevonden" zei niet waarom. Nu noemt hij de oorzaak, want
+       de oplossing verschilt per geval: toestemming, dekking of geduld. */
+    toast(locatieFout(e));
   }
+}
+
+/* een bruikbare melding bij een mislukte locatiemeting */
+function locatieFout(e){
+  if(!navigator.geolocation) return 'Deze browser kan geen locatie bepalen.';
+  if(!window.isSecureContext) return 'Locatie werkt alleen op een beveiligde verbinding (https).';
+  const c=e&&e.code;
+  if(c===1) return 'Geen toegang tot je locatie. iPhone-instellingen \u2192 Privacy \u2192 '
+    +'Locatievoorzieningen \u2192 Safari-websites \u2192 Bij gebruik van app.';
+  if(c===2) return 'Je telefoon kan je locatie nu niet bepalen. Zet wifi aan of probeer het buiten.';
+  if(c===3) return 'Het zoeken duurde te lang. Ga naar buiten en probeer opnieuw.';
+  return 'Locatie niet gevonden'+(e&&e.message?' \u2014 '+e.message:'')+'.';
 }
 async function ritStop(){
   const r=S.rit; if(!r) return;
