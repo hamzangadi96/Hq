@@ -15,11 +15,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Petit+Formal+Script&family=Caveat:wght@400;500&family=Parisienne&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* De app draait met apple-mobile-web-app-status-bar-style "default": iOS zet
-     de webview dan al ónder de statusbalk. Tellen we env(safe-area-inset-top)
-     daar bovenop, dan staat die ruimte er twee keer. Dus 0.
-     Komt de titel ooit tóch onder de statusbalk, zet hier env(safe-area-inset-top). */
-  --veiligBoven: 0px;
+  /* De viewport staat op viewport-fit=cover, dus iOS laat de webview tot achter
+     de statusbalk lopen — ook met status-bar-style "default". Stond hier eerder
+     0px, met als gevolg dat het woordmerk achter de tijd en het batterijicoon
+     verdween. Op alles wat geen inkeping heeft is env() gewoon 0. */
+  --veiligBoven: env(safe-area-inset-top, 0px);
   /* Vaste kophoogte. Stond hier een in JS gemeten waarde, en die herberekende
      tijdens het scrollen — dan groeide de balk onder je handen. */
   --kopHoogte: calc(60px + var(--veiligBoven));
@@ -1420,7 +1420,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v188 · 13 aug 2026';
+const APPVERSIE='v189 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
