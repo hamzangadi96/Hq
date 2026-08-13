@@ -1422,7 +1422,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v191 · 13 aug 2026';
+const APPVERSIE='v192 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12833,11 +12833,55 @@ function sheetInstellingen(){
 
      <div class="mkop" style="opacity:0">&nbsp;</div>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
-       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
+       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>
+     <div class="menurij" id="mMaat" style="color:var(--grijs2);cursor:default"></div>`,'');
 
   /* Deze zaten in een tussenscherm dat "Menu" heette terwijl je op een tandwiel
      drukte. Nu staan ze hier, en opent het tandwiel meteen dit scherm. */
   if($('#mKop')) $('#mKop').onclick=sheetKoppelingen;
+
+  /* Deze knop stond er wel maar was nooit gekoppeld: er gebeurde niets.
+     Nu gooit hij de cache van de service worker leeg en haalt alles vers op. */
+  if($('#mVers')) $('#mVers').onclick=async()=>{
+    const k=$('#mVers');
+    k.innerHTML=svg(I.ververs)+' Vernieuwen\u2026';
+    try{
+      if(window.caches){
+        const namen=await caches.keys();
+        await Promise.all(namen.map(n=>caches.delete(n)));
+      }
+      if('serviceWorker' in navigator){
+        const regs=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r=>r.update().catch(()=>{})));
+      }
+    }catch(e){}
+    /* een querystring dwingt iOS om niet uit zijn eigen geheugen te putten */
+    location.replace(location.pathname+'?v='+Date.now());
+  };
+
+  /* Tijdelijk: de echte maten van dit toestel, zodat we niet hoeven te gokken
+     waar die lege strook onderin vandaan komt. Gaat er weer uit. */
+  if($('#mMaat')) setTimeout(()=>{
+    const el=$('#mMaat'); if(!el) return;
+    const app=document.querySelector('.app');
+    const r=app?app.getBoundingClientRect():{height:0,bottom:0,top:0};
+    const vv=window.visualViewport;
+    const st=getComputedStyle(document.documentElement);
+    const proef=document.createElement('div');
+    proef.style.cssText='position:fixed;top:0;left:0;height:100dvh;width:1px;'+
+      'visibility:hidden;pointer-events:none';
+    document.body.appendChild(proef);
+    const dvh=Math.round(proef.getBoundingClientRect().height);
+    proef.remove();
+    el.innerHTML='<span class="tel" style="max-width:none;text-align:right;font-size:11px;'+
+      'line-height:1.5">scherm '+window.innerHeight+
+      ' \u00b7 dvh '+dvh+
+      ' \u00b7 app '+Math.round(r.height)+
+      '<br>top '+Math.round(r.top)+' \u00b7 onder '+Math.round(window.innerHeight-r.bottom)+
+      ' \u00b7 vv '+(vv?Math.round(vv.height):'?')+
+      '<br>toets '+(st.getPropertyValue('--toetsenbord').trim()||'0px')+
+      ' \u00b7 veilig '+(st.getPropertyValue('--veiligBoven').trim()||'0px')+'</span>';
+  },80);
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
   });
