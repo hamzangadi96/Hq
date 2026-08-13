@@ -1444,7 +1444,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v210 · 13 aug 2026';
+const APPVERSIE='v211 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3358,7 +3358,7 @@ function batchHTML(){
       const loopt=b.status!=='klaar';
       return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Deze batch</span></div>
       <div class="paneel">
-        ${loopt?brij('data-bcorrectie',I.vorm,'Aantallen bijstellen',bTotaal(b)+' st'):''}
+        ${loopt?brij('data-bcorrectie',I.vorm,'Batch bijstellen',bTotaal(b)+' st'):''}
         ${loopt?brij('data-bnotitie',I.doc,'Notitie toevoegen',''):''}
         ${loopt?brij('data-bstatus',I.klok,b.status==='pauze'?'Batch hervatten':'Onderbreken of afbreken',
           b.status==='pauze'?'stilgelegd':''):''}
@@ -10577,40 +10577,101 @@ function sheetBatchCorrectie(){
   const b=batch(); if(!b) return;
   const W2={};
   b.regels.forEach(rg=>{W2[rg.receptId]=rg.aantal});
+  const erbij=[];                    /* smaken die nog niet in de batch zaten */
+
+  /* Je maakt per mal, niet per bonbon. Eén tik hoort dus een mal te zijn.
+     De stapgrootte werd wel berekend maar nooit gebruikt: 24 tikken voor
+     één mal. Met de min-knop kun je nog wel op de bonbon nauwkeurig. */
+  const mal=Math.max(1,S.malGrootte||1);
+
+  const naamVan=id=>{
+    const r=receptVan(b,id)||recept(id);
+    return (r&&r.naam)||'?';
+  };
+
   const teken=()=>{
-    const tot=Object.values(W2).reduce((n,v)=>n+v,0);
+    const tot=Object.keys(W2).reduce((n,k)=>n+W2[k],0);
     const oud=bTotaal(b);
-    sheet('Aantallen bijstellen',
-      `<p class="hint">Ging er een mal niet vol, of maakte je er meer? Pas het hier aan.
-        Wat je al vastlegde blijft staan; de wijziging komt in je logboek.</p>
-       ${b.regels.map(rg=>{
-         const r=receptVan(b,rg.receptId);
-         return `<div class="rrij">
-           <div class="rinfo"><div class="rnaam">${esc(r.naam)}</div>
-             <div class="rsub">gepland ${rg.aantal} st${rg.mallen?' · '+rg.mallen+' mallen':''}</div></div>
-           <div class="ostep"><button class="stepbtn klein" data-cm="${rg.receptId}">${svg(I.min)}</button>
-             <span class="oa aan">${W2[rg.receptId]}</span>
-             <button class="stepbtn klein" data-cp="${rg.receptId}">${svg(I.plus)}</button></div></div>`}).join('')}
+    /* welke smaken kun je nog toevoegen? alleen dezelfde chocoladesoort,
+       want een batch draait op één soort */
+    const vrij=(S.recepten||[]).filter(r=>r.chocolade===b.chocolade&&smaakActief(r)
+      &&W2[r.id]===undefined);
+
+    const rij=(id,nieuw2)=>`<div class="rrij">
+      <div class="rinfo"><div class="rnaam">${esc(naamVan(id))}${
+        nieuw2?' <span class="dagenbadge">nieuw</span>':''}</div>
+        <div class="rsub">${nieuw2?'tijdens de batch toegevoegd'
+          :'gepland '+((b.regels.find(x=>x.receptId===id)||{}).aantal||0)+' st'}</div></div>
+      <div class="ostep"><button class="stepbtn klein" data-cm="${id}">${svg(I.min)}</button>
+        <span class="oa aan">${W2[id]}</span>
+        <button class="stepbtn klein" data-cp="${id}">${svg(I.plus)}</button></div></div>`;
+
+    sheet('Batch bijstellen',
+      `<p class="hint">Ging er een mal niet vol, maakte je er meer, of besloot je er een
+        smaak bij te doen? Pas het hier aan. Wat je al vastlegde blijft staan;
+        de wijziging komt in je logboek.</p>
+       ${b.regels.filter(rg=>W2[rg.receptId]!==undefined).map(rg=>rij(rg.receptId,false)).join('')}
+       ${erbij.map(id=>rij(id,true)).join('')}
        <div class="totaalregel" style="margin-top:18px"><span class="l">Nieuw totaal</span>
          <span class="w">${tot} bonbons${tot!==oud?' (was '+oud+')':''}</span></div>
+       ${vrij.length?`<div class="blokkop" style="margin-top:22px">
+           <span class="eyebrow">Smaak erbij</span></div>
+         <p class="hint">Alleen smaken op ${esc(chocNaam(b.chocolade).toLowerCase())},
+           want deze batch draait op één soort.</p>
+         <div class="paneel">${vrij.slice(0,6).map(r=>`<button class="arij" data-cadd="${r.id}">
+           <span class="ivak">${svg(I.plus)}</span>
+           <span class="naam">${esc(r.naam)}<small>voeg ${mal} bonbons toe</small></span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
+        :''}
        <div class="veld" style="margin-top:18px"><label>Waarom wijkt het af?</label>
-         <input class="inp" id="cReden" placeholder="Bijv. mal niet vol gegaan"></div>`,
-      `<button class="prim" style="margin-top:0" id="cOk" ${tot===oud?'disabled':''}>
-        ${tot===oud?'Nog niets gewijzigd':'Bijstellen naar '+tot+' bonbons'}</button>`);
-    const stap=S.malGrootte||1;
-    $$('[data-cp]').forEach(x=>x.onclick=()=>{W2[x.dataset.cp]+=1;teken()});
-    $$('[data-cm]').forEach(x=>x.onclick=()=>{W2[x.dataset.cm]=Math.max(0,W2[x.dataset.cm]-1);teken()});
+         <input class="inp" id="cReden" value="${esc(window.__cReden||'')}"
+           placeholder="Bijv. mal niet vol gegaan"></div>`,
+      `<button class="prim" style="margin-top:0" id="cOk" ${tot===oud&&!erbij.length?'disabled':''}>
+        ${tot===oud&&!erbij.length?'Nog niets gewijzigd':'Bijstellen naar '+tot+' bonbons'}</button>`);
+
+    const onthou=()=>{ const el=$('#cReden'); if(el) window.__cReden=el.value };
+    $$('[data-cp]').forEach(x=>x.onclick=()=>{onthou();W2[x.dataset.cp]+=mal;teken()});
+    $$('[data-cm]').forEach(x=>x.onclick=()=>{
+      onthou();
+      const id=x.dataset.cm;
+      /* eerst terug naar een hele mal, daarna per mal omlaag */
+      const rest=W2[id]%mal;
+      W2[id]=Math.max(0,W2[id]-(rest||mal));
+      teken();
+    });
+    $$('[data-cadd]').forEach(x=>x.onclick=()=>{
+      onthou();
+      const id=x.dataset.cadd;
+      W2[id]=mal; erbij.push(id); teken();
+    });
+
     if($('#cOk')) $('#cOk').onclick=()=>{
       const reden=$('#cReden').value.trim();
       const oudTot=bTotaal(b);
-      b.regels=b.regels.map(rg=>Object.assign({},rg,{aantal:W2[rg.receptId],
-        mallen:S.malGrootte?Math.round(W2[rg.receptId]/S.malGrootte*10)/10:rg.mallen}))
-        .filter(rg=>rg.aantal>0);
-      bLog(b,{type:'correctie',titel:'Aantallen bijgesteld',
-        sub:oudTot+' → '+bTotaal(b)+' bonbons'+(reden?' — '+reden:''),status:'let'});
+      const bestaand=b.regels.map(rg=>Object.assign({},rg,{aantal:W2[rg.receptId]||0,
+        mallen:Math.round((W2[rg.receptId]||0)/mal*10)/10}));
+      /* een nieuwe smaak krijgt zijn eigen receptuur mee, net als bij het
+         aanmaken van een batch: latere wijzigingen aan de smaak veranderen
+         deze batch dan niet meer */
+      const nieuweRegels=erbij.map(id=>{
+        const r=recept(id);
+        if(r&&!(b.recepten&&b.recepten[id])){
+          b.recepten=b.recepten||{};
+          b.recepten[id]=JSON.parse(JSON.stringify(r));
+        }
+        return {receptId:id,aantal:W2[id],mallen:Math.round(W2[id]/mal*10)/10};
+      });
+      b.regels=bestaand.concat(nieuweRegels).filter(rg=>rg.aantal>0);
+      const namen=erbij.map(naamVan);
+      bLog(b,{type:'correctie',titel:namen.length?'Batch bijgesteld':'Aantallen bijgesteld',
+        sub:oudTot+' → '+bTotaal(b)+' bonbons'
+          +(namen.length?' · erbij: '+namen.join(', '):'')
+          +(reden?' — '+reden:''),status:'let'});
+      window.__cReden='';
       bewaarNu(); render(); klaarSheet('Bijgesteld naar '+bTotaal(b)+' bonbons.');
     };
   };
+  window.__cReden='';
   teken();
 }
 
