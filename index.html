@@ -1444,7 +1444,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v211 · 13 aug 2026';
+const APPVERSIE='v212 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8403,11 +8403,134 @@ function agendaHTML(){
     <div class="paneel">
       ${brij('data-planning',I.vorm,'Productie plannen','')}
       ${brij('data-taaknieuw',I.plus,'Losse afspraak of klus','')}
+      ${brij('data-agendaexport',I.doc,'Zet in mijn agenda',
+        agendaItems(8).length+' afspraken')}
     </div>`;
   return h;
 }
 
 /* je vaste week: waar ben je, hoe laat, en hou je tijd over? */
+
+/* ============ naar je eigen agenda ============
+   HQ weet wanneer je produceert, levert en boodschappen moet doen. Die dagen
+   horen in de agenda die je toch al de hele dag ziet. Eén kant op: andersom
+   kan een webapp niet bij je afspraken, daar is een echte app voor nodig. */
+
+/* een regel voor een agendabestand; lange regels moeten gevouwen worden */
+function icsRegel(t){
+  const uit=[];
+  let r=t.replace(/\r?\n/g,'\\n');
+  while(r.length>73){ uit.push((uit.length?' ':'')+r.slice(0,73)); r=r.slice(73) }
+  uit.push((uit.length?' ':'')+r);
+  return uit.join('\r\n');
+}
+const icsTekst=t=>String(t||'').replace(/([,;\\])/g,'\\$1');
+const icsDatum=d=>String(d).replace(/-/g,'');
+
+/* alles wat HQ van je komende weken weet, als agendagebeurtenissen */
+function agendaItems(weken){
+  const tot=datumPlus(vandaag(),(weken||8)*7);
+  const uit=[];
+  planLijst().forEach(pl=>{
+    if(pl.datum>tot) return;
+    const stuks=pl.regels.reduce((n,r)=>n+r.aantal,0);
+    uit.push({id:'plan-'+pl.id, datum:pl.datum,
+      titel:'Produceren: '+pl.regels.map(r=>smaakNaam(r.receptId)).join(', '),
+      tekst:stuks+' bonbons · '+chocNaam(pl.chocolade)});
+    const bd=boodschapDatum(pl);
+    if(bd&&bd>=vandaag()&&bd<=tot) uit.push({id:'bood-'+pl.id, datum:bd,
+      titel:'Boodschappen doen',
+      tekst:'voor de batch van '+kort(new Date(pl.datum))});
+  });
+  (S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum).forEach(o=>{
+    if(o.leverdatum>tot) return;
+    uit.push({id:'order-'+o.id, datum:o.leverdatum,
+      titel:'Leveren: '+klantNaam(o.klantId),
+      tekst:orderAantal(o)+' bonbons'+(o.nummer?' · '+o.nummer:'')});
+  });
+  haccpTaken().forEach(t=>uit.push({id:'haccp-'+t.check.k, datum:t.datum,
+    titel:t.check.n, tekst:'voedselveiligheid · elke '
+      +(t.check.dagen===365?'12 maanden':t.check.dagen===180?'6 maanden':'3 maanden')}));
+  return uit.sort((a,b2)=>a.datum.localeCompare(b2.datum));
+}
+
+function agendaIcs(weken){
+  const items=agendaItems(weken);
+  const nu2=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const r=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Cacaoboetiek//HQ//NL',
+    'CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Cacaoboetiek'];
+  items.forEach(x=>{
+    r.push('BEGIN:VEVENT');
+    /* een vast kenmerk per item: importeer je opnieuw, dan werkt hij bij
+       in plaats van een tweede kopie aan te maken */
+    r.push('UID:'+x.id+'@cacaoboetiek.nl');
+    r.push('DTSTAMP:'+nu2);
+    r.push('DTSTART;VALUE=DATE:'+icsDatum(x.datum));
+    r.push('DTEND;VALUE=DATE:'+icsDatum(datumPlus(x.datum,1)));
+    r.push(icsRegel('SUMMARY:'+icsTekst(x.titel)));
+    if(x.tekst) r.push(icsRegel('DESCRIPTION:'+icsTekst(x.tekst)));
+    r.push('TRANSP:TRANSPARENT');
+    r.push('END:VEVENT');
+  });
+  r.push('END:VCALENDAR');
+  return {tekst:r.join('\r\n'), aantal:items.length};
+}
+
+function sheetAgendaExport(){
+  let weken=8;
+  const teken=()=>{
+    const g=agendaIcs(weken);
+    const items=agendaItems(weken);
+    sheet('Zet in mijn agenda',
+      `<p class="hint">Je productiedagen, boodschappen, leverdata en controles gaan
+         als afspraken naar de agenda van je telefoon. Eén kant op: HQ kan niet bij
+         je eigen afspraken — daar is een echte app voor nodig.</p>
+       <div class="veld"><label>Hoe ver vooruit?</label>
+         <div class="keuzeraster" id="aeW">${[4,8,12].map(w=>
+           `<button class="chip ${weken===w?'aan':''}" data-v="${w}">${w} weken</button>`).join('')}</div></div>
+       <div class="totaalregel"><span class="l">Afspraken</span>
+         <span class="w">${g.aantal}</span></div>
+       ${items.length?`<div class="paneel" style="margin-top:14px">${items.slice(0,8).map(x=>`
+         <div class="item"><span class="t">${kort(new Date(x.datum))}</span>
+           <span class="b">${esc(x.titel)}<em>${esc(x.tekst||'')}</em></span></div>`).join('')}
+         ${items.length>8?`<div class="geen">en nog ${items.length-8} meer</div>`:''}</div>`
+        :`<div class="geen">Er staat nog niets gepland in deze periode.</div>`}
+       <p class="hint" style="margin-top:14px">Doe je dit later nog eens, dan werkt je
+         agenda de bestaande afspraken bij in plaats van er nieuwe naast te zetten.</p>`,
+      `<button class="prim" style="margin-top:0" id="aeOk" ${g.aantal?'':'disabled'}>
+         ${g.aantal?'Naar mijn agenda':'Niets te versturen'}</button>`);
+    chips('#aeW',false,()=>{weken=parseInt(chipV('#aeW'),10)||8;teken()});
+    if($('#aeOk')) $('#aeOk').onclick=()=>agendaVersturen(agendaIcs(weken).tekst);
+  };
+  teken();
+}
+
+/* iOS biedt zo'n bestand op verschillende manieren aan. We proberen eerst het
+   deelmenu, dat de nettste route is, en vallen anders terug op een tabblad. */
+async function agendaVersturen(tekst){
+  const naam='cacaoboetiek.ics';
+  const blob=new Blob([tekst],{type:'text/calendar;charset=utf-8'});
+  try{
+    if(navigator.canShare&&window.File){
+      const f=new File([blob],naam,{type:'text/calendar'});
+      if(navigator.canShare({files:[f]})){
+        await navigator.share({files:[f],title:'Cacaoboetiek'});
+        return toast('Kies je agenda in het deelmenu.');
+      }
+    }
+  }catch(e){ if(e&&e.name==='AbortError') return; }
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=naam; a.rel='noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast('Bestand gemaakt. Open het en kies Voeg toe aan Agenda.');
+  }catch(e){
+    toast('Versturen lukte niet op dit toestel.');
+  }
+}
+
 function sheetWerkweek(){
   const W=JSON.parse(JSON.stringify(werkweek()));
   const volgorde=[1,2,3,4,5,6,0];
@@ -8674,6 +8797,7 @@ function bind(){
   $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>
     x.dataset.haccpdoe==='ijking'?sheetIjking():sheetControles());
   $$('[data-werkvrij]').forEach(x=>x.onclick=sheetWerkVrij);
+  $$('[data-agendaexport]').forEach(x=>x.onclick=sheetAgendaExport);
   $$('[data-werkdag]').forEach(x=>x.onclick=()=>sheetWerkAfwijking(x.dataset.werkdag));
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw(vandaag()));
   $$('[data-trace]').forEach(x=>x.onclick=()=>sheetTrace(''));
