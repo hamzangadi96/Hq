@@ -1440,7 +1440,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v201 · 13 aug 2026';
+const APPVERSIE='v202 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6811,6 +6811,23 @@ const STANDAARDWEEK=()=>({
 });
 const werkweek=()=>S.werkweek||STANDAARDWEEK();
 
+/* Kun je op deze dag produceren, en zo ja hoeveel ruimte heb je?
+   Geeft null terug als er niets in de weg staat. */
+function werkBotsing(d){
+  const w=werkOp(d);
+  if(!w||w.plek==='vrij') return null;
+  const ru=w.ruimte||'avond';
+  if(ru==='dag') return null;
+  const dt=new Date(d);
+  return {
+    w, ruimte:ru,
+    dag:DAG[dt.getDay()],
+    tekst:(WERKPLEK[w.plek]||{n:'Werk'}).n.toLowerCase()
+      +(w.van&&w.tot?' van '+w.van+' tot '+w.tot:''),
+    ernst:ru==='geen'?'rood':'amber'
+  };
+}
+
 /* wat geldt er op deze datum? een afwijking wint van de vaste week */
 function werkOp(d){
   const af=(S.werkafwijk||{})[d];
@@ -6850,12 +6867,26 @@ function sheetPlanBatch(vooraf){
          <div class="keuzeraster">
            ${[[1,'Morgen'],[2,'Overmorgen'],[7,'Volgende week']].map(([n,l])=>
              `<button class="chip" data-snel="${n}">${l}</button>`).join('')}
-         </div></div>`,
+         </div></div>
+       <div id="pbW"></div>`,
       `<button class="prim" style="margin-top:0" id="pb1">Volgende</button>`,'Stap 1 van 4');
+    /* je werkweek staat in de Agenda; hier zie je meteen of het botst */
+    const waarschuw=()=>{
+      const el=$('#pbW'); if(!el) return;
+      const b2=werkBotsing(P.datum);
+      el.innerHTML = b2
+        ? `<div class="melding ${b2.ernst}" style="margin:4px 0 0">${svg(I.alarm,'2')}
+           <span>Die ${esc(b2.dag)} werk je: ${esc(b2.tekst)}. ${
+             b2.ruimte==='geen'?'Je hebt die dag geen ruimte voor Cacaoboetiek.'
+               :'Alleen \u0027s avonds ruimte.'}</span></div>`
+        : '';
+    };
     $$('[data-snel]').forEach(b=>b.onclick=()=>{
       P.datum=datumPlus(vandaag(),parseInt(b.dataset.snel));
-      $('#pbD').value=P.datum;
+      $('#pbD').value=P.datum; waarschuw();
     });
+    $('#pbD').onchange=()=>{P.datum=$('#pbD').value||P.datum; waarschuw()};
+    waarschuw();
     $('#pb1').onclick=()=>{
       P.datum=$('#pbD').value||P.datum;
       if(P.datum<vandaag()) return toast('Kies een dag vanaf vandaag.');
