@@ -1420,7 +1420,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v186 · 12 aug 2026';
+const APPVERSIE='v187 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1954,6 +1954,7 @@ function firebaseStart(){
         /* alleen overnemen als de server nieuwer is dan wat hier staat */
         if((d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
+          migreerOrders();
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -1970,6 +1971,7 @@ async function laden(){
   if(d) zetData(d);
   opslagOk=true;
   migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
+  migreerOrders();
   if(!S.checksGezet){ standaardChecks(); S.checksGezet=true; bewaarNu(); }
   if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; bewaarNu(); }
   if(!S.werkGezet2){
@@ -4090,10 +4092,14 @@ function sheetRitten(){
    daadwerkelijk hebt ingepakt. */
 const BTW_ETEN=0.09, BTW_REST=0.21;
 const verkoopPrijs=id=>{const v=(S.verkoop||{})[id];return typeof v==='number'?v:null};
+/* Rekent met dezelfde prijs als de factuur: een prijsafspraak met staffel als
+   die er is, anders de consumentenprijs. Stond hier eerder op verkoopPrijs(),
+   waardoor zakelijke orders in de financien op nul uitkwamen. */
 function orderBedrag(o){
   let bekend=0, mist=0;
+  const stuks=(o.regels||[]).reduce((n,x)=>n+(x.aantal||0),0);
   (o.regels||[]).forEach(r=>{
-    const p=verkoopPrijs(r.receptId);
+    const p=prijsVoor(o.klantId,r.receptId,stuks);
     if(p===null) mist+=r.aantal; else bekend+=p*r.aantal;
   });
   return {bedrag:bekend,mist};
@@ -4917,7 +4923,7 @@ function winstVan(jaar,kwartaal){
 /* ---------- openstaande betalingen ---------- */
 function openstaand(){
   const nu4=new Date();
-  return (S.orders||[]).filter(o=>(o.status==='ingepakt'||o.status==='geleverd')&&!o.betaald)
+  return (S.orders||[]).filter(o=>(o.factuurNr||o.status==='ingepakt'||o.status==='geleverd')&&!o.betaald)
     .map(o=>{
       const d=o.ingepakt||o.datum;
       const dagen=d?Math.round((nu4-new Date(d))/86400000):0;
@@ -5083,13 +5089,9 @@ function factuurHTML(o){
 /* ═══════════ alle facturen bij elkaar ═══════════
    Facturen bestonden alleen als eigenschap van een order, dus wilde je weten
    wat er openstaat, dan moest je je orders één voor één langs. */
+/* Een berekening voor factuur en financien samen; liepen eerder uit elkaar. */
 function factuurBedrag(o){
-  const totStuks=(o.regels||[]).reduce((n,x)=>n+(x.aantal||0),0);
-  const laag=(o.regels||[]).reduce((n,r)=>{
-    const pr=prijsVoor(o.klantId,r.receptId,totStuks);
-    return n+(pr===null?0:pr*r.aantal);
-  },0);
-  return laag+(parseFloat(o.verzending)||0)+(parseFloat(o.kado)||0);
+  return orderBedrag(o).bedrag+orderExtra(o);
 }
 const facturen=()=>(S.orders||[]).filter(o=>o.factuurNr)
   .slice().sort((a,b2)=>String(b2.factuurDatum||'').localeCompare(String(a.factuurDatum||'')));
@@ -11126,6 +11128,15 @@ function gBoek(product,aantal,eenheid,reden,lot){
     aantal:aantal,eenheid:eenheid||'g',reden:reden||''});
 }
 /* eenmalig: wat al als partij is vastgelegd telt alsnog mee als beginvoorraad */
+/* Een order met een status die we niet kennen zakte naar Afgehandeld maar kreeg
+   het etiket "Nieuw", en verdween tegelijk uit dashboard, planning en omzet.
+   Onbekend of leeg betekent: nog niet afgehandeld. */
+function migreerOrders(){
+  (S.orders||[]).forEach(o=>{
+    if(!o.status||!OSTATUS[o.status]) o.status='nieuw';
+  });
+}
+
 function migreerGrond(){
   if(S.gmutGezet) return;
   (S.lots||[]).forEach(l=>{
