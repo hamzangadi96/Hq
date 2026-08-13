@@ -1406,7 +1406,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v183 · 12 aug 2026';
+const APPVERSIE='v184 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5377,7 +5377,9 @@ async function ritStart(doel){
       punten:[{lat:p.lat,lon:p.lon,t:Date.now()}],km:0,nauw:p.nauw,
       doel:doel?{adres:doel.adres,lat:doel.lat,lon:doel.lon}:null};
     bewaarNu(); render(); ritVolgen(true); schermWakker(true);
-    toast('Rit gestart.');
+    toast(p.grof||p.nauw>60
+      ? 'Rit gestart \u2014 vertrekpunt op '+p.nauw+' m. Buiten wordt dat scherper.'
+      : 'Rit gestart.');
     /* het vertrekpunt scherper maken zolang je nog niet weg bent */
     positieNu({ms:15000,doel:5,min:5}).then(async beter=>{
       if(!S.rit||S.rit.punten.length>3) return;
@@ -11568,13 +11570,32 @@ function positieNu(opt){
       const g=middel();
       g?res(g):rej(fout||new Error('geen fix'));
     };
+    /* Levert de nauwkeurige meting niets op — binnen ziet je telefoon geen
+       satellieten — probeer dan de grove positie via wifi en zendmasten.
+       Voor het beginnen van een rit is dat ruim genoeg; het vertrekpunt
+       wordt zodra je buiten rijdt vanzelf scherper gezet. */
+    const grofProberen=fout=>{
+      if(klaar) return;
+      if(opt.alleenScherp) return stop(fout);
+      navigator.geolocation.getCurrentPosition(p=>{
+        if(klaar) return;
+        klaar=true;
+        if(id!==null) navigator.geolocation.clearWatch(id);
+        if(tijd) clearInterval(tijd);
+        res({lat:p.coords.latitude,lon:p.coords.longitude,
+             nauw:Math.max(1,Math.round(p.coords.accuracy)),metingen:1,
+             ruw:p.coords.accuracy,grof:true});
+      }, e2=>stop(fout||e2), {enableHighAccuracy:false,maximumAge:120000,timeout:8000});
+    };
+
     id=navigator.geolocation.watchPosition(p=>{
       punten.push({lat:p.coords.latitude,lon:p.coords.longitude,nauw:Math.max(1,p.coords.accuracy)});
       const g=middel();
       if(opt.onder) opt.onder(g);
       if(punten.length>=minAantal&&g.nauw<=doel) stop();
-    },e=>{ if(!punten.length) stop(e) },{enableHighAccuracy:true,maximumAge:0,timeout:maxMs});
-    setTimeout(()=>stop(),maxMs);
+    },e=>{ if(!punten.length){ if(e&&e.code===1) stop(e); else grofProberen(e) } },
+      {enableHighAccuracy:true,maximumAge:0,timeout:maxMs});
+    setTimeout(()=>{ if(punten.length) stop(); else grofProberen(null) },maxMs);
   });
 }
 
