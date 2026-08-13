@@ -47,7 +47,11 @@ button.arij:active,.menurij:active,.orij:active{background:var(--bg)}
 /* Het document zelf mag niet scrollen: anders schuift de kop mee weg zodra
    iOS de layout een tik groter maakt dan het scherm. Alleen de inhoud en de
    bottom-sheets scrollen. */
-html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
+/* height:100% rekent op iOS tegen de layoutviewport, en die telt de inkeping
+   van de statusbalk niet mee. De app heeft max-height:100%, dus werd hij precies
+   de hoogte van de statusbalk te kort geknepen: een grijze strook onderin.
+   100dvh telt die ruimte wel mee. De 100% blijft als terugval staan. */
+html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
 body{-webkit-text-size-adjust:100%;text-size-adjust:100%;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:#e8e8ea;color:var(--ink);-webkit-font-smoothing:antialiased}
 button,input,textarea{font-family:inherit;font-size:16px;color:inherit}
@@ -1422,7 +1426,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v192 · 13 aug 2026';
+const APPVERSIE='v193 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12873,8 +12877,10 @@ function sheetInstellingen(){
     document.body.appendChild(proef);
     const dvh=Math.round(proef.getBoundingClientRect().height);
     proef.remove();
+    const bodyH=Math.round(document.body.getBoundingClientRect().height);
     el.innerHTML='<span class="tel" style="max-width:none;text-align:right;font-size:11px;'+
       'line-height:1.5">scherm '+window.innerHeight+
+      ' \u00b7 body '+bodyH+
       ' \u00b7 dvh '+dvh+
       ' \u00b7 app '+Math.round(r.height)+
       '<br>top '+Math.round(r.top)+' \u00b7 onder '+Math.round(window.innerHeight-r.bottom)+
