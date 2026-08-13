@@ -1422,7 +1422,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v190 · 13 aug 2026';
+const APPVERSIE='v191 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13073,8 +13073,16 @@ function sheetMeetpunten(){
 (function(){
   const vv=window.visualViewport; if(!vv) return;
   let vorig=-1;
+  const isInvoer=e=>!!e&&(e.tagName==='INPUT'||e.tagName==='TEXTAREA'
+    ||e.tagName==='SELECT'||e.isContentEditable);
   const pas=()=>{
-    const dek=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));
+    const ruw=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));
+    /* Op iOS verschilt visualViewport structureel een aantal tientallen pixels
+       van innerHeight, ook zonder toetsenbord. Namen we dat verschil over, dan
+       kromp de app permanent en bleef er onderin een lege strook staan.
+       Een toetsenbord is altijd fors en er staat altijd een veld scherp;
+       alles wat daar niet aan voldoet is ruis en negeren we. */
+    const dek=(isInvoer(document.activeElement)&&ruw>120)?ruw:0;
     /* kleine schommelingen negeren, anders springt de layout bij het scrollen */
     if(Math.abs(dek-vorig)<4) return;
     vorig=dek;
@@ -13082,6 +13090,9 @@ function sheetMeetpunten(){
   };
   vv.addEventListener('resize',pas);
   vv.addEventListener('scroll',pas);
+  /* zodra je uit een veld klikt hoort de app meteen weer het hele scherm te zijn */
+  document.addEventListener('focusin',()=>setTimeout(pas,60));
+  document.addEventListener('focusout',()=>setTimeout(pas,60));
   window.addEventListener('orientationchange',()=>setTimeout(pas,300));
   pas();
 })();
