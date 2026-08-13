@@ -1420,7 +1420,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v185 · 12 aug 2026';
+const APPVERSIE='v186 · 12 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1588,8 +1588,6 @@ const BRANCHES={
 const branche=()=>BRANCHES[S.branche]||BRANCHES.chocolaterie;
 /* de basissoorten van je branche: chocoladesoort, deegsoort, vleessoort… */
 const soorten=()=>branche().soorten||CHOCSTANDAARD;
-const EENHEDEN=['g','ml','st','tl','el','snuf'];
-
 const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
@@ -1678,8 +1676,6 @@ function fotoAktie(modus,doe){
 const fotoBewaar=(id,data)=>fotoAktie('readwrite',st=>st.put(data,id));
 const fotoLees  =id=>fotoAktie('readonly', st=>st.get(id));
 const fotoWis   =id=>fotoAktie('readwrite',st=>st.delete(id));
-const fotoSleutels=()=>fotoAktie('readonly',st=>st.getAllKeys());
-
 /* ═══════════ document scannen ═══════════
    Apple's eigen scanner is niet te openen vanuit een webpagina, dus doen we
    het hier: randen zoeken, hoeken laten bijstellen, rechttrekken. */
@@ -1922,27 +1918,6 @@ function sheetBijsnijden(bestand,klaar,terug){
 
 /* verkleinen vóór opslag: een telefoonfoto van 4 MB wordt zo ±120 kB,
    ruim genoeg om een bon te kunnen lezen */
-function fotoVerklein(bestand,maxZij){
-  return new Promise((ok,mis)=>{
-    const lezer=new FileReader();
-    lezer.onerror=()=>mis(new Error('lezen mislukt'));
-    lezer.onload=()=>{
-      const img=new Image();
-      img.onerror=()=>mis(new Error('geen afbeelding'));
-      img.onload=()=>{
-        const m=maxZij||1400;
-        let b=img.width, h=img.height;
-        if(Math.max(b,h)>m){ const f=m/Math.max(b,h); b=Math.round(b*f); h=Math.round(h*f) }
-        const c=document.createElement('canvas'); c.width=b; c.height=h;
-        c.getContext('2d').drawImage(img,0,0,b,h);
-        ok(c.toDataURL('image/jpeg',0.65));
-      };
-      img.src=lezer.result;
-    };
-    lezer.readAsDataURL(bestand);
-  });
-}
-
 function bewaarNu(){
   const d=pakData(); S.bijgewerkt=d.bijgewerkt;
   lokaalSchrijf(d); opslagOk=true;
@@ -2024,7 +1999,6 @@ const nieuweCode=()=>{
   return voor+pad((nrs.length?Math.max.apply(null,nrs):0)+1);
 };
 const chocNaam=k=>(soorten().find(c=>c.key===k)||{}).naam||'';
-const chocKort=k=>{const n=chocNaam(k);return n?n.split(' ')[0]:''};
 /* b.lots[naam] was één lotnummer, is nu een lijst. Oude batches blijven werken. */
 function lotLijst(b,naam){
   const v=b.lots[naam];
@@ -2435,7 +2409,6 @@ const balkKeuze=()=>{
   return (eigen.length?eigen:STANDAARDBALK).slice(0,4);
 };
 
-const tabsInBalk=()=>TABS.filter(t=>t.klaar||t.key===S.tab);
 const STRAKS={
   orders:{titel:'Orders',intro:'Bestellingen van binnenkomst tot factuur, met de verwerkingsagent die het voorwerk doet.',
     punten:['Orderlijst met status: nieuw, in productie, klaar, verzonden','Agent leest bestellingen uit en maakt een concept','Jij bevestigt — de agent doet dat nooit zelf','Benodigde batches automatisch klaargezet','Eén tik van verzonden naar factuur'],stap:3},
@@ -2973,27 +2946,6 @@ function dashboardHTML(){
 /* ---------- de dagcijfers in de donkere kopband ----------
    Vier korte cellen die je opzij kunt schuiven, met een balk voor je voortgang.
    Bij het scrollen schuift dit blok dicht, zodat je merk klein bovenin blijft. */
-function dagStrook(){
-  const kb=S.batches.filter(x=>x.status==='klaar');
-  const goed=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.goed:0),0);
-  const afk=kb.reduce((s,x)=>s+(x.resultaat?x.resultaat.afkeur:0),0);
-  const afw=S.batches.reduce((s,x)=>s+x.logs.filter(l=>l.type==='afwijking').length,0);
-  const gepland=S.batches.reduce((s,x)=>s+bTotaal(x),0);
-  const nb=S.batches.length;
-  const pct=gepland?Math.min(100,Math.round(goed/gepland*100)):0;
-
-  const cel=(label,waarde,bij)=>`<div class="kcel"><div class="kl">${label}</div>
-    <div class="kw ${waarde?'':'nul'}">${waarde}${bij?`<em>${bij}</em>`:''}</div></div>`;
-
-  return `<div class="kstrook">
-      ${cel('Bonbons',goed,gepland?'van '+gepland:'')}
-      ${cel('Batches',nb?kb.length+'/'+nb:0,'')}
-      ${cel('Afkeur',afk,'')}
-      ${cel('Afwijkingen',afw,'')}
-    </div>
-    ${gepland?`<div class="kbalk"><span style="width:${pct}%"></span></div>`:''}`;
-}
-
 /* ---------- productie ---------- */
 function productieHTML(){
   const loopt=S.batches.filter(b=>b.status!=='klaar');
@@ -3004,10 +2956,6 @@ function productieHTML(){
   const inProductie=loopt.reduce((n,b)=>n+bTotaal(b),0);
 
   /* afkeur over alles wat af is: je kwaliteitsgraadmeter */
-  const alleAf=S.batches.filter(b=>b.status==='klaar'&&b.resultaat);
-  const totGoed=alleAf.reduce((n,b)=>n+b.resultaat.goed,0);
-  const totAfk=alleAf.reduce((n,b)=>n+b.resultaat.afkeur,0);
-  const afkPct=(totGoed+totAfk)?Math.round(totAfk/(totGoed+totAfk)*100):null;
 
   let h='';
   if(!S.recepten.length) h+=`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}
@@ -3295,7 +3243,6 @@ function batchHTML(){
   };
   groepen=BSTAPPEN.map(bstapRij).join('');
 
-  const nOver=BSTAPPEN.filter(x=>x.kern&&!x.klaar(b)).length;
   const verw=verwachteDuur(b), bezig=werkTotaal(b);
   h+=`<div class="blokkop"><span class="eyebrow">De route</span>
       <span class="tel">${bGedaan(b)} van ${KERN.length}</span></div>
@@ -3407,7 +3354,6 @@ function kaartGrootte(tekst,font){
   const regels=kaartRegels(tekst);
   const langste=regels.reduce((n,r)=>Math.max(n,r.length),0);
   let pt=font.basis;
-  const maxRegels=Math.floor(74/(font.hoog*4.2));
   while(pt>18&&(langste*pt*0.46>860||regels.length*pt*font.hoog>640)) pt-=2;
   return Math.max(18,pt);
 }
@@ -6157,8 +6103,6 @@ function voorraadHTML(){
       ${laagNu.length===1?'is':'zijn'} bijna op.</span></div>`;
 
   /* ── overzicht in tegels ── */
-  const grondT=alles.filter(v=>artSoort(v.product)==='ingredient');
-  const verpT=alles.filter(v=>artSoort(v.product)==='verpakking');
   const teBestellenT=alles.filter(v=>grondOnder(v)||v.saldo<=0).length;
   const vlT=verlopenPartijen(), vlOverT=vlT.filter(x=>x.dagen<0).length;
   const tegel=(attr,icoon,kop,waarde,sub,klas)=>`<button class="tegel" ${attr}>
@@ -6631,8 +6575,6 @@ const TAAKSOORTEN=[
   {k:'half',n:'Halffabricaat'},
   {k:'overig',n:'Iets anders'}
 ];
-const takenOp=d=>(S.taken||[]).filter(t=>t.datum===d);
-
 /* ---------- verzendregel ----------
    Besteld voor 14:00 op een werkdag gaat dezelfde dag de deur uit. Daarna,
    of in het weekend, schuift het door naar de eerstvolgende werkdag. */
@@ -6795,8 +6737,6 @@ function sheetTaakNieuw(datum){
   };
   teken();
 }
-const planOpDatum=d=>(S.planning||[]).filter(x=>x.datum===d);
-
 /* de langste levertijd van wat je voor deze batch nodig hebt */
 function levertijdVoor(regels){
   const d=dekkingGrond(regels).filter(x=>x.tekort>0);
@@ -8570,7 +8510,6 @@ function chips(sel,multi,cb){$$(sel+' .chip:not(.nieuw)').forEach(c=>c.onclick=(
   if(multi)c.classList.toggle('aan');else{$$(sel+' .chip').forEach(x=>x.classList.remove('aan'));c.classList.add('aan')}
   if(cb)cb()})}
 const chipV=sel=>{const c=document.querySelector(sel+' .chip.aan');return c?c.dataset.v:null};
-const chipVs=sel=>$$(sel+' .chip.aan').map(c=>c.dataset.v);
 function klaarSheet(msg){dicht();render();if(msg)toast(msg)}
 function sluitToetsenbord(){
   const a=document.activeElement;
@@ -8932,8 +8871,6 @@ function sheetMeting(opt){
     }
   };
 }
-const meetpuntErbij=(naam,terug)=>sheetMeting({naam,terug});
-
 /* wat mat je hier de vorige keer? dat scheelt typen */
 function vorigeMeting(mpId){
   let laatst=null;
@@ -12653,21 +12590,6 @@ function sheetInstellingen(){
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
   });
-  if($('#mData')) $('#mData').onclick=sheetData;
-  if($('#mAccount')) $('#mAccount').onclick=sheetAccount;
-  if($('#mVers')) $('#mVers').onclick=()=>{
-    if(!confirm('De app opnieuw ophalen? Je gegevens blijven staan.')) return;
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister())))
-        .then(()=>caches&&caches.keys().then(k=>Promise.all(k.map(n=>caches.delete(n)))))
-        .catch(()=>{})
-        .then(()=>location.reload(true));
-    } else location.reload(true);
-  };
-  if($('#mNieuw')) $('#mNieuw').onclick=()=>{
-    if(S.batches.length&&!confirm('De batches van vandaag worden gewist. Je smaken en instellingen blijven staan. Doorgaan?')) return;
-    S.batches=[];S.dagOpening=null;S.batchId=null;S.open=null;
-    dicht();bewaarNu();render();toast('Nieuwe dag. Smaken en instellingen blijven staan.')};
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
     if(k==='uitleg') return sheetUitleg();
