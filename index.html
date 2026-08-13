@@ -478,6 +478,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .s-live{background:#c0392b}
 .s-overig{background:#5b7c6b}
 .s-leveren{background:var(--grijs3)}
+.s-baan{background:#8b8b96}
 .wdag.nu .s-productie{background:#fff}
 .wdag.nu .s-boodschappen{background:#fbbf24}
 .wdag.nu .s-voorbereiden{background:#a8bcd4}
@@ -486,6 +487,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .wdag.nu .s-live{background:#f87171}
 .wdag.nu .s-overig{background:#86b39a}
 .wdag.nu .s-leveren{background:#71717a}
+.wdag.nu .s-baan{background:#c9c9d1}
 
 /* ── instructie met de stap waaraan hij hangt ── */
 .insblok{padding:14px 0;border-bottom:1px solid var(--lijn)}
@@ -1420,7 +1422,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v189 · 13 aug 2026';
+const APPVERSIE='v190 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1597,6 +1599,9 @@ const S={
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
   gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
+  /* je baan naast Cacaoboetiek: een vaste week, plus losse afwijkingen.
+     Zonder dit weet de app niet wanneer je uberhaupt kunt produceren. */
+  werkweek:null, werkafwijk:{},
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
     adres:'Alcoalaan 8D, 5151 RW Drunen', kvk:'93971818', btw:'NL005058641B30',
@@ -1621,7 +1626,8 @@ const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
-  'klussen','klus','klussoorten','urennorm','badgeGevraagd'];
+  'klussen','klus','klussoorten','urennorm','badgeGevraagd',
+  'werkweek','werkafwijk','werkGezet3'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -2381,7 +2387,8 @@ const TABS=[
   {key:'productie',label:'Productie',icon:I.vorm,klaar:true},
   {key:'orders',label:'Orders',icon:I.lijst,klaar:true},
   {key:'voorraad',label:'Voorraad',icon:I.doos,klaar:true},
-  {key:'geld',label:'Financiën',icon:I.euro,klaar:true}
+  {key:'geld',label:'Financiën',icon:I.euro,klaar:true},
+  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true}
 ];
 /* alles wat je in de balk kunt zetten, en alles wat in het meer-paneel staat */
 const SNELITEMS=[
@@ -2389,6 +2396,7 @@ const SNELITEMS=[
   {key:'orders',label:'Orders',icon:'lijst',soort:'tab'},
   {key:'voorraad',label:'Voorraad',icon:'doos',soort:'tab'},
   {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
+  {key:'agenda',label:'Agenda',icon:'klok',soort:'tab'},
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
@@ -2490,7 +2498,7 @@ function renderNu(){
   $('#scherm').innerHTML = klokbalkHTML() + (inBatch?batchHTML():
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
-    S.tab==='geld'?geldHTML():straksHTML(S.tab));
+    S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():straksHTML(S.tab));
   if(gewisseld){
     const el=$('#scherm');
     el.classList.remove('schermIn');
@@ -2588,15 +2596,22 @@ function weekstripHTML(dagenVooruit){
   const loopt=lopende();
   if(loopt.length) (perDag[vandaag()]=perDag[vandaag()]||[])
     .push({soort:'productie',tekst:'batch onderweg'});
+  /* je baan hoort er ook in: anders lijkt een volle werkdag leeg */
+  for(let j=0;j<n;j++){
+    const dd=datumPlus(vandaag(),j), ww=werkOp(dd);
+    if(ww&&ww.plek!=='vrij') (perDag[dd]=perDag[dd]||[])
+      .push({soort:'baan',tekst:werkTekst(ww)});
+  }
 
   let uit=`<div class="weekstrip">`;
   for(let i=0;i<n;i++){
     const d=datumPlus(vandaag(),i), dt=new Date(d);
     const taken=perDag[d]||[];
     /* per soort één balkje, in vaste volgorde */
-    const volgorde=['boodschappen','voorbereiden','half','productie','verzenden','live','overig','leveren'];
+    const volgorde=['baan','boodschappen','voorbereiden','half','productie','verzenden','live','overig','leveren'];
     const soorten2=volgorde.filter(k=>taken.some(t=>t.soort===k));
-    const titel=soorten2.map(k=>k==='leveren'?'leveren':(DAGSOORT[k]||{}).n).join(' · ');
+    const titel=soorten2.map(k=>k==='leveren'?'leveren':k==='baan'?'je baan'
+      :(DAGSOORT[k]||{}).n).join(' · ');
     const nieuweMaand=i>0&&dt.getDate()===1;
     /* vandaag toont de maand in plaats van de dagletter — dat scheelt een regel */
     const bovenaan = i===0 ? MND[dt.getMonth()].slice(0,3)
@@ -2611,6 +2626,7 @@ function weekstripHTML(dagenVooruit){
   uit+=`<button class="wkleuren" data-legenda aria-label="Wat betekenen de kleuren?">${svg(I.palet)}</button>`;
   uit+='</div>';
   uit+=`<div class="wlegenda" id="wLeg">
+    <span><i class="s-baan"></i>je baan</span>
     ${Object.keys(DAGSOORT).map(k=>`<span><i class="s-${k}"></i>${DAGSOORT[k].n.toLowerCase()}</span>`).join('')}
     <span><i class="s-leveren"></i>leveren</span></div>`;
   return uit;
@@ -6715,6 +6731,49 @@ function levertijdVoor(regels){
   return max;
 }
 const datumPlus=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return iso(x)};
+
+/* ============ je baan naast Cacaoboetiek ============
+   Een vaste week met per dag waar je bent en hoe laat, plus hoeveel ruimte er
+   overblijft. Afwijkingen (vrij, extra dienst) staan per datum apart. */
+const WERKPLEK={
+  kantoor:{n:'Kantoor',kleur:'#6b5b95'},
+  thuis:{n:'Thuis',kleur:'#5b7c6b'},
+  vrij:{n:'Vrij',kleur:'var(--grijs3)'}
+};
+const RUIMTE={
+  geen:{n:'Geen ruimte',k:'geen'},
+  avond:{n:"'s Avonds",k:'avond'},
+  dag:{n:'Hele dag',k:'dag'}
+};
+const STANDAARDWEEK=()=>({
+  1:{plek:'kantoor',van:'09:00',tot:'17:00',ruimte:'avond'},
+  2:{plek:'kantoor',van:'09:00',tot:'17:00',ruimte:'avond'},
+  3:{plek:'thuis',  van:'09:00',tot:'17:00',ruimte:'avond'},
+  4:{plek:'kantoor',van:'09:00',tot:'17:00',ruimte:'avond'},
+  5:{plek:'thuis',  van:'09:00',tot:'17:00',ruimte:'avond'},
+  6:{plek:'vrij',van:'',tot:'',ruimte:'dag'},
+  0:{plek:'vrij',van:'',tot:'',ruimte:'dag'}
+});
+const werkweek=()=>S.werkweek||STANDAARDWEEK();
+
+/* wat geldt er op deze datum? een afwijking wint van de vaste week */
+function werkOp(d){
+  const af=(S.werkafwijk||{})[d];
+  if(af) return Object.assign({},af,{afwijking:true});
+  const w=werkweek()[new Date(d).getDay()];
+  return w?Object.assign({},w,{afwijking:false}):null;
+}
+const werkUren=w=>{
+  if(!w||w.plek==='vrij'||!w.van||!w.tot) return 0;
+  const [a,b2]=w.van.split(':').map(Number), [c,d2]=w.tot.split(':').map(Number);
+  return Math.max(0,((c*60+d2)-(a*60+b2))/60);
+};
+const werkurenPerWeek=()=>[0,1,2,3,4,5,6].reduce((n,i)=>n+werkUren(werkweek()[i]),0);
+const werkTekst=w=>{
+  if(!w) return '';
+  if(w.plek==='vrij') return 'Vrij'+(w.reden?' · '+w.reden:'');
+  return (WERKPLEK[w.plek]||{n:'Werk'}).n+(w.van&&w.tot?' · '+w.van+'–'+w.tot:'');
+};
 const dagenTussen=(a,b2)=>Math.round((new Date(b2)-new Date(a))/86400000);
 
 /* wanneer moet je boodschappen doen voor deze geplande batch? */
@@ -8051,6 +8110,219 @@ function sheetHaccp(){
   sheet('HACCP-dossier',h,'');
 }
 
+
+/* ============ Agenda ============
+   De vraag: wanneer heb ik tijd, en wat staat er dan al?
+   Je baan vul je hier in. Productie, leveren en boodschappen komen uit
+   Productie en Orders — die lees je hier alleen. */
+function agendaHTML(){
+  const perDag={};
+  allePlanTaken().forEach(t=>{(perDag[t.datum]=perDag[t.datum]||[]).push(t)});
+  (S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum).forEach(o=>{
+    (perDag[o.leverdatum]=perDag[o.leverdatum]||[])
+      .push({soort:'leveren',tekst:klantNaam(o.klantId)+' · '+orderAantal(o)+' bonbons',order:o});
+  });
+
+  let h=weekstripHTML(14);
+
+  const dagen=[];
+  for(let i=0;i<14;i++) dagen.push(datumPlus(vandaag(),i));
+
+  const label=d=>{
+    const n=dagenTussen(vandaag(),d);
+    return n===0?'vandaag':n===1?'morgen':n<7?'over '+n+' dagen':kort(new Date(d));
+  };
+
+  const soortRij=t=>{
+    if(t.soort==='leveren') return `<button class="arij" data-order="${t.order.id}">
+      <span class="ivak">${svg(I.vracht)}</span>
+      <span class="naam">Leveren<small>${esc(t.tekst)}</small></span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+    const so=DAGSOORT[t.soort]||{n:'Overig',kleur:'var(--grijs)',ico:'klembord'};
+    return `<div class="arij" style="cursor:default">
+      <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
+      <span class="naam">${esc(t.tekst||so.n)}<small>${so.n.toLowerCase()}${
+        t.tijd?' · '+esc(t.tijd):''}</small></span></div>`;
+  };
+
+  /* de komende twee weken, maar lege dagen zonder werk slaan we over —
+     anders scrol je door veertien lege kaarten */
+  let getoond=0;
+  const blokken=dagen.map(d=>{
+    const w=werkOp(d), taken=perDag[d]||[];
+    const werktMee=w&&w.plek!=='vrij';
+    if(!werktMee&&!taken.length&&dagenTussen(vandaag(),d)>1) return '';
+    getoond++;
+    const dt=new Date(d);
+    const ru=RUIMTE[(w&&w.ruimte)||'dag']||RUIMTE.dag;
+    return `<div class="blokkop" style="margin-top:22px">
+        <span class="eyebrow">${DAG[dt.getDay()]} ${dt.getDate()} ${MND[dt.getMonth()]}</span>
+        <span class="tel">${label(d)}</span></div>
+      <div class="paneel">
+        ${werktMee?`<button class="arij" data-werkdag="${d}">
+          <span class="ivak" style="background:${WERKPLEK[w.plek].kleur}1f;color:${
+            WERKPLEK[w.plek].kleur}">${svg(I.klok)}</span>
+          <span class="naam">${esc(werkTekst(w))}<small>je baan · ${werkUren(w)} uur${
+            w.afwijking?' · afwijking':''} · ${esc(ru.n.toLowerCase())} ruimte</small></span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`:''}
+        ${taken.map(soortRij).join('')}
+        ${!werktMee&&!taken.length?`<button class="arij" data-werkdag="${d}">
+          <span class="ivak groen">${svg(I.vink)}</span>
+          <span class="naam">Vrij<small>hele dag ruimte voor Cacaoboetiek</small></span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`:''}
+      </div>`;
+  }).join('');
+
+  h+=`<div class="blokkop" style="margin-top:20px"><span class="eyebrow">Komende twee weken</span>
+      <span class="tel">${getoond} ${getoond===1?'dag':'dagen'}</span></div>`.replace(
+      '<div class="blokkop" style="margin-top:20px">','<div class="blokkop" style="margin-top:20px">');
+  h+=blokken||`<div class="paneel"><div class="geen">Niets in beeld.</div></div>`;
+
+  const brij=(attr,icoon,label2,waarde,let2)=>`<button class="beheerrij" ${attr}>
+    ${svg(icoon)}<span class="l">${label2}</span>
+    ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
+    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+
+  const afw=Object.keys(S.werkafwijk||{}).filter(d=>d>=vandaag()).length;
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Mijn werk</span></div>
+    <div class="paneel">
+      ${brij('data-werkweek',I.klok,'Werkweek',komma(werkurenPerWeek())+' uur per week')}
+      ${brij('data-werkvrij',I.vink,'Vrij nemen of afwijken',afw?afw+' gepland':'niets')}
+    </div>
+
+    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Inplannen</span></div>
+    <div class="paneel">
+      ${brij('data-planning',I.vorm,'Productie plannen','')}
+      ${brij('data-taaknieuw',I.plus,'Losse afspraak of klus','')}
+    </div>`;
+  return h;
+}
+
+/* je vaste week: waar ben je, hoe laat, en hou je tijd over? */
+function sheetWerkweek(){
+  const W=JSON.parse(JSON.stringify(werkweek()));
+  const volgorde=[1,2,3,4,5,6,0];
+  const teken=()=>{
+    const tot=volgorde.reduce((n,i)=>n+werkUren(W[i]),0);
+    sheet('Werkweek',
+      `<p class="hint">Zo weet de app wanneer je tijd hebt. Plan je een batch op een
+         dag dat je werkt, dan waarschuwt hij.</p>
+       <div class="vrkop"><div class="vrgetal">${komma(tot)}<em>uur per week</em></div>
+         <div class="vrmeta">${volgorde.filter(i=>W[i].plek!=='vrij').length} werkdagen</div></div>
+       ${volgorde.map(i=>{
+         const w=W[i], werkt=w.plek!=='vrij';
+         return `<div class="blokkop" style="margin-top:18px">
+             <span class="eyebrow">${DAG[i]}</span>
+             <span class="tel">${werkt?werkUren(w)+' uur':'vrij'}</span></div>
+           <div class="keuzeraster" data-plek="${i}">${Object.keys(WERKPLEK).map(k=>
+             `<button class="chip ${w.plek===k?'aan':''}" data-v="${k}">${WERKPLEK[k].n}</button>`).join('')}</div>
+           ${werkt?`<div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+             <div><label>Van</label><input class="inp" type="time" data-van="${i}" value="${w.van||''}"></div>
+             <div><label>Tot</label><input class="inp" type="time" data-tot="${i}" value="${w.tot||''}"></div></div>
+           <div class="keuzeraster" data-ruimte="${i}" style="margin-top:2px">${Object.keys(RUIMTE).map(k=>
+             `<button class="chip ${w.ruimte===k?'aan':''}" data-v="${k}">${RUIMTE[k].n}</button>`).join('')}</div>`:''}`;
+       }).join('')}`,
+      `<button class="prim" style="margin-top:0" id="wwOk">Bewaren</button>`);
+
+    const lees=()=>{
+      volgorde.forEach(i=>{
+        const v=document.querySelector('[data-van="'+i+'"]');
+        const t=document.querySelector('[data-tot="'+i+'"]');
+        if(v) W[i].van=v.value; if(t) W[i].tot=t.value;
+      });
+    };
+    volgorde.forEach(i=>{
+      chips('[data-plek="'+i+'"]',false,()=>{
+        lees();
+        W[i].plek=chipV('[data-plek="'+i+'"]');
+        if(W[i].plek==='vrij'){W[i].ruimte='dag'}
+        else if(!W[i].van){W[i].van='09:00';W[i].tot='17:00';W[i].ruimte='avond'}
+        teken();
+      });
+      if(W[i].plek!=='vrij') chips('[data-ruimte="'+i+'"]',false,()=>{
+        lees(); W[i].ruimte=chipV('[data-ruimte="'+i+'"]'); teken();
+      });
+    });
+    $('#wwOk').onclick=()=>{
+      lees(); S.werkweek=W; bewaarNu(); dicht(); render();
+      toast('Werkweek bewaard · '+komma(werkurenPerWeek())+' uur per week.');
+    };
+  };
+  teken();
+}
+
+/* een losse dag die anders loopt: vrij, of juist wel werken */
+function sheetWerkAfwijking(datum){
+  const bestaand=(S.werkafwijk||{})[datum];
+  const A=bestaand?Object.assign({},bestaand)
+    :Object.assign({},werkOp(datum)||{plek:'vrij',van:'',tot:'',ruimte:'dag'},{reden:''});
+  A.datum=datum||vandaag();
+  const teken=()=>{
+    const dt=new Date(A.datum);
+    const werkt=A.plek!=='vrij';
+    sheet(DAG[dt.getDay()]+' '+dt.getDate()+' '+MND[dt.getMonth()],
+      `<p class="hint">Wijkt deze dag af van je vaste week? Zet het hier.
+         Je vaste week blijft ongemoeid.</p>
+       <div class="veld"><label>Datum</label>
+         <input class="inp" id="waD" type="date" value="${A.datum}"></div>
+       <div class="veld"><label>Waar ben je?</label>
+         <div class="keuzeraster" id="waP">${Object.keys(WERKPLEK).map(k=>
+           `<button class="chip ${A.plek===k?'aan':''}" data-v="${k}">${WERKPLEK[k].n}</button>`).join('')}</div></div>
+       ${werkt?`<div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+         <div><label>Van</label><input class="inp" id="waV" type="time" value="${A.van||'09:00'}"></div>
+         <div><label>Tot</label><input class="inp" id="waT" type="time" value="${A.tot||'17:00'}"></div></div>
+       <div class="veld"><label>Ruimte voor Cacaoboetiek</label>
+         <div class="keuzeraster" id="waR">${Object.keys(RUIMTE).map(k=>
+           `<button class="chip ${A.ruimte===k?'aan':''}" data-v="${k}">${RUIMTE[k].n}</button>`).join('')}</div></div>`
+       :`<div class="veld"><label>Waarom vrij?</label>
+         <input class="inp" id="waRe" value="${esc(A.reden||'')}" placeholder="Vakantie, ziek, snipperdag"></div>`}`,
+      `<button class="prim" style="margin-top:0" id="waOk">Bewaren</button>
+       ${bestaand?`<button class="sec" id="waWeg" style="color:var(--rood)">Afwijking weghalen</button>`:''}`);
+    const lees=()=>{
+      A.datum=$('#waD').value||A.datum;
+      if($('#waV')) A.van=$('#waV').value;
+      if($('#waT')) A.tot=$('#waT').value;
+      if($('#waRe')) A.reden=$('#waRe').value.trim();
+    };
+    $('#waD').onchange=()=>{lees();teken()};
+    chips('#waP',false,()=>{lees();A.plek=chipV('#waP');
+      if(A.plek!=='vrij'&&!A.van){A.van='09:00';A.tot='17:00';A.ruimte='avond'}
+      teken()});
+    if($('#waR')) chips('#waR',false,()=>{lees();A.ruimte=chipV('#waR');teken()});
+    $('#waOk').onclick=()=>{
+      lees();
+      S.werkafwijk=S.werkafwijk||{};
+      if(bestaand&&bestaand.datum&&bestaand.datum!==A.datum) delete S.werkafwijk[bestaand.datum];
+      const vrij=A.plek==='vrij';
+      S.werkafwijk[A.datum]={plek:A.plek,van:vrij?'':(A.van||''),tot:vrij?'':(A.tot||''),
+        ruimte:vrij?'dag':(A.ruimte||'avond'),reden:vrij?(A.reden||''):'',datum:A.datum};
+      bewaarNu(); dicht(); render(); toast('Bewaard.');
+    };
+    if($('#waWeg')) $('#waWeg').onclick=()=>{
+      delete S.werkafwijk[A.datum]; bewaarNu(); dicht(); render();
+      toast('Afwijking weggehaald.');
+    };
+  };
+  teken();
+}
+
+function sheetWerkVrij(){
+  const lijst=Object.keys(S.werkafwijk||{}).sort();
+  sheet('Vrij nemen of afwijken',
+    `<p class="hint">Dagen die anders lopen dan je vaste week.</p>
+     ${lijst.length?`<div class="paneel">${lijst.map(d=>{
+       const w=S.werkafwijk[d], dt=new Date(d), oud=d<vandaag();
+       return `<button class="arij" data-werkdag="${d}" ${oud?'style="opacity:.5"':''}>
+         <span class="ivak" style="background:${WERKPLEK[w.plek].kleur}1f;color:${
+           WERKPLEK[w.plek].kleur}">${svg(w.plek==='vrij'?I.vink:I.klok)}</span>
+         <span class="naam">${DAG[dt.getDay()]} ${dt.getDate()} ${MND[dt.getMonth()]}
+           <small>${esc(werkTekst(w))}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
+     :`<div class="paneel"><div class="geen">Nog geen afwijkingen.</div></div>`}`,
+    `<button class="prim" style="margin-top:0" id="wvN">Dag toevoegen</button>`);
+  $('#wvN').onclick=()=>sheetWerkAfwijking(vandaag());
+}
+
 function straksHTML(key){
   const s=STRAKS[key];
   return `<div class="straks"><h2>${s.titel}</h2><p class="intro">${s.intro}</p>
@@ -8228,6 +8500,10 @@ function bind(){
   $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
+  $$('[data-werkweek]').forEach(x=>x.onclick=sheetWerkweek);
+  $$('[data-werkvrij]').forEach(x=>x.onclick=sheetWerkVrij);
+  $$('[data-werkdag]').forEach(x=>x.onclick=()=>sheetWerkAfwijking(x.dataset.werkdag));
+  $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw(vandaag()));
   $$('[data-trace]').forEach(x=>x.onclick=()=>sheetTrace(''));
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw());
   $$('[data-uitlegopen]').forEach(x=>x.onclick=sheetUitleg);
