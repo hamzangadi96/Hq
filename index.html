@@ -1440,7 +1440,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v200 · 13 aug 2026';
+const APPVERSIE='v201 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12583,7 +12583,14 @@ function sheetZoek(){
 
 function sheetMeer(){
   const balk=balkKeuze();
-  const rest=SNELITEMS.filter(x=>!balk.includes(x.key));
+  /* Instellingen zat hier én in het App-blok eronder. Zoeken staat voortaan
+     bovenaan: dat is de reden dat dit menu bestaat. En tabbladen scheiden we
+     van losse schermen — er is altijd minstens één tabblad dat niet in je balk
+     past, dus die lijst moet compleet blijven. */
+  const rest=SNELITEMS.filter(x=>!balk.includes(x.key)
+    && x.key!=='instellingen' && x.key!=='zoeken');
+  const tabs=rest.filter(x=>x.soort==='tab');
+  const losse=rest.filter(x=>x.soort!=='tab');
   /* wat context per onderdeel, zodat je ziet of er iets te doen is */
   const bij=it=>{
     if(it.key==='planning'){const n=(S.planning||[]).length+(S.taken||[]).length;
@@ -12617,14 +12624,20 @@ function sheetMeer(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`:'';
 
   sheet('Alles',
-    `<div class="blokkop" style="margin-top:2px"><span class="eyebrow">Snel bij de hand</span>
+    `<div class="paneel" style="margin-top:2px">
+       <button class="arij" data-meerdoe="zoeken">
+         <span class="ivak">${svg(I.loep)}</span>
+         <span class="naam">Zoeken<small>smaak, batch, lot, klant of grondstof</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
+     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Snel bij de hand</span>
        <button class="aanpasknop" id="meerKies">${svg(I.instel)}Aanpassen</button></div>
      <div class="paneel">${balk.map(snelItem).filter(Boolean).map(it=>
        `<button class="arij" data-meerdoe="${it.key}">
          <span class="ivak">${svg(I[it.icon])}</span>
          <span class="naam">${esc(it.label)}<small>${esc(bij(it))}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
-     ${groep('Verder',rest)}
+     ${groep('Tabbladen',tabs)}
+     ${groep('Snelkoppelingen',losse)}
      <div class="blokkop"><span class="eyebrow">App</span></div>
      <div class="paneel">
        <button class="arij" id="meerApp"><span class="ivak">${svg(I.instel)}</span>
