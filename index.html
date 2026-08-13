@@ -1440,7 +1440,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v197 · 13 aug 2026';
+const APPVERSIE='v198 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6115,7 +6115,7 @@ function voorraadHTML(){
       gereed.length?gereed.length+(gereed.length===1?' partij':' partijen'):'nog geen product')}
     ${tegel('data-waardering',I.euro,'Waarde',w2.bekend?euro(w2.bekend):'—',
       w2.onbekend?w2.onbekend+' zonder prijs':'aan grondstoffen',w2.onbekend?'let':'')}
-    ${tegel('data-bestel',I.vracht,'Bestellen',teBestellenT||'—',
+    ${tegel('data-boodschap',I.vracht,'Bestellen',teBestellenT||'—',
       teBestellenT?'onder de drempel':'niets nodig',teBestellenT?'let':'')}
     ${tegel('data-tht',I.klok,'Houdbaarheid',vlT.length||'—',
       vlOverT?vlOverT+' over datum':(vlT.length?'binnen twee weken':'niets loopt af'),
@@ -6221,18 +6221,10 @@ function voorraadHTML(){
       ${brij('data-telronde',I.vink,'Telronde','')}
       ${brij('data-vmut',I.ververs,'Alle mutaties',(S.mutaties||[]).length||'geen')}
     </div>
-
-    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Bewaken</span></div>
-    <div class="paneel">
-      ${brij('data-tht',I.klok,'Houdbaarheid',
-        vl.length?(vlOver?vlOver+' over datum':vl.length+' binnenkort'):'niets loopt af',!!vlOver)}
-      ${brij('data-boodschap',I.vracht,'Boodschappenlijst',(()=>{
-        const n=(S.boodschappen||[]).length+alles.filter(v=>grondOnder(v)||v.saldo<=0)
-          .filter(v=>!(S.boodschappen||[]).some(x=>gKey(x.product)===gKey(v.product))).length;
-        return n?n+' te halen':'niets nodig'})(),(()=>{
-        const n=(S.boodschappen||[]).length+teBestellen; return !!n})())}
-      ${brij('data-waardering',I.doc,'Voorraadwaardering',w2.bekend?euro(w2.bekend):'geen prijzen')}
-    </div>`;
+`;
+  /* Het blok "Bewaken" stond hier met drie rijen die alle drie al als tegel
+     bovenaan het scherm staan: houdbaarheid, waardering en wat je moet halen.
+     De tegels tonen er ook nog een getal bij, dus die winnen. */
   return h;
 }
 
@@ -7285,50 +7277,9 @@ function sheetBoodschappen(){
   };
 }
 
-function sheetBestellijst(){
-  const laag=grondVoorraad().filter(v=>grondOnder(v)||v.saldo<=0);
-  const per={};
-  laag.forEach(v=>{
-    const lev=leverancierVan(v.product)||'Nog geen leverancier';
-    per[lev]=per[lev]||[];
-    const d=grondDrempel(v.product);
-    per[lev].push({v,tekort:Math.max(d-v.saldo,0)});
-  });
-  const groepen=Object.keys(per).sort();
-  const tekst=groepen.map(g=>g+':\n'+per[g].map(x=>{
-    const ink=inkoopVan(x.v.product);
-    const hoe=x.tekort
-      ? (ink?Math.max(1,Math.ceil(x.tekort/ink.basis))+' × '+inkoopTekst(ink)
-            :'minstens '+toonHoeveel(x.tekort,x.v.basis))
-      : 'aanvullen';
-    return '- '+x.v.product+' — '+hoe+' (nog '+toonHoeveel(x.v.saldo,x.v.basis)+')';
-  }).join('\n')).join('\n\n');
-
-  sheet('Bestellijst',
-    laag.length
-      ? `<p class="hint">Alles wat op of onder zijn drempel zit, gegroepeerd per leverancier
-          waar je het de vorige keer kocht.</p>
-         ${groepen.map(g=>`<div class="blokkop"><span class="eyebrow">${esc(g)}</span>
-           <span class="tel">${per[g].length}</span></div>
-           <div class="paneel">${per[g].map(x=>`<button class="arij" data-gs="${esc(x.v.product)}">
-             <span class="naam">${esc(x.v.product)}<small>nog ${toonHoeveel(x.v.saldo,x.v.basis)}${
-               (()=>{const ink=inkoopVan(x.v.product);
-                 if(!x.tekort) return '';
-                 if(ink){const n=Math.max(1,Math.ceil(x.tekort/ink.basis));
-                   return ' · bestel '+n+' × '+inkoopTekst(ink)}
-                 return ' · aanvullen met minstens '+toonHoeveel(x.tekort,x.v.basis)})()}</small></span>
-             <span class="stip ${x.v.saldo<=0?'rood':'amber'}"></span>
-             <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`).join('')}`
-      : `<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
-          <p>Niets te bestellen.<br>Alles zit boven zijn drempel.</p></div></div>`,
-    laag.length?`<button class="prim" style="margin-top:0" id="blKopie">Lijst kopiëren</button>`:'');
-  if($('#blKopie')) $('#blKopie').onclick=()=>{
-    try{ navigator.clipboard.writeText(tekst); toast('Bestellijst gekopieerd.') }
-    catch(e){ toast('Kopiëren lukte niet.') }
-  };
-}
-
-/* ---------- telronde: de artikelen die je het vaakst gebruikt ---------- */
+/* sheetBestellijst stond hier: alles onder de drempel per leverancier. Dat is
+   precies wat de boodschappenlijst ook doet, en die kan er handmatige items bij
+   en wordt vanaf je dashboard en planning gevoed. Eén lijst is genoeg. */
 function sheetTelronde(){
   const lijst=grondVoorraad().map(v=>{
     const mut=(S.gmut||[]).filter(m=>gKey(m.product)===gKey(v.product));
@@ -8515,7 +8466,6 @@ function bind(){
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
-  $$('[data-bestel]').forEach(x=>x.onclick=sheetBestellijst);
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
   $$('[data-werkweek]').forEach(x=>x.onclick=sheetWerkweek);
