@@ -1442,7 +1442,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v205 · 13 aug 2026';
+const APPVERSIE='v206 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2502,14 +2502,55 @@ let vorigScherm=null;
    Hetzelfde scherm opnieuw tekenen (opslaan, klok) blijft zonder animatie;
    zonder ondersteuning valt hij terug op de schermIn-fade van v144. */
 let vtBezig=false;
+/* Een fout tijdens het tekenen liet een wit scherm achter: geen uitleg, geen
+   knop, en geen manier om je gegevens er nog uit te krijgen. Nu vangen we hem
+   op, laten we zien wat er misging, en kun je altijd nog exporteren. */
 function render(){
+  try{ renderProberen(); }
+  catch(e){ noodScherm(e); }
+}
+
+function noodScherm(e){
+  const w=document.getElementById('scherm');
+  if(!w) return;
+  const tekst=(e&&(e.stack||e.message))||String(e);
+  w.innerHTML=`<div class="blokkop" style="margin-top:20px">
+      <span class="eyebrow">Er ging iets mis</span></div>
+    <div class="paneel" style="padding:18px 20px">
+      <p style="margin:0 0 12px">De app kon dit scherm niet tekenen. Je gegevens
+        staan er nog — haal ze eerst veilig op.</p>
+      <button class="prim" style="margin:0 0 10px" id="nsExport">Gegevens meenemen</button>
+      <button class="sec" style="margin:0 0 10px" id="nsHome">Terug naar het dashboard</button>
+      <button class="sec" style="margin:0" id="nsHerlaad">Opnieuw laden</button>
+    </div>
+    <div class="blokkop" style="margin-top:22px">
+      <span class="eyebrow">Wat er misging</span></div>
+    <div class="paneel" style="padding:14px 16px">
+      <pre id="nsFout" style="margin:0;white-space:pre-wrap;word-break:break-word;
+        font-size:11px;line-height:1.5;color:var(--grijs)">${esc(tekst)}</pre>
+      <button class="sec" style="margin:12px 0 0" id="nsKopie">Foutmelding kopiëren</button>
+    </div>`;
+  const k=(id,fn)=>{const b=document.getElementById(id); if(b) b.onclick=fn};
+  k('nsExport',()=>{try{sheetData()}catch(x){alert('Export lukte niet: '+x.message)}});
+  k('nsHome',()=>{S.tab='dashboard';S.batchId=null;render()});
+  k('nsHerlaad',()=>location.replace(location.pathname+'?v='+Date.now()));
+  k('nsKopie',()=>{
+    try{navigator.clipboard.writeText(tekst);toast('Gekopieerd.')}
+    catch(x){toast('Kopiëren lukte niet.')}
+  });
+  console.error('renderfout:',e);
+}
+
+function renderProberen(){
   const inB=S.tab==='productie'&&S.batchId&&batch();
   const kenmerk=S.tab+(inB?':'+S.batchId:'');
   const wissel=vorigScherm!==null&&kenmerk!==vorigScherm;
   if(wissel&&document.startViewTransition&&!document.hidden&&!vtBezig
      &&!matchMedia('(prefers-reduced-motion: reduce)').matches){
     vtBezig=true;
-    try{document.startViewTransition(()=>renderNu()).finished.finally(()=>{vtBezig=false});}
+    try{document.startViewTransition(()=>{
+      try{renderNu()}catch(e2){noodScherm(e2)}
+    }).finished.finally(()=>{vtBezig=false});}
     catch(e){vtBezig=false;renderNu();}
   } else renderNu();
 }
