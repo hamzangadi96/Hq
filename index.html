@@ -1442,7 +1442,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v208 · 13 aug 2026';
+const APPVERSIE='v209 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5516,6 +5516,9 @@ function locatieFout(e){
     +'Locatievoorzieningen \u2192 Safari-websites \u2192 Bij gebruik van app.';
   if(c===2) return 'Je telefoon kan je locatie nu niet bepalen. Zet wifi aan of probeer het buiten.';
   if(c===3) return 'Het zoeken duurde te lang. Ga naar buiten en probeer opnieuw.';
+  if(c===4) return 'Je telefoon geeft geen antwoord op de locatievraag. Dat gebeurt als de '
+    +'toestemming op "Wanneer ik deel" staat. Zet de app opnieuw op je beginscherm, '
+    +'dan vraagt hij het je nog een keer.';
   return 'Locatie niet gevonden'+(e&&e.message?' \u2014 '+e.message:'')+'.';
 }
 async function ritStop(){
@@ -11939,7 +11942,7 @@ function positieNu(opt){
   const maxMs=opt.ms||14000, doel=opt.doel||5, minAantal=opt.min||5;
   return new Promise((res,rej)=>{
     if(!navigator.geolocation) return rej(new Error('geen locatie'));
-    let punten=[], id=null, klaar=false, tijd=null;
+    let punten=[], id=null, klaar=false, tijd=null, dood=null;
     const middel=()=>{
       if(!punten.length) return null;
       const beste=Math.min.apply(null,punten.map(p=>p.nauw));
@@ -11954,6 +11957,7 @@ function positieNu(opt){
       if(klaar) return; klaar=true;
       if(id!==null) navigator.geolocation.clearWatch(id);
       if(tijd) clearInterval(tijd);
+      if(dood) clearTimeout(dood);
       const g=middel();
       g?res(g):rej(fout||new Error('geen fix'));
     };
@@ -11969,6 +11973,7 @@ function positieNu(opt){
         klaar=true;
         if(id!==null) navigator.geolocation.clearWatch(id);
         if(tijd) clearInterval(tijd);
+        if(dood) clearTimeout(dood);
         res({lat:p.coords.latitude,lon:p.coords.longitude,
              nauw:Math.max(1,Math.round(p.coords.accuracy)),metingen:1,
              ruw:p.coords.accuracy,grof:true});
@@ -11983,6 +11988,19 @@ function positieNu(opt){
     },e=>{ if(!punten.length){ if(e&&e.code===1) stop(e); else grofProberen(e) } },
       {enableHighAccuracy:true,maximumAge:0,timeout:maxMs});
     setTimeout(()=>{ if(punten.length) stop(); else grofProberen(null) },maxMs);
+    /* Zonder deze deadline kon de belofte eeuwig open blijven staan: iOS
+       antwoordt soms helemaal niet op een locatievraag, niet met een positie
+       en niet met een fout. Je zag dan "Locatie zoeken..." en daarna niets. */
+    dood=setTimeout(()=>{
+      if(klaar) return; klaar=true;
+      if(id!==null) navigator.geolocation.clearWatch(id);
+      if(tijd) clearInterval(tijd);
+      const g=middel();
+      if(g) return res(g);
+      const e=new Error('geen antwoord van je telefoon');
+      e.code=4;
+      rej(e);
+    },maxMs+12000);
   });
 }
 
