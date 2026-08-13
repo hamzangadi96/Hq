@@ -1440,7 +1440,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v198 · 13 aug 2026';
+const APPVERSIE='v199 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3718,7 +3718,7 @@ function sheetBonnen(){
            De Belastingdienst wil ze zeven jaar kunnen inzien.</span></div>`:''})()}
      ${lijst.length?`<div class="paneel">${lijst.map(b=>`
        <button class="arij" data-bon="${b.id}"><span class="naam">${esc(b.wie)}
-         <small>${kort(new Date(b.datum))} · ${b.soort.toLowerCase()}${b.wat?' · '+esc(b.wat):''}${
+         <small>${kort(new Date(b.datum))} · ${(b.soort||'bon').toLowerCase()}${b.wat?' · '+esc(b.wat):''}${
            b.foto?' · met foto':''}</small></span>
          <span class="waarde gevuld">${euro(b.bedrag)}</span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
@@ -5270,7 +5270,8 @@ function geldHTML(){
     <button class="knop2" data-ritbestem style="margin-top:8px">Rit starten met bestemming</button>`;
 
   if(lijst.length){
-    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Laatste ritten</span></div>
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Laatste ritten</span>
+      <button class="aanpasknop" data-kmexport>${svg(I.doc)}Printen</button></div>
       <div class="paneel">${lijst.slice(0,8).map(x=>{
         const m=ritMankeert(x);
         return `<button class="arij" data-rit="${x.id}">
@@ -5298,14 +5299,17 @@ function geldHTML(){
   };
 
   const zonderPrijs=(S.recepten||[]).filter(x=>verkoopPrijs(x.id)===null).length;
+  /* Hier stond een </div> te veel, waardoor de rij Bonnen buiten de witte kaart
+     viel. Beide rijen horen in hetzelfde paneel. */
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Kosten</span></div>
     <div class="paneel">
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
-        return rij('data-kostenbasis',I.doos,'Kostenbasis',
-          m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
-           : 'vaste lasten, derving en prijsbeleid', !m||vb.per===null)})()}
-    </div>
-
+        /* Wat je invult staat achter het tandwiel; wat eruit rolt zie je hier. */
+        return `<div class="beheerrij" style="cursor:default">${svg(I.doos)}
+          <span class="l">Kostenbasis</span>
+          <span class="w ${!m||vb.per===null?'let':''}">${
+            m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
+             : 'nog niet ingevuld'}</span></div>`})()}
       ${rij('data-bonnen',I.doos,'Bonnen',(()=>{
         const n=(S.bonnen||[]).length;
         const z=(S.bonnen||[]).filter(x=>!x.foto).length;
@@ -5321,17 +5325,58 @@ function geldHTML(){
         return j.totaalSec?komma(urenGetal(j.totaalSec))+' uur dit jaar':'nog niets';
       })())}
     </div>
-
-    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Auto</span></div>
-    <div class="paneel">
-      ${rij('data-kmtarief',I.spark,'Kilometervergoeding',komma(kmTarief())+' per km')}
-      ${rij('data-autosoort',I.auto,'Soort auto',S.autoSoort==='zaak'?'van de zaak':'privé')}
-      ${rij('data-plekken',I.huis,'Vaste plekken',(S.plekken||[]).length||'geen')}
-      ${lijst.length?rij('data-kmexport',I.doc,'Rittenoverzicht printen',''):''}
-    </div>`;
+`;
+  /* Het blok "Auto" stond hier met kilometervergoeding, soort auto en vaste
+     plekken: waardes die je één keer bepaalt, dus die horen achter het tandwiel.
+     Rittenoverzicht printen is wel een actie en staat nu bij Kilometers. */
   return h;
 }
 
+
+/* Stonden als losse code in de knopbindingen, waardoor je ze alleen kon
+   openen vanaf het scherm Financiën. Nu zijn het gewone functies en kun
+   je ze ook vanuit het tandwiel bereiken. */
+function sheetAutoSoort(){
+  sheet('Soort auto',
+    `<p class="hint">Dit bepaalt wat je moet aantonen. Kies wat op jou van toepassing is.</p>
+     <div class="veld"><div class="duo" id="asK">
+       <button class="${S.autoSoort==='zaak'?'':'aan'}" data-v="prive">Privéauto</button>
+       <button class="${S.autoSoort==='zaak'?'aan':''}" data-v="zaak">Van de zaak</button></div></div>
+     <div class="geen" id="asU"></div>`,
+    `<button class="prim" style="margin-top:0" id="asOk">Opslaan</button>`);
+  let soort=S.autoSoort==='zaak'?'zaak':'prive';
+  const uitleg=()=>{ $('#asU').innerHTML = soort==='zaak'
+    ? 'Je moet aantonen dat je minder dan 500 km per jaar privé rijdt, anders volgt bijtelling.'
+      +' Daarvoor moet je <b>elke</b> rit vastleggen, ook privé, en moeten de kilometerstanden'
+      +' op elkaar aansluiten. De app controleert dat voor je.'
+    : 'Je trekt ' + komma(kmTarief()) + ' per zakelijke kilometer van je winst af.'
+      +' Je hoeft alleen je <b>zakelijke</b> ritten vast te leggen, met vertrekadres,'
+      +' aankomstadres en de afstand. Kilometerstanden hoeven niet, en privéritten'
+      +' laat je gewoon weg — daarom vraagt de app er ook niet naar.'; };
+  $$('#asK button').forEach(b=>b.onclick=()=>{
+    $$('#asK button').forEach(y=>y.classList.remove('aan')); b.classList.add('aan');
+    soort=b.dataset.v; uitleg();
+  });
+  uitleg();
+  $('#asOk').onclick=()=>{S.autoSoort=soort;bewaarNu();render();klaarSheet('Opgeslagen.')};
+}
+
+function sheetKmTarief(){
+  sheet('Kilometervergoeding',
+    `<p class="hint">Het bedrag dat je per zakelijke kilometer van je winst mag aftrekken.
+      Per 2026 verhoogd naar € 0,25, met terugwerkende kracht vanaf 1 januari.
+      Wijzigt het bedrag, pas het hier aan.</p>
+     <div class="veld"><label>Per kilometer</label>
+       <div class="pveld" style="width:100%"><span>€</span>
+         <input class="inp" id="ktV" type="number" inputmode="decimal" step="0.01"
+           value="${kmTarief().toFixed(2)}" style="flex:1;text-align:left"></div></div>`,
+    `<button class="prim" style="margin-top:0" id="ktOk">Opslaan</button>`);
+  $('#ktOk').onclick=()=>{
+    const v=parseFloat($('#ktV').value.replace(',','.'));
+    if(isNaN(v)||v<=0) return toast('Vul een bedrag in.');
+    S.kmTarief=v; bewaarNu(); render(); klaarSheet('Vergoeding op '+komma(v)+' per km gezet.');
+  };
+}
 
 async function ritStart(doel){
   if(S.rit) return;
@@ -8423,46 +8468,8 @@ function bind(){
   $$('[data-kmexport]').forEach(x=>x.onclick=sheetRitten);
   $$('[data-plekken]').forEach(x=>x.onclick=sheetPlekken);
   $$('[data-bonnen]').forEach(x=>x.onclick=sheetBonnen);
-  $$('[data-autosoort]').forEach(x=>x.onclick=()=>{
-    sheet('Soort auto',
-      `<p class="hint">Dit bepaalt wat je moet aantonen. Kies wat op jou van toepassing is.</p>
-       <div class="veld"><div class="duo" id="asK">
-         <button class="${S.autoSoort==='zaak'?'':'aan'}" data-v="prive">Privéauto</button>
-         <button class="${S.autoSoort==='zaak'?'aan':''}" data-v="zaak">Van de zaak</button></div></div>
-       <div class="geen" id="asU"></div>`,
-      `<button class="prim" style="margin-top:0" id="asOk">Opslaan</button>`);
-    let soort=S.autoSoort==='zaak'?'zaak':'prive';
-    const uitleg=()=>{ $('#asU').innerHTML = soort==='zaak'
-      ? 'Je moet aantonen dat je minder dan 500 km per jaar privé rijdt, anders volgt bijtelling.'
-        +' Daarvoor moet je <b>elke</b> rit vastleggen, ook privé, en moeten de kilometerstanden'
-        +' op elkaar aansluiten. De app controleert dat voor je.'
-      : 'Je trekt ' + komma(kmTarief()) + ' per zakelijke kilometer van je winst af.'
-        +' Je hoeft alleen je <b>zakelijke</b> ritten vast te leggen, met vertrekadres,'
-        +' aankomstadres en de afstand. Kilometerstanden hoeven niet, en privéritten'
-        +' laat je gewoon weg — daarom vraagt de app er ook niet naar.'; };
-    $$('#asK button').forEach(b=>b.onclick=()=>{
-      $$('#asK button').forEach(y=>y.classList.remove('aan')); b.classList.add('aan');
-      soort=b.dataset.v; uitleg();
-    });
-    uitleg();
-    $('#asOk').onclick=()=>{S.autoSoort=soort;bewaarNu();render();klaarSheet('Opgeslagen.')};
-  });
-  $$('[data-kmtarief]').forEach(x=>x.onclick=()=>{
-    sheet('Kilometervergoeding',
-      `<p class="hint">Het bedrag dat je per zakelijke kilometer van je winst mag aftrekken.
-        Per 2026 verhoogd naar € 0,25, met terugwerkende kracht vanaf 1 januari.
-        Wijzigt het bedrag, pas het hier aan.</p>
-       <div class="veld"><label>Per kilometer</label>
-         <div class="pveld" style="width:100%"><span>€</span>
-           <input class="inp" id="ktV" type="number" inputmode="decimal" step="0.01"
-             value="${kmTarief().toFixed(2)}" style="flex:1;text-align:left"></div></div>`,
-      `<button class="prim" style="margin-top:0" id="ktOk">Opslaan</button>`);
-    $('#ktOk').onclick=()=>{
-      const v=parseFloat($('#ktV').value.replace(',','.'));
-      if(isNaN(v)||v<=0) return toast('Vul een bedrag in.');
-      S.kmTarief=v; bewaarNu(); render(); klaarSheet('Vergoeding op '+komma(v)+' per km gezet.');
-    };
-  });
+  $$('[data-autosoort]').forEach(x=>x.onclick=sheetAutoSoort);
+  $$('[data-kmtarief]').forEach(x=>x.onclick=sheetKmTarief);
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
@@ -12768,6 +12775,16 @@ function sheetInstellingen(){
      <div class="mkop">Prijzen</div>
      <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
+     <button class="menurij" data-ins="kostenbasis">${svg(I.doos)}Kostenbasis<span class="tel">${
+       vasteLastenPerMaand()?euro(vasteLastenPerMaand())+' per maand':'niet ingevuld'}</span></button>
+
+     <div class="mkop">Auto</div>
+     <button class="menurij" data-ins="kmtarief">${svg(I.spark)}Kilometervergoeding<span class="tel">${
+       komma(kmTarief())} per km</span></button>
+     <button class="menurij" data-ins="autosoort">${svg(I.auto)}Soort auto<span class="tel">${
+       S.autoSoort==='zaak'?'van de zaak':'privé'}</span></button>
+     <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
+       (S.plekken||[]).length||'geen'}</span></button>
 
      <div class="mkop">Productie</div>
      <button class="menurij" data-ins="mal">${svg(I.vorm)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
@@ -12832,6 +12849,10 @@ function sheetInstellingen(){
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
     if(k==='uitleg') return sheetUitleg();
+    if(k==='kostenbasis') return sheetKostenbasis();
+    if(k==='plekken') return sheetPlekken();
+    if(k==='kmtarief') return sheetKmTarief();
+    if(k==='autosoort') return sheetAutoSoort();
     if(k==='bedrijf') return sheetBedrijf();
     if(k==='uurtarief') return sheetUurtarief();
     if(k==='levertijd') return sheetLevertijden();
