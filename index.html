@@ -486,6 +486,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .s-overig{background:#5b7c6b}
 .s-leveren{background:var(--grijs3)}
 .s-baan{background:#8b8b96}
+.s-haccp{background:#0e7490}
 .wdag.nu .s-productie{background:#fff}
 .wdag.nu .s-boodschappen{background:#fbbf24}
 .wdag.nu .s-voorbereiden{background:#a8bcd4}
@@ -495,6 +496,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .wdag.nu .s-overig{background:#86b39a}
 .wdag.nu .s-leveren{background:#71717a}
 .wdag.nu .s-baan{background:#c9c9d1}
+.wdag.nu .s-haccp{background:#67e8f9}
 
 /* ── instructie met de stap waaraan hij hangt ── */
 .insblok{padding:14px 0;border-bottom:1px solid var(--lijn)}
@@ -1442,7 +1444,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v209 · 13 aug 2026';
+const APPVERSIE='v210 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2722,7 +2724,8 @@ function weekstripHTML(dagenVooruit){
     const d=datumPlus(vandaag(),i), dt=new Date(d);
     const taken=perDag[d]||[];
     /* per soort één balkje, in vaste volgorde */
-    const volgorde=['baan','boodschappen','voorbereiden','half','productie','verzenden','live','overig','leveren'];
+    const volgorde=['baan','boodschappen','voorbereiden','half','productie','verzenden',
+      'live','haccp','overig','leveren'];
     const soorten2=volgorde.filter(k=>taken.some(t=>t.soort===k));
     const titel=soorten2.map(k=>k==='leveren'?'leveren':k==='baan'?'je baan'
       :(DAGSOORT[k]||{}).n).join(' · ');
@@ -2741,6 +2744,7 @@ function weekstripHTML(dagenVooruit){
   uit+='</div>';
   uit+=`<div class="wlegenda" id="wLeg">
     <span><i class="s-baan"></i>je baan</span>
+    <span><i class="s-haccp"></i>voedselveiligheid</span>
     ${Object.keys(DAGSOORT).map(k=>`<span><i class="s-${k}"></i>${DAGSOORT[k].n.toLowerCase()}</span>`).join('')}
     <span><i class="s-leveren"></i>leveren</span></div>`;
   return uit;
@@ -2944,14 +2948,15 @@ function dashboardHTML(){
         DAGSOORT[eerste.soort].n}${eerste.tijd?' · '+esc(eerste.tijd):''}</div>
       <h2 style="margin-top:6px">${esc(eerste.tekst)}</h2>
       <div class="sub">${taken.length>1?taken.length+' klussen vandaag'
-        :(eerste.plan?'voor de batch van '+kort(new Date(eerste.plan.datum)):'vandaag op de rol')}</div>
+        :(eerste.plan&&eerste.plan.datum?'voor de batch van '+kort(new Date(eerste.plan.datum))
+          :'vandaag op de rol')}</div>
       <button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button></div>
       <div class="blokkop"><span class="eyebrow">Vandaag</span><span class="tel">${taken.length}</span></div>
       <div class="paneel">${taken.map(x=>`<div class="arij" style="cursor:default">
         <span class="ivak" style="background:${DAGSOORT[x.soort].kleur}22;color:${DAGSOORT[x.soort].kleur}">
           ${svg(I[DAGSOORT[x.soort].ico])}</span>
         <span class="naam">${esc(x.tekst)}<small>${DAGSOORT[x.soort].n.toLowerCase()}${
-          x.tijd?' · '+esc(x.tijd):''}${x.plan?' · batch van '+kort(new Date(x.plan.datum)):''}</small></span>
+          x.tijd?' · '+esc(x.tijd):''}${x.plan&&x.plan.datum?' · batch van '+kort(new Date(x.plan.datum)):''}</small></span>
         </div>`).join('')}</div>`;
   }
 
@@ -6715,7 +6720,8 @@ const DAGSOORT={
   productie:{n:'Productiedag',kleur:'var(--ink)',ico:'vorm'},
   live:{n:'Live',kleur:'#c0392b',ico:'spark'},
   overig:{n:'Overig',kleur:'#5b7c6b',ico:'klembord'},
-  verzenden:{n:'Verzenden',kleur:'#6b5b95',ico:'vracht'}
+  verzenden:{n:'Verzenden',kleur:'#6b5b95',ico:'vracht'},
+  haccp:{n:'Voedselveiligheid',kleur:'#0e7490',ico:'klembord'}
 };
 /* losse taken staan los van een batch: een live, een afspraak, een klus */
 const TAAKSOORTEN=[
@@ -6823,7 +6829,40 @@ function planTaken(p){
     tekst:p.regels.map(r=>smaakNaam(r.receptId)).join(', '),plan:p});
   return uit;
 }
-const allePlanTaken=()=>planLijst().flatMap(planTaken)
+/* ===== terugkerende controles =====
+   De adviezen stonden al in de app, maar alleen als waarschuwing achteraf op je
+   dashboard. Nu krijgen ze een datum en lopen ze mee in je planning, agenda en
+   weekstrook — zodat je ze ziet aankomen in plaats van te laat. */
+const HERHAALCHECKS=[
+  {k:'ongedierte',n:'Ongediertecontrole', dagen:90,  doe:'controles'},
+  {k:'recall',    n:'Terugroepoefening',  dagen:365, doe:'controles'},
+  {k:'ijking',    n:'Thermometer ijken',  dagen:180, doe:'ijking'}
+];
+
+/* laatste keer dat deze check is gedaan, of null */
+function checkLaatst(k){
+  if(k==='ijking'){ const i=laatsteIjking(); return i?i.datum:null }
+  const c=laatsteControle(k); return c?c.datum:null;
+}
+
+/* de eerstvolgende keer dat elke controle aan de beurt is */
+function haccpTaken(){
+  const uit=[];
+  HERHAALCHECKS.forEach(h=>{
+    const l=checkLaatst(h.k);
+    /* nooit gedaan? dan staat hij vandaag op de rol */
+    const datum=l?datumPlus(l,h.dagen):vandaag();
+    const n=dagenTussen(vandaag(),datum);
+    /* een jaarcontrole hoeft niet elf maanden vooruit in beeld te staan */
+    if(n>Math.min(60,Math.round(h.dagen/3))) return;
+    uit.push({datum:n<0?vandaag():datum, soort:'haccp', check:h,
+      tekst:h.n+(l?'':' — nog nooit gedaan'),
+      tijd:'', over:n});
+  });
+  return uit;
+}
+
+const allePlanTaken=()=>haccpTaken().concat(planLijst().flatMap(planTaken))
   .concat((S.taken||[]).map(t=>({datum:t.datum,soort:t.soort,tekst:t.tekst,los:t,tijd:t.tijd||''})))
   .concat(verzendTaken().map(v=>({datum:v.datum,soort:'verzenden',
     tekst:v.naam,verzend:v,tijd:''})));
@@ -7233,7 +7272,10 @@ function sheetPlanning(){
            <span class="naam">${esc(t.tekst)}<small>${
              t.verzend ? 'verzenden · '+esc(t.verzend.nummer||'')+(t.verzend.shop?' · uit je webshop':'')
              : t.los ? DAGSOORT[t.soort].n.toLowerCase()+(t.tijd?' · '+esc(t.tijd):'')
-             : 'voor de batch van '+kort(new Date(t.plan.datum))}</small></span>`;
+             : t.check ? 'elke '+(t.check.dagen===365?'12 maanden'
+                 :t.check.dagen===180?'6 maanden':'3 maanden')
+             : t.plan ? 'voor de batch van '+kort(new Date(t.plan.datum))
+             : DAGSOORT[t.soort].n.toLowerCase()}</small></span>`;
            if(bijPlan) return `<button class="arij" data-plandetail="${rij}">${binnen}
              <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
            if(plKies && t.plan && !t.los && !t.verzend)
@@ -8292,6 +8334,15 @@ function agendaHTML(){
   };
 
   const soortRij=t=>{
+    if(t.soort==='haccp'){
+      const so=DAGSOORT.haccp;
+      return `<button class="arij" data-haccpdoe="${t.check.doe}">
+        <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I.klembord)}</span>
+        <span class="naam">${esc(t.tekst)}<small>${
+          t.over<0?'te laat':t.over===0?'vandaag':t.over===1?'morgen':'over '+t.over+' dagen'
+        } · elke ${t.check.dagen===365?'12 maanden':t.check.dagen===180?'6 maanden':'3 maanden'}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+    }
     if(t.soort==='leveren') return `<button class="arij" data-order="${t.order.id}">
       <span class="ivak">${svg(I.vracht)}</span>
       <span class="naam">Leveren<small>${esc(t.tekst)}</small></span>
@@ -8620,6 +8671,8 @@ function bind(){
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
   $$('[data-werkweek]').forEach(x=>x.onclick=sheetWerkweek);
+  $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>
+    x.dataset.haccpdoe==='ijking'?sheetIjking():sheetControles());
   $$('[data-werkvrij]').forEach(x=>x.onclick=sheetWerkVrij);
   $$('[data-werkdag]').forEach(x=>x.onclick=()=>sheetWerkAfwijking(x.dataset.werkdag));
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw(vandaag()));
