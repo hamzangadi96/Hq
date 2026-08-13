@@ -1444,7 +1444,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v214 · 13 aug 2026';
+const APPVERSIE='v215 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3661,6 +3661,17 @@ function sheetBon(id){
     `<button class="prim" style="margin-top:0" id="bnOk">${bestaand?'Opslaan':'Vastleggen'}</button>
      ${bestaand?`<button class="sec" id="bnWis" style="color:var(--rood)">Bon verwijderen</button>`:''}`);
   let soort=b.soort;
+  /* kwam je terug nadat iOS de app had weggedrukt? dan vullen we terug */
+  try{
+    const bez=JSON.parse(localStorage.getItem('hq-bon-bezig')||'null');
+    if(bez&&Date.now()-bez.t<30*60000&&(bez.id||null)===(id||null)){
+      const zet=(sel,w)=>{const e=$(sel); if(e&&w) e.value=w};
+      zet('#bnW',bez.wie); zet('#bnT',bez.wat); zet('#bnB',bez.bedrag);
+      zet('#bnV',bez.btw); zet('#bnD',bez.datum);
+      if(bez.soort){ soort=bez.soort;
+        $$('[data-bs]').forEach(y=>y.classList.toggle('aan',y.dataset.bs===bez.soort)) }
+    }
+  }catch(e){}
   $$('[data-bs]').forEach(x=>x.onclick=()=>{
     $$('[data-bs]').forEach(y=>y.classList.remove('aan')); x.classList.add('aan'); soort=x.dataset.bs;
   });
@@ -3717,13 +3728,28 @@ function sheetBon(id){
     if(d.soort){ zetSoort(d.soort); n++ }
     return n;
   };
+  /* iOS gooit een web-app op het beginscherm regelmatig uit het geheugen zodra
+     de camera opengaat. Bij terugkomst start de app opnieuw en was alles wat je
+     had ingevuld weg. Daarom leggen we het formulier vast vóór de camera opent;
+     bij het opstarten pakken we het weer op. */
+  const bonBewaren=()=>{
+    try{
+      localStorage.setItem('hq-bon-bezig',JSON.stringify({
+        t:Date.now(), id:id||null,
+        wie:($('#bnW')||{}).value||'', wat:($('#bnT')||{}).value||'',
+        bedrag:($('#bnB')||{}).value||'', btw:($('#bnV')||{}).value||'',
+        datum:($('#bnD')||{}).value||'', soort:soort
+      }));
+    }catch(e){}
+  };
   if($('#bnScan')) $('#bnScan').onclick=()=>{
     if(!fbUser) return toast('Log eerst in via het tandwiel rechtsboven; het scannen loopt via je eigen server.');
-    scanModus=true; $('#bnBestand').click();
+    scanModus=true; bonBewaren(); $('#bnBestand').click();
   };
-  $('#bnCam').onclick=()=>{ scanModus=false; $('#bnBestand').click() };
+  $('#bnCam').onclick=()=>{ scanModus=false; bonBewaren(); $('#bnBestand').click() };
   $('#bnBestand').onchange=e=>{
-    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    const f=e.target.files&&e.target.files[0];
+    if(!f){ try{localStorage.removeItem('hq-bon-bezig')}catch(x){} return }
     const scannen=scanModus; scanModus=false;
     e.target.value='';
     /* eerst rechttrekken; de uitkomst zetten we klaar vóór we terugkeren */
@@ -3770,6 +3796,7 @@ function sheetBon(id){
     S.bonnen=S.bonnen||[];
     const klaar=()=>{
       if(bestaand) Object.assign(bestaand,nieuw); else S.bonnen.push(nieuw);
+      try{localStorage.removeItem('hq-bon-bezig')}catch(x){}
       bewaarNu(); render(); klaarSheet('Bon vastgelegd.');
     };
     if(nieuweFoto){
@@ -13775,6 +13802,17 @@ let startKlaar=false;
   catch(e){ console.error('laden:',e); noodScherm(e); startKlaar=true; return; }
   startKlaar=true;
   render();
+  /* Werd de app weggedrukt terwijl je een bon invulde? Dan pak je hem hier op. */
+  try{
+    const bez=JSON.parse(localStorage.getItem('hq-bon-bezig')||'null');
+    if(bez&&Date.now()-bez.t<30*60000){
+      setTimeout(()=>{
+        if(sheetOpen) return;
+        sheetBon(bez.id||undefined);
+        toast('Je bon stond nog open — ingevuld wat je al had.');
+      },500);
+    }
+  }catch(e){}
   try{ badgeBij(); }catch(e){ console.error('badgeBij:',e) }
   /* liep de klok nog toen je de app wegklikte? even navragen */
   setTimeout(()=>{ try{ if(klusVergeten()&&!sheetOpen) sheetKlusCorrectie() }
