@@ -6,11 +6,10 @@
 <title>Cacaoboetiek HQ</title>
 <meta name="theme-color" content="#18181b">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- "default" liet iOS de onderste 34 pixels (de zone van het home-streepje)
-     buiten de app: op een scherm van 852 kreeg de app er 818, met een strook
-     onderin. "black-translucent" geeft het volle scherm; de tabbalk en de
-     sheetvoet houden al rekening met env(safe-area-inset-bottom). -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Getest met "black-translucent": iOS geeft de onderste 34 pixels (de zone
+     van het home-streepje) sowieso niet vrij aan een web-app op het beginscherm,
+     ook niet na opnieuw toevoegen. Dus terug naar de beproefde waarde. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Cacaoboetiek">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -643,9 +642,21 @@ nav#tabbar{view-transition-name:tabbalk}
 
 .overlay{position:absolute;inset:0;background:rgba(24,24,27,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
 .overlay.open{opacity:1;pointer-events:auto}
-.sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:#fff;border-radius:18px 26px 0 0;
+/* iOS geeft een web-app op het beginscherm de zone van het home-streepje niet.
+   Onder de app blijft dus een strook van env(safe-area-inset-bottom) over, die
+   iOS vult met de achtergrondkleur uit het manifest — dezelfde --bg. Op elk
+   tabblad valt dat weg, maar onder een witte sheet zag je een naad. Door de
+   sheet precies die hoogte eerder te laten stoppen loopt --bg door tot de rand. */
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:#fff;
+  border-radius:18px 26px 0 0;
   max-height:92dvh;display:flex;flex-direction:column;transform:translateY(101%);
   transition:transform .32s cubic-bezier(.32,.72,0,1)}
+/* iOS geeft een web-app op het beginscherm de zone van het home-streepje niet.
+   Daaronder blijft een strook in --bg staan. Op een tabblad valt die weg, maar
+   een witte sheet eindigde er met een zichtbare naad. Dit voetje in dezelfde
+   kleur laat de sheet erin overlopen in plaats van erop te botsen. */
+.sheet::after{content:"";display:block;flex:none;background:var(--bg);
+  height:calc(env(safe-area-inset-bottom,0px) + 2px)}
 .sheet.open{transform:translateY(0)}
 .grip{width:36px;height:4px;border-radius:99px;background:#e4e4e7;margin:12px auto 0;flex:none}
 .sheetkop{display:flex;align-items:center;gap:12px;padding:16px 20px 8px;flex:none}
@@ -653,8 +664,9 @@ nav#tabbar{view-transition-name:tabbalk}
 .sheetkop .wstap{font-size:12.5px;font-weight:600;color:var(--grijs2);flex:none}
 .sluit{width:30px;height:30px;border-radius:99px;background:var(--bg);display:grid;place-items:center;color:var(--grijs);flex:none}
 .sluit svg{width:15px;height:15px}
-.sheetbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 20px 12px}
-.sheetvoet{flex:none;padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
+.sheetbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 20px 16px}
+/* het voetje van de sheet vangt de veilige zone al op, dus hier niet nog eens */
+.sheetvoet{flex:none;padding:12px 20px 16px;border-top:1px solid var(--lijn)}
 .sheetvoet:empty{display:none}
 .sec{width:100%;height:48px;border-radius:14px;background:var(--bg);font-size:15px;font-weight:600;
   margin-top:8px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -1430,7 +1442,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v195 · 13 aug 2026';
+const APPVERSIE='v196 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12841,8 +12853,7 @@ function sheetInstellingen(){
 
      <div class="mkop" style="opacity:0">&nbsp;</div>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
-       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>
-     <div class="menurij" id="mMaat" style="color:var(--grijs2);cursor:default"></div>`,'');
+       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
 
   /* Deze zaten in een tussenscherm dat "Menu" heette terwijl je op een tandwiel
      drukte. Nu staan ze hier, en opent het tandwiel meteen dit scherm. */
@@ -12867,41 +12878,6 @@ function sheetInstellingen(){
     location.replace(location.pathname+'?v='+Date.now());
   };
 
-  /* Tijdelijk: de echte maten van dit toestel, zodat we niet hoeven te gokken
-     waar die lege strook onderin vandaan komt. Gaat er weer uit. */
-  if($('#mMaat')) setTimeout(()=>{
-    const el=$('#mMaat'); if(!el) return;
-    const app=document.querySelector('.app');
-    const r=app?app.getBoundingClientRect():{height:0,bottom:0,top:0};
-    const vv=window.visualViewport;
-    const st=getComputedStyle(document.documentElement);
-    const proef=document.createElement('div');
-    proef.style.cssText='position:fixed;top:0;left:0;height:100dvh;width:1px;'+
-      'visibility:hidden;pointer-events:none';
-    document.body.appendChild(proef);
-    const dvh=Math.round(proef.getBoundingClientRect().height);
-    proef.remove();
-    const bodyH=Math.round(document.body.getBoundingClientRect().height);
-    /* env() kun je niet direct uitlezen; via een hulpelement wel */
-    const hulp=document.createElement('div');
-    hulp.style.cssText='position:fixed;bottom:0;left:0;width:1px;visibility:hidden;'+
-      'pointer-events:none;height:env(safe-area-inset-bottom,0px)';
-    document.body.appendChild(hulp);
-    const onderVeilig=Math.round(hulp.getBoundingClientRect().height);
-    hulp.remove();
-    const sh=document.querySelector('#sheet');
-    const rs=sh?sh.getBoundingClientRect():{top:0,bottom:0};
-    el.innerHTML='<span class="tel" style="max-width:none;text-align:right;font-size:11px;'+
-      'line-height:1.5">toestel '+screen.height+
-      ' \u00b7 venster '+window.innerHeight+
-      ' \u00b7 body '+bodyH+
-      '<br>dvh '+dvh+' \u00b7 app '+Math.round(r.height)+
-      ' \u00b7 onder '+Math.round(window.innerHeight-r.bottom)+
-      '<br>sheet '+Math.round(rs.top)+'\u2013'+Math.round(rs.bottom)+
-      ' \u00b7 vv '+(vv?Math.round(vv.height):'?')+
-      '<br>veilig boven '+(st.getPropertyValue('--veiligBoven').trim()||'0px')+
-      ' \u00b7 onder '+onderVeilig+'px</span>';
-  },80);
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
   });
