@@ -1442,7 +1442,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v207 · 13 aug 2026';
+const APPVERSIE='v208 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1997,7 +1997,7 @@ function firebaseStart(){
         /* alleen overnemen als de server nieuwer is dan wat hier staat */
         if((d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
-          migreerOrders();
+          migreerOrders(); migreerBatches();
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -2163,13 +2163,28 @@ const dagNummer=b=>{const i=dagenVan(b).findIndex(x=>x.datum===vandaag());return
 /* THT telt vanaf de dag dat de bonbons klaar zijn */
 const thtVan=(b,r)=>plusDagen(b&&b.eindDatum?new Date(b.eindDatum):new Date(),r.tht);
 /* oude batches met één openingscheck omzetten */
+/* Een batch zonder logboek liet het dashboard crashen: 26 plekken in de app
+   gaan ervan uit dat b.logs bestaat. In plaats van al die plekken los af te
+   vangen vullen we hier één keer aan wat er hoort te staan. */
 function migreerBatches(){
+  S.batches=S.batches||[];
   S.batches.forEach(b=>{
-    if(!b.dagen){
+    if(!Array.isArray(b.logs)) b.logs=[];
+    if(!Array.isArray(b.regels)) b.regels=[];
+    if(!b.lots||typeof b.lots!=='object') b.lots={};
+    if(!b.gedaan||typeof b.gedaan!=='object') b.gedaan={};
+    if(!b.afvink||typeof b.afvink!=='object') b.afvink={};
+    if(!Array.isArray(b.dagen)){
       b.dagen=b.opening?[{datum:b.startDatum||vandaag(),gestart:b.gestart,opening:b.opening}]:[];
     }
     if(!b.startDatum) b.startDatum=vandaag();
-    b.logs.forEach(l=>{if(!l.datum)l.datum=b.startDatum});
+    if(!b.status) b.status='bezig';
+    /* het resultaat is soms een oud object in plaats van een lijst per smaak */
+    if(b.resultaat&&b.resultaat.perSmaak&&!Array.isArray(b.resultaat.perSmaak)){
+      b.resultaat.perSmaak=Object.keys(b.resultaat.perSmaak)
+        .map(k=>({receptId:k,goed:b.resultaat.perSmaak[k],afkeur:0}));
+    }
+    b.logs.forEach(l=>{if(l&&!l.datum)l.datum=b.startDatum});
   });
 }
 
@@ -2336,7 +2351,7 @@ function verdeel(o,totaalGram){
   if(!som) return ing.map(i=>({naam:i.naam,gram:0}));
   return ing.map(i=>({naam:i.naam,gram:totaalGram*((parseFloat(i.deel)||0)/som)}));
 }
-const bTel=(b,t)=>b.logs.filter(l=>l.type===t).length;
+const bTel=(b,t)=>(b.logs||[]).filter(l=>l.type===t).length;
 const lopende=()=>S.batches.filter(b=>b.status==='bezig');
 const bTotaal=b=>b.regels.reduce((s,r)=>s+r.aantal,0);
 const bMallen=b=>b.regels.reduce((s,r)=>s+(r.mallen||0),0);
@@ -2394,7 +2409,7 @@ const bGedaan=b=>KERN.filter(s=>s.klaar(b)).length;
 const bVolgende=b=>KERN.find(s=>!s.klaar(b));
 
 function batchOpDatum(b,d){
-  return b.startDatum===d||b.eindDatum===d||(b.dagen||[]).some(x=>x.datum===d)||b.logs.some(l=>l.datum===d);
+  return b.startDatum===d||b.eindDatum===d||(b.dagen||[]).some(x=>x.datum===d)||(b.logs||[]).some(l=>l.datum===d);
 }
 function alleDatums(){
   const set={};
@@ -2402,7 +2417,7 @@ function alleDatums(){
     if(b.startDatum) set[b.startDatum]=1;
     if(b.eindDatum) set[b.eindDatum]=1;
     (b.dagen||[]).forEach(x=>set[x.datum]=1);
-    b.logs.forEach(l=>{if(l.datum)set[l.datum]=1});
+    (b.logs||[]).forEach(l=>{if(l.datum)set[l.datum]=1});
   });
   (S.ontvangsten||[]).forEach(x=>{if(x.datum)set[x.datum]=1});
   return Object.keys(set).sort().reverse();
@@ -2413,8 +2428,8 @@ const dagenTot=d=>Math.round((new Date(iso(d))-new Date(vandaag()))/86400000);
 function signalen(){
   const uit=[];
   S.batches.forEach(b=>{
-    b.logs.filter(l=>l.status==='fout').forEach(l=>uit.push({ernst:'rood',tekst:l.titel,extra:b.code}));
-    b.logs.filter(l=>l.status==='let').forEach(l=>uit.push({ernst:'amber',tekst:l.titel,extra:b.code}));
+    (b.logs||[]).filter(l=>l.status==='fout').forEach(l=>uit.push({ernst:'rood',tekst:l.titel,extra:b.code}));
+    (b.logs||[]).filter(l=>l.status==='let').forEach(l=>uit.push({ernst:'amber',tekst:l.titel,extra:b.code}));
     /* houdbaarheid van wat je al gemaakt hebt */
     if(b.resultaat&&b.resultaat.perSmaak){
       b.resultaat.perSmaak.forEach(ps=>{
