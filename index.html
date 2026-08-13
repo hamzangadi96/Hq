@@ -1444,7 +1444,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v213 · 13 aug 2026';
+const APPVERSIE='v214 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13609,8 +13609,23 @@ function sheetMeetpunten(){
     vorig=dek;
     document.documentElement.style.setProperty('--toetsenbord',dek+'px');
   };
-  vv.addEventListener('resize',pas);
-  vv.addEventListener('scroll',pas);
+  /* iOS schuift de webview weleens omlaag: na het sluiten van het toetsenbord,
+     bij het terugkeren uit een andere app, of na een veeg. De pagina staat vast
+     met overflow:hidden, dus zo'n verschuiving herstelt zichzelf niet altijd —
+     dan blijft er een grijze strook boven het woordmerk staan. Hier zetten we
+     hem terug. Staat alles al goed, dan doet dit niets. */
+  const rechtzetten=()=>{
+    if(window.scrollY||window.scrollX) window.scrollTo(0,0);
+    if(document.documentElement.scrollTop) document.documentElement.scrollTop=0;
+    if(document.body.scrollTop) document.body.scrollTop=0;
+  };
+  vv.addEventListener('resize',()=>{pas();rechtzetten()});
+  vv.addEventListener('scroll',()=>{pas();rechtzetten()});
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden) setTimeout(rechtzetten,60);
+  });
+  window.addEventListener('pageshow',()=>setTimeout(rechtzetten,60));
+  window.addEventListener('focusout',()=>setTimeout(rechtzetten,120));
   /* zodra je uit een veld klikt hoort de app meteen weer het hele scherm te zijn */
   document.addEventListener('focusin',()=>setTimeout(pas,60));
   document.addEventListener('focusout',()=>setTimeout(pas,60));
