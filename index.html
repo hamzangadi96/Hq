@@ -1442,7 +1442,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v206 · 13 aug 2026';
+const APPVERSIE='v207 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2013,8 +2013,11 @@ async function laden(){
   const d=await lokaalLees();
   if(d) zetData(d);
   opslagOk=true;
-  migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
-  migreerOrders();
+  /* per migratie apart: gaat er een mis, dan draaien de andere gewoon door */
+  [['checks',migreerChecks],['batches',migreerBatches],['grondstoffen',migreerGrond],
+   ['planning',migreerPlanning],['orders',migreerOrders]].forEach(([n,fn])=>{
+    try{ fn() }catch(e){ console.error('migratie '+n+':',e) }
+  });
   if(!S.checksGezet){ standaardChecks(); S.checksGezet=true; bewaarNu(); }
   if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; bewaarNu(); }
   if(!S.werkGezet2){
@@ -13444,9 +13447,29 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 
-(async()=>{ await laden(); render(); badgeBij();
+/* Elke fout die nergens anders wordt opgevangen belandt hier. Zonder dit bleef
+   een fout tijdens het opstarten achter als een wit scherm zonder uitleg. */
+window.addEventListener('error',ev=>{
+  if(startKlaar) return;                     /* daarna vangt render() het zelf */
+  noodScherm(ev.error||new Error(ev.message||'onbekende fout'));
+});
+window.addEventListener('unhandledrejection',ev=>{
+  if(startKlaar) return;
+  noodScherm(ev.reason||new Error('mislukte belofte'));
+});
+
+let startKlaar=false;
+(async()=>{
+  /* Elke stap apart, zodat één kapotte stap de rest niet meesleept. Zo krijg je
+     altijd nog een scherm te zien in plaats van niets. */
+  try{ await laden(); }
+  catch(e){ console.error('laden:',e); noodScherm(e); startKlaar=true; return; }
+  startKlaar=true;
+  render();
+  try{ badgeBij(); }catch(e){ console.error('badgeBij:',e) }
   /* liep de klok nog toen je de app wegklikte? even navragen */
-  setTimeout(()=>{ if(klusVergeten()&&!sheetOpen) sheetKlusCorrectie() },1200);
+  setTimeout(()=>{ try{ if(klusVergeten()&&!sheetOpen) sheetKlusCorrectie() }
+    catch(e){ console.error('klusCorrectie:',e) } },1200);
 })();
 </script>
 </body>
