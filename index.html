@@ -1615,7 +1615,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v238 · 14 aug 2026';
+const APPVERSIE='v240 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2734,6 +2734,7 @@ function noodScherm(e){
 }
 
 function renderProberen(){
+  setTimeout(()=>grenzenZetten(document.getElementById('scherm')),0);
   const inB=S.tab==='productie'&&S.batchId&&batch();
   const kenmerk=S.tab+(inB?':'+S.batchId:'');
   const wissel=vorigScherm!==null&&kenmerk!==vorigScherm;
@@ -4894,7 +4895,7 @@ function sheetPrijzenConsument(){
 
      <div class="veld" style="margin-top:18px"><label>Marge waarmee de app adviseert</label>
        <div class="rijtje">
-         <input class="mini" id="pcM" type="number" inputmode="decimal" value="${m}" style="max-width:96px">
+         <input class="mini" id="pcM" type="number" inputmode="decimal" value="${m}" style="max-width:96px" min="0" max="99">
          <button class="miniknop" id="pcMOk">Instellen</button></div>
        <div class="hint" style="margin:8px 0 0">${m}% marge is ${
          m<100?Math.round(m/(100-m)*100):'\u2014'}% opslag. Het advies is exclusief btw berekend
@@ -4964,7 +4965,7 @@ function sheetB2B(){
 
      <div class="veld"><label>Aantal bonbons</label>
        <div class="rijtje">
-         <input class="inp" id="bqN" type="number" inputmode="numeric" value="${B2B.stuks}">
+         <input class="inp" id="bqN" type="number" inputmode="numeric" value="${B2B.stuks}" min="1" max="1000">
          <button class="miniknop" id="bqOk">Reken</button></div>
        <div class="hint" style="margin:8px 0 0">${b.dozen
          ? b.dozen+' '+(b.dozen===1?'eenheid':'eenheden')+' van '+b.inh+' · staffel '+
@@ -5070,7 +5071,7 @@ function sheetVorm(id){
     `<div class="veld"><label>Naam</label>
        <input class="inp" id="vfN" value="${esc(v.naam||'')}"></div>
      <div class="veld"><label>Bonbons per eenheid</label>
-       <input class="inp" id="vfI" type="number" inputmode="numeric" value="${v.inhoud||''}">
+       <input class="inp" id="vfI" type="number" inputmode="numeric" value="${v.inhoud||''}" min="0" max="100000">
        <div class="hint" style="margin:8px 0 0">Bij een groothandelsdoos van vier trays van 24 is dat 96.</div></div>
 
      <div class="blokkop"><span class="eyebrow">Wat gaat er mee</span>
@@ -5160,7 +5161,7 @@ function sheetKostenbasis(){
        ? 'Nog een post toevoegen' : 'Eerste post toevoegen'}</label>
        <div class="rijtje">
          <input class="inp" id="vlN" placeholder="Bijv. huur werkruimte">
-         <input class="mini" id="vlB" type="number" inputmode="decimal" placeholder="0" style="max-width:96px"></div>
+         <input class="mini" id="vlB" type="number" inputmode="decimal" placeholder="0" style="max-width:96px" min="0" max="100000"></div>
        <div class="duo" id="vlP" style="margin-top:10px">
          <button class="aan" data-v="maand">Per maand</button>
          <button data-v="jaar">Per jaar</button></div>
@@ -5211,7 +5212,7 @@ function sheetKostenbasis(){
        <span class="tel">geldt voor al je klanten</span></div>
      <div class="veld"><label>Gewenste marge op B2B</label>
        <div class="rijtje">
-         <input class="mini" id="kbM" type="number" inputmode="decimal" value="${b2bMarge()}" style="max-width:96px">
+         <input class="mini" id="kbM" type="number" inputmode="decimal" value="${b2bMarge()}" style="max-width:96px" min="0" max="99">
          <button class="miniknop" id="kbMOk">Instellen</button></div>
        <div class="hint" style="margin:8px 0 0">${b2bMarge()}% marge is ${
          b2bMarge()<100?Math.round(b2bMarge()/(100-b2bMarge())*100):'\u2014'}% opslag op je kostprijs.</div></div>
@@ -5250,7 +5251,9 @@ function sheetKostenbasis(){
     /* twee keer tikken gaf twee posten; je zag de eerste niet omdat de lijst
        boven het formulier staat en dus buiten beeld */
     if(knop.dataset.bezig) return;
-    const n=$('#vlN').value.trim(), b=parseFloat($('#vlB').value)||0;
+    const bg=leesVeld('#vlB','Bedrag');
+    if(bg.fout){ bg.el.focus(); return toast(bg.fout) }
+    const n=$('#vlN').value.trim(), b=bg.waarde||0;
     if(!n) return toast('Geef de post een naam.');
     if(b<=0) return toast('Vul een bedrag in.');
     knop.dataset.bezig='1';
@@ -5882,7 +5885,7 @@ async function ritStop(){
      <button class="klapkop" id="rrMeer">${svg(I.pijl,'2')}<span>Gegevens controleren</span></button>
      <div class="klapin" id="rrDetail">
        <div class="veld"><label>Afstand</label>
-         <div class="mveld"><input id="rrKm" type="number" inputmode="decimal" step="0.1" value="${km}"><span>km</span></div></div>
+         <div class="mveld"><input id="rrKm" type="number" inputmode="decimal" step="0.1" value="${km}" min="0" max="2000"><span>km</span></div></div>
        <div class="veld"><label>Kilometerstand na de rit${autoVanDeZaak()?'':' <span style="font-weight:400">— niet verplicht</span>'}</label>
          <div class="mveld"><input id="rrK" type="number" inputmode="numeric"
            value="${begin!==null?Math.round(begin+km):''}" placeholder="${begin!==null?'':(autoVanDeZaak()?'aflezen van je dashboard':'mag leeg blijven')}"><span>km</span></div>
@@ -6339,8 +6342,12 @@ function sheetKlant(id){
   $('#klOk').onclick=()=>{
     const n=$('#klN').value.trim();
     if(!n) return toast('Vul een naam in.');
+    /* het e-mailadres gaat naar je factuur; een typefout betekent dat je
+       klant hem nooit ziet */
+    const em=leesEmail($('#klE').value);
+    if(em.fout){ $('#klE').focus(); return toast(em.fout) }
     k.naam=n; k.zakelijk=zak; k.plaats=$('#klP').value.trim();
-    k.email=$('#klE').value.trim(); k.adres=$('#klA').value.trim();
+    k.email=em.waarde; k.adres=$('#klA').value.trim();
     bewaarNu(); render(); sheetKlanten(); toast('Klant bewaard.');
   };
   $('#klWeg').onclick=()=>{
@@ -6381,7 +6388,9 @@ function sheetKlanten(kies){
   $('#kOk').onclick=()=>{
     const n=$('#kN').value.trim();
     if(!n) return toast('Vul een naam in.');
-    const k={id:uid(),naam:n,zakelijk:zak,plaats:$('#kP').value.trim(),email:$('#kE').value.trim()};
+    const em2=leesEmail($('#kE').value);
+    if(em2.fout){ $('#kE').focus(); return toast(em2.fout) }
+    const k={id:uid(),naam:n,zakelijk:zak,plaats:$('#kP').value.trim(),email:em2.waarde};
     S.klanten.push(k); bewaarNu();
     if(kies) return kies(k.id);
     sheetKlanten(); toast('Klant toegevoegd.');
@@ -6738,7 +6747,7 @@ function sheetGrondstof(product){
 
      <div class="veld" style="display:grid;grid-template-columns:1fr 92px;gap:12px">
        <div><label id="gLab">Hoeveelheid erbij</label>
-         <input class="inp" id="gH" type="number" inputmode="decimal" placeholder="0"></div>
+         <input class="inp" id="gH" type="number" inputmode="decimal" placeholder="0" min="0" max="1000000"></div>
        <div><label>Eenheid</label>
          <select class="inp" id="gE" style="text-align:center">${eenheden.map(e=>`<option>${e}</option>`).join('')}</select></div></div>
 
@@ -6785,7 +6794,7 @@ function sheetGrondstof(product){
 
      <div class="veld"><label>Drempel voor 'bijna op'</label>
        <div class="rijtje">
-         <input class="mini" id="gD" type="number" inputmode="decimal" placeholder="0" value="${d?(basis==='g'||basis==='ml'?d:d):''}">
+         <input class="mini" id="gD" type="number" inputmode="decimal" placeholder="0" value="${d?(basis==='g'||basis==='ml'?d:d):''}" min="0" max="1000000">
          <button class="miniknop" id="gDOk">Instellen</button></div>
        ${(()=>{const a=drempelAdvies(product,basis); if(!a) return
          `<div class="hint" style="margin:8px 0 0">In ${basis==='g'?'gram':basis==='ml'?'milliliter':'stuks'}. Leeg laten zet de drempel uit.</div>`;
@@ -7270,6 +7279,18 @@ const GRENS = {
   tht:    1095         /* drie jaar houdbaar is al veel voor verse ganache */
 };
 
+/* Leest een getal rechtstreeks uit een veld, met de grenzen die op dat veld
+   staan. Zo staat elke grens op één plek: in het veld zelf. */
+function leesVeld(sel, wat){
+  const el = typeof sel==='string' ? $(sel) : sel;
+  if(!el) return {waarde:null};
+  const mn = el.min!==''&&el.min!==undefined ? parseFloat(el.min) : undefined;
+  const mx = el.max!==''&&el.max!==undefined ? parseFloat(el.max) : undefined;
+  const r = leesGetal(el.value, {min:mn, max:mx, leegMag:true});
+  if(r.fout) return {fout:(wat?wat+': ':'')+r.fout, el};
+  return {waarde:r.waarde, el};
+}
+
 /* Leest een getal en zegt wat eraan mankeert. Geeft {waarde} of {fout}. */
 function leesGetal(ruw, opties){
   const o = opties || {};
@@ -7284,6 +7305,63 @@ function leesGetal(ruw, opties){
     return {fout: 'Dat lijkt een typefout — ' + komma(n) + ' is wel erg veel. '
       + 'Klopt het toch, vul dan hoogstens ' + komma(o.max) + ' in.'};
   return {waarde: n};
+}
+
+/* ===== velden met een vaste vorm =====
+   Een IBAN, een KvK-nummer of een btw-nummer hebben een voorgeschreven
+   opbouw. Klopt die niet, dan is je factuur onbruikbaar en merk je dat pas
+   als een klant niet betaalt. Elke lezer geeft {waarde} of {fout}, en zet
+   de invoer meteen netjes. */
+
+/* IBAN: landcode, twee controlecijfers, en de elfproef van de hele reeks */
+function leesIban(ruw){
+  const t=String(ruw||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!t) return {waarde:''};
+  if(!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(t))
+    return {fout:'Dat lijkt geen IBAN. Een Nederlandse begint met NL en is 18 tekens.'};
+  if(t.startsWith('NL')&&t.length!==18)
+    return {fout:'Een Nederlandse IBAN heeft 18 tekens, deze heeft er '+t.length+'.'};
+  /* elfproef: verplaats de eerste vier tekens naar achteren en reken modulo 97 */
+  const om=t.slice(4)+t.slice(0,4);
+  const cijfers=om.replace(/[A-Z]/g,c=>c.charCodeAt(0)-55);
+  let rest=0;
+  for(let i=0;i<cijfers.length;i++) rest=(rest*10+(+cijfers[i]))%97;
+  if(rest!==1) return {fout:'Deze IBAN klopt niet — er zit een typefout in.'};
+  /* netjes in blokken van vier */
+  return {waarde:t.replace(/(.{4})/g,'$1 ').trim()};
+}
+
+/* KvK: acht cijfers */
+function leesKvk(ruw){
+  const t=String(ruw||'').replace(/\D/g,'');
+  if(!t) return {waarde:''};
+  if(t.length!==8) return {fout:'Een KvK-nummer heeft 8 cijfers, deze heeft er '+t.length+'.'};
+  return {waarde:t};
+}
+
+/* btw-identificatienummer: NL, negen cijfers, B, twee cijfers */
+function leesBtwNr(ruw){
+  const t=String(ruw||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!t) return {waarde:''};
+  if(!/^NL[0-9]{9}B[0-9]{2}$/.test(t))
+    return {fout:'Een Nederlands btw-nummer ziet er zo uit: NL123456789B01.'};
+  return {waarde:t};
+}
+
+function leesEmail(ruw){
+  const t=String(ruw||'').trim();
+  if(!t) return {waarde:''};
+  if(!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(t))
+    return {fout:'Dat lijkt geen e-mailadres.'};
+  return {waarde:t.toLowerCase()};
+}
+
+function leesPostcode(ruw){
+  const t=String(ruw||'').toUpperCase().replace(/\s/g,'');
+  if(!t) return {waarde:''};
+  if(!/^[1-9][0-9]{3}[A-Z]{2}$/.test(t))
+    return {fout:'Een postcode ziet er zo uit: 5151 RW.'};
+  return {waarde:t.slice(0,4)+' '+t.slice(4)};
 }
 
 /* Een datum die in je administratie thuishoort: niet vóór je bedrijf bestond
@@ -8448,9 +8526,9 @@ function sheetVerpakkingNieuw(){
 
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
        <div><label>Beginvoorraad per stuk</label>
-         <input class="inp" id="vS" type="number" inputmode="numeric" placeholder="0"></div>
+         <input class="inp" id="vS" type="number" inputmode="numeric" placeholder="0" min="0" max="100000"></div>
        <div><label>Drempel per stuk</label>
-         <input class="inp" id="vD" type="number" inputmode="numeric" placeholder="0"></div></div>
+         <input class="inp" id="vD" type="number" inputmode="numeric" placeholder="0" min="0" max="100000"></div></div>
 
      <div id="vVoor"></div>`,
     `<button class="prim" style="margin-top:0" id="vOk">Aanmaken</button>`);
@@ -8544,7 +8622,7 @@ function sheetVoorraadRegel(sleutel){
          <button data-v="proef">Proeverij</button></div></div>
      <div class="veld"><label>Hoeveel</label>
        <div class="stepper"><button class="stepbtn" id="vMin">${svg(I.min)}</button>
-         <div class="stepval"><input id="vA" type="number" inputmode="numeric" value="1"><span class="eenh">st</span></div>
+         <div class="stepval"><input id="vA" type="number" inputmode="numeric" value="1" min="0" max="100000"><span class="eenh">st</span></div>
          <button class="stepbtn" id="vPlus">${svg(I.plus)}</button></div></div>
      <div class="veld"><label>Toelichting</label>
        <input class="inp" id="vR" placeholder="Bijv. order Bakkerij De Vries, of gevallen bakje"></div>
@@ -9306,6 +9384,43 @@ $('#btnInstel').onclick=()=>sheetMenu();
 function sheetMenu(){ return sheetInstellingen(); }
 
 let sheetOpen=false, bijSluiten=null;
+
+/* ===== grenzen per invoerveld =====
+   Op één plek, zodat elk scherm dezelfde regels aanhoudt. De app zet ze bij
+   het openen op het veld zelf: dan klopt de stepper, weet iOS welk
+   toetsenbord het moet tonen, en kan er niets buiten de grenzen in. */
+const VELDGRENS={
+  /* temperaturen: van diepvries tot een warme keuken */
+  mMin:[-40,120],   mMax:[-40,120],   mpMin:[-40,120], mpMax:[-40,120],
+  oTemp:[-40,120],  ijV:[-40,120],    tFMin:[-40,120], tFMax:[-40,120],
+  /* hoeveelheden en aantallen */
+  gH:[0,1000000],   gD:[0,1000000],   gV:[1,1000],
+  vA:[0,100000],    vD:[0,100000],    vS:[0,100000],   vfI:[0,100000],
+  oH:[0,100000],    oG:[0,24],
+  /* bedragen */
+  oPr:[0,100000],   vlB:[0,100000],   vlAantal:[0,100000],
+  bnB:[0,100000],   bnV:[0,100000],   utT:[0,500],     ktV:[0,5],
+  pmN:[1,1000000],  dvN:[0,50],
+  /* percentages */
+  pcM:[0,99],       kbM:[0,99],
+  /* kilometers */
+  rrKm:[0,2000],    rrK:[0,2000000],
+  /* houdbaarheid in dagen */
+  swTN:[1,1095],    rT:[1,1095],      bqN:[1,1000]
+};
+
+/* zet de grenzen op alles wat er in het geopende scherm staat */
+function grenzenZetten(waar){
+  const wortel=waar||document;
+  wortel.querySelectorAll('input').forEach(el=>{
+    const g=VELDGRENS[el.id];
+    if(!g) return;
+    if(el.type!=='number') el.type='number';
+    el.min=g[0]; el.max=g[1];
+    if(!el.step) el.step='any';
+  });
+}
+
 let sheetUitlegHtml=null;
 function sheet(t,b,v,stapLabel){
   bijSluiten=null;
@@ -9323,6 +9438,8 @@ function sheet(t,b,v,stapLabel){
   /* De eerste alinea van een scherm is geen inhoud maar toelichting. Die
      halen we eruit en hangen we achter het vraagteken. Uitleg die bij een
      veld hoort blijft gewoon staan — die zit niet vooraan. */
+  grenzenZetten($('#sheetBody'));
+  grenzenZetten($('#sheetVoet'));
   sheetUitlegHtml=null;
   (function(){
     const body=$('#sheetBody'), eerste=body&&body.firstElementChild;
@@ -9800,9 +9917,9 @@ function sheetMeting(opt){
          <button data-v="%" class="${eh==='%'?'aan':''}">Procent %</button></div></div>
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
        <div><label>Van</label><input class="inp" id="mpMin" type="number" inputmode="decimal"
-         value="${mp?mp.min:(opt.min!==undefined?opt.min:'')}" placeholder="min"></div>
+         value="${mp?mp.min:(opt.min!==undefined?opt.min:'')}" placeholder="min" min="-40" max="120"></div>
        <div><label>Tot</label><input class="inp" id="mpMax" type="number" inputmode="decimal"
-         value="${mp?mp.max:(opt.max!==undefined?opt.max:'')}" placeholder="max"></div>
+         value="${mp?mp.max:(opt.max!==undefined?opt.max:'')}" placeholder="max" min="-40" max="120"></div>
      </div>`,
     `<button class="prim" style="margin-top:0" id="mpOk">${mp?'Opslaan':'Toevoegen aan je check'}</button>
      ${mp?`<button class="sec" id="mpWis">Meting verwijderen</button>`:''}
@@ -9817,7 +9934,12 @@ function sheetMeting(opt){
     bewaarNu(); terug(); toast('Meting verwijderd.');
   };
   $('#mpOk').onclick=()=>{
-    const n=$('#mpN').value.trim(), mi=parseFloat($('#mpMin').value), ma=parseFloat($('#mpMax').value);
+    const h1=leesVeld('#mMin','Ondergrens'), h2=leesVeld('#mMax','Bovengrens');
+    if(h1.fout&&h1.el){ h1.el.focus(); return toast(h1.fout) }
+    if(h2.fout&&h2.el){ h2.el.focus(); return toast(h2.fout) }
+    if(h1.waarde!==null&&h2.waarde!==null&&h1.waarde>=h2.waarde)
+      return toast('De ondergrens moet lager zijn dan de bovengrens.');
+    const n=$('#mpN').value.trim(), mi=h1.waarde, ma=h2.waarde;
     if(!n) return toast('Geef de meting een naam.');
     if(isNaN(mi)||isNaN(ma)) return toast('Vul beide grenzen in.');
     if(mi>ma) return toast('De ondergrens moet lager zijn dan de bovengrens.');
@@ -9852,11 +9974,16 @@ function sheetTemp(voor,bij){
       `<p class="hint">Je hebt nog geen meetpunten. Voeg je koelkast, vriezer of werkruimte toe met de grenzen die jij aanhoudt.</p>
        <div class="inlineform open">
          <div class="rijtje"><input class="mini" id="mpN" placeholder="Naam, bijv. Koelkast"></div>
-         <div class="rijtje"><input class="mini" id="mpMin" type="number" inputmode="decimal" placeholder="Min °C">
-           <input class="mini" id="mpMax" type="number" inputmode="decimal" placeholder="Max °C"></div></div>`,
+         <div class="rijtje"><input class="mini" id="mpMin" type="number" inputmode="decimal" placeholder="Min °C" min="-40" max="120">
+           <input class="mini" id="mpMax" type="number" inputmode="decimal" placeholder="Max °C" min="-40" max="120"></div></div>`,
       `<button class="prim" style="margin-top:0" id="mpOk">Meetpunt toevoegen</button>`);
     $('#mpOk').onclick=()=>{
-      const n=$('#mpN').value.trim(), mi=parseFloat($('#mpMin').value), ma=parseFloat($('#mpMax').value);
+      const g1=leesVeld('#mMin','Ondergrens'), g2=leesVeld('#mMax','Bovengrens');
+      if(g1.fout&&g1.el){ g1.el.focus(); return toast(g1.fout) }
+      if(g2.fout&&g2.el){ g2.el.focus(); return toast(g2.fout) }
+      if(g1.waarde!==null&&g2.waarde!==null&&g1.waarde>=g2.waarde)
+        return toast('De ondergrens moet lager zijn dan de bovengrens.');
+      const n=$('#mpN').value.trim(), mi=g1.waarde, ma=g2.waarde;
       if(!n) return toast('Geef het meetpunt een naam.');
       if(isNaN(mi)||isNaN(ma)) return toast('Vul een minimum en maximum in.');
     if(S.meetpunten.some(x=>gKey(x.naam)===gKey(n))) return toast(n+' staat er al bij.');
@@ -9871,8 +9998,8 @@ function sheetTemp(voor,bij){
       ${nieuwChip('tNieuw')}</div>
       <div class="inlineform" id="tForm">
         <div class="rijtje"><input class="mini" id="tFN" placeholder="Naam meetpunt"></div>
-        <div class="rijtje"><input class="mini" id="tFMin" type="number" inputmode="decimal" placeholder="Min °C">
-          <input class="mini" id="tFMax" type="number" inputmode="decimal" placeholder="Max °C">
+        <div class="rijtje"><input class="mini" id="tFMin" type="number" inputmode="decimal" placeholder="Min °C" min="-40" max="120">
+          <input class="mini" id="tFMax" type="number" inputmode="decimal" placeholder="Max °C" min="-40" max="120">
           <button class="miniknop" id="tFormOk">Opslaan</button></div></div></div>
      <div class="veld"><label>Gemeten waarde</label>
       <div class="stepper"><button class="stepbtn" id="tMin">${svg(I.min)}</button>
@@ -9936,20 +10063,20 @@ function sheetOntvangst(){
          ${kanScannen()?`<button class="miniknop" data-scan="oL" style="flex:none">${svg(I.qr)}</button>`:''}</div></div>
        <div><label>THT</label><input class="inp" id="oT" type="date"></div></div>
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-       <div><label>Hoeveelheid</label><input class="inp" id="oH" type="number" inputmode="decimal" placeholder="0"></div>
+       <div><label>Hoeveelheid</label><input class="inp" id="oH" type="number" inputmode="decimal" placeholder="0" min="0" max="100000"></div>
        <div><label>Eenheid</label><select class="inp" id="oE" style="text-align:center">${['kg','g','l','ml','st'].map(e=>`<option>${e}</option>`).join('')}</select></div></div>
      <div class="veld"><label>Waar leg je het neer?</label>
        <div class="chips" id="oPl">${(S.opslagplekken||[]).map((x,i)=>
          `<button class="chip ${i?'':'aan'}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}
          <button class="chip" data-v="">Niet nu</button></div></div>
      <div class="veld"><label>Prijs — mag leeg</label>
-       <input class="inp" id="oPr" type="number" inputmode="decimal" placeholder="Totaalbedrag van deze levering">
+       <input class="inp" id="oPr" type="number" inputmode="decimal" placeholder="Totaalbedrag van deze levering" min="0" max="1000">
        <div class="hint" style="margin:8px 0 0">Voor je voorraadwaarde. Zonder btw.</div></div>
      <div class="veld"><label>Gekoeld geleverd?</label>
        <div class="duo" id="oK"><button data-v="nee" class="aan">Niet gekoeld</button><button data-v="ja">Gekoeld</button></div>
        <div id="oKV" style="display:none;margin-top:12px">
          <label>Temperatuur bij ontvangst</label>
-         <input class="inp" id="oTemp" type="number" inputmode="decimal" placeholder="°C"></div></div>
+         <input class="inp" id="oTemp" type="number" inputmode="decimal" placeholder="°C" min="-40" max="120"></div></div>
      <div class="veld"><label>Staat van de levering</label>
       <div class="duo" id="oS"><button class="aan" data-v="ok">In orde</button><button data-v="fout">Niet in orde</button></div></div>
      <div class="veld" id="oAV" style="display:none"><label>Wat was er mis en wat deed je?</label>
@@ -10387,7 +10514,7 @@ function sheetVoorraadLabel(batchId,receptId){
      <div class="etvoorbeeld"><div class="schaal" id="vlSchaal">${label}</div></div>
      <div class="veld"><label>Aantal stickers</label>
        <div class="stepper"><button class="stepbtn" id="vlMin">${svg(I.min)}</button>
-         <div class="stepval"><input id="vlAantal" type="number" inputmode="numeric" value="${doosjes}"><span class="eenh">st</span></div>
+         <div class="stepval"><input id="vlAantal" type="number" inputmode="numeric" value="${doosjes}" min="0" max="100000"><span class="eenh">st</span></div>
          <button class="stepbtn" id="vlPlus">${svg(I.plus)}</button></div>
        <div class="geen" id="vlVerdeel" style="padding-top:8px"></div></div>
      <div class="veld"><label>Waar print je op?</label>
@@ -11817,7 +11944,7 @@ function sheetOnderdeel(idx){
       <input class="inp" id="oN" value="${esc(o.naam)}" placeholder="Bijv. schelp, gelei of ganache"></div>
      <div class="veld"><label>Hoeveel gaat er in één bonbon?</label>
       <div class="stepper"><button class="stepbtn" id="oMin">${svg(I.min)}</button>
-       <div class="stepval"><input id="oG" type="number" inputmode="decimal" step="0.25" value="${esc(o.gram)}" placeholder="0"><span class="eenh">g</span></div>
+       <div class="stepval"><input id="oG" type="number" inputmode="decimal" step="0.25" value="${esc(o.gram)}" placeholder="0" min="0" max="24"><span class="eenh">g</span></div>
        <button class="stepbtn" id="oPlus">${svg(I.plus)}</button></div></div>
      <div class="veld"><label>Jouw recept voor dit onderdeel</label>
       <p class="hint" style="margin-bottom:12px">Vul je recept in zoals je het écht maakt — één hele bak, in grammen.
@@ -12026,7 +12153,7 @@ function sheetIjking(){
        een halve graad afwijking. Zonder deze controle zijn al je metingen aanvechtbaar.</p>
      <div class="veld"><label>Gemeten in ijswater</label>
        <div class="stepper"><button class="stepbtn" id="ijMin">${svg(I.min)}</button>
-         <div class="stepval"><input id="ijV" type="number" inputmode="decimal" step="0.1" value="0"><span class="eenh">°C</span></div>
+         <div class="stepval"><input id="ijV" type="number" inputmode="decimal" step="0.1" value="0" min="-40" max="120"><span class="eenh">°C</span></div>
          <button class="stepbtn" id="ijPlus">${svg(I.plus)}</button></div>
        <div class="norm ok" id="ijN"></div></div>
      <div class="veld"><label>Notitie</label><input class="inp" id="ijT" placeholder="Bijv. bijgesteld, of nieuwe thermometer"></div>
@@ -14034,7 +14161,19 @@ function sheetBedrijf(){
   if($('#bpWeg')) $('#bpWeg').onclick=()=>{
     bewaarVelden(); bedrijf().logo=''; bewaarNu(); sheetBedrijf(); render(); toast('Logo verwijderd.');
   };
-  $('#bpOk').onclick=()=>{ bewaarVelden(); bewaarNu(); dicht(); render(); toast('Bedrijfsprofiel bewaard.'); };
+  $('#bpOk').onclick=()=>{
+    /* Deze gegevens staan straks op je facturen. Een IBAN met een typefout
+       betekent dat een klant niet kan betalen, en dat merk je pas weken later. */
+    const proeven=[['#bpIban',leesIban,'IBAN'],['#bpKvk',leesKvk,'KvK-nummer'],
+      ['#bpBtw',leesBtwNr,'Btw-nummer']];
+    for(const [sel,lees,naam] of proeven){
+      const el=$(sel); if(!el) continue;
+      const r=lees(el.value);
+      if(r.fout){ el.focus(); return toast(naam+': '+r.fout) }
+      el.value=r.waarde;                    /* meteen netjes gezet */
+    }
+    bewaarVelden(); bewaarNu(); dicht(); render(); toast('Bedrijfsprofiel bewaard.');
+  };
 }
 
 function sheetLots(){
@@ -14090,7 +14229,7 @@ function sheetMal(){
     `<p class="hint">Hoeveel bonbons passen er in één mal? Hiermee reken je bij een batch in mallen in plaats van in losse stuks.</p>
      <div class="veld"><div class="stepper">
        <button class="stepbtn" id="gMin">${svg(I.min)}</button>
-       <div class="stepval"><input id="gV" type="number" inputmode="numeric" value="${S.malGrootte}"><span class="eenh">bonbons</span></div>
+       <div class="stepval"><input id="gV" type="number" inputmode="numeric" value="${S.malGrootte}" min="0" max="100000"><span class="eenh">bonbons</span></div>
        <button class="stepbtn" id="gPlus">${svg(I.plus)}</button></div></div>`,
     `<button class="prim" style="margin-top:0" id="gOk">Opslaan</button>`);
   $('#gMin').onclick=()=>{$('#gV').value=Math.max(1,parseInt($('#gV').value||1)-1)};
@@ -14116,9 +14255,14 @@ function sheetMeetpunten(){
          <button class="miniknop" id="mOk">Opslaan</button></div></div>`,
     `<button class="prim" style="margin-top:0" id="mTerug">Klaar</button>`);
   $('#mOk').onclick=()=>{
-    const n=$('#mN').value.trim(), mi=parseFloat($('#mMin').value), ma=parseFloat($('#mMax').value);
+    const n=$('#mN').value.trim();
     if(!n) return toast('Geef het meetpunt een naam.');
-    if(isNaN(mi)||isNaN(ma)) return toast('Vul een minimum en maximum in.');
+    /* de grenzen van het veld zelf: van diepvries tot een warme keuken */
+    const g1=leesVeld('#mMin','Minimum'), g2=leesVeld('#mMax','Maximum');
+    if(g1.fout) return toast(g1.fout);
+    if(g2.fout) return toast(g2.fout);
+    const mi=g1.waarde, ma=g2.waarde;
+    if(mi===null||ma===null) return toast('Vul een minimum en maximum in.');
     if(S.meetpunten.some(x=>gKey(x.naam)===gKey(n))) return toast(n+' staat er al bij.');
     if(mi>ma) return toast('Het minimum moet lager zijn dan het maximum.');
     S.meetpunten.push({id:uid(),naam:n,min:mi,max:ma}); sheetMeetpunten(); toast('Meetpunt toegevoegd.');
