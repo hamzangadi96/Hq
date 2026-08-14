@@ -91,7 +91,11 @@ header.gecentreerd{position:absolute;display:grid;grid-template-columns:34px 1fr
   height:var(--kopHoogte);padding:var(--veiligBoven) 16px 0;
   border-bottom:1px solid var(--lijn)}
 header.gecentreerd .vlak{grid-column:2;grid-row:1;text-align:center;min-width:0}
-header.gecentreerd .onder{display:none}
+/* De datum hoort er juist wel te staan: klein onder de begroeting, zoals de
+   ondertitel in een app-kop. */
+header.gecentreerd .onder{display:block;font-size:12.5px;color:var(--grijs);
+  margin-top:1px;font-weight:500;letter-spacing:-.005em}
+header.gecentreerd h1{font-size:17px;font-weight:600;letter-spacing:-.02em}
 header.gecentreerd .hbtn.terug{display:none}
 header.gecentreerd .hbtn.instel{grid-column:3;grid-row:1;justify-self:end}
 
@@ -531,6 +535,18 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
   background:none;border-left:none;border-right:none;border-bottom:none;
   width:100%;text-align:left;pointer-events:auto}
 .ballon .meer:active{opacity:1}
+/* Ronde knoppen aan weerszijden van de titel: dat maakt een kop een app-kop.
+   Links zoeken, rechts instellingen. */
+header .hbtn{width:36px;height:36px;border-radius:99px;background:var(--card);
+  display:grid;place-items:center;flex:none;color:var(--ink);
+  box-shadow:0 1px 2px rgba(24,24,27,.05),0 6px 16px -12px rgba(24,24,27,.3)}
+header .hbtn svg{width:17px;height:17px;stroke-width:1.9}
+header .hbtn:active{background:var(--bg)}
+header.gecentreerd{grid-template-columns:36px 1fr 36px}
+header.gecentreerd .hbtn.zoek{grid-column:1;grid-row:1;display:grid}
+header.gecentreerd .hbtn.instel{grid-column:3;grid-row:1}
+header .hbtn.zoek{display:none}
+
 .hulpknop{width:32px;height:32px;border-radius:99px;background:var(--bg);flex:none;
   display:none;place-items:center;color:var(--grijs2);margin-right:4px;position:relative}
 /* Het knopje is 32px en de sluitknop 30px, ruim onder de 44px die je nodig hebt
@@ -1433,6 +1449,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 <div class="app">
   <header>
     <button class="hbtn terug" id="btnTerug" aria-label="Terug" style="display:none"></button>
+    <button class="hbtn zoek" id="btnZoek" aria-label="Zoeken"></button>
     <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
       <div class="kpi" id="kopKpi"></div></div>
     <button class="hbtn instel" id="btnInstel" aria-label="App en opslag"></button>
@@ -1533,7 +1550,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v225 · 14 aug 2026';
+const APPVERSIE='v226 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2684,8 +2701,12 @@ function renderNu(){
     const dn=dagNummer(b);
     $('#kopOnder').textContent=`${b.code} · dag ${dn} · ${bMallen(b)} ${bMallen(b)===1?'mal':'mallen'} · ${bTotaal(b)} st`;
   } else if(S.tab==='dashboard'){
-    $('#kopTitel').innerHTML=merkKop();
-    $('#kopOnder').textContent='';
+    /* Hier stond het woordmerk met een sierregel: een merkkop, zoals bovenaan
+       een website. In een app wil je weten waar je bent en wanneer het is.
+       Het merk staat op je facturen en etiketten, daar hoort het thuis. */
+    const u=d.getHours();
+    $('#kopTitel').textContent=u<12?'Goedemorgen':u<18?'Goedemiddag':'Goedenavond';
+    $('#kopOnder').textContent=datumtekst;
   } else {
     /* Onder een tabtitel stond een regel met de stand van zaken. Die zei bij
        een lege app niets, en met inhoud herhaalde hij wat er onder stond.
@@ -2742,6 +2763,8 @@ function renderNu(){
   kopSchuif();
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
+$('#btnZoek').innerHTML=svg(I.loep);
+$('#btnZoek').onclick=()=>sheetZoek();
 $('#btnTerug').onclick=()=>{S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0};
 
 /* schermOnder stond hier: een regel met de stand van zaken onder elke
