@@ -1661,7 +1661,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v255 · 14 aug 2026';
+const APPVERSIE='v256 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3385,6 +3385,7 @@ function dashboardHTML(){
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
     <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
+    <button class="snelknop" data-sheet="vooruit">${svg(I.vracht)}Wat moet je halen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
     <button class="snelknop" data-sheet="kleurreken">${svg(I.spark)}Kleur rekenen</button>
@@ -8703,6 +8704,101 @@ function sheetPlanDetail(id){
   });
 }
 
+
+/* ===== vooruitkijken op je planning =====
+   De boodschappenlijst vulde zich alleen als je een batch aanmaakte, en pas
+   als je die knop aantikte. Daarmee zie je een tekort dus op de dag zelf.
+   Hier tellen we alles op wat gepland staat, kijken we hoeveel er ligt, en
+   rekenen we per leverancier terug wanneer je uiterlijk moet bestellen. */
+
+function planTekorten(dagen){
+  const grens=(()=>{const d=new Date();d.setDate(d.getDate()+(dagen||21));
+    return d.toISOString().slice(0,10)})();
+  const plannen=planLijst().filter(p=>p.datum<=grens&&!p.gemaakt);
+  if(!plannen.length) return {plannen:[],per:[],niets:true};
+
+  /* alle geplande regels bij elkaar: één bestelling, niet per batch */
+  const alles=[];
+  plannen.forEach(p=>(p.regels||[]).forEach(r=>alles.push(r)));
+  const tekort=dekkingGrond(alles).filter(x=>x.tekort>0);
+
+  /* per leverancier bundelen, want je bestelt per leverancier */
+  const per={};
+  tekort.forEach(x=>{
+    const lev=leverancierVan(x.naam)||'Nog geen leverancier';
+    (per[lev]=per[lev]||{lev,regels:[],levertijd:levertijdVan(lev)||3}).regels.push(x);
+  });
+
+  /* wanneer moet het besteld zijn? De vroegste batch die dit nodig heeft,
+     min de levertijd. Eén dag speling, want een levering die 's middags
+     binnenkomt helpt je 's ochtends niet. */
+  const eerste=plannen.map(p=>p.datum).sort()[0];
+  const uit=Object.values(per).map(g=>{
+    const besteldag=(()=>{const d=new Date(eerste);
+      d.setDate(d.getDate()-g.levertijd-1); return d.toISOString().slice(0,10)})();
+    const n=dagenTussen(vandaag(),besteldag);
+    return Object.assign(g,{besteldag,dagen:n,
+      status:n<0?'telaat':n<=1?'nu':n<=4?'binnenkort':'rustig'});
+  }).sort((a,b)=>a.besteldag<b.besteldag?-1:1);
+
+  return {plannen,per:uit,eerste,niets:false};
+}
+
+function sheetVooruit(){
+  const r=planTekorten(21);
+  const kleur={telaat:'rood',nu:'amber',binnenkort:'',rustig:''};
+  const woord=g=>g.dagen<0?'had '+Math.abs(g.dagen)+' '+(Math.abs(g.dagen)===1?'dag':'dagen')+' geleden gemoeten'
+    :g.dagen===0?'vandaag bestellen'
+    :g.dagen===1?'morgen bestellen'
+    :'over '+g.dagen+' dagen bestellen';
+
+  sheet('Wat moet je halen',
+    `<p class="hint">Alles wat je de komende drie weken hebt ingepland, bij elkaar
+       opgeteld en afgetrokken van wat er ligt. Per leverancier zie je wanneer je
+       uiterlijk moet bestellen om op tijd te zijn.</p>
+     ${r.niets?`<div class="rustig" style="padding:34px 20px">
+         <div class="ico">${svg(I.vink,'2.2')}</div>
+         <p>Niets ingepland voor de komende drie weken.<br>Plan een batch, dan reken ik het door.</p>
+       </div>`
+      :!r.per.length?`<div class="rustig" style="padding:34px 20px">
+         <div class="ico">${svg(I.vink,'2.2')}</div>
+         <p>Je hebt alles in huis voor ${r.plannen.length}
+           ${r.plannen.length===1?'geplande batch':'geplande batches'}.</p>
+       </div>`
+      :r.per.map(g=>`
+        <div class="blokkop" style="margin-top:22px">
+          <span class="eyebrow">${esc(g.lev)}</span>
+          <span class="tel ${kleur[g.status]?'let':''}">${woord(g)}</span></div>
+        <div class="melding ${g.status==='telaat'?'rood':g.status==='nu'?'amber':''}"
+          style="margin-bottom:10px">${svg(I.vracht,'2')}
+          <span>Levertijd ${g.levertijd} ${g.levertijd===1?'dag':'dagen'} ·
+            bestellen vóór ${kort(new Date(g.besteldag))}</span></div>
+        <div class="paneel">${g.regels.map(x=>{
+          const v=grondVoorraad().find(y=>gKey(y.product)===gKey(x.naam));
+          const basis=v?v.basis:'g';
+          const nodig=nodigVoorBoodschap(x.naam,x.tekort);
+          const ink=inkoopVan(x.naam);
+          const hoe=ink&&nodig>0
+            ? Math.max(1,Math.ceil(nodig/ink.basis))+' × '+inkoopTekst(ink)
+            : toonHoeveel(nodig,basis);
+          return `<div class="arij" style="cursor:default">
+            <span class="naam">${esc(x.naam)}<small>tekort ${toonHoeveel(x.tekort,basis)}</small></span>
+            <span class="waarde gevuld">${esc(hoe)}</span></div>`}).join('')}</div>`).join('')}`,
+    r.per.length?`<button class="prim" style="margin-top:0" id="vuOp">Alles op mijn lijst zetten</button>
+       <button class="sec" id="vuLijst">Naar mijn boodschappenlijst</button>`:'');
+
+  if($('#vuOp')) $('#vuOp').onclick=()=>{
+    let n=0;
+    r.per.forEach(g=>g.regels.forEach(x=>{
+      if(boodschapZet(x.naam,nodigVoorBoodschap(x.naam,x.tekort),'planning')) n++;
+    }));
+    bewaarNu(); render();
+    toast(n?n+(n===1?' product':' producten')+' op je lijst gezet.':'Stond al op je lijst.');
+    sheetBoodschappen();
+  };
+  if($('#vuLijst')) $('#vuLijst').onclick=sheetBoodschappen;
+}
+
 function sheetBoodschappen(){
   /* alles onder de drempel hoort er ook bij, ook zonder batch */
   const lijst=(S.boodschappen||[]).slice();
@@ -9954,7 +10050,7 @@ function straksHTML(key){
 
 /* ---------- binding ---------- */
 const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
-  kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,
+  kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,vooruit:sheetVooruit,
   kleurmogelijk:sheetKleurMogelijk,
   ingredienten:sheetIngredienten,afwijking:sheetAfwijking,schoonmaak:sheetSchoonmaak,afronden:sheetAfronden,
   recepten:sheetRecepten,receptnieuw:()=>sheetReceptForm(),instellingen:sheetInstellingen,
