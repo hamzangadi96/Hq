@@ -1672,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v270 · 14 aug 2026';
+const APPVERSIE='v272 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1741,6 +1741,44 @@ const CHOCSTANDAARD=[
    Een sjabloon vult alleen de inhoud in — de stappen die je loopt, wat je meet
    en waar je mee schoonmaakt. Alles blijft daarna aanpasbaar; dit is een
    startpunt, geen voorschrift. */
+
+/* ===== woorden per vak =====
+   De app zei overal "bonbon" en "mal". Een bakker leest dan "hoeveel gaat er
+   in één bonbon". Hier staat per vak hoe het product en het gereedschap
+   heten; de schermen vragen het hier op.
+
+   Alleen zichtbare tekst gaat hierdoorheen. De namen in de code blijven
+   'bonbon' heten — die zijn intern en veranderen zou alles breken. */
+const WOORDEN={
+  chocolaterie:{stuk:'bonbon', stuks:'bonbons', mal:'mal', mallen:'mallen',
+    perMal:'bonbons per mal'},
+  bakkerij:{stuk:'stuk', stuks:'stuks', mal:'bakblik', mallen:'bakblikken',
+    perMal:'stuks per bakblik'},
+  ijs:{stuk:'bak', stuks:'bakken', mal:'bak', mallen:'bakken',
+    perMal:'porties per bak'},
+  slagerij:{stuk:'stuk', stuks:'stuks', mal:'bak', mallen:'bakken',
+    perMal:'stuks per bak'},
+  kaas:{stuk:'kaas', stuks:'kazen', mal:'kaasvorm', mallen:'kaasvormen',
+    perMal:'kazen per vorm'},
+  brouwerij:{stuk:'fles', stuks:'flessen', mal:'ketel', mallen:'ketels',
+    perMal:'flessen per ketel'},
+  koffie:{stuk:'zak', stuks:'zakken', mal:'brander', mallen:'branders',
+    perMal:'zakken per brander'},
+  conserven:{stuk:'pot', stuks:'potten', mal:'ketel', mallen:'ketels',
+    perMal:'potten per ketel'},
+  cosmetica:{stuk:'stuk', stuks:'stuks', mal:'vorm', mallen:'vormen',
+    perMal:'stuks per vorm'}
+};
+
+/* vak('stuk'), vak('mallen') — de woorden van het vak waar je in werkt.
+   Niet W genoemd: die naam is elders al in gebruik voor een wizard-object. */
+function vak(sleutel){
+  const w=WOORDEN[S.branche||'chocolaterie']||WOORDEN.chocolaterie;
+  return w[sleutel]||WOORDEN.chocolaterie[sleutel]||'';
+}
+/* met een hoofdletter, voor aan het begin van een zin */
+const vakHoofd=k=>{const t=vak(k); return t?t[0].toUpperCase()+t.slice(1):''};
+
 const BRANCHES={
   chocolaterie:{naam:'Chocolaterie',sub:'Bonbons, tabletten, pralines',
     basis:'Chocoladesoort',
@@ -2795,8 +2833,10 @@ function foutVastleggen(e,waar){
    gebruiker mag de beheergegevens lezen. Zolang die regel er niet is staat
    hier niets van andere gebruikers in. */
 
-/* jouw eigen gebruiker: vul hier straks je Firebase-uid in */
-const BEHEERDERS=[];
+/* De gebruikers die het beheerscherm mogen zien. Let op: dit verbergt alleen
+   de knop. Wie de code leest ziet dit lijstje ook. De echte grendel hoort in
+   je Firebase-regels, zodra er gegevens van andere gebruikers in komen. */
+const BEHEERDERS=['WAGUngBbc9YWpZBV8DECs0UCnIy1'];
 function isBeheerder(){
   if(!BEHEERDERS.length) return false;
   return !!(typeof fbUser!=='undefined'&&fbUser&&BEHEERDERS.includes(fbUser.uid));
@@ -3181,7 +3221,7 @@ function tegelsHTML(){
   const gem30=gemaaktTussen(dagenTerug(30),vandaag());
   const gemVorig=gemaaktTussen(dagenTerug(60),dagenTerug(31));
   h+=tegel('data-naar="voorraad"','Voorraad',I.doos,
-    ger||null, ger?'bonbons gereed':'nog geen product','',
+    ger||null, ger?vak('stuks')+' gereed':'nog geen product','',
     gem30||gemVorig?verschil(gem30,gemVorig,'maand'):null);
 
   /* orders */
@@ -5321,9 +5361,9 @@ function malNaam(receptId){
 
 function sheetMallen(){
   const l=mallen();
-  sheet('Mallen',
-    `<p class="hint">Een mal is een plaat met holtes. Leg elke mal die je gebruikt
-       één keer vast; bij een smaak kies je daarna welke mal erbij hoort.</p>
+  sheet(vakHoofd('mallen'),
+    `<p class="hint">Leg elke ${vak('mal')} die je gebruikt één keer vast; bij een
+       smaak kies je daarna welke erbij hoort.</p>
      <div class="paneel">${l.length?l.map(m=>{
        const gebruikt=(S.recepten||[]).filter(r=>r.malId===m.id).length;
        return `<button class="arij" data-mal="${m.id}">
@@ -5331,10 +5371,10 @@ function sheetMallen(){
          <span class="naam">${esc(m.naam)}<small>${m.holtes} holtes${
            gebruikt?' · '+gebruikt+(gebruikt===1?' smaak':' smaken'):' · nog niet gebruikt'}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
-      :`<div class="geen">Nog geen mallen vastgelegd.</div>`}</div>
-     <button class="sec" id="mlNieuw" style="margin-top:12px">${svg(I.plus)}Mal toevoegen</button>
-     ${l.length?`<p class="hint" style="margin-top:16px">Smaken zonder eigen mal rekenen
-        met ${S.malGrootte||24} bonbons per mal.</p>`:''}`,'');
+      :`<div class="geen">Nog geen ${vak('mallen')} vastgelegd.</div>`}</div>
+     <button class="sec" id="mlNieuw" style="margin-top:12px">${svg(I.plus)}${vakHoofd('mal')} toevoegen</button>
+     ${l.length?`<p class="hint" style="margin-top:16px">Smaken zonder eigen ${vak('mal')}
+        rekenen met ${S.malGrootte||24} ${vak('stuks')} per ${vak('mal')}.</p>`:''}`,'');
   $$('[data-mal]').forEach(b=>b.onclick=()=>sheetMal2(b.dataset.mal));
   $('#mlNieuw').onclick=()=>sheetMal2(null);
 }
@@ -5343,9 +5383,9 @@ function sheetMal2(id){
   const nieuw=id===null;
   const m=nieuw?{naam:'',holtes:24}:Object.assign({},malVanId(id)||{});
   const gebruikt=nieuw?[]:(S.recepten||[]).filter(r=>r.malId===id);
-  sheet(nieuw?'Mal toevoegen':'Mal',
+  sheet(nieuw?vakHoofd('mal')+' toevoegen':vakHoofd('mal'),
     `<div class="veld"><label>Naam</label>
-       <input class="inp" id="mlN" value="${esc(m.naam)}" placeholder="Bijv. schelpmal 24"></div>
+       <input class="inp" id="mlN" value="${esc(m.naam)}" placeholder="Bijv. ${vak('mal')} 24"></div>
      <div class="veld"><label>Aantal holtes</label>
        <div class="stepper"><button class="stepbtn" id="mlMin">${svg(I.min)}</button>
          <div class="stepval"><input id="mlH" type="number" inputmode="numeric"
@@ -5354,13 +5394,13 @@ function sheetMal2(id){
      ${gebruikt.length?`<div class="melding" style="margin-top:14px">${svg(I.boek,'2')}
        <span>Gebruikt door ${gebruikt.map(r=>esc(r.naam)).join(', ')}.</span></div>`:''}`,
     `<button class="prim" style="margin-top:0" id="mlOk">${nieuw?'Toevoegen':'Bewaren'}</button>
-     ${nieuw?'':`<button class="sec" id="mlWeg" style="color:var(--rood)">Mal verwijderen</button>`}`);
+     ${nieuw?'':`<button class="sec" id="mlWeg" style="color:var(--rood)">${vakHoofd('mal')} verwijderen</button>`}`);
   const zet=v=>{ $('#mlH').value=Math.max(1,Math.min(1000,v)) };
   $('#mlMin').onclick=()=>zet((+$('#mlH').value||24)-1);
   $('#mlPlus').onclick=()=>zet((+$('#mlH').value||24)+1);
   $('#mlOk').onclick=()=>{
     const n=$('#mlN').value.trim();
-    if(!n) return toast('Geef de mal een naam.');
+    if(!n) return toast('Geef de '+vak('mal')+' een naam.');
     const g=leesVeld('#mlH','Aantal holtes');
     if(g.fout) return toast(g.fout);
     if(!g.waarde) return toast('Vul het aantal holtes in.');
@@ -5370,7 +5410,7 @@ function sheetMal2(id){
   };
   if($('#mlWeg')) $('#mlWeg').onclick=()=>{
     if(gebruikt.length&&!confirm(gebruikt.length+' '+(gebruikt.length===1?'smaak gebruikt':'smaken gebruiken')
-      +' deze mal. Die rekenen daarna met '+(S.malGrootte||24)+' per mal. Toch verwijderen?')) return;
+      +' deze '+vak('mal')+'. Die rekenen daarna met '+(S.malGrootte||24)+' per '+vak('mal')+'. Toch verwijderen?')) return;
     (S.recepten||[]).forEach(r=>{ if(r.malId===id) delete r.malId });
     S.mallen=mallen().filter(x=>x.id!==id);
     bewaarNu(); sheetMallen(); toast('Verwijderd.');
@@ -9953,11 +9993,11 @@ function sheetInrichten(stap){
   /* ---- 3. je mal ---- */
   if(st===3){
     const eerste=mallen()[0]||{naam:'',holtes:24};
-    sheet('Je eerste mal',
+    sheet('Je eerste '+vak('mal'),
       `${balk}<p class="hint">Hiermee rekent de app je batches om. Werk je met meerdere
-         mallen, dan voeg je die later toe en kies je per smaak welke erbij hoort.</p>
+         ${vak('mallen')}, dan voeg je die later toe en kies je per smaak welke erbij hoort.</p>
        <div class="veld"><label>Naam</label>
-         <input class="inp" id="inMn" value="${esc(eerste.naam)}" placeholder="Bijv. schelpmal 24"></div>
+         <input class="inp" id="inMn" value="${esc(eerste.naam)}" placeholder="Bijv. ${vak('mal')} 24"></div>
        <div class="veld"><label>Aantal holtes</label>
          <div class="stepper"><button class="stepbtn" id="inMin">${svg(I.min)}</button>
            <div class="stepval"><input id="inM" type="number" inputmode="numeric"
@@ -9971,7 +10011,7 @@ function sheetInrichten(stap){
       const g=leesVeld('#inM','Aantal holtes');
       if(g.fout) return toast(g.fout);
       const h=Math.round(g.waarde||24);
-      const n=$('#inMn').value.trim()||('Mal '+h);
+      const n=$('#inMn').value.trim()||(vakHoofd('mal')+' '+h);
       S.malGrootte=h;                          /* blijft de terugval */
       if(mallen().length) Object.assign(mallen()[0],{naam:n,holtes:h});
       else S.mallen=[{id:uid(),naam:n,holtes:h}];
@@ -13339,11 +13379,11 @@ function tekenRecept(){
       <input class="inp" id="rNaam" value="${esc(R.naam)}" placeholder="Bijv. pistache & rode vruchten"></div>
      <div class="veld"><label>Chocolade</label><div class="chips" id="rC">
       ${soorten().map(c=>`<button class="chip ${c.key===R.chocolade?'aan':''}" data-v="${c.key}">${c.naam}</button>`).join('')}</div></div>
-     <div class="veld"><label>In welke mal?</label><div class="chips" id="rMal">
+     <div class="veld"><label>In welke ${vak('mal')}?</label><div class="chips" id="rMal">
       ${mallen().map(m=>`<button class="chip ${m.id===R.malId?'aan':''}" data-v="${m.id}">${
         esc(m.naam)} · ${m.holtes}</button>`).join('')}
-      <button class="chip nieuw" id="rMalNieuw">${svg(I.plus)}Mal</button></div>
-      <div class="hint" style="margin:6px 0 0">Hiermee rekent de app om hoeveel mallen
+      <button class="chip nieuw" id="rMalNieuw">${svg(I.plus)}${vakHoofd('mal')}</button></div>
+      <div class="hint" style="margin:6px 0 0">Hiermee rekent de app om hoeveel ${vak('mallen')}
         je nodig hebt voor deze smaak.</div></div>
      <div class="veld"><label>Houdbaar na productie</label>
       <div class="rijtje"><input class="mini" id="rT" type="number" inputmode="numeric" value="${R.tht}"
@@ -15572,8 +15612,8 @@ function sheetInstellingen(){
        verzendgrens()}:00</span></button>
 
      <div class="mkop">Productie</div>
-     <button class="menurij" data-ins="mallen">${svg(I.bonbon)}Mallen<span class="tel">${
-       mallen().length?mallen().length+(mallen().length===1?' mal':' mallen'):'geen'}</span></button>
+     <button class="menurij" data-ins="mallen">${svg(I.bonbon)}${vakHoofd('mallen')}<span class="tel">${
+       mallen().length?mallen().length+' '+(mallen().length===1?vak('mal'):vak('mallen')):'geen'}</span></button>
      <button class="menurij" data-ins="werkplan">${svg(I.lijst)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
      <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
 
