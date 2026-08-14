@@ -809,7 +809,8 @@ nav#tabbar{view-transition-name:tabbalk}
    precies bovenuit. Klopt alles al, dan is die waarde nul. */
 .sheet{position:absolute;left:0;right:0;bottom:var(--sheetOnder,0px);z-index:50;background:#fff;
   border-radius:18px 26px 0 0;
-  max-height:92dvh;display:flex;flex-direction:column;transform:translateY(101%);
+  max-height:min(92dvh, var(--sheetMax, 92dvh));
+  display:flex;flex-direction:column;transform:translateY(101%);
   transition:transform .32s cubic-bezier(.32,.72,0,1)}
 /* iOS houdt onder een web-app de zone van het home-streepje voor zichzelf.
    Daar blijft een strook in --bg over waar geen CSS bij kan. Geprobeerd om die
@@ -1614,7 +1615,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v236 · 14 aug 2026';
+const APPVERSIE='v238 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7643,6 +7644,11 @@ function sheetPlanning(){
            if(plKies && t.plan && !t.los && !t.verzend)
              return `<button class="arij" data-plkies="${t.plan.id}">${binnen}
                <span class="kiesvak ${plKies.has(t.plan.id)?'aan':''}">${svg(I.vink,'3')}</span></button>`;
+           /* Een controle is geen mededeling maar een klus. Die hoort je naar
+              het scherm te brengen waar je hem uitvoert. */
+           if(t.soort==='haccp'&&t.check)
+             return `<button class="arij" data-haccpdoe="${t.check.doe}">${binnen}
+               <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
            return `<div class="arij" style="cursor:default">${binnen}
              ${t.los?`<button class="wisbtn" data-taakwis="${t.los.id}">${svg(I.kruis,'2')}</button>`:''}
              ${t.verzend&&t.verzend.o?`<button class="miniknop" data-verzonden="${t.verzend.o.id}">Verzonden</button>`:''}
@@ -7722,6 +7728,12 @@ function sheetPlanning(){
   });
   $$('[data-plandetail]').forEach(b=>b.onclick=()=>{
     const p=plRegister[+b.dataset.plandetail]; if(p) sheetPlanDetail(p.id);
+  });
+  /* De algemene bindingen draaien alleen na render(), niet binnen een sheet.
+     Daarom hier nog een keer, anders doen de controles hier niets. */
+  $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>{
+    const k=x.dataset.haccpdoe;
+    k==='ijking'?sheetIjking():sheetControles();
   });
   $$('[data-planstart]').forEach(b=>b.onclick=()=>{
     const p=plRegister[+b.dataset.planstart]; if(p) planStart(p.id);
@@ -14164,6 +14176,11 @@ function sheetMeetpunten(){
     const zichtbaarTot=vv.offsetTop+vv.height;
     const verborgen=Math.max(0,Math.round(r.bottom-zichtbaarTot));
     document.documentElement.style.setProperty('--sheetOnder',verborgen+'px');
+    /* De sheet mocht 92dvh hoog worden, en dvh krimpt niet mee met het
+       toetsenbord. Daardoor stak hij boven het scherm uit en verdween het
+       bovenste invoerveld. Nu is hij nooit hoger dan wat je ziet. */
+    document.documentElement.style.setProperty('--sheetMax',
+      Math.max(220,Math.round(vv.height-16))+'px');
   };
   window.__sheetPas=sheetPas;
   window.__rechtzetten=rechtzetten;
@@ -14173,19 +14190,29 @@ function sheetMeetpunten(){
   document.addEventListener('focusin',e=>{
     setTimeout(sheetPas,120);
     /* Krimpt de sheet door het toetsenbord, dan kan het veld waar je in typt
-       eronder vallen. Even bijscrollen binnen de sheet — alleen als het nodig
-       is, anders zit je iOS in de weg. */
+       eronder vallen. We schuiven dan precies zoveel als nodig is.
+       Eerder gebruikte ik hiervoor block:'center'. Dat zet het veld midden in
+       de overgebleven ruimte, en bij een klein stukje sheet betekende dat:
+       helemaal naar boven, uit beeld. */
     const body=document.getElementById('sheetBody');
     if(!body||!body.contains(e.target)) return;
-    setTimeout(()=>{
+    const bijschuiven=()=>{
       if(document.activeElement!==e.target) return;
       const r=e.target.getBoundingClientRect();
-      const zichtbaarTot=vv.offsetTop+vv.height;
-      const kop=body.getBoundingClientRect().top;
-      if(r.bottom>zichtbaarTot-8||r.top<kop+8){
-        try{ e.target.scrollIntoView({block:'center',behavior:'smooth'}) }catch(x){}
-      }
-    },300);
+      const vak=body.getBoundingClientRect();
+      const marge=16;
+      const onder=Math.min(vak.bottom, vv.offsetTop+vv.height);
+      const boven=Math.max(vak.top, vv.offsetTop);
+      if(r.bottom<=onder-marge&&r.top>=boven+marge) return;
+      /* Zelf uitrekenen ging mis: de voet van de sheet telde niet mee en dan
+         bleef het onderste veld eronder hangen. De browser weet precies hoe
+         ver zijn eigen lijst kan. 'nearest' schuift het minimum — 'center'
+         zette het veld midden in de restruimte, en dat was uit beeld. */
+      try{ e.target.scrollIntoView({block:'nearest',behavior:'smooth'}) }
+      catch(x){ try{ e.target.scrollIntoView(false) }catch(y){} }
+    };
+    setTimeout(bijschuiven,300);
+    setTimeout(bijschuiven,650);
   });
   document.addEventListener('focusout',()=>setTimeout(sheetPas,180));
   document.addEventListener('visibilitychange',()=>{
