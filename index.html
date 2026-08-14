@@ -1667,7 +1667,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v264 · 14 aug 2026';
+const APPVERSIE='v268 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13342,6 +13342,7 @@ function sheetOnderdeel(idx){
 }
 
 /* ================= account en synchronisatie ================= */
+
 function sheetAccount(){
   if(!fbKlaar){
     const cfg=fbConfig();
@@ -13393,39 +13394,134 @@ function sheetAccount(){
   $('#acNieuw').onclick=()=>{const[m,w]=velden();
     firebase.auth().createUserWithEmailAndPassword(m,w)
       .then(()=>{dicht();render();toast('Account aangemaakt.')}).catch(melden)};
+
 }
 
 /* ================= gegevens meenemen ================= */
+/* ===== alles meenemen =====
+   De oude export kopieerde je gegevens als tekst naar het klembord. Twee
+   problemen: bij een volle app is dat honderden kilobytes en dan hapert het
+   klembord op een telefoon, en je foto's zaten er niet in — die staan in
+   IndexedDB, niet in de gewone opslag.
+
+   Nu wordt het een echt bestand dat je kunt bewaren of doorsturen, met je
+   foto's erbij. Terugzetten gaat met datzelfde bestand. */
+
+function alleFotoIds(){
+  const uit=new Set();
+  const zoek=o=>{
+    if(!o||typeof o!=='object') return;
+    if(Array.isArray(o)) return o.forEach(zoek);
+    Object.keys(o).forEach(k=>{
+      const v=o[k];
+      if(typeof v==='string'&&/^foto[-_]/.test(v)) uit.add(v);
+      else if(v&&typeof v==='object') zoek(v);
+    });
+  };
+  BEWAARVELDEN.forEach(k=>zoek(S[k]));
+  return [...uit];
+}
+
+/* haalt alle foto's uit de kast, zonder te struikelen over een ontbrekende */
+function fotosOphalen(ids){
+  return Promise.all(ids.map(id=>
+    fotoLees(id).then(d=>d?[id,d]:null).catch(()=>null)
+  )).then(r=>{
+    const o={}; r.filter(Boolean).forEach(([id,d])=>{o[id]=d}); return o;
+  });
+}
+
 function sheetData(){
   const d={}; BEWAARVELDEN.forEach(k=>d[k]=S[k]);
   const json=JSON.stringify(d);
   const kb=Math.max(1,Math.round(json.length/1024));
-  sheet('Gegevens meenemen',
-    `<p class="hint">Stuur ik je een nieuwe versie, dan begint die leeg. Kopieer hier je gegevens
-       en plak ze daar één keer terug — dan staat alles er weer.</p>
-     <div class="totaalregel" style="margin-bottom:18px"><span class="l">Smaken · partijen · batches</span>
-       <span class="w">${S.recepten.length} · ${S.lots.length} · ${S.batches.length}</span></div>
-     <div class="veld"><label>Jouw gegevens (${kb} kB)</label>
-       <textarea class="inp" id="dOut" style="height:110px;font-size:12px" readonly>${esc(json)}</textarea>
-       <button class="knop2" id="dKopie" style="margin-top:10px">${svg(I.doc)}Kopiëren</button></div>
-     <div class="veld"><label>Gegevens terugzetten</label>
-       <textarea class="inp" id="dIn" style="height:110px;font-size:12px" placeholder="Plak hier je gekopieerde gegevens"></textarea>
-       <button class="knop2" id="dZet" style="margin-top:10px">${svg(I.ververs)}Terugzetten</button>
-       <div class="geen" style="padding-top:8px">Let op: dit overschrijft wat er nu in de app staat.</div></div>`,
-    `<button class="prim" style="margin-top:0" id="dKlaar">Klaar</button>`);
-  $('#dKopie').onclick=async()=>{
-    const t=$('#dOut'); t.select(); t.setSelectionRange(0,999999);
-    try{ await navigator.clipboard.writeText(json); toast('Gekopieerd. Plak het in een notitie.'); }
-    catch(e){ try{document.execCommand('copy');toast('Gekopieerd.')}catch(e2){toast('Selecteer de tekst en kopieer met de hand.')} }
+  const fotoIds=alleFotoIds();
+
+  sheet('Alles meenemen',
+    `<p class="hint">Een bestand met al je gegevens. Bewaar het ergens veilig, of gebruik
+       het om alles naar een ander toestel te halen.</p>
+     <div class="paneel" style="margin-bottom:16px">
+       <div class="arij" style="cursor:default"><span class="naam">Smaken</span>
+         <span class="waarde gevuld">${(S.recepten||[]).length}</span></div>
+       <div class="arij" style="cursor:default"><span class="naam">Batches</span>
+         <span class="waarde gevuld">${(S.batches||[]).length}</span></div>
+       <div class="arij" style="cursor:default"><span class="naam">Orders</span>
+         <span class="waarde gevuld">${(S.orders||[]).length}</span></div>
+       <div class="arij" style="cursor:default"><span class="naam">Partijen en lotnummers</span>
+         <span class="waarde gevuld">${(S.lots||[]).length}</span></div>
+       <div class="arij" style="cursor:default"><span class="naam">Foto's</span>
+         <span class="waarde gevuld">${fotoIds.length}</span></div>
+       <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Grootte zonder foto's</span>
+         <span class="waarde gevuld">${kb} kB</span></div>
+     </div>
+     <div class="veld"><label>Terugzetten</label>
+       <input type="file" id="dBest" accept=".json,application/json" class="inp">
+       <div class="hint" style="margin:8px 0 0">Kies een bestand dat je eerder hebt bewaard.
+         <b>Alles wat nu in de app staat wordt vervangen.</b></div></div>
+     <div class="geen" id="dStand"></div>`,
+    `<button class="prim" style="margin-top:0" id="dUit">Bestand maken</button>
+     <button class="sec" id="dKlaar">Klaar</button>`);
+
+  const stand=t=>{ const e=$('#dStand'); if(e) e.textContent=t };
+
+  $('#dUit').onclick=()=>{
+    $('#dUit').disabled=true;
+    stand(fotoIds.length?"Foto's verzamelen…":'Bestand maken…');
+    fotosOphalen(fotoIds).then(fotos=>{
+      const alles={hqExport:1, versie:APPVERSIE, datum:new Date().toISOString(),
+        gegevens:d, fotos:fotos};
+      const tekst=JSON.stringify(alles);
+      const blob=new Blob([tekst],{type:'application/json'});
+      const naam='cacaoboetiek-'+iso(new Date()).replace(/-/g,'')+'.json';
+      const url=URL.createObjectURL(blob);
+      const a2=document.createElement('a');
+      a2.href=url; a2.download=naam; document.body.appendChild(a2); a2.click();
+      setTimeout(()=>{ a2.remove(); URL.revokeObjectURL(url) },4000);
+      $('#dUit').disabled=false;
+      stand('Bestand gemaakt: '+naam+' · '+Math.max(1,Math.round(tekst.length/1024))+' kB');
+      toast('Bewaar het bestand ergens veilig.');
+    }).catch(e=>{
+      $('#dUit').disabled=false;
+      stand("Foto's ophalen lukte niet. Er is wel een bestand zonder foto's gemaakt.");
+      const blob=new Blob([JSON.stringify({hqExport:1,versie:APPVERSIE,
+        datum:new Date().toISOString(),gegevens:d,fotos:{}})],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a2=document.createElement('a');
+      a2.href=url; a2.download='cacaoboetiek-'+iso(new Date()).replace(/-/g,'')+'.json';
+      document.body.appendChild(a2); a2.click();
+      setTimeout(()=>{ a2.remove(); URL.revokeObjectURL(url) },4000);
+    });
   };
-  $('#dZet').onclick=()=>{
-    const v=$('#dIn').value.trim(); if(!v) return toast('Plak eerst je gegevens.');
-    let n; try{ n=JSON.parse(v) }catch(e){ return toast('Dit is geen geldige export.') }
-    if(!confirm('Alles wat nu in de app staat wordt vervangen. Doorgaan?')) return;
-    BEWAARVELDEN.forEach(k=>{if(n[k]!==undefined&&n[k]!==null)S[k]=n[k]});
-    migreerChecks(); migreerBatches(); bewaarNu(); dicht(); render();
-    toast('Gegevens teruggezet: '+S.recepten.length+' smaken.');
+
+  $('#dBest').onchange=()=>{
+    const f=$('#dBest').files&&$('#dBest').files[0];
+    if(!f) return;
+    const lezer=new FileReader();
+    lezer.onload=()=>{
+      let n;
+      try{ n=JSON.parse(lezer.result) }
+      catch(e){ return stand('Dit bestand is niet te lezen.') }
+      /* zowel het nieuwe bestand als een oude platte export */
+      const g=n&&n.hqExport?n.gegevens:n;
+      if(!g||typeof g!=='object') return stand('Dit lijkt geen export van deze app.');
+      const aantal=(g.recepten||[]).length;
+      if(!confirm('Alles wat nu in de app staat wordt vervangen door '+aantal+
+        ' '+(aantal===1?'smaak':'smaken')+' uit dit bestand. Doorgaan?')) return;
+      BEWAARVELDEN.forEach(k=>{ if(g[k]!==undefined&&g[k]!==null) S[k]=g[k] });
+      const fotos=(n&&n.fotos)||{};
+      const ids=Object.keys(fotos);
+      stand(ids.length?"Foto's terugzetten…":'Bezig…');
+      Promise.all(ids.map(id=>fotoBewaar(id,fotos[id]).catch(()=>null)))
+        .then(()=>{
+          migreerChecks(); migreerBatches(); bewaarNu(); dicht(); render();
+          toast('Teruggezet: '+(S.recepten||[]).length+' smaken'+
+            (ids.length?' en '+ids.length+" foto's":'')+'.');
+        });
+    };
+    lezer.onerror=()=>stand('Het bestand kon niet worden gelezen.');
+    lezer.readAsText(f);
   };
+
   $('#dKlaar').onclick=dicht;
 }
 
