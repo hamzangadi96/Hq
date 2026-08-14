@@ -1615,7 +1615,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v240 · 14 aug 2026';
+const APPVERSIE='v241 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9396,7 +9396,10 @@ const VELDGRENS={
   /* hoeveelheden en aantallen */
   gH:[0,1000000],   gD:[0,1000000],   gV:[1,1000],
   vA:[0,100000],    vD:[0,100000],    vS:[0,100000],   vfI:[0,100000],
-  oH:[0,100000],    oG:[0,24],
+  oH:[0,100000],
+  /* oG is het gewicht van één onderdeel in één bonbon. Een hele bonbon weegt
+     zo'n 10 gram; boven de 200 is het een typefout. */
+  oG:[0.1,200],
   /* bedragen */
   oPr:[0,100000],   vlB:[0,100000],   vlAantal:[0,100000],
   bnB:[0,100000],   bnV:[0,100000],   utT:[0,500],     ktV:[0,5],
@@ -9409,6 +9412,16 @@ const VELDGRENS={
   swTN:[1,1095],    rT:[1,1095],      bqN:[1,1000]
 };
 
+/* Sommige velden hebben geen eigen id omdat ze in een rij staan die je zelf
+   toevoegt — de ingrediënten van een onderdeel bijvoorbeeld. Die herkennen we
+   aan hun kenmerk. */
+const RIJGRENS=[
+  ['[data-id2]',      0, 1000000],   /* gram per ingrediënt in je bak */
+  ['[data-stapmin]',  0, 1440],      /* minuten bij een productiestap */
+  ['[data-prijs]',    0, 10000],     /* prijs per kilo */
+  ['[data-verkoop]',  0, 1000]       /* verkoopprijs per bonbon */
+];
+
 /* zet de grenzen op alles wat er in het geopende scherm staat */
 function grenzenZetten(waar){
   const wortel=waar||document;
@@ -9418,6 +9431,12 @@ function grenzenZetten(waar){
     if(el.type!=='number') el.type='number';
     el.min=g[0]; el.max=g[1];
     if(!el.step) el.step='any';
+  });
+  RIJGRENS.forEach(([kies,mn,mx])=>{
+    wortel.querySelectorAll('input'+kies).forEach(el=>{
+      if(el.min!=='') return;
+      el.min=mn; el.max=mx;
+    });
   });
 }
 
@@ -12024,9 +12043,14 @@ function sheetOnderdeel(idx){
   if($('#oWis')) $('#oWis').onclick=()=>{R.onderdelen.splice(idx,1);bewaarSmaak();render();
     R.wizard?smaakStap3():tekenRecept();toast('Onderdeel verwijderd.')};
   $('#oOk').onclick=()=>{
-    const naam=$('#oN').value.trim(), gram=parseFloat($('#oG').value);
+    const naam=$('#oN').value.trim();
     const ing=rijenLezen();
     if(!naam) return toast('Geef het onderdeel een naam.');
+    /* Hier stond een vraag om bevestiging: die kon je wegklikken en dan stond
+       er alsnog een onmogelijk getal in je receptuur. Nu weigert hij gewoon. */
+    const gg=leesVeld('#oG','Gewicht');
+    if(gg.fout) return toast(gg.fout);
+    const gram=gg.waarde;
     if(!(gram>0)) return toast('Vul in hoeveel gram hiervan in één bonbon gaat.');
     if(gram>50&&!confirm(getal(gram)+' g per bonbon is ongebruikelijk veel. Weet je het zeker?')) return;
     if(!ing.length) return toast('Vul in waar dit onderdeel uit bestaat.');
