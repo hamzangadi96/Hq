@@ -195,7 +195,7 @@ main>.blokkop:first-child{margin-top:8px}
 .loopt .lt{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .loopt .tp{width:8px;height:8px;border-radius:99px;background:#22c55e;flex:none;animation:pols 2s infinite}
 .prim{width:100%;height:48px;border-radius:14px;background:var(--ink);color:#fff;font-size:15px;
-  font-weight:600;margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
+  font-weight:600;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
 .prim:active{opacity:.85}
 .prim svg{width:16px;height:16px;stroke-width:2.2}
 .prim.los{margin-top:0}
@@ -228,7 +228,9 @@ main>.blokkop:first-child{margin-top:8px}
 .stip.amber{background:var(--amber)} .stip.rood{background:var(--rood)} .stip.groen{background:var(--groen)}
 .meer{width:100%;padding:12px 16px;font-size:14px;font-weight:600;color:var(--grijs);text-align:center;border-top:1px solid var(--lijn)}
 
-.arij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 20px;border-bottom:1px solid var(--lijn)}
+/* De rijen waren 16 hoog met een subregel eronder: drie ervan vulden een
+   half scherm. Iets compacter leest sneller en laat de tegels ademen. */
+.arij{display:flex;align-items:center;gap:12px;width:100%;padding:13px 18px;border-bottom:1px solid var(--lijn)}
 
 /* ── tegels: elk cijfer eigen ruimte, en meteen een knop ── */
 .tegels{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -260,15 +262,17 @@ main>.blokkop:first-child{margin-top:8px}
    De kleine ring rechtsboven ging verloren tussen de tekst: 38 pixels grijs.
    Dit is hetzelfde gegeven, maar als middelpunt van de kaart, met het aantal
    bonbons erin. Eén blik en je weet hoe ver je bent en hoeveel je maakt. */
-.groteRing{width:132px;height:132px;flex:none;position:relative;display:grid;place-items:center}
-.groteRing svg{width:132px;height:132px;display:block;transform:rotate(-90deg)}
-.groteRing circle{fill:none;stroke-width:9}
+/* De ring was 132 breed met veel lucht eromheen: samen met de knoppen vulde
+   de kaart een heel scherm en zag je niets anders meer. */
+.groteRing{width:108px;height:108px;flex:none;position:relative;display:grid;place-items:center}
+.groteRing svg{width:108px;height:108px;display:block;transform:rotate(-90deg)}
+.groteRing circle{fill:none;stroke-width:8}
 .groteRing .baan{stroke:var(--bg)}
 .groteRing .vul{stroke:var(--ink);stroke-linecap:round;
   transition:stroke-dasharray .6s cubic-bezier(.32,.72,0,1)}
 .groteRing.amber .vul{stroke:var(--amber)}
 .groteRing .binnen{position:absolute;text-align:center;line-height:1}
-.groteRing .getal{font-size:34px;font-weight:600;letter-spacing:-.04em;
+.groteRing .getal{font-size:29px;font-weight:600;letter-spacing:-.04em;
   font-variant-numeric:tabular-nums;display:block}
 .groteRing .onder{font-size:11px;font-weight:600;letter-spacing:.09em;
   text-transform:uppercase;color:var(--grijs);margin-top:6px;display:block}
@@ -286,10 +290,15 @@ main>.blokkop:first-child{margin-top:8px}
 .wgkop .l{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
   color:var(--grijs)}
 .wgkop svg{width:16px;height:16px;stroke-width:1.9;color:var(--grijs3);flex:none}
-.wggetal{font-size:29px;font-weight:600;letter-spacing:-.045em;line-height:1;
+/* Een streepje in 29 punten met een gat erboven las als een storing. Is er
+   niets, dan zeggen we dat gewoon, in de maat van de bijregel. */
+.wggetal{font-size:30px;font-weight:600;letter-spacing:-.045em;line-height:1;
   margin-top:auto;font-variant-numeric:tabular-nums}
-.wggetal.klein{font-size:20px;letter-spacing:-.03em}
+.wggetal.klein{font-size:21px;letter-spacing:-.03em}
+.wggetal.leeg{font-size:15px;font-weight:500;color:var(--grijs3);letter-spacing:-.01em;
+  margin:auto 0;line-height:1.4}
 .wgsub{font-size:12.5px;color:var(--grijs);margin-top:5px;line-height:1.35}
+.wggetal.leeg + .wgsub{display:none}
 .wg.let .wggetal{color:var(--amber)}
 .wg.let .wgsub{color:var(--amber)}
 .wg.rood .wggetal{color:var(--rood)}
@@ -304,9 +313,9 @@ main>.blokkop:first-child{margin-top:8px}
 .wg.breed .pijl{color:var(--grijs3);flex:none}
 .wg.breed .pijl svg{width:16px;height:16px}
 
-.hkmidden{display:flex;justify-content:center;margin:4px 0 14px}
+.hkmidden{display:flex;justify-content:center;margin:2px 0 10px}
 .hkstappen{display:flex;align-items:center;justify-content:center;gap:7px;
-  margin:0 0 16px;font-size:13px;color:var(--grijs);font-weight:500}
+  margin:0 0 10px;font-size:13px;color:var(--grijs);font-weight:500}
 .hkstappen b{color:var(--ink);font-weight:600}
 
 .mring{width:38px;height:38px;min-width:38px;flex:none;position:relative;display:grid;place-items:center}
@@ -1524,7 +1533,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v224 · 14 aug 2026';
+const APPVERSIE='v225 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2809,10 +2818,14 @@ function weekstripHTML(dagenVooruit){
 /* De tegels onder de hoofdkaart. Elke tegel toont één getal en waar dat over
    gaat; tikken brengt je naar het tabblad waar je er iets mee kunt. */
 function tegelsHTML(){
+  /* getal===null betekent: er is nog niets. Dan tonen we alleen de uitleg,
+     rustig en klein, in plaats van een groot streepje. */
   const tegel=(attr,label,ico,getal,sub,klas)=>`<button class="wg ${klas||''}" ${attr}>
     <div class="wgkop"><span class="l">${label}</span>${svg(ico)}</div>
-    <div class="wggetal ${String(getal).length>6?'klein':''}">${getal}</div>
-    <div class="wgsub">${sub}</div></button>`;
+    ${getal===null
+      ? `<div class="wggetal leeg">${sub}</div>`
+      : `<div class="wggetal ${String(getal).length>6?'klein':''}">${getal}</div>
+         <div class="wgsub">${sub}</div>`}</button>`;
 
   const breed=(attr,ico,titel,sub)=>`<button class="wg breed" ${attr}>
     <span class="wgvak">${svg(ico)}</span>
@@ -2824,20 +2837,20 @@ function tegelsHTML(){
   /* voorraad */
   const ger=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
   h+=tegel('data-naar="voorraad"','Voorraad',I.doos,
-    ger||'—', ger?'bonbons gereed':'nog geen product');
+    ger||null, ger?'bonbons gereed':'nog geen product');
 
   /* orders */
   const open=(S.orders||[]).filter(o=>o.status==='nieuw');
   const laat=open.filter(o=>o.leverdatum&&o.leverdatum<vandaag()).length;
   h+=tegel('data-naar="orders"','Orders',I.lijst,
-    open.length||'—',
+    open.length||null,
     laat?laat+' te laat':(open.length?'te leveren':'niets open'),
     laat?'rood':'');
 
   /* openstaand geld */
   const os=openstaand(), osTot=os.reduce((n,x)=>n+x.bedrag,0);
   h+=tegel('data-naar="geld"','Openstaand',I.euro,
-    osTot?euro(osTot):'—',
+    osTot?euro(osTot):null,
     os.length?os.length+(os.length===1?' factuur':' facturen'):'alles betaald',
     osTot?'let':'');
 
@@ -2845,7 +2858,7 @@ function tegelsHTML(){
   const w=werkOp(vandaag());
   const taken=allePlanTaken().filter(x=>x.datum===vandaag()).length;
   h+=tegel('data-naar="agenda"','Vandaag',I.klok,
-    taken||'—',
+    taken||null,
     w&&w.plek!=='vrij' ? esc(werkTekst(w)) : (taken?'op de rol':'niets gepland'));
 
   /* een brede tegel voor wat er als eerste aan de beurt is */
@@ -2941,7 +2954,7 @@ function dashboardHTML(){
       <h2 style="text-align:center;margin:0">${esc(bNamen(b))}</h2>
       <div class="hkstappen"><b>${gedaan} van ${totaal} stappen</b>${
         b.status==='pauze'?' · stilgelegd':''}</div>
-      <div class="sub" style="text-align:center;margin-top:-8px">volgende stap: ${
+      <div class="sub" style="text-align:center;margin-top:-4px">volgende stap: ${
         v?v.label.toLowerCase():'afronden'}</div>
       ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
         <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
