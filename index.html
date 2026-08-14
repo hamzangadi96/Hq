@@ -1661,7 +1661,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v253 · 14 aug 2026';
+const APPVERSIE='v254 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5456,6 +5456,48 @@ function hexHsv(hex){
   return {h, s:mx?d/mx:0, v:mx};
 }
 
+
+/* ===== een naam bij een kleur =====
+   Uit de tint komt de kleurfamilie, uit de verzadiging en de helderheid komt
+   het voorvoegsel. Alleen een voorstel — overtypen mag altijd. */
+const KLEURFAMILIE=[
+  [  8,'rood'],   [ 20,'oranjerood'], [ 38,'oranje'],  [ 50,'amber'],
+  [ 65,'geel'],   [ 82,'limoen'],     [140,'groen'],   [165,'zeegroen'],
+  [185,'turkoois'],[200,'cyaan'],     [225,'blauw'],   [250,'indigo'],
+  [275,'violet'], [295,'paars'],      [320,'magenta'], [345,'roze'], [361,'rood']
+];
+
+function kleurNaamVoorstel(hex){
+  const v=hexHsv(hex); if(!v) return '';
+  const s2=v.s, w=v.v;
+  if(w<0.10) return 'zwart';
+  if(s2<0.08) return w>0.92?'wit':w>0.72?'lichtgrijs':w>0.38?'grijs':'antraciet';
+  /* Bruin bestaat niet als tint: het is donker of getemperd oranje, en loopt
+     van roodbruin tot okerbruin. Zonder deze regel heet karamel "feloranje"
+     en koffie "donkeroranjerood". */
+  if(v.h>=6&&v.h<50&&(w<0.75||s2<0.55)&&w<0.88){
+    if(w<0.34) return 'donkerbruin';
+    if(w>0.66) return 'karamel';
+    return 'bruin';
+  }
+  const fam=(KLEURFAMILIE.find(x=>v.h<x[0])||KLEURFAMILIE[0])[1];
+  if(s2<0.22) return 'grijs'+fam;
+  if(w<0.35) return 'donker'+fam;
+  if(s2<0.45&&w>0.80) return 'pastel'+fam;
+  if(w>0.88&&s2<0.65) return 'licht'+fam;
+  if(s2>0.85&&w>0.75) return 'fel'+fam;
+  return fam;
+}
+
+/* zorgt dat je niet twee keer dezelfde naam krijgt */
+function vrijeKleurNaam(basis){
+  if(!basis) return '';
+  const bestaat=n=>kleurLijst().some(k=>gKey(k.naam)===gKey(n));
+  if(!bestaat(basis)) return basis;
+  for(let i=2;i<40;i++){ const n=basis+' '+i; if(!bestaat(n)) return n }
+  return basis;
+}
+
 function sheetKleurKiezen(huidig,klaar){
   let hsv=hexHsv(hexRgb(huidig)?huidig:'#c8102e');
   const nu=()=>hsvHex(hsv.h,hsv.s,hsv.v);
@@ -5669,7 +5711,9 @@ function sheetKleur(idx){
     const r=kleurReken(k,0);
     sheet(nieuw?'Kleur toevoegen':'Kleur',
       `<div class="veld"><label>Naam</label>
-         <input class="inp" id="kwN" value="${esc(k.naam)}" placeholder="Bijv. framboosrood"></div>
+         <input class="inp" id="kwN" value="${esc(k.naam)}" placeholder="Bijv. framboosrood">
+         ${k.naam&&k.hex&&k.naam===vrijeKleurNaam(kleurNaamVoorstel(k.hex))
+           ?`<div class="hint" style="margin:6px 0 0">Voorgesteld op basis van de kleur — overtypen mag.</div>`:''}</div>
        <div class="veld"><label>Hoe ziet hij eruit op witte chocolade?</label>
          <div class="rijtje">
            <input class="inp" id="kwHx" value="${esc(k.hex||'#c0392b')}" autocapitalize="none" spellcheck="false">
@@ -5772,7 +5816,12 @@ function sheetKleur(idx){
        tekstveld bij; pas als je de kiezer sluit tekenen we opnieuw. */
     if($('#kwHk')) $('#kwHk').onclick=()=>{
       lees();
-      sheetKleurKiezen(k.hex||'#c0392b',hex=>{ k.hex=hex; teken() });
+      sheetKleurKiezen(k.hex||'#c0392b',hex=>{
+        k.hex=hex;
+        /* heb je nog geen naam bedacht, dan zetten we er een voorstel neer */
+        if(!k.naam) k.naam=vrijeKleurNaam(kleurNaamVoorstel(hex));
+        teken();
+      });
     };
     if($('#kwHx')) $('#kwHx').onchange=()=>{
       const v=$('#kwHx').value.trim();
