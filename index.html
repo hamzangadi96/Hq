@@ -1235,6 +1235,10 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .et-partij .qr{display:block}
 .et-product{width:99.1mm;height:67.7mm;padding:4mm;display:flex;flex-direction:column;gap:1.2mm}
 .et-product .en{font-size:11pt}
+/* de werkregel op de dashboardkaart: icoontje op maat, niet op volle breedte */
+.hoofdkaart .werkregel{display:flex;align-items:center;gap:7px;margin-top:10px;opacity:.7}
+.hoofdkaart .werkregel .wi{flex:none;width:15px;height:15px;display:block}
+.hoofdkaart .werkregel .wi svg{width:15px;height:15px;display:block}
 .et-product .eb2{font-size:7pt;line-height:1.3;color:#3f3f46;margin-top:-.8mm}
 .et-product .eb2.mist{color:#b45309;font-style:italic}
 .et-product .ing{font-size:6.5pt;line-height:1.3}
@@ -1444,7 +1448,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v218 · 13 aug 2026';
+const APPVERSIE='v219 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2775,8 +2779,12 @@ function dashboardToestand(){
   if(boodNu.length) return {soort:'boodschappen',p:boodNu[0],alle:boodNu};
 
   /* een live of andere losse klus vandaag */
+  /* Een controle die je nog nooit hebt gedaan is geen klus van vandaag; die
+     hoort thuis onder "Een keer doen". Anders kaapt hij elke dag je scherm en
+     verdringt hij een batch die je net hebt afgerond. */
   const vandaagTaken=allePlanTaken().filter(x=>x.datum===vandaag()
-    &&x.soort!=='productie'&&!(x.soort==='boodschappen'&&!x.los));
+    &&x.soort!=='productie'&&!(x.soort==='boodschappen'&&!x.los)
+    &&!(x.soort==='haccp'&&x.eerste));
   if(vandaagTaken.length) return {soort:'taakdag',taken:vandaagTaken};
 
   if(plan.length) return {soort:'gepland',p:plan[0]};
@@ -2851,6 +2859,17 @@ function dashboardHTML(){
       <h2 style="margin-top:6px">${esc(p.regels.map(r=>smaakNaam(r.receptId)).join(', '))}</h2>
       <div class="sub">${chocNaam(p.chocolade).toLowerCase()} · ${p.regels.reduce((n,r)=>n+r.mallen,0)} mallen${
         dek.length?' · '+dek.length+' grondstof'+(dek.length===1?'':'fen')+' tekort':' · alles in huis'}</div>
+      ${(()=>{
+        /* De app kent je werkweek sinds v190, maar zei er niets over. Sta je
+           vandaag op kantoor, dan is dat nogal bepalend voor je planning. */
+        const w=werkOp(vandaag());
+        if(!w||w.plek==='vrij') return '';
+        const ru=(w.ruimte||'avond');
+        return `<div class="sub werkregel">
+          <span class="wi">${svg(I.klok)}</span>${esc(werkTekst(w))} · ${
+            ru==='geen'?'geen ruimte vandaag'
+            :ru==='avond'?"pas 's avonds ruimte":'hele dag ruimte'}</div>`;
+      })()}
       <button class="prim" data-planstart="${p.id}">${svg(I.plus)}Batch starten</button></div>`;
     if(dek.length){
       h+=`<div class="blokkop"><span class="eyebrow">Kom je tekort</span>
@@ -6907,7 +6926,9 @@ function haccpTaken(){
     if(n>Math.min(60,Math.round(h.dagen/3))) return;
     uit.push({datum:n<0?vandaag():datum, soort:'haccp', check:h,
       tekst:h.n+(l?'':' — nog nooit gedaan'),
-      tijd:'', over:n});
+      /* nooit gedaan is geen dagtaak: die staan al onder "Een keer doen" op je
+         dashboard. Hier alleen zichtbaar in je agenda en weekstrook. */
+      eerste:!l, tijd:'', over:n});
   });
   return uit;
 }
