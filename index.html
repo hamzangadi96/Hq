@@ -1608,7 +1608,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v231 · 14 aug 2026';
+const APPVERSIE='v232 meten · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13499,12 +13499,53 @@ function zoekAlles(q){
    scherm. Sluiten brengt je terug waar je was. */
 let zoektAan=false;
 
+/* ===== tijdelijke meetregel =====
+   Alleen om de grijze strook boven de zoekbalk te vinden. Zodra we weten
+   waar hij vandaan komt gaat dit er weer uit. */
+let meetTik=null;
+function meetAan(){
+  let el=document.getElementById('meetregel');
+  if(!el){
+    el=document.createElement('div');
+    el.id='meetregel';
+    el.style.cssText='position:fixed;left:0;right:0;top:0;z-index:999;'
+      +'background:#18181b;color:#fff;font:600 10px/1.35 -apple-system,sans-serif;'
+      +'padding:3px 6px;text-align:center;letter-spacing:.01em';
+    document.body.appendChild(el);
+  }
+  const lees=()=>{
+    const cs=getComputedStyle(document.documentElement);
+    const h=document.querySelector('header').getBoundingClientRect();
+    const a=document.querySelector('.app').getBoundingClientRect();
+    const zb=document.querySelector('.zoekbalk').getBoundingClientRect();
+    const vv=window.visualViewport;
+    el.textContent=
+      'vb '+cs.getPropertyValue('--veiligBoven').trim()
+      +' · kop '+cs.getPropertyValue('--kopHoogte').trim()
+      +' · hdr '+Math.round(h.top)+'/'+Math.round(h.height)
+      +' · app '+Math.round(a.top)+'/'+Math.round(a.height)
+      +' · balk '+Math.round(zb.top)
+      +' · sc '+Math.round(window.scrollY)
+      +' · vv '+Math.round(vv.offsetTop)+'/'+Math.round(vv.height)
+      +' · in '+window.innerHeight;
+  };
+  lees();
+  meetTik=setInterval(lees,300);
+}
+function meetUit(){
+  if(meetTik){ clearInterval(meetTik); meetTik=null }
+  const el=document.getElementById('meetregel'); if(el) el.remove();
+}
+
+
+
 function zoekOpen(){
   if(zoektAan) return;
   zoektAan=true;
   document.querySelector('header').classList.add('zoekt');
   zoekTeken('');
   window.addEventListener('scroll',zoekVast,true);
+  meetAan();
   const e=$('#zbQ');
   if(e){ e.value=''; setTimeout(()=>e.focus(),160) }
 }
@@ -13521,6 +13562,7 @@ function zoekDicht(){
      verschuiving hangen: een grijze strook boven de balk. Hier zetten we
      hem terug, in twee tellen, want iOS doet er soms even over. */
   window.removeEventListener('scroll',zoekVast,true);
+  meetUit();
   if(window.__rechtzetten){
     setTimeout(window.__rechtzetten,60);
     setTimeout(window.__rechtzetten,320);
