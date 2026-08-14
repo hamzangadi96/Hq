@@ -353,6 +353,11 @@ main>.blokkop:first-child{margin-top:8px}
 .wggetal.leeg{font-size:15px;font-weight:500;color:var(--grijs3);letter-spacing:-.01em;
   margin:auto 0;line-height:1.4}
 .wgsub{font-size:12.5px;color:var(--grijs);margin-top:5px;line-height:1.35}
+/* het verschil met de vorige periode: klein, maar met kleur die iets zegt */
+.wgdelta{display:block;margin-top:7px;font-size:11.5px;font-weight:600;
+  letter-spacing:-.005em;color:var(--grijs2)}
+.wgdelta.op{color:var(--groen)}
+.wgdelta.neer{color:var(--rood)}
 .wggetal.leeg + .wgsub{display:none}
 .wg.let .wggetal{color:var(--amber)}
 .wg.let .wgsub{color:var(--amber)}
@@ -1667,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v268 · 14 aug 2026';
+const APPVERSIE='v270 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1893,7 +1898,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd',
   'werkweek','werkafwijk','werkGezet3','samenstelling',
-  'kleuren','ingericht','mallen'];
+  'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -2757,7 +2762,137 @@ function render(){
   catch(e){ noodScherm(e); }
 }
 
+
+/* ===== fouten bewaren =====
+   Een crash verdween zodra je het noodscherm sloot. Zonder vastlegging weet
+   je pas dat er iets mis is als iemand belt. We houden de laatste twintig
+   bij; die gaan straks mee naar het beheerscherm. */
+const FOUTMAX=20;
+function foutVastleggen(e,waar){
+  try{
+    S.fouten=Array.isArray(S.fouten)?S.fouten:[];
+    const tekst=(e&&(e.stack||e.message))||String(e);
+    /* Dezelfde fout binnen een minuut telt als één. Eerst keek ik alleen naar
+       de bovenste regel, maar bij een crash die zich herhaalt komt er tussendoor
+       een andere binnen — dan telde hij toch dubbel. Nu zoeken we hem op. */
+    const zelfde=S.fouten.find(x=>x.tekst===String(tekst).slice(0,900)
+      &&Date.now()-x.tijd<60000);
+    if(zelfde){ zelfde.aantal=(zelfde.aantal||1)+1; zelfde.tijd=Date.now(); return }
+    S.fouten.unshift({tijd:Date.now(), datum:new Date().toISOString(),
+      waar:waar||S.tab||'onbekend', versie:APPVERSIE, aantal:1,
+      tekst:String(tekst).slice(0,900)});
+    S.fouten=S.fouten.slice(0,FOUTMAX);
+    try{ localStorage.setItem('hq-fouten',JSON.stringify(S.fouten)) }catch(x){}
+  }catch(x){}
+}
+
+/* ===== beheerscherm =====
+   Alleen voor jou als leverancier van de app. Dit is de opzet; de cijfers over
+   andere gebruikers komen straks van je Cloud Functions.
+
+   Belangrijk: verbergen is geen beveiligen. Wie de code leest ziet dit scherm
+   ook. De echte grendel hoort in je Firebase-regels te zitten — alleen jouw
+   gebruiker mag de beheergegevens lezen. Zolang die regel er niet is staat
+   hier niets van andere gebruikers in. */
+
+/* jouw eigen gebruiker: vul hier straks je Firebase-uid in */
+const BEHEERDERS=[];
+function isBeheerder(){
+  if(!BEHEERDERS.length) return false;
+  return !!(typeof fbUser!=='undefined'&&fbUser&&BEHEERDERS.includes(fbUser.uid));
+}
+
+function sheetBeheer(){
+  const fouten=Array.isArray(S.fouten)?S.fouten:[];
+  const wacht=`<span class="tel let">wacht op server</span>`;
+
+  sheet('Beheer',
+    `<div class="melding amber">${svg(I.alarm,'2')}
+       <span>Dit scherm is de opzet. De cijfers over andere gebruikers komen pas
+         binnen als je Cloud Functions draaien — en pas nadat je in je
+         Firebase-regels hebt vastgelegd dat alleen jij ze mag lezen.</span></div>
+
+     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Fouten op dit toestel</span>
+       <span class="tel ${fouten.length?'let':''}">${fouten.length||'geen'}</span></div>
+     ${fouten.length?`<div class="paneel">${fouten.slice(0,8).map((f,i)=>`
+       <button class="arij" data-fout="${i}">
+         <span class="ivak rood">${svg(I.alarm)}</span>
+         <span class="naam">${esc(f.waar)}${f.aantal>1?' ('+f.aantal+'×)':''}
+           <small>${kort(new Date(f.datum))} · ${esc(f.versie||'')}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
+       <button class="sec" id="bhWis" style="margin-top:10px">Fouten wissen</button>`
+      :`<div class="rustig" style="padding:26px 20px">
+         <div class="ico">${svg(I.vink,'2.2')}</div>
+         <p>Geen fouten vastgelegd op dit toestel.</p></div>`}
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Gebruikers</span>${wacht}</div>
+     <div class="paneel">
+       <div class="arij" style="cursor:default"><span class="naam">Actief deze week
+         <small>hoeveel mensen de app echt gebruiken</small></span>
+         <span class="waarde">—</span></div>
+       <div class="arij" style="cursor:default"><span class="naam">Vastgelopen bij inrichten
+         <small>begonnen maar niet afgemaakt</small></span>
+         <span class="waarde">—</span></div>
+       <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Nieuw deze maand
+         <small></small></span><span class="waarde">—</span></div>
+     </div>
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Support</span>${wacht}</div>
+     <div class="paneel">
+       <div class="arij" style="cursor:default"><span class="naam">Open vragen
+         <small>via de hulpknop in de app</small></span><span class="waarde">—</span></div>
+       <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Langst wachtend
+         <small></small></span><span class="waarde">—</span></div>
+     </div>
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Abonnementen</span>${wacht}</div>
+     <div class="paneel">
+       <div class="arij" style="cursor:default"><span class="naam">Betalend
+         <small></small></span><span class="waarde">—</span></div>
+       <div class="arij" style="cursor:default"><span class="naam">In proefperiode
+         <small></small></span><span class="waarde">—</span></div>
+       <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Achterstallig
+         <small></small></span><span class="waarde">—</span></div>
+     </div>
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bericht aan iedereen</span></div>
+     <div class="veld"><textarea class="inp" id="bhBericht" style="height:80px"
+       placeholder="Bijv. nieuwe versie beschikbaar — ververs even."></textarea>
+       <div class="hint" style="margin:8px 0 0">Verschijnt bovenin bij alle gebruikers.
+         Werkt zodra je server draait.</div></div>
+     <button class="sec" id="bhStuur" style="margin-top:4px">Bericht versturen</button>`,'');
+
+  $$('[data-fout]').forEach(b=>b.onclick=()=>{
+    const f=fouten[parseInt(b.dataset.fout,10)];
+    if(!f) return;
+    sheet('Fout',
+      `<div class="veld"><label>Waar</label>
+         <div class="totaalregel"><span class="l">${esc(f.waar)}</span>
+           <span class="w">${kort(new Date(f.datum))}</span></div></div>
+       <div class="veld"><label>Versie</label>
+         <div class="totaalregel"><span class="l">${esc(f.versie||'onbekend')}</span>
+           <span class="w">${f.aantal||1}×</span></div></div>
+       <div class="veld"><label>Melding</label>
+         <textarea class="inp" id="bhT" style="height:200px;font-size:12px" readonly>${esc(f.tekst)}</textarea></div>`,
+      `<button class="prim" style="margin-top:0" id="bhKop">Kopiëren</button>
+       <button class="sec" id="bhTerug">Terug</button>`);
+    $('#bhTerug').onclick=sheetBeheer;
+    $('#bhKop').onclick=async()=>{
+      try{ await navigator.clipboard.writeText(f.tekst); toast('Gekopieerd.') }
+      catch(e){ toast('Selecteer de tekst en kopieer met de hand.') }
+    };
+  });
+  if($('#bhWis')) $('#bhWis').onclick=()=>{
+    if(!confirm('Alle vastgelegde fouten wissen?')) return;
+    S.fouten=[]; try{ localStorage.removeItem('hq-fouten') }catch(x){}
+    bewaarNu(); sheetBeheer(); toast('Gewist.');
+  };
+  if($('#bhStuur')) $('#bhStuur').onclick=()=>
+    toast('Werkt zodra je Cloud Functions draaien.');
+}
+
 function noodScherm(e){
+  foutVastleggen(e,'render');
   const w=document.getElementById('scherm');
   if(!w) return;
   const tekst=(e&&(e.stack||e.message))||String(e);
@@ -2976,15 +3111,61 @@ function weekstripHTML(dagenVooruit){
 
 /* De tegels onder de hoofdkaart. Elke tegel toont één getal en waar dat over
    gaat; tikken brengt je naar het tabblad waar je er iets mee kunt. */
+
+/* ===== vergelijken met eerder =====
+   Een kaal getal zegt weinig: 94 bonbons op voorraad is veel of weinig,
+   afhankelijk van vorige week. Daarom staat er nu bij elk getal hoe het zich
+   verhoudt tot dezelfde periode ervoor. Dat is wat een cijfer informatie
+   maakt in plaats van een stand. */
+
+const dagenTerug=n=>{const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().slice(0,10)};
+
+/* wat je in een periode hebt omgezet, uit je geleverde orders */
+function omzetTussen(van,tot){
+  return (S.orders||[]).filter(o=>{
+    const d=o.factuurDatum||o.ingepakt||o.leverdatum||o.datum;
+    return d&&d>=van&&d<=tot;
+  }).reduce((n,o)=>n+(orderBedrag(o).bedrag||0),0);
+}
+/* hoeveel bonbons je in een periode hebt gemaakt */
+function gemaaktTussen(van,tot){
+  return (S.mutaties||[]).filter(m=>m.soort==='batch'&&m.datum>=van&&m.datum<=tot)
+    .reduce((n,m)=>n+(m.aantal>0?m.aantal:0),0);
+}
+/* hoeveel orders er in een periode binnenkwamen */
+function ordersTussen(van,tot){
+  return (S.orders||[]).filter(o=>o.datum&&o.datum>=van&&o.datum<=tot).length;
+}
+
+/* Zet twee getallen om in een leesbaar verschil. Geeft null als er niets
+   zinnigs te zeggen valt — dan laten we de regel gewoon weg. */
+function verschil(nu2,eerder,eenheid){
+  if(!isFinite(nu2)||!isFinite(eerder)) return null;
+  if(!eerder&&!nu2) return null;
+  if(!eerder) return {richting:'op',tekst:'nieuw deze periode'};
+  const pct=Math.round((nu2-eerder)/Math.abs(eerder)*100);
+  if(pct===0) return {richting:'gelijk',tekst:'gelijk aan vorige periode'};
+  return {richting:pct>0?'op':'neer',
+    tekst:Math.abs(pct)+'% '+(pct>0?'meer':'minder')+' dan vorige '+(eenheid||'periode')};
+}
+
+/* het pijltje met de tekst eronder */
+function verschilHTML(v){
+  if(!v) return '';
+  const ico=v.richting==='op'?'▲':v.richting==='neer'?'▼':'•';
+  return `<span class="wgdelta ${v.richting}">${ico} ${esc(v.tekst)}</span>`;
+}
+
 function tegelsHTML(){
   /* getal===null betekent: er is nog niets. Dan tonen we alleen de uitleg,
      rustig en klein, in plaats van een groot streepje. */
-  const tegel=(attr,label,ico,getal,sub,klas)=>`<button class="wg ${klas||''}" ${attr}>
+  const tegel=(attr,label,ico,getal,sub,klas,delta)=>`<button class="wg ${klas||''}" ${attr}>
     <div class="wgkop"><span class="l">${label}</span>${svg(ico)}</div>
     ${getal===null
       ? `<div class="wggetal leeg">${sub}</div>`
       : `<div class="wggetal ${String(getal).length>6?'klein':''}">${getal}</div>
-         <div class="wgsub">${sub}</div>`}</button>`;
+         <div class="wgsub">${sub}</div>
+         ${verschilHTML(delta)}`}</button>`;
 
   const breed=(attr,ico,titel,sub)=>`<button class="wg breed" ${attr}>
     <span class="wgvak">${svg(ico)}</span>
@@ -2995,23 +3176,34 @@ function tegelsHTML(){
 
   /* voorraad */
   const ger=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
+  /* voorraad vergelijken heeft weinig zin — dat is een stand, geen stroom.
+     We tonen hier wat je de laatste dertig dagen hebt gemaakt. */
+  const gem30=gemaaktTussen(dagenTerug(30),vandaag());
+  const gemVorig=gemaaktTussen(dagenTerug(60),dagenTerug(31));
   h+=tegel('data-naar="voorraad"','Voorraad',I.doos,
-    ger||null, ger?'bonbons gereed':'nog geen product');
+    ger||null, ger?'bonbons gereed':'nog geen product','',
+    gem30||gemVorig?verschil(gem30,gemVorig,'maand'):null);
 
   /* orders */
   const open=(S.orders||[]).filter(o=>o.status==='nieuw');
   const laat=open.filter(o=>o.leverdatum&&o.leverdatum<vandaag()).length;
+  const ord30=ordersTussen(dagenTerug(30),vandaag());
+  const ordVorig=ordersTussen(dagenTerug(60),dagenTerug(31));
   h+=tegel('data-naar="orders"','Orders',I.lijst,
     open.length||null,
     laat?laat+' te laat':(open.length?'te leveren':'niets open'),
-    laat?'rood':'');
+    laat?'rood':'',
+    ord30||ordVorig?verschil(ord30,ordVorig,'maand'):null);
 
   /* openstaand geld */
   const os=openstaand(), osTot=os.reduce((n,x)=>n+x.bedrag,0);
+  const om30=omzetTussen(dagenTerug(30),vandaag());
+  const omVorig=omzetTussen(dagenTerug(60),dagenTerug(31));
   h+=tegel('data-naar="geld"','Openstaand',I.euro,
     osTot?euro(osTot):null,
     os.length?os.length+(os.length===1?' factuur':' facturen'):'alles betaald',
-    osTot?'let':'');
+    osTot?'let':'',
+    om30||omVorig?verschil(om30,omVorig,'maand'):null);
 
   /* wat er vandaag te doen is, inclusief je baan */
   const w=werkOp(vandaag());
@@ -10371,6 +10563,7 @@ function straksHTML(key){
 /* ---------- binding ---------- */
 const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
   kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,vooruit:sheetVooruit,
+  beheer:sheetBeheer,
   klaar:sheetKlaar,
   kleurmogelijk:sheetKleurMogelijk,
   ingredienten:sheetIngredienten,afwijking:sheetAfwijking,schoonmaak:sheetSchoonmaak,afronden:sheetAfronden,
@@ -15409,6 +15602,10 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
        (S.plekken||[]).length||'geen'}</span></button>
 
+     ${isBeheerder()?`<div class="mkop">Beheer</div>
+     <button class="menurij" data-ins="beheer">${svg(I.instel)}Beheer<span class="tel">${
+       (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
+
      <div class="mkop">Zelden</div>
      <button class="menurij" data-ins="branche">${svg(I.boek)}Branche en sjabloon<span class="tel">${
        esc(branche().naam)}</span></button>
@@ -15443,6 +15640,7 @@ function sheetInstellingen(){
   });
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
+    if(k==='beheer') return sheetBeheer();
     if(k==='mallen') return sheetMallen();
     if(k==='kleuren') return sheetKleuren();
     if(k==='uitleg') return sheetUitleg();
