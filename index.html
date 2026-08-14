@@ -217,6 +217,8 @@ main>.blokkop:first-child{margin-top:8px}
 .arij .ivak.rood{background:#fef2f2;color:var(--rood)}
 .arij .ivak.amber{background:#fffbeb;color:var(--amber)}
 .arij .ivak.groen{background:#f0fdf4;color:var(--groen)}
+.arij .ivak.amber{background:#fffbeb;color:var(--amber)}
+.arij .ivak.groen{background:#f0fdf4;color:var(--groen)}
 .hoofdkaart.klaar{box-shadow:none;border:1px solid var(--lijn);text-align:center;padding:24px 20px}
 .hoofdkaart.klaar h2{font-size:21px}
 .vinkje{width:40px;height:40px;border-radius:99px;background:var(--bg);color:var(--groen);display:grid;place-items:center;margin:0 auto 2px}
@@ -1661,7 +1663,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v256 · 14 aug 2026';
+const APPVERSIE='v258 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3385,6 +3387,7 @@ function dashboardHTML(){
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
     <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
+    <button class="snelknop" data-sheet="klaar">${svg(I.vink)}Ben je er klaar voor</button>
     <button class="snelknop" data-sheet="vooruit">${svg(I.vracht)}Wat moet je halen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
@@ -8799,6 +8802,82 @@ function sheetVooruit(){
   if($('#vuLijst')) $('#vuLijst').onclick=sheetBoodschappen;
 }
 
+
+/* ===== ben je er klaar voor? =====
+   Niet je hygiënecheck — dat is de startcheck bij een productiedag. Dit gaat
+   over de app zelf: welke gegevens ontbreken nog waardoor iets niet klopt of
+   niet werkt. Elk punt zegt wat er misgaat als je het laat staan, en brengt
+   je naar de plek waar je het invult. */
+
+function klaarPunten(){
+  const b=S.bedrijf||{}, u=[];
+  const zet=(klaar,titel,gevolg,doe,ernst)=>u.push({klaar,titel,gevolg,doe,ernst:ernst||'amber'});
+
+  zet(!!fbUser,'Inloggen',
+    'Zonder inlog staat alles alleen op deze telefoon. Raak je hem kwijt, dan is je administratie weg.',
+    ()=>sheetAccount(),'rood');
+
+  zet(!!(b.iban&&String(b.iban).trim()),'IBAN invullen',
+    'Op je facturen staat nu "IBAN nog invullen". Klanten kunnen niet betalen.',
+    ()=>sheetBedrijf(),'rood');
+
+  zet(!!S.werkGezet3,'Je werkweek invullen',
+    'De app rekent met een standaardweek. Je planning en je waarschuwingen over ruimte kloppen dan niet.',
+    ()=>sheetWerkweek());
+
+  const ijk=laatsteIjking();
+  zet(!!ijk,'Thermometer ijken',
+    'Zonder ijking zijn je temperatuurmetingen bij een controle aanvechtbaar.',
+    ()=>sheetIjking());
+
+  const chocs=(S.recepten||[]).length
+    ? [...new Set((S.recepten||[]).flatMap(r=>(r.onderdelen||[])
+        .flatMap(o=>(o.ing||[]).map(i=>i.naam))))].filter(Boolean)
+    : [];
+  const uitgesplitst=chocs.filter(n=>((S.samenstelling||{})[n]||[]).length).length;
+  zet(!chocs.length||uitgesplitst>0,'Ingrediënten uitsplitsen',
+    'Samengestelde ingrediënten zoals chocolade moeten op je etiket worden opengebroken. Nu staat er alleen "chocolade".',
+    ()=>sheetIngredienten());
+
+  const zonderControle=!(S.controles||[]).length;
+  zet(!zonderControle,'Ongediertecontrole doen',
+    'Je hygiënecode vraagt er elk kwartaal een. Er staat er nog geen vastgelegd.',
+    ()=>sheetControles());
+
+  return u;
+}
+
+function sheetKlaar(){
+  const punten=klaarPunten();
+  const open=punten.filter(x=>!x.klaar);
+  const af=punten.filter(x=>x.klaar);
+
+  sheet('Ben je er klaar voor?',
+    `<p class="hint">Dit gaat niet over vandaag maar over je app: wat er nog
+       ontbreekt waardoor iets niet klopt of niet werkt.</p>
+     ${!open.length?`<div class="rustig" style="padding:34px 20px">
+        <div class="ico">${svg(I.vink,'2.2')}</div>
+        <p>Alles staat ingevuld. Je bent er klaar voor.</p></div>`
+      :`<div class="blokkop"><span class="eyebrow">Nog te doen</span>
+          <span class="tel let">${open.length}</span></div>
+        <div class="paneel">${open.map((x,i)=>`
+          <button class="arij" data-kl="${punten.indexOf(x)}">
+            <span class="ivak ${x.ernst==='rood'?'rood':'amber'}">${svg(I.alarm)}</span>
+            <span class="naam">${esc(x.titel)}<small>${esc(x.gevolg)}</small></span>
+            <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`}
+     ${af.length?`<div class="blokkop" style="margin-top:24px">
+         <span class="eyebrow">Staat goed</span><span class="tel">${af.length}</span></div>
+       <div class="paneel">${af.map(x=>`
+         <div class="arij" style="cursor:default">
+           <span class="ivak groen">${svg(I.vink)}</span>
+           <span class="naam">${esc(x.titel)}</span></div>`).join('')}</div>`:''}`,'');
+
+  $$('[data-kl]').forEach(b2=>b2.onclick=()=>{
+    const x=punten[parseInt(b2.dataset.kl,10)];
+    if(x&&x.doe) x.doe();
+  });
+}
+
 function sheetBoodschappen(){
   /* alles onder de drempel hoort er ook bij, ook zonder batch */
   const lijst=(S.boodschappen||[]).slice();
@@ -10051,6 +10130,7 @@ function straksHTML(key){
 /* ---------- binding ---------- */
 const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
   kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,vooruit:sheetVooruit,
+  klaar:sheetKlaar,
   kleurmogelijk:sheetKleurMogelijk,
   ingredienten:sheetIngredienten,afwijking:sheetAfwijking,schoonmaak:sheetSchoonmaak,afronden:sheetAfronden,
   recepten:sheetRecepten,receptnieuw:()=>sheetReceptForm(),instellingen:sheetInstellingen,
@@ -14123,7 +14203,7 @@ function sheetAllergenen(){
   S.allerg=S.allerg||{};
   const ing=alleIngredienten();
   if(!ing.length){
-    return sheet('Allergenen',
+    return sheet('Ingrediënten',
       `<p class="hint">Je hebt nog geen ingrediënten in je smaken staan. Vul eerst een recept in,
         dan kun je hier per ingrediënt aangeven welke allergenen erin zitten.</p>`,'');
   }
@@ -14929,46 +15009,61 @@ function sheetInstellingen(){
   sheet('Instellingen',
     /* Alleen waardes die je invult en laat staan. Wat je dóét hoort in het
        scherm waar dat werk plaatsvindt, niet hier.
-       Eruit gegaan: Thermometer ijken en Openingscheck (handelingen met een
-       datum, staan nu bij Voedselveiligheid in Productie), Kostenbasis (vaste
-       lasten veranderen elke maand, hoort bij Financiën) en Koppelingen
-       (daar ga je heen om te kijken, dat is navigatie). */
+
+       Verplaatst bij het opschonen:
+       - Vaste plekken stond bij Stamgegevens, maar het zijn de adressen voor
+         je kilometerregistratie. Hoort bij Auto.
+       - Verzendregel stond bij Je bedrijf, maar het is een regel voor je
+         orders: tot hoe laat gaat een bestelling dezelfde dag weg.
+       - Meetpunten, Schoonmaakzones en Schoonmaakmiddelen stonden bij
+         Productie. Het zijn alledrie dingen uit je hygiënecode, niet uit je
+         werkwijze. Eigen kopje.
+       - Ingrediënten en Kleuren horen bij je receptuur, niet in één bak met
+         leveranciers.
+       - Leveranciers en Levertijden gaan over inkopen. Eigen kopje, want ze
+         bepalen samen wanneer je moet bestellen. */
     `<div class="mkop" style="margin-top:2px">Je bedrijf</div>
-     <button class="menurij" data-ins="bedrijf">${svg(I.spark)}Bedrijfsprofiel<span class="tel">${
+     <button class="menurij" data-ins="bedrijf">${svg(I.doc)}Bedrijfsprofiel<span class="tel">${
        bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
-     <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
-       verzendgrens()}:00</span></button>
      <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
 
-     <div class="mkop">Productie</div>
-     <button class="menurij" data-ins="mal">${svg(I.vorm)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
-     <button class="menurij" data-ins="werkplan">${svg(I.vorm)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
-     <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
-     <button class="menurij" data-ins="meetpunten">${svg(I.temp)}Meetpunten<span class="tel">${S.meetpunten.length}</span></button>
-     <button class="menurij" data-ins="zones">${svg(I.spark)}Schoonmaakzones<span class="tel">${S.zones.length}</span></button>
-     <button class="menurij" data-ins="middelen">${svg(I.spark)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
+     <div class="mkop">Orders</div>
+     <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
+       verzendgrens()}:00</span></button>
 
-     <div class="mkop">Stamgegevens</div>
-     <button class="menurij" data-ins="kleuren">${svg(I.spark)}Kleuren<span class="tel">${
-       (S.kleuren||[]).length||'geen'}</span></button>
-     <button class="menurij" data-ins="allerg">${svg(I.alarm)}Ingrediënten<span class="tel">${
+     <div class="mkop">Productie</div>
+     <button class="menurij" data-ins="mal">${svg(I.bonbon)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
+     <button class="menurij" data-ins="werkplan">${svg(I.lijst)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
+     <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
+
+     <div class="mkop">Voedselveiligheid</div>
+     <button class="menurij" data-ins="meetpunten">${svg(I.temp)}Meetpunten<span class="tel">${S.meetpunten.length}</span></button>
+     <button class="menurij" data-ins="zones">${svg(I.huis)}Schoonmaakzones<span class="tel">${S.zones.length}</span></button>
+     <button class="menurij" data-ins="middelen">${svg(I.fles)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
+
+     <div class="mkop">Recepten</div>
+     <button class="menurij" data-ins="allerg">${svg(I.pot)}Ingrediënten<span class="tel">${
        (()=>{const t=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
              return t?(g?g+' van '+t:'nog niets'):'geen ingrediënten'})()}</span></button>
+     <button class="menurij" data-ins="kleuren">${svg(I.palet)}Kleuren<span class="tel">${
+       (S.kleuren||[]).length||'geen'}</span></button>
+
+     <div class="mkop">Inkoop</div>
      <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>
-     <button class="menurij" data-ins="levertijd">${svg(I.vracht)}Levertijden<span class="tel">${
+     <button class="menurij" data-ins="levertijd">${svg(I.klok)}Levertijden<span class="tel">${
        Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld'}</span></button>
-     <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
-       (S.plekken||[]).length||'geen'}</span></button>
 
      <div class="mkop">Auto</div>
-     <button class="menurij" data-ins="kmtarief">${svg(I.spark)}Kilometervergoeding<span class="tel">${
+     <button class="menurij" data-ins="kmtarief">${svg(I.euro)}Kilometervergoeding<span class="tel">${
        komma(kmTarief())} per km</span></button>
      <button class="menurij" data-ins="autosoort">${svg(I.auto)}Soort auto<span class="tel">${
        S.autoSoort==='zaak'?'van de zaak':'privé'}</span></button>
+     <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
+       (S.plekken||[]).length||'geen'}</span></button>
 
      <div class="mkop">Zelden</div>
-     <button class="menurij" data-ins="branche">${svg(I.vorm)}Branche en sjabloon<span class="tel">${
+     <button class="menurij" data-ins="branche">${svg(I.boek)}Branche en sjabloon<span class="tel">${
        esc(branche().naam)}</span></button>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
        Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
@@ -15026,7 +15121,7 @@ function sheetInstellingen(){
 const LIJSTEN={
   werkplan:{titel:'Productiestappen',hint:'De volgorde waarin je een batch maakt. De app loopt deze met je door.',ph:'Bijv. decoreren'},
   activiteiten:{titel:'Werkzaamheden',hint:'De activiteiten die je met de timer kunt bijhouden tijdens een batch.',ph:'Bijv. decoreren'},
-  zones:{titel:'Schoonmaak-onderdelen',hint:'Alles wat jij schoonmaakt, van werkbank tot vloer.',ph:'Bijv. bonbonvormen'},
+  zones:{titel:'Schoonmaakzones',hint:'Alles wat jij schoonmaakt, van werkbank tot vloer.',ph:'Bijv. bonbonvormen'},
   middelen:{titel:'Schoonmaakmiddelen',hint:'Waarmee je reinigt. Dit komt in je logboek te staan.',ph:'Bijv. alcohol 70%'},
   leveranciers:{titel:'Leveranciers',hint:'Bij wie je inkoopt. Handig bij het loggen van ontvangsten.',ph:'Bijv. Callebaut'}
 };
