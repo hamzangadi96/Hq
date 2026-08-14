@@ -1672,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v272 · 14 aug 2026';
+const APPVERSIE='v273 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1751,23 +1751,7 @@ const CHOCSTANDAARD=[
    'bonbon' heten — die zijn intern en veranderen zou alles breken. */
 const WOORDEN={
   chocolaterie:{stuk:'bonbon', stuks:'bonbons', mal:'mal', mallen:'mallen',
-    perMal:'bonbons per mal'},
-  bakkerij:{stuk:'stuk', stuks:'stuks', mal:'bakblik', mallen:'bakblikken',
-    perMal:'stuks per bakblik'},
-  ijs:{stuk:'bak', stuks:'bakken', mal:'bak', mallen:'bakken',
-    perMal:'porties per bak'},
-  slagerij:{stuk:'stuk', stuks:'stuks', mal:'bak', mallen:'bakken',
-    perMal:'stuks per bak'},
-  kaas:{stuk:'kaas', stuks:'kazen', mal:'kaasvorm', mallen:'kaasvormen',
-    perMal:'kazen per vorm'},
-  brouwerij:{stuk:'fles', stuks:'flessen', mal:'ketel', mallen:'ketels',
-    perMal:'flessen per ketel'},
-  koffie:{stuk:'zak', stuks:'zakken', mal:'brander', mallen:'branders',
-    perMal:'zakken per brander'},
-  conserven:{stuk:'pot', stuks:'potten', mal:'ketel', mallen:'ketels',
-    perMal:'potten per ketel'},
-  cosmetica:{stuk:'stuk', stuks:'stuks', mal:'vorm', mallen:'vormen',
-    perMal:'stuks per vorm'}
+    perMal:'bonbons per mal'}
 };
 
 /* vak('stuk'), vak('mallen') — de woorden van het vak waar je in werkt.
@@ -1790,105 +1774,7 @@ const BRANCHES={
     zones:['Werkbank en werkbladen','Tempereermachine','Bonbonvormen','Spatels en gereedschap',
       'Weegschaal','Snijplank','Koeling','Klimaatkast','Vloer','Afvalbak','Deurklinken en kranen','Wasbak'],
     meet:[{t:'Koeling',min:0,max:7,e:'°C'},{t:'Klimaatkast',min:15,max:18,e:'°C'},
-      {t:'Klimaatkast luchtvochtigheid',min:0,max:55,e:'%'}]},
-
-  bakkerij:{naam:'Bakkerij en patisserie',sub:'Brood, banket, taart',
-    basis:'Deegsoort',
-    soorten:[{key:'wit',naam:'Wit deeg'},{key:'melk',naam:'Volkoren deeg'},{key:'puur',naam:'Zuurdesem'}],
-    werkplan:['Werkruimte klaarzetten','Ingrediënten afwegen','Deeg maken','Eerste rijs','Opbollen',
-      'Vormen','Tweede rijs','Bakken','Afkoelen','Afwerken en vullen'],
-    activiteiten:['Afwassen','Tussentijds schoonmaken','Schoonmaken voor productie','Eindschoonmaak',
-      'Verpakken','Winkel bijvullen','Overleg en administratie','Pauze'],
-    zones:['Werkbank en werkbladen','Kneedmachine','Rijskast','Oven','Bakblikken en vormen',
-      'Snijmachine','Weegschaal','Koeling','Vriezer','Vloer','Afvalbak','Wasbak'],
-    meet:[{t:'Koeling',min:0,max:7,e:'°C'},{t:'Vriezer',min:-30,max:-18,e:'°C'},
-      {t:'Rijskast',min:24,max:30,e:'°C'},{t:'Kerntemperatuur na bakken',min:92,max:99,e:'°C'}]},
-
-  ijs:{naam:'IJsmakerij',sub:'Schepijs, sorbet, ijstaart',
-    basis:'Basissoort',
-    soorten:[{key:'wit',naam:'Roombasis'},{key:'melk',naam:'Melkbasis'},{key:'puur',naam:'Sorbet op water'}],
-    werkplan:['Werkruimte klaarzetten','Ingrediënten afwegen','Mix maken','Pasteuriseren','Rijpen',
-      'Draaien','Uitscheppen en afwerken','Invriezen','Etiketteren'],
-    activiteiten:['Afwassen','Tussentijds schoonmaken','Schoonmaken voor productie','Eindschoonmaak',
-      'Verpakken','Vitrine bijvullen','Overleg en administratie','Pauze'],
-    zones:['Werkbank en werkbladen','Pasteur','Ijsturbine','Rijpingstank','Bakken en spatels',
-      'Vitrine','Vriezer','Koeling','Vloer','Afvalbak','Wasbak'],
-    meet:[{t:'Pasteurisatie',min:65,max:85,e:'°C'},{t:'Rijpingstank',min:2,max:4,e:'°C'},
-      {t:'Vriezer',min:-25,max:-18,e:'°C'},{t:'Vitrine',min:-16,max:-11,e:'°C'}]},
-
-  slagerij:{naam:'Slagerij en worstmakerij',sub:'Vlees, worst, gerookte producten',
-    basis:'Vleessoort',
-    soorten:[{key:'wit',naam:'Gevogelte'},{key:'melk',naam:'Varken'},{key:'puur',naam:'Rund'}],
-    werkplan:['Werkruimte klaarzetten','Grondstof uitbenen','Afwegen en kruiden','Malen','Mengen',
-      'Vullen en afbinden','Rijpen of drogen','Verhitten of roken','Terugkoelen','Verpakken'],
-    activiteiten:['Afwassen','Tussentijds schoonmaken','Schoonmaken voor productie','Eindschoonmaak',
-      'Verpakken','Toonbank bijvullen','Overleg en administratie','Pauze'],
-    zones:['Werkbank en snijplanken','Wolf en menger','Vulmachine','Messen en gereedschap',
-      'Rookkast','Koelcel','Vriescel','Vloer','Afvoerputje','Afvalbak','Wasbak'],
-    meet:[{t:'Koelcel',min:0,max:4,e:'°C'},{t:'Vriescel',min:-25,max:-18,e:'°C'},
-      {t:'Kerntemperatuur verhitting',min:72,max:85,e:'°C'},{t:'Product bij ontvangst',min:0,max:7,e:'°C'}]},
-
-  kaas:{naam:'Kaasmakerij en zuivel',sub:'Kaas, yoghurt, kwark',
-    basis:'Melksoort',
-    soorten:[{key:'wit',naam:'Geitenmelk'},{key:'melk',naam:'Koemelk'},{key:'puur',naam:'Schapenmelk'}],
-    werkplan:['Werkruimte klaarzetten','Melk ontvangen en keuren','Pasteuriseren','Enten met cultuur',
-      'Stremmen','Wrongel snijden','Persen','Pekelen','Rijpen','Keren en verzorgen'],
-    activiteiten:['Afwassen','Tussentijds schoonmaken','Schoonmaken voor productie','Eindschoonmaak',
-      'Kazen keren','Verpakken','Overleg en administratie','Pauze'],
-    zones:['Kaasbak en gereedschap','Pers','Pekelbad','Rijpingsruimte','Stellingen','Melktank',
-      'Koeling','Vloer','Afvoerputje','Afvalbak','Wasbak'],
-    meet:[{t:'Melk bij ontvangst',min:0,max:6,e:'°C'},{t:'Pasteurisatie',min:72,max:78,e:'°C'},
-      {t:'Stremtemperatuur',min:29,max:33,e:'°C'},{t:'Rijpingsruimte',min:11,max:14,e:'°C'},
-      {t:'Rijpingsruimte luchtvochtigheid',min:80,max:90,e:'%'}]},
-
-  brouwerij:{naam:'Brouwerij en distilleerderij',sub:'Bier, cider, gedistilleerd',
-    basis:'Bierstijl',
-    soorten:[{key:'wit',naam:'Blond en licht'},{key:'melk',naam:'Amber en tripel'},{key:'puur',naam:'Donker en stout'}],
-    werkplan:['Installatie reinigen','Mout schroten','Maischen','Filteren','Koken en hoppen',
-      'Koelen','Beluchten en gist toevoegen','Hoofdgisting','Lagering','Bottelen en etiketteren'],
-    activiteiten:['Reinigen en spoelen','Tussentijds schoonmaken','Schoonmaken voor productie',
-      'Eindschoonmaak','Bottelen','Overleg en administratie','Pauze'],
-    zones:['Maischketel','Kookketel','Warmtewisselaar','Gistvaten','Slangen en koppelingen',
-      'Bottellijn','Koelcel','Vloer','Afvoerputje','Afvalbak','Wasbak'],
-    meet:[{t:'Maischtemperatuur',min:62,max:68,e:'°C'},{t:'Koken',min:98,max:102,e:'°C'},
-      {t:'Gistingstemperatuur',min:18,max:22,e:'°C'},{t:'Koelcel',min:0,max:6,e:'°C'}]},
-
-  koffie:{naam:'Koffiebranderij',sub:'Branden, blenden, malen',
-    basis:'Herkomst',
-    soorten:[{key:'wit',naam:'Arabica'},{key:'melk',naam:'Blend'},{key:'puur',naam:'Robusta'}],
-    werkplan:['Brander opwarmen','Groene bonen afwegen','Laden','Branden volgens profiel',
-      'Koelen','Ontgassen','Blenden','Malen','Verpakken en etiketteren'],
-    activiteiten:['Brander reinigen','Tussentijds schoonmaken','Schoonmaken voor productie',
-      'Eindschoonmaak','Verpakken','Cuppen en proeven','Overleg en administratie','Pauze'],
-    zones:['Brander en trommel','Koelbak','Kaf-afscheider','Molen','Weegschaal','Verpakkingslijn',
-      'Opslagruimte','Vloer','Afvalbak','Wasbak'],
-    meet:[{t:'Eindtemperatuur brand',min:196,max:225,e:'°C'},{t:'Opslagruimte',min:15,max:22,e:'°C'},
-      {t:'Opslag luchtvochtigheid',min:0,max:60,e:'%'}]},
-
-  conserven:{naam:'Jam, sauzen en conserven',sub:'Inmaak, pasteuriseren, wecken',
-    basis:'Productgroep',
-    soorten:[{key:'wit',naam:'Zoet'},{key:'melk',naam:'Hartig'},{key:'puur',naam:'Zuur en ingemaakt'}],
-    werkplan:['Werkruimte klaarzetten','Grondstof wassen en snijden','Afwegen','Koken',
-      'Brix of zuurgraad meten','Potten steriliseren','Heet afvullen','Pasteuriseren',
-      'Terugkoelen','Etiketteren'],
-    activiteiten:['Afwassen','Tussentijds schoonmaken','Schoonmaken voor productie','Eindschoonmaak',
-      'Verpakken','Overleg en administratie','Pauze'],
-    zones:['Werkbank en snijplanken','Kookketel','Vulapparaat','Potten en deksels','Weegschaal',
-      'Pasteur','Opslagruimte','Vloer','Afvalbak','Wasbak'],
-    meet:[{t:'Kooktemperatuur',min:100,max:106,e:'°C'},{t:'Vultemperatuur',min:82,max:95,e:'°C'},
-      {t:'Zuurgraad',min:0,max:4.5,e:'pH'},{t:'Opslagruimte',min:5,max:20,e:'°C'}]},
-
-  cosmetica:{naam:'Cosmetica en zeep',sub:'Handgemaakte verzorging',
-    basis:'Productgroep',
-    soorten:[{key:'wit',naam:'Koude zeep'},{key:'melk',naam:'Emulsie en crème'},{key:'puur',naam:'Watervrij'}],
-    werkplan:['Werkruimte desinfecteren','Grondstoffen afwegen','Waterfase verwarmen','Oliefase verwarmen',
-      'Emulgeren','Afkoelen','Conserveermiddel toevoegen','pH meten','Afvullen','Etiketteren'],
-    activiteiten:['Afwassen en desinfecteren','Tussentijds schoonmaken','Schoonmaken voor productie',
-      'Eindschoonmaak','Verpakken','Overleg en administratie','Pauze'],
-    zones:['Werkbank','Mengapparatuur','Bekers en spatels','Weegschaal','pH-meter',
-      'Vulapparaat','Opslagruimte','Vloer','Afvalbak','Wasbak'],
-    meet:[{t:'Waterfase',min:70,max:80,e:'°C'},{t:'Oliefase',min:70,max:80,e:'°C'},
-      {t:'pH eindproduct',min:4.5,max:6,e:'pH'},{t:'Opslagruimte',min:15,max:25,e:'°C'}]}
+      {t:'Klimaatkast luchtvochtigheid',min:0,max:55,e:'%'}]}
 };
 const branche=()=>BRANCHES[S.branche]||BRANCHES.chocolaterie;
 /* de basissoorten van je branche: chocoladesoort, deegsoort, vleessoort… */
@@ -2307,7 +2193,13 @@ async function laden(){
   if(!S.brancheGezet){
     const draaitAl=S.recepten.length||S.batches.length;
     if(draaitAl){ S.brancheGezet=true; bewaarNu(); }
-    else setTimeout(()=>{ if(!S.brancheGezet) sheetInrichten(1) },600);
+    else setTimeout(()=>{
+      if(S.brancheGezet) return;
+      /* Er is maar één vak, dus die keuze slaan we over: chocolaterie staat
+         meteen goed en het sjabloon wordt toegepast. */
+      S.branche='chocolaterie'; S.brancheGezet=true; pasSjabloonToe('chocolaterie');
+      bewaarNu(); sheetInrichten(2);
+    },600);
   }
   firebaseStart();
 }
@@ -9926,37 +9818,15 @@ function sheetVerpakkingNieuw(){
    wijzigen; overslaan mag ook. */
 
 function sheetInrichten(stap){
-  const st=stap||1;
-  const totaal=4;
+  /* Stap 1 was het kiezen van je vak. Die is eruit: de app doet alleen
+     chocolaterie. Blijft over: je bedrijf, je mal, je werkweek. */
+  const st=Math.max(2,stap||2);
+  const totaal=3;
   const b=bedrijf();
 
+  const nr=st-1;   /* stap 2 is de eerste die je ziet */
   const balk=`<div class="stapbalk">${Array.from({length:totaal},(_,i)=>
-    `<span class="stapbol ${i+1<st?'af':i+1===st?'nu':''}"></span>`).join('')}</div>`;
-
-  /* ---- 1. je vak ---- */
-  if(st===1){
-    const ico={chocolaterie:'bonbon',bakkerij:'brood',ijs:'ijsje',slagerij:'vlees',
-      kaas:'kaas',brouwerij:'glas',koffie:'boon',conserven:'pot',cosmetica:'fles'};
-    const nu2=S.branche||'chocolaterie';
-    sheet('Waar werk je mee?',
-      `${balk}<p class="hint">Je krijgt passende productiestappen, meetpunten en
-         schoonmaakpunten als startpunt. Alles blijft aan te passen.</p>
-       <div class="brgrid">${Object.keys(BRANCHES).filter(k=>ico[k]).map(k=>{
-         const t=BRANCHES[k];
-         return `<button class="brkaart ${k===nu2?'aan':''}" data-ibr="${k}">
-           <span class="brico">${svg(I[ico[k]])}</span>
-           <span class="brnaam">${esc(t.naam)}</span>
-           ${k===nu2?`<span class="brnu">${svg(I.vink,'2.4')}</span>`:''}
-         </button>`}).join('')}</div>
-       <p class="hint" style="margin:20px 0 0">De normwaarden zijn gangbare voorbeelden,
-         geen wettelijk advies. Controleer ze aan je eigen HACCP-plan.</p>`,'','Stap 1 van 4');
-    $$('[data-ibr]').forEach(x=>x.onclick=()=>{
-      const k=x.dataset.ibr;
-      S.branche=k; S.brancheGezet=true; pasSjabloonToe(k); bewaarNu();
-      sheetInrichten(2);
-    });
-    return;
-  }
+    `<span class="stapbol ${i+1<nr?'af':i+1===nr?'nu':''}"></span>`).join('')}</div>`;
 
   /* ---- 2. je bedrijf ---- */
   if(st===2){
@@ -10038,34 +9908,6 @@ function inrichtingKlaar(){
   S.ingericht=true; S.brancheGezet=true; bewaarNu();
 }
 
-function sheetBranche(eerste){
-  const nu2=S.branche||'chocolaterie';
-  const ico={chocolaterie:'bonbon',bakkerij:'brood',ijs:'ijsje',slagerij:'vlees',
-    kaas:'kaas',brouwerij:'glas',koffie:'boon',conserven:'pot',cosmetica:'fles'};
-  sheet(eerste?'Waar werk je mee?':'Branche en sjabloon',
-    `<p class="hint">${eerste
-      ? 'Kies je vak. Je krijgt passende productiestappen, meetpunten en schoonmaakpunten als startpunt — alles blijft aanpasbaar.'
-      : 'Het sjabloon vult alleen aan wat je nog niet hebt. Je eigen instellingen blijven staan.'}</p>
-     <div class="brgrid">${Object.keys(BRANCHES).filter(k=>ico[k]).map(k=>{
-       const t=BRANCHES[k];
-       return `<button class="brkaart ${k===nu2?'aan':''}" data-br="${k}">
-         <span class="brico">${svg(I[ico[k]])}</span>
-         <span class="brnaam">${esc(t.naam)}</span>
-         <span class="brsub">${esc(t.sub)}</span>
-         ${k===nu2?`<span class="brnu">${svg(I.vink,'2.4')}</span>`:''}
-       </button>`}).join('')}</div>
-     <p class="hint" style="margin:20px 0 0">De normwaarden zijn gangbare voorbeelden, geen wettelijk advies.
-       Controleer ze aan je eigen HACCP-plan en pas ze aan waar nodig.</p>`,
-    eerste?'':`<button class="prim" style="margin-top:0" id="brT">Klaar</button>`);
-  if($('#brT')) $('#brT').onclick=sheetInstellingen;
-  $$('[data-br]').forEach(b=>b.onclick=()=>{
-    const k=b.dataset.br, t=BRANCHES[k];
-    S.branche=k; S.brancheGezet=true;
-    const n=pasSjabloonToe(k);
-    bewaarNu(); dicht(); render();
-    toast(n?t.naam+' ingesteld · '+n+' voorstellen toegevoegd.':t.naam+' ingesteld.');
-  });
-}
 function sheetVoorraadRegel(sleutel){
   const [receptId,lot]=sleutel.split('|');
   const v=voorraadGereed().find(x=>x.receptId===receptId&&x.lot===lot);
@@ -15053,7 +14895,6 @@ function bindHulpKnoppen(){
     hulpDicht();
     const d=b.dataset.udoe;
     if(d==='bedrijf') return sheetBedrijf();
-    if(d==='branche') return sheetBranche(false);
     if(d==='mal') return sheetMal();
     if(d==='receptnieuw') return sheetReceptForm(null);
     if(d==='recepten') return sheetRecepten();
@@ -15566,7 +15407,6 @@ function sheetUitlegOnderwerp(id){
   $$('[data-udoe]').forEach(b=>b.onclick=()=>{
     const d=b.dataset.udoe;
     if(d==='bedrijf') return sheetBedrijf();
-    if(d==='branche') return sheetBranche(false);
     if(d==='mal') return sheetMal();
     if(d==='receptnieuw') return sheetReceptForm(null);
     if(d==='recepten') return sheetRecepten();
@@ -15647,8 +15487,6 @@ function sheetInstellingen(){
        (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
 
      <div class="mkop">Zelden</div>
-     <button class="menurij" data-ins="branche">${svg(I.boek)}Branche en sjabloon<span class="tel">${
-       esc(branche().naam)}</span></button>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
        Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
 
@@ -15691,7 +15529,6 @@ function sheetInstellingen(){
     if(k==='bedrijf') return sheetBedrijf();
     if(k==='uurtarief') return sheetUurtarief();
     if(k==='levertijd') return sheetLevertijden();
-    if(k==='branche') return sheetBranche(false);
     if(k==='verkoop') return sheetVerkoopprijzen();
     if(k==='verzend') return sheetVerzendregel();
     if(k==='recepten') return sheetRecepten();
