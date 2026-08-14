@@ -1661,7 +1661,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v254 · 14 aug 2026';
+const APPVERSIE='v255 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5712,7 +5712,7 @@ function sheetKleur(idx){
     sheet(nieuw?'Kleur toevoegen':'Kleur',
       `<div class="veld"><label>Naam</label>
          <input class="inp" id="kwN" value="${esc(k.naam)}" placeholder="Bijv. framboosrood">
-         ${k.naam&&k.hex&&k.naam===vrijeKleurNaam(kleurNaamVoorstel(k.hex))
+         ${k.naamAuto&&k.naam
            ?`<div class="hint" style="margin:6px 0 0">Voorgesteld op basis van de kleur — overtypen mag.</div>`:''}</div>
        <div class="veld"><label>Hoe ziet hij eruit op witte chocolade?</label>
          <div class="rijtje">
@@ -5810,6 +5810,8 @@ function sheetKleur(idx){
     ['#kwB','#kwK','#kwV','#kwVb','#kwPb','#kwPk'].forEach(sel=>{
       const el=$(sel); if(el) el.onchange=()=>{lees();teken()};
     });
+    /* typ je zelf een naam, dan laat de app hem verder met rust */
+    if($('#kwN')) $('#kwN').oninput=()=>{ k.naamAuto=false };
     chips('#kwS',false,()=>{ lees(); k.soort=chipV('#kwS'); if(!k.delen) k.delen=[]; teken() });
     /* Niet opnieuw tekenen tijdens het kiezen: dan verdwijnt het veld waar de
        kleurkiezer van iOS aan hangt, en klapt hij dicht. We werken alleen het
@@ -5818,8 +5820,13 @@ function sheetKleur(idx){
       lees();
       sheetKleurKiezen(k.hex||'#c0392b',hex=>{
         k.hex=hex;
-        /* heb je nog geen naam bedacht, dan zetten we er een voorstel neer */
-        if(!k.naam) k.naam=vrijeKleurNaam(kleurNaamVoorstel(hex));
+        /* De naam alleen bijwerken als hij van de app komt. Kies je eerst rood
+           en daarna groen, dan bleef er anders "felrood" staan bij een groene
+           kleur. Heb je zelf een naam getypt, dan blijft die altijd staan. */
+        if(!k.naam||k.naamAuto){
+          k.naam=vrijeKleurNaam(kleurNaamVoorstel(hex));
+          k.naamAuto=true;
+        }
         teken();
       });
     };
@@ -5855,6 +5862,7 @@ function sheetKleur(idx){
       if(k.soort==='mix'&&!(k.delen||[]).some(d=>parseFloat(d.gram)>0))
         return toast('Kies minstens één kleur om van te mengen.');
       if(!k.id) k.id=uid();
+      delete k.naamAuto;              /* alleen nodig tijdens het invullen */
       if(nieuw) kleurLijst().push(k); else Object.assign(kleurLijst()[idx],k);
       bewaarNu(); sheetKleuren(); toast(nieuw?'Kleur toegevoegd.':'Bewaard.');
     };
