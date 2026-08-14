@@ -513,6 +513,10 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .tabpil{gap:1px}
 .tab.actief span{max-width:96px}
 
+.stapbalk{display:flex;gap:6px;margin:0 0 16px}
+.stapbol{flex:1;height:4px;border-radius:99px;background:var(--bg)}
+.stapbol.af{background:var(--grijs3)}
+.stapbol.nu{background:var(--ink)}
 .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .brkaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
   padding:18px 14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
@@ -1663,7 +1667,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v260 · 14 aug 2026';
+const APPVERSIE='v261 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1889,7 +1893,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd',
   'werkweek','werkafwijk','werkGezet3','samenstelling',
-  'kleuren'];
+  'kleuren','ingericht'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -2260,7 +2264,7 @@ async function laden(){
   if(!S.brancheGezet){
     const draaitAl=S.recepten.length||S.batches.length;
     if(draaitAl){ S.brancheGezet=true; bewaarNu(); }
-    else setTimeout(()=>{ if(!S.brancheGezet) sheetBranche(true) },600);
+    else setTimeout(()=>{ if(!S.brancheGezet) sheetInrichten(1) },600);
   }
   firebaseStart();
 }
@@ -9592,6 +9596,119 @@ function sheetVerpakkingNieuw(){
   };
 }
 
+
+/* ===== de eerste keer =====
+   Wie de app voor het eerst opent koos alleen zijn vak en stond daarna voor
+   een leeg scherm. Deze inrichting vraagt in vier stappen wat de app echt
+   nodig heeft om te kunnen rekenen: je vak, je bedrijfsgegevens, hoeveel
+   bonbons er in een mal gaan, en wanneer je werkt. Alles is later te
+   wijzigen; overslaan mag ook. */
+
+function sheetInrichten(stap){
+  const st=stap||1;
+  const totaal=4;
+  const b=bedrijf();
+
+  const balk=`<div class="stapbalk">${Array.from({length:totaal},(_,i)=>
+    `<span class="stapbol ${i+1<st?'af':i+1===st?'nu':''}"></span>`).join('')}</div>`;
+
+  /* ---- 1. je vak ---- */
+  if(st===1){
+    const ico={chocolaterie:'bonbon',bakkerij:'brood',ijs:'ijsje',slagerij:'vlees',
+      kaas:'kaas',brouwerij:'glas',koffie:'boon',conserven:'pot',cosmetica:'fles'};
+    const nu2=S.branche||'chocolaterie';
+    sheet('Waar werk je mee?',
+      `${balk}<p class="hint">Je krijgt passende productiestappen, meetpunten en
+         schoonmaakpunten als startpunt. Alles blijft aan te passen.</p>
+       <div class="brgrid">${Object.keys(BRANCHES).filter(k=>ico[k]).map(k=>{
+         const t=BRANCHES[k];
+         return `<button class="brkaart ${k===nu2?'aan':''}" data-ibr="${k}">
+           <span class="brico">${svg(I[ico[k]])}</span>
+           <span class="brnaam">${esc(t.naam)}</span>
+           ${k===nu2?`<span class="brnu">${svg(I.vink,'2.4')}</span>`:''}
+         </button>`}).join('')}</div>
+       <p class="hint" style="margin:20px 0 0">De normwaarden zijn gangbare voorbeelden,
+         geen wettelijk advies. Controleer ze aan je eigen HACCP-plan.</p>`,'','Stap 1 van 4');
+    $$('[data-ibr]').forEach(x=>x.onclick=()=>{
+      const k=x.dataset.ibr;
+      S.branche=k; S.brancheGezet=true; pasSjabloonToe(k); bewaarNu();
+      sheetInrichten(2);
+    });
+    return;
+  }
+
+  /* ---- 2. je bedrijf ---- */
+  if(st===2){
+    sheet('Van wie is dit bedrijf?',
+      `${balk}<p class="hint">Deze gegevens komen op je facturen en etiketten te staan.
+         Zonder KvK- en btw-nummer is een factuur wettelijk ongeldig.</p>
+       <div class="veld"><label>Bedrijfsnaam</label>
+         <input class="inp" id="inN" value="${esc(b.naam)}" placeholder="Bijv. Bonbons van Anne"></div>
+       <div class="veld"><label>Adres</label>
+         <input class="inp" id="inA" value="${esc(b.adres)}" placeholder="Straat 1, 1234 AB Plaats"></div>
+       <div class="veld"><label>KvK-nummer</label>
+         <input class="inp" id="inK" value="${esc(b.kvk)}" inputmode="numeric" placeholder="12345678"></div>
+       <div class="veld"><label>Btw-nummer</label>
+         <input class="inp" id="inB" value="${esc(b.btw)}" autocapitalize="characters"
+           placeholder="NL123456789B01"></div>
+       <div class="veld"><label>IBAN</label>
+         <input class="inp" id="inI" value="${esc(b.iban)}" autocapitalize="characters"
+           placeholder="NL00 BANK 0000 0000 00"></div>`,
+      `<button class="prim" style="margin-top:0" id="inOk">Verder</button>
+       <button class="sec" id="inSla">Later invullen</button>`);
+    $('#inOk').onclick=()=>{
+      const kv=leesKvk($('#inK').value), bt=leesBtwNr($('#inB').value), ib=leesIban($('#inI').value);
+      if(kv.fout) return toast(kv.fout);
+      if(bt.fout) return toast(bt.fout);
+      if(ib.fout) return toast(ib.fout);
+      S.bedrijf=Object.assign(bedrijf(),{naam:$('#inN').value.trim(),adres:$('#inA').value.trim(),
+        kvk:kv.waarde,btw:bt.waarde,iban:ib.waarde});
+      bewaarNu(); sheetInrichten(3);
+    };
+    $('#inSla').onclick=()=>sheetInrichten(3);
+    return;
+  }
+
+  /* ---- 3. je mal ---- */
+  if(st===3){
+    sheet('Hoeveel gaan er in een mal?',
+      `${balk}<p class="hint">Hiermee rekent de app je batches om: hoeveel mallen je
+         nodig hebt en hoeveel je ervan overhoudt.</p>
+       <div class="veld"><label>Bonbons per mal</label>
+         <div class="stepper"><button class="stepbtn" id="inMin">${svg(I.min)}</button>
+           <div class="stepval"><input id="inM" type="number" inputmode="numeric"
+             value="${S.malGrootte||24}" min="1" max="1000"><span class="eenh">per mal</span></div>
+           <button class="stepbtn" id="inPlus">${svg(I.plus)}</button></div></div>`,
+      `<button class="prim" style="margin-top:0" id="inOk3">Verder</button>`);
+    const zetM=v=>{ $('#inM').value=Math.max(1,Math.min(1000,v)) };
+    $('#inMin').onclick=()=>zetM((+$('#inM').value||24)-1);
+    $('#inPlus').onclick=()=>zetM((+$('#inM').value||24)+1);
+    $('#inOk3').onclick=()=>{
+      const g=leesVeld('#inM','Bonbons per mal');
+      if(g.fout) return toast(g.fout);
+      S.malGrootte=Math.round(g.waarde||24); bewaarNu(); sheetInrichten(4);
+    };
+    return;
+  }
+
+  /* ---- 4. je werkweek ---- */
+  sheet('Wanneer werk je?',
+    `${balk}<p class="hint">De app plant je batches rond je andere werk. Heb je een baan
+       ernaast, vul die dan hier in — dan waarschuwt hij als een productiedag niet past.</p>
+     <div class="melding" style="margin-top:4px">${svg(I.klok,'2')}
+       <span>Je kunt dit ook overslaan. De app rekent dan met een gewone werkweek en je
+         vult het later in bij Instellingen.</span></div>`,
+    `<button class="prim" style="margin-top:0" id="inWerk">Mijn werkweek invullen</button>
+     <button class="sec" id="inKlaar">Overslaan en beginnen</button>`);
+  $('#inWerk').onclick=()=>{ inrichtingKlaar(); sheetWerkweek(); };
+  $('#inKlaar').onclick=()=>{ inrichtingKlaar(); dicht(); render();
+    toast('Je bent er klaar voor. Begin met een smaak.'); };
+}
+
+function inrichtingKlaar(){
+  S.ingericht=true; S.brancheGezet=true; bewaarNu();
+}
+
 function sheetBranche(eerste){
   const nu2=S.branche||'chocolaterie';
   const ico={chocolaterie:'bonbon',bakkerij:'brood',ijs:'ijsje',slagerij:'vlees',
@@ -9603,7 +9720,7 @@ function sheetBranche(eerste){
      <div class="brgrid">${Object.keys(BRANCHES).filter(k=>ico[k]).map(k=>{
        const t=BRANCHES[k];
        return `<button class="brkaart ${k===nu2?'aan':''}" data-br="${k}">
-         <span class="brico">${svg(ico[k])}</span>
+         <span class="brico">${svg(I[ico[k]])}</span>
          <span class="brnaam">${esc(t.naam)}</span>
          <span class="brsub">${esc(t.sub)}</span>
          ${k===nu2?`<span class="brnu">${svg(I.vink,'2.4')}</span>`:''}
