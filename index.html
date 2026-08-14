@@ -292,7 +292,7 @@ main>.blokkop:first-child{margin-top:8px}
 .paletvak{aspect-ratio:1.5;border-radius:14px;position:relative;overflow:hidden;
   border:1px solid rgba(24,24,27,.08)}
 .paletvak span{position:absolute;left:0;right:0;bottom:0;padding:5px 7px;
-  font-size:10.5px;font-weight:700;color:#fff;text-align:left;
+  font-size:9.5px;font-weight:700;color:#fff;text-align:left;line-height:1.25;
   background:linear-gradient(transparent,rgba(0,0,0,.55));text-shadow:0 1px 2px rgba(0,0,0,.4)}
 .paletvak.aan{outline:3px solid var(--ink);outline-offset:2px}
 .kleurkiezer{width:52px;height:48px;padding:0;border:1px solid var(--lijn);
@@ -1631,7 +1631,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v247 · 14 aug 2026';
+const APPVERSIE='v248 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3359,6 +3359,7 @@ function dashboardHTML(){
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
     <button class="snelknop" data-sheet="kleurreken">${svg(I.spark)}Kleur rekenen</button>
     <button class="snelknop" data-sheet="kleurzoek">${svg(I.loep)}Tint zoeken</button>
+    <button class="snelknop" data-sheet="kleurmogelijk">${svg(I.spark)}Wat kun je maken</button>
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
     <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
     <button class="snelknop" data-uitlegopen>${svg(I.boek)}Hoe werkt het?</button>
@@ -5314,6 +5315,128 @@ const PALET=[['Framboos','#c8102e'],['Kers','#8e1b2e'],['Aardbei','#e8455a'],
   ['Bosbes','#4b3f72'],['Rozenwater','#e8a0bf'],['Karamel','#b5651d'],
   ['Koffie','#4a2c1a'],['Parelmoer','#efe6d5'],['Antraciet','#2f2f33']];
 
+
+/* ===== wat kun je maken? =====
+   De omgekeerde vraag: niet "kan ik deze tint maken" maar "wat komt er uit
+   de kleuren die ik heb". We mengen alle paren in stappen van tien procent,
+   gooien de tinten weg die te veel op elkaar lijken, en leggen de rest op
+   kleur gesorteerd neer. */
+
+function mengVoorbeeld(delen){
+  const a=[0,0,0];
+  delen.forEach(d=>{const b=slik(hexRgb(d.kleur.hex));
+    for(let c=0;c<3;c++) a[c]+=b[c]*d.deel});
+  return rgbHex(terug(a));
+}
+
+/* de tint van een kleur, om op te sorteren */
+function tintHoek(hex){
+  const [r,g,b]=hexRgb(hex).map(x=>x/255);
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  if(!d) return -1;                       /* grijs: apart zetten */
+  let h;
+  if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+  return (h*60+360)%360;
+}
+
+function mogelijkeKleuren(basis){
+  const uit=[];
+  const voegToe=(hex,delen)=>{
+    const lab=naarLab(hexRgb(hex));
+    /* te veel op elkaar lijkende tinten zijn geen keuze maar ruis */
+    if(uit.some(x=>labAf(x.lab,lab)<7)) return;
+    uit.push({hex,lab,delen});
+  };
+  basis.forEach(k=>voegToe(k.hex,[{kleur:k,deel:1}]));
+  for(let i=0;i<basis.length;i++) for(let j=i+1;j<basis.length;j++)
+    for(let w=10;w<=90;w+=10){
+      const delen=[{kleur:basis[i],deel:w/100},{kleur:basis[j],deel:1-w/100}];
+      voegToe(mengVoorbeeld(delen),delen);
+    }
+  if(basis.length>=3)
+    for(let i=0;i<basis.length;i++) for(let j=i+1;j<basis.length;j++)
+      for(let k2=j+1;k2<basis.length;k2++)
+        for(const [a,b,c] of [[34,33,33],[50,25,25],[25,50,25],[25,25,50],[60,20,20],[20,60,20],[20,20,60]]){
+          const delen=[{kleur:basis[i],deel:a/100},{kleur:basis[j],deel:b/100},
+                       {kleur:basis[k2],deel:c/100}];
+          voegToe(mengVoorbeeld(delen),delen);
+        }
+  uit.sort((a,b)=>{
+    const ha=tintHoek(a.hex), hb=tintHoek(b.hex);
+    if(ha<0&&hb<0) return b.lab[0]-a.lab[0];
+    if(ha<0) return 1; if(hb<0) return -1;
+    return ha-hb;
+  });
+  return uit;
+}
+
+/* welke bekende tinten haal je niet, en wat zou daarbij helpen? */
+const HULPKLEUREN=[['rood','#c8102e'],['geel','#f4d03f'],['blauw','#2c6fbb'],
+  ['wit','#f7f4ee'],['zwart','#22201f'],['groen','#3f8f4a']];
+
+function watMisJe(basis){
+  const uit=[];
+  PALET.forEach(([naam,hex])=>{
+    const a=mengAdvies(hex,basis);
+    if(a&&a.afstand<18) return;             /* haalbaar genoeg */
+    let hulp=null, besteWinst=0;
+    HULPKLEUREN.forEach(([hn,hh])=>{
+      if(basis.some(k=>labAf(naarLab(hexRgb(k.hex)),naarLab(hexRgb(hh)))<14)) return;
+      const b=mengAdvies(hex,basis.concat([{naam:hn,hex:hh,enr:'',id:'proef'}]));
+      const winst=(a?a.afstand:99)-(b?b.afstand:99);
+      if(b&&b.afstand<18&&winst>besteWinst){ besteWinst=winst; hulp=hn }
+    });
+    uit.push({naam,hex,afstand:a?a.afstand:99,hulp});
+  });
+  return uit;
+}
+
+function sheetKleurMogelijk(){
+  kleurenIjken();
+  const basis=kleurLijst().filter(k=>k.soort!=='mix'&&hexRgb(k.hex));
+  if(!basis.length){
+    sheet('Wat kun je maken',
+      `<p class="hint">Leg eerst je basiskleuren vast en geef elke kleur mee hoe
+         hij eruitziet op witte chocolade.</p>`,
+      `<button class="prim" style="margin-top:0" id="kmNaar">Naar mijn kleuren</button>`);
+    $('#kmNaar').onclick=sheetKleuren;
+    return;
+  }
+  const lijst=mogelijkeKleuren(basis);
+  const mist=watMisJe(basis).filter(x=>x.afstand>=18);
+  sheet('Wat kun je maken',
+    `<p class="hint">Uit ${basis.length} ${basis.length===1?'kleur':'kleuren'} komen
+       deze tinten. Tik er een aan om de verhouding te zien en te bewaren.
+       <b>Het blijft een benadering</b> — een proefje beslist.</p>
+     <div class="paletraster">${lijst.slice(0,45).map((x,i)=>
+       `<button class="paletvak" data-mog="${i}" style="background:${x.hex}">
+          <span>${x.delen.map(d=>Math.round(d.deel*100)+'% '+esc(d.kleur.naam)).join(' · ')}</span>
+        </button>`).join('')}</div>
+     ${mist.length?`
+       <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Niet te maken</span>
+         <span class="tel let">${mist.length}</span></div>
+       <div class="paneel">${mist.map(m=>`
+         <div class="arij" style="cursor:default">
+           <span class="ivak" style="background:${m.hex};color:transparent">.</span>
+           <span class="naam">${esc(m.naam)}<small>${m.hulp
+             ? 'lukt wel met '+esc(m.hulp)+' erbij' : 'ook met een extra kleur lastig'}</small></span>
+         </div>`).join('')}</div>
+       <p class="hint" style="margin-top:10px">Wil je die tinten wel kunnen maken,
+         dan weet je nu welke kleurstof je mist.</p>`:''}`,'');
+
+  $$('[data-mog]').forEach(b=>b.onclick=()=>{
+    const x=lijst[parseInt(b.dataset.mog,10)];
+    const naam=prompt('Hoe noem je deze kleur?','');
+    if(!naam||!naam.trim()) return;
+    const eerste=x.delen[0].kleur;
+    kleurLijst().push({id:uid(),naam:naam.trim(),soort:'mix',hex:x.hex,enr:'',
+      delen:x.delen.map(d=>({id:d.kleur.id,gram:Math.round(d.deel*100)})),
+      verbruikG:eerste.verbruikG||40, verbruikBonbons:eerste.verbruikBonbons||360});
+    bewaarNu(); sheetKleuren();
+    toast('Bewaard. Maak er een proefje van en pas de grammen aan als het afwijkt.');
+  });
+}
+
 function sheetKleurZoek(){
   kleurenIjken();
   const basis=kleurLijst().filter(k=>k.soort!=='mix'&&hexRgb(k.hex));
@@ -5400,10 +5523,12 @@ function sheetKleuren(){
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
       :`<div class="geen">Nog geen kleuren vastgelegd.</div>`}</div>
      <button class="sec" id="klNieuw" style="margin-top:12px">${svg(I.plus)}Kleur toevoegen</button>
-     <button class="sec" id="klZoek" style="margin-top:8px">${svg(I.loep)}Een tint zoeken</button>`,'');
+     <button class="sec" id="klZoek" style="margin-top:8px">${svg(I.loep)}Een tint zoeken</button>
+     <button class="sec" id="klMog" style="margin-top:8px">${svg(I.spark)}Wat kun je maken?</button>`,'');
   $$('[data-kleur]').forEach(b=>b.onclick=()=>sheetKleur(parseInt(b.dataset.kleur,10)));
   $('#klNieuw').onclick=()=>sheetKleur(null);
   $('#klZoek').onclick=sheetKleurZoek;
+  $('#klMog').onclick=sheetKleurMogelijk;
 }
 
 function sheetKleur(idx){
@@ -9640,6 +9765,7 @@ function straksHTML(key){
 /* ---------- binding ---------- */
 const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
   kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,
+  kleurmogelijk:sheetKleurMogelijk,
   ingredienten:sheetIngredienten,afwijking:sheetAfwijking,schoonmaak:sheetSchoonmaak,afronden:sheetAfronden,
   recepten:sheetRecepten,receptnieuw:()=>sheetReceptForm(),instellingen:sheetInstellingen,
   haccp:sheetHaccp,wenskaart:()=>sheetWenskaart(''),bedrijf:sheetBedrijf};
