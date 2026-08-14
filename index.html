@@ -1465,7 +1465,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v220 · 13 aug 2026';
+const APPVERSIE='v222 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2619,9 +2619,13 @@ function renderNu(){
     $('#kopTitel').innerHTML=merkKop();
     $('#kopOnder').textContent='';
   } else {
+    /* Onder een tabtitel stond een regel met de stand van zaken. Die zei bij
+       een lege app niets, en met inhoud herhaalde hij wat er onder stond.
+       Alleen de titel is rustiger. In een batch blijft de regel wel staan:
+       daar zegt hij welke batch je open hebt. */
     const t=TABS.find(x=>x.key===S.tab)||{};
     $('#kopTitel').textContent=t.label||'';
-    $('#kopOnder').textContent=schermOnder(S.tab)||datumtekst;
+    $('#kopOnder').textContent='';
   }
 
   /* loopt de urenklok, dan hoort dat op elk tabblad zichtbaar te zijn —
@@ -2672,37 +2676,8 @@ function renderNu(){
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnTerug').onclick=()=>{S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0};
 
-/* de regel onder de paginatitel: kort wat er op deze tab speelt */
-function schermOnder(tab){
-  const d=new Date();
-  const datumtekst=`${DAG[d.getDay()]} ${d.getDate()} ${MND[d.getMonth()]}`;
-  if(tab==='productie'){
-    const loopt=S.batches.filter(b=>b.status!=='klaar');
-    return loopt.length
-      ? loopt.length+(loopt.length===1?' batch loopt':' batches lopen')+' · '+
-        loopt.reduce((n,b)=>n+bTotaal(b),0)+' bonbons onderweg'
-      : datumtekst;
-  }
-  if(tab==='voorraad'){
-    const t=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
-    const w=voorraadWaarde();
-    return t? t+' bonbons'+(w.bekend?' · '+euro(w.bekend)+' aan grondstoffen':'')
-            : 'gereed product, grondstoffen en verpakking';
-  }
-  if(tab==='geld'){
-    const om=omzetVan(new Date().getFullYear(),0);
-    return om.bruto? euro(om.bruto)+' omzet dit jaar · '+om.orders+' '+(om.orders===1?'order':'orders')
-                   : 'omzet, btw, kilometers en bonnen';
-  }
-  if(tab==='orders'){
-    const open=(S.orders||[]).filter(o=>o.status==='nieuw');
-    return open.length
-      ? open.length+(open.length===1?' order open':' orders open')+' · '+
-        open.reduce((n,o)=>n+orderAantal(o),0)+' bonbons'
-      : 'klanten en bestellingen';
-  }
-  return datumtekst;
-}
+/* schermOnder stond hier: een regel met de stand van zaken onder elke
+   tabtitel. Weggehaald — de titel alleen is rustiger. */
 
 /* een ring die laat zien hoe ver je bent — compacter dan een balk */
 function ringHTML(gedaan,totaal,klas){
