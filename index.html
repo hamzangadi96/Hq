@@ -1667,7 +1667,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v261 · 14 aug 2026';
+const APPVERSIE='v264 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1893,7 +1893,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd',
   'werkweek','werkafwijk','werkGezet3','samenstelling',
-  'kleuren','ingericht'];
+  'kleuren','ingericht','mallen'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -3119,7 +3119,7 @@ function dashboardHTML(){
         <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
       <button class="prim" data-batch="${b.id}">${b.status==='pauze'?'Batch hervatten':'Verder met deze batch'}</button>`;
     if(b.regels.length){
-      const rg=b.regels[0], per=S.malGrootte||1, aant=Math.max(1,Math.ceil(rg.aantal/per));
+      const rg=b.regels[0], per=malHoltes(rg.receptId), aant=Math.max(1,Math.ceil(rg.aantal/per));
       const qt=b.regels.length>1?`${b.code}/1`:b.code;
       h+=`<button class="stickerblok" data-stickers="${b.id}">
         <span class="qrmini">${qrSvg(qt,20)}</span>
@@ -5094,6 +5094,95 @@ function sheetB2B(){
 function zetStandaardVormen(){
   S.vormen=VORMVOORBEELDEN.map(v=>({id:uid(),naam:v.naam,inhoud:v.inhoud,regels:[]}));
   S.vormGezet=true; bewaarNu();
+}
+
+
+/* ===== mallen =====
+   Eén malgrootte voor het hele bedrijf klopte niet: een schelp gaat in een
+   andere mal dan een truffel. Een mal is nu een ding met een naam en een
+   aantal holtes, en per smaak leg je vast welke mal je gebruikt.
+
+   Alles valt terug op S.malGrootte als een smaak nog geen mal heeft. Zo
+   blijven bestaande batches en planningen precies doen wat ze deden. */
+
+function mallen(){
+  if(!Array.isArray(S.mallen)) S.mallen=[];
+  /* wie al met één malgrootte werkte krijgt die als eerste mal */
+  if(!S.mallen.length&&S.malGrootte)
+    S.mallen=[{id:'mal-standaard',naam:'Mijn mal',holtes:S.malGrootte}];
+  return S.mallen;
+}
+const malVanId=id=>mallen().find(m=>m.id===id);
+
+/* hoeveel bonbons gaan er in de mal van deze smaak? */
+function malHoltes(receptId){
+  const r=(S.recepten||[]).find(x=>x.id===receptId);
+  const m=r&&r.malId?malVanId(r.malId):null;
+  return (m&&parseInt(m.holtes,10))||S.malGrootte||24;
+}
+/* de naam erbij, voor op het scherm */
+function malNaam(receptId){
+  const r=(S.recepten||[]).find(x=>x.id===receptId);
+  const m=r&&r.malId?malVanId(r.malId):null;
+  return m?m.naam:'';
+}
+
+function sheetMallen(){
+  const l=mallen();
+  sheet('Mallen',
+    `<p class="hint">Een mal is een plaat met holtes. Leg elke mal die je gebruikt
+       één keer vast; bij een smaak kies je daarna welke mal erbij hoort.</p>
+     <div class="paneel">${l.length?l.map(m=>{
+       const gebruikt=(S.recepten||[]).filter(r=>r.malId===m.id).length;
+       return `<button class="arij" data-mal="${m.id}">
+         <span class="ivak">${svg(I.bonbon)}</span>
+         <span class="naam">${esc(m.naam)}<small>${m.holtes} holtes${
+           gebruikt?' · '+gebruikt+(gebruikt===1?' smaak':' smaken'):' · nog niet gebruikt'}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
+      :`<div class="geen">Nog geen mallen vastgelegd.</div>`}</div>
+     <button class="sec" id="mlNieuw" style="margin-top:12px">${svg(I.plus)}Mal toevoegen</button>
+     ${l.length?`<p class="hint" style="margin-top:16px">Smaken zonder eigen mal rekenen
+        met ${S.malGrootte||24} bonbons per mal.</p>`:''}`,'');
+  $$('[data-mal]').forEach(b=>b.onclick=()=>sheetMal2(b.dataset.mal));
+  $('#mlNieuw').onclick=()=>sheetMal2(null);
+}
+
+function sheetMal2(id){
+  const nieuw=id===null;
+  const m=nieuw?{naam:'',holtes:24}:Object.assign({},malVanId(id)||{});
+  const gebruikt=nieuw?[]:(S.recepten||[]).filter(r=>r.malId===id);
+  sheet(nieuw?'Mal toevoegen':'Mal',
+    `<div class="veld"><label>Naam</label>
+       <input class="inp" id="mlN" value="${esc(m.naam)}" placeholder="Bijv. schelpmal 24"></div>
+     <div class="veld"><label>Aantal holtes</label>
+       <div class="stepper"><button class="stepbtn" id="mlMin">${svg(I.min)}</button>
+         <div class="stepval"><input id="mlH" type="number" inputmode="numeric"
+           value="${esc(m.holtes)}" min="1" max="1000"><span class="eenh">holtes</span></div>
+         <button class="stepbtn" id="mlPlus">${svg(I.plus)}</button></div></div>
+     ${gebruikt.length?`<div class="melding" style="margin-top:14px">${svg(I.boek,'2')}
+       <span>Gebruikt door ${gebruikt.map(r=>esc(r.naam)).join(', ')}.</span></div>`:''}`,
+    `<button class="prim" style="margin-top:0" id="mlOk">${nieuw?'Toevoegen':'Bewaren'}</button>
+     ${nieuw?'':`<button class="sec" id="mlWeg" style="color:var(--rood)">Mal verwijderen</button>`}`);
+  const zet=v=>{ $('#mlH').value=Math.max(1,Math.min(1000,v)) };
+  $('#mlMin').onclick=()=>zet((+$('#mlH').value||24)-1);
+  $('#mlPlus').onclick=()=>zet((+$('#mlH').value||24)+1);
+  $('#mlOk').onclick=()=>{
+    const n=$('#mlN').value.trim();
+    if(!n) return toast('Geef de mal een naam.');
+    const g=leesVeld('#mlH','Aantal holtes');
+    if(g.fout) return toast(g.fout);
+    if(!g.waarde) return toast('Vul het aantal holtes in.');
+    if(nieuw) mallen().push({id:uid(),naam:n,holtes:Math.round(g.waarde)});
+    else Object.assign(malVanId(id),{naam:n,holtes:Math.round(g.waarde)});
+    bewaarNu(); sheetMallen(); toast(nieuw?'Mal toegevoegd.':'Bewaard.');
+  };
+  if($('#mlWeg')) $('#mlWeg').onclick=()=>{
+    if(gebruikt.length&&!confirm(gebruikt.length+' '+(gebruikt.length===1?'smaak gebruikt':'smaken gebruiken')
+      +' deze mal. Die rekenen daarna met '+(S.malGrootte||24)+' per mal. Toch verwijderen?')) return;
+    (S.recepten||[]).forEach(r=>{ if(r.malId===id) delete r.malId });
+    S.mallen=mallen().filter(x=>x.id!==id);
+    bewaarNu(); sheetMallen(); toast('Verwijderd.');
+  };
 }
 
 function sheetVormen(){
@@ -7270,9 +7359,9 @@ function sheetNieuweOrder(){
     $('#oK').onclick=()=>sheetKlanten(id=>{W.klantId=id;teken()});
     $('#oD').onchange=()=>{W.leverdatum=$('#oD').value};
     $$('[data-op]').forEach(x=>x.onclick=()=>{const k=x.dataset.op;
-      W.regels[k]=(W.regels[k]||0)+S.malGrootte; teken()});
+      W.regels[k]=(W.regels[k]||0)+malHoltes(k); teken()});
     $$('[data-om]').forEach(x=>x.onclick=()=>{const k=x.dataset.om;
-      W.regels[k]=Math.max(0,(W.regels[k]||0)-S.malGrootte); teken()});
+      W.regels[k]=Math.max(0,(W.regels[k]||0)-malHoltes(k)); teken()});
     $('#oOk').onclick=()=>{
       if(!W.klantId) return toast('Kies een klant.');
       const regels=Object.entries(W.regels).filter(([k,v])=>v>0).map(([k,v])=>({receptId:k,aantal:v}));
@@ -7349,8 +7438,8 @@ function sheetInpakken(id){
       keuze[rid]=keuze[rid].filter(x=>x.aantal>0);
       teken();
     };
-    $$('[data-ip]').forEach(x=>x.onclick=()=>pas(x.dataset.ip,S.malGrootte||1));
-    $$('[data-im]').forEach(x=>x.onclick=()=>pas(x.dataset.im,-(S.malGrootte||1)));
+    $$('[data-ip]').forEach(x=>x.onclick=()=>pas(x.dataset.ip,malHoltes(x.dataset.ip)));
+    $$('[data-im]').forEach(x=>x.onclick=()=>pas(x.dataset.im,-malHoltes(x.dataset.im)));
     $$('[data-dp]').forEach(x=>x.onclick=()=>{const p=x.dataset.dp;dozen[p]=(dozen[p]||0)+1;teken()});
     $$('[data-dm]').forEach(x=>x.onclick=()=>{const p=x.dataset.dm;dozen[p]=Math.max(0,(dozen[p]||0)-1);
       if(!dozen[p])delete dozen[p]; teken()});
@@ -8353,7 +8442,7 @@ function sheetPlanBatch(vooraf){
   const stap3=()=>{
     const lijst=S.recepten.filter(r=>r.chocolade===P.choc&&smaakActief(r));
     const regels=Object.keys(P.mallen).filter(k=>P.mallen[k]>0)
-      .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*S.malGrootte}));
+      .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*malHoltes(k)}));
     const tot=regels.reduce((n,r)=>n+r.aantal,0);
     const lt=regels.length?levertijdVoor(regels):0;
     const bd=lt?datumPlus(P.datum,-(lt+1)):null;
@@ -8437,7 +8526,7 @@ function sheetPlanBatch(vooraf){
       try{
         regels2=(P.regels&&P.regels.length)?P.regels
           :Object.keys(P.mallen||{}).filter(k=>P.mallen[k]>0)
-            .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*S.malGrootte}));
+            .map(k=>({receptId:k,mallen:P.mallen[k],aantal:P.mallen[k]*malHoltes(k)}));
         voorbereiding=Object.keys(P.voor).filter(st=>P.voor[st])
           .map(st=>({stap:st,datum:P.voor[st]}));
       }catch(e){ return toast('Inplannen lukte niet. Probeer het nog eens.'); }
@@ -9671,22 +9760,30 @@ function sheetInrichten(stap){
 
   /* ---- 3. je mal ---- */
   if(st===3){
-    sheet('Hoeveel gaan er in een mal?',
-      `${balk}<p class="hint">Hiermee rekent de app je batches om: hoeveel mallen je
-         nodig hebt en hoeveel je ervan overhoudt.</p>
-       <div class="veld"><label>Bonbons per mal</label>
+    const eerste=mallen()[0]||{naam:'',holtes:24};
+    sheet('Je eerste mal',
+      `${balk}<p class="hint">Hiermee rekent de app je batches om. Werk je met meerdere
+         mallen, dan voeg je die later toe en kies je per smaak welke erbij hoort.</p>
+       <div class="veld"><label>Naam</label>
+         <input class="inp" id="inMn" value="${esc(eerste.naam)}" placeholder="Bijv. schelpmal 24"></div>
+       <div class="veld"><label>Aantal holtes</label>
          <div class="stepper"><button class="stepbtn" id="inMin">${svg(I.min)}</button>
            <div class="stepval"><input id="inM" type="number" inputmode="numeric"
-             value="${S.malGrootte||24}" min="1" max="1000"><span class="eenh">per mal</span></div>
+             value="${eerste.holtes||24}" min="1" max="1000"><span class="eenh">holtes</span></div>
            <button class="stepbtn" id="inPlus">${svg(I.plus)}</button></div></div>`,
       `<button class="prim" style="margin-top:0" id="inOk3">Verder</button>`);
     const zetM=v=>{ $('#inM').value=Math.max(1,Math.min(1000,v)) };
     $('#inMin').onclick=()=>zetM((+$('#inM').value||24)-1);
     $('#inPlus').onclick=()=>zetM((+$('#inM').value||24)+1);
     $('#inOk3').onclick=()=>{
-      const g=leesVeld('#inM','Bonbons per mal');
+      const g=leesVeld('#inM','Aantal holtes');
       if(g.fout) return toast(g.fout);
-      S.malGrootte=Math.round(g.waarde||24); bewaarNu(); sheetInrichten(4);
+      const h=Math.round(g.waarde||24);
+      const n=$('#inMn').value.trim()||('Mal '+h);
+      S.malGrootte=h;                          /* blijft de terugval */
+      if(mallen().length) Object.assign(mallen()[0],{naam:n,holtes:h});
+      else S.mallen=[{id:uid(),naam:n,holtes:h}];
+      bewaarNu(); sheetInrichten(4);
     };
     return;
   }
@@ -9798,7 +9895,7 @@ function sheetBatchWijzig(){
   const zelfde=(S.recepten||[]).filter(r=>r.chocolade===b.chocolade);
   const teken=()=>{
     const nu2=Object.entries(W).filter(([k,v])=>v>0);
-    const tot=nu2.reduce((n,[k,v])=>n+v*S.malGrootte,0);
+    const tot=nu2.reduce((n,[k,v])=>n+v*malHoltes(k),0);
     const eraf=b.regels.filter(rg=>!W[rg.receptId]);
     sheet('Batch aanpassen',
       `<p class="hint">Aantallen kloppen niet meer, of je voegt een smaak toe.
@@ -9806,7 +9903,7 @@ function sheetBatchWijzig(){
        <div class="paneel">${zelfde.map(r=>{
          const m=W[r.id]||0, alBezig=b.regels.some(rg=>rg.receptId===r.id);
          return `<div class="orij"><span class="on">${esc(r.naam)}
-           <em>${m?m*S.malGrootte+' bonbons':(alBezig?'gaat eruit':'niet in deze batch')}</em></span>
+           <em>${m?m*malHoltes(k)+' bonbons':(alBezig?'gaat eruit':'niet in deze batch')}</em></span>
            <div class="ostep"><button class="stepbtn klein" data-bm="${r.id}">${svg(I.min)}</button>
              <span class="oa ${m?'aan':''}">${m}</span>
              <button class="stepbtn klein" data-bp="${r.id}">${svg(I.plus)}</button></div></div>`}).join('')}</div>
@@ -9822,7 +9919,7 @@ function sheetBatchWijzig(){
     $('#bwT').onclick=()=>{S.open=null;render();dicht()};
     $('#bwOk').onclick=()=>{
       const regels=Object.entries(W).filter(([k,v])=>v>0)
-        .map(([k,v])=>({receptId:k,mallen:v,aantal:v*S.malGrootte}));
+        .map(([k,v])=>({receptId:k,mallen:v,aantal:v*malHoltes(k)}));
       if(!regels.length) return toast('Er moet minstens één smaak in blijven.');
       regels.forEach(rg=>{ if(!b.recepten[rg.receptId])
         b.recepten[rg.receptId]=JSON.parse(JSON.stringify(recept(rg.receptId))) });
@@ -10899,7 +10996,7 @@ function wizard2(){
 
 function wizard3(){
   const regels=Object.keys(W.mallen).filter(k=>W.mallen[k]>0)
-    .map(k=>({receptId:k,mallen:W.mallen[k],aantal:W.mallen[k]*S.malGrootte}));
+    .map(k=>({receptId:k,mallen:W.mallen[k],aantal:W.mallen[k]*malHoltes(k)}));
   const voorbeeld={regels,chocolade:W.choc};
   sheet('Uitwerking',
     `<div class="info">
@@ -11719,7 +11816,7 @@ function sheetVoorraadLabel(batchId,receptId){
   const verdeling=()=>{
     const pd=perDoos, n=parseInt($('#vlAantal').value)||0;
     const d=Math.ceil(rg.aantal/pd), rest=rg.aantal%pd;
-    $('#vlVerdeel').textContent=`${rg.mallen||Math.round(rg.aantal/(S.malGrootte||1))} ${
+    $('#vlVerdeel').textContent=`${rg.mallen||Math.round(rg.aantal/malHoltes(rg.receptId))} ${
       (rg.mallen||1)===1?'mal':'mallen'} · ${rg.aantal} bonbons · ${pd} per bakje = ${d} ${d===1?'bakje':'bakjes'}`
       +(rest?` (laatste ${rest} st)`:'');
     const vv=VELLEN[S.labelVel||'postnl'], vl=Math.max(1,Math.ceil(n/vv.per));
@@ -12887,6 +12984,7 @@ function leesRecept(){
   if($('#rNaam')) R.naam=$('#rNaam').value.trim();
   if($('#rT')) R.tht=Math.min(GRENS.tht,Math.max(1,parseInt($('#rT').value)||1));
   if(document.querySelector('#rC .chip.aan')) R.chocolade=chipV('#rC');
+  if(document.querySelector('#rMal .chip.aan')) R.malId=chipV('#rMal');
   if($('#rS')) R.stappen=$$('#rS .insblok').map(blok=>{
     const t=blok.querySelector('[data-stap]');
     const k=blok.querySelector('[data-stapbij]');
@@ -13048,6 +13146,12 @@ function tekenRecept(){
       <input class="inp" id="rNaam" value="${esc(R.naam)}" placeholder="Bijv. pistache & rode vruchten"></div>
      <div class="veld"><label>Chocolade</label><div class="chips" id="rC">
       ${soorten().map(c=>`<button class="chip ${c.key===R.chocolade?'aan':''}" data-v="${c.key}">${c.naam}</button>`).join('')}</div></div>
+     <div class="veld"><label>In welke mal?</label><div class="chips" id="rMal">
+      ${mallen().map(m=>`<button class="chip ${m.id===R.malId?'aan':''}" data-v="${m.id}">${
+        esc(m.naam)} · ${m.holtes}</button>`).join('')}
+      <button class="chip nieuw" id="rMalNieuw">${svg(I.plus)}Mal</button></div>
+      <div class="hint" style="margin:6px 0 0">Hiermee rekent de app om hoeveel mallen
+        je nodig hebt voor deze smaak.</div></div>
      <div class="veld"><label>Houdbaar na productie</label>
       <div class="rijtje"><input class="mini" id="rT" type="number" inputmode="numeric" value="${R.tht}"
         style="max-width:96px"><span class="hint" style="margin:0;align-self:center">dagen na productie</span></div></div>
@@ -13077,6 +13181,8 @@ function tekenRecept(){
   bijSluiten=()=>{leesRecept();bewaarSmaak()};
 
   chips('#rC');
+  chips('#rMal');
+  if($('#rMalNieuw')) $('#rMalNieuw').onclick=()=>{ leesRecept(); bewaarSmaak(); sheetMallen() };
   const bindIns=()=>{
     $$('#rS [data-wis-s]').forEach(b=>b.onclick=()=>{
       if($$('#rS .insblok').length>1) b.closest('.insblok').remove();
@@ -15177,7 +15283,8 @@ function sheetInstellingen(){
        verzendgrens()}:00</span></button>
 
      <div class="mkop">Productie</div>
-     <button class="menurij" data-ins="mal">${svg(I.bonbon)}Bonbons per mal<span class="tel">${S.malGrootte}</span></button>
+     <button class="menurij" data-ins="mallen">${svg(I.bonbon)}Mallen<span class="tel">${
+       mallen().length?mallen().length+(mallen().length===1?' mal':' mallen'):'geen'}</span></button>
      <button class="menurij" data-ins="werkplan">${svg(I.lijst)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
      <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
 
@@ -15240,6 +15347,7 @@ function sheetInstellingen(){
   });
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
+    if(k==='mallen') return sheetMallen();
     if(k==='kleuren') return sheetKleuren();
     if(k==='uitleg') return sheetUitleg();
     if(k==='kostenbasis') return sheetKostenbasis();
