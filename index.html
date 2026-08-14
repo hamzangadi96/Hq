@@ -1631,7 +1631,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v248 · 14 aug 2026';
+const APPVERSIE='v249 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5484,7 +5484,10 @@ function sheetKleurZoek(){
         :`<div class="geen" style="margin-top:20px">Geen voorstel te maken.</div>`}`,
       a?`<button class="prim" style="margin-top:0" id="kzBew">Bewaren als kleur</button>`:'');
     $$('[data-pal]').forEach(b=>b.onclick=()=>{doel=b.dataset.pal;teken()});
-    $('#kzKies').oninput=()=>{doel=$('#kzKies').value;teken()};
+    /* zelfde reden: pas bijwerken als de kiezer dichtgaat */
+    $('#kzKies').oninput=()=>{ doel=$('#kzKies').value;
+      const t=$('#kzHex'); if(t) t.value=doel; };
+    $('#kzKies').onchange=()=>{ doel=$('#kzKies').value; teken() };
     $('#kzHex').onchange=()=>{
       const v=$('#kzHex').value.trim();
       if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
@@ -5640,7 +5643,16 @@ function sheetKleur(idx){
       const el=$(sel); if(el) el.onchange=()=>{lees();teken()};
     });
     chips('#kwS',false,()=>{ lees(); k.soort=chipV('#kwS'); if(!k.delen) k.delen=[]; teken() });
-    if($('#kwHk')) $('#kwHk').oninput=()=>{ lees(); k.hex=$('#kwHk').value; teken() };
+    /* Niet opnieuw tekenen tijdens het kiezen: dan verdwijnt het veld waar de
+       kleurkiezer van iOS aan hangt, en klapt hij dicht. We werken alleen het
+       tekstveld bij; pas als je de kiezer sluit tekenen we opnieuw. */
+    if($('#kwHk')){
+      $('#kwHk').oninput=()=>{
+        k.hex=$('#kwHk').value;
+        const t=$('#kwHx'); if(t) t.value=k.hex;
+      };
+      $('#kwHk').onchange=()=>{ lees(); k.hex=$('#kwHk').value; teken() };
+    }
     if($('#kwHx')) $('#kwHx').onchange=()=>{
       const v=$('#kwHx').value.trim();
       if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
