@@ -295,8 +295,13 @@ main>.blokkop:first-child{margin-top:8px}
   font-size:9.5px;font-weight:700;color:#fff;text-align:left;line-height:1.25;
   background:linear-gradient(transparent,rgba(0,0,0,.55));text-shadow:0 1px 2px rgba(0,0,0,.4)}
 .paletvak.aan{outline:3px solid var(--ink);outline-offset:2px}
-.kleurkiezer{width:52px;height:48px;padding:0;border:1px solid var(--lijn);
-  border-radius:12px;background:none;flex:none}
+/* het knopje dat de eigen kiezer opent */
+.kleurknop{width:52px;height:48px;padding:0;border:1px solid var(--lijn);
+  border-radius:12px;flex:none;display:block}
+.kiezer{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.kzrij{display:flex;gap:6px}
+.kzvak{flex:1;height:38px;border-radius:9px;border:1px solid rgba(24,24,27,.10)}
+.kzvak.aan{outline:3px solid var(--ink);outline-offset:2px}
 .kleurnaast{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .kleurnaast .vlak{display:block;height:64px;border-radius:14px;
   border:1px solid rgba(24,24,27,.08)}
@@ -1631,7 +1636,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v250 · 14 aug 2026';
+const APPVERSIE='v251 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5391,6 +5396,67 @@ function watMisJe(basis){
   return uit;
 }
 
+
+/* ===== eigen kleurkiezer =====
+   Het kleurvenster van iOS klapte steeds dicht: het hangt aan een invoerveld,
+   en zodra er iets aan de sheet verandert is het weg. Drie pogingen om dat te
+   omzeilen hielpen niet. Dit is een eigen kiezer — een raster van tinten, elk
+   in vijf helderheden. Werkt overal hetzelfde en kan niet dichtvallen. */
+
+const KIEZERTINTEN=[0,15,30,45,60,90,120,150,175,195,215,240,270,290,315,340];
+const KIEZERTRAPPEN=[
+  {s:0.85,l:0.35},{s:0.85,l:0.50},{s:0.75,l:0.62},{s:0.55,l:0.75},{s:0.30,l:0.88}
+];
+const KIEZERGRIJS=['#ffffff','#e8e6e1','#b8b5ae','#7c7a75','#3d3b38','#18181b'];
+
+function hslHex(h,sa,li){
+  const a=sa*Math.min(li,1-li);
+  const f=n=>{const k=(n+h/30)%12;
+    return li-a*Math.max(-1,Math.min(k-3,Math.min(9-k,1)))};
+  return rgbHex([f(0)*255,f(8)*255,f(4)*255]);
+}
+
+/* een raster met vakjes; klaar is een functie die de gekozen kleur krijgt */
+function kiezerHTML(huidig){
+  const rijen=KIEZERTRAPPEN.map(t=>
+    `<div class="kzrij">${KIEZERTINTEN.map(h=>{
+      const hex=hslHex(h,t.s,t.l);
+      return `<button class="kzvak ${hex.toLowerCase()===String(huidig).toLowerCase()?'aan':''}"
+        data-kz="${hex}" style="background:${hex}"></button>`}).join('')}</div>`).join('');
+  const grijs=`<div class="kzrij">${KIEZERGRIJS.map(hex=>
+    `<button class="kzvak ${hex.toLowerCase()===String(huidig).toLowerCase()?'aan':''}"
+      data-kz="${hex}" style="background:${hex}"></button>`).join('')}</div>`;
+  return `<div class="kiezer">${rijen}${grijs}</div>`;
+}
+
+function sheetKleurKiezen(huidig,klaar){
+  const teken=(gekozen)=>{
+    sheet('Kleur kiezen',
+      `<p class="hint">Tik de tint aan die het dichtst bij komt. Klopt hij niet
+         precies, dan kun je daarna nog een eigen code invullen.</p>
+       ${kiezerHTML(gekozen)}
+       <div class="kleurnaast" style="grid-template-columns:1fr">
+         <div><span class="vlak" style="background:${esc(gekozen)}"></span>
+           <em>${esc(gekozen.toUpperCase())}</em></div>
+       </div>
+       <div class="veld" style="margin-top:16px"><label>Of een eigen code</label>
+         <input class="inp" id="kzcHex" value="${esc(gekozen)}"
+           autocapitalize="none" spellcheck="false" placeholder="#c8102e"></div>`,
+      `<button class="prim" style="margin-top:0" id="kzcOk">Deze kleur gebruiken</button>`);
+    $$('[data-kz]').forEach(b=>b.onclick=()=>teken(b.dataset.kz));
+    $('#kzcHex').onchange=()=>{
+      const v=$('#kzcHex').value.trim();
+      if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
+      teken(v.startsWith('#')?v:'#'+v);
+    };
+    $('#kzcOk').onclick=()=>{
+      const v=$('#kzcHex').value.trim();
+      klaar(hexRgb(v)?(v.startsWith('#')?v:'#'+v):gekozen);
+    };
+  };
+  teken(hexRgb(huidig)?huidig:'#c8102e');
+}
+
 function sheetKleurMogelijk(){
   kleurenIjken();
   const basis=kleurLijst().filter(k=>k.soort!=='mix'&&hexRgb(k.hex));
@@ -5462,7 +5528,8 @@ function sheetKleurZoek(){
        <div class="veld" style="margin-top:16px"><label>Of een eigen kleur</label>
          <div class="rijtje">
            <input class="inp" id="kzHex" value="${esc(doel)}" autocapitalize="none" spellcheck="false">
-           <input type="color" id="kzKies" value="${esc(doel)}" class="kleurkiezer">
+           <button class="kleurknop" id="kzKies" style="background:${esc(doel)}"
+             aria-label="Kleur kiezen"></button>
          </div></div>
        ${a?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Het voorstel</span>
            <span class="tel ${a.afstand<12?'':'let'}">${a.oordeel}</span></div>
@@ -5485,9 +5552,7 @@ function sheetKleurZoek(){
       a?`<button class="prim" style="margin-top:0" id="kzBew">Bewaren als kleur</button>`:'');
     $$('[data-pal]').forEach(b=>b.onclick=()=>{doel=b.dataset.pal;teken()});
     /* zelfde reden: pas bijwerken als de kiezer dichtgaat */
-    $('#kzKies').oninput=()=>{ doel=$('#kzKies').value;
-      const t=$('#kzHex'); if(t) t.value=doel; };
-    $('#kzKies').onchange=()=>{ doel=$('#kzKies').value; teken() };
+    $('#kzKies').onclick=()=>sheetKleurKiezen(doel,hex=>{ doel=hex; teken() });
     $('#kzHex').onchange=()=>{
       const v=$('#kzHex').value.trim();
       if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
@@ -5550,7 +5615,8 @@ function sheetKleur(idx){
        <div class="veld"><label>Hoe ziet hij eruit op witte chocolade?</label>
          <div class="rijtje">
            <input class="inp" id="kwHx" value="${esc(k.hex||'#c0392b')}" autocapitalize="none" spellcheck="false">
-           <input type="color" id="kwHk" value="${esc(k.hex||'#c0392b')}" class="kleurkiezer">
+           <button class="kleurknop" id="kwHk" style="background:${esc(k.hex||'#c0392b')}"
+             aria-label="Kleur kiezen"></button>
          </div>
          <div class="hint" style="margin:6px 0 0">Hiermee kan de app verhoudingen
            voorstellen als je een tint zoekt.</div></div>
@@ -5646,13 +5712,10 @@ function sheetKleur(idx){
     /* Niet opnieuw tekenen tijdens het kiezen: dan verdwijnt het veld waar de
        kleurkiezer van iOS aan hangt, en klapt hij dicht. We werken alleen het
        tekstveld bij; pas als je de kiezer sluit tekenen we opnieuw. */
-    if($('#kwHk')){
-      $('#kwHk').oninput=()=>{
-        k.hex=$('#kwHk').value;
-        const t=$('#kwHx'); if(t) t.value=k.hex;
-      };
-      $('#kwHk').onchange=()=>{ lees(); k.hex=$('#kwHk').value; teken() };
-    }
+    if($('#kwHk')) $('#kwHk').onclick=()=>{
+      lees();
+      sheetKleurKiezen(k.hex||'#c0392b',hex=>{ k.hex=hex; teken() });
+    };
     if($('#kwHx')) $('#kwHx').onchange=()=>{
       const v=$('#kwHx').value.trim();
       if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
