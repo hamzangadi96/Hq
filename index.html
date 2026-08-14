@@ -287,6 +287,22 @@ main>.blokkop:first-child{margin-top:8px}
    Alles op het dashboard was even breed en even zwaar, dus je oog wist niet
    waar het moest beginnen. Deze tegels werken als op je beginscherm: het
    formaat zegt hoe belangrijk iets is, en er staat één ding in per tegel. */
+/* ── kleurpalet ── */
+.paletraster{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.paletvak{aspect-ratio:1.5;border-radius:14px;position:relative;overflow:hidden;
+  border:1px solid rgba(24,24,27,.08)}
+.paletvak span{position:absolute;left:0;right:0;bottom:0;padding:5px 7px;
+  font-size:10.5px;font-weight:700;color:#fff;text-align:left;
+  background:linear-gradient(transparent,rgba(0,0,0,.55));text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.paletvak.aan{outline:3px solid var(--ink);outline-offset:2px}
+.kleurkiezer{width:52px;height:48px;padding:0;border:1px solid var(--lijn);
+  border-radius:12px;background:none;flex:none}
+.kleurnaast{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.kleurnaast .vlak{display:block;height:64px;border-radius:14px;
+  border:1px solid rgba(24,24,27,.08)}
+.kleurnaast em{display:block;margin-top:6px;font-size:12px;color:var(--grijs);
+  font-style:normal;text-align:center}
+
 .tegelrooster{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 .wg{background:var(--card);border-radius:20px;padding:15px 16px 14px;text-align:left;
   display:flex;flex-direction:column;min-height:112px;
@@ -1615,7 +1631,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v245 · 14 aug 2026';
+const APPVERSIE='v247 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3342,6 +3358,7 @@ function dashboardHTML(){
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
     <button class="snelknop" data-sheet="kleurreken">${svg(I.spark)}Kleur rekenen</button>
+    <button class="snelknop" data-sheet="kleurzoek">${svg(I.loep)}Tint zoeken</button>
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
     <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
     <button class="snelknop" data-uitlegopen>${svg(I.boek)}Hoe werkt het?</button>
@@ -5153,12 +5170,55 @@ function sheetStaffel(){
 
 const kleurLijst=()=>S.kleuren||(S.kleuren=[]);
 
-/* Rekent een kleur door voor een aantal bonbons.
-   kleur = {boterG, kleurG, verbruikG, verbruikBonbons, prijsBoter, prijsKleur} */
+/* Een mengsel verwijst naar andere kleuren. Dat kan niet op volgorde, want
+   die verschuift zodra je er een weghaalt. Elke kleur krijgt daarom een vast
+   kenmerk. */
+function kleurenIjken(){
+  (S.kleuren||[]).forEach(k=>{ if(!k.id) k.id=uid() });
+}
+const kleurVan=id=>(S.kleuren||[]).find(k=>k.id===id);
+
+/* Wat zit er in één potje van deze kleur? Bij een mengsel tellen we de
+   onderdelen naar rato op. De app voorspelt géén kleur — welke tint eruit
+   komt bepaal je zelf met een proefje; wij rekenen alleen de grammen,
+   de kosten en de E-nummers. */
+function kleurInhoud(kleur,diep){
+  if(!kleur) return {boter:0,kleur:0,kostenBoter:0,kostenKleur:0,enrs:[]};
+  if((diep||0)>4) return {boter:0,kleur:0,kostenBoter:0,kostenKleur:0,enrs:[]};
+
+  if(kleur.soort!=='mix'){
+    const bo=Math.max(0,parseFloat(kleur.boterG)||0);
+    const kl=Math.max(0,parseFloat(kleur.kleurG)||0);
+    const pB=parseFloat(kleur.prijsBoter)||0, pK=parseFloat(kleur.prijsKleur)||0;
+    return {boter:bo, kleur:kl,
+      kostenBoter:bo/1000*pB, kostenKleur:kl/100*pK,
+      enrs:kleur.enr?[kleur.enr]:[]};
+  }
+
+  /* mengsel: de delen zijn gewichtsdelen van het eindmengsel */
+  const delen=(kleur.delen||[]).filter(d=>d.id&&parseFloat(d.gram)>0);
+  const totaal=delen.reduce((n,d)=>n+parseFloat(d.gram),0);
+  const uit={boter:0,kleur:0,kostenBoter:0,kostenKleur:0,enrs:[]};
+  if(!totaal) return uit;
+  delen.forEach(d=>{
+    const bron=kleurVan(d.id);
+    const inh=kleurInhoud(bron,(diep||0)+1);
+    const bronPotje=inh.boter+inh.kleur;
+    if(!bronPotje) return;
+    /* d.gram is hoeveel van die kleur in dit mengsel gaat */
+    const f=parseFloat(d.gram)/bronPotje;
+    uit.boter+=inh.boter*f;      uit.kleur+=inh.kleur*f;
+    uit.kostenBoter+=inh.kostenBoter*f; uit.kostenKleur+=inh.kostenKleur*f;
+    inh.enrs.forEach(e=>{ if(e&&!uit.enrs.includes(e)) uit.enrs.push(e) });
+  });
+  return uit;
+}
+
+/* Rekent een kleur door voor een aantal bonbons. */
 function kleurReken(kleur,bonbons){
   const n=Math.max(0,parseFloat(bonbons)||0);
-  const bo=Math.max(0,parseFloat(kleur.boterG)||0);
-  const kl=Math.max(0,parseFloat(kleur.kleurG)||0);
+  const inh=kleurInhoud(kleur);
+  const bo=inh.boter, kl=inh.kleur;
   const potje=bo+kl;
   const vG=Math.max(0,parseFloat(kleur.verbruikG)||0);
   const vN=Math.max(1,parseFloat(kleur.verbruikBonbons)||1);
@@ -5168,18 +5228,161 @@ function kleurReken(kleur,bonbons){
   const boter=potje?nodig*(bo/potje):0;
   const kleurstof=potje?nodig*(kl/potje):0;
   const pct=potje?kl/potje*100:0;
-  /* prijzen: boter per kilo, kleurstof per 100 gram */
-  const pB=parseFloat(kleur.prijsBoter)||0, pK=parseFloat(kleur.prijsKleur)||0;
-  const kostenBoter=boter/1000*pB, kostenKleur=kleurstof/100*pK;
+  const potjeKosten=inh.kostenBoter+inh.kostenKleur;
+  const f=potje?nodig/potje:0;
+  const kostenBoter=inh.kostenBoter*f, kostenKleur=inh.kostenKleur*f;
   const kosten=kostenBoter+kostenKleur;
-  const potjeKosten=potje?(bo/1000*pB)+(kl/100*pK):0;
   return {bonbons:n, potje, perBonbon, nodig, deel, boter, kleurstof, pct,
-    kostenBoter, kostenKleur, kosten, potjeKosten,
-    perStuk:n?kosten/n:0, compleet:pB>0&&pK>0,
+    kostenBoter, kostenKleur, kosten, potjeKosten, enrs:inh.enrs,
+    perStuk:n?kosten/n:0, compleet:potjeKosten>0,
     bonbonsUitPotje: perBonbon?Math.floor(potje/perBonbon):0};
 }
 
+
+/* ===== een tint zoeken =====
+   Pigment werkt aftrekkend: elke kleurstof slikt een deel van het licht op.
+   Meng je er twee, dan slikken ze allebei — je telt dus niet de kleuren op
+   maar het slikken. Daarom wordt rood met geel oranje, terwijl optellen zoals
+   op een scherm juist wit zou geven.
+
+   Dit is een benadering. Een echte voorspelling vraagt meetgegevens per
+   pigment, en die heb jij niet. De uitkomst is een vertrekpunt voor een
+   proefje, geen recept. */
+
+const hexRgb=h=>{
+  const t=String(h||'').replace('#','');
+  const v=t.length===3?t.split('').map(c=>c+c).join(''):t;
+  const n=parseInt(v,16);
+  if(isNaN(n)||v.length!==6) return null;
+  return [(n>>16)&255,(n>>8)&255,n&255];
+};
+const rgbHex=a=>'#'+a.map(x=>Math.max(0,Math.min(255,Math.round(x)))
+  .toString(16).padStart(2,'0')).join('');
+const slik=rgb=>rgb.map(c=>-Math.log(Math.max(0.03,c/255)));
+const terug=a=>a.map(x=>Math.exp(-x)*255);
+
+/* Lab: zo vergelijk je kleuren zoals een oog dat doet. Puur verschil in
+   rood-groen-blauw zegt te weinig — twee ver uiteenliggende getallen kunnen
+   er hetzelfde uitzien. */
+function naarLab(rgb){
+  let [r,g,b]=rgb.map(c=>{c/=255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4)});
+  const x=(r*0.4124+g*0.3576+b*0.1805)/0.95047;
+  const y=(r*0.2126+g*0.7152+b*0.0722);
+  const z=(r*0.0193+g*0.1192+b*0.9505)/1.08883;
+  const f=t=>t>0.008856?Math.cbrt(t):(7.787*t+16/116);
+  const fx=f(x),fy=f(y),fz=f(z);
+  return [116*fy-16,500*(fx-fy),200*(fy-fz)];
+}
+const labAf=(a,b)=>Math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2);
+
+/* zoekt de beste verhouding uit jouw basiskleuren */
+function mengAdvies(doelHex,basis){
+  const doel=hexRgb(doelHex);
+  if(!doel||basis.length<1) return null;
+  const dLab=naarLab(doel);
+  const bron=basis.map(k=>({k,a:slik(hexRgb(k.hex))}));
+  let beste=null;
+  const proef=(idx,gew)=>{
+    const a=[0,0,0];
+    idx.forEach((bi,i)=>{for(let c=0;c<3;c++) a[c]+=bron[bi].a[c]*gew[i]});
+    const uit=terug(a), d=labAf(naarLab(uit),dLab);
+    if(!beste||d<beste.afstand)
+      beste={afstand:d,hex:rgbHex(uit),
+        delen:idx.map((bi,i)=>({kleur:bron[bi].k,deel:gew[i]}))};
+  };
+  const n=bron.length;
+  for(let i=0;i<n;i++) proef([i],[1]);
+  for(let i=0;i<n;i++) for(let j=i+1;j<n;j++)
+    for(let w=5;w<=95;w+=5) proef([i,j],[w/100,1-w/100]);
+  if(n>=3) for(let i=0;i<n;i++) for(let j=i+1;j<n;j++) for(let k2=j+1;k2<n;k2++)
+    for(let w1=10;w1<=80;w1+=10) for(let w2=10;w2<=90-w1;w2+=10)
+      proef([i,j,k2],[w1/100,w2/100,(100-w1-w2)/100]);
+  if(!beste) return null;
+  beste.delen=beste.delen.filter(d=>d.deel>=0.03);
+  const som=beste.delen.reduce((x,d)=>x+d.deel,0)||1;
+  beste.delen.forEach(d=>d.deel=d.deel/som);
+  beste.oordeel=beste.afstand<5?'heel dichtbij':beste.afstand<12?'dichtbij'
+    :beste.afstand<25?'in de buurt':'niet te maken';
+  return beste;
+}
+
+/* tinten die je op bonbons tegenkomt */
+const PALET=[['Framboos','#c8102e'],['Kers','#8e1b2e'],['Aardbei','#e8455a'],
+  ['Oranje','#e87722'],['Abrikoos','#f2a65a'],['Mango','#f5b301'],
+  ['Citroen','#f4d03f'],['Pistache','#93c47d'],['Matcha','#7a9a3f'],
+  ['Munt','#3aa17e'],['IJsblauw','#5b9bd5'],['Lavendel','#9b7fc4'],
+  ['Bosbes','#4b3f72'],['Rozenwater','#e8a0bf'],['Karamel','#b5651d'],
+  ['Koffie','#4a2c1a'],['Parelmoer','#efe6d5'],['Antraciet','#2f2f33']];
+
+function sheetKleurZoek(){
+  kleurenIjken();
+  const basis=kleurLijst().filter(k=>k.soort!=='mix'&&hexRgb(k.hex));
+  if(basis.length<2){
+    sheet('Tint zoeken',
+      `<p class="hint">Hiervoor moet de app weten hoe jouw kleuren eruitzien op
+         witte chocolade. Leg minstens twee basiskleuren vast en geef ze een
+         kleurtje mee.</p>`,
+      `<button class="prim" style="margin-top:0" id="kzNaar">Naar mijn kleuren</button>`);
+    $('#kzNaar').onclick=sheetKleuren;
+    return;
+  }
+  let doel=PALET[0][1];
+  const teken=()=>{
+    const a=mengAdvies(doel,basis);
+    sheet('Tint zoeken',
+      `<p class="hint">Kies de tint die je zoekt. De app rekent uit welke van jouw
+         kleuren je moet mengen. <b>Dat is een vertrekpunt</b> — maak er een proefje
+         van en bewaar daarna de verhouding die echt klopt.</p>
+       <div class="paletraster">${PALET.map(([n,h])=>
+         `<button class="paletvak ${h===doel?'aan':''}" data-pal="${h}"
+            style="background:${h}"><span>${esc(n)}</span></button>`).join('')}</div>
+       <div class="veld" style="margin-top:16px"><label>Of een eigen kleur</label>
+         <div class="rijtje">
+           <input class="inp" id="kzHex" value="${esc(doel)}" autocapitalize="none" spellcheck="false">
+           <input type="color" id="kzKies" value="${esc(doel)}" class="kleurkiezer">
+         </div></div>
+       ${a?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Het voorstel</span>
+           <span class="tel ${a.afstand<12?'':'let'}">${a.oordeel}</span></div>
+         <div class="kleurnaast">
+           <div><span class="vlak" style="background:${doel}"></span><em>wat je zoekt</em></div>
+           <div><span class="vlak" style="background:${a.hex}"></span><em>wat eruit komt</em></div>
+         </div>
+         <div class="paneel" style="margin-top:14px">${a.delen.map(d=>`
+           <div class="arij" style="cursor:default">
+             <span class="ivak" style="background:${esc(d.kleur.hex)};color:transparent">.</span>
+             <span class="naam">${esc(d.kleur.naam)}<small>${
+               d.kleur.enr?esc(d.kleur.enr):'geen E-nummer ingevuld'}</small></span>
+             <span class="waarde gevuld">${Math.round(d.deel*100)}%</span></div>`).join('')}</div>
+         <p class="hint" style="margin-top:12px">Op 100 g mengsel: ${
+           a.delen.map(d=>Math.round(d.deel*100)+' g '+esc(d.kleur.naam.toLowerCase())).join(' · ')}.</p>
+         ${a.afstand>=25?`<div class="melding amber" style="margin-top:12px">${svg(I.alarm,'2')}
+           <span>Deze tint komt niet dichtbij met wat je hebt — je mist waarschijnlijk
+             een basiskleur.</span></div>`:''}`
+        :`<div class="geen" style="margin-top:20px">Geen voorstel te maken.</div>`}`,
+      a?`<button class="prim" style="margin-top:0" id="kzBew">Bewaren als kleur</button>`:'');
+    $$('[data-pal]').forEach(b=>b.onclick=()=>{doel=b.dataset.pal;teken()});
+    $('#kzKies').oninput=()=>{doel=$('#kzKies').value;teken()};
+    $('#kzHex').onchange=()=>{
+      const v=$('#kzHex').value.trim();
+      if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
+      doel=v.startsWith('#')?v:'#'+v; teken();
+    };
+    if($('#kzBew')) $('#kzBew').onclick=()=>{
+      const naam=prompt('Hoe noem je deze kleur?','');
+      if(!naam||!naam.trim()) return;
+      const eerste=a.delen[0].kleur;
+      kleurLijst().push({id:uid(),naam:naam.trim(),soort:'mix',hex:a.hex,enr:'',
+        delen:a.delen.map(d=>({id:d.kleur.id,gram:Math.round(d.deel*100)})),
+        verbruikG:eerste.verbruikG||40, verbruikBonbons:eerste.verbruikBonbons||360});
+      bewaarNu(); sheetKleuren();
+      toast('Bewaard. Maak er een proefje van en pas de grammen aan als het afwijkt.');
+    };
+  };
+  teken();
+}
+
 function sheetKleuren(){
+  kleurenIjken();
   const lijst=kleurLijst();
   sheet('Kleuren',
     `<p class="hint">Een kleur is bij jou een potje: zoveel gram cacaoboter met
@@ -5190,16 +5393,21 @@ function sheetKleuren(){
        return `<button class="arij" data-kleur="${i}">
          <span class="ivak">${svg(I.spark)}</span>
          <span class="naam">${esc(k.naam)}<small>${
-           komma(Math.round((k.boterG||0)))} g boter + ${komma(k.kleurG||0)} g kleurstof${
-           k.enr?' · '+esc(k.enr):''}</small></span>
+           k.soort==='mix'
+             ? 'gemengd uit '+((k.delen||[]).length||0)+' kleuren'
+             : komma(Math.round((k.boterG||0)))+' g boter + '+komma(k.kleurG||0)+' g kleurstof'}${
+           r.enrs.length?' · '+esc(r.enrs.join(', ')):''}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
       :`<div class="geen">Nog geen kleuren vastgelegd.</div>`}</div>
-     <button class="sec" id="klNieuw" style="margin-top:12px">${svg(I.plus)}Kleur toevoegen</button>`,'');
+     <button class="sec" id="klNieuw" style="margin-top:12px">${svg(I.plus)}Kleur toevoegen</button>
+     <button class="sec" id="klZoek" style="margin-top:8px">${svg(I.loep)}Een tint zoeken</button>`,'');
   $$('[data-kleur]').forEach(b=>b.onclick=()=>sheetKleur(parseInt(b.dataset.kleur,10)));
   $('#klNieuw').onclick=()=>sheetKleur(null);
+  $('#klZoek').onclick=sheetKleurZoek;
 }
 
 function sheetKleur(idx){
+  kleurenIjken();
   const nieuw=idx===null;
   /* startwaarden uit je eigen praktijk: een potje van 85 g boter met 15 g
      kleurstof, en daar doe je 40 g van op 15 mallen van 24 */
@@ -5211,21 +5419,59 @@ function sheetKleur(idx){
     sheet(nieuw?'Kleur toevoegen':'Kleur',
       `<div class="veld"><label>Naam</label>
          <input class="inp" id="kwN" value="${esc(k.naam)}" placeholder="Bijv. framboosrood"></div>
+       <div class="veld"><label>Hoe ziet hij eruit op witte chocolade?</label>
+         <div class="rijtje">
+           <input class="inp" id="kwHx" value="${esc(k.hex||'#c0392b')}" autocapitalize="none" spellcheck="false">
+           <input type="color" id="kwHk" value="${esc(k.hex||'#c0392b')}" class="kleurkiezer">
+         </div>
+         <div class="hint" style="margin:6px 0 0">Hiermee kan de app verhoudingen
+           voorstellen als je een tint zoekt.</div></div>
        <div class="veld"><label>E-nummer <span style="font-weight:400">— of naam van de kleurstof</span></label>
          <input class="inp" id="kwE" value="${esc(k.enr)}" placeholder="Bijv. E120 of karmijn">
          <div class="hint" style="margin:6px 0 0">Dit komt op je etiket. Kleurstoffen
            zijn declaratieplichtig.</div></div>
 
-       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Jouw potje</span></div>
-       <p class="hint">Hoe maak je één potje gekleurde cacaoboter?</p>
-       <div class="veld"><label>Cacaoboter</label>
-         <div class="pveld"><input class="inp" id="kwB" type="number" inputmode="decimal"
-           value="${esc(k.boterG)}" min="1" max="10000"><span>g</span></div></div>
-       <div class="veld"><label>Kleurstof</label>
-         <div class="pveld"><input class="inp" id="kwK" type="number" inputmode="decimal"
-           value="${esc(k.kleurG)}" min="0.1" max="10000"><span>g</span></div>
-         <div class="hint" style="margin:6px 0 0">Samen ${komma(r.potje)} g mengsel,
-           dat is ${komma(Math.round(r.pct*10)/10)}% kleurstof.</div></div>
+       <div class="veld" style="margin-top:20px"><label>Wat voor kleur is dit?</label>
+         <div class="chips" id="kwS">
+           <button class="chip ${k.soort!=='mix'?'aan':''}" data-v="basis">Basiskleur</button>
+           <button class="chip ${k.soort==='mix'?'aan':''}" data-v="mix">Gemengd</button>
+         </div></div>
+
+       ${k.soort==='mix' ? `
+         <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Waar meng je het van?</span></div>
+         <p class="hint">Vul in hoeveel gram van elke kleur er in jouw mengsel gaat.
+           Welke tint eruit komt bepaal je zelf met een proefje — de app rekent de
+           grammen, de kosten en de E-nummers uit.</p>
+         <div class="paneel">${(k.delen||[]).length?(k.delen||[]).map((d,i)=>`
+           <div class="arij" style="cursor:default">
+             <span class="naam">${esc((kleurVan(d.id)||{}).naam||'onbekend')}</span>
+             <span class="pveld" style="max-width:110px"><input class="inp mini" data-mg="${i}"
+               type="number" inputmode="decimal" value="${esc(d.gram)}"
+               min="0" max="10000" style="max-width:64px"><span>g</span></span>
+             <button class="wisbtn" data-mwis="${i}">${svg(I.kruis,'2')}</button>
+           </div>`).join('')
+          :`<div class="geen">Nog geen kleuren gekozen.</div>`}</div>
+         ${(()=>{const vrij=kleurLijst().filter(x=>x.soort!=='mix'&&x.id!==k.id
+             &&!(k.delen||[]).some(d=>d.id===x.id));
+           return vrij.length?`<div class="veld" style="margin-top:12px">
+             <label>Kleur erbij</label><div class="chips" id="kwToe">${vrij.map(x=>
+               `<button class="chip" data-v="${x.id}">${esc(x.naam)}</button>`).join('')}</div></div>`
+            :`<p class="hint" style="margin-top:12px">Maak eerst je basiskleuren aan.</p>`})()}
+         <div class="totaalregel" style="margin-top:12px"><span class="l">Eén potje</span>
+           <span class="w">${komma(Math.round(r.potje*10)/10)} g · ${
+             komma(Math.round(r.pct*10)/10)}% kleurstof</span></div>
+       ` : `
+         <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Jouw potje</span></div>
+         <p class="hint">Hoe maak je één potje gekleurde cacaoboter?</p>
+         <div class="veld"><label>Cacaoboter</label>
+           <div class="pveld"><input class="inp" id="kwB" type="number" inputmode="decimal"
+             value="${esc(k.boterG)}" min="1" max="10000"><span>g</span></div></div>
+         <div class="veld"><label>Kleurstof</label>
+           <div class="pveld"><input class="inp" id="kwK" type="number" inputmode="decimal"
+             value="${esc(k.kleurG)}" min="0.1" max="10000"><span>g</span></div>
+           <div class="hint" style="margin:6px 0 0">Samen ${komma(r.potje)} g mengsel,
+             dat is ${komma(Math.round(r.pct*10)/10)}% kleurstof.</div></div>
+       `}
 
        <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Wat je ermee doet</span></div>
        <p class="hint">Hoeveel van dat mengsel gebruik je, en voor hoeveel bonbons?</p>
@@ -5241,20 +5487,26 @@ function sheetKleur(idx){
              +r.bonbonsUitPotje+' bonbons':'Vul beide in.'}</div></div>
 
        <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Wat het kost</span></div>
-       <div class="veld"><label>Cacaoboter</label>
-         <div class="pveld"><span>€</span><input class="inp" id="kwPb" type="number" inputmode="decimal"
-           value="${esc(k.prijsBoter)}" min="0" max="10000" placeholder="0,00"><span>/ kg</span></div></div>
-       <div class="veld"><label>Kleurstof</label>
-         <div class="pveld"><span>€</span><input class="inp" id="kwPk" type="number" inputmode="decimal"
-           value="${esc(k.prijsKleur)}" min="0" max="10000" placeholder="0,00"><span>/ 100 g</span></div>
-         ${r.compleet?`<div class="hint" style="margin:6px 0 0">Eén potje kost
-           ${euro(r.potjeKosten)} en is goed voor ${r.bonbonsUitPotje} bonbons.</div>`:''}</div>`,
+       ${k.soort==='mix'
+         ? `<div class="totaalregel"><span class="l">Eén potje</span>
+              <span class="w">${r.potjeKosten?euro(r.potjeKosten):'—'}</span></div>
+            <p class="hint" style="margin-top:8px">Komt uit de kleuren waar je het van
+              mengt. Vul daar de prijzen in.</p>`
+         : `<div class="veld"><label>Cacaoboter</label>
+              <div class="pveld"><span>€</span><input class="inp" id="kwPb" type="number" inputmode="decimal"
+                value="${esc(k.prijsBoter)}" min="0" max="10000" placeholder="0,00"><span>/ kg</span></div></div>
+            <div class="veld"><label>Kleurstof</label>
+              <div class="pveld"><span>€</span><input class="inp" id="kwPk" type="number" inputmode="decimal"
+                value="${esc(k.prijsKleur)}" min="0" max="10000" placeholder="0,00"><span>/ 100 g</span></div>
+              ${r.compleet?`<div class="hint" style="margin:6px 0 0">Eén potje kost
+                ${euro(r.potjeKosten)} en is goed voor ${r.bonbonsUitPotje} bonbons.</div>`:''}</div>`}`,
       `<button class="prim" style="margin-top:0" id="kwOk">${nieuw?'Toevoegen':'Bewaren'}</button>
        ${nieuw?'':`<button class="sec" id="kwWeg" style="color:var(--rood)">Kleur verwijderen</button>`}`);
 
     /* meelezen zodat de tussenstand meteen klopt */
     const lees=()=>{
       k.naam=$('#kwN').value.trim(); k.enr=$('#kwE').value.trim();
+      if($('#kwHx')&&hexRgb($('#kwHx').value.trim())) k.hex=$('#kwHx').value.trim();
       ['B:boterG','K:kleurG','V:verbruikG','Vb:verbruikBonbons','Pb:prijsBoter','Pk:prijsKleur']
         .forEach(x=>{const [id,veld]=x.split(':'); const el=$('#kw'+id);
           if(el) k[veld]=el.value===''?'':parseFloat(el.value.replace(',','.'))});
@@ -5262,16 +5514,40 @@ function sheetKleur(idx){
     ['#kwB','#kwK','#kwV','#kwVb','#kwPb','#kwPk'].forEach(sel=>{
       const el=$(sel); if(el) el.onchange=()=>{lees();teken()};
     });
+    chips('#kwS',false,()=>{ lees(); k.soort=chipV('#kwS'); if(!k.delen) k.delen=[]; teken() });
+    if($('#kwHk')) $('#kwHk').oninput=()=>{ lees(); k.hex=$('#kwHk').value; teken() };
+    if($('#kwHx')) $('#kwHx').onchange=()=>{
+      const v=$('#kwHx').value.trim();
+      if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
+      lees(); k.hex=v.startsWith('#')?v:'#'+v; teken();
+    };
+    $$('[data-mg]').forEach(el=>el.onchange=()=>{
+      lees(); const i=+el.dataset.mg;
+      k.delen[i].gram=parseFloat(el.value.replace(',','.'))||0; teken();
+    });
+    $$('[data-mwis]').forEach(b=>b.onclick=()=>{
+      lees(); k.delen.splice(+b.dataset.mwis,1); teken();
+    });
+    chips('#kwToe',false,()=>{
+      lees(); const id=chipV('#kwToe'); if(!id) return;
+      k.delen=k.delen||[]; k.delen.push({id,gram:10}); teken();
+    });
 
     $('#kwOk').onclick=()=>{
       lees();
       if(!k.naam) return toast('Geef de kleur een naam.');
-      for(const [sel,wat] of [['#kwB','Cacaoboter'],['#kwK','Kleurstof'],
-          ['#kwV','Verbruik'],['#kwVb','Aantal bonbons']]){
+      const velden = k.soort==='mix'
+        ? [['#kwV','Verbruik'],['#kwVb','Aantal bonbons']]
+        : [['#kwB','Cacaoboter'],['#kwK','Kleurstof'],
+           ['#kwV','Verbruik'],['#kwVb','Aantal bonbons']];
+      for(const [sel,wat] of velden){
         const g=leesVeld(sel,wat);
         if(g.fout) return toast(g.fout);
         if(!g.waarde) return toast(wat+': vul een waarde in.');
       }
+      if(k.soort==='mix'&&!(k.delen||[]).some(d=>parseFloat(d.gram)>0))
+        return toast('Kies minstens één kleur om van te mengen.');
+      if(!k.id) k.id=uid();
       if(nieuw) kleurLijst().push(k); else Object.assign(kleurLijst()[idx],k);
       bewaarNu(); sheetKleuren(); toast(nieuw?'Kleur toegevoegd.':'Bewaard.');
     };
@@ -5326,6 +5602,17 @@ function sheetKleurReken(){
        <div class="melding ${r.deel>1?'amber':''}" style="margin-top:12px">${svg(I.doos,'2')}
          <span>Dat is ${komma(Math.round(r.deel*100)/100)}× je potje van ${komma(r.potje)} g${
            r.deel>1?' — je moet dus bijmaken.':'.'}</span></div>
+       ${k.soort==='mix'?`<div class="blokkop" style="margin-top:20px">
+           <span class="eyebrow">Waar meng je het van</span></div>
+         <div class="paneel">${(k.delen||[]).filter(d=>parseFloat(d.gram)>0).map(d=>{
+           const bron=kleurVan(d.id); if(!bron) return '';
+           const bi=kleurInhoud(bron); const bp=bi.boter+bi.kleur;
+           const aandeel=r.potje?(parseFloat(d.gram)/r.potje)*r.nodig:0;
+           return `<div class="arij" style="cursor:default">
+             <span class="naam">${esc(bron.naam)}<small>${komma(d.gram)} g per potje</small></span>
+             <span class="waarde gevuld">${komma(Math.round(aandeel*10)/10)} g</span></div>`}).join('')}</div>`:''}
+       ${r.enrs.length?`<div class="melding" style="margin-top:12px">${svg(I.klembord,'2')}
+         <span>Op je etiket: ${esc(r.enrs.join(', '))}</span></div>`:''}
 
        ${r.compleet?`<div class="blokkop" style="margin-top:24px">
            <span class="eyebrow">Wat het kost</span></div>
@@ -9352,7 +9639,7 @@ function straksHTML(key){
 
 /* ---------- binding ---------- */
 const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
-  kleurreken:sheetKleurReken,kleuren:sheetKleuren,
+  kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,
   ingredienten:sheetIngredienten,afwijking:sheetAfwijking,schoonmaak:sheetSchoonmaak,afronden:sheetAfronden,
   recepten:sheetRecepten,receptnieuw:()=>sheetReceptForm(),instellingen:sheetInstellingen,
   haccp:sheetHaccp,wenskaart:()=>sheetWenskaart(''),bedrijf:sheetBedrijf};
