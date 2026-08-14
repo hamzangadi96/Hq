@@ -298,10 +298,16 @@ main>.blokkop:first-child{margin-top:8px}
 /* het knopje dat de eigen kiezer opent */
 .kleurknop{width:52px;height:48px;padding:0;border:1px solid var(--lijn);
   border-radius:12px;flex:none;display:block}
-.kiezer{margin-top:14px;display:flex;flex-direction:column;gap:6px}
-.kzrij{display:flex;gap:6px}
-.kzvak{flex:1;height:38px;border-radius:9px;border:1px solid rgba(24,24,27,.10)}
-.kzvak.aan{outline:3px solid var(--ink);outline-offset:2px}
+/* Het kiesvlak. De twee verlopen samen geven links pastel, rechts vol,
+   onder donker — precies het bereik dat je op chocolade nodig hebt. */
+.kiesvlak{position:relative;height:210px;border-radius:16px;margin-top:14px;
+  border:1px solid rgba(24,24,27,.10);touch-action:none;cursor:crosshair;
+  background:
+    linear-gradient(to top, #000, rgba(0,0,0,0)),
+    linear-gradient(to right, #fff, var(--tint,#ff0000))}
+.kiesvlak .stip{position:absolute;width:26px;height:26px;border-radius:99px;
+  border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);
+  transform:translate(-50%,-50%);pointer-events:none}
 .schuifblok{margin-top:14px}
 .schuifblok label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);
   margin-bottom:8px;letter-spacing:-.01em}
@@ -1655,7 +1661,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v252 · 14 aug 2026';
+const APPVERSIE='v253 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5422,28 +5428,6 @@ function watMisJe(basis){
    omzeilen hielpen niet. Dit is een eigen kiezer — een raster van tinten, elk
    in vijf helderheden. Werkt overal hetzelfde en kan niet dichtvallen. */
 
-const KIEZERTINTEN=[0,15,30,45,60,90,120,150,175,195,215,240,270,290,315,340];
-const KIEZERTRAPPEN=[
-  {s:0.85,l:0.35},{s:0.85,l:0.50},{s:0.75,l:0.62},{s:0.55,l:0.75},{s:0.30,l:0.88}
-];
-const KIEZERGRIJS=['#ffffff','#e8e6e1','#b8b5ae','#7c7a75','#3d3b38','#18181b'];
-
-/* van een kleurcode terug naar tint, verzadiging en helderheid, zodat de
-   schuiven op de juiste stand beginnen */
-function hexHsl(hex){
-  const rgb=hexRgb(hex); if(!rgb) return {h:0,s:70,l:50};
-  const [r,g,b]=rgb.map(x=>x/255);
-  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
-  const l=(mx+mn)/2;
-  let h=0, sa=0;
-  if(d){
-    sa=d/(1-Math.abs(2*l-1));
-    if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4;
-    h=(h*60+360)%360;
-  }
-  return {h:Math.round(h), s:Math.round(sa*100), l:Math.round(l*100)};
-}
-
 function hslHex(h,sa,li){
   const a=sa*Math.min(li,1-li);
   const f=n=>{const k=(n+h/30)%12;
@@ -5451,76 +5435,84 @@ function hslHex(h,sa,li){
   return rgbHex([f(0)*255,f(8)*255,f(4)*255]);
 }
 
-/* een raster met vakjes; klaar is een functie die de gekozen kleur krijgt */
-function kiezerHTML(huidig){
-  const rijen=KIEZERTRAPPEN.map(t=>
-    `<div class="kzrij">${KIEZERTINTEN.map(h=>{
-      const hex=hslHex(h,t.s,t.l);
-      return `<button class="kzvak ${hex.toLowerCase()===String(huidig).toLowerCase()?'aan':''}"
-        data-kz="${hex}" style="background:${hex}"></button>`}).join('')}</div>`).join('');
-  const grijs=`<div class="kzrij">${KIEZERGRIJS.map(hex=>
-    `<button class="kzvak ${hex.toLowerCase()===String(huidig).toLowerCase()?'aan':''}"
-      data-kz="${hex}" style="background:${hex}"></button>`).join('')}</div>`;
-  return `<div class="kiezer">${rijen}${grijs}</div>`;
+/* Het kiesvlak: links pastel, rechts vol, onder donker. Precies het vlak dat
+   je in elke echte kleurkiezer ziet. Eerst had ik hier een raster van vakjes,
+   maar dat is kiezen uit een lijstje, geen kleur kiezen. */
+
+/* tint-verzadiging-waarde is voor een kiesvlak handiger dan helderheid:
+   het vlak is dan gewoon links-rechts verzadiging, boven-onder waarde */
+function hsvHex(h,sv,vv){
+  const f=n=>{const k=(n+h/60)%6;
+    return vv-vv*sv*Math.max(0,Math.min(k,4-k,1))};
+  return rgbHex([f(5)*255,f(3)*255,f(1)*255]);
+}
+function hexHsv(hex){
+  const rgb=hexRgb(hex); if(!rgb) return {h:0,s:.8,v:.8};
+  const [r,g,b]=rgb.map(x=>x/255);
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  let h=0;
+  if(d){ if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+    h=(h*60+360)%360; }
+  return {h, s:mx?d/mx:0, v:mx};
 }
 
 function sheetKleurKiezen(huidig,klaar){
-  const teken=(gekozen)=>{
-    const hsl=hexHsl(gekozen);
-    sheet('Kleur kiezen',
-      `<p class="hint">Tik de tint aan die het dichtst bij komt. Klopt hij niet
-         precies, dan kun je daarna nog een eigen code invullen.</p>
-       ${kiezerHTML(gekozen)}
+  let hsv=hexHsv(hexRgb(huidig)?huidig:'#c8102e');
+  const nu=()=>hsvHex(hsv.h,hsv.s,hsv.v);
 
-       <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Fijn afstellen</span></div>
-       <div class="schuifblok">
-         <label>Tint</label>
-         <input type="range" id="kzH" min="0" max="360" value="${hsl.h}" class="schuif tint">
-       </div>
-       <div class="schuifblok">
-         <label>Verzadiging <b>${hsl.s}%</b></label>
-         <input type="range" id="kzS" min="0" max="100" value="${hsl.s}" class="schuif"
-           style="--van:${hslHex(hsl.h,0,hsl.l/100)};--naar:${hslHex(hsl.h,1,hsl.l/100)}">
-       </div>
-       <div class="schuifblok">
-         <label>Helderheid <b>${hsl.l}%</b></label>
-         <input type="range" id="kzL" min="2" max="98" value="${hsl.l}" class="schuif"
-           style="--van:#000;--naar:#fff">
-       </div>
+  sheet('Kleur kiezen',
+    `<p class="hint">Sleep in het vlak: naar links wordt het pasteller, naar
+       beneden donkerder. Met de balk eronder kies je de tint.</p>
+     <div class="kiesvlak" id="kvVlak"><span class="stip" id="kvStip"></span></div>
+     <input type="range" id="kvH" min="0" max="359" value="${Math.round(hsv.h)}"
+       class="schuif tint" style="margin-top:14px">
+     <div class="kleurnaast" style="grid-template-columns:1fr;margin-top:16px">
+       <div><span class="vlak" id="kvVoor"></span><em id="kvCode"></em></div>
+     </div>
+     <div class="veld" style="margin-top:14px"><label>Of een eigen code</label>
+       <input class="inp" id="kvHex" autocapitalize="none" spellcheck="false"
+         placeholder="#c8102e"></div>`,
+    `<button class="prim" style="margin-top:0" id="kvOk">Deze kleur gebruiken</button>`);
 
-       <div class="kleurnaast" style="grid-template-columns:1fr;margin-top:16px">
-         <div><span class="vlak" style="background:${esc(gekozen)}"></span>
-           <em>${esc(gekozen.toUpperCase())}</em></div>
-       </div>
-       <div class="veld" style="margin-top:14px"><label>Of een eigen code</label>
-         <input class="inp" id="kzcHex" value="${esc(gekozen)}"
-           autocapitalize="none" spellcheck="false" placeholder="#c8102e"></div>`,
-      `<button class="prim" style="margin-top:0" id="kzcOk">Deze kleur gebruiken</button>`);
-    $$('[data-kz]').forEach(b=>b.onclick=()=>teken(b.dataset.kz));
-    /* Tijdens het schuiven alleen het voorbeeld bijwerken, niet het hele
-       scherm — anders springt de schuif onder je vinger weg. */
-    const schuiven=['#kzH','#kzS','#kzL'].map(x=>$(x));
-    const nu=()=>hslHex(+schuiven[0].value, schuiven[1].value/100, schuiven[2].value/100);
-    schuiven.forEach(el=>{ if(!el) return;
-      el.oninput=()=>{
-        const hex=nu();
-        const v=$('.kleurnaast .vlak'); if(v) v.style.background=hex;
-        const e2=$('.kleurnaast em'); if(e2) e2.textContent=hex.toUpperCase();
-        const t=$('#kzcHex'); if(t) t.value=hex;
-      };
-      el.onchange=()=>teken(nu());
-    });
-    $('#kzcHex').onchange=()=>{
-      const v=$('#kzcHex').value.trim();
-      if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
-      teken(v.startsWith('#')?v:'#'+v);
-    };
-    $('#kzcOk').onclick=()=>{
-      const v=$('#kzcHex').value.trim();
-      klaar(hexRgb(v)?(v.startsWith('#')?v:'#'+v):gekozen);
-    };
+  const vlak=$('#kvVlak'), stip=$('#kvStip');
+  /* alleen het vlak, de stip en het voorbeeld bijwerken — nooit het hele
+     scherm, anders springt de kiezer weg onder je vinger */
+  const bij=(ookHex)=>{
+    const hex=nu();
+    vlak.style.setProperty('--tint',hsvHex(hsv.h,1,1));
+    stip.style.left=(hsv.s*100)+'%';
+    stip.style.top=((1-hsv.v)*100)+'%';
+    stip.style.background=hex;
+    $('#kvVoor').style.background=hex;
+    $('#kvCode').textContent=hex.toUpperCase();
+    if(ookHex!==false) $('#kvHex').value=hex;
   };
-  teken(hexRgb(huidig)?huidig:'#c8102e');
+
+  const uitPunt=e=>{
+    const r=vlak.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e;
+    hsv.s=Math.max(0,Math.min(1,(t.clientX-r.left)/r.width));
+    hsv.v=Math.max(0,Math.min(1,1-(t.clientY-r.top)/r.height));
+    bij();
+  };
+  let sleept=false;
+  vlak.addEventListener('pointerdown',e=>{
+    sleept=true; vlak.setPointerCapture(e.pointerId); uitPunt(e); e.preventDefault();
+  });
+  vlak.addEventListener('pointermove',e=>{ if(sleept){ uitPunt(e); e.preventDefault() } });
+  vlak.addEventListener('pointerup',()=>{sleept=false});
+  vlak.addEventListener('pointercancel',()=>{sleept=false});
+
+  $('#kvH').oninput=()=>{ hsv.h=+$('#kvH').value; bij() };
+  $('#kvHex').onchange=()=>{
+    const v=$('#kvHex').value.trim();
+    if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
+    hsv=hexHsv(v.startsWith('#')?v:'#'+v);
+    $('#kvH').value=Math.round(hsv.h);
+    bij(false);
+  };
+  $('#kvOk').onclick=()=>klaar(nu());
+  bij();
 }
 
 function sheetKleurMogelijk(){
