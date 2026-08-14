@@ -1615,7 +1615,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v243 · 14 aug 2026';
+const APPVERSIE='v245 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1812,6 +1812,8 @@ const S={
   werkweek:null, werkafwijk:{},
   /* waaruit bestaat een samengesteld ingredient, per naam */
   samenstelling:{},
+  /* je kleuren: potjes gekleurde cacaoboter die je zelf mengt */
+  kleuren:[],
   /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
   bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
     adres:'Alcoalaan 8D, 5151 RW Drunen', kvk:'93971818', btw:'NL005058641B30',
@@ -1837,7 +1839,8 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd',
-  'werkweek','werkafwijk','werkGezet3','samenstelling'];
+  'werkweek','werkafwijk','werkGezet3','samenstelling',
+  'kleuren'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -3338,6 +3341,7 @@ function dashboardHTML(){
     <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
     <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
+    <button class="snelknop" data-sheet="kleurreken">${svg(I.spark)}Kleur rekenen</button>
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
     <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
     <button class="snelknop" data-uitlegopen>${svg(I.boek)}Hoe werkt het?</button>
@@ -5139,6 +5143,214 @@ function sheetStaffel(){
 }
 
 /* ---------- kostenbasis: vaste lasten en derving ---------- */
+
+/* ===== kleur =====
+   Je maakt een potje gekleurde cacaoboter: zoveel gram boter met zoveel gram
+   kleurstof erdoor. Daar doe je een tijd mee. Eerst rekende ik met een
+   percentage en een vaste hoeveelheid per mal — dat sloot niet aan bij hoe je
+   werkt en zat er een factor acht naast. Nu vul je je eigen potje in, en wat
+   je daarvan verbruikt. */
+
+const kleurLijst=()=>S.kleuren||(S.kleuren=[]);
+
+/* Rekent een kleur door voor een aantal bonbons.
+   kleur = {boterG, kleurG, verbruikG, verbruikBonbons, prijsBoter, prijsKleur} */
+function kleurReken(kleur,bonbons){
+  const n=Math.max(0,parseFloat(bonbons)||0);
+  const bo=Math.max(0,parseFloat(kleur.boterG)||0);
+  const kl=Math.max(0,parseFloat(kleur.kleurG)||0);
+  const potje=bo+kl;
+  const vG=Math.max(0,parseFloat(kleur.verbruikG)||0);
+  const vN=Math.max(1,parseFloat(kleur.verbruikBonbons)||1);
+  const perBonbon=vG/vN;                       /* gram mengsel per bonbon */
+  const nodig=perBonbon*n;                     /* mengsel voor deze ronde */
+  const deel=potje?nodig/potje:0;              /* hoeveel potjes is dat */
+  const boter=potje?nodig*(bo/potje):0;
+  const kleurstof=potje?nodig*(kl/potje):0;
+  const pct=potje?kl/potje*100:0;
+  /* prijzen: boter per kilo, kleurstof per 100 gram */
+  const pB=parseFloat(kleur.prijsBoter)||0, pK=parseFloat(kleur.prijsKleur)||0;
+  const kostenBoter=boter/1000*pB, kostenKleur=kleurstof/100*pK;
+  const kosten=kostenBoter+kostenKleur;
+  const potjeKosten=potje?(bo/1000*pB)+(kl/100*pK):0;
+  return {bonbons:n, potje, perBonbon, nodig, deel, boter, kleurstof, pct,
+    kostenBoter, kostenKleur, kosten, potjeKosten,
+    perStuk:n?kosten/n:0, compleet:pB>0&&pK>0,
+    bonbonsUitPotje: perBonbon?Math.floor(potje/perBonbon):0};
+}
+
+function sheetKleuren(){
+  const lijst=kleurLijst();
+  sheet('Kleuren',
+    `<p class="hint">Een kleur is bij jou een potje: zoveel gram cacaoboter met
+       zoveel gram kleurstof erdoor. Leg dat één keer vast met wat je ervoor
+       betaalt, dan rekent de app de rest uit.</p>
+     <div class="paneel">${lijst.length?lijst.map((k,i)=>{
+       const r=kleurReken(k,0);
+       return `<button class="arij" data-kleur="${i}">
+         <span class="ivak">${svg(I.spark)}</span>
+         <span class="naam">${esc(k.naam)}<small>${
+           komma(Math.round((k.boterG||0)))} g boter + ${komma(k.kleurG||0)} g kleurstof${
+           k.enr?' · '+esc(k.enr):''}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
+      :`<div class="geen">Nog geen kleuren vastgelegd.</div>`}</div>
+     <button class="sec" id="klNieuw" style="margin-top:12px">${svg(I.plus)}Kleur toevoegen</button>`,'');
+  $$('[data-kleur]').forEach(b=>b.onclick=()=>sheetKleur(parseInt(b.dataset.kleur,10)));
+  $('#klNieuw').onclick=()=>sheetKleur(null);
+}
+
+function sheetKleur(idx){
+  const nieuw=idx===null;
+  /* startwaarden uit je eigen praktijk: een potje van 85 g boter met 15 g
+     kleurstof, en daar doe je 40 g van op 15 mallen van 24 */
+  const k=nieuw?{naam:'',enr:'',boterG:85,kleurG:15,verbruikG:40,verbruikBonbons:360,
+                 prijsBoter:'',prijsKleur:''}
+               :Object.assign({},kleurLijst()[idx]);
+  const teken=()=>{
+    const r=kleurReken(k,0);
+    sheet(nieuw?'Kleur toevoegen':'Kleur',
+      `<div class="veld"><label>Naam</label>
+         <input class="inp" id="kwN" value="${esc(k.naam)}" placeholder="Bijv. framboosrood"></div>
+       <div class="veld"><label>E-nummer <span style="font-weight:400">— of naam van de kleurstof</span></label>
+         <input class="inp" id="kwE" value="${esc(k.enr)}" placeholder="Bijv. E120 of karmijn">
+         <div class="hint" style="margin:6px 0 0">Dit komt op je etiket. Kleurstoffen
+           zijn declaratieplichtig.</div></div>
+
+       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Jouw potje</span></div>
+       <p class="hint">Hoe maak je één potje gekleurde cacaoboter?</p>
+       <div class="veld"><label>Cacaoboter</label>
+         <div class="pveld"><input class="inp" id="kwB" type="number" inputmode="decimal"
+           value="${esc(k.boterG)}" min="1" max="10000"><span>g</span></div></div>
+       <div class="veld"><label>Kleurstof</label>
+         <div class="pveld"><input class="inp" id="kwK" type="number" inputmode="decimal"
+           value="${esc(k.kleurG)}" min="0.1" max="10000"><span>g</span></div>
+         <div class="hint" style="margin:6px 0 0">Samen ${komma(r.potje)} g mengsel,
+           dat is ${komma(Math.round(r.pct*10)/10)}% kleurstof.</div></div>
+
+       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Wat je ermee doet</span></div>
+       <p class="hint">Hoeveel van dat mengsel gebruik je, en voor hoeveel bonbons?</p>
+       <div class="veld"><label>Verbruik</label>
+         <div class="rijtje">
+           <div class="pveld" style="flex:1"><input class="inp" id="kwV" type="number" inputmode="decimal"
+             value="${esc(k.verbruikG)}" min="0.1" max="10000"><span>g voor</span></div>
+           <div class="pveld" style="flex:1"><input class="inp" id="kwVb" type="number" inputmode="numeric"
+             value="${esc(k.verbruikBonbons)}" min="1" max="100000"><span>bonbons</span></div>
+         </div>
+         <div class="hint" style="margin:6px 0 0">${
+           r.perBonbon?komma(Math.round(r.perBonbon*1000)/1000)+' g per bonbon · met één potje doe je '
+             +r.bonbonsUitPotje+' bonbons':'Vul beide in.'}</div></div>
+
+       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Wat het kost</span></div>
+       <div class="veld"><label>Cacaoboter</label>
+         <div class="pveld"><span>€</span><input class="inp" id="kwPb" type="number" inputmode="decimal"
+           value="${esc(k.prijsBoter)}" min="0" max="10000" placeholder="0,00"><span>/ kg</span></div></div>
+       <div class="veld"><label>Kleurstof</label>
+         <div class="pveld"><span>€</span><input class="inp" id="kwPk" type="number" inputmode="decimal"
+           value="${esc(k.prijsKleur)}" min="0" max="10000" placeholder="0,00"><span>/ 100 g</span></div>
+         ${r.compleet?`<div class="hint" style="margin:6px 0 0">Eén potje kost
+           ${euro(r.potjeKosten)} en is goed voor ${r.bonbonsUitPotje} bonbons.</div>`:''}</div>`,
+      `<button class="prim" style="margin-top:0" id="kwOk">${nieuw?'Toevoegen':'Bewaren'}</button>
+       ${nieuw?'':`<button class="sec" id="kwWeg" style="color:var(--rood)">Kleur verwijderen</button>`}`);
+
+    /* meelezen zodat de tussenstand meteen klopt */
+    const lees=()=>{
+      k.naam=$('#kwN').value.trim(); k.enr=$('#kwE').value.trim();
+      ['B:boterG','K:kleurG','V:verbruikG','Vb:verbruikBonbons','Pb:prijsBoter','Pk:prijsKleur']
+        .forEach(x=>{const [id,veld]=x.split(':'); const el=$('#kw'+id);
+          if(el) k[veld]=el.value===''?'':parseFloat(el.value.replace(',','.'))});
+    };
+    ['#kwB','#kwK','#kwV','#kwVb','#kwPb','#kwPk'].forEach(sel=>{
+      const el=$(sel); if(el) el.onchange=()=>{lees();teken()};
+    });
+
+    $('#kwOk').onclick=()=>{
+      lees();
+      if(!k.naam) return toast('Geef de kleur een naam.');
+      for(const [sel,wat] of [['#kwB','Cacaoboter'],['#kwK','Kleurstof'],
+          ['#kwV','Verbruik'],['#kwVb','Aantal bonbons']]){
+        const g=leesVeld(sel,wat);
+        if(g.fout) return toast(g.fout);
+        if(!g.waarde) return toast(wat+': vul een waarde in.');
+      }
+      if(nieuw) kleurLijst().push(k); else Object.assign(kleurLijst()[idx],k);
+      bewaarNu(); sheetKleuren(); toast(nieuw?'Kleur toegevoegd.':'Bewaard.');
+    };
+    if($('#kwWeg')) $('#kwWeg').onclick=()=>{
+      kleurLijst().splice(idx,1); bewaarNu(); sheetKleuren(); toast('Verwijderd.');
+    };
+  };
+  teken();
+}
+
+/* de calculator */
+function sheetKleurReken(){
+  const lijst=kleurLijst();
+  if(!lijst.length){
+    sheet('Kleur rekenen',
+      `<p class="hint">Leg eerst een kleur vast: hoeveel boter en kleurstof er in
+         jouw potje gaan, en hoeveel je daarvan gebruikt.</p>`,
+      `<button class="prim" style="margin-top:0" id="krNaar">Kleur toevoegen</button>`);
+    $('#krNaar').onclick=()=>sheetKleur(null);
+    return;
+  }
+  let keuze=0, mallen=1;
+  const teken=()=>{
+    const k=lijst[keuze];
+    const perMal=S.malGrootte||24;
+    const bonbons=mallen*perMal;
+    const r=kleurReken(k,bonbons);
+    sheet('Kleur rekenen',
+      `<div class="veld"><label>Welke kleur?</label>
+         <div class="chips" id="krK">${lijst.map((x,i)=>
+           `<button class="chip ${i===keuze?'aan':''}" data-v="${i}">${esc(x.naam)}</button>`).join('')}</div></div>
+       <div class="veld"><label>Hoeveel mallen?</label>
+         <div class="stepper"><button class="stepbtn" id="krMin">${svg(I.min)}</button>
+           <div class="stepval"><input id="krM" type="number" inputmode="numeric"
+             value="${mallen}" min="1" max="500"><span class="eenh">mallen</span></div>
+           <button class="stepbtn" id="krPlus">${svg(I.plus)}</button></div>
+         <div class="hint" style="margin:6px 0 0">${bonbons} bonbons bij ${perMal} per mal</div></div>
+
+       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Wat je nodig hebt</span></div>
+       <div class="paneel">
+         <div class="arij" style="cursor:default">
+           <span class="naam"><b>Gekleurde boter</b><small>${
+             komma(Math.round(r.perBonbon*1000)/1000)} g per bonbon</small></span>
+           <span class="waarde gevuld">${komma(Math.round(r.nodig*10)/10)} g</span></div>
+         <div class="arij" style="cursor:default">
+           <span class="naam">Cacaoboter</span>
+           <span class="waarde gevuld">${komma(Math.round(r.boter*10)/10)} g</span></div>
+         <div class="arij" style="cursor:default;border-bottom:0">
+           <span class="naam">${esc(k.naam)}<small>${komma(Math.round(r.pct*10)/10)}% van het mengsel</small></span>
+           <span class="waarde gevuld">${komma(Math.round(r.kleurstof*100)/100)} g</span></div>
+       </div>
+       <div class="melding ${r.deel>1?'amber':''}" style="margin-top:12px">${svg(I.doos,'2')}
+         <span>Dat is ${komma(Math.round(r.deel*100)/100)}× je potje van ${komma(r.potje)} g${
+           r.deel>1?' — je moet dus bijmaken.':'.'}</span></div>
+
+       ${r.compleet?`<div class="blokkop" style="margin-top:24px">
+           <span class="eyebrow">Wat het kost</span></div>
+         <div class="totaalregel"><span class="l">Per bonbon</span>
+           <span class="w">${euro(r.perStuk)}</span></div>
+         <div class="totaalregel"><span class="l">Deze ronde</span>
+           <span class="w">${euro(r.kosten)}</span></div>`
+        :`<div class="melding amber" style="margin-top:16px">${svg(I.alarm,'2')}
+           <span>Vul bij <b>${esc(k.naam)}</b> de prijzen in, dan reken ik ook de
+             kosten uit.</span></div>`}`,
+      `<button class="sec" style="margin-top:0" id="krBew">Kleuren beheren</button>`);
+
+    chips('#krK',false,()=>{keuze=parseInt(chipV('#krK'),10)||0;teken()});
+    $('#krMin').onclick=()=>{mallen=Math.max(1,mallen-1);teken()};
+    $('#krPlus').onclick=()=>{mallen=Math.min(500,mallen+1);teken()};
+    $('#krM').onchange=()=>{
+      const g=leesVeld('#krM','Aantal mallen');
+      if(g.fout) return toast(g.fout);
+      mallen=Math.max(1,Math.round(g.waarde||1)); teken();
+    };
+    $('#krBew').onclick=sheetKleuren;
+  };
+  teken();
+}
+
 function sheetKostenbasis(){
   const d=dervingInfo(), p=productiePerMaand(), vb=vastPerBonbon();
   const posten=(S.vasteLasten||[]);
@@ -9140,6 +9352,7 @@ function straksHTML(key){
 
 /* ---------- binding ---------- */
 const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
+  kleurreken:sheetKleurReken,kleuren:sheetKleuren,
   ingredienten:sheetIngredienten,afwijking:sheetAfwijking,schoonmaak:sheetSchoonmaak,afronden:sheetAfronden,
   recepten:sheetRecepten,receptnieuw:()=>sheetReceptForm(),instellingen:sheetInstellingen,
   haccp:sheetHaccp,wenskaart:()=>sheetWenskaart(''),bedrijf:sheetBedrijf};
@@ -9409,7 +9622,10 @@ const VELDGRENS={
   /* kilometers */
   rrKm:[0,2000],    rrK:[0,2000000],
   /* houdbaarheid in dagen */
-  swTN:[1,1095],    rT:[1,1095],      bqN:[1,1000]
+  swTN:[1,1095],    rT:[1,1095],      bqN:[1,1000],
+  /* kleur: potje en verbruik */
+  kwB:[1,10000],    kwK:[0.1,10000],  kwV:[0.1,10000],
+  kwVb:[1,100000],  kwPb:[0,10000],   kwPk:[0,10000],  krM:[1,500]
 };
 
 /* Sommige velden hebben geen eigen id omdat ze in een rij staan die je zelf
@@ -14035,6 +14251,8 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="middelen">${svg(I.spark)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
 
      <div class="mkop">Stamgegevens</div>
+     <button class="menurij" data-ins="kleuren">${svg(I.spark)}Kleuren<span class="tel">${
+       (S.kleuren||[]).length||'geen'}</span></button>
      <button class="menurij" data-ins="allerg">${svg(I.alarm)}Ingrediënten<span class="tel">${
        (()=>{const t=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
              return t?(g?g+' van '+t:'nog niets'):'geen ingrediënten'})()}</span></button>
@@ -14084,6 +14302,7 @@ function sheetInstellingen(){
   });
   $$('[data-ins]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.ins;
+    if(k==='kleuren') return sheetKleuren();
     if(k==='uitleg') return sheetUitleg();
     if(k==='kostenbasis') return sheetKostenbasis();
     if(k==='plekken') return sheetPlekken();
