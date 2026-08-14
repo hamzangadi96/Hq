@@ -1663,7 +1663,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v258 · 14 aug 2026';
+const APPVERSIE='v260 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1862,10 +1862,11 @@ const S={
   samenstelling:{},
   /* je kleuren: potjes gekleurde cacaoboter die je zelf mengt */
   kleuren:[],
-  /* het merk van de gebruiker: naam, ondertitel en een eigen logo */
-  bedrijf:{naam:'Cacaoboetiek', regel:'RAFFINEMENT', logo:'',
-    adres:'Alcoalaan 8D, 5151 RW Drunen', kvk:'93971818', btw:'NL005058641B30',
-    contact:'info@cacaoboetiek.nl · www.cacaoboetiek.nl'},
+  /* Het merk van de gebruiker: leeg bij een nieuwe app. Hier stonden de
+     gegevens van Cacaoboetiek als standaardwaarde. Voor de eerste gebruiker
+     handig, maar iedereen die daarna begint zou met een vreemd KvK-nummer en
+     btw-nummer op zijn facturen zitten — en dat merk je pas als het misgaat. */
+  bedrijf:{naam:'', regel:'', logo:'', adres:'', kvk:'', btw:'', contact:''},
   batches:[]
 };
 
@@ -2299,9 +2300,8 @@ function leesGraden(t){
 
 /* ---------- het merk van de gebruiker ----------
    Zolang er geen logo is geüpload blijft de naam in tekst staan, precies zoals eerst. */
-const BEDRIJFLEEG={naam:'Cacaoboetiek',regel:'RAFFINEMENT',logo:'',
-  adres:'Alcoalaan 8D, 5151 RW Drunen',kvk:'93971818',btw:'NL005058641B30',iban:'',
-  contact:'info@cacaoboetiek.nl · www.cacaoboetiek.nl'};
+const BEDRIJFLEEG={naam:'',regel:'',logo:'',
+  adres:'',kvk:'',btw:'',iban:'',contact:''};
 function bedrijf(){
   if(!S.bedrijf||typeof S.bedrijf!=='object') S.bedrijf=Object.assign({},BEDRIJFLEEG);
   /* velden die er nog niet waren krijgen alsnog een waarde */
@@ -6372,8 +6372,35 @@ function sheetFacturen(){
   $$('[data-factuur]').forEach(b=>b.onclick=()=>sheetFactuur(b.dataset.factuur));
 }
 
+/* Wat er wettelijk op een factuur moet staan. Zonder deze gegevens is hij
+   ongeldig en mag je klant de btw niet aftrekken — en dat merkt hij pas als
+   zijn boekhouder erover valt. Beter nu tegenhouden dan later terugdraaien. */
+function factuurMist(){
+  const b=bedrijf(), mist=[];
+  if(!String(b.naam||'').trim())  mist.push('je bedrijfsnaam');
+  if(!String(b.adres||'').trim()) mist.push('je adres');
+  if(!String(b.kvk||'').trim())   mist.push('je KvK-nummer');
+  if(!String(b.btw||'').trim())   mist.push('je btw-nummer');
+  if(!String(b.iban||'').trim())  mist.push('je IBAN');
+  return mist;
+}
+
 function sheetFactuur(id){
   const o=(S.orders||[]).find(x=>x.id===id); if(!o) return;
+  const mist=factuurMist();
+  if(mist.length){
+    return sheet('Factuur',
+      `<div class="melding rood">${svg(I.alarm,'2')}
+         <span>Deze factuur mist ${mist.length===1?'één ding':mist.length+' dingen'} die er
+           wettelijk op moeten staan. Zonder die gegevens is hij ongeldig en kan je klant
+           de btw niet aftrekken.</span></div>
+       <div class="paneel" style="margin-top:14px">${mist.map(m=>`
+         <div class="arij" style="cursor:default">
+           <span class="ivak rood">${svg(I.alarm)}</span>
+           <span class="naam">${esc(m[0].toUpperCase()+m.slice(1))}</span></div>`).join('')}</div>`,
+      `<button class="prim" style="margin-top:0" id="fcNaar">Bedrijfsprofiel invullen</button>`),
+      $('#fcNaar').onclick=()=>sheetBedrijf();
+  }
   const html=factuurHTML(o);
   sheet('Factuur',
     `<p class="hint">Zo ziet de factuur eruit. Verzending en kado-opties vallen onder 21%
@@ -7193,7 +7220,7 @@ function sheetKlanten(kies){
      <div class="veld"><label>Soort</label><div class="duo" id="kT">
        <button class="aan" data-v="particulier">Particulier</button>
        <button data-v="zakelijk">Zakelijk</button></div></div>
-     <div class="veld"><label>Plaats</label><input class="inp" id="kP" placeholder="Bijv. Drunen"></div>
+     <div class="veld"><label>Plaats</label><input class="inp" id="kP" placeholder="Bijv. Tilburg"></div>
      <div class="veld"><label>E-mail</label><input class="inp" id="kE" type="email" placeholder="Voor de factuur"></div>`,
     `<button class="prim" style="margin-top:0" id="kOk">Klant toevoegen</button>`);
   let zak=false;
@@ -13120,7 +13147,7 @@ function sheetAccount(){
   sheet('Inloggen',
     `<p class="hint">Log één keer in. Daarna blijft de app ingelogd en synchroniseert alles vanzelf.</p>
      <div class="veld"><label>E-mailadres</label>
-       <input class="inp" id="acM" type="email" inputmode="email" autocomplete="username" placeholder="info@cacaoboetiek.nl"></div>
+       <input class="inp" id="acM" type="email" inputmode="email" autocomplete="username" placeholder="jij@jouwbedrijf.nl"></div>
      <div class="veld"><label>Wachtwoord</label>
        <input class="inp" id="acW" type="password" autocomplete="current-password" placeholder="minimaal 6 tekens"></div>
      <div class="geen" id="acFout"></div>`,
