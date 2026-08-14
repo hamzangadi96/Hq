@@ -1444,7 +1444,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v217 · 13 aug 2026';
+const APPVERSIE='v218 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3789,12 +3789,20 @@ function sheetBon(id){
   }
 
   $('#bnOk').onclick=()=>{
-    const bed=parseFloat(($('#bnB').value||'0').replace(',','.'));
-    if(!bed||bed<=0) return toast('Vul het bedrag in.');
+    const b1=leesGetal($('#bnB').value,{min:0.01,max:GRENS.bedrag,leeg:'Vul het bedrag in.'});
+    if(b1.fout) return toast(b1.fout);
+    const bed=b1.waarde;
+    const b2=leesGetal($('#bnV').value,{min:0,max:GRENS.bedrag,leegMag:true});
+    if(b2.fout) return toast('Btw: '+b2.fout);
+    const btwB=b2.waarde||0;
+    /* btw hoger dan het bedrag zelf kan niet */
+    if(btwB>bed) return toast('De btw kan niet hoger zijn dan het bedrag.');
+    const d1=leesDatum($('#bnD').value||iso(new Date()),{vooruit:1});
+    if(d1.fout) return toast(d1.fout);
     const wie=$('#bnW').value.trim();
     if(!wie) return toast('Vul in bij wie je dit hebt gekocht.');
-    const nieuw={id:bonId,datum:$('#bnD').value||iso(new Date()),
-      soort,bedrag:bed,btw:parseFloat(($('#bnV').value||'0').replace(',','.'))||0,
+    const nieuw={id:bonId,datum:d1.waarde,
+      soort,bedrag:bed,btw:btwB,
       wie,wat:$('#bnT').value.trim(),foto:false};
     S.bonnen=S.bonnen||[];
     const klaar=()=>{
@@ -4301,7 +4309,12 @@ function sheetVerkoopprijzen(){
     S.verkoop=S.verkoop||{};
     $$('[data-vk]').forEach(i=>{
       const w=i.value.trim(), k=i.dataset.vk;
-      if(w==='') delete S.verkoop[k]; else S.verkoop[k]=Math.max(0,parseFloat(w)||0);
+      if(w===''){ delete S.verkoop[k]; }
+      else {
+        const g=leesGetal(w,{min:0,max:GRENS.prijs});
+        if(g.fout){ toast(g.fout); return }
+        S.verkoop[k]=g.waarde;
+      }
     });
     bewaarNu(); dicht(); render(); toast('Verkoopprijzen opgeslagen.');
   };
@@ -4645,7 +4658,12 @@ function sheetPrijzenConsument(){
     S.verkoop=S.verkoop||{};
     $$('[data-vk]').forEach(i=>{
       const w=i.value.trim(), k=i.dataset.vk;
-      if(w==='') delete S.verkoop[k]; else S.verkoop[k]=Math.max(0,parseFloat(w)||0);
+      if(w===''){ delete S.verkoop[k]; }
+      else {
+        const g=leesGetal(w,{min:0,max:GRENS.prijs});
+        if(g.fout){ toast(g.fout); return }
+        S.verkoop[k]=g.waarde;
+      }
     });
     bewaarNu(); dicht(); render(); toast('Prijzen opgeslagen.');
   };
@@ -5141,8 +5159,9 @@ function sheetUurtarief(){
       :`<div class="geen">Zodra je batches hebt afgerond met tijdregistratie, zie je hier je arbeidskosten per bonbon.</div>`}`,
     `<button class="prim" style="margin-top:0" id="utOk">Opslaan</button>`);
   $('#utOk').onclick=()=>{
-    const v=parseFloat($('#utT').value);
-    S.uurtarief=isNaN(v)||v<=0?null:v;
+    const g=leesGetal($('#utT').value,{min:0,max:500,leegMag:true});
+    if(g.fout) return toast(g.fout);
+    S.uurtarief=!g.waarde||g.waarde<=0?null:g.waarde;
     bewaarNu(); dicht(); render(); toast(S.uurtarief?'Uurtarief opgeslagen.':'Uurtarief gewist.');
   };
 }
@@ -5502,8 +5521,9 @@ function sheetKmTarief(){
            value="${kmTarief().toFixed(2)}" style="flex:1;text-align:left"></div></div>`,
     `<button class="prim" style="margin-top:0" id="ktOk">Opslaan</button>`);
   $('#ktOk').onclick=()=>{
-    const v=parseFloat($('#ktV').value.replace(',','.'));
-    if(isNaN(v)||v<=0) return toast('Vul een bedrag in.');
+    const g=leesGetal($('#ktV').value,{min:0.01,max:5,leeg:'Vul een bedrag in.'});
+    if(g.fout) return toast(g.fout);
+    const v=g.waarde;
     S.kmTarief=v; bewaarNu(); render(); klaarSheet('Vergoeding op '+komma(v)+' per km gezet.');
   };
 }
@@ -6968,6 +6988,51 @@ function levertijdVoor(regels){
   return max;
 }
 const datumPlus=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return iso(x)};
+
+/* ===== redelijke grenzen =====
+   Niet om inbraak tegen te houden — jij bent de enige gebruiker — maar om
+   te voorkomen dat een typefout jaren later in je aangifte opduikt. Een
+   ontbrekende nul in een bonbedrag zie je niet meer terug. */
+const GRENS = {
+  bedrag: 100000,      /* een bon van een ton is een typefout */
+  prijs:  1000,        /* per bonbon */
+  gram:   1000000,     /* duizend kilo in één regel */
+  aantal: 100000,      /* bonbons in één regel */
+  km:     2000,        /* per rit */
+  tht:    1095         /* drie jaar houdbaar is al veel voor verse ganache */
+};
+
+/* Leest een getal en zegt wat eraan mankeert. Geeft {waarde} of {fout}. */
+function leesGetal(ruw, opties){
+  const o = opties || {};
+  const t = String(ruw === undefined || ruw === null ? '' : ruw).trim().replace(',', '.');
+  if (t === '') return o.leegMag ? {waarde: null} : {fout: o.leeg || 'Vul een getal in.'};
+  const n = parseFloat(t);
+  if (!isFinite(n)) return {fout: 'Dat is geen getal.'};
+  if (o.min !== undefined && n < o.min)
+    return {fout: o.min === 0 ? 'Dat kan niet negatief zijn.'
+      : 'Vul minstens ' + komma(o.min) + ' in.'};
+  if (o.max !== undefined && n > o.max)
+    return {fout: 'Dat lijkt een typefout — ' + komma(n) + ' is wel erg veel. '
+      + 'Klopt het toch, vul dan hoogstens ' + komma(o.max) + ' in.'};
+  return {waarde: n};
+}
+
+/* Een datum die in je administratie thuishoort: niet vóór je bedrijf bestond
+   en niet ver in de toekomst. */
+function leesDatum(ruw, opties){
+  const o = opties || {};
+  const t = String(ruw || '').trim();
+  if (!t) return o.leegMag ? {waarde: null} : {fout: 'Vul een datum in.'};
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return {fout: 'Dat is geen datum.'};
+  const jaar = d.getFullYear();
+  if (jaar < 2020) return {fout: 'Die datum ligt wel erg ver terug. Klopt het jaartal?'};
+  const maxDagen = o.vooruit === undefined ? 365 : o.vooruit;
+  if (d.getTime() > Date.now() + maxDagen * 86400000)
+    return {fout: 'Die datum ligt te ver in de toekomst.'};
+  return {waarde: iso(d)};
+}
 
 /* ============ je baan naast Cacaoboetiek ============
    Een vaste week met per dag waar je bent en hoe laat, plus hoeveel ruimte er
@@ -11201,7 +11266,7 @@ function sheetReceptForm(id,voorChoc){
 
 function leesRecept(){
   if($('#rNaam')) R.naam=$('#rNaam').value.trim();
-  if($('#rT')) R.tht=parseInt($('#rT').value)||1;
+  if($('#rT')) R.tht=Math.min(GRENS.tht,Math.max(1,parseInt($('#rT').value)||1));
   if(document.querySelector('#rC .chip.aan')) R.chocolade=chipV('#rC');
   if($('#rS')) R.stappen=$$('#rS .insblok').map(blok=>{
     const t=blok.querySelector('[data-stap]');
@@ -11267,7 +11332,8 @@ function smaakStap2(){
   $('#sw2').onclick=()=>{
     R.chocolade=chipV('#swC')||R.chocolade;
     const v=chipV('#swT');
-    R.tht = v==='anders' ? (parseInt($('#swTN').value)||14) : (parseInt(v)||14);
+    R.tht = Math.min(GRENS.tht, Math.max(1,
+      v==='anders' ? (parseInt($('#swTN').value)||14) : (parseInt(v)||14)));
     bewaarSmaak(); bewaarNu(); sheetSmaakWizard(3);
   };
 }
