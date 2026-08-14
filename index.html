@@ -272,6 +272,38 @@ main>.blokkop:first-child{margin-top:8px}
   font-variant-numeric:tabular-nums;display:block}
 .groteRing .onder{font-size:11px;font-weight:600;letter-spacing:.09em;
   text-transform:uppercase;color:var(--grijs);margin-top:6px;display:block}
+/* ── tegels ──
+   Alles op het dashboard was even breed en even zwaar, dus je oog wist niet
+   waar het moest beginnen. Deze tegels werken als op je beginscherm: het
+   formaat zegt hoe belangrijk iets is, en er staat één ding in per tegel. */
+.tegelrooster{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.wg{background:var(--card);border-radius:20px;padding:15px 16px 14px;text-align:left;
+  display:flex;flex-direction:column;min-height:112px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 10px 24px -18px rgba(24,24,27,.2)}
+.wg:active{transform:scale(.985)}
+.wg.breed{grid-column:span 2;min-height:0;flex-direction:row;align-items:center;gap:14px}
+.wgkop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wgkop .l{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--grijs)}
+.wgkop svg{width:16px;height:16px;stroke-width:1.9;color:var(--grijs3);flex:none}
+.wggetal{font-size:29px;font-weight:600;letter-spacing:-.045em;line-height:1;
+  margin-top:auto;font-variant-numeric:tabular-nums}
+.wggetal.klein{font-size:20px;letter-spacing:-.03em}
+.wgsub{font-size:12.5px;color:var(--grijs);margin-top:5px;line-height:1.35}
+.wg.let .wggetal{color:var(--amber)}
+.wg.let .wgsub{color:var(--amber)}
+.wg.rood .wggetal{color:var(--rood)}
+.wg.rood .wgsub{color:var(--rood)}
+.wg.groen .wggetal{color:var(--groen)}
+.wg.breed .wgvak{width:42px;height:42px;border-radius:13px;background:var(--bg);
+  display:grid;place-items:center;flex:none}
+.wg.breed .wgvak svg{width:19px;height:19px;stroke-width:1.9;color:var(--ink)}
+.wg.breed .wgtekst{flex:1;min-width:0}
+.wg.breed .wgtekst b{display:block;font-size:15px;font-weight:600;letter-spacing:-.015em}
+.wg.breed .wgtekst span{display:block;font-size:12.5px;color:var(--grijs);margin-top:2px}
+.wg.breed .pijl{color:var(--grijs3);flex:none}
+.wg.breed .pijl svg{width:16px;height:16px}
+
 .hkmidden{display:flex;justify-content:center;margin:4px 0 14px}
 .hkstappen{display:flex;align-items:center;justify-content:center;gap:7px;
   margin:0 0 16px;font-size:13px;color:var(--grijs);font-weight:500}
@@ -1492,7 +1524,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v223 · 14 aug 2026';
+const APPVERSIE='v224 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2773,6 +2805,69 @@ function weekstripHTML(dagenVooruit){
   return uit;
 }
 
+
+/* De tegels onder de hoofdkaart. Elke tegel toont één getal en waar dat over
+   gaat; tikken brengt je naar het tabblad waar je er iets mee kunt. */
+function tegelsHTML(){
+  const tegel=(attr,label,ico,getal,sub,klas)=>`<button class="wg ${klas||''}" ${attr}>
+    <div class="wgkop"><span class="l">${label}</span>${svg(ico)}</div>
+    <div class="wggetal ${String(getal).length>6?'klein':''}">${getal}</div>
+    <div class="wgsub">${sub}</div></button>`;
+
+  const breed=(attr,ico,titel,sub)=>`<button class="wg breed" ${attr}>
+    <span class="wgvak">${svg(ico)}</span>
+    <span class="wgtekst"><b>${titel}</b><span>${sub}</span></span>
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+
+  let h='<div class="tegelrooster">';
+
+  /* voorraad */
+  const ger=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
+  h+=tegel('data-naar="voorraad"','Voorraad',I.doos,
+    ger||'—', ger?'bonbons gereed':'nog geen product');
+
+  /* orders */
+  const open=(S.orders||[]).filter(o=>o.status==='nieuw');
+  const laat=open.filter(o=>o.leverdatum&&o.leverdatum<vandaag()).length;
+  h+=tegel('data-naar="orders"','Orders',I.lijst,
+    open.length||'—',
+    laat?laat+' te laat':(open.length?'te leveren':'niets open'),
+    laat?'rood':'');
+
+  /* openstaand geld */
+  const os=openstaand(), osTot=os.reduce((n,x)=>n+x.bedrag,0);
+  h+=tegel('data-naar="geld"','Openstaand',I.euro,
+    osTot?euro(osTot):'—',
+    os.length?os.length+(os.length===1?' factuur':' facturen'):'alles betaald',
+    osTot?'let':'');
+
+  /* wat er vandaag te doen is, inclusief je baan */
+  const w=werkOp(vandaag());
+  const taken=allePlanTaken().filter(x=>x.datum===vandaag()).length;
+  h+=tegel('data-naar="agenda"','Vandaag',I.klok,
+    taken||'—',
+    w&&w.plek!=='vrij' ? esc(werkTekst(w)) : (taken?'op de rol':'niets gepland'));
+
+  /* een brede tegel voor wat er als eerste aan de beurt is */
+  const pl=planLijst()[0];
+  if(pl){
+    const n=dagenTussen(vandaag(),pl.datum);
+    h+=breed('data-planning',I.vorm,
+      esc(pl.regels.map(r=>smaakNaam(r.receptId)).join(', ')),
+      (n<0?'stond gepland':n===0?'vandaag':n===1?'morgen':'over '+n+' dagen')
+      +' · '+pl.regels.reduce((x,r)=>x+r.aantal,0)+' bonbons');
+  } else if(!S.recepten.length){
+    h+=breed('data-sheet="receptnieuw"',I.plus,'Eerste smaak toevoegen',
+      'daarna kun je batches maken');
+  } else {
+    h+=breed('data-sheet="nieuwbatch"',I.plus,'Batch inplannen',
+      'niets op de rol');
+  }
+
+  h+='</div>';
+  return h;
+}
+
 function dashboardToestand(){
   const open=lopende();
   const bezig=open.find(x=>lopendWerk(x))||open[0];
@@ -3093,6 +3188,11 @@ function dashboardHTML(){
       <button class="prim" data-sheet="nieuwbatch">${svg(I.plus)}Nieuwe batch</button>
       <button class="knop2" data-planning style="margin-top:8px">${svg(I.klok)}Batch inplannen</button></div>`;
   }
+
+  /* ── tegels: één ding per tegel, formaat naar belang ──
+     Staan direct onder de hoofdkaart: eerst waar je mee bezig bent, dan de
+     stand van je zaak, en pas daarna wat er nog open staat. */
+  h+=tegelsHTML();
 
   /* ── wat er echt mis gaat: alleen rood en de dingen met een datum ── */
   const dringend=sig.filter(x=>x.ernst==='rood');
