@@ -302,6 +302,25 @@ main>.blokkop:first-child{margin-top:8px}
 .kzrij{display:flex;gap:6px}
 .kzvak{flex:1;height:38px;border-radius:9px;border:1px solid rgba(24,24,27,.10)}
 .kzvak.aan{outline:3px solid var(--ink);outline-offset:2px}
+.schuifblok{margin-top:14px}
+.schuifblok label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);
+  margin-bottom:8px;letter-spacing:-.01em}
+.schuifblok label b{color:var(--ink);font-variant-numeric:tabular-nums}
+.schuif{width:100%;height:26px;-webkit-appearance:none;appearance:none;background:none}
+.schuif::-webkit-slider-runnable-track{height:14px;border-radius:99px;
+  border:1px solid rgba(24,24,27,.10);
+  background:linear-gradient(90deg,var(--van,#000),var(--naar,#fff))}
+.schuif.tint::-webkit-slider-runnable-track{background:linear-gradient(90deg,
+  #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)}
+.schuif::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;
+  border-radius:99px;background:#fff;border:1px solid rgba(24,24,27,.16);
+  box-shadow:0 2px 6px rgba(24,24,27,.22);margin-top:-7px}
+.schuif::-moz-range-track{height:14px;border-radius:99px;
+  background:linear-gradient(90deg,var(--van,#000),var(--naar,#fff))}
+.schuif.tint::-moz-range-track{background:linear-gradient(90deg,
+  #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)}
+.schuif::-moz-range-thumb{width:24px;height:24px;border-radius:99px;background:#fff;
+  border:1px solid rgba(24,24,27,.16)}
 .kleurnaast{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .kleurnaast .vlak{display:block;height:64px;border-radius:14px;
   border:1px solid rgba(24,24,27,.08)}
@@ -1636,7 +1655,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v251 · 14 aug 2026';
+const APPVERSIE='v252 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5409,6 +5428,22 @@ const KIEZERTRAPPEN=[
 ];
 const KIEZERGRIJS=['#ffffff','#e8e6e1','#b8b5ae','#7c7a75','#3d3b38','#18181b'];
 
+/* van een kleurcode terug naar tint, verzadiging en helderheid, zodat de
+   schuiven op de juiste stand beginnen */
+function hexHsl(hex){
+  const rgb=hexRgb(hex); if(!rgb) return {h:0,s:70,l:50};
+  const [r,g,b]=rgb.map(x=>x/255);
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  const l=(mx+mn)/2;
+  let h=0, sa=0;
+  if(d){
+    sa=d/(1-Math.abs(2*l-1));
+    if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+    h=(h*60+360)%360;
+  }
+  return {h:Math.round(h), s:Math.round(sa*100), l:Math.round(l*100)};
+}
+
 function hslHex(h,sa,li){
   const a=sa*Math.min(li,1-li);
   const f=n=>{const k=(n+h/30)%12;
@@ -5431,19 +5466,50 @@ function kiezerHTML(huidig){
 
 function sheetKleurKiezen(huidig,klaar){
   const teken=(gekozen)=>{
+    const hsl=hexHsl(gekozen);
     sheet('Kleur kiezen',
       `<p class="hint">Tik de tint aan die het dichtst bij komt. Klopt hij niet
          precies, dan kun je daarna nog een eigen code invullen.</p>
        ${kiezerHTML(gekozen)}
-       <div class="kleurnaast" style="grid-template-columns:1fr">
+
+       <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Fijn afstellen</span></div>
+       <div class="schuifblok">
+         <label>Tint</label>
+         <input type="range" id="kzH" min="0" max="360" value="${hsl.h}" class="schuif tint">
+       </div>
+       <div class="schuifblok">
+         <label>Verzadiging <b>${hsl.s}%</b></label>
+         <input type="range" id="kzS" min="0" max="100" value="${hsl.s}" class="schuif"
+           style="--van:${hslHex(hsl.h,0,hsl.l/100)};--naar:${hslHex(hsl.h,1,hsl.l/100)}">
+       </div>
+       <div class="schuifblok">
+         <label>Helderheid <b>${hsl.l}%</b></label>
+         <input type="range" id="kzL" min="2" max="98" value="${hsl.l}" class="schuif"
+           style="--van:#000;--naar:#fff">
+       </div>
+
+       <div class="kleurnaast" style="grid-template-columns:1fr;margin-top:16px">
          <div><span class="vlak" style="background:${esc(gekozen)}"></span>
            <em>${esc(gekozen.toUpperCase())}</em></div>
        </div>
-       <div class="veld" style="margin-top:16px"><label>Of een eigen code</label>
+       <div class="veld" style="margin-top:14px"><label>Of een eigen code</label>
          <input class="inp" id="kzcHex" value="${esc(gekozen)}"
            autocapitalize="none" spellcheck="false" placeholder="#c8102e"></div>`,
       `<button class="prim" style="margin-top:0" id="kzcOk">Deze kleur gebruiken</button>`);
     $$('[data-kz]').forEach(b=>b.onclick=()=>teken(b.dataset.kz));
+    /* Tijdens het schuiven alleen het voorbeeld bijwerken, niet het hele
+       scherm — anders springt de schuif onder je vinger weg. */
+    const schuiven=['#kzH','#kzS','#kzL'].map(x=>$(x));
+    const nu=()=>hslHex(+schuiven[0].value, schuiven[1].value/100, schuiven[2].value/100);
+    schuiven.forEach(el=>{ if(!el) return;
+      el.oninput=()=>{
+        const hex=nu();
+        const v=$('.kleurnaast .vlak'); if(v) v.style.background=hex;
+        const e2=$('.kleurnaast em'); if(e2) e2.textContent=hex.toUpperCase();
+        const t=$('#kzcHex'); if(t) t.value=hex;
+      };
+      el.onchange=()=>teken(nu());
+    });
     $('#kzcHex').onchange=()=>{
       const v=$('#kzcHex').value.trim();
       if(!hexRgb(v)) return toast('Dat is geen kleurcode. Bijvoorbeeld #c8102e.');
