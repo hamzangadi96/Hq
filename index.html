@@ -535,6 +535,41 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
   background:none;border-left:none;border-right:none;border-bottom:none;
   width:100%;text-align:left;pointer-events:auto}
 .ballon .meer:active{opacity:1}
+/* ── zoeken in de balk zelf ──
+   Er klapte een scherm van onderen op, met een eigen kop en een eigen veld.
+   Nu wordt de balk waar je op tikt zelf het zoekveld: dat is één beweging in
+   plaats van twee, en je blijft zien waar je vandaan komt. */
+header.zoekt .vlak,
+header.zoekt .vlak h1,
+header.zoekt .vlak .onder,
+header.zoekt .hbtn.zoek,
+header.zoekt .hbtn.instel,
+header.zoekt .hbtn.menu{opacity:0!important;pointer-events:none;
+  transition:opacity .16s}
+header .zoekbalk{position:absolute;left:14px;right:14px;top:var(--veiligBoven);
+  height:calc(var(--kopHoogte) - var(--veiligBoven));
+  display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;
+  transform:translateY(-4px);transition:opacity .18s,transform .18s}
+header.zoekt .zoekbalk{opacity:1;pointer-events:auto;transform:none}
+header .zoekbalk .veldje{flex:1;min-width:0;height:38px;border-radius:12px;
+  background:var(--card);border:1px solid var(--lijn);display:flex;align-items:center;
+  gap:8px;padding:0 12px}
+header .zoekbalk .veldje svg{width:16px;height:16px;stroke-width:1.9;color:var(--grijs3);flex:none}
+header .zoekbalk input{flex:1;min-width:0;border:0;background:none;font-size:15px;
+  color:var(--ink);font-family:inherit;letter-spacing:-.01em;outline:none;
+  -webkit-appearance:none;appearance:none;padding:0}
+header .zoekbalk .veldje:focus-within{border-color:var(--grijs3)}
+header .zoekbalk input::placeholder{color:var(--grijs3)}
+header .zoekbalk .stop{flex:none;font-size:15px;font-weight:600;color:var(--ink);
+  padding:6px 2px;letter-spacing:-.01em}
+
+/* de resultaten liggen over het scherm, onder de balk */
+.zoeklaag{position:absolute;left:0;right:0;top:var(--kopHoogte);bottom:0;z-index:18;
+  background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:8px 16px calc(120px + env(safe-area-inset-bottom));
+  opacity:0;pointer-events:none;transition:opacity .18s}
+.zoeklaag.open{opacity:1;pointer-events:auto}
+
 /* Ronde knoppen aan weerszijden van de titel: dat maakt een kop een app-kop.
    Links zoeken, rechts instellingen. */
 header .hbtn{width:36px;height:36px;border-radius:99px;background:var(--card);
@@ -750,7 +785,12 @@ nav#tabbar{view-transition-name:tabbalk}
    iOS vult met de achtergrondkleur uit het manifest — dezelfde --bg. Op elk
    tabblad valt dat weg, maar onder een witte sheet zag je een naad. Door de
    sheet precies die hoogte eerder te laten stoppen loopt --bg door tot de rand. */
-.sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:#fff;
+/* De sheet hing aan de onderkant van de app, in de veronderstelling dat die
+   krimpt als het toetsenbord opengaat. Lukt dat niet — en op iOS lukte dat
+   soms niet — dan staat je invoerveld achter de toetsen. Daarom meten we nu
+   rechtstreeks hoeveel van de app onzichtbaar is, en tillen we de sheet daar
+   precies bovenuit. Klopt alles al, dan is die waarde nul. */
+.sheet{position:absolute;left:0;right:0;bottom:var(--sheetOnder,0px);z-index:50;background:#fff;
   border-radius:18px 26px 0 0;
   max-height:92dvh;display:flex;flex-direction:column;transform:translateY(101%);
   transition:transform .32s cubic-bezier(.32,.72,0,1)}
@@ -1450,12 +1490,19 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   <header>
     <button class="hbtn terug" id="btnTerug" aria-label="Terug" style="display:none"></button>
     <button class="hbtn zoek" id="btnZoek" aria-label="Zoeken"></button>
+    <div class="zoekbalk" id="zoekbalk">
+      <label class="veldje"><span id="zbIco"></span>
+        <input id="zbQ" placeholder="Smaak, batch, lot, klant of grondstof"
+          autocapitalize="none" autocomplete="off" autocorrect="off" enterkeyhint="search"></label>
+      <button class="stop" id="zbStop">Klaar</button>
+    </div>
     <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
       <div class="kpi" id="kopKpi"></div></div>
     <button class="hbtn instel" id="btnInstel" aria-label="App en opslag"></button>
 
   </header>
   <main id="scherm"></main>
+  <div class="zoeklaag" id="zoeklaag"></div>
   <nav id="tabbar"></nav>
 
   <div class="overlay" id="overlay"></div>
@@ -1550,7 +1597,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v227 · 14 aug 2026';
+const APPVERSIE='v229 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2632,6 +2679,7 @@ let vtBezig=false;
    knop, en geen manier om je gegevens er nog uit te krijgen. Nu vangen we hem
    op, laten we zien wat er misging, en kun je altijd nog exporteren. */
 function render(){
+  if(zoektAan&&S.tab!=='dashboard') zoekDicht();
   try{ renderProberen(); }
   catch(e){ noodScherm(e); }
 }
@@ -2764,7 +2812,16 @@ function renderNu(){
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnZoek').innerHTML=svg(I.loep);
-$('#btnZoek').onclick=()=>sheetZoek();
+$('#btnZoek').onclick=zoekOpen;
+$('#zbIco').innerHTML=svg(I.loep);
+$('#zbStop').onclick=zoekDicht;
+(function(){
+  let wacht;
+  const e=$('#zbQ'); if(!e) return;
+  e.oninput=()=>{ clearTimeout(wacht);
+    wacht=setTimeout(()=>zoekTeken(e.value.trim()),160) };
+  e.onkeydown=ev=>{ if(ev.key==='Escape') zoekDicht() };
+})();
 $('#btnTerug').onclick=()=>{S.batchId=null;S.open=null;render();$('#scherm').scrollTop=0};
 
 /* schermOnder stond hier: een regel met de stand van zaken onder elke
@@ -9241,7 +9298,8 @@ function sheet(t,b,v,stapLabel){
     }
   })();
   if(hk) hk.classList.toggle('aan',!!(sheetUitlegHtml||hk.dataset.ond)&&t!=='Hoe werkt het?');
-  $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true}
+  $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true;
+  if(window.__sheetPas) setTimeout(window.__sheetPas,60)}
 function dicht(){stopStap();plKies=null;sluitVeeg();let ververs=false;
   if(bijSluiten){try{bijSluiten();ververs=true}catch(e){};bijSluiten=null}
   if(ververs)setTimeout(render,0);
@@ -13424,6 +13482,62 @@ function zoekAlles(q){
   return uit.slice(0,24);
 }
 
+
+/* ===== zoeken in de kopbalk =====
+   De balk wordt zelf het zoekveld en de resultaten liggen eronder over het
+   scherm. Sluiten brengt je terug waar je was. */
+let zoektAan=false;
+
+function zoekOpen(){
+  if(zoektAan) return;
+  zoektAan=true;
+  document.querySelector('header').classList.add('zoekt');
+  $('#zoeklaag').classList.add('open');
+  zoekTeken('');
+  const e=$('#zbQ');
+  if(e){ e.value=''; setTimeout(()=>e.focus(),160) }
+}
+
+function zoekDicht(){
+  if(!zoektAan) return;
+  zoektAan=false;
+  const e=$('#zbQ'); if(e){ e.blur(); e.value='' }
+  document.querySelector('header').classList.remove('zoekt');
+  $('#zoeklaag').classList.remove('open');
+  setTimeout(()=>{ if(!zoektAan) $('#zoeklaag').innerHTML='' },200);
+}
+
+function zoekTeken(q){
+  const uit=$('#zoeklaag'); if(!uit) return;
+  const res=(q&&q.length>=2)?zoekAlles(q):[];
+  if(!q||q.length<2){
+    uit.innerHTML=`<div class="rustig" style="padding:40px 20px">
+      <div class="ico">${svg(I.loep,'2.2')}</div>
+      <p>Zoek op een smaak, batchcode, lotnummer,<br>klant, ordernummer of grondstof.</p></div>`;
+    return;
+  }
+  if(!res.length){
+    uit.innerHTML=`<div class="rustig" style="padding:40px 20px">
+      <div class="ico">${svg(I.loep,'2.2')}</div>
+      <p>Niets gevonden voor <b>${esc(q)}</b>.<br>Probeer een deel van de naam of code.</p></div>`;
+    return;
+  }
+  const perSoort={};
+  res.forEach(r=>{(perSoort[r.soort]=perSoort[r.soort]||[]).push(r)});
+  uit.innerHTML=Object.keys(perSoort).map(k=>
+    `<div class="blokkop"><span class="eyebrow">${esc(k)}</span>
+       <span class="tel">${perSoort[k].length}</span></div>
+     <div class="paneel">${perSoort[k].map(r=>`<button class="arij" data-zk="${res.indexOf(r)}">
+       <span class="ivak">${svg(I[r.ico])}</span>
+       <span class="naam">${esc(r.naam)}<small>${esc(r.sub)}</small></span>
+       <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`).join('');
+  $$('#zoeklaag [data-zk]').forEach(b=>b.onclick=()=>{
+    const r=res[parseInt(b.dataset.zk,10)];
+    zoekDicht();
+    if(r&&r.doe) setTimeout(r.doe,120);
+  });
+}
+
 function sheetZoek(){
   const teken=(q)=>{
     const res=zoekAlles(q);
@@ -14000,8 +14114,38 @@ function sheetMeetpunten(){
     if(document.documentElement.scrollTop) document.documentElement.scrollTop=0;
     if(document.body.scrollTop) document.body.scrollTop=0;
   };
-  vv.addEventListener('resize',()=>{pas();rechtzetten()});
-  vv.addEventListener('scroll',()=>{pas();rechtzetten()});
+  /* Hoeveel van de onderkant van de app valt buiten wat je ziet? Dat is wat
+     de sheet omhoog moet, ongeacht de oorzaak. */
+  const sheetPas=()=>{
+    const app=document.querySelector('.app');
+    if(!app) return;
+    const r=app.getBoundingClientRect();
+    const zichtbaarTot=vv.offsetTop+vv.height;
+    const verborgen=Math.max(0,Math.round(r.bottom-zichtbaarTot));
+    document.documentElement.style.setProperty('--sheetOnder',verborgen+'px');
+  };
+  window.__sheetPas=sheetPas;
+  const alles=()=>{pas();rechtzetten();sheetPas()};
+  vv.addEventListener('resize',alles);
+  vv.addEventListener('scroll',alles);
+  document.addEventListener('focusin',e=>{
+    setTimeout(sheetPas,120);
+    /* Krimpt de sheet door het toetsenbord, dan kan het veld waar je in typt
+       eronder vallen. Even bijscrollen binnen de sheet — alleen als het nodig
+       is, anders zit je iOS in de weg. */
+    const body=document.getElementById('sheetBody');
+    if(!body||!body.contains(e.target)) return;
+    setTimeout(()=>{
+      if(document.activeElement!==e.target) return;
+      const r=e.target.getBoundingClientRect();
+      const zichtbaarTot=vv.offsetTop+vv.height;
+      const kop=body.getBoundingClientRect().top;
+      if(r.bottom>zichtbaarTot-8||r.top<kop+8){
+        try{ e.target.scrollIntoView({block:'center',behavior:'smooth'}) }catch(x){}
+      }
+    },300);
+  });
+  document.addEventListener('focusout',()=>setTimeout(sheetPas,180));
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden) setTimeout(rechtzetten,60);
   });
