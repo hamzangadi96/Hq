@@ -446,6 +446,23 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .hulpkop h3{margin:0;flex:1;font-size:19px;font-weight:600;letter-spacing:-.03em}
 .hulpbody{flex:1;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch}
 .hulpvoet{padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
+/* ── de uitlegballon ──
+   Hangt aan het vraagteken en legt niets over de app heen: geen donkere laag,
+   geen slot. Tik je ernaast, dan verdwijnt hij en werkt die tik gewoon door
+   op de knop eronder. */
+.ballon{position:fixed;z-index:120;max-width:300px;background:var(--ink);color:#fff;
+  border-radius:16px;padding:14px 16px;font-size:14px;line-height:1.5;
+  box-shadow:0 12px 34px rgba(0,0,0,.28);opacity:0;transform:translateY(-6px) scale(.97);
+  transition:opacity .16s,transform .16s;pointer-events:none}
+.ballon.open{opacity:1;transform:none}
+.ballon b{color:#fff}
+.ballon .punt{position:absolute;width:12px;height:12px;background:var(--ink);
+  transform:rotate(45deg);border-radius:2px}
+.ballon .meer{display:block;margin-top:12px;padding-top:11px;font-size:13px;font-weight:600;
+  color:#fff;opacity:.75;border-top:1px solid rgba(255,255,255,.18);
+  background:none;border-left:none;border-right:none;border-bottom:none;
+  width:100%;text-align:left;pointer-events:auto}
+.ballon .meer:active{opacity:1}
 .hulpknop{width:32px;height:32px;border-radius:99px;background:var(--bg);flex:none;
   display:none;place-items:center;color:var(--grijs2);margin-right:4px;position:relative}
 /* Het knopje is 32px en de sluitknop 30px, ruim onder de 44px die je nodig hebt
@@ -1448,7 +1465,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v219 · 13 aug 2026';
+const APPVERSIE='v220 · 13 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9048,6 +9065,7 @@ $('#btnInstel').onclick=()=>sheetMenu();
 function sheetMenu(){ return sheetInstellingen(); }
 
 let sheetOpen=false, bijSluiten=null;
+let sheetUitlegHtml=null;
 function sheet(t,b,v,stapLabel){
   bijSluiten=null;
   $('#sheetTitel').textContent=t; $('#sheetStap').textContent=stapLabel||'';
@@ -9061,11 +9079,23 @@ function sheet(t,b,v,stapLabel){
     if(!hk.innerHTML) hk.innerHTML=svg(I.hulp);
   }
   $('#sheetBody').innerHTML=b; $('#sheetVoet').innerHTML=v||'';
+  /* De eerste alinea van een scherm is geen inhoud maar toelichting. Die
+     halen we eruit en hangen we achter het vraagteken. Uitleg die bij een
+     veld hoort blijft gewoon staan — die zit niet vooraan. */
+  sheetUitlegHtml=null;
+  (function(){
+    const body=$('#sheetBody'), eerste=body&&body.firstElementChild;
+    if(eerste&&eerste.tagName==='P'&&eerste.classList.contains('hint')){
+      sheetUitlegHtml=eerste.innerHTML;
+      eerste.remove();
+    }
+  })();
+  if(hk) hk.classList.toggle('aan',!!(sheetUitlegHtml||hk.dataset.ond)&&t!=='Hoe werkt het?');
   $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true}
 function dicht(){stopStap();plKies=null;sluitVeeg();let ververs=false;
   if(bijSluiten){try{bijSluiten();ververs=true}catch(e){};bijSluiten=null}
   if(ververs)setTimeout(render,0);
-  hulpDicht(); rlStop();
+  hulpDicht(); ballonDicht(); rlStop();
   $('#sheet').classList.remove('open');$('#overlay').classList.remove('open');sheetOpen=false}
 $('#overlay').onclick=dicht;$('#sheetSluit').onclick=dicht;
 $('#hulpSluit').onclick=hulpDicht;
@@ -9086,7 +9116,15 @@ $('#rlDoor').onclick=()=>{
   setTimeout(rlToon,150);
 };
 $('#hulpAlles').onclick=hulpLijst;
-$('#sheetHulp').onclick=()=>hulpOpen($('#sheetHulp').dataset.ond);
+$('#sheetHulp').onclick=e=>{
+  e.stopPropagation();
+  const k=$('#sheetHulp'), ond=k.dataset.ond||'';
+  if(ballonEl) return ballonDicht();
+  /* is er uitleg bij dit scherm, dan de ballon; anders meteen het hele
+     onderwerp, zoals het eerder deed */
+  if(sheetUitlegHtml) ballonToon(k,sheetUitlegHtml,ond||null);
+  else if(ond) hulpOpen(ond);
+};
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   if($('#hulpPaneel')&&$('#hulpPaneel').classList.contains('open')) return hulpDicht();
@@ -12908,6 +12946,77 @@ function hulpOpen(ond){
   p2.classList.add('open');
 }
 function hulpDicht(){ const p2=$('#hulpPaneel'); if(p2) p2.classList.remove('open') }
+
+/* ===== uitlegballon =====
+   De uitleg stond als vaste regel bovenaan elk scherm. Dat las je één keer en
+   daarna stond het in de weg. Nu hangt het achter het vraagteken. */
+let ballonEl=null, ballonAf=null;
+
+function ballonDicht(){
+  if(!ballonEl) return;
+  ballonEl.classList.remove('open');
+  const el=ballonEl; ballonEl=null;
+  setTimeout(()=>el.remove(),180);
+  if(ballonAf){ ballonAf(); ballonAf=null }
+}
+
+function ballonToon(anker,html,meerOnd){
+  ballonDicht();
+  if(!anker||!html) return;
+
+  const el=document.createElement('div');
+  el.className='ballon';
+  el.innerHTML=`<div class="punt"></div>${html}${
+    meerOnd?`<button class="meer">Alles over dit onderwerp \u203a</button>`:''}`;
+  document.body.appendChild(el);
+
+  const a=anker.getBoundingClientRect();
+  const marge=12, tussen=10;
+  const bb=el.getBoundingClientRect();
+  const maxB=Math.min(300,window.innerWidth-marge*2);
+  el.style.width=Math.min(bb.width,maxB)+'px';
+
+  const b2=el.getBoundingClientRect();
+  /* onder de knop, tenzij het daar niet past */
+  const onderRuimte=window.innerHeight-a.bottom-tussen-marge;
+  const boven=onderRuimte<b2.height&&a.top-tussen-marge>b2.height;
+  const y=boven?a.top-tussen-b2.height:a.bottom+tussen;
+
+  /* rechts uitlijnen op de knop, maar binnen het scherm blijven */
+  let x=a.right-b2.width;
+  x=Math.max(marge,Math.min(x,window.innerWidth-b2.width-marge));
+
+  el.style.left=Math.round(x)+'px';
+  el.style.top=Math.round(y)+'px';
+
+  const punt=el.querySelector('.punt');
+  const px=Math.max(14,Math.min(a.left+a.width/2-x-6,b2.width-26));
+  punt.style.left=Math.round(px)+'px';
+  punt.style[boven?'bottom':'top']='-5px';
+
+  ballonEl=el;
+  requestAnimationFrame(()=>el.classList.add('open'));
+
+  if(meerOnd){
+    const m=el.querySelector('.meer');
+    if(m) m.onclick=e=>{e.stopPropagation();ballonDicht();hulpOpen(meerOnd)};
+  }
+
+  /* Sluiten bij de eerstvolgende aanraking, zonder die aanraking tegen te
+     houden — je bedient het scherm eronder gewoon door. */
+  const weg=e=>{ if(ballonEl&&!ballonEl.contains(e.target)) ballonDicht() };
+  const scroll=()=>ballonDicht();
+  setTimeout(()=>{
+    document.addEventListener('pointerdown',weg,true);
+    window.addEventListener('scroll',scroll,true);
+    window.addEventListener('resize',scroll);
+  },0);
+  ballonAf=()=>{
+    document.removeEventListener('pointerdown',weg,true);
+    window.removeEventListener('scroll',scroll,true);
+    window.removeEventListener('resize',scroll);
+  };
+}
 
 function hulpToon(u){
   const rl=Object.keys(RONDLEIDINGEN).find(k=>k===u.id
