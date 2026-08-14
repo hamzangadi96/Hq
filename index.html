@@ -204,6 +204,12 @@ main>.blokkop:first-child{margin-top:8px}
   font-size:15px;font-weight:600;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
 .knop2:active{background:var(--bg)}
 .knop2 svg{width:16px;height:16px;stroke-width:2.2}
+/* Waarschuwingen stonden allemaal in hetzelfde grijs, terwijl je huisstijl
+   drie statuskleuren voorschrijft. Nu zie je in één oogopslag wat dringend is
+   en wat kan wachten. */
+.arij .ivak.rood{background:#fef2f2;color:var(--rood)}
+.arij .ivak.amber{background:#fffbeb;color:var(--amber)}
+.arij .ivak.groen{background:#f0fdf4;color:var(--groen)}
 .hoofdkaart.klaar{box-shadow:none;border:1px solid var(--lijn);text-align:center;padding:24px 20px}
 .hoofdkaart.klaar h2{font-size:21px}
 .vinkje{width:40px;height:40px;border-radius:99px;background:var(--bg);color:var(--groen);display:grid;place-items:center;margin:0 auto 2px}
@@ -250,6 +256,27 @@ main>.blokkop:first-child{margin-top:8px}
 .ivak.ink{background:var(--ink);color:#fff}
 
 /* ── voortgangsring: compacter dan een balk, past naast de tekst ── */
+/* ── de grote ring op de hoofdkaart ──
+   De kleine ring rechtsboven ging verloren tussen de tekst: 38 pixels grijs.
+   Dit is hetzelfde gegeven, maar als middelpunt van de kaart, met het aantal
+   bonbons erin. Eén blik en je weet hoe ver je bent en hoeveel je maakt. */
+.groteRing{width:132px;height:132px;flex:none;position:relative;display:grid;place-items:center}
+.groteRing svg{width:132px;height:132px;display:block;transform:rotate(-90deg)}
+.groteRing circle{fill:none;stroke-width:9}
+.groteRing .baan{stroke:var(--bg)}
+.groteRing .vul{stroke:var(--ink);stroke-linecap:round;
+  transition:stroke-dasharray .6s cubic-bezier(.32,.72,0,1)}
+.groteRing.amber .vul{stroke:var(--amber)}
+.groteRing .binnen{position:absolute;text-align:center;line-height:1}
+.groteRing .getal{font-size:34px;font-weight:600;letter-spacing:-.04em;
+  font-variant-numeric:tabular-nums;display:block}
+.groteRing .onder{font-size:11px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--grijs);margin-top:6px;display:block}
+.hkmidden{display:flex;justify-content:center;margin:4px 0 14px}
+.hkstappen{display:flex;align-items:center;justify-content:center;gap:7px;
+  margin:0 0 16px;font-size:13px;color:var(--grijs);font-weight:500}
+.hkstappen b{color:var(--ink);font-weight:600}
+
 .mring{width:38px;height:38px;min-width:38px;flex:none;position:relative;display:grid;place-items:center}
 .mring svg{width:38px;height:38px;display:block;transform:rotate(-90deg)}
 .mring circle{fill:none;stroke-width:3.4}
@@ -1465,7 +1492,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v222 · 14 aug 2026';
+const APPVERSIE='v223 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2800,15 +2827,27 @@ function dashboardHTML(){
   /* ── de hoofdkaart ── */
   if(t.soort==='bezig'){
     const b=t.b, v=bVolgende(b), w=lopendWerk(b);
+    const gedaan=bGedaan(b), totaal=KERN.length;
+    const pct=totaal?Math.min(100,Math.round(gedaan/totaal*100)):0;
+    const omtrek=2*Math.PI*57;
     h+=`<div class="hoofdkaart">
-      <div class="hkkop">
-        <div class="hkl">
-          <div class="stap">Dag ${dagNummer(b)} · ${bTotaal(b)} stuks</div>
-          <h2 style="margin-top:6px">${esc(bNamen(b))}</h2>
-        </div>
-        ${ringHTML(bGedaan(b),KERN.length,b.status==='pauze'?'amber':'')}
+      <div class="stap" style="text-align:center">Dag ${dagNummer(b)} · ${b.code}</div>
+      <div class="hkmidden">
+        <span class="groteRing ${b.status==='pauze'?'amber':''}">
+          <svg viewBox="0 0 132 132" aria-hidden="true">
+            <circle class="baan" cx="66" cy="66" r="57"></circle>
+            ${pct>0?`<circle class="vul" cx="66" cy="66" r="57"
+              stroke-dasharray="${(omtrek*pct/100).toFixed(1)} ${omtrek.toFixed(1)}"></circle>`:''}
+          </svg>
+          <span class="binnen"><span class="getal">${bTotaal(b)}</span>
+            <span class="onder">bonbons</span></span>
+        </span>
       </div>
-      <div class="sub">${b.code} · volgende stap: ${v?v.label.toLowerCase():'afronden'}</div>
+      <h2 style="text-align:center;margin:0">${esc(bNamen(b))}</h2>
+      <div class="hkstappen"><b>${gedaan} van ${totaal} stappen</b>${
+        b.status==='pauze'?' · stilgelegd':''}</div>
+      <div class="sub" style="text-align:center;margin-top:-8px">volgende stap: ${
+        v?v.label.toLowerCase():'afronden'}</div>
       ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
         <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
       <button class="prim" data-batch="${b.id}">${b.status==='pauze'?'Batch hervatten':'Verder met deze batch'}</button>`;
