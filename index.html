@@ -1729,6 +1729,37 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   transition:width .4s cubic-bezier(.32,.72,0,1)}
 .tegel,.wg{border-radius:20px}
 .snelknop{height:44px}
+
+/* ── elk scherm opent met een donkere kaart ──
+   De eerste tegel van een rooster wordt breed en donker, zodat Financiën,
+   Voorraad, Orders en Agenda dezelfde opening krijgen als het dashboard. */
+.tegelrooster>.wg:first-child{grid-column:1 / -1;min-height:130px;
+  background:linear-gradient(160deg,#2a2a2e,#141416);color:#fff;
+  box-shadow:0 16px 34px rgba(24,24,27,.24)}
+.tegelrooster>.wg:first-child .l,.tegelrooster>.wg:first-child .wgsub{color:#a1a1aa}
+.tegelrooster>.wg:first-child .wggetal{color:#fff;font-size:40px}
+.tegelrooster>.wg:first-child .wgkop svg{color:#71717a}
+.tegelrooster>.wg:first-child .wgdelta{color:#d4d4d8}
+.tegelrooster>.wg:first-child .wgdelta.op{color:#4ade80}
+.tegelrooster>.wg:first-child .wgdelta.neer{color:#fca5a5}
+.tegelrooster>.wg:first-child .wgvak{background:rgba(255,255,255,.12);color:#fff}
+
+/* ── de tabbalk moet passen, ook met zes knoppen ──
+   Stond te ruim: de meer-knop viel buiten het scherm en was niet te raken. */
+nav{padding:0 10px}
+.tabpil{gap:0;padding:5px;max-width:100%}
+.tab{height:44px;padding:0 8px}
+.tab svg{width:21px;height:21px}
+.tab.actief{padding:0 12px}
+.tab.actief span{font-size:13px;max-width:84px;margin-left:6px}
+@media (max-width:389px){
+  .tab{padding:0 6px}
+  .tab.actief{padding:0 10px}
+  .tab.actief span{font-size:12.5px;max-width:70px;margin-left:5px}
+}
+
+/* ruimte onderin: de laatste rij bleef onder de capsule hangen */
+main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 </style>
 </head>
 <body>
@@ -1859,7 +1890,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v286 · kaartstijl';
+const APPVERSIE='v287 · kaartstijl 2';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2836,10 +2867,10 @@ const SNELITEMS=[
   {key:'instellingen',label:'Instellingen',icon:'instel',soort:'sheet',doe:()=>sheetInstellingen()}
 ];
 const snelItem=k=>SNELITEMS.find(x=>x.key===k);
-const STANDAARDBALK=['productie','orders','voorraad','geld'];
+const STANDAARDBALK=['productie','orders','voorraad','geld','agenda'];
 const balkKeuze=()=>{
   const eigen=(S.balk||[]).filter(k=>snelItem(k));
-  return (eigen.length?eigen:STANDAARDBALK).slice(0,4);
+  return (eigen.length?eigen:STANDAARDBALK).slice(0,5);
 };
 
 const STRAKS={
@@ -15579,8 +15610,8 @@ function sheetBalkKiezen(){
       const k=b.dataset.kies;
       const i=gekozen.indexOf(k);
       if(i>=0) gekozen.splice(i,1);
-      else if(gekozen.length<4) gekozen.push(k);
-      else return toast('Je hebt er al vier — haal er eerst een weg.');
+      else if(gekozen.length<5) gekozen.push(k);
+      else return toast('Je hebt er al vijf — haal er eerst een weg.');
       S.balk=gekozen.slice(); bewaarNu(); render(); teken();
     });
     $('#bkOk').onclick=()=>{dicht();render()};
