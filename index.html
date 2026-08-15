@@ -1711,6 +1711,10 @@ const I={
   fles:'<path d="M10 3.4h4v3.2l2 3v9.8a1.6 1.6 0 0 1-1.6 1.6H9.6A1.6 1.6 0 0 1 8 19.4V9.6z"/>'
     +'<path d="M8 13.6h8"/>',
   loep:'<circle cx="10.8" cy="10.8" r="6.6"/><path d="M15.6 15.6 21 21"/>',
+  /* een tekstballon met drie puntjes, in dezelfde lijnstijl als de rest */
+  praat:'<path d="M20.5 11.6c0 3.9-3.8 7.1-8.5 7.1-.9 0-1.8-.1-2.6-.3'
+    +'l-4.9 1.7 1.6-4a6.6 6.6 0 0 1-1.6-4.5C4.5 7.6 8.3 4.5 13 4.5s7.5 3.1 7.5 7.1Z"/>'
+    +'<path d="M9.2 11.7h.01"/><path d="M12.9 11.7h.01"/><path d="M16.6 11.7h.01"/>',
   hulp:'<circle cx="12" cy="12" r="9"/>'
     +'<path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.1-2.4 3.6"/>'
     +'<path d="M12 17.2h.01"/>',
@@ -1741,7 +1745,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v281 · 14 aug 2026';
+const APPVERSIE='v282 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3027,9 +3031,9 @@ function renderNu(){
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnZoek').innerHTML=svg(I.loep);
-$('#btnChat').innerHTML=svg(I.hulp);
+$('#btnChat').innerHTML=svg(I.praat);
 $('#btnChat').onclick=()=>chatStand==='open'?chatKlein():chatOpen();
-$('#chatBel').innerHTML=svg(I.hulp)+'<span class="stip"></span>';
+$('#chatBel').innerHTML=svg(I.praat)+'<span class="stip"></span>';
 $('#chatBel').onclick=chatOpen;
 $('#chatKlein').innerHTML=svg(I.min,'2');
 $('#chatDicht').innerHTML=svg(I.kruis,'2');
@@ -3603,7 +3607,7 @@ function dashboardHTML(){
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
     <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
-    <button class="snelknop" data-chat>${svg(I.hulp)}Stel een vraag</button>
+    <button class="snelknop" data-chat>${svg(I.praat)}Stel een vraag</button>
     <button class="snelknop" data-sheet="klaar">${svg(I.vink)}Ben je er klaar voor</button>
     <button class="snelknop" data-sheet="vooruit">${svg(I.vracht)}Wat moet je halen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
