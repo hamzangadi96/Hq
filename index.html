@@ -834,6 +834,13 @@ header .hbtn.zoek{display:none}
 .chatkop button svg{width:16px;height:16px;stroke-width:2}
 .chatlijst{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:18px 16px 8px;display:flex;flex-direction:column;gap:12px}
+/* Een gesprek hoort onderaan te beginnen, zoals in elke chat-app. Een leeg
+   flex-item met margin-top:auto eet de vrije ruimte op en duwt de ballonnen
+   naar beneden; zit de lijst vol, dan krimpt het naar niets en scrollt alles
+   gewoon. Dat kan ook met justify-content:flex-end, maar dan knipt Safari de
+   bovenste ballonnen af zodra je moet scrollen. De negatieve marge haalt de
+   gap weg die dit hulpitem anders bovenaan zou achterlaten. */
+.chatlijst::before{content:'';flex:none;margin-top:auto;margin-bottom:-12px}
 /* flex:none is hier essentieel — zonder dat drukt de kolom de ballonnen
    plat zodra de lijst vol is, en lopen ze over elkaar heen. */
 .chatbel{flex:none;max-width:84%;padding:12px 15px;border-radius:18px;font-size:15px;
@@ -850,7 +857,8 @@ header .hbtn.zoek{display:none}
 .chatknop{flex:none;align-self:flex-start;background:var(--ink);color:#fff;font-size:13px;
   font-weight:600;padding:9px 14px;border-radius:99px;margin-top:-4px}
 .chatvoet{flex:none;display:flex;gap:9px;background:var(--card);
-  padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+  padding:12px 14px calc(14px + max(0px,
+    env(safe-area-inset-bottom) - var(--toetsenbord, 0px)));
   border-top:1px solid var(--lijn)}
 .chatvoet input{flex:1;min-width:0;height:46px;border-radius:14px;background:var(--bg);
   border:1px solid var(--lijn);padding:0 15px;font-size:16px;color:var(--ink)}
@@ -1745,7 +1753,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v282 · 14 aug 2026';
+const APPVERSIE='v283 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3049,6 +3057,9 @@ $('#chatDicht').onclick=chatDichtdoen;
   };
   $('#chatStuur').onclick=stuur;
   $('#chatIn').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); stuur() } };
+  /* Stond het toetsenbord al open, dan komt er geen resize meer en zou de
+     lijst blijven staan waar hij stond. */
+  $('#chatIn').addEventListener('focus',chatOnder);
 })();
 $('#btnZoek').onclick=zoekOpen;
 $('#zbIco').innerHTML=svg(I.loep);
@@ -15872,8 +15883,24 @@ function chatTeken(){
     if(b.blijf){ chatGesprek.splice(i,1); return b.doe() }   /* volgende stap */
     chatKlein(); b.doe();                                     /* een scherm openen */
   });
-  l.scrollTop=l.scrollHeight;
+  chatOnder();
 }
+
+/* Naar het laatste bericht. Eén keer zetten is te vroeg: de ballon staat er
+   pas na de layout, en iOS schuift het toetsenbord er in ongeveer een kwart
+   seconde in. Daarom een paar keer achter elkaar; scrollTop op de eindwaarde
+   zetten is niet duur en heeft geen bijwerking als het al goed staat. */
+function chatOnder(){
+  if(chatStand!=='open') return;
+  const l=$('#chatLijst'); if(!l) return;
+  const zet=()=>{ l.scrollTop=l.scrollHeight };
+  zet();
+  requestAnimationFrame(zet);
+  setTimeout(zet,80);
+  setTimeout(zet,260);
+  setTimeout(zet,520);
+}
+window.__chatOnder=chatOnder;
 
 function chatZeg(van,tekst,extra){
   chatGesprek.push(Object.assign({van,tekst},extra||{}));
@@ -15889,6 +15916,7 @@ function chatOpen(){
       'Ik zoek het op en loop het stap voor stap met je door.');
   }
   chatTeken();
+  chatOnder();
   setTimeout(()=>{ const e=$('#chatIn'); if(e) e.focus() },250);
 }
 function chatKlein(){
@@ -16431,6 +16459,10 @@ function sheetMeetpunten(){
     if(Math.abs(dek-vorig)<4) return;
     vorig=dek;
     document.documentElement.style.setProperty('--toetsenbord',dek+'px');
+    /* De chat is een eigen scherm binnen .app en krimpt dus mee. De
+       scrollpositie blijft daarbij staan, waardoor je laatste bericht
+       onder de rand verdwijnt. Hier halen we hem terug. */
+    if(window.__chatOnder) window.__chatOnder();
   };
   /* iOS schuift de webview weleens omlaag: na het sluiten van het toetsenbord,
      bij het terugkeren uit een andere app, of na een veeg. De pagina staat vast
