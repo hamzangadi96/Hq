@@ -100,7 +100,7 @@ header.gecentreerd .onder{display:block;font-size:12.5px;color:var(--grijs);
   margin-top:1px;font-weight:500;letter-spacing:-.005em}
 header.gecentreerd h1{font-size:17px;font-weight:600;letter-spacing:-.02em}
 header.gecentreerd .hbtn.terug{display:none}
-header.gecentreerd .hbtn.instel{grid-column:3;grid-row:1;justify-self:end}
+header.gecentreerd .hbtn.instel{grid-row:1;justify-self:end}
 
 .merk{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600;
   letter-spacing:.16em;line-height:1;color:var(--ink);padding-left:.16em;
@@ -649,11 +649,15 @@ header .hbtn{width:36px;height:36px;border-radius:99px;background:var(--card);
   box-shadow:0 1px 2px rgba(24,24,27,.05),0 6px 16px -12px rgba(24,24,27,.3)}
 header .hbtn svg{width:17px;height:17px;stroke-width:1.9}
 header .hbtn:active{background:var(--bg)}
-header.gecentreerd{grid-template-columns:36px 1fr 36px}
+/* Drie kolommen werd te krap voor twee knoppen rechts: die kwamen in
+   dezelfde cel terecht en lagen boven op elkaar. Nu een eigen kolom. */
+header.gecentreerd{grid-template-columns:36px 1fr 36px 36px;gap:8px}
+header.gecentreerd .hbtn.chat{grid-column:3;grid-row:1;display:grid}
+header.gecentreerd .hbtn.instel{grid-column:4;grid-row:1}
+header .hbtn.chat{display:none}
 header.gecentreerd .hbtn.zoek{grid-column:1;grid-row:1;display:grid}
 /* alleen op het dashboard is de kop een raster; elders hoort de balk er niet */
 header:not(.gecentreerd) .zoekbalk{display:none}
-header.gecentreerd .hbtn.instel{grid-column:3;grid-row:1}
 header .hbtn.zoek{display:none}
 
 .hulpknop{width:32px;height:32px;border-radius:99px;background:var(--bg);flex:none;
@@ -809,6 +813,52 @@ header .hbtn.zoek{display:none}
 .wachtlabel{display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:8px 16px;border-radius:99px;
   background:var(--card);border:1px solid var(--lijn);font-size:12.5px;font-weight:600;color:var(--grijs)}
 .wachtlabel .stip{background:var(--grijs3)}
+
+/* ── de chat ──
+   Geen sheet maar een paneel dat naast je werk blijft staan. Je kunt hem
+   kleinmaken terwijl je iets uitprobeert en daarna weer opentikken; wat er
+   gezegd is blijft staan. Dat is precies waarom een sheet hier niet werkt:
+   die moet je sluiten om iets te kunnen doen. */
+.chatpaneel{position:absolute;left:10px;right:10px;z-index:40;
+  bottom:calc(66px + env(safe-area-inset-bottom));
+  max-height:62%;display:none;flex-direction:column;
+  background:var(--card);border-radius:20px;overflow:hidden;
+  box-shadow:0 2px 8px rgba(24,24,27,.08),0 24px 60px -20px rgba(24,24,27,.45)}
+.chatpaneel.open{display:flex}
+.chatkop{flex:none;display:flex;align-items:center;gap:10px;padding:13px 14px 11px;
+  border-bottom:1px solid var(--lijn)}
+.chatkop b{flex:1;font-size:15px;font-weight:600;letter-spacing:-.015em}
+.chatkop button{width:30px;height:30px;border-radius:99px;background:var(--bg);
+  display:grid;place-items:center;color:var(--grijs);flex:none}
+.chatkop button svg{width:15px;height:15px;stroke-width:2}
+.chatlijst{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:14px 14px 6px;display:flex;flex-direction:column;gap:10px}
+/* flex:none is hier essentieel — zonder dat drukt de kolom de ballonnen
+   plat zodra de lijst vol is, en lopen ze over elkaar heen. */
+.chatbel{flex:none;max-width:86%;padding:10px 13px;border-radius:16px;font-size:14px;
+  line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.chatbel.van-app{background:var(--bg);border-bottom-left-radius:6px;align-self:flex-start}
+.chatbel.van-jij{background:var(--ink);color:#fff;border-bottom-right-radius:6px;align-self:flex-end}
+.chatbel .stapnr{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--grijs2);margin-bottom:4px}
+.chatknop{flex:none;align-self:flex-start;background:var(--ink);color:#fff;font-size:13px;
+  font-weight:600;padding:9px 14px;border-radius:99px;margin-top:-4px}
+.chatvoet{flex:none;display:flex;gap:8px;padding:10px 12px 12px;border-top:1px solid var(--lijn)}
+.chatvoet input{flex:1;min-width:0;height:42px;border-radius:12px;background:var(--bg);
+  border:1px solid var(--lijn);padding:0 13px;font-size:15px;color:var(--ink)}
+.chatvoet input:focus{outline:none;border-color:var(--grijs3)}
+.chatvoet button{flex:none;width:42px;height:42px;border-radius:12px;background:var(--ink);
+  color:#fff;display:grid;place-items:center}
+.chatvoet button svg{width:17px;height:17px;stroke-width:2.2}
+/* kleingemaakt: alleen een belletje rechtsonder */
+.chatbel2{position:absolute;right:12px;z-index:39;
+  bottom:calc(70px + env(safe-area-inset-bottom));
+  width:46px;height:46px;border-radius:99px;background:var(--ink);color:#fff;
+  display:none;place-items:center;box-shadow:0 8px 24px rgba(24,24,27,.3)}
+.chatbel2.open{display:grid}
+.chatbel2 svg{width:20px;height:20px;stroke-width:2}
+.chatbel2 .stip{position:absolute;top:-2px;right:-2px;width:12px;height:12px;
+  border-radius:99px;background:var(--amber);border:2px solid var(--card)}
 
 /* de tabbalk zweeft als een capsule boven de inhoud, zoals in de Shopify-app.
    Alleen de tab waar je bent laat zijn naam zien; de rest is een icoon. */
@@ -1573,10 +1623,21 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
     </div>
     <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
       <div class="kpi" id="kopKpi"></div></div>
+    <button class="hbtn chat" id="btnChat" aria-label="Hulp"></button>
     <button class="hbtn instel" id="btnInstel" aria-label="App en opslag"></button>
 
   </header>
   <main id="scherm"></main>
+  <div class="chatpaneel" id="chatPaneel">
+    <div class="chatkop"><b>Hulp</b>
+      <button id="chatKlein" aria-label="Kleiner"></button>
+      <button id="chatDicht" aria-label="Sluiten"></button></div>
+    <div class="chatlijst" id="chatLijst"></div>
+    <div class="chatvoet">
+      <input id="chatIn" placeholder="Waar loop je op vast?" enterkeyhint="send">
+      <button id="chatStuur" aria-label="Versturen"></button></div>
+  </div>
+  <button class="chatbel2" id="chatBel" aria-label="Hulp openen"></button>
   <div class="zoeklaag" id="zoeklaag"></div>
   <nav id="tabbar"></nav>
 
@@ -1672,7 +1733,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v279 · 14 aug 2026';
+const APPVERSIE='v280 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2958,6 +3019,25 @@ function renderNu(){
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnZoek').innerHTML=svg(I.loep);
+$('#btnChat').innerHTML=svg(I.hulp);
+$('#btnChat').onclick=()=>chatStand==='open'?chatKlein():chatOpen();
+$('#chatBel').innerHTML=svg(I.hulp)+'<span class="stip"></span>';
+$('#chatBel').onclick=chatOpen;
+$('#chatKlein').innerHTML=svg(I.min,'2');
+$('#chatDicht').innerHTML=svg(I.kruis,'2');
+$('#chatStuur').innerHTML=svg(I.pijl,'2.2');
+$('#chatKlein').onclick=chatKlein;
+$('#chatDicht').onclick=chatDichtdoen;
+(function(){
+  const stuur=()=>{
+    const e=$('#chatIn'); const v=e.value.trim();
+    if(!v) return;
+    e.value='';
+    chatAntwoord(v);
+  };
+  $('#chatStuur').onclick=stuur;
+  $('#chatIn').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); stuur() } };
+})();
 $('#btnZoek').onclick=zoekOpen;
 $('#zbIco').innerHTML=svg(I.loep);
 $('#zbStop').onclick=zoekDicht;
@@ -3515,7 +3595,7 @@ function dashboardHTML(){
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
     <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
-    <button class="snelknop" data-sheet="vraag">${svg(I.hulp)}Stel een vraag</button>
+    <button class="snelknop" data-chat>${svg(I.hulp)}Stel een vraag</button>
     <button class="snelknop" data-sheet="klaar">${svg(I.vink)}Ben je er klaar voor</button>
     <button class="snelknop" data-sheet="vooruit">${svg(I.vracht)}Wat moet je halen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
@@ -10576,6 +10656,7 @@ function bind(){
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
+  $$('[data-chat]').forEach(x=>x.onclick=chatOpen);
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
   $$('[data-werkweek]').forEach(x=>x.onclick=sheetWerkweek);
@@ -15751,6 +15832,120 @@ function vraagZoek(vraag){
 /* vragen die vaak gesteld worden, als startpunt */
 const VOORBEELDVRAGEN=['Hoe maak ik een factuur?','Waar vul ik lotnummers in?',
   'Hoe begin ik een batch?','Wat moet er op mijn etiket?','Hoe werkt de kilometerregistratie?'];
+
+
+/* ===== de chat =====
+   Een paneel dat naast je werk blijft staan. Kleinmaken laat een belletje
+   achter; opentikken en het gesprek staat er nog. Antwoorden komen stap voor
+   stap, want "zo maak je een factuur" in één blok tekst leest niemand.
+
+   Het gesprek wordt niet bewaard tussen sessies: het is hulp bij wat je nu
+   doet, geen archief. */
+let chatGesprek=[];        /* {van:'jij'|'app', tekst, knop, doe, stap} */
+let chatStand='dicht';     /* dicht | open | klein */
+let chatWacht=null;        /* de stappen die nog komen */
+
+function chatTeken(){
+  const l=$('#chatLijst'); if(!l) return;
+  l.innerHTML=chatGesprek.map((b,i)=>{
+    if(b.knop) return `<button class="chatknop" data-cd="${i}">${esc(b.knop)}</button>`;
+    return `<div class="chatbel van-${b.van}">${
+      b.stap?`<span class="stapnr">${esc(b.stap)}</span>`:''}${esc(b.tekst)}</div>`;
+  }).join('');
+  $$('#chatLijst [data-cd]').forEach(x=>x.onclick=()=>{
+    const b=chatGesprek[parseInt(x.dataset.cd,10)];
+    if(b&&typeof b.doe==='function'){ chatKlein(); b.doe() }
+  });
+  l.scrollTop=l.scrollHeight;
+}
+
+function chatZeg(van,tekst,extra){
+  chatGesprek.push(Object.assign({van,tekst},extra||{}));
+  chatTeken();
+}
+
+function chatOpen(){
+  chatStand='open';
+  $('#chatPaneel').classList.add('open');
+  $('#chatBel').classList.remove('open');
+  if(!chatGesprek.length){
+    chatZeg('app','Waar loop je op vast? Beschrijf het in je eigen woorden — '+
+      'ik zoek het op in de app en leg het stap voor stap uit.');
+  }
+  chatTeken();
+  setTimeout(()=>{ const e=$('#chatIn'); if(e) e.focus() },250);
+}
+function chatKlein(){
+  chatStand='klein';
+  $('#chatPaneel').classList.remove('open');
+  $('#chatBel').classList.add('open');
+}
+function chatDichtdoen(){
+  chatStand='dicht'; chatGesprek=[]; chatWacht=null;
+  $('#chatPaneel').classList.remove('open');
+  $('#chatBel').classList.remove('open');
+}
+
+/* Antwoordt op een vraag. Heeft het gevonden onderwerp stappen, dan komen die
+   één voor één; anders de uitleg met een knop naar het scherm. */
+function chatAntwoord(vraag){
+  chatZeg('jij',vraag);
+
+  /* wachtte er nog een vervolgstap en zegt de gebruiker "ja" of "volgende"? */
+  if(chatWacht&&/^(ja|volgende|verder|ok|oke|oké|en dan|daarna|next)\b/i.test(vraag.trim())){
+    return chatVolgende();
+  }
+
+  const treffers=vraagZoek(vraag);
+  if(!treffers.length){
+    if(/^(ja|volgende|verder|ok|oke|oké)\b/i.test(vraag.trim()))
+      return chatZeg('app','Er loopt nu geen uitleg. Stel je vraag opnieuw, '+
+        'dan begin ik bij stap één.');
+    return chatZeg('app','Daar vind ik niets over. Probeer het anders te zeggen, '+
+      'of tik op Alle onderwerpen in het menu voor het hele handboek.');
+  }
+
+  /* Liefst een onderwerp met stappen, ook als een losse uitleg net hoger
+     scoort — stap voor stap helpt meer dan één blok tekst. We kijken
+     daarvoor in de eerste paar treffers. */
+  /* De gewone zoekdrempel houdt weinig over. Voor de chat kijken we breder,
+     want een onderwerp met stappen is meer waard dan één alinea. */
+  const ruim=kennisbank()
+    .map(k=>({k,score:vraagScore(k,woorden(vraag),vraagOnderwerpen(vraag))}))
+    .filter(x=>x.score>=4).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.k);
+  const metStappen=ruim.find(x=>x.id&&(UITLEG.find(u=>u.id===x.id)||{}).stappen);
+  const t=metStappen||treffers[0];
+
+  const onderwerp=t.id?UITLEG.find(u=>u.id===t.id):null;
+  if(onderwerp&&(onderwerp.stappen||[]).length){
+    chatZeg('app',onderwerp.titel+' — '+onderwerp.kort+'.\nIk loop het met je door.');
+    chatWacht={stappen:onderwerp.stappen.slice(),i:0,titel:onderwerp.titel};
+    return chatVolgende();
+  }
+
+  chatZeg('app',t.tekst||t.titel);
+  if(t.doe) chatZeg('app','',{knop:t.titel+' openen',doe:t.doe});
+  const rest=treffers.slice(1,3).filter(x=>x.titel!==t.titel);
+  if(rest.length) chatZeg('app','Bedoelde je misschien '+
+    rest.map(x=>x.titel).join(' of ')+'?');
+}
+
+function chatVolgende(){
+  const w=chatWacht;
+  if(!w) return;
+  const st=w.stappen[w.i];
+  if(!st){
+    chatWacht=null;
+    return chatZeg('app','Dat was de laatste stap. Lukt het zo?');
+  }
+  w.i++;
+  chatZeg('app',st.t+(st.u?'\n\n'+st.u:''),{stap:'Stap '+w.i+' van '+w.stappen.length});
+  if(st.knop&&st.sheet&&SHEETS[st.sheet])
+    chatZeg('app','',{knop:st.knop,doe:()=>SHEETS[st.sheet]()});
+  if(w.i<w.stappen.length)
+    chatZeg('app','Zeg "volgende" als je verder wilt.');
+  else { chatWacht=null; chatZeg('app','Dat was de laatste stap. Lukt het zo?') }
+}
 
 function sheetVraag(vooraf){
   const vraag=vooraf||'';
