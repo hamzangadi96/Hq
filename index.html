@@ -34,6 +34,9 @@
      (de kop, de hoofdkaart, tooltips) blijven bewust antraciet: die zouden
      een gekozen kleur over het halve scherm smeren. */
   --accent:#18181b;
+  /* wat er op het accent staat; wordt wit of bijna-zwart, afhankelijk van
+     hoe licht je kleur is */
+  --accentTekst:#ffffff;
   --bg:#f4f4f5; --lijn:#ececee; --card:#fff;
   --groen:#15803d; --amber:#b45309; --rood:#c0392b;
 }
@@ -207,7 +210,7 @@ main>.blokkop:first-child{margin-top:8px}
 .loopt .ln{flex:1;font-size:14px;font-weight:600;letter-spacing:-.015em}
 .loopt .lt{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .loopt .tp{width:8px;height:8px;border-radius:99px;background:#22c55e;flex:none;animation:pols 2s infinite}
-.prim{width:100%;height:48px;border-radius:14px;background:var(--accent);color:#fff;font-size:15px;
+.prim{width:100%;height:48px;border-radius:14px;background:var(--accent);color:var(--accentTekst);font-size:15px;
   font-weight:600;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
 .prim:active{opacity:.85}
 .prim svg{width:16px;height:16px;stroke-width:2.2}
@@ -440,6 +443,7 @@ main>.blokkop:first-child{margin-top:8px}
 
 /* vandaag wint altijd: zwart blokje */
 .wdag.nu,.wdag.nu.leeg,.wdag.nu.vol{background:var(--accent);border-color:var(--accent)}
+.wdag.nu,.wdag.nu .d,.wdag.nu .n,.wdag.nu b{color:var(--accentTekst)}
 .wdag.nu .wd{color:#8f8f98}
 .wdag.nu .wn,.wdag.nu.leeg .wn{color:#fff}
 .wstippen{display:flex;gap:2px;height:6px;margin-top:5px;align-items:center}
@@ -696,7 +700,7 @@ header .hbtn.zoek{display:none}
 .hulpknop svg{width:17px;height:17px;stroke-width:1.8}
 .hulpknop.aan{display:grid}
 .hulpknop:active{background:var(--lijn);color:var(--ink)}
-.unr{width:27px;height:27px;border-radius:99px;background:var(--accent);color:#fff;flex:none;
+.unr{width:27px;height:27px;border-radius:99px;background:var(--accent);color:var(--accentTekst);flex:none;
   display:grid;place-items:center;font-size:13px;font-weight:700;position:relative;z-index:1}
 .uin{flex:1;min-width:0;padding-top:2px}
 .ut{font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.35}
@@ -901,7 +905,7 @@ header .hbtn.zoek{display:none}
   line-height:1.15;text-align:left}
 .chatchip:active{background:var(--bg)}
 /* het onderwerp van het scherm waar je vandaan komt staat voorop */
-.chatchip.nu{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.chatchip.nu{background:var(--accent);border-color:var(--accent);color:var(--accentTekst);font-weight:600}
 /* de accentkiezer */
 .acrooster{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .acvak{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px;
@@ -911,6 +915,45 @@ header .hbtn.zoek{display:none}
 .acbol svg{width:17px;height:17px;opacity:0;transition:opacity .18s}
 .acvak.aan .acbol svg{opacity:1}
 .acnaam{font-size:12.5px;font-weight:600;color:var(--ink2)}
+/* voorvertoning */
+.acvoor{display:flex;align-items:center;gap:13px;padding:14px;background:var(--bg);
+  border-radius:16px;margin-bottom:12px}
+.acrond{width:46px;height:46px;border-radius:99px;flex:none;
+  box-shadow:inset 0 0 0 1px rgba(24,24,27,.10)}
+.acinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.acinfo b{font-size:15px;font-weight:600;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums}
+.acinfo span{font-size:12.5px;color:var(--grijs)}
+.acdemo{flex:none;background:var(--accent);color:var(--accentTekst);font-size:13px;
+  font-weight:600;padding:10px 15px;border-radius:99px}
+/* geen waarschuwing maar een tegenhouder: daarom rood, met de reden erbij */
+.acblok{display:none;font-size:13px;line-height:1.5;color:var(--ink2);
+  background:#fffaf9;border:1px solid rgba(192,57,43,.22);border-radius:14px;
+  padding:12px 14px;margin-bottom:16px}
+.acblok.aan{display:block}
+.acblok b{display:block;font-size:13.5px;font-weight:600;color:var(--rood);
+  margin-bottom:4px}
+.prim:disabled{opacity:.4}
+/* de stukken van de tintbalk die niet kunnen, worden afgedekt */
+.acbaan::after{content:'';position:absolute;inset:0;border-radius:99px;
+  pointer-events:none;opacity:0;transition:opacity .2s}
+.acbaan.dicht::after{opacity:1;background-image:var(--dicht)}
+/* de schuiven */
+.acschuif{margin-bottom:16px}
+.acschuif label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);
+  margin-bottom:8px;letter-spacing:-.01em}
+.acbaan{display:block;height:30px;border-radius:99px;position:relative;
+  box-shadow:inset 0 0 0 1px rgba(24,24,27,.10)}
+.acbaan input[type=range]{-webkit-appearance:none;appearance:none;position:absolute;
+  inset:0;width:100%;height:100%;background:none;margin:0;z-index:2}
+.acbaan input[type=range]::-webkit-slider-runnable-track{height:30px;background:none}
+/* een witte ring in plaats van een blokje: je ziet de kleur eronder gewoon door */
+.acbaan input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
+  width:26px;height:26px;border-radius:99px;background:none;
+  border:3px solid #fff;box-shadow:0 0 0 1px rgba(24,24,27,.35),0 2px 6px rgba(24,24,27,.3);
+  margin-top:2px}
+.acbaan input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:99px;
+  background:none;border:3px solid #fff;box-shadow:0 0 0 1px rgba(24,24,27,.35)}
 /* ── de stapkaart ──
    Elke stap was een eigen ballon. Na vijf stappen stond het scherm vol met
    dingen die je al gehad had en moest je terugscrollen om te zien waar je
@@ -940,7 +983,7 @@ header .hbtn.zoek{display:none}
 .stapterug{flex:none;font-size:14px;font-weight:600;color:var(--grijs);padding:8px 10px;
   border-radius:99px}
 .stapterug[disabled]{opacity:.3}
-.stapverder{margin-left:auto;background:var(--accent);color:#fff;font-size:14px;font-weight:600;
+.stapverder{margin-left:auto;background:var(--accent);color:var(--accentTekst);font-size:14px;font-weight:600;
   padding:11px 18px;border-radius:99px}
 .stapaf{display:flex;align-items:center;gap:7px;margin:16px -16px 0;padding:12px 16px;
   border-top:1px solid var(--lijn);font-size:13.5px;font-weight:600;color:var(--groen)}
@@ -1925,7 +1968,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v289 · 15 aug 2026';
+const APPVERSIE='v291 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7106,8 +7149,9 @@ function geldHTML(){
 /* Stonden als losse code in de knopbindingen, waardoor je ze alleen kon
    openen vanaf het scherm Financiën. Nu zijn het gewone functies en kun
    je ze ook vanuit het tandwiel bereiken. */
-/* Rood, oranje, geel en groen ontbreken met opzet: dat zijn statuskleuren.
-   Zou je accent rood zijn, dan is een echte fout niet meer te herkennen. */
+/* Startpunten, geen keuzemenu: je kunt met de schuiven elke kleur maken.
+   Rood, oranje en groen staan er niet tussen omdat dat statuskleuren zijn —
+   kiezen mag, maar dan waarschuwen we. */
 const ACCENTEN=[
   {k:'antraciet', n:'Antraciet', c:'#18181b'},
   {k:'petrol',    n:'Petrol',    c:'#0f766e'},
@@ -7116,41 +7160,192 @@ const ACCENTEN=[
   {k:'paars',     n:'Paars',     c:'#7e22ce'},
   {k:'magenta',   n:'Magenta',   c:'#a21caf'}
 ];
-const accentKleur=()=>(ACCENTEN.find(a=>a.k===S.accent)||ACCENTEN[0]);
+
+/* S.accent was een naam ('petrol'), is nu een hexwaarde. Oude opslag blijft
+   werken. */
+function accentKleur(){
+  const w=S.accent;
+  if(typeof w==='string'&&/^#[0-9a-f]{6}$/i.test(w)) return w;
+  const a=ACCENTEN.find(x=>x.k===w);
+  return a?a.c:'#18181b';
+}
+
+const klem=(n,a,b)=>Math.max(a,Math.min(b,n));
+
+/* hsl naar hex, want de schuiven denken in tint/verzadiging/diepte en de
+   rest van de app in hex */
+function hslHex(h,sa,l){
+  h=((h%360)+360)%360; sa/=100; l/=100;
+  const c=(1-Math.abs(2*l-1))*sa, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2;
+  let r=0,g=0,b=0;
+  if(h<60){r=c;g=x} else if(h<120){r=x;g=c} else if(h<180){g=c;b=x}
+  else if(h<240){g=x;b=c} else if(h<300){r=x;b=c} else {r=c;b=x}
+  const q=n=>('0'+Math.round((n+m)*255).toString(16)).slice(-2);
+  return '#'+q(r)+q(g)+q(b);
+}
+
+function hexHsl(hex){
+  const n=parseInt(hex.slice(1),16);
+  const r=(n>>16&255)/255, g=(n>>8&255)/255, b=(n&255)/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn, l=(mx+mn)/2;
+  let h=0, sa=0;
+  if(d){
+    sa=d/(1-Math.abs(2*l-1));
+    h=mx===r?((g-b)/d+(g<b?6:0)):mx===g?((b-r)/d+2):((r-g)/d+4);
+    h*=60;
+  }
+  return {h:Math.round(h), s:Math.round(sa*100), l:Math.round(l*100)};
+}
+
+/* Kies je een lichte kleur, dan is witte tekst er niet meer op te lezen.
+   Daarom rekenen we uit wat erop moet in plaats van wit aan te nemen. */
+function opAccent(hex){
+  const n=parseInt(hex.slice(1),16);
+  const v=[(n>>16&255),(n>>8&255),(n&255)].map(x=>{
+    x/=255; return x<=0.03928?x/12.92:Math.pow((x+0.055)/1.055,2.4);
+  });
+  return (0.2126*v[0]+0.7152*v[1]+0.0722*v[2])>0.42?'#18181b':'#ffffff';
+}
+
+/* De verboden stukken van de tintbalk, in graden. Rood en amber lopen door
+   tot in het geel; groen zit in het midden. Buiten deze zones kun je alles. */
+const ACCENTUIT=[
+  {van:340, tot:360, wat:'rood'},
+  {van:0,   tot:60,  wat:'rood'},
+  {van:95,  tot:155, wat:'groen'}
+];
+/* Onder deze verzadiging is het geen kleur meer maar een grijstint, en dan
+   verwart hij ook niets. Zo kun je toch een warm of koel grijs kiezen. */
+const ACCENTGRIJS=18;
+
+/* Geeft null als de kleur mag, anders waaróm niet. */
+function accentBotst(hex){
+  const c=hexHsl(hex);
+  if(c.s<ACCENTGRIJS) return null;
+  const z=ACCENTUIT.find(x=>c.h>=x.van&&c.h<=x.tot);
+  if(!z) return null;
+  return z.wat==='rood'
+    ? {wat:'rood', kop:'Rood en oranje kun je niet kiezen',
+       uit:'Rood betekent in deze app dat er iets mis is: een meting buiten '
+         +'bereik, een THT die verlopen is, een order die te laat is. Amber '
+         +'betekent let op. Zouden je knoppen dezelfde kleur hebben, dan zie '
+         +'je een echte melding niet meer terug tussen de rest.'}
+    : {wat:'groen', kop:'Groen kun je niet kiezen',
+       uit:'Groen betekent in deze app dat iets in orde is: een batch die klaar '
+         +'is, een controle die gedaan is, een factuur die betaald is. Als alles '
+         +'groen is, zegt groen niets meer.'};
+}
 
 /* Op één plek zetten, zodat het ook klopt na een herstart en na het inlezen
    uit Firebase. De themakleur van de browserbalk gaat mee. */
-function accentZetten(){
-  const a=accentKleur();
-  document.documentElement.style.setProperty('--accent',a.c);
+function accentZetten(kleur){
+  const c=kleur||accentKleur();
+  document.documentElement.style.setProperty('--accent',c);
+  document.documentElement.style.setProperty('--accentTekst',opAccent(c));
   const m=document.querySelector('meta[name="theme-color"]');
-  if(m) m.setAttribute('content',a.c);
+  if(m) m.setAttribute('content',c);
 }
 
 function sheetAccent(){
+  const begin=accentKleur();
+  let c=hexHsl(begin);
+
   sheet('Accentkleur',
-    `<p class="hint">De kleur van knoppen, de dag van vandaag en alles wat
-      aan staat. Rood, oranje en groen kun je niet kiezen: die betekenen in
-      deze app een status, en dat moet zo blijven.</p>
+    `<p class="hint">De kleur van knoppen, de dag van vandaag en alles wat aan
+      staat. Schuif zelf, of begin bij een van de kleuren hieronder.</p>
+
+     <div class="acvoor" id="acVoor">
+       <span class="acrond" id="acRond"></span>
+       <span class="acinfo"><b id="acHex"></b><span id="acOms"></span></span>
+       <button class="acdemo" id="acDemo">Voorbeeld</button>
+     </div>
+     <div class="acblok" id="acWrsch"></div>
+
+     <div class="acschuif">
+       <label>Tint</label>
+       <span class="acbaan" id="acBaanH"><input type="range" id="acH"
+         min="0" max="360" step="1"></span>
+     </div>
+     <div class="acschuif">
+       <label>Verzadiging</label>
+       <span class="acbaan" id="acBaanS"><input type="range" id="acS"
+         min="0" max="100" step="1"></span>
+     </div>
+     <div class="acschuif">
+       <label>Diepte</label>
+       <span class="acbaan" id="acBaanL"><input type="range" id="acL"
+         min="8" max="82" step="1"></span>
+     </div>
+
+     <div class="mkop" style="margin-top:22px">Om mee te beginnen</div>
      <div class="acrooster" id="acR">${ACCENTEN.map(a=>
-       `<button class="acvak${a.k===accentKleur().k?' aan':''}" data-ac="${a.k}">
+       `<button class="acvak" data-ac="${a.c}">
          <span class="acbol" style="background:${a.c}">${svg(I.vink,'2.6')}</span>
          <span class="acnaam">${a.n}</span></button>`).join('')}</div>`,
     `<button class="prim" style="margin-top:0" id="acOk">Opslaan</button>`);
-  let keuze=accentKleur().k;
+
+  const H=$('#acH'), Sa=$('#acS'), L=$('#acL');
+  const nu=()=>hslHex(+H.value,+Sa.value,+L.value);
+
   const teken=()=>{
-    $$('#acR [data-ac]').forEach(b=>b.classList.toggle('aan',b.dataset.ac===keuze));
-    /* meteen laten zien wat je kiest — de knop hieronder kleurt mee */
-    const a=ACCENTEN.find(x=>x.k===keuze)||ACCENTEN[0];
-    document.documentElement.style.setProperty('--accent',a.c);
+    const hex=nu(), h=+H.value, sa=+Sa.value;
+    accentZetten(hex);
+    $('#acRond').style.background=hex;
+    $('#acHex').textContent=hex.toUpperCase();
+    $('#acOms').textContent=sa<12?'grijstint'
+      :(h<20||h>=330?'rood':h<45?'oranje':h<70?'geel':h<160?'groen'
+       :h<200?'turkoois':h<255?'blauw':h<290?'indigo':'paars')
+      +' · '+(+L.value<32?'donker':+L.value>62?'licht':'gemiddeld');
+    /* de banen van verzadiging en diepte tonen wat er gebeurt als je schuift,
+       dus die moeten meebewegen met de tint */
+    $('#acBaanS').style.background=
+      `linear-gradient(90deg,${hslHex(h,0,+L.value)},${hslHex(h,100,+L.value)})`;
+    $('#acBaanL').style.background=
+      `linear-gradient(90deg,${hslHex(h,sa,8)},${hslHex(h,sa,45)},${hslHex(h,sa,82)})`;
+    /* de verboden stukken alleen afdekken zolang het écht een kleur is;
+       draai je de verzadiging eruit, dan mag de hele balk weer */
+    $('#acBaanH').classList.toggle('dicht',sa>=ACCENTGRIJS);
+    const w=accentBotst(hex);
+    $('#acWrsch').innerHTML=w?`<b>${w.kop}</b>${w.uit}`:'';
+    $('#acWrsch').classList.toggle('aan',!!w);
+    const ok=$('#acOk');
+    ok.disabled=!!w;
+    ok.textContent=w?'Kies een andere tint':'Opslaan';
+    $$('#acR [data-ac]').forEach(b=>
+      b.classList.toggle('aan',b.dataset.ac.toLowerCase()===hex.toLowerCase()));
   };
-  $$('#acR [data-ac]').forEach(b=>b.onclick=()=>{ keuze=b.dataset.ac; teken() });
+
+  H.value=c.h; Sa.value=c.s; L.value=c.l;
+  $('#acBaanH').style.background='linear-gradient(90deg,'+
+    [0,60,120,180,240,300,360].map(h=>hslHex(h,85,50)).join(',')+')';
+  /* De grijze vlakken over rood en groen. De stops moeten oplopen, anders
+     klapt de hele balk dicht: dus netjes van links naar rechts opbouwen. */
+  (function(){
+    const dek='rgba(240,240,242,.88)', stop=[];
+    let p=0;
+    ACCENTUIT.slice().sort((a,b)=>a.van-b.van).forEach(z=>{
+      const a=+(z.van/360*100).toFixed(2), b=+(z.tot/360*100).toFixed(2);
+      if(a>p) stop.push('transparent '+p+'%','transparent '+a+'%');
+      stop.push(dek+' '+a+'%',dek+' '+b+'%');
+      p=b;
+    });
+    if(p<100) stop.push('transparent '+p+'%','transparent 100%');
+    $('#acBaanH').style.setProperty('--dicht','linear-gradient(90deg,'+stop.join(',')+')');
+  })();
+  [H,Sa,L].forEach(x=>x.oninput=teken);
+  $$('#acR [data-ac]').forEach(b=>b.onclick=()=>{
+    const k=hexHsl(b.dataset.ac);
+    H.value=k.h; Sa.value=k.s; L.value=k.l; teken();
+  });
+  teken();
+
   $('#acOk').onclick=()=>{
-    S.accent=keuze; bewaarNu(); accentZetten(); render();
+    if(accentBotst(nu())) return;
+    S.accent=nu(); bewaarNu(); accentZetten(); render();
     klaarSheet('Opgeslagen.');
   };
   /* sluit je zonder opslaan, dan zet accentZetten de bewaarde kleur terug */
-  bijSluiten=()=>{ if(S.accent!==keuze) accentZetten() };
+  bijSluiten=()=>{ if(S.accent!==nu()) accentZetten() };
 }
 
 function sheetAutoSoort(){
