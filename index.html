@@ -1672,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v273 · 14 aug 2026';
+const APPVERSIE='v274 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3515,6 +3515,7 @@ function dashboardHTML(){
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
     <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
+    <button class="snelknop" data-sheet="vraag">${svg(I.hulp)}Stel een vraag</button>
     <button class="snelknop" data-sheet="klaar">${svg(I.vink)}Ben je er klaar voor</button>
     <button class="snelknop" data-sheet="vooruit">${svg(I.vracht)}Wat moet je halen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
@@ -10445,6 +10446,7 @@ function straksHTML(key){
 /* ---------- binding ---------- */
 const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
   kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,vooruit:sheetVooruit,
+  vraag:()=>sheetVraag(''),
   beheer:sheetBeheer,
   klaar:sheetKlaar,
   kleurmogelijk:sheetKleurMogelijk,
@@ -15368,10 +15370,156 @@ function sheetBalkKiezen(){
   teken();
 }
 
+
+/* ===== een vraag stellen =====
+   Er staat veel uitleg in de app, maar je moest zelf weten waar je moest
+   kijken. Hier stel je gewoon een vraag en zoekt de app in haar eigen
+   handboek naar het antwoord.
+
+   Dit is geen taalmodel. Het zoekt op woorden en weegt waar ze staan: een
+   woord in de titel telt zwaarder dan een woord halverwege een uitleg. Voor
+   "hoe maak ik een factuur" is dat genoeg, en het werkt zonder verbinding
+   en zonder kosten.
+
+   Wil je er later een échte chatbot van maken, dan is dit precies de tekst
+   die je aan een taalmodel meegeeft. De kennis staat er dan al. */
+
+/* woorden die niets onderscheiden — die laten we buiten beschouwing */
+const STOPWOORDEN=new Set(['de','het','een','en','of','in','op','van','voor','met','die',
+  'dat','ik','je','mijn','hoe','wat','waar','kan','moet','wil','is','zijn','naar','aan',
+  'bij','als','dan','er','te','om','ook','niet','wel','doe','doen','maak','maken','krijg']);
+
+const woorden=t=>String(t||'').toLowerCase()
+  .replace(/[^a-zàâäéèêëïîôöùûüç0-9\s]/g,' ').split(/\s+/)
+  .filter(w=>w.length>2&&!STOPWOORDEN.has(w));
+
+/* Het handboek dekt acht onderwerpen. Een aantal dingen die je app wél kan
+   staan er niet in, en daar werd dus niets op gevonden. Hier staan ze, elk
+   met de knop die je meteen op de goede plek brengt. */
+const EXTRAKENNIS=[
+  {titel:'Etiketten maken', doe:()=>sheetProductEtiket(),
+   tekst:'Wettelijke benaming, ingrediënten op volgorde van gewicht, allergenen vet gedrukt, '+
+         'houdbaarheid en je bedrijfsgegevens. De app stelt het etiket samen uit je receptuur.'},
+  {titel:'Kilometers registreren', doe:()=>sheetRitten(),
+   tekst:'Leg je zakelijke ritten vast met begin- en eindadres. De app rekent de vergoeding '+
+         'uit en houdt het jaartotaal bij voor je aangifte.'},
+  {titel:'Kleuren mengen en berekenen', doe:()=>sheetKleuren(),
+   tekst:'Leg je potjes gekleurde cacaoboter vast: hoeveel boter en hoeveel kleurstof. '+
+         'De app rekent uit wat je nodig hebt per aantal mallen, wat het kost, en welke '+
+         'E-nummers op je etiket moeten. Je kunt kleuren mengen uit andere kleuren en '+
+         'een tint opzoeken.'},
+  {titel:'Een lot terugzoeken', doe:()=>sheetTrace(''),
+   tekst:'Tik een lotnummer, batchcode of ordernummer in en zie waar het vandaan komt en '+
+         'naar welke klanten het is gegaan. Nodig bij een terugroeping.'},
+  {titel:'Boodschappen en bestellen', doe:()=>sheetVooruit(),
+   tekst:'De app telt je geplande batches op, trekt af wat er ligt, en zegt per leverancier '+
+         'wanneer je uiterlijk moet bestellen gezien de levertijd.'},
+  {titel:'Bonnen en uitgaven', doe:()=>sheetBonnen(),
+   tekst:'Fotografeer een bon en leg het bedrag, de btw en de leverancier vast voor je boekhouding.'},
+  {titel:'Je gegevens meenemen', doe:()=>sheetData(),
+   tekst:'Maak een bestand met al je gegevens en foto\'s. Bewaar het veilig of zet het terug '+
+         'op een ander toestel.'},
+  {titel:'Inloggen en synchroniseren', doe:()=>sheetAccount(),
+   tekst:'Log één keer in met je e-mailadres en wachtwoord. Daarna staan je gegevens veilig '+
+         'en synchroniseren ze vanzelf tussen je toestellen.'}
+];
+
+/* alles wat de app over zichzelf weet, als doorzoekbare stukjes */
+function kennisbank(){
+  const uit=[];
+  EXTRAKENNIS.forEach(e=>uit.push({soort:'onderwerp', titel:e.titel, tekst:e.tekst,
+    zoek:e.titel+' '+e.tekst, doe:e.doe}));
+  UITLEG.forEach(u=>{
+    uit.push({soort:'onderwerp', titel:u.titel, tekst:u.kort,
+      zoek:u.titel+' '+u.kort, id:u.id});
+    (u.stappen||[]).forEach(st=>{
+      uit.push({soort:'stap', titel:st.t, tekst:st.u, onder:u.titel,
+        zoek:st.t+' '+st.u, id:u.id, knop:st.knop, sheet:st.sheet});
+    });
+  });
+  return uit;
+}
+
+/* Scoort een stukje tegen de vraag. Een woord in de titel telt drie keer,
+   een woord in de tekst één keer. Zonder die weging komt een terloopse
+   vermelding boven het scherm dat er echt over gaat. */
+function vraagScore(stuk,vw){
+  const t=String(stuk.titel||'').toLowerCase();
+  const b=String(stuk.tekst||'').toLowerCase();
+  let score=0;
+  vw.forEach(w=>{
+    if(t.includes(w)) score+=3;
+    if(b.includes(w)) score+=1;
+    /* ook een deel van een woord telt: "factur" vindt "facturen" */
+    if(w.length>4&&(t.includes(w.slice(0,-1))||b.includes(w.slice(0,-1)))) score+=0.5;
+  });
+  if(stuk.soort==='onderwerp') score*=1.2;   /* een heel onderwerp weegt zwaarder */
+  return score;
+}
+
+function vraagZoek(vraag){
+  const vw=woorden(vraag);
+  if(!vw.length) return [];
+  return kennisbank()
+    .map(k=>({k,score:vraagScore(k,vw)}))
+    .filter(x=>x.score>=2)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,6)
+    .map(x=>x.k);
+}
+
+/* vragen die vaak gesteld worden, als startpunt */
+const VOORBEELDVRAGEN=['Hoe maak ik een factuur?','Waar vul ik lotnummers in?',
+  'Hoe begin ik een batch?','Wat moet er op mijn etiket?','Hoe werkt de kilometerregistratie?'];
+
+function sheetVraag(vooraf){
+  const vraag=vooraf||'';
+  const treffers=vraag?vraagZoek(vraag):[];
+  sheet('Stel een vraag',
+    `<p class="hint">Typ je vraag in gewone woorden. De app zoekt het antwoord in haar
+       eigen handboek en brengt je naar de juiste plek.</p>
+     <div class="veld"><input class="inp" id="vrQ" value="${esc(vraag)}"
+       placeholder="Bijv. hoe maak ik een factuur?" enterkeyhint="search"></div>
+     ${!vraag?`<div class="blokkop" style="margin-top:20px">
+         <span class="eyebrow">Vaak gevraagd</span></div>
+       <div class="chips">${VOORBEELDVRAGEN.map(v=>
+         `<button class="chip" data-vv="${esc(v)}">${esc(v)}</button>`).join('')}</div>`
+      :treffers.length?`
+       <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Gevonden</span>
+         <span class="tel">${treffers.length}</span></div>
+       <div class="paneel">${treffers.map((t,i)=>`
+         <button class="arij" data-vr="${i}">
+           <span class="ivak">${svg(t.soort==='onderwerp'?I.boek:I.hulp)}</span>
+           <span class="naam">${esc(t.titel)}<small>${esc(
+             String(t.tekst||'').slice(0,90))}${String(t.tekst||'').length>90?'…':''}</small></span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
+      :`<div class="rustig" style="padding:34px 20px">
+         <div class="ico">${svg(I.hulp,'2.2')}</div>
+         <p>Daar vind ik niets over.<br>Probeer een ander woord, of kijk bij
+           <b>Hoe werkt het?</b> voor alle onderwerpen.</p>
+       </div>`}`,
+    `<button class="sec" style="margin-top:0" id="vrAlles">Alle onderwerpen</button>`);
+
+  const zoek=()=>{ const v=$('#vrQ').value.trim(); sheetVraag(v) };
+  $('#vrQ').onchange=zoek;
+  $('#vrQ').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); zoek() } };
+  if(!vraag) setTimeout(()=>{ const e=$('#vrQ'); if(e) e.focus() },220);
+  $$('[data-vv]').forEach(b=>b.onclick=()=>sheetVraag(b.dataset.vv));
+  $('#vrAlles').onclick=sheetUitleg;
+  $$('[data-vr]').forEach(b=>b.onclick=()=>{
+    const t=treffers[parseInt(b.dataset.vr,10)];
+    if(!t) return;
+    /* een onderwerp uit het handboek, of rechtstreeks het scherm zelf */
+    if(t.id) return sheetUitlegOnderwerp(t.id);
+    if(typeof t.doe==='function') return t.doe();
+  });
+}
+
 function sheetUitleg(){
   sheet('Hoe werkt het?',
     `<p class="hint">Kies een onderwerp. Je krijgt de stappen op volgorde, met een knop
       die je meteen op de juiste plek brengt.</p>
+     <button class="sec" id="uwVraag" style="margin:0 0 16px">${svg(I.hulp)}Liever een vraag stellen</button>
      <div class="paneel">${UITLEG.map(u=>{
        const rl=Object.keys(RONDLEIDINGEN).find(k=>k===u.id||(u.id==='voorraad'&&k==='ontvangst'));
        return `<button class="arij" data-uitleg="${u.id}">
@@ -15381,6 +15529,7 @@ function sheetUitleg(){
        <span class="waarde gevuld">${u.stappen.length}</span>
        <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`,'');
   $$('[data-uitleg]').forEach(b=>b.onclick=()=>sheetUitlegOnderwerp(b.dataset.uitleg));
+  if($('#uwVraag')) $('#uwVraag').onclick=()=>sheetVraag('');
 }
 
 function sheetUitlegOnderwerp(id){
