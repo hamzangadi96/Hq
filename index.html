@@ -1672,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v278 · 14 aug 2026';
+const APPVERSIE='v279 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15464,7 +15464,8 @@ const VRAAGWOORDEN=[
   {naar:'temperatuur', woorden:['temperatuur','koelkast','vriezer','koeling','graden','warm','koud',
     'thermometer','meten','meting','ijken','ijking']},
   {naar:'inkoop', woorden:['inkopen','inkoop','bestellen','boodschappen',
-    'leverancier','leveranciers','levertijd','tekort','aanvullen']},
+    'leverancier','leveranciers','levertijd','tekort','aanvullen',
+    'ontvangen','ontvangst','binnengekomen','grondstof','grondstoffen']},
   {naar:'kilometer', woorden:['kilometer','kilometers','km','rijden','rit','ritten','auto',
     'reiskosten','vergoeding','onderweg','tanken']},
   {naar:'kostprijs', woorden:['kostprijs','marge','winst','prijs','prijzen','verdien','verdienen','duur']},
@@ -15664,6 +15665,23 @@ function kennisbank(){
   const uit=[];
   EXTRAKENNIS.forEach(e=>uit.push({soort:'onderwerp', titel:e.titel, tekst:e.tekst,
     zoek:e.titel+' '+e.tekst, doe:e.doe, ond:e.ond}));
+  /* De rondleidingen: die wijzen veld voor veld aan wat er moet gebeuren.
+     Hun uitleg stond nergens doorzoekbaar, terwijl het juist de tekst is
+     die iemand zoekt als hij vastloopt. */
+  /* welk onderwerp hoort bij welke rondleiding, zodat ze winnen van een
+     scherm waar het woord toevallig in voorkomt */
+  const RLOND={smaak:'batch', ontvangst:'inkoop', batch:'batch'};
+  Object.keys(RONDLEIDINGEN).forEach(k=>{
+    const r=RONDLEIDINGEN[k];
+    const stappen=r.stappen||[];
+    uit.push({soort:'onderwerp', titel:r.titel, ond:RLOND[k],
+      tekst:stappen.map(x=>x.t).join(' · '),
+      zoek:r.titel+' '+stappen.map(x=>x.t+' '+x.u).join(' '),
+      doe:()=>rondleidingStart(k)});
+    stappen.forEach(x=>uit.push({soort:'stap', titel:x.t, tekst:x.u,
+      onder:r.titel, zoek:x.t+' '+x.u, doe:()=>rondleidingStart(k)}));
+  });
+
   /* Elk scherm met zijn eigen uitleg. Sommige schermen kun je niet zomaar
      openen — een factuur heeft een order nodig, een kleur een kleur. Die
      tonen we wel als antwoord, maar met een knop naar het tabblad waar je
@@ -15722,6 +15740,10 @@ function vraagZoek(vraag){
     .map(k=>({k,score:vraagScore(k,vw,ond)}))
     .filter(x=>x.score>=(ond.length?20:2))
     .sort((a,b)=>b.score-a.score)
+    /* dezelfde titel niet twee keer: een onderwerp uit het handboek en een
+       rondleiding heten soms hetzelfde */
+    .filter((x,i,alle)=>alle.findIndex(y=>
+      y.k.titel.toLowerCase()===x.k.titel.toLowerCase())===i)
     .slice(0,6)
     .map(x=>x.k);
 }
