@@ -736,6 +736,58 @@ textarea.wzvak{min-height:150px;line-height:1.65;resize:vertical;font-family:Int
   @page{size:A4;margin:8mm}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ============ soft-UI schil — Cacaoboetiek HQ ============
+   Plak dit blok onderaan je bestaande <style>. Het overschrijft alleen
+   de schil (bureau, panelen, tab-pil) en laat je schermlogica ongemoeid. */
+:root{
+  --bureau1:#c6c5c3; --bureau2:#aeadab; --bureau3:#a2a1a0;
+  --glas:rgba(252,252,251,.9); --glasrand:rgba(255,255,255,.55);
+  --paneelrand:rgba(24,24,27,.08); --vlak:#f4f3f1; --pil:#232326; --accent:#7a5c46;
+}
+body{background:linear-gradient(155deg,var(--bureau1) 0%,var(--bureau2) 55%,var(--bureau3) 100%);
+  background-attachment:fixed}
+
+/* de app is niet langer een witte plaat maar een stapel zwevende panelen */
+.app{background:transparent;box-shadow:none;gap:0}
+
+/* koppaneel */
+header{margin:6px 12px 10px;padding:12px 14px;border-radius:22px;background:rgba(250,250,249,.82);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid var(--glasrand);
+  box-shadow:0 18px 40px -28px rgba(0,0,0,.8)}
+header.gecentreerd{padding:14px 16px;border-bottom:none}
+header.gecentreerd.klein{padding:10px 16px}
+header.gecentreerd .hbtn.menu{top:12px;right:14px}
+.hbtn{width:40px;height:40px;border-radius:99px;background:#efeeec;color:var(--grijs);margin-top:0}
+.hbtn.terug,.hbtn.menu{margin:0}
+
+/* hoofdpaneel: loopt onderaan door onder de tab-pil */
+main{margin:0 12px;padding:22px 20px 28px;border-radius:24px 24px 0 0;background:var(--glas);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border:1px solid var(--glasrand);border-bottom:none;box-shadow:0 26px 60px -34px rgba(0,0,0,.7)}
+
+/* panelen binnen het hoofdpaneel worden vlakker, zodat het niet gaat stapelen */
+.paneel,.cijfers,.snelknop{border-radius:20px;border-color:var(--paneelrand)}
+.hoofdkaart{border-radius:20px;background:var(--vlak);border:1px solid var(--paneelrand);box-shadow:none}
+.hoofdkaart.klaar{background:var(--card)}
+.loopt,.uwtot{background:#f2f1ef;border-radius:14px}
+.blokkop{margin:24px 2px 12px}
+
+/* grotere raakvlakken voor in de keuken */
+.prim,.knop2,.sec{height:56px;border-radius:16px}
+.rij,.arij{padding-top:17px;padding-bottom:17px}
+.chip{padding:14px 16px}
+
+/* tab-pil */
+nav{margin:10px 12px 12px;background:var(--pil);border-top:none;border-radius:26px;
+  padding:10px 6px calc(10px + env(safe-area-inset-bottom));
+  box-shadow:0 20px 44px -24px rgba(0,0,0,.95)}
+.tab{color:rgba(255,255,255,.45);padding:8px 0;border-radius:16px}
+.tab.actief{color:#fff;background:rgba(255,255,255,.12)}
+
+/* sheets blijven wit, maar sluiten aan op de nieuwe radii */
+.sheet{border-radius:26px 26px 0 0}
+
 </style>
 </head>
 <body>
