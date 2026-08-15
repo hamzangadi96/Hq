@@ -1968,7 +1968,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v291 · 15 aug 2026';
+const APPVERSIE='v292 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7160,6 +7160,14 @@ const ACCENTEN=[
   {k:'paars',     n:'Paars',     c:'#7e22ce'},
   {k:'magenta',   n:'Magenta',   c:'#a21caf'}
 ];
+
+/* Wat er achter de rij in Instellingen komt te staan: de naam als het een
+   van de startkleuren is, anders gewoon de hexwaarde. */
+function accentNaam(){
+  const c=accentKleur().toLowerCase();
+  const a=ACCENTEN.find(x=>x.c.toLowerCase()===c);
+  return a?a.n.toLowerCase():c.toUpperCase();
+}
 
 /* S.accent was een naam ('petrol'), is nu een hexwaarde. Oude opslag blijft
    werken. */
@@ -16711,7 +16719,7 @@ function sheetInstellingen(){
 
      <div class="mkop">Weergave</div>
      <button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
-       accentKleur().n.toLowerCase()}</span></button>
+       accentNaam()}</span></button>
 
      <div class="mkop">Zelden</div>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
