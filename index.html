@@ -1672,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v274 · 14 aug 2026';
+const APPVERSIE='v276 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15384,6 +15384,128 @@ function sheetBalkKiezen(){
    Wil je er later een échte chatbot van maken, dan is dit precies de tekst
    die je aan een taalmodel meegeeft. De kennis staat er dan al. */
 
+
+
+/* ===== typefouten opvangen =====
+   Iemand die in de haast iets opzoekt typt "faktuur", "ftactuur" of gewoon
+   "factur". Daarom vergelijken we niet op gelijk zijn maar op hoeveel
+   aanslagen er verschillen.
+
+   Twee lagen. Eerst maken we het woord kaal: dubbele letters eruit, ck→k,
+   y→i, en zo verder. Zo vallen "faktuur" en "factuur" al samen. Wat dan nog
+   verschilt vangen we op met de afstand: hoeveel letters je moet toevoegen,
+   weghalen of wisselen om van het ene woord het andere te maken. */
+
+function kaal(w){
+  return String(w||'').toLowerCase()
+    .replace(/[àâä]/g,'a').replace(/[éèêë]/g,'e').replace(/[ïî]/g,'i')
+    .replace(/[ôö]/g,'o').replace(/[ùûü]/g,'u').replace(/ç/g,'c')
+    .replace(/ck/g,'k').replace(/c([ei])/g,'s$1').replace(/c/g,'k')
+    .replace(/y/g,'i').replace(/(ij|ei)/g,'i').replace(/ph/g,'f')
+    .replace(/(.)\1+/g,'$1');          /* dubbele letters samentrekken */
+}
+
+/* Hoeveel aanslagen schelen twee woorden? Stopt zodra het er te veel zijn,
+   want dan hoeven we niet verder te rekenen. */
+function afstand(a,b,max){
+  if(a===b) return 0;
+  const n=a.length, m=b.length;
+  if(Math.abs(n-m)>max) return max+1;
+  let vorig=Array.from({length:m+1},(_,j)=>j), voorvorig=[];
+  for(let i=1;i<=n;i++){
+    const rij=[i];
+    let besteRij=i;
+    for(let j=1;j<=m;j++){
+      const kost=a[i-1]===b[j-1]?0:1;
+      rij[j]=Math.min(rij[j-1]+1, vorig[j]+1, vorig[j-1]+kost);
+      /* Twee omgewisselde letters ("numre" voor "numer") is één misslag,
+         geen twee. Zonder deze regel valt de meest gemaakte typefout af. */
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])
+        rij[j]=Math.min(rij[j], voorvorig[j-2]+1);
+      if(rij[j]<besteRij) besteRij=rij[j];
+    }
+    if(besteRij>max) return max+1;     /* wordt toch niets meer */
+    voorvorig=vorig; vorig=rij;
+  }
+  return vorig[m];
+}
+
+/* Lijken twee woorden genoeg op elkaar? Hoe langer het woord, hoe meer
+   speling — bij "factuur" mag er één letter mis, bij "voedselveiligheid"
+   twee. Korte woorden krijgen geen speling, anders wordt "bon" gelijk aan "bak". */
+function lijktOp(getypt,doel){
+  const a=kaal(getypt), b=kaal(doel);
+  if(a===b) return true;
+  if(b.startsWith(a)&&a.length>=Math.max(4,b.length-3)) return true;
+  const lengte=Math.min(a.length,b.length);
+  if(lengte<5) return false;
+  const speling=lengte>=10?2:1;
+  return afstand(a,b,speling)<=speling;
+}
+
+/* ===== woorden die hetzelfde betekenen =====
+   Zoeken op losse woorden ging mis: "hoe reken ik af met een klant" kwam uit
+   bij kleuren mengen, want "reken" staat daar ook in. Daarom herkennen we nu
+   eerst waar een vraag óver gaat, en pas daarna zoeken we op woorden.
+
+   Elk onderwerp heeft een rij woorden waarmee een mens het aanduidt. Staat er
+   één van in de vraag, dan telt dat onderwerp zwaar mee. */
+const VRAAGWOORDEN=[
+  {naar:'factuur', woorden:['factuur','facturen','factureren','rekening','afrekenen','afreken','reken af',
+    'betalen','betaling','betaald','geld','incasso','openstaand','debiteur','bon voor de klant',
+    'nota','verdien','omzet','inkomsten']},
+  {naar:'etiket', woorden:['etiket','etiketten','label','sticker','verpakking','ingrediënten',
+    'ingredienten','allergenen','allergeen','declaratie','wat erin zit','samenstelling',
+    'e-nummer','enummer','voedingswaarde']},
+  {naar:'houdbaar', woorden:['houdbaar','houdbaarheid','tht','vervaldatum','verlopen','bedorven','bederf']},
+  {naar:'voorraad', woorden:['voorraad','liggen','ligt','tellen','telronde','magazijn','restant','gereed']},
+  {naar:'lot', woorden:['lot','lotnummer','partij','traceren','tracering','terugroepen',
+    'terugroeping','recall','ziek','klacht','waar komt het vandaan','herkomst']},
+  {naar:'temperatuur', woorden:['temperatuur','koelkast','vriezer','koeling','graden','warm','koud',
+    'thermometer','meten','meting','ijken','ijking']},
+  {naar:'inkoop', woorden:['inkopen','inkoop','bestellen','boodschappen',
+    'leverancier','leveranciers','levertijd','tekort','aanvullen']},
+  {naar:'kilometer', woorden:['kilometer','kilometers','km','rijden','rit','ritten','auto',
+    'reiskosten','vergoeding','onderweg','tanken']},
+  {naar:'kostprijs', woorden:['kostprijs','marge','winst','prijs','prijzen','verdien','verdienen','duur']},
+  {naar:'batch', woorden:['batch','batches','productie','produceren','draaien','inplannen','planning','mal','mallen']},
+  {naar:'order', woorden:['order','orders','leveren','verzenden','verzending','levering','shopify','inpakken']},
+  {naar:'kleur', woorden:['kleur','kleuren','kleurstof','pigment','tint','mengen','cacaoboter']},
+  {naar:'haccp', woorden:['haccp','hygiëne','hygiene','schoonmaak','schoonmaken','controle',
+    'controles','ongedierte','nvwa','inspectie','voedselveiligheid','openingscheck']}
+];
+
+/* Zoeken op letterreeksen ging mis: "potjes" bevat "op", dus elk stukje over
+   kleuren gold als voorraad. Daarom vergelijken we hele woorden. */
+function bevatWoord(tekst,zoek,soepel){
+  const schoon=String(tekst||'').toLowerCase()
+    .replace(/[^a-zàâäéèêëïîôöùûüç0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+  const t=' '+schoon+' ';
+  const z=String(zoek).toLowerCase();
+  /* Meerdere woorden mogen uit elkaar staan: "hoe reken ik af" bevat
+     "reken af" niet aaneengesloten, maar wel allebei de woorden. */
+  if(z.includes(' ')) return z.split(' ').every(d=>t.includes(' '+d+' '));
+  /* ook de meervoudsvorm: "factuur" vindt "facturen" */
+  if(t.includes(' '+z+' ')||t.includes(' '+z+'en ')||t.includes(' '+z+'s ')) return true;
+  /* en als het mag: een verhaspeling ervan */
+  if(!soepel) return false;
+  return schoon.split(' ').some(w=>w.length>3&&lijktOp(w,z));
+}
+
+/* welke onderwerpen herkent de app in deze vraag? */
+function vraagOnderwerpen(vraag){
+  /* In de vraag van de gebruiker mag getypt worden zoals het uitkomt.
+     In onze eigen teksten niet — die kloppen, daar zou het alleen ruis geven. */
+  return VRAAGWOORDEN.filter(g=>g.woorden.some(w=>bevatWoord(vraag,w,true))).map(g=>g.naar);
+}
+
+/* Waar gaat een stukje kennis over? Zo matchen we vraag en antwoord op
+   onderwerp in plaats van op losse woorden. */
+function stukOnderwerpen(k){
+  const t=String(k.titel||'')+' '+String(k.tekst||'');
+  return VRAAGWOORDEN.filter(g=>g.woorden.some(w=>bevatWoord(t,w))).map(g=>g.naar);
+}
+
 /* woorden die niets onderscheiden — die laten we buiten beschouwing */
 const STOPWOORDEN=new Set(['de','het','een','en','of','in','op','van','voor','met','die',
   'dat','ik','je','mijn','hoe','wat','waar','kan','moet','wil','is','zijn','naar','aan',
@@ -15397,38 +15519,57 @@ const woorden=t=>String(t||'').toLowerCase()
    staan er niet in, en daar werd dus niets op gevonden. Hier staan ze, elk
    met de knop die je meteen op de goede plek brengt. */
 const EXTRAKENNIS=[
-  {titel:'Etiketten maken', doe:()=>sheetProductEtiket(),
+  {ond:'etiket', titel:'Etiketten maken', doe:()=>sheetProductEtiket(),
    tekst:'Wettelijke benaming, ingrediënten op volgorde van gewicht, allergenen vet gedrukt, '+
          'houdbaarheid en je bedrijfsgegevens. De app stelt het etiket samen uit je receptuur.'},
-  {titel:'Kilometers registreren', doe:()=>sheetRitten(),
+  {ond:'kilometer', titel:'Kilometers registreren', doe:()=>sheetRitten(),
    tekst:'Leg je zakelijke ritten vast met begin- en eindadres. De app rekent de vergoeding '+
          'uit en houdt het jaartotaal bij voor je aangifte.'},
-  {titel:'Kleuren mengen en berekenen', doe:()=>sheetKleuren(),
+  {ond:'kleur', titel:'Kleuren mengen en berekenen', doe:()=>sheetKleuren(),
    tekst:'Leg je potjes gekleurde cacaoboter vast: hoeveel boter en hoeveel kleurstof. '+
-         'De app rekent uit wat je nodig hebt per aantal mallen, wat het kost, en welke '+
-         'E-nummers op je etiket moeten. Je kunt kleuren mengen uit andere kleuren en '+
-         'een tint opzoeken.'},
-  {titel:'Een lot terugzoeken', doe:()=>sheetTrace(''),
+         'De app rekent uit wat je nodig hebt, wat het kost, en welke E-nummers op je '+
+         'etiket moeten. Je kunt kleuren mengen en een tint opzoeken.'},
+  {ond:'lot', titel:'Een lot terugzoeken', doe:()=>sheetTrace(''),
    tekst:'Tik een lotnummer, batchcode of ordernummer in en zie waar het vandaan komt en '+
-         'naar welke klanten het is gegaan. Nodig bij een terugroeping.'},
-  {titel:'Boodschappen en bestellen', doe:()=>sheetVooruit(),
+         'naar wie het is gegaan. Nodig bij een terugroeping of een klacht.'},
+  {ond:'inkoop', titel:'Boodschappen en bestellen', doe:()=>sheetVooruit(),
    tekst:'De app telt je geplande batches op, trekt af wat er ligt, en zegt per leverancier '+
          'wanneer je uiterlijk moet bestellen gezien de levertijd.'},
-  {titel:'Bonnen en uitgaven', doe:()=>sheetBonnen(),
-   tekst:'Fotografeer een bon en leg het bedrag, de btw en de leverancier vast voor je boekhouding.'},
+  {ond:'factuur', titel:'Facturen en betalingen', doe:()=>{S.tab='geld';dicht();render()},
+   tekst:'Maak een factuur bij een geleverde order, met de btw gesplitst. Zie wat er nog '+
+         'openstaat en wie niet betaald heeft.'},
+  {ond:'houdbaar', titel:'Houdbaarheid en THT', doe:()=>{S.tab='voorraad';dicht();render()},
+   tekst:'Per smaak leg je vast hoeveel dagen die houdbaar is. De app rekent de THT uit bij '+
+         'elke batch en waarschuwt als iets bijna verloopt of bedorven raakt.'},
+  {ond:'voorraad', titel:'Voorraad en tellen', doe:()=>{S.tab='voorraad';dicht();render()},
+   tekst:'Zie hoeveel er van elke smaak klaar ligt, met lotnummer en houdbaarheid. Met een '+
+         'telronde zet je de werkelijke aantallen recht.'},
+  {ond:'temperatuur', titel:'Temperatuur meten', doe:()=>sheetTemp(),
+   tekst:'Leg je koelkast, vriezer en werkruimte vast als meetpunt met een boven- en '+
+         'ondergrens. Meet je een waarde buiten die grens, dan legt de app dat vast.'},
+  {ond:'kostprijs', titel:'Kostprijs en marge', doe:()=>sheetKostenbasis(),
+   tekst:'Wat een bonbon kost aan grondstoffen, verpakking, arbeid en vaste lasten. '+
+         'Daarmee zie je je marge en wat je verdient per stuk of per doos.'},
+  {ond:'order', titel:'Orders en leveren', doe:()=>{S.tab='orders';dicht();render()},
+   tekst:'Neem een bestelling aan, pak hem in, koppel de lotnummers en verstuur hem.'},
+  {ond:'haccp', titel:'Voedselveiligheid en controles', doe:()=>SHEETS.haccp(),
+   tekst:'Je openingscheck, schoonmaakregistratie, ongediertecontrole en het dossier '+
+         'waarmee je een inspectie van de NVWA tegemoet treedt.'},
+  {ond:'batch', titel:'Een batch draaien', doe:()=>{S.tab='productie';dicht();render()},
+   tekst:'Plan een batch in, start hem, loop de stappen af en rond hem af.'},
   {titel:'Je gegevens meenemen', doe:()=>sheetData(),
-   tekst:'Maak een bestand met al je gegevens en foto\'s. Bewaar het veilig of zet het terug '+
-         'op een ander toestel.'},
+   tekst:'Maak een bestand met al je gegevens en foto\'s. Bewaar het veilig of zet het '+
+         'terug op een ander toestel.'},
   {titel:'Inloggen en synchroniseren', doe:()=>sheetAccount(),
    tekst:'Log één keer in met je e-mailadres en wachtwoord. Daarna staan je gegevens veilig '+
-         'en synchroniseren ze vanzelf tussen je toestellen.'}
+         'en synchroniseren ze vanzelf.'}
 ];
 
 /* alles wat de app over zichzelf weet, als doorzoekbare stukjes */
 function kennisbank(){
   const uit=[];
   EXTRAKENNIS.forEach(e=>uit.push({soort:'onderwerp', titel:e.titel, tekst:e.tekst,
-    zoek:e.titel+' '+e.tekst, doe:e.doe}));
+    zoek:e.titel+' '+e.tekst, doe:e.doe, ond:e.ond}));
   UITLEG.forEach(u=>{
     uit.push({soort:'onderwerp', titel:u.titel, tekst:u.kort,
       zoek:u.titel+' '+u.kort, id:u.id});
@@ -15443,26 +15584,39 @@ function kennisbank(){
 /* Scoort een stukje tegen de vraag. Een woord in de titel telt drie keer,
    een woord in de tekst één keer. Zonder die weging komt een terloopse
    vermelding boven het scherm dat er echt over gaat. */
-function vraagScore(stuk,vw){
+function vraagScore(stuk,vw,onderwerpen){
   const t=String(stuk.titel||'').toLowerCase();
   const b=String(stuk.tekst||'').toLowerCase();
   let score=0;
   vw.forEach(w=>{
     if(t.includes(w)) score+=3;
+    else if(w.length>4&&t.split(/\s+/).some(x=>lijktOp(w,x))) score+=2;
     if(b.includes(w)) score+=1;
-    /* ook een deel van een woord telt: "factur" vindt "facturen" */
-    if(w.length>4&&(t.includes(w.slice(0,-1))||b.includes(w.slice(0,-1)))) score+=0.5;
+    else if(w.length>4&&b.split(/\s+/).some(x=>lijktOp(w,x))) score+=0.7;
   });
-  if(stuk.soort==='onderwerp') score*=1.2;   /* een heel onderwerp weegt zwaarder */
+  /* Het onderwerp weegt het zwaarst. Daarmee komt "hoe reken ik af met een
+     klant" bij je factuur uit en niet bij het kleurenscherm, waar toevallig
+     ook het woord "reken" in staat. */
+  if(onderwerpen&&onderwerpen.length){
+    /* Een stukje dat expliciet over dit onderwerp gaat wint altijd van een
+       stukje waar het woord toevallig in voorkomt. */
+    if(stuk.ond&&onderwerpen.includes(stuk.ond)) score+=40;
+    const eigen=stukOnderwerpen(stuk);
+    const raak=onderwerpen.filter(o=>eigen.includes(o)).length;
+    if(raak) score+=raak*6;
+    else if(!stuk.ond||!onderwerpen.includes(stuk.ond)) score*=0.3;
+  }
+  if(stuk.soort==='onderwerp') score*=1.2;
   return score;
 }
 
 function vraagZoek(vraag){
   const vw=woorden(vraag);
-  if(!vw.length) return [];
+  const ond=vraagOnderwerpen(vraag);
+  if(!vw.length&&!ond.length) return [];
   return kennisbank()
-    .map(k=>({k,score:vraagScore(k,vw)}))
-    .filter(x=>x.score>=2)
+    .map(k=>({k,score:vraagScore(k,vw,ond)}))
+    .filter(x=>x.score>=(ond.length?20:2))
     .sort((a,b)=>b.score-a.score)
     .slice(0,6)
     .map(x=>x.k);
