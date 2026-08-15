@@ -28,6 +28,12 @@
   --kopRij: 60px;
   --kopHoogte: calc(var(--kopRij) + var(--veiligBoven));
   --ink:#18181b; --ink2:#3f3f46; --grijs:#71717a; --grijs2:#a1a1aa; --grijs3:#d4d4d8;
+  /* Het accent: wat actief is, gekozen is, of de knop is die je moet indrukken.
+     Staat los van --ink, want --ink is gewoon tekst. Alleen deze variabele
+     verandert mee als je in Instellingen een andere kleur kiest. Oppervlakken
+     (de kop, de hoofdkaart, tooltips) blijven bewust antraciet: die zouden
+     een gekozen kleur over het halve scherm smeren. */
+  --accent:#18181b;
   --bg:#f4f4f5; --lijn:#ececee; --card:#fff;
   --groen:#15803d; --amber:#b45309; --rood:#c0392b;
 }
@@ -191,7 +197,7 @@ main>.blokkop:first-child{margin-top:8px}
 .balk{display:flex;gap:4px;margin:16px 0 12px}
 .balk.top{margin:0 0 8px}
 .seg{flex:1;height:3px;border-radius:99px;background:var(--grijs3)}
-.seg.vol{background:var(--ink)}
+.seg.vol{background:var(--accent)}
 .stap{font-size:12.5px;font-weight:600;color:var(--grijs2);letter-spacing:-.01em}
 .hoofdkaart{background:var(--card);border-radius:18px;padding:20px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -18px rgba(24,24,27,.22)}
@@ -201,7 +207,7 @@ main>.blokkop:first-child{margin-top:8px}
 .loopt .ln{flex:1;font-size:14px;font-weight:600;letter-spacing:-.015em}
 .loopt .lt{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .loopt .tp{width:8px;height:8px;border-radius:99px;background:#22c55e;flex:none;animation:pols 2s infinite}
-.prim{width:100%;height:48px;border-radius:14px;background:var(--ink);color:#fff;font-size:15px;
+.prim{width:100%;height:48px;border-radius:14px;background:var(--accent);color:#fff;font-size:15px;
   font-weight:600;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em}
 .prim:active{opacity:.85}
 .prim svg{width:16px;height:16px;stroke-width:2.2}
@@ -363,6 +369,25 @@ main>.blokkop:first-child{margin-top:8px}
 .wg.let .wgsub{color:var(--amber)}
 .wg.rood .wggetal{color:var(--rood)}
 .wg.rood .wgsub{color:var(--rood)}
+/* Alleen het getal kleuren was te weinig: tussen zes witte tegels moet je
+   nog steeds lezen om te zien welke iets van je wil. Nu krijgt zo'n tegel
+   een balk aan de kop, een gekleurde rand en een lichte tint. Je ziet het
+   van een halve meter, zonder dat het schreeuwt. */
+.wg.let,.wg.rood{position:relative;overflow:hidden}
+.wg.let::before,.wg.rood::before{content:'';position:absolute;left:0;top:0;bottom:0;
+  width:4px}
+.wg.let::before{background:var(--amber)}
+.wg.rood::before{background:var(--rood)}
+.wg.let{border:1px solid rgba(180,83,9,.22);background:#fffdf7}
+.wg.rood{border:1px solid rgba(192,57,43,.22);background:#fffaf9}
+.wg.let .wgkop .l{color:var(--amber)}
+.wg.rood .wgkop .l{color:var(--rood)}
+.wg.let .wgkop svg{color:rgba(180,83,9,.5)}
+.wg.rood .wgkop svg{color:rgba(192,57,43,.5)}
+/* de eerste tegel is breed; daar staat de balk over de volle breedte bovenaan
+   beter dan een streepje van vier pixels naast een getal van 40 */
+.tegelrooster>.wg:first-child.let::before,
+.tegelrooster>.wg:first-child.rood::before{width:auto;right:0;bottom:auto;height:4px}
 .wg.groen .wggetal{color:var(--groen)}
 .wg.breed .wgvak{width:42px;height:42px;border-radius:13px;background:var(--bg);
   display:grid;place-items:center;flex:none}
@@ -414,7 +439,7 @@ main>.blokkop:first-child{margin-top:8px}
 .wdag.maand .wd{color:var(--ink)}
 
 /* vandaag wint altijd: zwart blokje */
-.wdag.nu,.wdag.nu.leeg,.wdag.nu.vol{background:var(--ink);border-color:var(--ink)}
+.wdag.nu,.wdag.nu.leeg,.wdag.nu.vol{background:var(--accent);border-color:var(--accent)}
 .wdag.nu .wd{color:#8f8f98}
 .wdag.nu .wn,.wdag.nu.leeg .wn{color:#fff}
 .wstippen{display:flex;gap:2px;height:6px;margin-top:5px;align-items:center}
@@ -484,7 +509,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .bvak.leeg{background:none;border:1.5px dashed #3f3f46}
 .kiesvink{width:24px;height:24px;border-radius:99px;border:1.5px solid var(--lijn);flex:none;
   display:grid;place-items:center;color:#fff}
-.kiesvink.aan{background:var(--ink);border-color:var(--ink)}
+.kiesvink.aan{background:var(--accent);border-color:var(--accent)}
 .kiesvink svg{width:13px;height:13px}
 .arij.uit{opacity:.4}
 
@@ -511,7 +536,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .kiesbalk button:disabled{opacity:.4}
 .kiesvak{width:22px;height:22px;border-radius:7px;border:1.5px solid #d8d8dc;flex:none;
   display:grid;place-items:center;color:#fff;background:#fff}
-.kiesvak.aan{background:var(--ink);border-color:var(--ink)}
+.kiesvak.aan{background:var(--accent);border-color:var(--accent)}
 .kiesvak svg{width:12px;height:12px;stroke-width:2.6}
 
 /* met zes knoppen wordt het krap: het label van de actieve tab mag korter */
@@ -521,7 +546,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .stapbalk{display:flex;gap:6px;margin:0 0 16px}
 .stapbol{flex:1;height:4px;border-radius:99px;background:var(--bg)}
 .stapbol.af{background:var(--grijs3)}
-.stapbol.nu{background:var(--ink)}
+.stapbol.nu{background:var(--accent)}
 .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .brkaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
   padding:18px 14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
@@ -671,7 +696,7 @@ header .hbtn.zoek{display:none}
 .hulpknop svg{width:17px;height:17px;stroke-width:1.8}
 .hulpknop.aan{display:grid}
 .hulpknop:active{background:var(--lijn);color:var(--ink)}
-.unr{width:27px;height:27px;border-radius:99px;background:var(--ink);color:#fff;flex:none;
+.unr{width:27px;height:27px;border-radius:99px;background:var(--accent);color:#fff;flex:none;
   display:grid;place-items:center;font-size:13px;font-weight:700;position:relative;z-index:1}
 .uin{flex:1;min-width:0;padding-top:2px}
 .ut{font-size:15.5px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.35}
@@ -876,7 +901,16 @@ header .hbtn.zoek{display:none}
   line-height:1.15;text-align:left}
 .chatchip:active{background:var(--bg)}
 /* het onderwerp van het scherm waar je vandaan komt staat voorop */
-.chatchip.nu{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.chatchip.nu{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+/* de accentkiezer */
+.acrooster{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.acvak{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px;
+  background:var(--card);border:1px solid var(--lijn);border-radius:16px}
+.acvak.aan{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.acbol{width:38px;height:38px;border-radius:99px;display:grid;place-items:center;color:#fff}
+.acbol svg{width:17px;height:17px;opacity:0;transition:opacity .18s}
+.acvak.aan .acbol svg{opacity:1}
+.acnaam{font-size:12.5px;font-weight:600;color:var(--ink2)}
 /* ── de stapkaart ──
    Elke stap was een eigen ballon. Na vijf stappen stond het scherm vol met
    dingen die je al gehad had en moest je terugscrollen om te zien waar je
@@ -887,7 +921,7 @@ header .hbtn.zoek{display:none}
 .stapbalk{display:flex;align-items:center;gap:4px;margin-bottom:14px}
 .stapbalk i{flex:1;height:3px;border-radius:99px;background:var(--lijn);
   transition:background .3s}
-.stapbalk i.aan{background:var(--ink)}
+.stapbalk i.aan{background:var(--accent)}
 .stapteller{flex:none;margin-left:8px;font-size:11px;font-weight:700;letter-spacing:.08em;
   color:var(--grijs2);white-space:nowrap}
 /* overflow:hidden zodat de hoogte netjes mee kan groeien tijdens de wissel */
@@ -906,7 +940,7 @@ header .hbtn.zoek{display:none}
 .stapterug{flex:none;font-size:14px;font-weight:600;color:var(--grijs);padding:8px 10px;
   border-radius:99px}
 .stapterug[disabled]{opacity:.3}
-.stapverder{margin-left:auto;background:var(--ink);color:#fff;font-size:14px;font-weight:600;
+.stapverder{margin-left:auto;background:var(--accent);color:#fff;font-size:14px;font-weight:600;
   padding:11px 18px;border-radius:99px}
 .stapaf{display:flex;align-items:center;gap:7px;margin:16px -16px 0;padding:12px 16px;
   border-top:1px solid var(--lijn);font-size:13.5px;font-weight:600;color:var(--groen)}
@@ -1891,7 +1925,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v288 · 15 aug 2026';
+const APPVERSIE='v289 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3382,9 +3416,15 @@ function tegelsHTML(){
   /* wat er vandaag te doen is, inclusief je baan */
   const w=werkOp(vandaag());
   const taken=allePlanTaken().filter(x=>x.datum===vandaag()).length;
+  /* boodschappen die vandaag gehaald moeten worden tellen mee als "let op":
+     doe je ze niet, dan schuift je hele batch op. */
+  const boodVandaag=planLijst().filter(pp=>{
+    const bd=boodschapDatum(pp); return bd&&dagenTussen(vandaag(),bd)<=0;
+  }).length;
   h+=tegel('data-naar="agenda"','Vandaag',I.klok,
     taken||null,
-    w&&w.plek!=='vrij' ? esc(werkTekst(w)) : (taken?'op de rol':'niets gepland'));
+    w&&w.plek!=='vrij' ? esc(werkTekst(w)) : (taken?'op de rol':'niets gepland'),
+    boodVandaag?'let':'');
 
   /* een brede tegel voor wat er als eerste aan de beurt is */
   const pl=planLijst()[0];
@@ -7066,6 +7106,53 @@ function geldHTML(){
 /* Stonden als losse code in de knopbindingen, waardoor je ze alleen kon
    openen vanaf het scherm Financiën. Nu zijn het gewone functies en kun
    je ze ook vanuit het tandwiel bereiken. */
+/* Rood, oranje, geel en groen ontbreken met opzet: dat zijn statuskleuren.
+   Zou je accent rood zijn, dan is een echte fout niet meer te herkennen. */
+const ACCENTEN=[
+  {k:'antraciet', n:'Antraciet', c:'#18181b'},
+  {k:'petrol',    n:'Petrol',    c:'#0f766e'},
+  {k:'blauw',     n:'Blauw',     c:'#1d4ed8'},
+  {k:'indigo',    n:'Indigo',    c:'#4338ca'},
+  {k:'paars',     n:'Paars',     c:'#7e22ce'},
+  {k:'magenta',   n:'Magenta',   c:'#a21caf'}
+];
+const accentKleur=()=>(ACCENTEN.find(a=>a.k===S.accent)||ACCENTEN[0]);
+
+/* Op één plek zetten, zodat het ook klopt na een herstart en na het inlezen
+   uit Firebase. De themakleur van de browserbalk gaat mee. */
+function accentZetten(){
+  const a=accentKleur();
+  document.documentElement.style.setProperty('--accent',a.c);
+  const m=document.querySelector('meta[name="theme-color"]');
+  if(m) m.setAttribute('content',a.c);
+}
+
+function sheetAccent(){
+  sheet('Accentkleur',
+    `<p class="hint">De kleur van knoppen, de dag van vandaag en alles wat
+      aan staat. Rood, oranje en groen kun je niet kiezen: die betekenen in
+      deze app een status, en dat moet zo blijven.</p>
+     <div class="acrooster" id="acR">${ACCENTEN.map(a=>
+       `<button class="acvak${a.k===accentKleur().k?' aan':''}" data-ac="${a.k}">
+         <span class="acbol" style="background:${a.c}">${svg(I.vink,'2.6')}</span>
+         <span class="acnaam">${a.n}</span></button>`).join('')}</div>`,
+    `<button class="prim" style="margin-top:0" id="acOk">Opslaan</button>`);
+  let keuze=accentKleur().k;
+  const teken=()=>{
+    $$('#acR [data-ac]').forEach(b=>b.classList.toggle('aan',b.dataset.ac===keuze));
+    /* meteen laten zien wat je kiest — de knop hieronder kleurt mee */
+    const a=ACCENTEN.find(x=>x.k===keuze)||ACCENTEN[0];
+    document.documentElement.style.setProperty('--accent',a.c);
+  };
+  $$('#acR [data-ac]').forEach(b=>b.onclick=()=>{ keuze=b.dataset.ac; teken() });
+  $('#acOk').onclick=()=>{
+    S.accent=keuze; bewaarNu(); accentZetten(); render();
+    klaarSheet('Opgeslagen.');
+  };
+  /* sluit je zonder opslaan, dan zet accentZetten de bewaarde kleur terug */
+  bijSluiten=()=>{ if(S.accent!==keuze) accentZetten() };
+}
+
 function sheetAutoSoort(){
   sheet('Soort auto',
     `<p class="hint">Dit bepaalt wat je moet aantonen. Kies wat op jou van toepassing is.</p>
@@ -16427,6 +16514,10 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="beheer">${svg(I.instel)}Beheer<span class="tel">${
        (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
 
+     <div class="mkop">Weergave</div>
+     <button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
+       accentKleur().n.toLowerCase()}</span></button>
+
      <div class="mkop">Zelden</div>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
        Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
@@ -16462,6 +16553,7 @@ function sheetInstellingen(){
     if(k==='beheer') return sheetBeheer();
     if(k==='mallen') return sheetMallen();
     if(k==='kleuren') return sheetKleuren();
+    if(k==='accent') return sheetAccent();
     if(k==='uitleg') return sheetUitleg();
     if(k==='kostenbasis') return sheetKostenbasis();
     if(k==='plekken') return sheetPlekken();
@@ -16961,6 +17053,7 @@ let startKlaar=false;
   try{ await laden(); }
   catch(e){ console.error('laden:',e); noodScherm(e); startKlaar=true; return; }
   startKlaar=true;
+  accentZetten();
   render();
   /* Werd de app weggedrukt terwijl je een bon invulde? Dan pak je hem hier op. */
   try{
