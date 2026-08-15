@@ -1733,16 +1733,17 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 /* ── elk scherm opent met een donkere kaart ──
    De eerste tegel van een rooster wordt breed en donker, zodat Financiën,
    Voorraad, Orders en Agenda dezelfde opening krijgen als het dashboard. */
-.tegelrooster>.wg:first-child{grid-column:1 / -1;min-height:130px;
-  background:linear-gradient(160deg,#2a2a2e,#141416);color:#fff;
-  box-shadow:0 16px 34px rgba(24,24,27,.24)}
-.tegelrooster>.wg:first-child .l,.tegelrooster>.wg:first-child .wgsub{color:#a1a1aa}
-.tegelrooster>.wg:first-child .wggetal{color:#fff;font-size:40px}
-.tegelrooster>.wg:first-child .wgkop svg{color:#71717a}
-.tegelrooster>.wg:first-child .wgdelta{color:#d4d4d8}
-.tegelrooster>.wg:first-child .wgdelta.op{color:#4ade80}
-.tegelrooster>.wg:first-child .wgdelta.neer{color:#fca5a5}
-.tegelrooster>.wg:first-child .wgvak{background:rgba(255,255,255,.12);color:#fff}
+.tegelrooster>.wg:first-child{grid-column:1 / -1;min-height:130px}
+/* Deze tegel was ook donker. Met de hoofdkaart erboven stonden er twee zwarte
+   vlakken onder elkaar en werd geen van beide nog het accent. Breed en een
+   groter getal is genoeg om hem voorop te zetten. */
+.tegelrooster>.wg:first-child .wggetal{font-size:40px}
+/* Een lege stand mag nooit het grootste op het scherm zijn: "nog geen
+   product" kreeg hier de 40px van een echt getal. */
+.tegelrooster>.wg:first-child .wggetal.leeg{font-size:15px}
+/* en dan hoeft die tegel ook niet 130px hoog te blijven: een lege bak van
+   die maat trekt net zo hard de aandacht als een groot getal */
+.tegelrooster>.wg:first-child:has(.wggetal.leeg){min-height:0}
 
 /* ── de tabbalk moet passen, ook met zes knoppen ──
    Stond te ruim: de meer-knop viel buiten het scherm en was niet te raken. */
@@ -1890,7 +1891,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v287 · kaartstijl 2';
+const APPVERSIE='v288 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
