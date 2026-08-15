@@ -1672,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v276 · 14 aug 2026';
+const APPVERSIE='v277 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15518,6 +15518,78 @@ const woorden=t=>String(t||'').toLowerCase()
 /* Het handboek dekt acht onderwerpen. Een aantal dingen die je app wél kan
    staan er niet in, en daar werd dus niets op gevonden. Hier staan ze, elk
    met de knop die je meteen op de goede plek brengt. */
+
+/* ===== uitleg van elk scherm =====
+   De kennisbank kende dertien onderwerpen. De app heeft er ruim honderd
+   schermen, en in de meeste staat al een uitleg. Die staan hier, met de
+   functie die het scherm opent, zodat een vraag over de wenskaart of de
+   btw-aangifte ook ergens uitkomt.
+
+   Deze lijst is uit de app zelf gehaald; verandert een uitleg, dan hoort
+   hij hier ook bij te worden aangepast. */
+const SCHERMUITLEG=[
+  {t:"Wenskaart",u:"A5 liggend, klaar om te printen. De tekst past zichzelf aan: hij wordt kleiner als je meer schrijft, nooit groter.",f:"sheetWenskaart"},
+    {t:"Wanneer wil je maken?",u:"Kies de dag waarop je deze batch wil draaien. De app rekent uit wanneer je boodschappen moet doen om op tijd alles in huis te hebben.",f:"sheetPlanBatch"},
+      {t:"Traceerbaarheidsrapport",u:"Op A4. Tik Printen en kies in het deelmenu van je telefoon voor Bewaar in Bestanden om er een pdf van te maken.",f:"sheetTrace"},
+  {t:"Temperatuur",u:"Je hebt nog geen meetpunten. Voeg je koelkast, vriezer of werkruimte toe met de grenzen die jij aanhoudt.",f:"sheetTemp"},
+  {t:"Controles en klachten",u:"Registraties die los van een batch staan. De NVWA kan hier net zo goed naar vragen.",f:"sheetControles"},
+    {t:"Vaste plekken",u:"Kom je binnen 75 meter van een vaste plek, dan gebruikt de app die naam en dat adres in plaats van wat gps ervan maakt. Sta je ergens anders, dan zoekt hij het adres gewoon op.",f:"sheetPlekken"},
+  {t:"Verkoopprijzen",u:"De prijs per bonbon die je aan de klant rekent, inclusief 9% btw. Hieruit rekent de app je omzet, je marge en je aangifte.",f:"sheetVerkoopprijzen"},
+  {t:"Btw-aangifte",u:"Een hulpmiddel, geen aangifte. Controleer alles bij je boekhouder — dit rekent met 9% over je producten en met de btw die je bij je bonnen invulde.",f:"sheetBtw"},
+  {t:"Marge per smaak",u:"Wat houd je over per bonbon, na btw en na alle kosten: grondstoffen, derving, arbeid en vaste lasten.",f:"sheetMarges"},
+  {t:"Prijsafspraken",u:"Leg per klant een prijslijst vast. Orders en facturen pakken die prijs dan vanzelf, met de staffel over het orderaantal.",f:"sheetAfspraken"},
+  {t:"Prijzen",u:"De prijs per bonbon in je webshop, inclusief 9% btw. De app rekent een advies uit je kostprijs; je mag er zelf van afwijken.",f:"sheetPrijzenConsument"},
+  {t:"Leveringsvormen",u:"Wat gaat er mee bij een levering? Los in bulk, in doosjes, of compleet afgewerkt. Per vorm reken je met andere verpakkingskosten.",f:"sheetVormen"},
+  {t:"Staffelkorting",u:"Meer afnemen is goedkoper per bonbon. De korting gaat van je lijstprijs af, dus je marge zakt mee — houd 'm dus bescheiden.",f:"sheetStaffel"},
+  {t:"Wat kun je maken",u:"Leg eerst je basiskleuren vast en geef elke kleur mee hoe hij eruitziet op witte chocolade.",f:"sheetKleurMogelijk"},
+  {t:"Tint zoeken",u:"Hiervoor moet de app weten hoe jouw kleuren eruitzien op witte chocolade. Leg minstens twee basiskleuren vast en geef ze een kleurtje mee.",f:"sheetKleurZoek"},
+  {t:"Kleuren",u:"Een kleur is bij jou een potje: zoveel gram cacaoboter met zoveel gram kleurstof erdoor. Leg dat één keer vast met wat je ervoor betaalt, dan rekent de app de rest uit.",f:"sheetKleuren"},
+  {t:"Kleur rekenen",u:"Leg eerst een kleur vast: hoeveel boter en kleurstof er in jouw potje gaan, en hoeveel je daarvan gebruikt.",f:"sheetKleurReken"},
+  {t:"Kostenbasis",u:"Twee dingen die je kostprijs compleet maken: wat je sowieso kwijt bent, en wat er onderweg sneuvelt. Ze gelden voor elke smaak.",f:"sheetKostenbasis"},
+  {t:"Winst en verlies",u:"Alles exclusief btw. Een indicatie op basis van wat je hebt vastgelegd — vaste lasten zoals huur en verzekeringen zitten er niet in.",f:"sheetWinst"},
+  {t:"Uurtarief",u:"Wat is een uur van jou waard? Daarmee rekent de app arbeid mee in je kostprijs en je resultaat, op basis van de tijd die je per batch registreert.",f:"sheetUurtarief"},
+  {t:"Soort auto",u:"Dit bepaalt wat je moet aantonen. Kies wat op jou van toepassing is.",f:"sheetAutoSoort"},
+  {t:"Kilometervergoeding",u:"Het bedrag dat je per zakelijke kilometer van je winst mag aftrekken. Per 2026 verhoogd naar € 0,25, met terugwerkende kracht vanaf 1 januari. Wijzigt het bedrag, pas het hier aan.",f:"sheetKmTarief"},
+  {t:"Koppelingen",u:"Je sleutels worden op de server bewaard, niet in deze app. Zo kan niemand die de pagina opent erbij.",f:"sheetKoppelingen"},
+  {t:"Verzendregel",u:"Bestellingen die vóór dit tijdstip binnenkomen gaan dezelfde werkdag nog weg. Daarna, of in het weekend, schuift het naar de eerstvolgende werkdag.",f:"sheetVerzendregel"},
+  {t:"Wat moet je halen",u:"Alles wat je de komende drie weken hebt ingepland, bij elkaar opgeteld en afgetrokken van wat er ligt. Per leverancier zie je wanneer je uiterlijk moet bestellen om op tijd te zijn.",f:"sheetVooruit"},
+  {t:"Ben je er klaar voor?",u:"Dit gaat niet over vandaag maar over je app: wat er nog ontbreekt waardoor iets niet klopt of niet werkt.",f:"sheetKlaar"},
+  {t:"Telronde",u:"Twintig artikelen, die het langst niet geteld zijn bovenaan. Vul in wat er écht ligt; de app boekt zelf het verschil.",f:"sheetTelronde"},
+  {t:"Houdbaarheid",u:"Alles wat binnen twee weken verloopt of er al overheen is. Wat je afboekt telt mee als derving.",f:"sheetTHT"},
+  {t:"Levertijden",u:"Hoeveel dagen zit er tussen bestellen en ontvangen? Daarmee rekent de app je drempels uit: wat je in die tijd opmaakt, plus een marge.",f:"sheetLevertijden"},
+  {t:"Voorraadwaardering",u:"Wat lag er op een bepaalde datum, en wat was het waard? De app rekent terug door je mutaties. Handig voor je jaarafsluiting.",f:"sheetWaardering"},
+  {t:"Verpakking toevoegen",u:"Geef je maten en kleuren op. De app maakt er losse artikelen van, zodat je per kleur en maat ziet hoeveel er nog is.",f:"sheetVerpakkingNieuw"},
+  {t:"Mutaties",u:"Elke verandering in je gereed product, met reden. Dit is je onderbouwing bij derving.",f:"sheetMutaties"},
+  {t:"Batch aanpassen",u:"Aantallen kloppen niet meer, of je voegt een smaak toe. De receptuur van deze batch blijft zoals hij was toen je begon.",f:"sheetBatchWijzig"},
+  {t:"Zet in mijn agenda",u:"Je productiedagen, boodschappen, leverdata en controles gaan als afspraken naar de agenda van je telefoon. Eén kant op: HQ kan niet bij je eigen afspraken — daar is een echte app voor nodig.",f:"sheetAgendaExport"},
+  {t:"Werkweek",u:"Zo weet de app wanneer je tijd hebt. Plan je een batch op een dag dat je werkt, dan waarschuwt hij.",f:"sheetWerkweek"},
+  {t:"Vrij nemen of afwijken",u:"Dagen die anders lopen dan je vaste week.",f:"sheetWerkVrij"},
+  {t:"Waar ga je heen?",u:"De app onthoudt je bestemming, opent Kaarten voor de route en telt ondertussen je kilometers door.",f:"sheetWerkVrij"},
+  {t:"Vertrekadres",u:"Dit adres komt in je rittenregistratie. Klopt het huisnummer niet, pas het aan — dan staat het meteen goed.",f:"sheetWerkVrij"},
+  {t:"Welke smaak?",u:"Deze batch heeft smaken. Elke smaak krijgt zijn eigen stickers.",f:"sheetWerkVrij"},
+  {t:"Ontvangst goederen",u:"Leg de partij hier één keer vast. Bij het loggen van je ingrediënten kies je 'm daarna uit een lijst.",f:"sheetOntvangst"},
+  {t:"Ingrediënten",u:"Deze smaken hebben nog geen ingrediënten. Vul de onderdelen aan bij Smaken.",f:"sheetIngredienten"},
+  {t:"Schoonmaak",u:"Vink aan wat je hebt gereinigd.",f:"sheetSchoonmaak"},
+  {t:"Loopt deze timer nog?",u:"De timer voor loopt al uur, sinds :. Ben je vergeten te stoppen?",f:"sheetTimerCorrectie"},
+  {t:"Waar ben je mee bezig?",u:"Tik een activiteit aan. De vorige stopt vanzelf — je hoeft nooit iets te stoppen.",f:"sheetWerk"},
+  {t:"Productiestappen",u:"Tik een stap aan om eraan te beginnen of ‘m te hervatten — de timer schakelt mee. Vink links af als een stap écht klaar is.",f:"sheetProductie"},
+  {t:"Batch bijstellen",u:"Ging er een mal niet vol, maakte je er meer, of besloot je er een smaak bij te doen? Pas het hier aan. Wat je al vastlegde blijft staan; de wijziging komt in je logboek.",f:"sheetBatchCorrectie"},
+  {t:"Notitie",u:"Een opmerking bij deze batch — iets wat opviel, maar geen afwijking is. Komt in je logboek en op je rapport.",f:"sheetNotitie"},
+  {t:"Werkdag afsluiten",u:"Je sluit vandaag af voor deze batch. Morgen pak je hem weer op, met een verse openingscheck. De batch blijft gewoon lopen.",f:"sheetDagAfsluiten"},
+  {t:"HACCP-dossier",u:"Alles wat je in deze periode hebt vastgelegd, in één document: wat je maakte, van welke partijen, of het binnen norm bleef en waar het heen ging.",f:"sheetDossier"},
+  {t:"Synchronisatie",u:"Tot die tijd werkt alles gewoon, maar staat je data alleen op dit toestel.",f:"sheetAccount"},
+  {t:"Inloggen",u:"Log één keer in. Daarna blijft de app ingelogd en synchroniseert alles vanzelf.",f:"sheetAccount"},
+  {t:"Archief",u:"Elke dag waarop je iets hebt vastgelegd. Tik een datum aan voor het dagrapport van die dag.",f:"sheetArchief"},
+  {t:"Thermometer ijken",u:"Leg smeltend ijswater klaar en meet. Een goede thermometer wijst 0 °C aan, met hooguit een halve graad afwijking. Zonder deze controle zijn al je metingen aanvechtbaar.",f:"sheetIjking"},
+  {t:"Wat wil je snel bij de hand?",u:"Kies vier onderdelen die je het vaakst gebruikt. Dashboard en Meer staan vast, zodat je altijd bij de rest kunt.",f:"sheetBalkKiezen"},
+  {t:"Hoe werkt het?",u:"Kies een onderwerp. Je krijgt de stappen op volgorde, met een knop die je meteen op de juiste plek brengt.",f:"sheetUitleg"},
+  {t:"Bedrijfsprofiel",u:"Dit is het merk dat bovenin je dashboard staat. Laat je het logo leeg, dan wordt de naam in tekst getoond.",f:"sheetBedrijf"},
+  {t:"Partijen in huis",u:"Alles wat je bij ontvangst hebt vastgelegd. Hieruit kies je bij het loggen van je ingrediënten.",f:"sheetLots"},
+  {t:"Openingscheck",u:"De punten die je bij elke batch naloopt. Een punt kan een vinkje zijn of een meting met grenzen.",f:"sheetChecks"},
+  {t:"Bonbons per mal",u:"Hoeveel bonbons passen er in één mal? Hiermee reken je bij een batch in mallen in plaats van in losse stuks.",f:"sheetMal"},
+  {t:"Meetpunten",u:"De plekken waar jij temperatuur meet, met de grenzen die je aanhoudt. Buiten die grenzen vraagt de app om een actie.",f:"sheetMeetpunten"}
+];
+
 const EXTRAKENNIS=[
   {ond:'etiket', titel:'Etiketten maken', doe:()=>sheetProductEtiket(),
    tekst:'Wettelijke benaming, ingrediënten op volgorde van gewicht, allergenen vet gedrukt, '+
@@ -15570,6 +15642,12 @@ function kennisbank(){
   const uit=[];
   EXTRAKENNIS.forEach(e=>uit.push({soort:'onderwerp', titel:e.titel, tekst:e.tekst,
     zoek:e.titel+' '+e.tekst, doe:e.doe, ond:e.ond}));
+  /* elk scherm met zijn eigen uitleg */
+  SCHERMUITLEG.forEach(e=>{
+    if(typeof window[e.f]!=='function') return;
+    uit.push({soort:'scherm', titel:e.t, tekst:e.u, zoek:e.t+' '+e.u,
+      doe:()=>window[e.f]()});
+  });
   UITLEG.forEach(u=>{
     uit.push({soort:'onderwerp', titel:u.titel, tekst:u.kort,
       zoek:u.titel+' '+u.kort, id:u.id});
