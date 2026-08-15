@@ -1672,7 +1672,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v277 · 14 aug 2026';
+const APPVERSIE='v278 · 14 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15528,7 +15528,29 @@ const woorden=t=>String(t||'').toLowerCase()
    Deze lijst is uit de app zelf gehaald; verandert een uitleg, dan hoort
    hij hier ook bij te worden aangepast. */
 const SCHERMUITLEG=[
-  {t:"Wenskaart",u:"A5 liggend, klaar om te printen. De tekst past zichzelf aan: hij wordt kleiner als je meer schrijft, nooit groter.",f:"sheetWenskaart"},
+  {t:"Offerte",u:"Op A4. Tik Printen en kies in het deelmenu van je telefoon voor Bewaar in Bestanden om er een pdf van te maken.",tab:"geld"},
+  {t:"Afspraak",u:"Nog geen afspraak. Reken eerst een prijs uit in de calculator en leg hem hier vast — de app zet dan alle smaken in één keer op die marge.",tab:"orders"},
+  {t:"Kleur",u:"Vul in hoeveel gram van elke kleur er in jouw mengsel gaat. Welke tint eruit komt bepaal je zelf met een proefje — de app rekent de grammen, de kosten en de E-nummers uit."},
+  {t:"Factuur",u:"Zo ziet de factuur eruit. Verzending en kado-opties vallen onder 21% en kun je hieronder aanpassen.",tab:"geld"},
+  {t:"Order",u:"Adres, e-mail en de tekst van de boodschap staan op je Mac, niet hier. Deze order verdwijnt na een maand vanzelf uit de app.",tab:"orders"},
+  {t:"Inpakken voor",u:"Kies uit welke partij je pakt. De app boekt het af en legt vast welk lot naar deze klant is gegaan — daarmee is je keten compleet.",tab:"orders"},
+        {t:"Meting",u:"Bij welke waarden is dit in orde? Buiten die grenzen vraagt de app om een actie.",tab:"productie"},
+  {t:"Voorraadstickers",u:"Voor op de bakjes waarin je bonbons na productie bewaart. Er gaan er evenveel in een bakje als in een mal, dus je krijgt één sticker per mal.",tab:"voorraad"},
+  {t:"Etiketten",u:"op A4, acht per vel (99 \\u00d7 68 mm). Lotnummer en THT komen uit de partij die je hebt gekozen."},
+  {t:"Smaak verwijderen",u:"Op A4. Tik Printen en kies in het deelmenu van je telefoon voor Bewaar in Bestanden om er een pdf van te maken.",tab:"geld"},
+  {t:"Hoe heet je smaak?",u:"Alleen de naam. De rest vul je zo in — je kunt altijd stoppen en later verder.",tab:"productie"},
+  {t:"Bestaat uit",u:"Neem de ingrediëntenlijst over van de verpakking van , in dezelfde volgorde. Vink per onderdeel aan of het een van de veertien allergenen is."},
+  {t:"Bonnen",u:"Wat je hebt uitgegeven voor je bedrijf. Bewaar de papieren bon zelf zeven jaar.",f:"sheetBonnen"},
+  {t:"Urenstaat",u:"Op A4. Tik Printen en kies in het deelmenu van je telefoon voor Bewaar in Bestanden om er een pdf van te maken.",f:"sheetUrenstaat"},
+  {t:"Mallen",u:"Leg elke die je gebruikt één keer vast; bij een smaak kies je daarna welke erbij hoort.",f:"sheetMallen"},
+  {t:"Openstaand",u:"Orders die de deur uit zijn maar nog niet zijn afgevinkt als betaald.",f:"sheetOpenstaand"},
+  {t:"Facturen",u:"Nog geen facturen. Zodra je bij een order een factuur opent, krijgt hij een nummer en verschijnt hij hier.",f:"sheetFacturen"},
+    {t:"Boodschappenlijst",u:"Wat je nodig hebt voor je batches, min wat er al ligt. Gegroepeerd per leverancier waar je het de vorige keer kocht.",f:"sheetBoodschappen"},
+    {t:"Productetiket",u:"Voor op de doos die naar de klant gaat. Zet het hier één keer goed; bij het inpakken van een order vult de app het lotnummer en de THT van de gebruikte partij in.",f:"sheetProductEtiket"},
+  {t:"Batch Status",u:"Deze batch staat sinds stil. Hervatten zet hem weer op lopend; je gaat verder waar je gebleven was.",f:"sheetBatchStatus"},
+  {t:"Smaken",u:"Nog geen smaken. Een smaak is de opbouw van één bonbon: de schelp, de lagen erin, en hoeveel gram elk onderdeel weegt. Hoeveel bonbons je maakt kies je pas bij een batch.",f:"sheetRecepten"},
+  {t:"Alles meenemen",u:"Een bestand met al je gegevens. Bewaar het ergens veilig, of gebruik het om alles naar een ander toestel te halen.",f:"sheetData"},
+    {t:"Wenskaart",u:"A5 liggend, klaar om te printen. De tekst past zichzelf aan: hij wordt kleiner als je meer schrijft, nooit groter.",f:"sheetWenskaart"},
     {t:"Wanneer wil je maken?",u:"Kies de dag waarop je deze batch wil draaien. De app rekent uit wanneer je boodschappen moet doen om op tijd alles in huis te hebben.",f:"sheetPlanBatch"},
       {t:"Traceerbaarheidsrapport",u:"Op A4. Tik Printen en kies in het deelmenu van je telefoon voor Bewaar in Bestanden om er een pdf van te maken.",f:"sheetTrace"},
   {t:"Temperatuur",u:"Je hebt nog geen meetpunten. Voeg je koelkast, vriezer of werkruimte toe met de grenzen die jij aanhoudt.",f:"sheetTemp"},
@@ -15642,11 +15664,15 @@ function kennisbank(){
   const uit=[];
   EXTRAKENNIS.forEach(e=>uit.push({soort:'onderwerp', titel:e.titel, tekst:e.tekst,
     zoek:e.titel+' '+e.tekst, doe:e.doe, ond:e.ond}));
-  /* elk scherm met zijn eigen uitleg */
+  /* Elk scherm met zijn eigen uitleg. Sommige schermen kun je niet zomaar
+     openen — een factuur heeft een order nodig, een kleur een kleur. Die
+     tonen we wel als antwoord, maar met een knop naar het tabblad waar je
+     ze vindt, of zonder knop als ook dat niet kan. */
   SCHERMUITLEG.forEach(e=>{
-    if(typeof window[e.f]!=='function') return;
-    uit.push({soort:'scherm', titel:e.t, tekst:e.u, zoek:e.t+' '+e.u,
-      doe:()=>window[e.f]()});
+    const stuk={soort:'scherm', titel:e.t, tekst:e.u, zoek:e.t+' '+e.u};
+    if(e.f&&typeof window[e.f]==='function') stuk.doe=()=>window[e.f]();
+    else if(e.tab) stuk.doe=()=>{ S.tab=e.tab; S.batchId=null; dicht(); render() };
+    uit.push(stuk);
   });
   UITLEG.forEach(u=>{
     uit.push({soort:'onderwerp', titel:u.titel, tekst:u.kort,
@@ -15724,7 +15750,7 @@ function sheetVraag(vooraf){
            <span class="ivak">${svg(t.soort==='onderwerp'?I.boek:I.hulp)}</span>
            <span class="naam">${esc(t.titel)}<small>${esc(
              String(t.tekst||'').slice(0,90))}${String(t.tekst||'').length>90?'…':''}</small></span>
-           <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
+           ${t.doe?`<span class="pijl">${svg(I.pijl,'2')}</span>`:''}</button>`).join('')}</div>`
       :`<div class="rustig" style="padding:34px 20px">
          <div class="ico">${svg(I.hulp,'2.2')}</div>
          <p>Daar vind ik niets over.<br>Probeer een ander woord, of kijk bij
