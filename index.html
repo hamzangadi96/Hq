@@ -680,10 +680,8 @@ header .hbtn svg{width:17px;height:17px;stroke-width:1.9}
 header .hbtn:active{background:var(--bg)}
 /* Drie kolommen werd te krap voor twee knoppen rechts: die kwamen in
    dezelfde cel terecht en lagen boven op elkaar. Nu een eigen kolom. */
-header.gecentreerd{grid-template-columns:36px 1fr 36px 36px;gap:8px}
-header.gecentreerd .hbtn.chat{grid-column:3;grid-row:1;display:grid}
-header.gecentreerd .hbtn.instel{grid-column:4;grid-row:1}
-header .hbtn.chat{display:none}
+header.gecentreerd{grid-template-columns:36px 1fr 36px;gap:8px}
+header.gecentreerd .hbtn.instel{grid-column:3;grid-row:1}
 header.gecentreerd .hbtn.zoek{grid-column:1;grid-row:1;display:grid}
 /* alleen op het dashboard is de kop een raster; elders hoort de balk er niet */
 header:not(.gecentreerd) .zoekbalk{display:none}
@@ -842,154 +840,6 @@ header .hbtn.zoek{display:none}
 .wachtlabel{display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:8px 16px;border-radius:99px;
   background:var(--card);border:1px solid var(--lijn);font-size:12.5px;font-weight:600;color:var(--grijs)}
 .wachtlabel .stip{background:var(--grijs3)}
-
-/* ── de chat ──
-   Geen sheet maar een paneel dat naast je werk blijft staan. Je kunt hem
-   kleinmaken terwijl je iets uitprobeert en daarna weer opentikken; wat er
-   gezegd is blijft staan. Dat is precies waarom een sheet hier niet werkt:
-   die moet je sluiten om iets te kunnen doen. */
-/* Een klein kaartje over de app heen leest niet: je ziet twee regels tekst
-   en de rest moet je scrollen. De chat is nu een volwaardig scherm dat je
-   kleinmaakt als je iets wil uitproberen. */
-.chatpaneel{position:absolute;left:0;right:0;top:0;bottom:0;z-index:40;
-  display:none;flex-direction:column;background:var(--bg)}
-.chatpaneel.open{display:flex}
-.chatkop{flex:none;display:flex;align-items:center;gap:10px;
-  padding:calc(var(--veiligBoven) + 14px) 16px 12px;
-  background:var(--card);border-bottom:1px solid var(--lijn)}
-.chatik{flex:none;width:36px;height:36px;border-radius:12px;background:var(--ink);
-  color:#fff;display:grid;place-items:center}
-.chatik svg{width:18px;height:18px;stroke-width:2}
-.chatwie{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.chatkop b{font-size:17px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
-.chatkop i{font-style:normal;font-size:12.5px;color:var(--grijs2);line-height:1.2}
-.chatkop button{width:34px;height:34px;border-radius:99px;background:var(--bg);
-  display:grid;place-items:center;color:var(--grijs);flex:none}
-.chatkop button svg{width:16px;height:16px;stroke-width:2}
-.chatlijst{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:18px 16px 8px;display:flex;flex-direction:column;gap:12px}
-/* Een gesprek hoort onderaan te beginnen, zoals in elke chat-app. Een leeg
-   flex-item met margin-top:auto eet de vrije ruimte op en duwt de ballonnen
-   naar beneden; zit de lijst vol, dan krimpt het naar niets en scrollt alles
-   gewoon. Dat kan ook met justify-content:flex-end, maar dan knipt Safari de
-   bovenste ballonnen af zodra je moet scrollen. De negatieve marge haalt de
-   gap weg die dit hulpitem anders bovenaan zou achterlaten. */
-.chatlijst::before{content:'';flex:none;margin-top:auto;margin-bottom:-12px}
-/* flex:none is hier essentieel — zonder dat drukt de kolom de ballonnen
-   plat zodra de lijst vol is, en lopen ze over elkaar heen. */
-.chatbel{flex:none;max-width:84%;padding:12px 15px;border-radius:18px;font-size:15px;
-  line-height:1.5;white-space:pre-wrap;word-break:break-word}
-/* wit op de grijze achtergrond, anders vallen de ballonnen weg */
-.chatbel.van-app{background:var(--card);border:1px solid var(--lijn);
-  border-bottom-left-radius:6px;align-self:flex-start;
-  box-shadow:0 1px 2px rgba(24,24,27,.04)}
-.chatbel.van-jij{background:var(--ink);color:#fff;border-bottom-right-radius:6px;align-self:flex-end}
-.chatbel .stapnr{display:block;font-size:11px;font-weight:700;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--grijs2);margin-bottom:6px}
-.chatbel .stapkop{display:block;font-weight:600;margin-bottom:6px;font-size:15.5px;
-  letter-spacing:-.015em}
-.chatknop{flex:none;align-self:flex-start;background:var(--ink);color:#fff;font-size:13px;
-  font-weight:600;padding:9px 14px;border-radius:99px;margin-top:-4px}
-/* Een leeg gesprek was één ballon in een vlakte van niets. Nu staat er waar
-   je nu bent en waar je heen kunt: tikken scheelt typen, en je ziet meteen
-   wat de hulp überhaupt weet. Onderaan uitgelijnd, want daar is je duim. */
-.chatstart{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
-.chatstart .vlek{width:44px;height:44px;border-radius:14px;background:var(--ink);
-  color:#fff;display:grid;place-items:center;margin-bottom:2px}
-.chatstart .vlek svg{width:22px;height:22px;stroke-width:1.9}
-.chatstart h3{margin:0;font-size:21px;font-weight:600;letter-spacing:-.03em;color:var(--ink)}
-.chatstart p{margin:0;font-size:14.5px;line-height:1.5;color:var(--grijs);max-width:32ch}
-.chatchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-.chatchip{background:var(--card);border:1px solid var(--lijn);color:var(--ink2);
-  font-size:13.5px;font-weight:500;padding:9px 14px;border-radius:99px;
-  line-height:1.15;text-align:left}
-.chatchip:active{background:var(--bg)}
-/* het onderwerp van het scherm waar je vandaan komt staat voorop */
-.chatchip.nu{background:var(--accent);border-color:var(--accent);color:var(--accentTekst);font-weight:600}
-
-/* de tintbalk met afgedekte zones */
-.tintbaan{display:block;position:relative;margin-top:14px}
-/* z-index 3: de regenboog zit in de track van de input zelf, dus de afdekking
-   moet daar bovenop liggen. pointer-events blijft uit, zodat je er gewoon
-   doorheen kunt slepen. */
-.tintbaan::after{content:'';position:absolute;left:0;right:0;top:6px;height:14px;
-  border-radius:99px;pointer-events:none;opacity:0;z-index:3}
-.tintbaan.dicht::after{opacity:1;background-image:var(--dicht)}
-.tintbaan .schuif{position:relative;z-index:2}
-/* de reden waarom een kleur niet kan */
-.kvblok{display:none;font-size:13px;line-height:1.5;color:var(--ink2);
-  background:#fffaf9;border:1px solid rgba(192,57,43,.22);border-radius:14px;
-  padding:12px 14px;margin-top:14px}
-.kvblok.aan{display:block}
-.kvblok b{display:block;font-size:13.5px;font-weight:600;color:var(--rood);
-  margin-bottom:4px}
-.prim:disabled{opacity:.4}
-/* de startkleuren als bolletjes */
-.acbolrij{display:flex;gap:10px;flex-wrap:wrap}
-.acstart{width:40px;height:40px;border-radius:99px;flex:none;
-  box-shadow:inset 0 0 0 1px rgba(24,24,27,.12)}
-.acstart:active{transform:scale(.93)}
-/* ── de stapkaart ──
-   Elke stap was een eigen ballon. Na vijf stappen stond het scherm vol met
-   dingen die je al gehad had en moest je terugscrollen om te zien waar je
-   was. Het is nu één kaart die doorschuift: alleen de stap waar je bent,
-   met de teller erboven en Vorige/Volgende eronder. */
-.chatstap{flex:none;align-self:stretch;background:var(--card);border:1px solid var(--lijn);
-  border-radius:18px;padding:16px 16px 0;box-shadow:0 1px 2px rgba(24,24,27,.04)}
-.stapbalk{display:flex;align-items:center;gap:4px;margin-bottom:14px}
-.stapbalk i{flex:1;height:3px;border-radius:99px;background:var(--lijn);
-  transition:background .3s}
-.stapbalk i.aan{background:var(--accent)}
-.stapteller{flex:none;margin-left:8px;font-size:11px;font-weight:700;letter-spacing:.08em;
-  color:var(--grijs2);white-space:nowrap}
-/* overflow:hidden zodat de hoogte netjes mee kan groeien tijdens de wissel */
-.stapvak{overflow:hidden}
-.stapvak .ow{display:block;font-size:11px;font-weight:700;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--grijs2);margin-bottom:7px}
-.stapvak .kop{display:block;font-size:17.5px;font-weight:600;letter-spacing:-.025em;
-  line-height:1.25;margin-bottom:7px;color:var(--ink)}
-.stapvak p{margin:0;font-size:15px;line-height:1.5;color:var(--ink2);white-space:pre-wrap}
-.stapdoe{margin-top:13px;display:inline-flex;align-items:center;gap:6px;background:var(--bg);
-  border:1px solid var(--lijn);color:var(--ink);font-size:13.5px;font-weight:600;
-  padding:10px 14px;border-radius:99px}
-.stapdoe svg{width:14px;height:14px;stroke-width:2.4}
-.stapvoet{display:flex;align-items:center;gap:10px;margin:16px -16px 0;padding:12px 14px;
-  border-top:1px solid var(--lijn)}
-.stapterug{flex:none;font-size:14px;font-weight:600;color:var(--grijs);padding:8px 10px;
-  border-radius:99px}
-.stapterug[disabled]{opacity:.3}
-.stapverder{margin-left:auto;background:var(--accent);color:var(--accentTekst);font-size:14px;font-weight:600;
-  padding:11px 18px;border-radius:99px}
-.stapaf{display:flex;align-items:center;gap:7px;margin:16px -16px 0;padding:12px 16px;
-  border-top:1px solid var(--lijn);font-size:13.5px;font-weight:600;color:var(--groen)}
-.stapaf svg{width:15px;height:15px;stroke-width:2.4}
-/* de wissel zelf: de tekst komt van de kant waar je heen gaat */
-@keyframes stapVooruit{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
-@keyframes stapTerug{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:none}}
-.stapvak.vooruit>*{animation:stapVooruit .26s cubic-bezier(.22,.61,.36,1) both}
-.stapvak.terugin>*{animation:stapTerug .26s cubic-bezier(.22,.61,.36,1) both}
-@media (prefers-reduced-motion:reduce){
-  .stapvak.vooruit>*,.stapvak.terugin>*{animation:none}
-}
-.chatvoet{flex:none;display:flex;gap:9px;background:var(--card);
-  padding:12px 14px calc(14px + max(0px,
-    env(safe-area-inset-bottom) - var(--toetsenbord, 0px)));
-  border-top:1px solid var(--lijn)}
-.chatvoet input{flex:1;min-width:0;height:46px;border-radius:14px;background:var(--bg);
-  border:1px solid var(--lijn);padding:0 15px;font-size:16px;color:var(--ink)}
-.chatvoet input:focus{outline:none;border-color:var(--grijs3)}
-.chatvoet button{flex:none;width:46px;height:46px;border-radius:14px;background:var(--ink);
-  color:#fff;display:grid;place-items:center}
-.chatvoet button svg{width:17px;height:17px;stroke-width:2.2}
-/* kleingemaakt: alleen een belletje rechtsonder */
-.chatbel2{position:absolute;right:12px;z-index:39;
-  bottom:calc(70px + env(safe-area-inset-bottom));
-  width:46px;height:46px;border-radius:99px;background:var(--ink);color:#fff;
-  display:none;place-items:center;box-shadow:0 8px 24px rgba(24,24,27,.3)}
-.chatbel2.open{display:grid}
-.chatbel2 svg{width:20px;height:20px;stroke-width:2}
-.chatbel2 .stip{position:absolute;top:-2px;right:-2px;width:12px;height:12px;
-  border-radius:99px;background:var(--amber);border:2px solid var(--card)}
 
 /* de tabbalk zweeft als een capsule boven de inhoud, zoals in de Shopify-app.
    Alleen de tab waar je bent laat zijn naam zien; de rest is een icoon. */
@@ -1828,22 +1678,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
     </div>
     <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
       <div class="kpi" id="kopKpi"></div></div>
-    <button class="hbtn chat" id="btnChat" aria-label="Hulp"></button>
     <button class="hbtn instel" id="btnInstel" aria-label="App en opslag"></button>
 
   </header>
   <main id="scherm"></main>
-  <div class="chatpaneel" id="chatPaneel">
-    <div class="chatkop"><span class="chatik" id="chatIk"></span>
-      <span class="chatwie"><b>Hulp</b><i>Zoekt mee in je handboek</i></span>
-      <button id="chatKlein" aria-label="Kleiner"></button>
-      <button id="chatDicht" aria-label="Sluiten"></button></div>
-    <div class="chatlijst" id="chatLijst"></div>
-    <div class="chatvoet">
-      <input id="chatIn" placeholder="Typ je vraag" enterkeyhint="send">
-      <button id="chatStuur" aria-label="Versturen"></button></div>
-  </div>
-  <button class="chatbel2" id="chatBel" aria-label="Hulp openen"></button>
+
   <div class="zoeklaag" id="zoeklaag"></div>
   <nav id="tabbar"></nav>
 
@@ -1943,7 +1782,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v293 · 15 aug 2026';
+const APPVERSIE='v295 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3229,29 +3068,6 @@ function renderNu(){
 }
 $('#btnTerug').innerHTML=svg(I.terug,'2');
 $('#btnZoek').innerHTML=svg(I.loep);
-$('#btnChat').innerHTML=svg(I.praat);
-$('#btnChat').onclick=()=>chatStand==='open'?chatKlein():chatOpen();
-$('#chatIk').innerHTML=svg(I.praat);
-$('#chatBel').innerHTML=svg(I.praat)+'<span class="stip"></span>';
-$('#chatBel').onclick=chatOpen;
-$('#chatKlein').innerHTML=svg(I.min,'2');
-$('#chatDicht').innerHTML=svg(I.kruis,'2');
-$('#chatStuur').innerHTML=svg(I.pijl,'2.2');
-$('#chatKlein').onclick=chatKlein;
-$('#chatDicht').onclick=chatDichtdoen;
-(function(){
-  const stuur=()=>{
-    const e=$('#chatIn'); const v=e.value.trim();
-    if(!v) return;
-    e.value='';
-    chatAntwoord(v);
-  };
-  $('#chatStuur').onclick=stuur;
-  $('#chatIn').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); stuur() } };
-  /* Stond het toetsenbord al open, dan komt er geen resize meer en zou de
-     lijst blijven staan waar hij stond. */
-  $('#chatIn').addEventListener('focus',chatOnder);
-})();
 $('#btnZoek').onclick=zoekOpen;
 $('#zbIco').innerHTML=svg(I.loep);
 $('#zbStop').onclick=zoekDicht;
@@ -3821,7 +3637,7 @@ function dashboardHTML(){
   <div class="snelrij">
     <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
     <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
-    <button class="snelknop" data-chat>${svg(I.praat)}Stel een vraag</button>
+    <button class="snelknop" data-vraag>${svg(I.praat)}Stel een vraag</button>
     <button class="snelknop" data-sheet="klaar">${svg(I.vink)}Ben je er klaar voor</button>
     <button class="snelknop" data-sheet="vooruit">${svg(I.vracht)}Wat moet je halen</button>
     <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
@@ -6073,6 +5889,7 @@ function sheetKleurKiezen(huidig,klaar,o){
       k.disabled=!!w;
       k.textContent=w?'Kies een andere tint':(o.knop||'Deze kleur gebruiken');
     }
+    if(o.keur) kleurZonesTekenen($('#kvBaan'),hex);
     if(o.live) o.live(hex);
   };
 
@@ -6100,17 +5917,21 @@ function sheetKleurKiezen(huidig,klaar,o){
     bij(false);
   };
   $('#kvOk').onclick=()=>{ if(o.keur&&o.keur(nu())) return; klaar(nu()) };
-  if(o.keur) kleurZonesTekenen($('#kvBaan'));
   bij();
 }
 
 /* De stukken van de tintbalk die niet gekozen kunnen worden, grijs afdekken.
-   De stops moeten oplopen, anders klapt de hele balk dicht. */
-function kleurZonesTekenen(baan){
+   Welke dat zijn hangt af van hoe donker je zit: is de kleur diep genoeg voor
+   bruin, dan gaat de rode kant weer open. De stops moeten oplopen, anders
+   klapt de hele balk dicht. */
+function kleurZonesTekenen(baan,hex){
   if(!baan) return;
+  const c=hex?hexHsl(hex):null;
+  const uit=ACCENTUIT.filter(z=>
+    !(c&&((c.s<ACCENTGRIJS)||(z.wat==='rood'&&bruinMag(c)))));
   const dek='rgba(240,240,242,.88)', stop=[];
   let p=0;
-  ACCENTUIT.slice().sort((a,b)=>a.van-b.van).forEach(z=>{
+  uit.slice().sort((a,b)=>a.van-b.van).forEach(z=>{
     const a=+(z.van/360*100).toFixed(2), b=+(z.tot/360*100).toFixed(2);
     if(a>p) stop.push('transparent '+p+'%','transparent '+a+'%');
     stop.push(dek+' '+a+'%',dek+' '+b+'%');
@@ -7163,6 +6984,7 @@ function geldHTML(){
    kiezen mag, maar dan waarschuwen we. */
 const ACCENTEN=[
   {k:'antraciet', n:'Antraciet', c:'#18181b'},
+  {k:'cacao',     n:'Cacao',     c:'#4e2f1c'},
   {k:'petrol',    n:'Petrol',    c:'#0f766e'},
   {k:'blauw',     n:'Blauw',     c:'#1d4ed8'},
   {k:'indigo',    n:'Indigo',    c:'#4338ca'},
@@ -7235,18 +7057,28 @@ const ACCENTUIT=[
    verwart hij ook niets. Zo kun je toch een warm of koel grijs kiezen. */
 const ACCENTGRIJS=18;
 
+/* Bruin ligt in dezelfde tinthoek als rood en amber, maar niemand verwart een
+   donkere cacaokleur met een waarschuwing: het verschil zit in de diepte, niet
+   in de tint. Donker en niet te fel mag dus wél. */
+function bruinMag(c){ return c.l<=36 && c.s<=60 }
+/* De grens: amber staat op s=90 en rood op l=46, dus die vallen er ruim
+   buiten, terwijl elke cacaokleur er ruim binnen valt. */
+
 /* Geeft null als de kleur mag, anders waaróm niet. */
 function accentBotst(hex){
   const c=hexHsl(hex);
   if(c.s<ACCENTGRIJS) return null;
   const z=ACCENTUIT.find(x=>c.h>=x.van&&c.h<=x.tot);
   if(!z) return null;
+  if(z.wat==='rood'&&bruinMag(c)) return null;
   return z.wat==='rood'
-    ? {wat:'rood', kop:'Rood en oranje kun je niet kiezen',
+    ? {wat:'rood', kop:'Deze rood- of oranjetint kun je niet kiezen',
        uit:'Rood betekent in deze app dat er iets mis is: een meting buiten '
          +'bereik, een THT die verlopen is, een order die te laat is. Amber '
          +'betekent let op. Zouden je knoppen dezelfde kleur hebben, dan zie '
-         +'je een echte melding niet meer terug tussen de rest.'}
+         +'je een echte melding niet meer terug tussen de rest. '
+         +'Chocoladebruin kan wél: sleep in het vlak naar beneden, tot het '
+         +'donker genoeg is.'}
     : {wat:'groen', kop:'Groen kun je niet kiezen',
        uit:'Groen betekent in deze app dat iets in orde is: een batch die klaar '
          +'is, een controle die gedaan is, een factuur die betaald is. Als alles '
@@ -11052,7 +10884,7 @@ function bind(){
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
-  $$('[data-chat]').forEach(x=>x.onclick=chatOpen);
+  $$('[data-vraag]').forEach(x=>x.onclick=()=>sheetVraag(''));
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
   $$('[data-werkweek]').forEach(x=>x.onclick=sheetWerkweek);
@@ -15376,7 +15208,7 @@ function bindHulpKnoppen(){
 }
 
 /* Waar de knop onder een uitlegstap heen gaat. Stond op drie plekken los;
-   de chat werd de vierde, dus nu één keer. */
+   en er kwam er telkens een bij, dus nu één keer. */
 function uitlegDoe(d){
   if(d==='bedrijf') return sheetBedrijf();
   if(d==='mal') return sheetMal();
@@ -16234,280 +16066,6 @@ const VOORBEELDVRAGEN=['Hoe maak ik een factuur?','Waar vul ik lotnummers in?',
   'Hoe begin ik een batch?','Wat moet er op mijn etiket?','Hoe werkt de kilometerregistratie?'];
 
 
-/* ===== de chat =====
-   Een paneel dat naast je werk blijft staan. Kleinmaken laat een belletje
-   achter; opentikken en het gesprek staat er nog. Antwoorden komen stap voor
-   stap, want "zo maak je een factuur" in één blok tekst leest niemand.
-
-   Het gesprek wordt niet bewaard tussen sessies: het is hulp bij wat je nu
-   doet, geen archief. */
-let chatGesprek=[];        /* {van:'jij'|'app', tekst, knop, doe, stap} */
-let chatStand='dicht';     /* dicht | open | klein */
-let chatWacht=null;        /* de stappen die nog komen */
-
-/* welk onderwerp hoort bij de tab waar je vandaan komt */
-const CHATTAB={dashboard:'start',productie:'batch',orders:'orders',
-  voorraad:'voorraad',geld:'geld',agenda:'batch'};
-
-/* De zes onderwerpen die je als chip te zien krijgt: die van je eigen scherm
-   voorop, daarna de rest op vaste volgorde. Meer past niet zonder dat het
-   een muur wordt. */
-function chatOnderwerpen(){
-  const nu=CHATTAB[S.tab]||'start';
-  const rij=[nu].concat(['start','batch','smaak','orders','voorraad','haccp','geld','trace']
-    .filter(k=>k!==nu));
-  return rij.map(k=>UITLEG.find(u=>u.id===k)).filter(Boolean).slice(0,6);
-}
-
-function chatStartScherm(){
-  const nu=CHATTAB[S.tab]||'start';
-  return `<div class="chatstart">
-    <span class="vlek">${svg(I.praat)}</span>
-    <h3>Waar loop je op vast?</h3>
-    <p>Typ het in je eigen woorden, of kies hieronder. Ik loop de stappen met je door.</p>
-    <div class="chatchips">${chatOnderwerpen().map(u=>
-      `<button class="chatchip${u.id===nu?' nu':''}" data-ond="${u.id}">${esc(u.titel)}</button>`
-    ).join('')}</div></div>`;
-}
-
-/* De binnenkant apart, want bij een stapwissel vervangen we alléén dit —
-   de kaart eromheen blijft staan en de hoogte loopt er vloeiend naartoe. */
-function chatStapBinnen(b){
-  const u=UITLEG.find(x=>x.id===b.ond)||{stappen:[]};
-  const st=u.stappen[b.i]||{};
-  return `<span class="ow">${esc(u.titel||'')}</span>
-    <span class="kop">${esc(st.t||'')}</span>
-    <p>${esc(st.u||'')}</p>${st.knop&&st.doe?
-    `<button class="stapdoe" data-udoe="${esc(st.doe)}">${esc(st.knop)}${svg(I.pijl,'2')}</button>`:''}`;
-}
-
-function chatStapHtml(b,idx){
-  const u=UITLEG.find(x=>x.id===b.ond)||{stappen:[]};
-  const n=u.stappen.length;
-  return `<div class="chatstap" data-wiz="${idx}">
-    <div class="stapbalk">${u.stappen.map((x,j)=>
-      `<i class="${(b.klaar||j<=b.i)?'aan':''}"></i>`).join('')}
-      <span class="stapteller">${b.klaar?'KLAAR':(b.i+1)+' / '+n}</span></div>
-    <div class="stapvak">${chatStapBinnen(b)}</div>
-    ${b.klaar?`<div class="stapaf">${svg(I.vink,'2.4')}Doorlopen</div>`:
-    `<div class="stapvoet">
-      <button class="stapterug" data-sw="${idx}:-1"${b.i?'':' disabled'}>Vorige</button>
-      <button class="stapverder" data-sw="${idx}:1">${
-        b.i>=n-1?'Klaar':'Volgende stap'}</button></div>`}</div>`;
-}
-
-/* Eén stap opschuiven binnen dezelfde kaart. */
-function chatStapWissel(idx,richting){
-  const b=chatGesprek[idx];
-  if(!b||b.soort!=='wizard'||b.klaar) return;
-  const u=UITLEG.find(x=>x.id===b.ond)||{stappen:[]};
-  const n=u.stappen.length;
-  if(richting>0&&b.i>=n-1){
-    b.klaar=true; chatWacht=null; chatTeken();
-    return chatZeg('app','Dat was alles. Lukt het zo? Vraag anders gewoon door.');
-  }
-  const nieuw=Math.max(0,Math.min(n-1,b.i+richting));
-  if(nieuw===b.i) return;
-  b.i=nieuw;
-  const kaart=document.querySelector('#chatLijst [data-wiz="'+idx+'"]');
-  if(!kaart) return chatTeken();
-  const vak=kaart.querySelector('.stapvak');
-  const oudH=vak.offsetHeight;
-  vak.classList.remove('vooruit','terugin');
-  vak.innerHTML=chatStapBinnen(b);
-  chatStapKnoppen(kaart,b,u);
-  /* nieuwe hoogte meten, dan vanaf de oude ernaartoe animeren */
-  vak.style.height='auto';
-  const nieuwH=vak.offsetHeight;
-  const stil=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  vak.classList.add(richting>0?'vooruit':'terugin');
-  if(stil||oudH===nieuwH){ vak.style.height=''; }
-  else {
-    vak.style.height=oudH+'px';
-    void vak.offsetHeight;
-    vak.style.transition='height .26s cubic-bezier(.22,.61,.36,1)';
-    vak.style.height=nieuwH+'px';
-    setTimeout(()=>{ vak.style.transition=''; vak.style.height='' },300);
-  }
-  /* balk en voet bijwerken */
-  kaart.querySelectorAll('.stapbalk i').forEach((el,j)=>el.classList.toggle('aan',j<=b.i));
-  const tel=kaart.querySelector('.stapteller');
-  if(tel) tel.textContent=(b.i+1)+' / '+n;
-  const t=kaart.querySelector('.stapterug'), v=kaart.querySelector('.stapverder');
-  if(t) t.disabled=!b.i;
-  if(v) v.textContent=b.i>=n-1?'Klaar':'Volgende stap';
-  setTimeout(()=>chatStapInBeeld(kaart),40);
-}
-
-/* Past de kaart in beeld, dan naar de onderkant; is hij hoger dan het venster,
-   dan naar zijn bovenkant — anders begin je een stap halverwege te lezen. */
-function chatStapInBeeld(kaart){
-  const l=$('#chatLijst'); if(!l||!kaart) return;
-  if(kaart.offsetHeight>l.clientHeight-24) l.scrollTop=kaart.offsetTop-14;
-  else chatOnder();
-}
-
-function chatStapKnoppen(kaart,b,u){
-  kaart.querySelectorAll('[data-udoe]').forEach(x=>x.onclick=()=>{
-    chatKlein(); uitlegDoe(x.dataset.udoe);
-  });
-}
-
-/* Een onderwerp starten: één kaart in plaats van een reeks ballonnen. */
-function chatStapStart(u){
-  const it={soort:'wizard',ond:u.id,i:0,klaar:false};
-  chatWacht=it;
-  chatGesprek.push(it);
-  chatTeken();
-}
-
-function chatTeken(){
-  const l=$('#chatLijst'); if(!l) return;
-  if(!chatGesprek.length){
-    l.innerHTML=chatStartScherm();
-    $$('#chatLijst [data-ond]').forEach(x=>x.onclick=()=>chatOnderwerp(x.dataset.ond));
-    return chatOnder();
-  }
-  l.innerHTML=chatGesprek.map((b,i)=>{
-    if(b.soort==='wizard') return chatStapHtml(b,i);
-    if(b.chips) return `<div class="chatchips">${b.chips.map((c,j)=>
-      `<button class="chatchip" data-cv="${i}-${j}">${esc(c)}</button>`).join('')}</div>`;
-    if(b.knop) return `<button class="chatknop" data-cd="${i}">${esc(b.knop)}</button>`;
-    return `<div class="chatbel van-${b.van}">${
-      b.stap?`<span class="stapnr">${esc(b.stap)}</span>`:''}${
-      b.kop?`<span class="stapkop">${esc(b.kop)}</span>`:''}${esc(b.tekst)}</div>`;
-  }).join('');
-  $$('#chatLijst [data-wiz]').forEach(k=>{
-    const b=chatGesprek[parseInt(k.dataset.wiz,10)];
-    if(b) chatStapKnoppen(k,b);
-  });
-  $$('#chatLijst [data-sw]').forEach(x=>x.onclick=()=>{
-    const d=x.dataset.sw.split(':');
-    chatStapWissel(parseInt(d[0],10),parseInt(d[1],10));
-  });
-  $$('#chatLijst [data-cv]').forEach(x=>x.onclick=()=>{
-    const d=x.dataset.cv.split('-');
-    const b=chatGesprek[parseInt(d[0],10)];
-    if(b&&b.chips) chatAntwoord(b.chips[parseInt(d[1],10)]);
-  });
-  $$('#chatLijst [data-cd]').forEach(x=>x.onclick=()=>{
-    const i=parseInt(x.dataset.cd,10);
-    const b=chatGesprek[i];
-    if(!b||typeof b.doe!=='function') return;
-    if(b.blijf){ chatGesprek.splice(i,1); return b.doe() }   /* volgende stap */
-    chatKlein(); b.doe();                                     /* een scherm openen */
-  });
-  chatOnder();
-}
-
-/* Naar het laatste bericht. Eén keer zetten is te vroeg: de ballon staat er
-   pas na de layout, en iOS schuift het toetsenbord er in ongeveer een kwart
-   seconde in. Daarom een paar keer achter elkaar; scrollTop op de eindwaarde
-   zetten is niet duur en heeft geen bijwerking als het al goed staat. */
-function chatOnder(){
-  if(chatStand!=='open') return;
-  const l=$('#chatLijst'); if(!l) return;
-  const zet=()=>{ l.scrollTop=l.scrollHeight };
-  zet();
-  requestAnimationFrame(zet);
-  setTimeout(zet,80);
-  setTimeout(zet,260);
-  setTimeout(zet,520);
-}
-window.__chatOnder=chatOnder;
-
-/* Vanaf een chip: dezelfde route als wanneer je de vraag zelf had getypt,
-   maar zonder de kans dat het zoeken er net naast zit. */
-function chatOnderwerp(id){
-  const u=UITLEG.find(x=>x.id===id); if(!u) return;
-  chatZeg('jij',u.titel);
-  if((u.stappen||[]).length) return chatStapStart(u);
-  chatZeg('app',u.kort||u.titel);
-}
-
-function chatZeg(van,tekst,extra){
-  chatGesprek.push(Object.assign({van,tekst},extra||{}));
-  chatTeken();
-}
-
-function chatOpen(){
-  chatStand='open';
-  $('#chatPaneel').classList.add('open');
-  $('#chatBel').classList.remove('open');
-  chatTeken();
-  chatOnder();
-  setTimeout(()=>{ const e=$('#chatIn'); if(e) e.focus() },250);
-}
-function chatKlein(){
-  chatStand='klein';
-  $('#chatPaneel').classList.remove('open');
-  $('#chatBel').classList.add('open');
-}
-function chatDichtdoen(){
-  chatStand='dicht'; chatGesprek=[]; chatWacht=null;
-  $('#chatPaneel').classList.remove('open');
-  $('#chatBel').classList.remove('open');
-}
-
-/* Antwoordt op een vraag. Heeft het gevonden onderwerp stappen, dan komen die
-   één voor één; anders de uitleg met een knop naar het scherm. */
-function chatAntwoord(vraag){
-  chatZeg('jij',vraag);
-
-  /* wachtte er nog een vervolgstap en zegt de gebruiker "ja" of "volgende"? */
-  if(chatWacht&&/^(ja|volgende|verder|ok|oke|oké|en dan|daarna|next)\b/i.test(vraag.trim())){
-    return chatVolgende();
-  }
-
-  const treffers=vraagZoek(vraag);
-  if(!treffers.length){
-    if(/^(ja|volgende|verder|ok|oke|oké)\b/i.test(vraag.trim()))
-      return chatZeg('app','Er loopt nu geen uitleg. Stel je vraag opnieuw, '+
-        'dan begin ik bij stap één.');
-    chatZeg('app','Daar vind ik niets over. Zeg het eens anders, of kies een onderwerp.');
-    return chatZeg('app','',{chips:chatOnderwerpen().slice(0,4).map(u=>u.titel)});
-  }
-
-  /* Liefst een onderwerp met stappen, ook als een losse uitleg net hoger
-     scoort — stap voor stap helpt meer dan één blok tekst. We kijken
-     daarvoor in de eerste paar treffers. */
-  /* De gewone zoekdrempel houdt weinig over. Voor de chat kijken we breder,
-     want een onderwerp met stappen is meer waard dan één alinea. */
-  const ruim=kennisbank()
-    .map(k=>({k,score:vraagScore(k,woorden(vraag),vraagOnderwerpen(vraag))}))
-    .filter(x=>x.score>=4).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.k);
-  const metStappen=ruim.find(x=>x.id&&(UITLEG.find(u=>u.id===x.id)||{}).stappen);
-  const t=metStappen||treffers[0];
-
-  const onderwerp=t.id?UITLEG.find(u=>u.id===t.id):null;
-  if(onderwerp&&(onderwerp.stappen||[]).length) return chatStapStart(onderwerp);
-
-  chatZeg('app',t.tekst||t.titel);
-  if(t.doe) chatZeg('app','',{knop:t.titel+' openen',doe:t.doe});
-  const rest=treffers.slice(1,4).filter(x=>x.titel!==t.titel);
-  if(rest.length){
-    chatZeg('app','Of bedoelde je een van deze?');
-    chatZeg('app','',{chips:rest.map(x=>x.titel)});
-  }
-}
-
-/* Typ je "ja" of "volgende", dan schuift dezelfde kaart door. Staat er
-   intussen iets onder, dan verhuist de kaart eerst naar onderen — anders
-   zou je antwoord onder een kaart komen die erboven verspringt. */
-function chatVolgende(){
-  const w=chatWacht;
-  if(!w) return;
-  let idx=chatGesprek.indexOf(w);
-  if(idx<0){ chatWacht=null; return }
-  if(idx!==chatGesprek.length-1){
-    chatGesprek.splice(idx,1);
-    chatGesprek.push(w);
-    chatTeken();
-    idx=chatGesprek.length-1;
-  }
-  chatStapWissel(idx,1);
-}
-
 function sheetVraag(vooraf){
   const vraag=vooraf||'';
   const treffers=vraag?vraagZoek(vraag):[];
@@ -16962,10 +16520,6 @@ function sheetMeetpunten(){
     if(Math.abs(dek-vorig)<4) return;
     vorig=dek;
     document.documentElement.style.setProperty('--toetsenbord',dek+'px');
-    /* De chat is een eigen scherm binnen .app en krimpt dus mee. De
-       scrollpositie blijft daarbij staan, waardoor je laatste bericht
-       onder de rand verdwijnt. Hier halen we hem terug. */
-    if(window.__chatOnder) window.__chatOnder();
   };
   /* iOS schuift de webview weleens omlaag: na het sluiten van het toetsenbord,
      bij het terugkeren uit een andere app, of na een veeg. De pagina staat vast
