@@ -1848,7 +1848,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v299 · 15 aug 2026';
+const APPVERSIE='v300 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2457,7 +2457,7 @@ const BEDRIJF={
 function smaakIngredienten(r){
   const map={};
   (r.onderdelen||[]).forEach(o=>{
-    verdeel(o,parseFloat(o.gram)||0).forEach(x=>{if(x.naam)map[x.naam]=(map[x.naam]||0)+x.gram});
+    verdeel(o,getalIn0(o.gram)).forEach(x=>{if(x.naam)map[x.naam]=(map[x.naam]||0)+x.gram});
   });
   const tot=Object.values(map).reduce((a,b)=>a+b,0)||1;
   return Object.keys(map).map(n=>({naam:n,gram:map[n],pct:map[n]/tot*100}))
@@ -2686,9 +2686,9 @@ function verdeel(o,totaalGram){
   const ing=o.ing||[];
   if(!ing.length) return [];
   if(ing.length===1) return [{naam:ing[0].naam,gram:totaalGram}];
-  const som=ing.reduce((s,i)=>s+(parseFloat(i.deel)||0),0);
+  const som=ing.reduce((s,i)=>s+(getalIn0(i.deel)),0);
   if(!som) return ing.map(i=>({naam:i.naam,gram:0}));
-  return ing.map(i=>({naam:i.naam,gram:totaalGram*((parseFloat(i.deel)||0)/som)}));
+  return ing.map(i=>({naam:i.naam,gram:totaalGram*((getalIn0(i.deel))/som)}));
 }
 const bTel=(b,t)=>(b.logs||[]).filter(l=>l.type===t).length;
 const lopende=()=>S.batches.filter(b=>b.status==='bezig');
@@ -7076,6 +7076,21 @@ function accentKleur(){
 }
 
 const klem=(n,a,b)=>Math.max(a,Math.min(b,n));
+
+/* Een Nederlands toetsenbord geeft een komma, en daar kan een getalveld niet
+   tegen: <input type="number"> geeft een lege waarde terug zodra je "3,49"
+   intikt, en parseFloat('2,41') is gewoon 2. Zo verdween je invoer, of erger:
+   hij bleef staan en er werd met een verkeerd getal gerekend. Alles wat een
+   getal uit een veld haalt gaat daarom hierlangs. */
+function getalIn(w){
+  if(w===null||w===undefined) return null;
+  const t=String(w).trim().replace(/\s/g,'').replace(',','.');
+  if(!t) return null;
+  const n=parseFloat(t);
+  return isNaN(n)?null:n;
+}
+/* en de losse variant die 0 teruggeeft, voor optellen */
+const getalIn0=w=>getalIn(w)||0;
 
 /* hsl naar hex, want de schuiven denken in tint/verzadiging/diepte en de
    rest van de app in hex */
@@ -13734,14 +13749,14 @@ function sheetOnderdeel(idx){
   if(!o.werkwijze||!o.werkwijze.length) o.werkwijze=[''];
   const ingRij=i=>`<div class="ingrij">
     <input class="nm" data-in value="${esc(i.naam)}" placeholder="Ingrediënt">
-    <input class="hv" data-id2 type="number" inputmode="decimal" value="${esc(i.deel)}" placeholder="gram">
+    <input class="hv" data-id2 type="text" inputmode="decimal" value="${esc(i.deel)}" placeholder="gram">
     <button class="wisbtn" data-wis-i>${svg(I.kruis,'2')}</button></div>`;
   sheet(nieuw?'Onderdeel toevoegen':'Onderdeel',
     `<div class="veld"><label>Wat is dit onderdeel?</label>
       <input class="inp" id="oN" value="${esc(o.naam)}" placeholder="Bijv. schelp, gelei of ganache"></div>
      <div class="veld"><label>Hoeveel gaat er in één bonbon?</label>
       <div class="stepper"><button class="stepbtn" id="oMin">${svg(I.min)}</button>
-       <div class="stepval"><input id="oG" type="number" inputmode="decimal" step="0.25" value="${esc(o.gram)}" placeholder="0" min="0" max="24"><span class="eenh">g</span></div>
+       <div class="stepval"><input id="oG" type="text" inputmode="decimal" value="${esc(o.gram)}" placeholder="0" min="0" max="24"><span class="eenh">g</span></div>
        <button class="stepbtn" id="oPlus">${svg(I.plus)}</button></div></div>
      <div class="veld"><label>Jouw recept voor dit onderdeel</label>
       <p class="hint" style="margin-bottom:12px">Vul je recept in zoals je het écht maakt — één hele bak, in grammen.
@@ -13785,7 +13800,7 @@ function sheetOnderdeel(idx){
       inp.placeholder=enkel?'alles':'gram';
       inp.style.opacity=enkel?'.45':'1';
     });
-    const r=rijenLezen(), g=parseFloat($('#oG').value)||0;
+    const r=rijenLezen(), g=getalIn0($('#oG').value);
     const waarschuwing = g>50
       ? `<div class="norm fout" style="margin-bottom:10px">${svg(I.alarm)}${getal(g)} g per bonbon — klopt dat?
            Een hele bonbon weegt meestal 8 tot 15 gram.</div>` : '';
@@ -13794,13 +13809,13 @@ function sheetOnderdeel(idx){
       $('#oSam').innerHTML=waarschuwing+`<div class="verhouding">Eén ingrediënt: het hele gewicht van dit onderdeel is ${esc(r[0].naam)}.</div>`;
       return;
     }
-    const som=r.reduce((s2,x)=>s2+(parseFloat(x.deel)||0),0);
+    const som=r.reduce((s2,x)=>s2+getalIn0(x.deel),0);
     if(!som){ $('#oSam').innerHTML=waarschuwing+`<div class="verhouding">Vul bij elk ingrediënt in hoeveel gram er in jouw bak gaat.</div>`; return; }
     const bonbons = g>0 ? Math.floor(som/g) : 0;
     $('#oSam').innerHTML=waarschuwing+`
       <div class="totaalregel"><span class="l">Jouw bak</span><span class="w">${getal(som)} g</span></div>
       ${bonbons?`<div class="totaalregel" style="margin-top:8px"><span class="l">Goed voor</span><span class="w">${bonbons} bonbons</span></div>`:''}
-      <div class="verhouding">Verhouding: ${r.map(x=>esc(x.naam)+' '+getal(((parseFloat(x.deel)||0)/som)*100)+'%').join(' · ')}</div>`;
+      <div class="verhouding">Verhouding: ${r.map(x=>esc(x.naam)+' '+getal((getalIn0(x.deel)/som)*100)+'%').join(' · ')}</div>`;
   };
   /* Suggesties komen ónder de rij te staan in plaats van er overheen: op een
      telefoon in een scrollend paneel raak je een zwevend lijstje kwijt zodra
@@ -13885,8 +13900,13 @@ function sheetOnderdeel(idx){
     $('#oWuit').textContent=t+'.';
   };
   $('#oW').oninput=wzUit; wzUit();
-  $('#oMin').onclick=()=>{$('#oG').value=Math.max(0,(parseFloat($('#oG').value||0)-0.25)).toFixed(2).replace(/\.?0+$/,'');ververs()};
-  $('#oPlus').onclick=()=>{$('#oG').value=((parseFloat($('#oG').value||0)+0.25)).toFixed(2).replace(/\.?0+$/,'');ververs()};
+  const stapG=n=>{
+    const nu=Math.max(0,getalIn0($('#oG').value)+n);
+    $('#oG').value=nu.toFixed(2).replace(/\.?0+$/,'');
+    ververs();
+  };
+  $('#oMin').onclick=()=>stapG(-0.25);
+  $('#oPlus').onclick=()=>stapG(0.25);
   const terug=()=>{bewaarSmaak();bewaarNu();R.wizard?smaakStap3():tekenRecept()};
   $('#oTerug').onclick=terug;
   if($('#oWis')) $('#oWis').onclick=()=>{R.onderdelen.splice(idx,1);bewaarSmaak();render();
@@ -14366,8 +14386,8 @@ function linkKort(u){
 /* bedrag + hoeveelheid + eenheid → prijs per kilo */
 function prijsPerKilo(bedrag,hoeveel,eenheid){
   const e=PRIJSEENHEID[eenheid]||PRIJSEENHEID.g;
-  const gram=(parseFloat(hoeveel)||0)*e.naar;
-  const b=parseFloat(bedrag)||0;
+  const gram=getalIn0(hoeveel)*e.naar;
+  const b=getalIn0(bedrag);
   if(!gram||b<=0) return null;
   return (b/gram)*1000;
 }
@@ -14377,7 +14397,7 @@ function prijsBronZet(naam,bedrag,hoeveel,eenheid){
   const perKilo=prijsPerKilo(bedrag,hoeveel,eenheid);
   if(perKilo===null){ delete S.prijsBron[naam]; delete S.prijzen[naam] }
   else {
-    S.prijsBron[naam]={bedrag:+bedrag, hoeveel:+hoeveel, eenheid, datum:vandaag()};
+    S.prijsBron[naam]={bedrag:getalIn(bedrag), hoeveel:getalIn(hoeveel), eenheid, datum:vandaag()};
     S.prijzen[naam]=perKilo;
   }
   bewaarNu();
@@ -14396,7 +14416,7 @@ function prijsUitDelen(naam,diep){
   if(!delen.length) return null;
   let pct=0, som=0, mist=[];
   for(const d of delen){
-    const p=parseFloat(d.pct);
+    const p=getalIn(d.pct);
     if(!p||p<=0) return null;              /* zonder percentages valt er niets te rekenen */
     pct+=p;
     const kilo=ingPrijs(d.naam,diep+1);
@@ -15160,18 +15180,18 @@ function sheetIngDelen(naam){
              <button class="aanpasknop" data-dw="${i}" style="color:var(--rood)">Weg</button>
            </div>
            <div class="prijsrij"><label>Percentage, als je het weet</label>
-             <div class="pveld"><input class="inp" data-dp="${i}" type="number"
-               inputmode="decimal" step="0.1" value="${d.pct||''}" placeholder="—"><span>%</span></div></div>
+             <div class="pveld"><input class="inp" data-dp="${i}" type="text"
+               inputmode="decimal" value="${d.pct||''}" placeholder="—"><span>%</span></div></div>
            ${d.naam?(()=>{const bron=prijsBron(d.naam), pr=ingPrijs(d.naam);return `
            <div class="prijsvak">
              <label>Wat betaal je voor ${esc(d.naam)}?</label>
              <div class="prijsin">
                <span class="pveld euro"><span>€</span><input data-pb="${esc(d.naam)}" data-veld="bedrag"
-                 type="number" inputmode="decimal" step="0.01" placeholder="3,49"
+                 type="text" inputmode="decimal" placeholder="3,49"
                  value="${bron?bron.bedrag:''}"></span>
                <span class="pvoor">voor</span>
-               <span class="pveld"><input data-pb="${esc(d.naam)}" data-veld="hoeveel" type="number"
-                 inputmode="decimal" step="1" placeholder="250" value="${bron?bron.hoeveel:''}"></span>
+               <span class="pveld"><input data-pb="${esc(d.naam)}" data-veld="hoeveel" type="text"
+                 inputmode="decimal" placeholder="250" value="${bron?bron.hoeveel:''}"></span>
                <select class="peenh" data-pb="${esc(d.naam)}" data-veld="eenheid">${
                  Object.keys(PRIJSEENHEID).map(k=>`<option value="${k}"${
                    bron&&bron.eenheid===k?' selected':''}>${PRIJSEENHEID[k].n}</option>`).join('')}</select>
@@ -15196,7 +15216,7 @@ function sheetIngDelen(naam){
          if(uit!==null) return `<div class="samentot"><b>${esc(naam)} kost ${
            euro(uit)} per kilo</b>Berekend uit de onderdelen hierboven. Je smaken
            rekenen hier vanzelf mee.</div>`;
-         const pcts=D.map(d=>parseFloat(d.pct)||0);
+         const pcts=D.map(d=>getalIn0(d.pct));
          const som=pcts.reduce((a,b2)=>a+b2,0);
          const zonder=D.filter(d=>d.naam&&ingPrijs(d.naam)===null).map(d=>d.naam);
          if(!D.length) return '';
@@ -15281,11 +15301,11 @@ function sheetAllergenen(){
         <label>Wat betaal je ervoor?</label>
         <div class="prijsin">
           <span class="pveld euro"><span>€</span><input data-pb="${esc(n)}" data-veld="bedrag"
-            type="number" inputmode="decimal" step="0.01" placeholder="3,49"
+            type="text" inputmode="decimal" placeholder="3,49"
             value="${bron?bron.bedrag:''}"></span>
           <span class="pvoor">voor</span>
-          <span class="pveld"><input data-pb="${esc(n)}" data-veld="hoeveel" type="number"
-            inputmode="decimal" step="1" placeholder="250" value="${bron?bron.hoeveel:''}"></span>
+          <span class="pveld"><input data-pb="${esc(n)}" data-veld="hoeveel" type="text"
+            inputmode="decimal" placeholder="250" value="${bron?bron.hoeveel:''}"></span>
           <select class="peenh" data-pb="${esc(n)}" data-veld="eenheid">${
             Object.keys(PRIJSEENHEID).map(k=>`<option value="${k}"${
               bron&&bron.eenheid===k?' selected':''}>${PRIJSEENHEID[k].n}</option>`).join('')}</select>
@@ -15306,8 +15326,9 @@ function sheetAllergenen(){
         </div>
       </div>
       <button class="beheerrij" data-delen="${esc(n)}" style="padding:12px 0 2px">
-        ${svg(I.doc)}<span class="l">Bestaat uit</span>
-        <span class="w ${d.length?'':'let'}">${d.length?d.length+' onderdelen':'nog niet uitgesplitst'}</span>
+        ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
+          <small>Zoals praline uit suiker en noten \u2014 dan rekent de app de prijs erbij uit</small></span>
+        <span class="w ${d.length?'':''}">${d.length?d.length+' onderdelen':'nee'}</span>
         <span class="p">${svg(I.pijl,'2')}</span></button>
     </div>`;
   };
