@@ -1213,6 +1213,25 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .ingvoor.laag{background:#fffdf7;box-shadow:inset 3px 0 0 var(--amber)}
 .ingvoor.laag .hoev{color:var(--amber)}
 
+/* voedingswaarde invullen */
+.vrij{display:flex;align-items:center;gap:12px;padding:10px 16px;
+  border-bottom:1px solid var(--lijn)}
+.vrij:last-child{border-bottom:none}
+.vrij .n{flex:1;min-width:0;font-size:14.5px;font-weight:500;letter-spacing:-.015em}
+.vrij.in .n{padding-left:14px;font-weight:450;color:var(--grijs);font-size:13.5px}
+.vrij .pveld{flex:0 0 92px;display:flex;align-items:center;background:var(--bg);
+  border-radius:12px;padding:0 12px;height:42px}
+.vrij .pveld input{width:100%;min-width:0;background:none;border:none;outline:none;
+  font-size:16px;font-weight:600;text-align:right;padding:0;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+.vrij .e{flex:0 0 34px;font-size:12.5px;font-weight:600;color:var(--grijs2)}
+/* de tabel op het etiket */
+.et-product .vtab{width:100%;border-collapse:collapse;font-size:6pt;line-height:1.25;
+  margin-top:.8mm}
+.et-product .vtab td{padding:.15mm 0;vertical-align:top}
+.et-product .vtab td:last-child{text-align:right;white-space:nowrap}
+.et-product .vtab tr.in td:first-child{padding-left:2mm}
+
 /* prijsverloop */
 .phist{display:flex;flex-direction:column;gap:3px;margin-top:7px;
   font-size:12.5px;color:var(--grijs2)}
@@ -1919,7 +1938,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v317 · 16 aug 2026';
+const APPVERSIE='v318 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2023,7 +2042,7 @@ function ingHernoem(oud,nieuw){
     (x||'').trim().toLowerCase()===vk?naar:x);
   hernoemSleutel(S.prijzen); hernoemSleutel(S.prijsBron); hernoemSleutel(S.prijsHist);
   hernoemSleutel(S.ingLink); hernoemSleutel(S.allerg);
-  hernoemSleutel(S.samenstelling);
+  hernoemSleutel(S.samenstelling); hernoemSleutel(S.voeding);
   /* ook als onderdeel binnen de uitsplitsing van iets anders */
   Object.keys(S.samenstelling||{}).forEach(x=>
     (S.samenstelling[x]||[]).forEach(d=>{
@@ -2074,6 +2093,7 @@ function ingWeg(naam){
   delete (S.prijsHist||{})[naam];
   delete (S.ingLink||{})[naam];
   delete (S.allerg||{})[naam];
+  delete (S.voeding||{})[naam];
   delete (S.samenstelling||{})[naam];
   /* Ook uit de recepten halen. Deed je dat niet, dan stond het ingrediënt na
      het "verwijderen" gewoon weer in de lijst — de lijst leest immers ook je
@@ -2192,7 +2212,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
-  'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief',
+  'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -12686,6 +12706,17 @@ function etiketVoor(receptId,lot,tht){
     ${e.benaming?`<div class="eb2">${esc(e.benaming)}</div>`:''}
     <div class="ing"><b>Ingrediënten:</b> ${declaratie(r)}</div>
     ${g.length?`<div class="r"><b>Bevat:</b> ${g.map(k=>esc(alNaam(k).toLowerCase())).join(', ')}</div>`:''}
+    ${(()=>{const vw=voedingVanSmaak(r);
+      if(!vw||!vw.per100) return '';
+      const w=vw.per100;
+      return `<table class="vtab"><tr><td colspan="2"><b>Voedingswaarde per 100 g</b></td></tr>
+        <tr><td>Energie</td><td>${Math.round(w.kj)} kJ / ${Math.round(w.kcal)} kcal</td></tr>
+        <tr><td>Vetten</td><td>${komma(getal(w.vet))} g</td></tr>
+        <tr class="in"><td>waarvan verzadigde vetzuren</td><td>${komma(getal(w.verz))} g</td></tr>
+        <tr><td>Koolhydraten</td><td>${komma(getal(w.koolh))} g</td></tr>
+        <tr class="in"><td>waarvan suikers</td><td>${komma(getal(w.suik))} g</td></tr>
+        <tr><td>Eiwitten</td><td>${komma(getal(w.eiwit))} g</td></tr>
+        <tr><td>Zout</td><td>${komma(getal(w.zout))} g</td></tr></table>`})()}
     <div class="r">${esc(e.bewaar||'')}</div>
     <div class="er r"><span>${e.netto?'Netto '+esc(e.netto):'Netto \u2014 invullen'}</span>
       <span><b>THT ${tht?kort(new Date(tht)):'\u2014'}</b></span></div>
@@ -14737,6 +14768,54 @@ const PRIJSEENHEID={
 
 function prijsBron(naam){ return (S.prijsBron||{})[naam]||null }
 
+/* ═══════════ voedingswaarde ═══════════
+   Verordening 1169/2011 schrijft deze zeven voor, in deze volgorde, per 100 g.
+   Energie in kJ én kcal; die twee volgen uit elkaar, dus we rekenen de ander
+   uit zodra je er één invult. */
+const VOEDING=[
+  {k:'kj',    n:'Energie',                e:'kJ'},
+  {k:'kcal',  n:'Energie',                e:'kcal'},
+  {k:'vet',   n:'Vetten',                 e:'g'},
+  {k:'verz',  n:'waarvan verzadigd',      e:'g', in:true},
+  {k:'koolh', n:'Koolhydraten',           e:'g'},
+  {k:'suik',  n:'waarvan suikers',        e:'g', in:true},
+  {k:'eiwit', n:'Eiwitten',               e:'g'},
+  {k:'zout',  n:'Zout',                   e:'g'}
+];
+const voeding=naam=>(S.voeding||{})[naam]||null;
+const voedingCompleet=naam=>{
+  const w=voeding(naam);
+  return !!w&&VOEDING.every(x=>typeof w[x.k]==='number');
+};
+
+function voedingZet(naam,waarden){
+  S.voeding=S.voeding||{};
+  const w={};
+  VOEDING.forEach(x=>{ const n=getalIn(waarden[x.k]); if(n!==null) w[x.k]=n });
+  /* energie: 1 kcal = 4,184 kJ. Vul je er één in, dan weten we de andere. */
+  if(w.kj!==undefined&&w.kcal===undefined) w.kcal=Math.round(w.kj/4.184);
+  if(w.kcal!==undefined&&w.kj===undefined) w.kj=Math.round(w.kcal*4.184);
+  if(Object.keys(w).length) S.voeding[naam]=w; else delete S.voeding[naam];
+  bewaarNu();
+  return S.voeding[naam]||null;
+}
+
+/* De voedingswaarde van een smaak per 100 g, gewogen naar wat erin gaat.
+   Vochtverlies tijdens het koken telt hier niet mee — dat kun je alleen meten,
+   niet berekenen, en de meeste kleine producenten rekenen zo. */
+function voedingVanSmaak(r){
+  const ing=smaakIngredienten(r);
+  const tot=ing.reduce((n,i)=>n+i.gram,0);
+  if(!tot) return null;
+  const mist=ing.filter(i=>!voedingCompleet(i.naam)).map(i=>i.naam);
+  if(mist.length) return {mist, per100:null};
+  const per100={};
+  VOEDING.forEach(x=>{
+    per100[x.k]=ing.reduce((n,i)=>n+(voeding(i.naam)[x.k]*i.gram/100),0)/tot*100;
+  });
+  return {mist:[], per100, perBonbon:tot};
+}
+
 /* Het prijs- en linkblok staat op twee plekken: bij een ingrediënt en bij elk
    onderdeel van een samengesteld ingrediënt. Eén functie, zodat ze niet uit
    elkaar gaan lopen. Alles wordt op de naam bewaard, dus kristalsuiker is
@@ -16061,6 +16140,56 @@ function sheetIngredientenLijst(alleenMissend){
   $('#ilOk').onclick=sheetInstellingen;
 }
 
+/* De zeven waarden van de verpakking overtikken. Eén scherm, één ingrediënt. */
+function sheetVoeding(naam,uitMissend){
+  const w=voeding(naam)||{};
+  sheet('Voedingswaarde · '+naam,
+    `<p class="hint">Neem de tabel van de verpakking over, per 100 gram. Vul je de
+      kJ in, dan rekent de app de kcal erbij — en andersom.</p>
+     <div class="paneel">${VOEDING.map(x=>`
+       <div class="vrij${x.in?' in':''}">
+         <span class="n">${x.n}</span>
+         <span class="pveld"><input data-vw="${x.k}" type="text" inputmode="decimal"
+           value="${w[x.k]!==undefined?komma(w[x.k]):''}" placeholder="0"></span>
+         <span class="e">${x.e}</span>
+       </div>`).join('')}</div>
+     <div class="geen" id="vwUit" style="padding-top:14px"></div>`,
+    `<button class="prim" style="margin-top:0" id="vwOk">Opslaan</button>
+     <button class="sec" id="vwTerug">Terug</button>`);
+
+  const lees=()=>{
+    const uit={};
+    $$('#sheetBody [data-vw]').forEach(i=>uit[i.dataset.vw]=i.value);
+    return uit;
+  };
+  const melden=()=>{
+    const d=lees();
+    const ing=VOEDING.filter(x=>getalIn(d[x.k])===null).map(x=>x.n+(x.e==='kcal'?' (kcal)':''));
+    /* een paar controles die je zo over het hoofd ziet */
+    const fout=[];
+    const g=k=>getalIn(d[k]);
+    if(g('verz')!==null&&g('vet')!==null&&g('verz')>g('vet'))
+      fout.push('Verzadigd vet kan niet meer zijn dan het totale vet.');
+    if(g('suik')!==null&&g('koolh')!==null&&g('suik')>g('koolh'))
+      fout.push('Suikers kunnen niet meer zijn dan de koolhydraten.');
+    const som=['vet','koolh','eiwit'].reduce((n,k)=>n+(g(k)||0),0);
+    if(som>100) fout.push('Vet, koolhydraten en eiwit zijn samen meer dan 100 gram.');
+    $('#vwUit').innerHTML=fout.length
+      ? '<span style="color:var(--rood)">'+fout.join(' ')+'</span>'
+      : (ing.length===VOEDING.length?'Neem de tabel over van de verpakking.'
+        : ing.length?'Nog leeg: '+ing.join(', ')+'.'
+        : 'Compleet — deze telt mee op je etiket.');
+  };
+  $$('#sheetBody [data-vw]').forEach(i=>i.oninput=melden);
+  melden();
+  $('#vwOk').onclick=()=>{
+    voedingZet(naam,lees());
+    sheetIngredient(naam,uitMissend);
+    toast('Voedingswaarde opgeslagen.');
+  };
+  $('#vwTerug').onclick=()=>sheetIngredient(naam,uitMissend);
+}
+
 /* Eén ingrediënt, alles bij elkaar. */
 function sheetIngredient(naam,uitMissend){
   S.allerg=S.allerg||{};
@@ -16086,6 +16215,14 @@ function sheetIngredient(naam,uitMissend){
            ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
            : 'Nog niet in gebruik in een smaak.';
        })()}</div>
+       <button class="beheerrij" id="iVoed" style="padding:14px 0 2px">
+         ${svg(I.klembord)}<span class="l">Voedingswaarde
+           <small>${(()=>{const w=voeding(naam);
+             if(!w) return 'Nog niet ingevuld — je etiket heeft dit nodig';
+             if(!voedingCompleet(naam)) return 'Onvolledig — vul de rest aan';
+             return Math.round(w.kcal)+' kcal · '+komma(getal(w.vet))+' g vet · '
+               +komma(getal(w.suik))+' g suikers per 100 g'})()}</small></span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>
        <button class="beheerrij" id="iArch" style="padding:14px 0 2px">
          ${svg(I.doos)}<span class="l">${ingGearchiveerd(naam)?'Terughalen uit het archief'
            :'Naar het archief'}
@@ -16137,6 +16274,7 @@ function sheetIngredient(naam,uitMissend){
         : 'Geen — dan komt er ook niets op je etiket';
     });
     ingVeldenBinden();
+    $('#iVoed').onclick=()=>sheetVoeding(naam,uitMissend);
     $('#iArch').onclick=()=>{
       const aan=!ingGearchiveerd(naam);
       ingArchiveer(naam,aan);
