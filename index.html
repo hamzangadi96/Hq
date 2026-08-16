@@ -1190,6 +1190,28 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .alkop .g{font-size:12.5px;font-weight:500;color:var(--grijs3);text-align:right}
 .alkop .g.aan{color:var(--rood);font-weight:600}
 .lotkop .g.goed{color:var(--groen);font-weight:700}
+/* voorraad en leverancier bij een ingrediënt */
+.ingvoor{margin-top:18px;padding:13px 15px;background:var(--bg);border-radius:14px;
+  display:flex;flex-direction:column;gap:3px}
+.ingvoor .hoev{font-size:15px;font-weight:600;letter-spacing:-.015em;
+  font-variant-numeric:tabular-nums}
+.ingvoor .sub{font-size:12.5px;color:var(--grijs2);line-height:1.4}
+/* onder je bestelniveau of helemaal op: dat wil je zien zonder te lezen */
+.ingvoor.laag{background:#fffdf7;box-shadow:inset 3px 0 0 var(--amber)}
+.ingvoor.laag .hoev{color:var(--amber)}
+
+/* prijsverloop */
+.phist{display:flex;flex-direction:column;gap:3px;margin-top:7px;
+  font-size:12.5px;color:var(--grijs2)}
+.phist .let{color:var(--amber);font-weight:600}
+.phmeer{align-self:flex-start;margin-top:4px;font-size:12.5px;font-weight:600;
+  color:var(--ink2);text-decoration:underline;text-underline-offset:3px}
+.pdelta{font-style:normal;font-size:11.5px;font-weight:700;margin-left:8px}
+.pdelta.op{color:var(--rood)} .pdelta.neer{color:var(--groen)}
+.poud{display:inline-block;font-style:normal;font-size:10.5px;font-weight:700;
+  letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
+  padding:2px 5px;margin-left:6px;vertical-align:1px}
+
 /* ── ingrediëntenlijst ── */
 .ingtop{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
   padding-bottom:14px}
@@ -1884,7 +1906,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v311 · 16 aug 2026';
+const APPVERSIE='v314 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1984,7 +2006,7 @@ function ingHernoem(oud,nieuw){
   };
   S.ingredienten=(S.ingredienten||[]).map(x=>
     (x||'').trim().toLowerCase()===vk?naar:x);
-  hernoemSleutel(S.prijzen); hernoemSleutel(S.prijsBron);
+  hernoemSleutel(S.prijzen); hernoemSleutel(S.prijsBron); hernoemSleutel(S.prijsHist);
   hernoemSleutel(S.ingLink); hernoemSleutel(S.allerg);
   hernoemSleutel(S.samenstelling);
   /* ook als onderdeel binnen de uitsplitsing van iets anders */
@@ -2020,6 +2042,7 @@ function ingWeg(naam){
   S.ingredienten=(S.ingredienten||[]).filter(x=>(x||'').trim().toLowerCase()!==k);
   delete (S.prijzen||{})[naam];
   delete (S.prijsBron||{})[naam];
+  delete (S.prijsHist||{})[naam];
   delete (S.ingLink||{})[naam];
   delete (S.allerg||{})[naam];
   delete (S.samenstelling||{})[naam];
@@ -2140,7 +2163,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
-  'prijsBron','ingLink','accent','ingredienten',
+  'prijsBron','ingLink','accent','ingredienten','prijsHist',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -6546,6 +6569,98 @@ function sheetKleurReken(){
   teken();
 }
 
+/* ═══════════ wat ging er dit jaar aan grondstof in je bonbons? ═══════════
+   Uit de vastgelegde kosten per batch, dus met de prijzen van toen. Batches
+   van vóór deze versie hebben die momentopname niet; die rekenen we alsnog
+   uit met de prijzen van nu en markeren we, zodat je weet welk deel een
+   schatting is. */
+function grondstofJaar(jaar){
+  const perIng={}; let grond=0, bonbons=0, afkeur=0, geschat=0, mist=new Set();
+  const batches=(S.batches||[]).filter(b=>b.status==='klaar'&&b.eindDatum&&
+    new Date(b.eindDatum).getFullYear()===jaar);
+  batches.forEach(b=>{
+    const had=!!b.kosten;
+    const k=had?b.kosten:batchKostenVast(b,true);
+    if(!had) geschat++;
+    (k.perIng||[]).forEach(x=>{
+      const rij=perIng[x.naam]||(perIng[x.naam]={naam:x.naam,gram:0,euro:0});
+      rij.gram+=x.gram||0; rij.euro+=x.euro||0;
+      if(x.geenPrijs) mist.add(x.naam);
+    });
+    grond+=k.grond||0;
+    bonbons+=(b.resultaat&&b.resultaat.goed)||0;
+    afkeur+=(b.resultaat&&b.resultaat.afkeur)||0;
+  });
+  return {jaar, batches:batches.length, geschat,
+    lijst:Object.values(perIng).sort((a,b2)=>b2.euro-a.euro),
+    grond, bonbons, afkeur,
+    perStuk:bonbons?grond/bonbons:null,
+    mist:[...mist]};
+}
+
+/* en wat heb je er dat jaar voor ingekocht? dat is iets anders dan wat je
+   verbruikte — het verschil zit in je voorraad */
+function inkoopJaar(jaar){
+  let euro=0, aantal=0;
+  (S.ontvangsten||[]).forEach(o=>{
+    if(!o.datum||new Date(o.datum).getFullYear()!==jaar) return;
+    aantal++;
+    const kilo=ingPrijs(o.product);
+    const gram=getalIn0(o.hoeveel)*((o.eenheid==='kg'||o.eenheid==='l')?1000:1);
+    if(kilo!==null&&gram) euro+=(gram/1000)*kilo;
+  });
+  return {euro, aantal};
+}
+
+function sheetGrondstofJaar(jaar){
+  jaar=jaar||new Date().getFullYear();
+  const g=grondstofJaar(jaar);
+  const jaren=[...new Set((S.batches||[]).filter(b=>b.status==='klaar'&&b.eindDatum)
+    .map(b=>new Date(b.eindDatum).getFullYear()))].sort((a,b2)=>b2-a);
+  if(!jaren.length) jaren.push(jaar);
+  const tekst=[`Grondstoffen ${jaar} — Cacaoboetiek`,'']
+    .concat(g.lijst.map(x=>`${x.naam}\t${(x.gram/1000).toFixed(3)} kg\t${euro(x.euro)}`))
+    .concat(['',`Totaal\t${euro(g.grond)}`,
+      `Bonbons goed\t${g.bonbons}`,
+      `Per bonbon\t${g.perStuk===null?'—':euro(g.perStuk)}`]).join('\n');
+
+  sheet('Grondstoffen '+jaar,
+    `<div class="chips" style="margin-bottom:16px">${jaren.map(j=>
+       `<button class="chip klein${j===jaar?' aan':''}" data-gj="${j}">${j}</button>`).join('')}</div>
+     ${g.batches?`
+     <div class="cijfers" style="margin-bottom:18px">
+       <div class="ccel"><div class="w">${euro(g.grond)}</div><div class="l">grondstof</div></div>
+       <div class="ccel"><div class="w">${g.bonbons}</div><div class="l">bonbons</div></div>
+       <div class="ccel"><div class="w${g.perStuk===null?' nul':''}">${
+         g.perStuk===null?'—':euro(g.perStuk)}</div><div class="l">per stuk</div></div>
+       <div class="ccel"><div class="w">${g.batches}</div><div class="l">batches</div></div>
+     </div>
+     ${g.mist.length?`<div class="melding amber">${svg(I.alarm)}
+       <span>Geen prijs bij ${g.mist.map(esc).join(', ')} — die tellen niet mee.</span></div>`:''}
+     ${g.geschat?`<div class="melding amber">${svg(I.alarm)}
+       <span>${g.geschat} van de ${g.batches} batches zijn van vóór deze versie en hebben
+       geen vastgelegde kostprijs. Die zijn met de prijzen van nu berekend.</span></div>`:''}
+     <div class="blokkop"><span class="eyebrow">Per grondstof</span>
+       <span class="tel">${g.lijst.length}</span></div>
+     <div class="paneel">${g.lijst.map(x=>`
+       <div class="arij" style="cursor:default">
+         <span class="naam">${esc(x.naam)}<small>${komma((x.gram/1000).toFixed(3))} kg${
+           g.grond?' · '+Math.round(x.euro/g.grond*100)+'% van je grondstofkosten':''}</small></span>
+         <span class="waarde gevuld">${euro(x.euro)}</span></div>`).join('')}</div>
+     ${g.afkeur?`<p class="hint" style="margin-top:16px">Er zijn dit jaar ${g.afkeur} bonbons
+       afgekeurd. Die grondstof zit wel in het bedrag hierboven, maar heeft niets opgeleverd.</p>`:''}
+     `:`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.doos,'2.2')}</div>
+        <p>Nog geen afgeronde batches in ${jaar}.<br>Rond een batch af, dan verschijnt hij hier.</p>
+       </div></div>`}`,
+    g.batches?`<button class="prim" style="margin-top:0" id="gjKopie">Overzicht kopiëren</button>`:'');
+
+  $$('[data-gj]').forEach(b=>b.onclick=()=>sheetGrondstofJaar(+b.dataset.gj));
+  if($('#gjKopie')) $('#gjKopie').onclick=()=>{
+    try{ navigator.clipboard.writeText(tekst); toast('Gekopieerd \u2014 plak het in je boekhouding.') }
+    catch(e){ toast('Kopiëren lukte niet.') }
+  };
+}
+
 function sheetKostenbasis(){
   const d=dervingInfo(), p=productiePerMaand(), vb=vastPerBonbon();
   const posten=(S.vasteLasten||[]);
@@ -7162,6 +7277,11 @@ function geldHTML(){
         return rij('data-kostenbasis',I.doos,'Kostenbasis',
           m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
            : 'vaste lasten, derving en prijsbeleid', !m||vb.per===null)})()}
+      ${(()=>{const g=grondstofJaar(new Date().getFullYear());
+        return rij('data-grondjaar',I.doos,'Grondstoffen dit jaar',
+          g.batches? euro(g.grond)+' \u00b7 '+g.bonbons+' bonbons'+
+            (g.perStuk!==null?' \u00b7 '+euro(g.perStuk)+' per stuk':'')
+          : 'nog geen afgeronde batches', !g.batches)})()}
       ${rij('data-bonnen',I.doos,'Bonnen',(()=>{
         const n=(S.bonnen||[]).length;
         const z=(S.bonnen||[]).filter(x=>!x.foto).length;
@@ -8505,6 +8625,35 @@ function verbruikVanBatch(b){
   });
   return uit;
 }
+/* Wat een batch je gekost heeft, vastgelegd op de dag dat je hem afrondt.
+   Zonder dit rekent een overzicht van maart in december met decemberprijzen:
+   je hele jaarhistorie schuift dan mee met elke prijsverhoging. Dit is een
+   momentopname, net als de receptuurkopie in de batch zelf. */
+function batchKostenVast(b,alleenRekenen){
+  if(b.kosten) return b.kosten;
+  const perIng={};
+  verbruikVanBatch(b).forEach(x=>{
+    if(!x.gram) return;
+    const naam=x.product;
+    const kilo=ingPrijs(naam);
+    const rij=perIng[naam]||(perIng[naam]={naam,gram:0,kilo,euro:0,geenPrijs:kilo===null});
+    rij.gram+=x.gram;
+    if(kilo!==null) rij.euro=(rij.gram/1000)*kilo;
+  });
+  const lijst=Object.values(perIng).sort((a,b2)=>b2.euro-a.euro);
+  const grond=lijst.reduce((n,x)=>n+(x.euro||0),0);
+  const goed=(b.resultaat&&b.resultaat.goed)||0;
+  const uit={datum:vandaag(), perIng:lijst, grond,
+    zonderPrijs:lijst.filter(x=>x.geenPrijs).map(x=>x.naam),
+    goed, perStuk:goed?grond/goed:null};
+  /* Een overzicht mag niets vastleggen. Zou het dat wel doen, dan wordt een
+     schatting met de prijzen van vandaag stilletjes de waarheid van toen —
+     en zie je daarna nergens meer dat het een schatting was. */
+  if(alleenRekenen) return uit;
+  b.kosten=uit;
+  return b.kosten;
+}
+
 function boekVerbruik(b){
   if(b.verbruikGeboekt) return 0;
   const lijst=verbruikVanBatch(b);
@@ -11146,6 +11295,7 @@ function bind(){
   $$('[data-btw]').forEach(x=>x.onclick=sheetBtw);
   $$('[data-verkoop]').forEach(x=>x.onclick=sheetVerkoopprijzen);
   $$('[data-kostenbasis]').forEach(x=>x.onclick=sheetKostenbasis);
+  $$('[data-grondjaar]').forEach(x=>x.onclick=()=>sheetGrondstofJaar());
   $$('[data-bedrijfsprofiel]').forEach(x=>x.onclick=sheetBedrijf);
   $$('[data-bonnen]').forEach(x=>x.onclick=sheetBonnen);
   $$('[data-uren]').forEach(x=>x.onclick=sheetUren);
@@ -12234,6 +12384,7 @@ function sheetAfronden(){
       lot:b.code,tht:iso(thtVan(b,receptVan(b,ps.receptId))),aantal:0,
       reden:ps.afkeur+' afkeur bij productie'}));
     boekVerbruik(b);
+    batchKostenVast(b);
     bLog(b,{type:'afronden',titel:goed+' goed, '+afk+' afkeur',
       sub:perSmaak.map(p=>receptVan(b,p.receptId).naam+' '+p.goed).join(' · ')+(n?' — '+n:''),
       status:niet.length?'let':'ok'});
@@ -13289,6 +13440,7 @@ function sheetBatchStatus(){
     b.status='klaar'; b.afgebroken=true; b.eind=nu(); b.eindDatum=vandaag();
     b.resultaat={goed:0,afkeur:bTotaal(b),perSmaak:b.regels.map(rg=>({receptId:rg.receptId,goed:0,afkeur:rg.aantal}))};
     boekVerbruik(b);
+    batchKostenVast(b);
     bLog(b,{type:'afronden',titel:'Batch afgebroken',sub:reden,status:'fout'});
     bewaarNu(); render(); klaarSheet('Batch afgebroken en vastgelegd.');
   };
@@ -14534,6 +14686,7 @@ function ingVeldenHtml(naam,opties){
       <div class="puit${pr!==null?' aan':''}" data-puit="${esc(naam)}">${
         pr!==null?'= '+euro(pr)+' per kilo'+(bron?'':' \u00b7 uit je laatste ontvangst')
                  :'Nog geen prijs'}</div>
+      <div data-phvak="${esc(naam)}">${opties.historie===false?'':prijsHistHtml(naam)}</div>
     </div>
     <div class="linkvak">
       <label>Waar bestel je ${opties.kort?'het':esc(naam)}?</label>
@@ -14551,6 +14704,56 @@ function ingVeldenHtml(naam,opties){
 
 /* De bijbehorende bediening. na() draait als er iets verandert dat de rest van
    het scherm raakt — in de uitsplitsing verandert dan namelijk ook de som. */
+/* Voorraad en leverancier staan al in de app, maar niet op de plek waar je
+   over dit ingrediënt nadenkt. Hier bij elkaar, zodat je in één blik weet of
+   je moet bestellen en bij wie. */
+function ingVoorraadHtml(naam){
+  const v=grondVoorraad().find(x=>gKey(x.product)===gKey(naam));
+  const drempel=grondDrempel(naam);
+  const lev=leverancierVan(naam);
+  const lt=(S.levertijden||{})[gKey(naam)];
+  const laag=v?(drempel>0&&v.saldo<=drempel):true;
+  const partijen=(S.lots||[]).filter(x=>gKey(x.product)===gKey(naam)&&x.tht)
+    .sort((a,b2)=>String(a.tht).localeCompare(String(b2.tht)));
+  const eerste=partijen[0];
+  const regels=[];
+  if(drempel>0) regels.push('bestellen onder '+toonHoeveel(drempel,v?v.basis:'g'));
+  if(lev) regels.push('via '+lev+(lt?' · '+lt+' '+(lt===1?'dag':'dagen')+' levertijd':''));
+  if(eerste) regels.push('eerste THT '+kort(new Date(eerste.tht)));
+  if(!v&&!lev&&!drempel) return '';
+  return `<div class="ingvoor${laag?' laag':''}">
+    <span class="hoev">${v?toonHoeveel(v.saldo,v.basis):'niet op voorraad'}</span>
+    ${regels.length?`<span class="sub">${esc(regels.join(' · '))}</span>`:''}
+  </div>`;
+}
+
+/* Wat er onder het prijsvak komt te staan: hoe oud de prijs is, en wat je er
+   vorige keer voor betaalde. */
+function prijsHistHtml(naam){
+  const bron=prijsBron(naam);
+  if(!bron) return '';
+  const dagen=prijsDagenOud(naam), hist=prijsHist(naam), nu=S.prijzen[naam];
+  const regels=[];
+  if(dagen!==null){
+    const oud=dagen>=PRIJSOUD;
+    regels.push(`<span class="${oud?'let':''}">${
+      dagen<=0?'Vandaag ingevuld':dagen===1?'Gisteren ingevuld'
+      :dagen<60?'Ingevuld '+dagen+' dagen geleden'
+      :'Ingevuld op '+kort(new Date(bron.datum))}${
+      oud?' \u2014 klopt die nog?':''}</span>`);
+  }
+  const vorige=hist[0];
+  if(vorige&&typeof nu==='number'&&vorige.kilo){
+    const pct=Math.round((nu-vorige.kilo)/vorige.kilo*100);
+    regels.push(`<span>Was ${euro(vorige.kilo)} per kilo${
+      pct?' \u00b7 '+(pct>0?'+':'')+pct+'%':''}</span>`);
+  }
+  if(!regels.length) return '';
+  return `<div class="phist">${regels.join('')}${
+    hist.length>1?`<button class="phmeer" data-phist="${esc(naam)}">${
+      hist.length} eerdere prijzen</button>`:''}</div>`;
+}
+
 function ingVeldenBinden(na){
   const veld=(nm,k)=>document.querySelector(
     `[data-pb="${CSS.escape(nm)}"][data-veld="${k}"]`);
@@ -14562,6 +14765,9 @@ function ingVeldenBinden(na){
       ? '= '+euro(val)+' per kilo'+(prijsBron(nm)?'':' \u00b7 uit je laatste ontvangst')
       : 'Nog geen prijs';
     uit.classList.toggle('aan',val!==null);
+    /* de regel eronder gaat over dezelfde prijs, dus die moet mee */
+    const hv=document.querySelector(`[data-phvak="${CSS.escape(nm)}"]`);
+    if(hv){ hv.innerHTML=prijsHistHtml(nm); ingHistBinden() }
   };
   const reken=nm=>{
     const b=veld(nm,'bedrag'), h=veld(nm,'hoeveel'), e=veld(nm,'eenheid');
@@ -14617,6 +14823,30 @@ function ingVeldenBinden(na){
     i.onblur=()=>linkDoe(i,true);
   });
   $$('[data-linkga]').forEach(a=>a.onclick=ev=>{ if(a.classList.contains('uit')) ev.preventDefault() });
+  ingHistBinden();
+}
+
+/* apart, want het historieblok wordt ook los ververst */
+function ingHistBinden(){
+  $$('[data-phist]').forEach(b=>b.onclick=()=>{
+    const nm=b.dataset.phist;
+    const lijst=prijsHist(nm);
+    sheet('Prijsverloop \u00b7 '+nm,
+      `<p class="hint">Wat je in de loop van de tijd voor ${esc(nm)} betaalde,
+        van nieuw naar oud.</p>
+       <div class="paneel">${[{kilo:S.prijzen[nm],datum:prijsDatum(nm),nu:true}]
+         .concat(lijst).map((x,i,alles)=>{
+           const vorig=alles[i+1];
+           const pct=(vorig&&vorig.kilo)?Math.round((x.kilo-vorig.kilo)/vorig.kilo*100):null;
+           return `<div class="arij" style="cursor:default">
+             <span class="naam">${x.datum?kort(new Date(x.datum)):'\u2014'}${
+               x.nu?'<small>staat nu ingevuld</small>':''}</span>
+             <span class="waarde gevuld">${euro(x.kilo)}<em>/kg</em>${
+               pct?`<i class="pdelta ${pct>0?'op':'neer'}">${pct>0?'+':''}${pct}%</i>`:''}</span>
+           </div>`}).join('')}</div>`,
+      `<button class="prim" style="margin-top:0" id="phTerug">Terug</button>`);
+    $('#phTerug').onclick=()=>sheetIngredient(nm);
+  });
 }
 
 /* De webshop waar je dit ingrediënt haalt. Alleen http en https: een link
@@ -14683,11 +14913,42 @@ function prijsPerKilo(bedrag,hoeveel,eenheid){
   return (b/gram)*1000;
 }
 
+/* Hoe oud mag een prijs zijn voordat je hem beter even nakijkt? */
+const PRIJSOUD=180;
+
+function prijsHist(naam){ return ((S.prijsHist||{})[naam]||[]).slice() }
+
+/* De datum van de prijs die er nu staat, of null. */
+function prijsDatum(naam){
+  const b=prijsBron(naam);
+  return b&&b.datum?b.datum:null;
+}
+function prijsDagenOud(naam){
+  const d=prijsDatum(naam);
+  return d?dagenTussen(d,vandaag()):null;
+}
+function prijsVerouderd(naam){
+  const n=prijsDagenOud(naam);
+  return n!==null&&n>=PRIJSOUD;
+}
+
 function prijsBronZet(naam,bedrag,hoeveel,eenheid){
   S.prijsBron=S.prijsBron||{}; S.prijzen=S.prijzen||{};
   const perKilo=prijsPerKilo(bedrag,hoeveel,eenheid);
   if(perKilo===null){ delete S.prijsBron[naam]; delete S.prijzen[naam] }
   else {
+    const oud=S.prijsBron[naam], oudKilo=S.prijzen[naam];
+    /* Betaal je een andere prijs, dan is de vorige geen afval maar de reden
+       waarom je je verkoopprijs zou aanpassen. Eén regel per wijziging, en
+       alleen als het bedrag echt verandert — anders vult hij zich met ruis
+       zodra je tijdens het typen een cijfer terugneemt. */
+    if(oud&&typeof oudKilo==='number'&&Math.abs(oudKilo-perKilo)>0.005&&oud.datum!==vandaag()){
+      S.prijsHist=S.prijsHist||{};
+      const lijst=S.prijsHist[naam]||[];
+      lijst.unshift({bedrag:oud.bedrag,hoeveel:oud.hoeveel,eenheid:oud.eenheid,
+        kilo:oudKilo,datum:oud.datum});
+      S.prijsHist[naam]=lijst.slice(0,12);
+    }
     S.prijsBron[naam]={bedrag:getalIn(bedrag), hoeveel:getalIn(hoeveel), eenheid, datum:vandaag()};
     S.prijzen[naam]=perKilo;
   }
@@ -15617,6 +15878,7 @@ function sheetIngredientenLijst(alleenMissend){
   }
   const alles=namen.map(ingStand);
   const missend=alles.filter(x=>x.mist);
+  const oud=alles.filter(x=>!x.mist&&prijsVerouderd(x.naam));
   /* wat nog niet af is staat bovenaan: dat is wat je hier komt doen */
   const lijst=(alleenMissend?missend:alles.slice().sort((a,b)=>
     (a.mist?0:1)-(b.mist?0:1) || a.naam.localeCompare(b.naam,'nl')));
@@ -15633,7 +15895,8 @@ function sheetIngredientenLijst(alleenMissend){
       <span class="nm">${esc(x.naam)}</span>
       ${onder?`<small>${esc(onder)}</small>`:''}
     </span>
-    <span class="pr${x.mist?' let':''}">${x.mist?'geen prijs':euro(x.prijs)+'<em>/kg</em>'}</span>
+    <span class="pr${x.mist?' let':''}">${x.mist?'geen prijs'
+      :euro(x.prijs)+'<em>/kg</em>'+(prijsVerouderd(x.naam)?'<i class="poud">oud</i>':'')}</span>
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
   };
 
@@ -15641,8 +15904,11 @@ function sheetIngredientenLijst(alleenMissend){
     `<div class="ingtop">
        <b>${alles.length} ${alles.length===1?'ingrediënt':'ingrediënten'}</b>
        ${missend.length
-         ? `<span class="let">${missend.length} zonder prijs</span>`
-         : `<span class="goed">${svg(I.vink,'2.4')} allemaal een prijs</span>`}
+         ? `<span class="let">${missend.length} zonder prijs${
+             oud.length?' \u00b7 '+oud.length+' verouderd':''}</span>`
+         : oud.length
+           ? `<span class="let">${oud.length} ${oud.length===1?'prijs is':'prijzen zijn'} ouder dan een half jaar</span>`
+           : `<span class="goed">${svg(I.vink,'2.4')} allemaal een prijs</span>`}
      </div>
      ${alles.length>8?`<div class="mveld" style="margin-bottom:12px">
        ${svg(I.loep)}<input id="ilZ" placeholder="Zoek een ingrediënt"
@@ -15693,6 +15959,7 @@ function sheetIngredient(naam,uitMissend){
          <div class="chips" style="padding-bottom:6px">${ALLERGENEN.map(a=>`<button class="chip klein ${
            gk.includes(a.k)?'aan':''}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
        </div>
+       ${ingVoorraadHtml(naam)}
        <div class="geen" style="padding:14px 0 0">${(()=>{
          const g=ingGebruikt(naam);
          return g.length
