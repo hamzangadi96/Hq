@@ -1848,7 +1848,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v300 · 15 aug 2026';
+const APPVERSIE='v301 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14378,6 +14378,38 @@ function ingLinkZet(naam,waarde){
   S.ingLink[naam]=u; bewaarNu();
   return u;
 }
+/* Wat er in een productlink staat.
+   De app kan de pagina zelf niet lezen — een browser mag geen inhoud van een
+   andere website ophalen, dat blokkeert de webshop. Maar in de link staat de
+   verpakking meestal gewoon: /roomboter-ongezouten-250g. Dat scheelt de helft
+   van het intikken; de prijs vul je zelf in.
+
+   Alleen een getal met de eenheid er direct achter telt, anders zou "100" uit
+   "hazelnootpasta-100" of een artikelnummer als gewicht doorgaan. */
+const LINKEENHEID={g:'g',gr:'g',gram:'g',kg:'kg',kilo:'kg',kilogram:'kg',
+  ml:'ml',milliliter:'ml',cl:'ml',l:'l',lt:'l',liter:'l'};
+
+function linkHoeveelheid(url){
+  if(!url) return null;
+  let pad='';
+  try{ const u=new URL(url); pad=u.pathname+' '+u.search }catch(e){ pad=String(url) }
+  pad=decodeURIComponent(pad).toLowerCase().replace(/[_+]/g,'-');
+  const re=/(?:^|[^0-9a-z])(\d{1,5}(?:[.,]\d{1,3})?)\s*-?\s*(gram|kilogram|kilo|liter|milliliter|kg|gr|ml|cl|lt|g|l)(?![0-9a-z])/g;
+  let m, laatste=null;
+  while((m=re.exec(pad))){
+    const aantal=getalIn(m[1]);
+    const eenh=LINKEENHEID[m[2]];
+    if(!aantal||!eenh) continue;
+    /* cl is de enige die we omrekenen, de rest kent het prijsvak al */
+    const hoeveel=m[2]==='cl'?aantal*10:aantal;
+    /* een gewicht van meer dan 50 kilo of minder dan een gram is geen verpakking */
+    const inGram=hoeveel*(PRIJSEENHEID[eenh]||{naar:1}).naar;
+    if(inGram<1||inGram>50000) continue;
+    laatste={hoeveel, eenheid:eenh};
+  }
+  return laatste;
+}
+
 /* alleen de domeinnaam tonen: een volledige productlink is een regel of drie */
 function linkKort(u){
   try{ return new URL(u).hostname.replace(/^www\./,'') }catch(e){ return u }
@@ -15324,6 +15356,7 @@ function sheetAllergenen(){
             href="${esc(lk||'#')}" target="_blank" rel="noopener noreferrer"
             aria-label="Openen">${svg(I.winkel)}</a>
         </div>
+        <div class="puit" data-linkuit="${esc(n)}"></div>
       </div>
       <button class="beheerrij" data-delen="${esc(n)}" style="padding:12px 0 2px">
         ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
@@ -15386,6 +15419,20 @@ function sheetAllergenen(){
     i.value=u||'';
     const knop=document.querySelector(`[data-linkga="${CSS.escape(naam)}"]`);
     if(knop){ knop.href=u||'#'; knop.classList.toggle('uit',!u) }
+    const melding=document.querySelector(`[data-linkuit="${CSS.escape(naam)}"]`);
+    if(melding) melding.textContent='';
+    if(!u) return;
+    /* staat de verpakking in de link, vul hem dan vast in — maar overschrijf
+       nooit wat je zelf al hebt ingetikt */
+    const h=linkHoeveelheid(u);
+    if(!h) return;
+    const veld=k=>document.querySelector(`[data-pb="${CSS.escape(naam)}"][data-veld="${k}"]`);
+    const hv=veld('hoeveel'), ev=veld('eenheid'), bv=veld('bedrag');
+    if(!hv||!ev||getalIn(hv.value)) return;
+    hv.value=komma(h.hoeveel); ev.value=h.eenheid;
+    if(melding) melding.textContent='Uit de link gehaald: '+komma(h.hoeveel)+' '+
+      PRIJSEENHEID[h.eenheid].n+'. Vul de prijs zelf in.';
+    if(bv&&getalIn(bv.value)) bv.dispatchEvent(new Event('change'));
   });
   $$('[data-linkga]').forEach(a=>a.onclick=ev=>{ if(a.classList.contains('uit')) ev.preventDefault() });
   $('#alOk').onclick=sheetInstellingen;
