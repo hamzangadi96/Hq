@@ -2,6 +2,22 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
+<!-- Beperkt waar de app scripts en verbindingen vandaan mag halen. Glipt er
+     ooit toch iets langs de escaping, dan kan het niets naar buiten sturen.
+     frame-ancestors werkt alleen als HTTP-header; die zet je bij Firebase
+     Hosting in firebase.json, niet hier. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com data:;
+  img-src 'self' data: blob:;
+  connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app
+    https://*.googleapis.com https://*.cloudfunctions.net https://cdn.jsdelivr.net
+    https://tessdata.projectnaptha.com wss://*.firebasedatabase.app blob: data:;
+  worker-src 'self' blob:;
+  base-uri 'self';
+  form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Cacaoboetiek HQ</title>
 <meta name="theme-color" content="#18181b">
@@ -1972,7 +1988,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v337 · 16 aug 2026';
+const APPVERSIE='v338 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8270,9 +8286,9 @@ function sheetInpakken(id){
           const d=dagenTotTHT(v.tht);
           return `<div class="orij"><span class="on">lot ${esc(v.lot)}
             <em>${v.aantal} op voorraad${v.tht?' · THT '+kort(new Date(v.tht))+(d<0?' — verlopen':d<=14?' — nog '+d+' dg':''):''}</em></span>
-            <div class="ostep"><button class="stepbtn klein" data-im="${rg.receptId}|${v.lot}">${svg(I.min)}</button>
+            <div class="ostep"><button class="stepbtn klein" data-im="${esc(rg.receptId)}|${esc(v.lot)}">${svg(I.min)}</button>
               <span class="oa ${n?'aan':''}">${n}</span>
-              <button class="stepbtn klein" data-ip="${rg.receptId}|${v.lot}">${svg(I.plus)}</button></div></div>`
+              <button class="stepbtn klein" data-ip="${esc(rg.receptId)}|${esc(v.lot)}">${svg(I.plus)}</button></div></div>`
         }).join(''):'<div class="geen">Geen voorraad van deze smaak.</div>'}
       </div>`;
     }).join('');
@@ -8468,7 +8484,7 @@ function voorraadHTML(){
       <span class="tel">${gereed.length?totaal+' bonbons':''}</span></div>`;
   h+=gereed.length?`<div class="paneel">${gereed.map(v=>{
     const d=dagenTotTHT(v.tht), st=d===null?'':(d<0?'rood':d<=14?'amber':'');
-    return `<button class="arij" data-vr="${v.receptId}|${v.lot}">
+    return `<button class="arij" data-vr="${esc(v.receptId)}|${esc(v.lot)}">
       <span class="ivak ${st||'groen'}">${svg(I.vorm)}</span>
       <span class="naam">${esc(smaakNaam(v.receptId))}<small>lot ${esc(v.lot)}${
         v.tht?' · THT '+kort(new Date(v.tht))+(d<0?' — verlopen':d<=14?' — nog '+d+' dagen':''):''}</small></span>
@@ -12415,7 +12431,7 @@ function sheetIngredienten(){
   });
   $('#iOk').onclick=()=>{
     lijst.forEach(i=>{
-      const v=[...new Set($$(`.lotblok[data-ing="${i.naam}"] input[data-lot]`)
+      const v=[...new Set($$(`.lotblok[data-ing="${esc(i.naam)}"] input[data-lot]`)
         .map(x=>x.value.trim()).filter(Boolean))];
       if(v.length) b.lots[i.naam]=v; else delete b.lots[i.naam];
     });
