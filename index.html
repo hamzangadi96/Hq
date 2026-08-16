@@ -1190,6 +1190,16 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .alkop .g{font-size:12.5px;font-weight:500;color:var(--grijs3);text-align:right}
 .alkop .g.aan{color:var(--rood);font-weight:600}
 .lotkop .g.goed{color:var(--groen);font-weight:700}
+/* gewicht per stuk, alleen zichtbaar als je per stuk inkoopt */
+.perstuk{display:none;align-items:center;gap:8px;margin-top:10px;
+  font-size:13px;color:var(--grijs)}
+.perstuk.aan{display:flex}
+.perstuk .pveld{flex:0 0 86px;display:flex;align-items:center;background:var(--bg);
+  border-radius:12px;padding:0 12px;height:40px}
+.perstuk .pveld input{width:100%;min-width:0;background:none;border:none;outline:none;
+  font-size:16px;font-weight:600;text-align:right;padding:0;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+
 /* voorraad en leverancier bij een ingrediënt */
 .ingvoor{margin-top:18px;padding:13px 15px;background:var(--bg);border-radius:14px;
   display:flex;flex-direction:column;gap:3px}
@@ -1906,7 +1916,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v314 · 16 aug 2026';
+const APPVERSIE='v315 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2006,6 +2016,8 @@ function ingHernoem(oud,nieuw){
   };
   S.ingredienten=(S.ingredienten||[]).map(x=>
     (x||'').trim().toLowerCase()===vk?naar:x);
+  S.ingArchief=(S.ingArchief||[]).map(x=>
+    (x||'').trim().toLowerCase()===vk?naar:x);
   hernoemSleutel(S.prijzen); hernoemSleutel(S.prijsBron); hernoemSleutel(S.prijsHist);
   hernoemSleutel(S.ingLink); hernoemSleutel(S.allerg);
   hernoemSleutel(S.samenstelling);
@@ -2037,9 +2049,23 @@ function ingHernoem(oud,nieuw){
   return true;
 }
 
+/* Een ingrediënt dat je een seizoen niet gebruikt hoef je niet weg te gooien.
+   Archiveren haalt hem uit je lijst en uit de suggesties, maar laat alles
+   staan — ook in de recepten waar hij in zit. */
+const ingGearchiveerd=naam=>(S.ingArchief||[])
+  .some(x=>(x||'').trim().toLowerCase()===(naam||'').trim().toLowerCase());
+
+function ingArchiveer(naam,aan){
+  S.ingArchief=(S.ingArchief||[]).filter(x=>
+    (x||'').trim().toLowerCase()!==(naam||'').trim().toLowerCase());
+  if(aan) S.ingArchief.push(naam);
+  bewaarNu();
+}
+
 function ingWeg(naam){
   const k=(naam||'').trim().toLowerCase();
   S.ingredienten=(S.ingredienten||[]).filter(x=>(x||'').trim().toLowerCase()!==k);
+  S.ingArchief=(S.ingArchief||[]).filter(x=>(x||'').trim().toLowerCase()!==k);
   delete (S.prijzen||{})[naam];
   delete (S.prijsBron||{})[naam];
   delete (S.prijsHist||{})[naam];
@@ -2163,7 +2189,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
-  'prijsBron','ingLink','accent','ingredienten','prijsHist',
+  'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -14021,7 +14047,7 @@ function ingBekend(){
     const sl=naam.toLowerCase();
     if(!tel[sl]) tel[sl]={naam, delen:{}, aantal:0};
   });
-  return Object.values(tel).map(x=>{
+  return Object.values(tel).filter(x=>!ingGearchiveerd(x.naam)).map(x=>{
     const d=Object.entries(x.delen).sort((a,b)=>b[1]-a[1])[0];
     return {naam:x.naam, deel:d?d[0]:'', aantal:x.aantal};
   }).sort((a,b)=>b.aantal-a.aantal||a.naam.localeCompare(b.naam));
@@ -14656,7 +14682,11 @@ const PRIJSEENHEID={
   g:  {n:'gram',    naar:1},
   kg: {n:'kilo',    naar:1000},
   ml: {n:'ml',      naar:1},
-  l:  {n:'liter',   naar:1000}
+  l:  {n:'liter',   naar:1000},
+  /* Een vanillestokje of een vel bladgoud koop je per stuk. Je recept rekent
+     in grammen, dus vragen we er één keer bij hoeveel zo'n stuk weegt —
+     daarna is het gewoon een gewicht als alle andere. */
+  st: {n:'stuks',   naar:null, perStuk:true}
 };
 /* ml en liter rekenen als gram en kilo: room, melk en glucose zitten dicht
    genoeg bij 1 g/ml, en je weegt in je recept toch alles af. */
@@ -14683,9 +14713,19 @@ function ingVeldenHtml(naam,opties){
           Object.keys(PRIJSEENHEID).map(k=>`<option value="${k}"${
             bron&&bron.eenheid===k?' selected':''}>${PRIJSEENHEID[k].n}</option>`).join('')}</select>
       </div>
-      <div class="puit${pr!==null?' aan':''}" data-puit="${esc(naam)}">${
-        pr!==null?'= '+euro(pr)+' per kilo'+(bron?'':' \u00b7 uit je laatste ontvangst')
-                 :'Nog geen prijs'}</div>
+      <div class="perstuk${bron&&bron.eenheid==='st'?' aan':''}" data-perstuk="${esc(naam)}">
+        <span>Eén stuk weegt</span>
+        <span class="pveld"><input data-pb="${esc(naam)}" data-veld="gramPerStuk" type="text"
+          inputmode="decimal" placeholder="3" value="${bron&&bron.gramPerStuk?komma(bron.gramPerStuk):''}"></span>
+        <span>gram</span>
+      </div>
+      <div class="puit${pr!==null?' aan':''}" data-puit="${esc(naam)}">${(()=>{
+        const st=prijsPerStuk(naam);
+        return pr!==null
+          ? (st!==null?'= '+euro(st)+' per stuk \u00b7 ':'= ')+euro(pr)+' per kilo'
+            +(bron?'':' \u00b7 uit je laatste ontvangst')
+          : (st!==null?'= '+euro(st)+' per stuk \u2014 vul het gewicht in, dan rekent je kostprijs mee'
+                     :'Nog geen prijs')})()}</div>
       <div data-phvak="${esc(naam)}">${opties.historie===false?'':prijsHistHtml(naam)}</div>
     </div>
     <div class="linkvak">
@@ -14761,9 +14801,12 @@ function ingVeldenBinden(na){
     const uit=document.querySelector(`[data-puit="${CSS.escape(nm)}"]`);
     if(!uit) return;
     const val=perKilo===null?ingPrijs(nm):perKilo;
+    const st=prijsPerStuk(nm);
     uit.textContent=val!==null
-      ? '= '+euro(val)+' per kilo'+(prijsBron(nm)?'':' \u00b7 uit je laatste ontvangst')
-      : 'Nog geen prijs';
+      ? (st!==null?'= '+euro(st)+' per stuk \u00b7 ':'= ')+euro(val)+' per kilo'
+        +(prijsBron(nm)?'':' \u00b7 uit je laatste ontvangst')
+      : (st!==null?'= '+euro(st)+' per stuk \u2014 vul het gewicht in, dan rekent je kostprijs mee'
+                 :'Nog geen prijs');
     uit.classList.toggle('aan',val!==null);
     /* de regel eronder gaat over dezelfde prijs, dus die moet mee */
     const hv=document.querySelector(`[data-phvak="${CSS.escape(nm)}"]`);
@@ -14771,8 +14814,13 @@ function ingVeldenBinden(na){
   };
   const reken=nm=>{
     const b=veld(nm,'bedrag'), h=veld(nm,'hoeveel'), e=veld(nm,'eenheid');
+    const g=veld(nm,'gramPerStuk');
     if(!b||!h||!e) return null;
-    const perKilo=prijsBronZet(nm,b.value,h.value,e.value);
+    /* het gewichtveld hoort alleen bij stuks */
+    const stuks=!!(PRIJSEENHEID[e.value]&&PRIJSEENHEID[e.value].perStuk);
+    const vak=document.querySelector(`[data-perstuk="${CSS.escape(nm)}"]`);
+    if(vak) vak.classList.toggle('aan',stuks);
+    const perKilo=prijsBronZet(nm,b.value,h.value,e.value,g?g.value:null);
     toon(nm,perKilo);
     return perKilo;
   };
@@ -14905,12 +14953,19 @@ function linkKort(u){
 }
 
 /* bedrag + hoeveelheid + eenheid → prijs per kilo */
-function prijsPerKilo(bedrag,hoeveel,eenheid){
+function prijsPerKilo(bedrag,hoeveel,eenheid,gramPerStuk){
   const e=PRIJSEENHEID[eenheid]||PRIJSEENHEID.g;
-  const gram=getalIn0(hoeveel)*e.naar;
+  const factor=e.perStuk?getalIn0(gramPerStuk):e.naar;
+  const gram=getalIn0(hoeveel)*factor;
   const b=getalIn0(bedrag);
   if(!gram||b<=0) return null;
   return (b/gram)*1000;
+}
+/* wat kost één stuk? alleen zinvol als je per stuk inkoopt */
+function prijsPerStuk(naam){
+  const b=prijsBron(naam);
+  if(!b||b.eenheid!=='st'||!b.hoeveel) return null;
+  return b.bedrag/b.hoeveel;
 }
 
 /* Hoe oud mag een prijs zijn voordat je hem beter even nakijkt? */
@@ -14932,10 +14987,16 @@ function prijsVerouderd(naam){
   return n!==null&&n>=PRIJSOUD;
 }
 
-function prijsBronZet(naam,bedrag,hoeveel,eenheid){
+function prijsBronZet(naam,bedrag,hoeveel,eenheid,gramPerStuk){
   S.prijsBron=S.prijsBron||{}; S.prijzen=S.prijzen||{};
-  const perKilo=prijsPerKilo(bedrag,hoeveel,eenheid);
-  if(perKilo===null){ delete S.prijsBron[naam]; delete S.prijzen[naam] }
+  const perKilo=prijsPerKilo(bedrag,hoeveel,eenheid,gramPerStuk);
+  /* Koop je per stuk en heb je het gewicht nog niet ingevuld, dan is "€ 8,50
+     voor 10 stuks" wel degelijk geldige invoer — alleen de prijs per kilo
+     ontbreekt nog. Die invoer weggooien zou betekenen dat je hem kwijt bent
+     zodra je naar het gewichtveld tikt. */
+  const halfStuks=PRIJSEENHEID[eenheid]&&PRIJSEENHEID[eenheid].perStuk
+    &&getalIn0(bedrag)>0&&getalIn0(hoeveel)>0;
+  if(perKilo===null&&!halfStuks){ delete S.prijsBron[naam]; delete S.prijzen[naam] }
   else {
     const oud=S.prijsBron[naam], oudKilo=S.prijzen[naam];
     /* Betaal je een andere prijs, dan is de vorige geen afval maar de reden
@@ -14949,8 +15010,10 @@ function prijsBronZet(naam,bedrag,hoeveel,eenheid){
         kilo:oudKilo,datum:oud.datum});
       S.prijsHist[naam]=lijst.slice(0,12);
     }
-    S.prijsBron[naam]={bedrag:getalIn(bedrag), hoeveel:getalIn(hoeveel), eenheid, datum:vandaag()};
-    S.prijzen[naam]=perKilo;
+    S.prijsBron[naam]={bedrag:getalIn(bedrag), hoeveel:getalIn(hoeveel), eenheid,
+      gramPerStuk:PRIJSEENHEID[eenheid]&&PRIJSEENHEID[eenheid].perStuk?getalIn(gramPerStuk):undefined,
+      datum:vandaag()};
+    if(perKilo===null) delete S.prijzen[naam]; else S.prijzen[naam]=perKilo;
   }
   bewaarNu();
   return perKilo;
@@ -15876,7 +15939,8 @@ function sheetIngredientenLijst(alleenMissend){
     $('#ilN2').onclick=()=>{ $('#inForm').classList.add('open'); $('#inNm').focus() };
     return;
   }
-  const alles=namen.map(ingStand);
+  const alles=namen.map(ingStand).filter(x=>!ingGearchiveerd(x.naam));
+  const archief=namen.filter(ingGearchiveerd);
   const missend=alles.filter(x=>x.mist);
   const oud=alles.filter(x=>!x.mist&&prijsVerouderd(x.naam));
   /* wat nog niet af is staat bovenaan: dat is wat je hier komt doen */
@@ -15919,6 +15983,13 @@ function sheetIngredientenLijst(alleenMissend){
      <div class="paneel" id="ilL">${lijst.map(rij).join('')}</div>
      <button class="toevoeg" id="ilN">${svg(I.plus)}Ingrediënt toevoegen</button>
      ${ingNieuwHtml()}
+     ${archief.length?`<button class="klapkop" id="ilArK">${svg(I.pijl,'2')}
+       Archief (${archief.length})</button>
+       <div class="klapin" id="ilAr"><div class="paneel">${archief.map(n=>
+         `<button class="ingrij2" data-ing="${esc(n)}">
+           <span class="in"><span class="nm">${esc(n)}</span>
+             <small>gearchiveerd</small></span>
+           <span class="p">${svg(I.pijl,'2')}</span></button>`).join('')}</div></div>`:''}
      ${lijst.length?'':`<div class="geen">Alles ingevuld.</div>`}
      <p class="hint" style="margin-top:16px">Alles wat je bij Smaken intikt komt
        hier vanzelf te staan. Wat je hier invult gebruiken je kostprijs, je
@@ -15930,6 +16001,11 @@ function sheetIngredientenLijst(alleenMissend){
   bindRijen();
   if($('#ilF')) $('#ilF').onclick=()=>sheetIngredientenLijst(!alleenMissend);
   $('#ilN').onclick=()=>{ $('#inForm').classList.add('open'); $('#inNm').focus() };
+  if($('#ilArK')) $('#ilArK').onclick=()=>{
+    $('#ilArK').classList.toggle('open');
+    $('#ilAr').classList.toggle('open');
+    $$('#ilAr [data-ing]').forEach(b=>b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend));
+  };
   ingNieuwBinden(()=>sheetIngredientenLijst(alleenMissend));
   if($('#ilZ')) $('#ilZ').oninput=()=>{
     const t=$('#ilZ').value.trim().toLowerCase();
@@ -15966,6 +16042,12 @@ function sheetIngredient(naam,uitMissend){
            ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
            : 'Nog niet in gebruik in een smaak.';
        })()}</div>
+       <button class="beheerrij" id="iArch" style="padding:14px 0 2px">
+         ${svg(I.doos)}<span class="l">${ingGearchiveerd(naam)?'Terughalen uit het archief'
+           :'Naar het archief'}
+           <small>${ingGearchiveerd(naam)?'Komt weer in je lijst en bij de suggesties te staan'
+             :'Uit je lijst en uit de suggesties, maar alles blijft bewaard'}</small></span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>
        <button class="beheerrij" id="iNaam" style="padding:14px 0 2px">
          ${svg(I.doc)}<span class="l">Naam aanpassen
            <small>Verandert overal mee: je recepten, voorraad en etiketten</small></span>
@@ -16011,6 +16093,12 @@ function sheetIngredient(naam,uitMissend){
         : 'Geen — dan komt er ook niets op je etiket';
     });
     ingVeldenBinden();
+    $('#iArch').onclick=()=>{
+      const aan=!ingGearchiveerd(naam);
+      ingArchiveer(naam,aan);
+      sheetIngredientenLijst(uitMissend);
+      toast(aan?naam+' gearchiveerd.':naam+' staat weer in je lijst.');
+    };
     $('#iNaam').onclick=()=>{
       $('#iNaamF').classList.toggle('open');
       if($('#iNaamF').classList.contains('open')) $('#iNaamV').focus();
