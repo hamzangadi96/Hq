@@ -1988,7 +1988,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v338 · 16 aug 2026';
+const APPVERSIE='v339 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2583,6 +2583,18 @@ function bewaarNu(){
 function bewaar(){clearTimeout(bewaarTimer);bewaarTimer=setTimeout(bewaarNu,400)}
 
 /* --- laag 2: Firebase, zodra je online bent --- */
+/* Eén plek voor geweigerde toegang, zodat je het merkt in plaats van dat het
+   stil blijft. */
+let fbGemeld={};
+function fbGeweigerd(pad,fout){
+  const code=(fout&&(fout.code||fout.message))||'onbekend';
+  if(fbGemeld[pad]) return;
+  fbGemeld[pad]=true;
+  console.warn('Firebase weigerde '+pad+':',code);
+  if(/permission|denied/i.test(String(code)))
+    toast('Geen toegang tot "'+pad+'" \u2014 controleer je security rules in de Firebase-console.');
+}
+
 function fbConfig(){
   if(typeof FIREBASE_CONFIG!=='undefined'&&FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey) return FIREBASE_CONFIG;
   if(typeof firebaseConfig!=='undefined'&&firebaseConfig&&firebaseConfig.apiKey) return firebaseConfig;
@@ -2603,7 +2615,11 @@ function firebaseStart(){
          Klantgegevens blijven op de Mac — hier gaan alleen nummers en fases over. */
       if(fbShop){fbShop.off();fbShop=null}
       fbShop=firebase.database().ref('werkvloer/'+u.uid);
-      fbShop.on('value',s3=>{ S.werk=s3.val()||{}; if(S.tab==='orders') render() });
+      /* Weigert de database, dan bleef het stil: geen melding, geen data, en
+         geen idee waarom. Nu zegt de app welk pad geweigerd is — meestal een
+         tak die in je security rules ontbreekt. */
+      fbShop.on('value',s3=>{ S.werk=s3.val()||{}; if(S.tab==='orders') render() },
+        fout=>fbGeweigerd('werkvloer',fout));
       fbRef=firebase.database().ref('cacaoboetiek/'+u.uid);
       fbRef.on('value',snap=>{
         const d=snap.val();
@@ -2617,7 +2633,7 @@ function firebaseStart(){
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
           fbRef.set(pakData()).catch(()=>{});
         }
-      });
+      },fout=>fbGeweigerd('cacaoboetiek',fout));
       render();
     });
   }catch(e){ fbKlaar=false }
