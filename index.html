@@ -1948,7 +1948,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v321 · 16 aug 2026';
+const APPVERSIE='v322 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1987,6 +1987,21 @@ const isSamengesteld=naam=>ingDelen(naam).length>0;
 
 /* Een ingredient is een allergeen als het zelf een allergeen is, of als een
    van zijn onderdelen dat is. Zonder die tweede helft verdween je melk. */
+/* Allergenen wegschrijven ging op twee plekken los, en op één daarvan werd
+   vergeten dat S.allerg nog niet hoefde te bestaan — dan crashte elke tik op
+   een chip, zonder dat je er iets van zag. Nu overal via deze functie. */
+function allergZet(naam,lijst){
+  S.allerg=S.allerg||{};
+  if(lijst&&lijst.length) S.allerg[naam]=lijst; else delete S.allerg[naam];
+  bewaarNu();
+  return lijst||[];
+}
+function allergWissel(naam,kenmerk){
+  const set=new Set(ingAllerg(naam));
+  set.has(kenmerk)?set.delete(kenmerk):set.add(kenmerk);
+  return allergZet(naam,ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k));
+}
+
 const ingAllergDiep=naam=>{
   const set=new Set(ingAllerg(naam));
   ingDelen(naam).forEach(d=>(d.al||[]).forEach(k=>set.add(k)));
@@ -15391,6 +15406,7 @@ function zetAfspraak(klantId,vormId,marge){
     if(b.lijst!==null) prijzen[r.id]=b.lijst;
   });
   S.afspraken=Object.assign({},afspraken());
+  S.afspraken=S.afspraken||{};
   S.afspraken[klantId]={vormId,marge:marge,prijzen,datum:iso(new Date())};
   bewaarNu();
   return S.afspraken[klantId];
@@ -16306,12 +16322,8 @@ function sheetIngWizard(naam,stap){
   if(st.k==='prijs'||st.k==='link') ingVeldenBinden();
   if(st.k==='allerg'){
     $$('#wzAl [data-al]').forEach(c=>c.onclick=()=>{
-      const set=new Set(ingAllerg(naam));
-      set.has(c.dataset.al)?set.delete(c.dataset.al):set.add(c.dataset.al);
-      const lijst=ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k);
-      if(lijst.length) S.allerg[naam]=lijst; else delete S.allerg[naam];
-      bewaarNu();
-      c.classList.toggle('aan',set.has(c.dataset.al));
+      const lijst=allergWissel(naam,c.dataset.al);
+      c.classList.toggle('aan',lijst.includes(c.dataset.al));
       $('#wzAlUit').textContent=lijst.length
         ? lijst.map(alNaam).join(', ')+' — komt vet op je etiket'
         : 'Niets aangevinkt.';
