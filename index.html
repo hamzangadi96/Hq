@@ -1964,7 +1964,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v326 · 16 aug 2026';
+const APPVERSIE='v328 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14871,13 +14871,21 @@ const VOEDINGWOORD=[
   {k:'zout',  w:['zout','salt','sel','salz']}
 ];
 
-/* getallen op verpakkingen: "32,1" maar ook "2 800" met een spatie erin */
+/* Getallen zoals ze op verpakkingen staan: "32,1", maar ook "2 800" met een
+   spatie en "2.039" waar de punt duizendtallen scheidt. Dat laatste is de
+   Nederlandse schrijfwijze; parseFloat zou er 2,039 van maken. */
+function voedingGetal(ruw){
+  let t=String(ruw||'').replace(/\s/g,'');
+  /* punt met precies drie cijfers erachter en geen komma: duizendtalscheiding */
+  if(/^\d{1,3}(\.\d{3})+$/.test(t)) t=t.replace(/\./g,'');
+  return getalIn(t);
+}
 function getallenOp(regel){
   const uit=[];
-  const re=/(\d[\d\s]*(?:[.,]\d+)?)/g;
+  const re=/(\d[\d\s.]*(?:[.,]\d+)?)/g;
   let m;
   while((m=re.exec(regel))){
-    const n=getalIn(m[1].replace(/\s/g,''));
+    const n=voedingGetal(m[1]);
     if(n!==null) uit.push(n);
   }
   return uit;
@@ -14888,13 +14896,18 @@ function leesVoedingTekst(tekst){
   const uit={};
   /* energie staat vaak op één regel als "2372 kJ / 567 kcal"; die eenheden
      zijn zo herkenbaar dat we ze los zoeken */
-  const kj=t.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*kj/i);
-  if(kj){ const n=getalIn(kj[1].replace(/\s/g,'')); if(n!==null) uit.kj=n }
-  const kc=t.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*kcal/i);
-  if(kc){ const n=getalIn(kc[1].replace(/\s/g,'')); if(n!==null) uit.kcal=n }
+  const kj=t.match(/(\d[\d\s.]*(?:[.,]\d+)?)\s*kj/i);
+  if(kj){ const n=voedingGetal(kj[1]); if(n!==null) uit.kj=n }
+  const kc=t.match(/(\d[\d\s.]*(?:[.,]\d+)?)\s*kcal/i);
+  if(kc){ const n=voedingGetal(kc[1]); if(n!==null) uit.kcal=n }
 
   t.split(/\r?\n/).forEach(regel=>{
     const laag=regel.toLowerCase();
+    /* De ingrediëntenlijst bevat zelf woorden als suiker, zout en vet. Zou je
+       daar zoeken, dan wordt "kandijpoeder 9,5 %" ineens je suikergehalte.
+       Zo'n regel herken je aan het woord ingrediënt of aan de opsomming. */
+    if(laag.indexOf('ingredi')>=0) return;
+    if((regel.match(/,/g)||[]).length>2) return;
     VOEDINGWOORD.forEach(veld=>{
       if(uit[veld.k]!==undefined) return;          /* eerste treffer wint */
       /* het langste trefwoord eerst, anders kaapt "vet" de regel van
@@ -14947,6 +14960,17 @@ const ALLERGWOORD={
 };
 
 function leesAllergenenTekst(tekst){
+  /* Staat er een "Bevat:"-regel, dan is dat de wettelijke opsomming en hoeven
+     we niet in de hele ingrediëntenlijst te zoeken — dat scheelt vals alarm. */
+  const bevat=String(tekst||'').match(/bevat\s*:?\s*([^\n\r.]{3,160})/i);
+  if(bevat){
+    const uit=allergenenUitZin(bevat[1]);
+    if(uit.length) return uit;
+  }
+  return allergenenUitZin(tekst);
+}
+
+function allergenenUitZin(tekst){
   const woorden=String(tekst||'').toLowerCase()
     .replace(/[^a-zà-ÿ0-9']+/g,' ').split(' ').filter(Boolean);
   const set=new Set(woorden);
@@ -16430,10 +16454,9 @@ function sheetVerpakking(naam,terug){
        Controleer hem daarna — een g wordt nog wel eens voor een 9 aangezien.</div>
      <details class="anders"><summary>Liever met je iPhone laten lezen — nauwkeuriger</summary>
        <ol class="uitleg" style="margin-top:12px">
-         <li>Maak een <b>foto van de verpakking</b>.</li>
-         <li>Open hem in <b>Foto's</b> en tik rechtsonder op het tekstsymbool ${
-           svg(I.doc)}.</li>
-         <li>Sleep over de tabel en tik op <b>Kopieer</b>.</li>
+         <li>Open de foto of het schermbeeld in <b>Foto's</b>.</li>
+         <li><b>Houd je vinger op de tekst</b> zelf, net als in een bericht.</li>
+         <li>Sleep de selectie over de tabel en tik op <b>Kopieer</b>.</li>
          <li>Kom terug en plak hieronder.</li>
        </ol>
      </details>
