@@ -1972,7 +1972,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v335 · 16 aug 2026';
+const APPVERSIE='v336 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8446,13 +8446,19 @@ function voorraadHTML(){
       <button class="prim" style="max-width:280px" data-sheet="ontvangst">${svg(I.plus)}
         Eerste levering vastleggen</button>
     </div></div>`;
+    /* Alleen de lege herhalingen weg — niet de knoppen. Deze rijen doen iets,
+       ook als er nog niets ligt. */
     h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bijhouden</span></div>
       <div class="paneel">
         ${(()=>{const alleI=alleIngredienten().filter(n=>!ingGearchiveerd(n));
           return brij('data-ingr',I.pot,'Ingrediënten',
             alleI.length? alleI.length+(zonder?' \u00b7 '+zonder+' zonder prijs':'')
                         : 'nog geen', !!zonder)})()}
+        ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
+        ${brij('data-partijen',I.doos,'Partijen in huis','geen')}
         ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
+        ${brij('data-telronde',I.vink,'Telronde','')}
+        ${brij('data-vmut',I.ververs,'Alle mutaties','geen')}
       </div>`;
     return h;
   }
