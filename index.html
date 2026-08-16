@@ -1948,7 +1948,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v322 · 16 aug 2026';
+const APPVERSIE='v323 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14833,6 +14833,115 @@ const VOEDING=[
   {k:'zout',  n:'Zout',                   e:'g'}
 ];
 const voeding=naam=>(S.voeding||{})[naam]||null;
+
+/* ═══════════ van de verpakking overnemen ═══════════
+   Je iPhone herkent tekst in een foto al (Live Text). Kopieer je die tekst en
+   plak je hem hier, dan halen we er de tabel uit. Een foto rechtstreeks laten
+   uitlezen kan niet in de browser — daar is een server voor nodig.
+
+   Verpakkingen zijn vaak meertalig, met de tabel in vier talen en de getallen
+   maar één keer. Daarom zoeken we per waarde het eerste getal dat achter een
+   herkenbaar woord staat, in het Nederlands of Engels. */
+/* Een voedingstabel is regels: een woord en daarachter een getal. Zoeken we
+   per regel in plaats van door de hele lap tekst, dan werkt het ook op een
+   meertalige verpakking waar "Vetten / Matières grasses / Fett" voor het
+   getal staat. */
+const VOEDINGWOORD=[
+  {k:'vet',   w:['vetten','vet','matières grasses','fett','fat','grassi']},
+  {k:'verz',  w:['verzadigde vetzuren','verzadigd','saturates','saturated','gesättigte']},
+  {k:'koolh', w:['koolhydraten','koolhydraat','carbohydrate','glucides','kohlenhydrate']},
+  {k:'suik',  w:['suikers','suiker','sugars','sucres','zucker']},
+  {k:'eiwit', w:['eiwitten','eiwit','protein','protéines','eiweiss','eiweiß']},
+  {k:'zout',  w:['zout','salt','sel','salz']}
+];
+
+/* getallen op verpakkingen: "32,1" maar ook "2 800" met een spatie erin */
+function getallenOp(regel){
+  const uit=[];
+  const re=/(\d[\d\s]*(?:[.,]\d+)?)/g;
+  let m;
+  while((m=re.exec(regel))){
+    const n=getalIn(m[1].replace(/\s/g,''));
+    if(n!==null) uit.push(n);
+  }
+  return uit;
+}
+
+function leesVoedingTekst(tekst){
+  const t=String(tekst||'').replace(/\u00a0/g,' ');
+  const uit={};
+  /* energie staat vaak op één regel als "2372 kJ / 567 kcal"; die eenheden
+     zijn zo herkenbaar dat we ze los zoeken */
+  const kj=t.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*kj/i);
+  if(kj){ const n=getalIn(kj[1].replace(/\s/g,'')); if(n!==null) uit.kj=n }
+  const kc=t.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*kcal/i);
+  if(kc){ const n=getalIn(kc[1].replace(/\s/g,'')); if(n!==null) uit.kcal=n }
+
+  t.split(/\r?\n/).forEach(regel=>{
+    const laag=regel.toLowerCase();
+    VOEDINGWOORD.forEach(veld=>{
+      if(uit[veld.k]!==undefined) return;          /* eerste treffer wint */
+      /* het langste trefwoord eerst, anders kaapt "vet" de regel van
+         "verzadigde vetzuren" */
+      const w=veld.w.slice().sort((a,b)=>b.length-a.length).find(x=>laag.indexOf(x)>=0);
+      if(!w) return;
+      /* "waarvan suikers" op de suikerregel, maar niet de koolhydraatregel */
+      if(veld.k==='koolh'&&/waarvan|of which|dont|davon/.test(laag)) return;
+      if(veld.k==='vet'&&/verzadig|saturat|gesättig/.test(laag)) return;
+      const na=laag.indexOf(w)+w.length;
+      const g=getallenOp(regel.slice(na));
+      if(g.length) uit[veld.k]=g[0];
+    });
+  });
+  /* een deel kan nooit groter zijn dan het geheel; klopt dat niet, dan hebben
+     we de verkeerde regel te pakken en laten we het aan jou over */
+  if(uit.verz!==undefined&&uit.vet!==undefined&&uit.verz>uit.vet) delete uit.vet;
+  if(uit.suik!==undefined&&uit.koolh!==undefined&&uit.suik>uit.koolh) delete uit.koolh;
+  return uit;
+}
+
+/* Waar je een allergeen aan herkent in een ingrediëntenlijst. Op verpakkingen
+   staan ze in hoofdletters of vet, maar die opmaak gaat bij kopiëren verloren —
+   dus zoeken we op de woorden zelf. */
+const ALLERGWOORD={
+  gluten:['tarwe','tarwebloem','gluten','spelt','gerst','rogge','haver','wheat','barley','rye','oats'],
+  schaal:['schaaldier','schaaldieren','garnaal','garnalen','krab','kreeft','crustacean'],
+  ei:['ei','eieren','eigeel','eiwitpoeder','kippenei','egg','eggs'],
+  vis:['vis','ansjovis','zalm','tonijn','fish'],
+  pinda:['pinda','pindas','pinda\'s','peanut','peanuts','arachide'],
+  soja:['soja','sojalecithine','sojabonen','soya','soy','soja-lecithine'],
+  melk:['melk','melkpoeder','magere melkpoeder','room','slagroom','boter','roomboter',
+        'kaas','lactose','wei','weipoeder','karnemelk','yoghurt','melkvet',
+        'milk','cream','butter','whey'],
+  noten:['noot','noten','amandel','amandelen','hazelnoot','hazelnoten','walnoot','walnoten',
+         'cashew','cashewnoten','pecan','pistache','pistachenoten','macadamia','paranoot',
+         'nut','nuts','almond','almonds','hazelnut','hazelnuts'],
+  selderij:['selderij','selderie','celery'],
+  mosterd:['mosterd','mosterdzaad','mustard'],
+  sesam:['sesam','sesamzaad','sesame'],
+  sulfiet:['sulfiet','sulfieten','sulfiden','sulphite','sulfite'],
+  lupine:['lupine','lupinemeel','lupin'],
+  weekdier:['weekdier','weekdieren','mossel','mosselen','oester','inktvis','mollusc']
+};
+
+function leesAllergenenTekst(tekst){
+  const woorden=String(tekst||'').toLowerCase()
+    .replace(/[^a-zà-ÿ0-9']+/g,' ').split(' ').filter(Boolean);
+  const set=new Set(woorden);
+  const uit=[];
+  ALLERGENEN.forEach(a=>{
+    const lijst=ALLERGWOORD[a.k]||[];
+    const raak=lijst.some(w=>{
+      if(set.has(w)) return true;
+      /* korte woorden alleen als heel woord: anders vindt "ei" ook "eiwitten"
+         en staat er straks bij elk ingrediënt dat het eieren bevat */
+      return w.length>=4 && woorden.some(x=>x.indexOf(w)>=0);
+    });
+    if(raak) uit.push(a.k);
+  });
+  return uit;
+}
+
 const voedingCompleet=naam=>{
   const w=voeding(naam);
   return !!w&&VOEDING.every(x=>typeof w[x.k]==='number');
@@ -16204,7 +16313,8 @@ function sheetVoeding(naam,uitMissend){
            value="${w[x.k]!==undefined?komma(w[x.k]):''}" placeholder="0"></span>
          <span class="e">${x.e}</span>
        </div>`).join('')}</div>
-     <div class="geen" id="vwUit" style="padding-top:14px"></div>`,
+     <div class="geen" id="vwUit" style="padding-top:14px"></div>
+     <button class="sec" id="vwPlak">${svg(I.camera)}&nbsp;Van de verpakking overnemen</button>`,
     `<button class="prim" style="margin-top:0" id="vwOk">Opslaan</button>
      <button class="sec" id="vwTerug">Terug</button>`);
 
@@ -16239,6 +16349,65 @@ function sheetVoeding(naam,uitMissend){
     toast('Voedingswaarde opgeslagen.');
   };
   $('#vwTerug').onclick=()=>sheetIngredient(naam,uitMissend);
+  $('#vwPlak').onclick=()=>{
+    voedingZet(naam,lees());
+    sheetVerpakking(naam,()=>sheetVoeding(naam,uitMissend));
+  };
+}
+
+/* Plakken en kijken wat eruit komt. Niets wordt bewaard zonder dat je het
+   gezien hebt: eerst tonen wat er gevonden is, dan pas overnemen. */
+function sheetVerpakking(naam,terug){
+  sheet('Van de verpakking · '+naam,
+    `<p class="hint">Maak een foto van de verpakking, tik in Foto's op het
+      tekstsymbool, selecteer de tabel en kopieer. Plak hem hieronder.</p>
+     <textarea class="inp" id="vpT" rows="7"
+       placeholder="Voedingswaarde per 100 g&#10;Energie 2372 kJ / 567 kcal&#10;Vetten 32,1 g&#10;waarvan verzadigde vetzuren 19,5 g&#10;..."></textarea>
+     <div class="geen" id="vpUit" style="padding-top:14px">Nog niets geplakt.</div>
+     <div id="vpVoor"></div>`,
+    `<button class="prim" style="margin-top:0" id="vpOk" disabled>Overnemen</button>
+     <button class="sec" id="vpTerug">Terug</button>`);
+
+  let gevonden={vw:{}, al:[]};
+  const kijk=()=>{
+    const t=$('#vpT').value;
+    gevonden={vw:leesVoedingTekst(t), al:leesAllergenenTekst(t)};
+    const vwN=Object.keys(gevonden.vw).length;
+    const ok=vwN||gevonden.al.length;
+    $('#vpOk').disabled=!ok;
+    if(!t.trim()){
+      $('#vpUit').textContent='Nog niets geplakt.';
+      $('#vpVoor').innerHTML='';
+      return;
+    }
+    $('#vpUit').textContent=ok
+      ? 'Gevonden: '+[vwN?vwN+' van de 8 voedingswaarden':'',
+          gevonden.al.length?gevonden.al.length+' '+(gevonden.al.length===1?'allergeen':'allergenen'):'']
+          .filter(Boolean).join(' · ')+'. Controleer het hieronder.'
+      : 'Hier haal ik niets uit. Staat de tabel er wel bij?';
+    $('#vpVoor').innerHTML=ok?`<div class="paneel" style="margin-top:14px">
+      ${VOEDING.filter(x=>gevonden.vw[x.k]!==undefined).map(x=>`
+        <div class="arij" style="cursor:default">
+          <span class="naam">${x.n}${x.in?' ':''}</span>
+          <span class="waarde gevuld">${komma(getal(gevonden.vw[x.k]))} ${x.e}</span></div>`).join('')}
+      ${gevonden.al.length?`<div class="arij" style="cursor:default">
+        <span class="naam">Allergenen</span>
+        <span class="waarde gevuld">${gevonden.al.map(alNaam).join(', ')}</span></div>`:''}
+    </div>`:'';
+  };
+  $('#vpT').oninput=kijk;
+  $('#vpT').onpaste=()=>setTimeout(kijk,0);
+  $('#vpOk').onclick=()=>{
+    const vw=Object.assign({},voeding(naam)||{},gevonden.vw);
+    if(Object.keys(gevonden.vw).length) voedingZet(naam,vw);
+    if(gevonden.al.length){
+      const set=new Set(ingAllerg(naam).concat(gevonden.al));
+      allergZet(naam,ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k));
+    }
+    terug();
+    toast('Overgenomen — controleer de waarden even.');
+  };
+  $('#vpTerug').onclick=terug;
 }
 
 /* ═══════════ nieuw ingrediënt, stap voor stap ═══════════
@@ -16291,6 +16460,8 @@ function sheetIngWizard(naam,stap){
       <h3 class="wzvraag">Zitten er allergenen in?</h3>
       <p class="wzuit">Deze komen vet op je etiket, en in elke smaak waar
         ${esc(naam)} in gaat. Staat er niets op de verpakking, sla dan over.</p>
+      <button class="sec" id="wzPlak" style="margin:0 0 18px">${svg(I.camera)}
+        &nbsp;Van de verpakking overnemen</button>
       <div class="chips" id="wzAl">${ALLERGENEN.map(a=>`<button class="chip klein ${
         gk.includes(a.k)?'aan':''}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
       <div class="geen" id="wzAlUit" style="padding-top:12px">${gk.length
@@ -16303,6 +16474,8 @@ function sheetIngWizard(naam,stap){
       <h3 class="wzvraag">Voedingswaarde per 100 gram</h3>
       <p class="wzuit">Neem de tabel van de verpakking over. Je etiket heeft dit
         nodig — maar je kunt het ook later doen.</p>
+      <button class="sec" id="wzPlak" style="margin:0 0 18px">${svg(I.camera)}
+        &nbsp;Van de verpakking overnemen</button>
       <div class="paneel">${VOEDING.map(x=>`
         <div class="vrij${x.in?' in':''}">
           <span class="n">${x.n}</span>
@@ -16333,6 +16506,10 @@ function sheetIngWizard(naam,stap){
     if(st.k!=='voeding') return;
     const d={}; $$('#sheetBody [data-vw]').forEach(i=>d[i.dataset.vw]=i.value);
     voedingZet(naam,d);
+  };
+  if($('#wzPlak')) $('#wzPlak').onclick=()=>{
+    bewaarVoeding();
+    sheetVerpakking(naam,()=>sheetIngWizard(naam,stap));
   };
   const door=()=>{
     bewaarVoeding();
