@@ -1964,7 +1964,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v328 · 16 aug 2026';
+const APPVERSIE='v330 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14970,8 +14970,77 @@ function leesAllergenenTekst(tekst){
   return allergenenUitZin(tekst);
 }
 
+/* De ingrediëntenlijst van een verpakking is precies wat er in "Bestaat uit"
+   hoort: onderdelen met hun percentage, allergenen benadrukt. Splitsen op
+   komma's mag niet blind — "rijsmiddel (natriumcarbonaten)" is één ingrediënt,
+   dus komma's binnen haakjes tellen niet mee. */
+function leesIngredientenTekst(tekst){
+  const t=String(tekst||'').replace(/\u00a0/g,' ');
+  /* Vanaf "Ingrediënten:" tot de volgende kop. Op een productpagina volgt daar
+     de allergie- of voedingsinformatie, en zonder die grens zou "Bevat: Melk"
+     als ingrediënt in je etiket belanden. */
+  const stopRe=/^\s*(bevat|allergie|allergen|voedingswaarde|nutrition|energie|per\s*100|bewaar|gebruik|houdbaar|netto|kan\s+sporen|ingredients|valeurs|zutaten)/i;
+  const regels=t.split(/\r?\n/);
+  const start=regels.findIndex(r=>/ingredi[eë]nten\s*:/i.test(r));
+  if(start<0) return [];
+  const stukken=[regels[start].replace(/^[\s\S]*?ingredi[eë]nten\s*:/i,'')];
+  for(let i=start+1;i<regels.length;i++){
+    const r=regels[i];
+    if(!r.trim()||stopRe.test(r)) break;
+    /* een punt sluit de opsomming af */
+    if(/\.\s*$/.test(stukken[stukken.length-1])) break;
+    stukken.push(r);
+  }
+  let blok=stukken.join(' ').replace(/\s+/g,' ').trim().replace(/\.\s*$/,'');
+  if(blok.length<3) return [];
+  const delen=[];
+  let huidig='', diep=0;
+  for(let i=0;i<blok.length;i++){
+    const teken=blok[i];
+    if(teken==='('||teken==='[') diep++;
+    if(teken===')'||teken===']') diep=Math.max(0,diep-1);
+    /* een komma tussen twee cijfers is een decimaalteken, geen scheiding:
+       "kandijpoeder 9,5 %" is één ingrediënt en geen twee */
+    const tussenCijfers=/\d/.test(blok[i-1]||'')&&/\d/.test(blok[i+1]||'');
+    if(teken===','&&diep===0&&!tussenCijfers){ delen.push(huidig); huidig=''; continue }
+    huidig+=teken;
+  }
+  if(huidig.trim()) delen.push(huidig);
+
+  return delen.map(d=>{
+    let stuk=d.trim();
+    if(!stuk) return null;
+    /* percentage eraf halen: "TARWEBLOEM 45 %" of "kaneel 0,2%" */
+    let pct='';
+    const pm=stuk.match(/([\d]+(?:[.,][\d]+)?)\s*%/);
+    if(pm){ pct=pm[1].replace('.',','); stuk=stuk.replace(pm[0],'').trim() }
+    stuk=stuk.replace(/[,;:]+$/,'').trim();
+    if(!stuk||stuk.length<2) return null;
+    /* HOOFDLETTERS betekenen op een verpakking een allergeen; die opmaak is
+       het enige wat het kopiëren overleeft */
+    const schreeuwt=/[A-ZÀ-Ü]{4,}/.test(stuk)&&stuk===stuk.toUpperCase();
+    const al=allergenenUitZin(stuk);
+    /* alles in kapitalen leest niet prettig op een etiket; de app zet
+       allergenen zelf vet */
+    const naam=schreeuwt
+      ? stuk.charAt(0)+stuk.slice(1).toLowerCase()
+      : stuk;
+    return {naam, pct, al};
+  }).filter(Boolean).slice(0,40);
+}
+
+/* Woorden die een allergeenwoord bevatten zonder het allergeen te zijn.
+   Cacaoboter is plantaardig; zonder deze lijst krijgt elke chocolade melk
+   op het etiket. */
+const ALLERGNIET=['cacaoboter','kokosboter','sheaboter','pindakaas',
+  'amandelboter','notenpasta-vrij','boterzuur','karnemelkzuur','melkzuur',
+  'nootmuskaat','kokosmelk','sojavrij','glutenvrij','lactosevrij'];
+
 function allergenenUitZin(tekst){
-  const woorden=String(tekst||'').toLowerCase()
+  /* eerst de valstrikken eruit, dan pas zoeken */
+  let schoon=String(tekst||'').toLowerCase();
+  ALLERGNIET.forEach(w=>{ schoon=schoon.split(w).join(' ') });
+  const woorden=schoon
     .replace(/[^a-zà-ÿ0-9']+/g,' ').split(' ').filter(Boolean);
   const set=new Set(woorden);
   const uit=[];
@@ -16476,9 +16545,10 @@ function sheetVerpakking(naam,terug){
   let gevonden={vw:{}, al:[]};
   const kijk=()=>{
     const t=$('#vpT').value;
-    gevonden={vw:leesVoedingTekst(t), al:leesAllergenenTekst(t)};
+    gevonden={vw:leesVoedingTekst(t), al:leesAllergenenTekst(t),
+              ing:leesIngredientenTekst(t)};
     const vwN=Object.keys(gevonden.vw).length;
-    const ok=vwN||gevonden.al.length;
+    const ok=vwN||gevonden.al.length||gevonden.ing.length;
     $('#vpOk').disabled=!ok;
     if(!t.trim()){
       $('#vpUit').textContent='Nog niets geplakt.';
@@ -16487,7 +16557,8 @@ function sheetVerpakking(naam,terug){
     }
     $('#vpUit').textContent=ok
       ? 'Gevonden: '+[vwN?vwN+' van de 8 voedingswaarden':'',
-          gevonden.al.length?gevonden.al.length+' '+(gevonden.al.length===1?'allergeen':'allergenen'):'']
+          gevonden.al.length?gevonden.al.length+' '+(gevonden.al.length===1?'allergeen':'allergenen'):'',
+          gevonden.ing.length?gevonden.ing.length+' ingrediënten':'']
           .filter(Boolean).join(' · ')+'. Controleer het hieronder.'
       : 'Hier haal ik niets uit. Staat de tabel er wel bij?';
     $('#vpVoor').innerHTML=ok?`<div class="paneel" style="margin-top:14px">
@@ -16498,6 +16569,10 @@ function sheetVerpakking(naam,terug){
       ${gevonden.al.length?`<div class="arij" style="cursor:default">
         <span class="naam">Allergenen</span>
         <span class="waarde gevuld">${gevonden.al.map(alNaam).join(', ')}</span></div>`:''}
+      ${gevonden.ing.length?`<div class="arij" style="cursor:default;align-items:flex-start">
+        <span class="naam">Bestaat uit<small>${gevonden.ing.map(x=>
+          esc(x.naam)+(x.pct?' '+x.pct+'%':'')).join(', ')}</small></span>
+        <span class="waarde gevuld">${gevonden.ing.length}</span></div>`:''}
     </div>`:'';
   };
   $('#vpFoto').onclick=()=>$('#vpBestand').click();
@@ -16574,6 +16649,13 @@ function sheetVerpakking(naam,terug){
     if(gevonden.al.length){
       const set=new Set(ingAllerg(naam).concat(gevonden.al));
       allergZet(naam,ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k));
+    }
+    /* de ingrediëntenlijst wordt de uitsplitsing; die staat op je etiket
+       tussen haakjes achter dit ingrediënt */
+    if(gevonden.ing.length>1){
+      S.samenstelling=S.samenstelling||{};
+      S.samenstelling[naam]=gevonden.ing.map(x=>({naam:x.naam,pct:x.pct,al:x.al}));
+      bewaarNu();
     }
     terug();
     toast('Overgenomen — controleer de waarden even.');
