@@ -1919,7 +1919,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v316 · 16 aug 2026';
+const APPVERSIE='v317 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8447,6 +8447,11 @@ function voorraadHTML(){
 
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bijhouden</span></div>
     <div class="paneel">
+      ${(()=>{const alle=alleIngredienten().filter(n=>!ingGearchiveerd(n));
+        const zonder=alle.filter(n=>ingPrijs(n)===null).length;
+        return brij('data-ingr',I.pot,'Ingrediënten',
+          alle.length? alle.length+(zonder?' \u00b7 '+zonder+' zonder prijs':'')
+                     : 'nog geen', !!zonder)})()}
       ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
       ${brij('data-partijen',I.doos,'Partijen in huis',(S.lots||[]).length||'geen')}
       ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
@@ -11339,6 +11344,7 @@ function bind(){
   });
   $$('[data-planstart]').forEach(x=>x.onclick=()=>planStart(x.dataset.planstart));
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
+  $$('[data-ingr]').forEach(x=>x.onclick=()=>sheetIngredientenLijst(false));
   $$('[data-partijen]').forEach(x=>x.onclick=sheetLots);
   $$('[data-tht]').forEach(x=>x.onclick=sheetTHT);
   $$('[data-waardering]').forEach(x=>x.onclick=sheetWaardering);
@@ -17393,9 +17399,6 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="middelen">${svg(I.fles)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
 
      <div class="mkop">Recepten</div>
-     <button class="menurij" data-ins="allerg">${svg(I.pot)}Ingrediënten<span class="tel">${
-       (()=>{const t=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
-             return t?(g?g+' van '+t:'nog niets'):'geen ingrediënten'})()}</span></button>
      <button class="menurij" data-ins="kleuren">${svg(I.palet)}Kleuren<span class="tel">${
        (S.kleuren||[]).length||'geen'}</span></button>
 
