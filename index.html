@@ -1884,7 +1884,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v308 · 15 aug 2026';
+const APPVERSIE='v309 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1930,11 +1930,44 @@ const ingAllergDiep=naam=>{
 };
 const isAllergeen=naam=>ingAllergDiep(naam).length>0;
 /* alle ingredientnamen die in je recepten voorkomen */
+/* Je ingrediëntenlijst was een afgeleide van je recepten: iets bestond pas
+   als het ergens in een smaak stond. Andersom werkt beter — eerst vastleggen
+   wat je in huis hebt en wat het kost, daarna daaruit een smaak samenstellen.
+   Wat in een recept staat telt nog steeds mee, zodat oude smaken blijven
+   werken zonder dat je iets hoeft over te tikken. */
 function alleIngredienten(){
   const set=new Set();
+  (S.ingredienten||[]).forEach(n=>{ if(n&&n.trim()) set.add(n.trim()) });
   (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>
     (o.ing||[]).forEach(i=>{if(i.naam&&i.naam.trim())set.add(i.naam.trim())})));
   return [...set].sort((a,b)=>a.localeCompare(b,'nl'));
+}
+
+/* In welke smaken zit dit ingrediënt? Bepaalt of je het mag weggooien. */
+function ingGebruikt(naam){
+  const k=(naam||'').trim().toLowerCase();
+  return (S.recepten||[]).filter(r=>(r.onderdelen||[]).some(o=>
+    (o.ing||[]).some(i=>(i.naam||'').trim().toLowerCase()===k))).map(r=>r.naam||'naamloos');
+}
+
+function ingToevoegen(naam){
+  const n=(naam||'').trim();
+  if(!n) return null;
+  S.ingredienten=S.ingredienten||[];
+  const bestaat=alleIngredienten().find(x=>x.toLowerCase()===n.toLowerCase());
+  if(bestaat) return bestaat;              /* al bekend, geen dubbele */
+  S.ingredienten.push(n); bewaarNu();
+  return n;
+}
+
+function ingWeg(naam){
+  S.ingredienten=(S.ingredienten||[]).filter(x=>x!==naam);
+  delete (S.prijzen||{})[naam];
+  delete (S.prijsBron||{})[naam];
+  delete (S.ingLink||{})[naam];
+  delete (S.allerg||{})[naam];
+  delete (S.samenstelling||{})[naam];
+  bewaarNu();
 }
 /* welke allergeengroepen zitten in deze smaak? */
 function smaakAllergenen(r){
@@ -2037,7 +2070,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
-  'prijsBron','ingLink','accent',
+  'prijsBron','ingLink','accent','ingredienten',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -13750,6 +13783,12 @@ function ingBekend(){
     const d=(i.deel||'').toString().trim();
     if(d) tel[k].delen[d]=(tel[k].delen[d]||0)+1;
   })));
+  /* wat je zelf hebt vastgelegd hoort er ook bij, ook zonder recept */
+  (S.ingredienten||[]).forEach(n=>{
+    const naam=(n||'').trim(); if(!naam) return;
+    const k=naam.toLowerCase();
+    if(!tel[k]) tel[k]={naam, delen:{}, aantal:0};
+  });
   /* namen uit je voorraad tellen ook mee, al weten we daar geen gram bij:
      scheelt spelfouten en dubbele ingrediënten. S.artikelen staat op sleutel,
      niet als lijst, en verpakking hoort hier niet bij. */
@@ -13767,12 +13806,14 @@ function ingBekend(){
 }
 
 function ingZoek(tekst){
-  const t=(tekst||'').trim().toLowerCase();
-  if(!t) return [];
   const alles=ingBekend();
+  const t=(tekst||'').trim().toLowerCase();
+  /* leeg veld: laat zien wat je hebt, dan hoef je niet te onthouden hoe je
+     iets ook alweer genoemd had */
+  if(!t) return alles.slice(0,6);
   const begint=alles.filter(x=>x.naam.toLowerCase().indexOf(t)===0);
   const bevat=alles.filter(x=>x.naam.toLowerCase().indexOf(t)>0);
-  return begint.concat(bevat).slice(0,5);
+  return begint.concat(bevat).slice(0,6);
 }
 
 function sheetOnderdeel(idx){
@@ -15458,15 +15499,50 @@ function ingStand(n){
     link:ingLink(n), mist:pr===null};
 }
 
+/* het formuliertje om er een toe te voegen; op twee plekken gebruikt */
+function ingNieuwHtml(){
+  return `<div class="inlineform" id="inForm">
+    <div class="rijtje">
+      <input class="mini" id="inNm" placeholder="Naam van het ingrediënt"
+        autocapitalize="sentences" spellcheck="false">
+      <button class="miniknop" id="inOk">Toevoegen</button>
+    </div>
+    <div class="geen" id="inUit" style="padding:8px 0 0"></div>
+  </div>`;
+}
+function ingNieuwBinden(na){
+  const doe=()=>{
+    const veld=$('#inNm'), n=(veld.value||'').trim();
+    if(!n) return;
+    const bestond=alleIngredienten().some(x=>x.toLowerCase()===n.toLowerCase());
+    const naam=ingToevoegen(n);
+    veld.value='';
+    if(bestond){
+      /* niet hertekenen: de lijst verandert niet, en de melding zou meteen
+         weer weg zijn */
+      $('#inUit').textContent=naam+' stond er al — je vindt hem in de lijst.';
+      return;
+    }
+    /* meteen door naar het scherm waar je de prijs invult: dat is waarom je
+       hem toevoegt */
+    sheetIngredient(naam);
+  };
+  $('#inOk').onclick=doe;
+  $('#inNm').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); doe() } };
+}
+
 function sheetIngredientenLijst(alleenMissend){
   S.allerg=S.allerg||{};
   const namen=alleIngredienten();
   if(!namen.length){
     sheet('Ingrediënten',
-      `<p class="hint">Je hebt nog geen ingrediënten. Vul eerst een recept in bij
-        Smaken — alles wat je daar intikt komt hier vanzelf te staan.</p>`,
-      `<button class="prim" style="margin-top:0" id="ilR">Smaken openen</button>`);
-    $('#ilR').onclick=sheetRecepten;
+      `<p class="hint">Hier leg je vast wat je in huis hebt: wat het kost, waar je
+        het bestelt en welke allergenen erin zitten. Daarna stel je er je smaken
+        uit samen.</p>
+       ${ingNieuwHtml()}`,
+      `<button class="prim" style="margin-top:0" id="ilN2">${svg(I.plus)}Eerste ingrediënt</button>`);
+    ingNieuwBinden(()=>sheetIngredientenLijst(false));
+    $('#ilN2').onclick=()=>{ $('#inForm').classList.add('open'); $('#inNm').focus() };
     return;
   }
   const alles=namen.map(ingStand);
@@ -15505,6 +15581,8 @@ function sheetIngredientenLijst(alleenMissend){
        <button class="chip klein${alleenMissend?' aan':''}" id="ilF">Alleen wat nog mist</button>
      </div>`:''}
      <div class="paneel" id="ilL">${lijst.map(rij).join('')}</div>
+     <button class="toevoeg" id="ilN">${svg(I.plus)}Ingrediënt toevoegen</button>
+     ${ingNieuwHtml()}
      ${lijst.length?'':`<div class="geen">Alles ingevuld.</div>`}
      <p class="hint" style="margin-top:16px">Alles wat je bij Smaken intikt komt
        hier vanzelf te staan. Wat je hier invult gebruiken je kostprijs, je
@@ -15515,6 +15593,8 @@ function sheetIngredientenLijst(alleenMissend){
     b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend));
   bindRijen();
   if($('#ilF')) $('#ilF').onclick=()=>sheetIngredientenLijst(!alleenMissend);
+  $('#ilN').onclick=()=>{ $('#inForm').classList.add('open'); $('#inNm').focus() };
+  ingNieuwBinden(()=>sheetIngredientenLijst(alleenMissend));
   if($('#ilZ')) $('#ilZ').oninput=()=>{
     const t=$('#ilZ').value.trim().toLowerCase();
     const gevonden=t?lijst.filter(x=>x.naam.toLowerCase().indexOf(t)>=0):lijst;
@@ -15543,6 +15623,12 @@ function sheetIngredient(naam,uitMissend){
          <div class="chips" style="padding-bottom:6px">${ALLERGENEN.map(a=>`<button class="chip klein ${
            gk.includes(a.k)?'aan':''}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
        </div>
+       <div class="geen" style="padding:14px 0 0">${(()=>{
+         const g=ingGebruikt(naam);
+         return g.length
+           ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
+           : 'Nog niet in gebruik in een smaak.';
+       })()}</div>
        <button class="beheerrij" id="iDelen" style="padding:14px 0 2px">
          ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
            <small>Zoals praline uit suiker en noten \u2014 dan rekent de app de prijs erbij uit</small></span>
@@ -15551,7 +15637,9 @@ function sheetIngredient(naam,uitMissend){
       `${rest.length?`<button class="prim tweeregels" style="margin-top:0" id="iVolg">
          <span>Volgende zonder prijs</span><em>${esc(rest[0].naam)}</em></button>
         <button class="sec" id="iTerug">Terug naar de lijst</button>`
-       :`<button class="prim" style="margin-top:0" id="iTerug">Terug naar de lijst</button>`}`);
+       :`<button class="prim" style="margin-top:0" id="iTerug">Terug naar de lijst</button>`}
+       ${ingGebruikt(naam).length?'':
+         `<button class="sec" id="iWeg" style="color:var(--rood)">Ingrediënt verwijderen</button>`}`);
 
     /* Allergenen stel je één keer in, je prijs werk je regelmatig bij. Daarom
        staan die veertien knoppen dicht: ze zouden anders het grootste blok op
@@ -15576,6 +15664,10 @@ function sheetIngredient(naam,uitMissend){
     });
     ingVeldenBinden();
     $('#iDelen').onclick=()=>sheetIngDelen(naam);
+    if($('#iWeg')) $('#iWeg').onclick=()=>{
+      if(!confirm(naam+' verwijderen? Prijs, link en allergenen gaan mee weg.')) return;
+      ingWeg(naam); sheetIngredientenLijst(uitMissend); toast(naam+' verwijderd.');
+    };
     if($('#iVolg')) $('#iVolg').onclick=()=>sheetIngredient(rest[0].naam,uitMissend);
     if($('#iTerug')) $('#iTerug').onclick=()=>sheetIngredientenLijst(uitMissend);
   };
