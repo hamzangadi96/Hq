@@ -1153,6 +1153,9 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .bekend{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--groen);font-weight:500}
 .bekend svg{width:13px;height:13px}
 .mveld span{font-size:14px;font-weight:600;color:var(--grijs2);flex:none}
+/* een svg zonder maat schaalt op tot de hoogte van het veld en duwt de invoer
+   eruit; hier stond een loep in en het veld was daardoor onbruikbaar */
+.mveld>svg{width:17px;height:17px;color:var(--grijs2);flex:none;stroke-width:2}
 .vrkop{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
   padding-bottom:20px;margin-bottom:4px;border-bottom:1px solid var(--lijn)}
 .vrgetal{font-size:44px;font-weight:700;letter-spacing:-.04em;line-height:.95}
@@ -1187,6 +1190,39 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .alkop .g{font-size:12.5px;font-weight:500;color:var(--grijs3);text-align:right}
 .alkop .g.aan{color:var(--rood);font-weight:600}
 .lotkop .g.goed{color:var(--groen);font-weight:700}
+/* ── ingrediëntenlijst ── */
+.ingtop{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding-bottom:14px}
+.ingtop b{font-size:16px;font-weight:600;letter-spacing:-.02em}
+.ingtop .let{font-size:13px;font-weight:600;color:var(--amber)}
+.ingtop .goed{display:flex;align-items:center;gap:5px;font-size:13px;
+  font-weight:600;color:var(--groen)}
+.ingtop .goed svg{width:13px;height:13px}
+.ingrij2{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:14px 16px;border-bottom:1px solid var(--lijn)}
+.ingrij2:last-child{border-bottom:none}
+.ingrij2:active{background:var(--bg)}
+.ingrij2 .in{flex:1;min-width:0}
+.ingrij2 .nm{display:block;font-size:15px;font-weight:500;letter-spacing:-.015em}
+.ingrij2 small{display:block;font-size:12.5px;color:var(--grijs2);margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ingrij2 .pr{flex:none;font-size:14px;font-weight:600;color:var(--ink2);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.ingrij2 .pr em{font-style:normal;font-weight:500;color:var(--grijs2);font-size:12px}
+.ingrij2 .pr.let{color:var(--amber);font-size:13px}
+.ingrij2 .p{width:14px;height:14px;color:var(--grijs3);flex:none}
+/* een balkje links bij wat nog een prijs mist */
+.ingrij2.mist{position:relative}
+.ingrij2.mist::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--amber)}
+#iAlP{transition:transform .2s}
+.klapin#iAlVak{padding-top:4px}
+
+/* een knop met een tweede regel: wat je hierna oppakt */
+.prim.tweeregels{flex-direction:column;gap:1px;height:auto;padding:9px 16px;line-height:1.25}
+.prim.tweeregels em{font-style:normal;font-size:12px;font-weight:500;opacity:.6;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* wat het geheel kost, onder de uitsplitsing */
 .samentot{background:var(--bg);border-radius:14px;padding:14px 16px;margin-top:16px;
   font-size:13px;line-height:1.5;color:var(--grijs)}
@@ -1848,7 +1884,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v304 · 15 aug 2026';
+const APPVERSIE='v308 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15308,6 +15344,30 @@ function sheetAllergenenBatch(){
 /* Waaruit bestaat dit ingredient? Je vult het één keer in en het geldt voor al
    je smaken, net als de allergenen. De volgorde is die van het etiket van je
    leverancier: aflopend op gewicht. */
+/* Wat het geheel kost, als losse functie. Zat eerst midden in het opbouwen
+   van het scherm; dan moet je het hele scherm opnieuw tekenen om één regel
+   bij te werken, en dat kost je je toetsenbord en je halve invoer. */
+function samenSomHtml(naam,D){
+  const eigen=(S.prijzen||{})[naam];
+  const uit=prijsUitDelen(naam);
+  if(typeof eigen==='number') return `<div class="samentot let">
+    <b>${esc(naam)} kost ${euro(eigen)} per kilo</b>
+    Dat is de prijs die je bij ${esc(naam)} zelf invulde. Die wint van de
+    berekening hieronder${uit!==null?` — uit de onderdelen zou het ${euro(uit)} zijn`:''}.
+    Maak je het zelf, haal die prijs dan weg.</div>`;
+  if(uit!==null) return `<div class="samentot"><b>${esc(naam)} kost ${
+    euro(uit)} per kilo</b>Berekend uit de onderdelen hierboven. Je smaken
+    rekenen hier vanzelf mee.</div>`;
+  if(!D.length) return '';
+  const pcts=D.map(d=>getalIn0(d.pct));
+  const som=pcts.reduce((a,b2)=>a+b2,0);
+  const zonder=D.filter(d=>d.naam&&ingPrijs(d.naam)===null).map(d=>d.naam);
+  return `<div class="samentot mist"><b>Nog geen prijs te berekenen</b>${
+    zonder.length?'Vul een prijs in bij: '+zonder.map(esc).join(', ')+'. ':''}${
+    pcts.some(x=>!x)?'En vul bij elk onderdeel het percentage in. ':
+    (som<95||som>105?`De percentages tellen op tot ${getal(som)}% — dat moet ongeveer 100 zijn. `:'')}</div>`;
+}
+
 function sheetIngDelen(naam){
   S.samenstelling=S.samenstelling||{};
   const D=(S.samenstelling[naam]||[]).map(x=>Object.assign({},x));
@@ -15332,26 +15392,7 @@ function sheetIngDelen(naam){
          </div>`).join('')}</div>`
         :`<div class="geen">Nog geen onderdelen. Voeg er een toe.</div>`}
        <button class="sec" id="idN" style="margin-top:12px">Onderdeel toevoegen</button>
-       ${(()=>{
-         const eigen=(S.prijzen||{})[naam];
-         const uit=prijsUitDelen(naam);
-         if(typeof eigen==='number') return `<div class="samentot let">
-           <b>${esc(naam)} kost ${euro(eigen)} per kilo</b>
-           Dat is de prijs die je bij ${esc(naam)} zelf invulde. Die wint van de
-           berekening hieronder${uit!==null?` — uit de onderdelen zou het ${euro(uit)} zijn`:''}.
-           Maak je het zelf, haal die prijs dan weg.</div>`;
-         if(uit!==null) return `<div class="samentot"><b>${esc(naam)} kost ${
-           euro(uit)} per kilo</b>Berekend uit de onderdelen hierboven. Je smaken
-           rekenen hier vanzelf mee.</div>`;
-         const pcts=D.map(d=>getalIn0(d.pct));
-         const som=pcts.reduce((a,b2)=>a+b2,0);
-         const zonder=D.filter(d=>d.naam&&ingPrijs(d.naam)===null).map(d=>d.naam);
-         if(!D.length) return '';
-         return `<div class="samentot mist"><b>Nog geen prijs te berekenen</b>${
-           zonder.length?'Vul een prijs in bij: '+zonder.map(esc).join(', ')+'. ':''}${
-           pcts.some(x=>!x)?'En vul bij elk onderdeel het percentage in. ':
-           (som<95||som>105?`De percentages tellen op tot ${getal(som)}% — dat moet ongeveer 100 zijn. `:'')}</div>`;
-       })()}`,
+       <div id="idSom">${samenSomHtml(naam,D)}</div>`,
       `<button class="prim" style="margin-top:0" id="idOk">Bewaren</button>
        ${D.length?`<button class="sec" id="idLeeg" style="color:var(--rood)">Uitsplitsing weghalen</button>`:''}`);
 
@@ -15368,11 +15409,23 @@ function sheetIngDelen(naam){
       set.has(k)?set.delete(k):set.add(k);
       D[i].al=[...set]; teken();
     });
-    /* zelfde velden als bij Ingrediënten; na een wijziging opnieuw tekenen,
-       want dan verandert ook de som onderaan */
-    ingVeldenBinden(()=>{lees();teken()});
-    /* naam of percentage aangepast? dan verandert ook de rekensom eronder */
-    $$('[data-dn],[data-dp]').forEach(i=>i.onchange=()=>{lees();teken()});
+    /* Alleen het somvak bijwerken. Het hele scherm opnieuw opbouwen terwijl
+       je aan het invullen bent, kost je je focus, je toetsenbord én de helft
+       van je invoer die op dat moment nog niet compleet is. */
+    const somNieuw=()=>{
+      lees();
+      const vak=$('#idSom');
+      if(vak) vak.innerHTML=samenSomHtml(naam,D);
+    };
+    ingVeldenBinden(somNieuw);
+    /* het percentage verandert de som, maar niet de indeling */
+    $$('[data-dp]').forEach(i=>{ i.oninput=somNieuw; i.onchange=somNieuw });
+    /* een nieuwe naam betekent wél een ander prijsvak, dus dan opnieuw tekenen
+       — maar pas als je klaar bent met typen, niet bij elke aanslag */
+    $$('[data-dn]').forEach(i=>{
+      i.oninput=()=>lees();
+      i.onchange=()=>{ const oud=i.value; lees(); if(i.value===oud) teken() };
+    });
     $$('[data-dw]').forEach(b=>b.onclick=()=>{lees();D.splice(+b.dataset.dw,1);teken()});
     $('#idN').onclick=()=>{lees();D.push({naam:'',pct:'',al:[]});teken()};
     $('#idOk').onclick=()=>{
@@ -15380,64 +15433,157 @@ function sheetIngDelen(naam){
       const schoon=D.filter(d=>d.naam);
       if(schoon.length) S.samenstelling[naam]=schoon;
       else delete S.samenstelling[naam];
-      bewaarNu(); sheetAllergenen();
+      bewaarNu(); sheetIngredient(naam);
       toast(schoon.length?esc(naam)+' uitgesplitst in '+schoon.length+' onderdelen.'
         :'Uitsplitsing weggehaald.');
     };
     if($('#idLeeg')) $('#idLeeg').onclick=()=>{
-      delete S.samenstelling[naam]; bewaarNu(); sheetAllergenen();
+      delete S.samenstelling[naam]; bewaarNu(); sheetIngredient(naam);
       toast('Uitsplitsing weggehaald.');
     };
   };
   teken();
 }
 
-function sheetAllergenen(){
-  S.allerg=S.allerg||{};
-  const ing=alleIngredienten();
-  if(!ing.length){
-    return sheet('Ingrediënten',
-      `<p class="hint">Je hebt nog geen ingrediënten in je smaken staan. Vul eerst een recept in,
-        dan kun je hier per ingrediënt aangeven welke allergenen erin zitten.</p>`,'');
-  }
-  const rij=n=>{
-    const gk=ingAllerg(n), pr=ingPrijs(n), d=ingDelen(n), bron=prijsBron(n), lk=ingLink(n);
-    return `<div class="alblok">
-      <div class="alkop"><span class="n">${esc(n)}</span>
-        <span class="g ${gk.length?'aan':''}">${gk.length?gk.map(alNaam).join(', '):'geen'}</span></div>
-      <div class="chips">${ALLERGENEN.map(a=>`<button class="chip klein ${gk.includes(a.k)?'aan':''}"
-        data-ing="${esc(n)}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
-      ${ingVeldenHtml(n,{prijsLabel:'Wat betaal je ervoor?',kort:true})}
-      <button class="beheerrij" data-delen="${esc(n)}" style="padding:12px 0 2px">
-        ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
-          <small>Zoals praline uit suiker en noten \u2014 dan rekent de app de prijs erbij uit</small></span>
-        <span class="w ${d.length?'':''}">${d.length?d.length+' onderdelen':'nee'}</span>
-        <span class="p">${svg(I.pijl,'2')}</span></button>
-    </div>`;
-  };
-  sheet('Ingrediënten',
-    `<p class="hint">Geef per ingrediënt aan welke van de veertien wettelijke allergenen erin zitten,
-      en wat je ervoor betaalt. Je smaken, etiketten en batches nemen dit automatisch over.</p>
-     <p class="hint">Vul de prijs in zoals hij op de verpakking staat — € 3,49 voor 250 gram.
-       De app rekent zelf uit wat dat per bonbon kost. Boek je een ontvangst met prijs,
-       dan komt die er vanzelf in te staan.</p>
-     <p class="hint">Is een ingrediënt zelf samengesteld, zoals chocolade of een pasta, splits
-       het dan uit bij <b>Bestaat uit</b>. Die onderdelen komen tussen haakjes op je etiket —
-       zonder dat mag een klant niet doorverkopen aan consumenten.</p>
-     <div id="alL">${ing.map(rij).join('')}</div>`,
-    `<button class="prim" style="margin-top:0" id="alOk">Klaar</button>`);
-  $$('[data-delen]').forEach(b=>b.onclick=()=>sheetIngDelen(b.dataset.delen));
-  $$('[data-al]').forEach(c=>c.onclick=()=>{
-    const n=c.dataset.ing, k=c.dataset.al;
-    const lijst=new Set(ingAllerg(n));
-    lijst.has(k)?lijst.delete(k):lijst.add(k);
-    const v=ALLERGENEN.filter(a=>lijst.has(a.k)).map(a=>a.k);
-    if(v.length) S.allerg[n]=v; else delete S.allerg[n];
-    bewaarNu(); sheetAllergenen();
-  });
-  ingVeldenBinden();
-  $('#alOk').onclick=sheetInstellingen;
+/* ═══════════ ingrediënten ═══════════
+   Stond eerst als één lange lijst waarin élk ingrediënt alles tegelijk toonde:
+   veertien allergeenknoppen, drie prijsvelden, een link en een uitsplitsing.
+   Bij twaalf ingrediënten scrol je dan langs driehonderd elementen om te zien
+   waar nog een prijs mist. Nu: een overzicht dat op één regel per ingrediënt
+   zegt hoe het ervoor staat, en één scherm per ingrediënt om het in te vullen. */
+
+function ingStand(n){
+  const pr=ingPrijs(n), bron=prijsBron(n), gk=ingAllerg(n), d=ingDelen(n);
+  return {naam:n, prijs:pr, eigen:!!bron, allerg:gk, delen:d,
+    link:ingLink(n), mist:pr===null};
 }
+
+function sheetIngredientenLijst(alleenMissend){
+  S.allerg=S.allerg||{};
+  const namen=alleIngredienten();
+  if(!namen.length){
+    sheet('Ingrediënten',
+      `<p class="hint">Je hebt nog geen ingrediënten. Vul eerst een recept in bij
+        Smaken — alles wat je daar intikt komt hier vanzelf te staan.</p>`,
+      `<button class="prim" style="margin-top:0" id="ilR">Smaken openen</button>`);
+    $('#ilR').onclick=sheetRecepten;
+    return;
+  }
+  const alles=namen.map(ingStand);
+  const missend=alles.filter(x=>x.mist);
+  /* wat nog niet af is staat bovenaan: dat is wat je hier komt doen */
+  const lijst=(alleenMissend?missend:alles.slice().sort((a,b)=>
+    (a.mist?0:1)-(b.mist?0:1) || a.naam.localeCompare(b.naam,'nl')));
+
+  /* Geen allergenen is de normale situatie; dat elke regel laten melden maakt
+     de lijst voller zonder iets te zeggen. Alleen tonen wat er wél is. */
+  const rij=x=>{
+    const onder=[
+      x.allerg.length?x.allerg.map(alNaam).join(', '):'',
+      x.delen.length?x.delen.length+' onderdelen':''
+    ].filter(Boolean).join(' · ');
+    return `<button class="ingrij2${x.mist?' mist':''}" data-ing="${esc(x.naam)}">
+    <span class="in">
+      <span class="nm">${esc(x.naam)}</span>
+      ${onder?`<small>${esc(onder)}</small>`:''}
+    </span>
+    <span class="pr${x.mist?' let':''}">${x.mist?'geen prijs':euro(x.prijs)+'<em>/kg</em>'}</span>
+    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+  };
+
+  sheet('Ingrediënten',
+    `<div class="ingtop">
+       <b>${alles.length} ${alles.length===1?'ingrediënt':'ingrediënten'}</b>
+       ${missend.length
+         ? `<span class="let">${missend.length} zonder prijs</span>`
+         : `<span class="goed">${svg(I.vink,'2.4')} allemaal een prijs</span>`}
+     </div>
+     ${alles.length>8?`<div class="mveld" style="margin-bottom:12px">
+       ${svg(I.loep)}<input id="ilZ" placeholder="Zoek een ingrediënt"
+         autocapitalize="none" spellcheck="false"></div>`:''}
+     ${missend.length&&missend.length<alles.length?`<div class="chips" style="margin-bottom:14px">
+       <button class="chip klein${alleenMissend?' aan':''}" id="ilF">Alleen wat nog mist</button>
+     </div>`:''}
+     <div class="paneel" id="ilL">${lijst.map(rij).join('')}</div>
+     ${lijst.length?'':`<div class="geen">Alles ingevuld.</div>`}
+     <p class="hint" style="margin-top:16px">Alles wat je bij Smaken intikt komt
+       hier vanzelf te staan. Wat je hier invult gebruiken je kostprijs, je
+       etiketten en je batches.</p>`,
+    `<button class="prim" style="margin-top:0" id="ilOk">Klaar</button>`);
+
+  const bindRijen=()=>$$('#ilL [data-ing]').forEach(b=>
+    b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend));
+  bindRijen();
+  if($('#ilF')) $('#ilF').onclick=()=>sheetIngredientenLijst(!alleenMissend);
+  if($('#ilZ')) $('#ilZ').oninput=()=>{
+    const t=$('#ilZ').value.trim().toLowerCase();
+    const gevonden=t?lijst.filter(x=>x.naam.toLowerCase().indexOf(t)>=0):lijst;
+    $('#ilL').innerHTML=gevonden.length?gevonden.map(rij).join('')
+      :`<div class="geen" style="padding:16px">Niets gevonden.</div>`;
+    bindRijen();
+  };
+  $('#ilOk').onclick=sheetInstellingen;
+}
+
+/* Eén ingrediënt, alles bij elkaar. */
+function sheetIngredient(naam,uitMissend){
+  S.allerg=S.allerg||{};
+  const teken=()=>{
+    const gk=ingAllerg(naam), d=ingDelen(naam);
+    /* met welk ingrediënt kun je hierna verder? */
+    const rest=alleIngredienten().map(ingStand).filter(x=>x.mist&&x.naam!==naam);
+    sheet(naam,
+      `${ingVeldenHtml(naam,{prijsLabel:'Wat betaal je ervoor?',kort:true})}
+       <button class="beheerrij" id="iAlKop" style="margin-top:20px;padding:14px 0">
+         ${svg(I.alarm)}<span class="l">Allergenen
+           <small id="iAlSub">${gk.length?gk.map(alNaam).join(', ')+' — komt vet op je etiket'
+             :'Geen \u2014 dan komt er ook niets op je etiket'}</small></span>
+         <span class="p" id="iAlP">${svg(I.pijl,'2')}</span></button>
+       <div class="klapin" id="iAlVak">
+         <div class="chips" style="padding-bottom:6px">${ALLERGENEN.map(a=>`<button class="chip klein ${
+           gk.includes(a.k)?'aan':''}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
+       </div>
+       <button class="beheerrij" id="iDelen" style="padding:14px 0 2px">
+         ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
+           <small>Zoals praline uit suiker en noten \u2014 dan rekent de app de prijs erbij uit</small></span>
+         <span class="w" style="white-space:nowrap">${d.length?d.length+' onderdelen':'nee'}</span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>`,
+      `${rest.length?`<button class="prim tweeregels" style="margin-top:0" id="iVolg">
+         <span>Volgende zonder prijs</span><em>${esc(rest[0].naam)}</em></button>
+        <button class="sec" id="iTerug">Terug naar de lijst</button>`
+       :`<button class="prim" style="margin-top:0" id="iTerug">Terug naar de lijst</button>`}`);
+
+    /* Allergenen stel je één keer in, je prijs werk je regelmatig bij. Daarom
+       staan die veertien knoppen dicht: ze zouden anders het grootste blok op
+       het scherm zijn. */
+    $('#iAlKop').onclick=()=>{
+      const open=$('#iAlVak').classList.toggle('open');
+      $('#iAlP').style.transform=open?'rotate(90deg)':'';
+    };
+    $$('#sheetBody [data-al]').forEach(c=>c.onclick=()=>{
+      const set=new Set(ingAllerg(naam));
+      set.has(c.dataset.al)?set.delete(c.dataset.al):set.add(c.dataset.al);
+      const w=ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k);
+      if(w.length) S.allerg[naam]=w; else delete S.allerg[naam];
+      bewaarNu();
+      /* alleen de chip omzetten, niet het hele scherm: anders raak je bij het
+         aanvinken je toetsenbord en je halve prijsinvoer kwijt */
+      c.classList.toggle('aan',set.has(c.dataset.al));
+      const sub=$('#iAlSub');
+      if(sub) sub.textContent=w.length
+        ? w.map(alNaam).join(', ')+' — komt vet op je etiket'
+        : 'Geen — dan komt er ook niets op je etiket';
+    });
+    ingVeldenBinden();
+    $('#iDelen').onclick=()=>sheetIngDelen(naam);
+    if($('#iVolg')) $('#iVolg').onclick=()=>sheetIngredient(rest[0].naam,uitMissend);
+    if($('#iTerug')) $('#iTerug').onclick=()=>sheetIngredientenLijst(uitMissend);
+  };
+  teken();
+}
+
+/* de oude naam blijft werken: hij wordt op vier plekken aangeroepen */
+function sheetAllergenen(){ sheetIngredientenLijst(false) }
 
 /* ================= uitleg =================
    Elk onderwerp is een korte reeks stappen, met knoppen die je direct naar
