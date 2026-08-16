@@ -1938,7 +1938,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v318 · 16 aug 2026';
+const APPVERSIE='v319 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12780,6 +12780,17 @@ function sheetProductEtiket(receptId){
       <div class="ing"><b>Ingrediënten:</b> ${declaratie(r)}</div>
       ${(()=>{const g=smaakAllergenen(r);
         return g.length?`<div class="r"><b>Bevat:</b> ${g.map(k=>esc(alNaam(k).toLowerCase())).join(', ')}</div>`:''})()}
+      ${(()=>{const vw=voedingVanSmaak(r);
+        if(!vw||!vw.per100) return '';
+        const w=vw.per100;
+        return `<table class="vtab"><tr><td colspan="2"><b>Voedingswaarde per 100 g</b></td></tr>
+          <tr><td>Energie</td><td>${Math.round(w.kj)} kJ / ${Math.round(w.kcal)} kcal</td></tr>
+          <tr><td>Vetten</td><td>${komma(getal(w.vet))} g</td></tr>
+          <tr class="in"><td>waarvan verzadigde vetzuren</td><td>${komma(getal(w.verz))} g</td></tr>
+          <tr><td>Koolhydraten</td><td>${komma(getal(w.koolh))} g</td></tr>
+          <tr class="in"><td>waarvan suikers</td><td>${komma(getal(w.suik))} g</td></tr>
+          <tr><td>Eiwitten</td><td>${komma(getal(w.eiwit))} g</td></tr>
+          <tr><td>Zout</td><td>${komma(getal(w.zout))} g</td></tr></table>`})()}
       <div class="r">${esc(e.bewaar||'')}</div>
       <div class="er r"><span>${e.netto?'Netto '+esc(e.netto):'Netto — invullen'}</span>
         <span><b>THT ${tht}</b></span></div>
@@ -12804,12 +12815,26 @@ function sheetProductEtiket(receptId){
          return (g.length?'Deze smaak bevat '+g.map(k=>alNaam(k).toLowerCase()).join(', ')+'. ':'')
            +(mist.length?'Nog niet ingevuld: '+mist.map(i=>esc(i.naam)).join(', ')+'.':'Alles is ingevuld.')})()}</div>
        <button class="sec" style="margin-top:0" id="peAl">Allergenen per ingrediënt instellen</button></div>
+     <div class="veld"><label>Voedingswaarde</label>
+       <div class="geen" style="padding:0 0 12px">${(()=>{const vw=voedingVanSmaak(r);
+         if(!vw) return 'Vul eerst het recept in.';
+         if(!vw.mist.length) return 'Compleet — de tabel staat op je etiket. '
+           +'Vochtverlies bij het koken telt niet mee.';
+         return 'Nog geen waarden bij: '+vw.mist.map(esc).join(', ')
+           +'. Zonder die gegevens blijft de tabel van je etiket.'})()}</div>
+       <button class="sec" style="margin-top:0" id="peVw">Voedingswaarde per ingrediënt invullen</button></div>
      <div class="hint">Printen doe je bij het inpakken van een order: daar weet de app
        welk lot en welke THT erop moeten.</div>`,
     `<button class="prim" style="margin-top:0" id="peOk">Opslaan</button>
      <button class="sec" id="peTerug">Terug naar smaak</button>`);
   setTimeout(()=>pasSchaal('peSchaal'),20);
   if($('#peAl')) $('#peAl').onclick=sheetAllergenen;
+  if($('#peVw')) $('#peVw').onclick=()=>{
+    /* meteen naar het eerste ingrediënt dat nog waarden mist */
+    const vw=voedingVanSmaak(r);
+    if(vw&&vw.mist.length) return sheetVoeding(vw.mist[0]);
+    sheetIngredientenLijst(false);
+  };
   const lees=()=>{e.benaming=$('#peW').value.trim();e.netto=$('#peN').value.trim();
     e.bewaar=$('#peB').value.trim();bewaarNu()};
   $$('[data-al]').forEach(c=>c.onclick=()=>{
