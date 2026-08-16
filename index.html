@@ -1988,7 +1988,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v341 · 16 aug 2026';
+const APPVERSIE='v342 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2278,6 +2278,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
+  'laatsteBackup',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -11547,6 +11548,8 @@ function bind(){
     if(k==='archief') return sheetArchief();
     if(k==='traceer') return sheetTraceer('');
     if(k==='allerg') return sheetAllergenen();
+    if(k==='backup') return sheetBackup();
+    if(k==='backup') return sheetBackup();
     if(k==='ontvangst') return sheetOntvangst();
     if(k==='dagrapport') return sheetRapport('dag',null,vandaag());
     sheetControles(k==='klacht'?'klacht':k);
@@ -18270,6 +18273,124 @@ function sheetUitlegOnderwerp(id){
   $$('[data-udoe]').forEach(b=>b.onclick=()=>uitlegDoe(b.dataset.udoe));
 }
 
+/* ═══════════ back-up ═══════════
+   Firebase is geen back-up. Raak je je account kwijt, wist iemand iets, of
+   gaat het project eraan, dan is alles weg. Dit maakt één bestand met je hele
+   administratie erin dat je zelf bewaart. */
+function backupTellen(d){
+  return {
+    smaken:(d.recepten||[]).length,
+    batches:(d.batches||[]).length,
+    orders:(d.orders||[]).length,
+    ingredienten:(d.ingredienten||[]).length,
+    partijen:(d.lots||[]).length,
+    facturen:(d.facturen||[]).length
+  };
+}
+const BACKUPWOORD={smaken:['smaak','smaken'],batches:['batch','batches'],
+  orders:['order','orders'],ingredienten:['ingrediënt','ingrediënten'],
+  partijen:['partij','partijen'],facturen:['factuur','facturen']};
+function backupTekst(t){
+  return Object.keys(t).filter(k=>t[k]).map(k=>{
+    const w=BACKUPWOORD[k]||[k,k];
+    return t[k]+' '+(t[k]===1?w[0]:w[1]);
+  }).join(' \u00b7 ')||'leeg';
+}
+
+function sheetBackup(){
+  const laatste=S.laatsteBackup||null;
+  const dagen=laatste?dagenTussen(laatste,vandaag()):null;
+  const nu2=backupTellen(S);
+
+  sheet('Back-up',
+    `<p class="hint">Firebase bewaart je werk, maar is geen back-up: raak je je
+      account kwijt of wist iemand iets, dan is het weg. Met een back-up heb je
+      één bestand met alles erin dat je zelf bewaart.</p>
+     ${laatste?`<div class="melding ${dagen>30?'amber':''}">${svg(dagen>30?I.alarm:I.vink,'2')}
+       <span>Laatste back-up ${dagen===0?'vandaag':dagen===1?'gisteren':dagen+' dagen geleden'}
+         \u00b7 ${kort(new Date(laatste))}</span></div>`
+      :`<div class="melding amber">${svg(I.alarm,'2')}
+        <span>Je hebt nog nooit een back-up gemaakt.</span></div>`}
+     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Wat erin komt</span></div>
+     <div class="paneel"><div class="arij" style="cursor:default">
+       <span class="naam">Je hele administratie<small>${esc(backupTekst(nu2))}</small></span>
+     </div></div>
+     <p class="hint" style="margin-top:16px">Bewaar het bestand ergens buiten je
+       telefoon — in Bestanden, iCloud of op je Mac. Een back-up die op hetzelfde
+       toestel staat helpt je niet als dat toestel wegvalt.</p>
+     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Terugzetten</span></div>
+     <div class="paneel"><button class="arij" id="buKies">
+       <span class="ivak">${svg(I.doc)}</span>
+       <span class="naam">Back-up terugzetten<small>Je ziet eerst wat erin zit</small></span>
+       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
+     <input type="file" id="buBestand" accept="application/json,.json" hidden>
+     <div id="buVoor"></div>`,
+    `<button class="prim" style="margin-top:0" id="buMaak">${svg(I.doc)}&nbsp;Back-up maken</button>
+     <button class="sec" id="buOk">Klaar</button>`);
+
+  $('#buMaak').onclick=async()=>{
+    const d=pakData();
+    d._backup={app:APPVERSIE, gemaakt:new Date().toISOString(), bedrijf:'Cacaoboetiek'};
+    const naam='cacaoboetiek-hq-'+vandaag()+'.json';
+    const blob=new Blob([JSON.stringify(d,null,1)],{type:'application/json'});
+    const bestand=new File([blob],naam,{type:'application/json'});
+    S.laatsteBackup=vandaag(); bewaarNu();
+    /* liefst via het deelmenu: dan kun je hem meteen in Bestanden of iCloud zetten */
+    if(navigator.canShare&&navigator.canShare({files:[bestand]})){
+      try{ await navigator.share({files:[bestand],title:'Back-up Cacaoboetiek HQ'});
+           sheetBackup(); return }
+      catch(e){ if(e&&e.name==='AbortError'){ sheetBackup(); return } }
+    }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=naam; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url); a.remove()},1500);
+    sheetBackup();
+    toast('Back-up opgeslagen als '+naam);
+  };
+
+  $('#buKies').onclick=()=>$('#buBestand').click();
+  $('#buBestand').onchange=ev=>{
+    const f=ev.target.files&&ev.target.files[0];
+    ev.target.value='';
+    if(!f) return;
+    const lezer=new FileReader();
+    lezer.onload=()=>{
+      let d=null;
+      try{ d=JSON.parse(lezer.result) }catch(e){}
+      if(!d||typeof d!=='object'||(!d.recepten&&!d.batches&&!d._backup)){
+        $('#buVoor').innerHTML=`<div class="melding rood" style="margin-top:14px">
+          ${svg(I.alarm,'2')}<span>Dit lijkt geen back-up van HQ.</span></div>`;
+        return;
+      }
+      const t=backupTellen(d);
+      const gemaakt=d._backup&&d._backup.gemaakt?kort(new Date(d._backup.gemaakt)):'onbekend';
+      $('#buVoor').innerHTML=`<div class="paneel" style="margin-top:14px">
+        <div class="arij" style="cursor:default">
+          <span class="naam">Back-up van ${esc(gemaakt)}<small>${esc(backupTekst(t))}</small></span>
+        </div>
+        <div class="arij" style="cursor:default">
+          <span class="naam">Wat er nu in de app staat<small>${esc(backupTekst(nu2))}</small></span>
+        </div></div>
+        <div class="melding amber" style="margin-top:12px">${svg(I.alarm,'2')}
+          <span>Terugzetten vervangt alles wat er nu staat.</span></div>
+        <button class="prim" style="margin-top:12px;background:var(--rood)" id="buDoe">
+          Ja, terugzetten</button>`;
+      $('#buDoe').onclick=()=>{
+        if(!confirm('Alles vervangen door de back-up van '+gemaakt+'?')) return;
+        const herstel=terugpunt(BEWAARVELDEN);
+        zetData(d);
+        if(typeof migreerChecks==='function') migreerChecks();
+        if(typeof migreerBatches==='function') migreerBatches();
+        bewaarNu(); render();
+        toast('Back-up teruggezet.',herstel);
+      };
+    };
+    lezer.readAsText(f);
+  };
+  $('#buOk').onclick=sheetInstellingen;
+}
+
 function sheetInstellingen(){
   sheet('Instellingen',
     /* Alleen waardes die je invult en laat staan. Wat je dóét hoort in het
@@ -18333,6 +18454,14 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
        accentNaam()}</span></button>
 
+     <button class="menurij" data-ins="backup">${svg(I.doc)}Back-up<span class="tel${
+       (()=>{const l=S.laatsteBackup; if(!l) return ' let';
+             return dagenTussen(l,vandaag())>30?' let':''})()}">${
+       (()=>{const l=S.laatsteBackup;
+             if(!l) return 'nog nooit';
+             const d=dagenTussen(l,vandaag());
+             return d===0?'vandaag':d===1?'gisteren':d+' dagen geleden'})()}</span></button>
+
      <div class="mkop">Zelden</div>
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
        Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
@@ -18386,6 +18515,8 @@ function sheetInstellingen(){
     if(k==='checks') return sheetChecks();
     if(k==='lots') return sheetLots();
     if(k==='allerg') return sheetAllergenen();
+    if(k==='backup') return sheetBackup();
+    if(k==='backup') return sheetBackup();
     sheetLijst(k);
   });
 }
