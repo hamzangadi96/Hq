@@ -1884,7 +1884,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v309 · 15 aug 2026';
+const APPVERSIE='v310 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1961,12 +1961,27 @@ function ingToevoegen(naam){
 }
 
 function ingWeg(naam){
-  S.ingredienten=(S.ingredienten||[]).filter(x=>x!==naam);
+  const k=(naam||'').trim().toLowerCase();
+  S.ingredienten=(S.ingredienten||[]).filter(x=>(x||'').trim().toLowerCase()!==k);
   delete (S.prijzen||{})[naam];
   delete (S.prijsBron||{})[naam];
   delete (S.ingLink||{})[naam];
   delete (S.allerg||{})[naam];
   delete (S.samenstelling||{})[naam];
+  /* Ook uit de recepten halen. Deed je dat niet, dan stond het ingrediënt na
+     het "verwijderen" gewoon weer in de lijst — de lijst leest immers ook je
+     smaken. Afgeronde batches houden hun eigen kopie van de receptuur, dus
+     die veranderen hier niet van. */
+  (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>{
+    if(!o.ing) return;
+    o.ing=o.ing.filter(i=>(i.naam||'').trim().toLowerCase()!==k);
+    if(!o.ing.length) o.ing=[{naam:'',deel:''}];
+  }));
+  /* en uit de uitsplitsing van andere ingrediënten */
+  Object.keys(S.samenstelling||{}).forEach(x=>{
+    const lijst=(S.samenstelling[x]||[]).filter(d=>(d.naam||'').trim().toLowerCase()!==k);
+    if(lijst.length) S.samenstelling[x]=lijst; else delete S.samenstelling[x];
+  });
   bewaarNu();
 }
 /* welke allergeengroepen zitten in deze smaak? */
@@ -15638,8 +15653,7 @@ function sheetIngredient(naam,uitMissend){
          <span>Volgende zonder prijs</span><em>${esc(rest[0].naam)}</em></button>
         <button class="sec" id="iTerug">Terug naar de lijst</button>`
        :`<button class="prim" style="margin-top:0" id="iTerug">Terug naar de lijst</button>`}
-       ${ingGebruikt(naam).length?'':
-         `<button class="sec" id="iWeg" style="color:var(--rood)">Ingrediënt verwijderen</button>`}`);
+       <button class="sec" id="iWeg" style="color:var(--rood)">Ingrediënt verwijderen</button>`);
 
     /* Allergenen stel je één keer in, je prijs werk je regelmatig bij. Daarom
        staan die veertien knoppen dicht: ze zouden anders het grootste blok op
@@ -15664,9 +15678,19 @@ function sheetIngredient(naam,uitMissend){
     });
     ingVeldenBinden();
     $('#iDelen').onclick=()=>sheetIngDelen(naam);
-    if($('#iWeg')) $('#iWeg').onclick=()=>{
-      if(!confirm(naam+' verwijderen? Prijs, link en allergenen gaan mee weg.')) return;
-      ingWeg(naam); sheetIngredientenLijst(uitMissend); toast(naam+' verwijderd.');
+    $('#iWeg').onclick=()=>{
+      const g=ingGebruikt(naam);
+      const waarschuwing=g.length
+        ? naam+' zit in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.join(', ')+
+          '.\n\nVerwijderen haalt hem daar ook uit. Je afgeronde batches blijven zoals ze waren.'
+        : naam+' verwijderen? Prijs, link en allergenen gaan mee weg.';
+      if(!confirm(waarschuwing)) return;
+      /* alles wat eraan kan hangen in het terugpunt, zodat één tik het herstelt */
+      const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron',
+        'ingLink','allerg','samenstelling']);
+      ingWeg(naam);
+      sheetIngredientenLijst(uitMissend);
+      toast(naam+' verwijderd.',herstel);
     };
     if($('#iVolg')) $('#iVolg').onclick=()=>sheetIngredient(rest[0].naam,uitMissend);
     if($('#iTerug')) $('#iTerug').onclick=()=>sheetIngredientenLijst(uitMissend);
