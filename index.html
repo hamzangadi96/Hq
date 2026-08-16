@@ -1988,7 +1988,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v342 · 16 aug 2026';
+const APPVERSIE='v343 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4029,6 +4029,17 @@ function dashboardHTML(){
     <button class="snelknop" data-uitlegopen>${svg(I.boek)}Hoe werkt het?</button>
     <button class="snelknop" data-sheet="instellingen">${svg(I.instel)}Instellingen</button>
   </div>`;
+  /* Een back-up die je één keer maakt en dan vergeet is over drie maanden
+     waardeloos. Na twee maanden vraagt hij er zelf om, onderaan zodat het
+     je werk niet in de weg zit. */
+  const bu=S.laatsteBackup;
+  const buOud=bu?dagenTussen(bu,vandaag()):null;
+  if(!bu||buOud>=60) h+=`<button class="melding amber" data-ins2="backup"
+    style="width:100%;text-align:left;margin-top:18px">${svg(I.doos,'2')}
+    <span>${bu
+      ? 'Je laatste back-up is van '+kort(new Date(bu))+'. Maak er een nieuwe.'
+      : 'Je hebt nog geen back-up van je administratie.'}</span>
+    ${svg(I.pijl,'2')}</button>`;
   return h;
 }
 
@@ -11515,6 +11526,7 @@ function bind(){
     const k=x.dataset.ins2;
     if(k==='ijking') return sheetIjking();
     if(k==='checks') return sheetChecks();
+    if(k==='backup') return sheetBackup();
   });
   $$('[data-bcorrectie]').forEach(x=>x.onclick=sheetBatchCorrectie);
   $$('[data-bnotitie]').forEach(x=>x.onclick=sheetNotitie);
