@@ -1955,7 +1955,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v324 · 16 aug 2026';
+const APPVERSIE='v325 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16373,9 +16373,12 @@ function sheetVerpakking(naam,terug){
        <li>Sleep over de tabel om te selecteren en tik op <b>Kopieer</b>.</li>
        <li>Kom hier terug en tik op <b>Plakken</b>.</li>
      </ol>
-     <button class="sec" id="vpPlak" style="margin:0 0 14px">${svg(I.doc)}&nbsp;Plakken</button>
-     <textarea class="inp" id="vpT" rows="6"
-       placeholder="of tik hier en plak met de hand"></textarea>
+     <div class="veld" style="margin-bottom:12px">
+       <label>Plak de tekst hier</label>
+       <textarea class="inp" id="vpT" rows="6"
+         placeholder="Houd je vinger hier ingedrukt en kies Plakken"></textarea>
+     </div>
+     <button class="sec" id="vpPlak" style="margin:0 0 4px">${svg(I.doc)}&nbsp;Automatisch plakken</button>
      <div class="geen" id="vpUit" style="padding-top:14px">Nog niets geplakt.</div>
      <div id="vpVoor"></div>
      <p class="hint" style="margin-top:18px">De app kan een foto niet zelf lezen —
@@ -16415,17 +16418,43 @@ function sheetVerpakking(naam,terug){
   $('#vpT').onpaste=()=>setTimeout(kijk,0);
   /* scheelt lang indrukken en het plakmenu zoeken; iOS vraagt eenmalig
      toestemming om het klembord te lezen */
+  /* Automatisch plakken mag lang niet altijd: in een geïnstalleerde webapp
+     weigert iOS het vaak, en soms blijft de vraag om toestemming hangen zonder
+     antwoord. Daarom een tijdslimiet en altijd een uitweg met de hand. */
+  const metDeHand=reden=>{
+    $('#vpUit').textContent=reden+' Houd je vinger ingedrukt op het vak hierboven '
+      +'en kies Plakken.';
+    $('#vpT').focus();
+  };
   $('#vpPlak').onclick=async()=>{
+    $('#vpUit').textContent='Bezig…';
+    if(!navigator.clipboard||!navigator.clipboard.readText)
+      return metDeHand('Automatisch plakken kan hier niet.');
     try{
-      const t=await navigator.clipboard.readText();
-      if(!t||!t.trim()){ $('#vpUit').textContent='Je klembord is leeg. Kopieer eerst de tekst in Foto\'s.'; return }
+      const t=await Promise.race([
+        navigator.clipboard.readText(),
+        new Promise((_,mis)=>setTimeout(()=>mis(new Error('te lang')),1500))
+      ]);
+      if(!t||!t.trim())
+        return metDeHand('Je klembord is leeg — kopieer eerst de tekst in Foto\'s.');
       $('#vpT').value=t; kijk();
     }catch(e){
-      $('#vpUit').textContent='Plakken lukte niet. Tik in het vak hieronder en '
-        +'houd je vinger ingedrukt om te plakken.';
-      $('#vpT').focus();
+      metDeHand('Automatisch plakken lukte niet.');
     }
   };
+  /* plak je ergens anders op dit scherm, dan vangen we het alsnog op */
+  $('#sheetBody').onpaste=ev=>{
+    const t=(ev.clipboardData||window.clipboardData);
+    if(!t) return;
+    const tekst=t.getData('text');
+    if(!tekst||!tekst.trim()) return;
+    if(document.activeElement!==$('#vpT')){
+      ev.preventDefault();
+      $('#vpT').value=tekst;
+    }
+    setTimeout(kijk,0);
+  };
+  setTimeout(()=>{ const el=$('#vpT'); if(el) el.focus() },260);
   $('#vpOk').onclick=()=>{
     const vw=Object.assign({},voeding(naam)||{},gevonden.vw);
     if(Object.keys(gevonden.vw).length) voedingZet(naam,vw);
