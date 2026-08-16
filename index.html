@@ -1884,7 +1884,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v310 · 16 aug 2026';
+const APPVERSIE='v311 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1958,6 +1958,61 @@ function ingToevoegen(naam){
   if(bestaat) return bestaat;              /* al bekend, geen dubbele */
   S.ingredienten.push(n); bewaarNu();
   return n;
+}
+
+/* Een ingrediëntnaam is overal de sleutel: prijzen, allergenen, links,
+   uitsplitsingen, recepten, voorraad, lotnummers. Hernoemen is dus niet één
+   veld aanpassen maar alles meenemen — laat je iets staan, dan valt de
+   koppeling stil uit elkaar en klopt je kostprijs of je etiket niet meer.
+
+   Eén ding gaat bewust níét mee: de receptuurkopie in een afgeronde batch.
+   Die is een momentopname van hoe je het toen gemaakt hebt, en zo hoort hij
+   te blijven staan. */
+function ingHernoem(oud,nieuw){
+  const van=(oud||'').trim(), naar=(nieuw||'').trim();
+  if(!van||!naar||van===naar) return false;
+  const vk=van.toLowerCase();
+  /* bestaat de nieuwe naam al? dan zou je twee ingrediënten samenvoegen,
+     en dat is iets anders dan hernoemen */
+  if(alleIngredienten().some(x=>x.toLowerCase()===naar.toLowerCase())) return 'bestaat';
+
+  const hernoemSleutel=obj=>{
+    if(!obj) return;
+    Object.keys(obj).forEach(k=>{
+      if(k.trim().toLowerCase()===vk && k!==naar){ obj[naar]=obj[k]; delete obj[k] }
+    });
+  };
+  S.ingredienten=(S.ingredienten||[]).map(x=>
+    (x||'').trim().toLowerCase()===vk?naar:x);
+  hernoemSleutel(S.prijzen); hernoemSleutel(S.prijsBron);
+  hernoemSleutel(S.ingLink); hernoemSleutel(S.allerg);
+  hernoemSleutel(S.samenstelling);
+  /* ook als onderdeel binnen de uitsplitsing van iets anders */
+  Object.keys(S.samenstelling||{}).forEach(x=>
+    (S.samenstelling[x]||[]).forEach(d=>{
+      if((d.naam||'').trim().toLowerCase()===vk) d.naam=naar;
+    }));
+  /* in je recepten */
+  (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>
+    (o.ing||[]).forEach(i=>{ if((i.naam||'').trim().toLowerCase()===vk) i.naam=naar })));
+  /* en in je voorraad, zodat wat er ligt aan de nieuwe naam blijft hangen */
+  (S.gmut||[]).forEach(m=>{ if(gKey(m.product)===vk) m.product=naar });
+  (S.lots||[]).forEach(l=>{ if(gKey(l.product)===vk) l.product=naar });
+  (S.boodschappen||[]).forEach(x=>{ if(gKey(x.product)===vk) x.product=naar });
+  (S.ontvangsten||[]).forEach(x=>{ if(gKey(x.product)===vk) x.product=naar });
+  /* deze drie staan op de kleine-letter-sleutel, niet op de naam zelf */
+  const hernoemKleinSleutel=obj=>{
+    if(!obj) return;
+    const nk=gKey(naar);
+    Object.keys(obj).forEach(k=>{
+      if(gKey(k)===vk && k!==nk){ obj[nk]=obj[k]; delete obj[k] }
+    });
+  };
+  hernoemKleinSleutel(S.artikelen);
+  hernoemKleinSleutel(S.drempels);
+  hernoemKleinSleutel(S.levertijden);
+  bewaarNu();
+  return true;
 }
 
 function ingWeg(naam){
@@ -15644,6 +15699,18 @@ function sheetIngredient(naam,uitMissend){
            ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
            : 'Nog niet in gebruik in een smaak.';
        })()}</div>
+       <button class="beheerrij" id="iNaam" style="padding:14px 0 2px">
+         ${svg(I.doc)}<span class="l">Naam aanpassen
+           <small>Verandert overal mee: je recepten, voorraad en etiketten</small></span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>
+       <div class="inlineform" id="iNaamF">
+         <div class="rijtje">
+           <input class="mini" id="iNaamV" value="${esc(naam)}"
+             autocapitalize="sentences" spellcheck="false">
+           <button class="miniknop" id="iNaamOk">Opslaan</button>
+         </div>
+         <div class="geen" id="iNaamUit" style="padding:8px 0 0"></div>
+       </div>
        <button class="beheerrij" id="iDelen" style="padding:14px 0 2px">
          ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
            <small>Zoals praline uit suiker en noten \u2014 dan rekent de app de prijs erbij uit</small></span>
@@ -15677,6 +15744,30 @@ function sheetIngredient(naam,uitMissend){
         : 'Geen — dan komt er ook niets op je etiket';
     });
     ingVeldenBinden();
+    $('#iNaam').onclick=()=>{
+      $('#iNaamF').classList.toggle('open');
+      if($('#iNaamF').classList.contains('open')) $('#iNaamV').focus();
+    };
+    const naamOpslaan=()=>{
+      const nieuw=($('#iNaamV').value||'').trim();
+      if(!nieuw||nieuw===naam) return $('#iNaamF').classList.remove('open');
+      const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron','ingLink',
+        'allerg','samenstelling','gmut','lots','boodschappen','ontvangsten',
+        'artikelen','drempels','levertijden']);
+      const uit=ingHernoem(naam,nieuw);
+      if(uit==='bestaat'){
+        $('#iNaamUit').textContent=nieuw+' bestaat al. Kies een andere naam, of '
+          +'verwijder een van de twee.';
+        return;
+      }
+      if(!uit) return;
+      const g=ingGebruikt(nieuw);
+      sheetIngredient(nieuw,uitMissend);
+      toast(naam+' heet nu '+nieuw+(g.length?' \u00b7 '+g.length+
+        (g.length===1?' smaak':' smaken')+' aangepast':''),herstel);
+    };
+    $('#iNaamOk').onclick=naamOpslaan;
+    $('#iNaamV').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); naamOpslaan() } };
     $('#iDelen').onclick=()=>sheetIngDelen(naam);
     $('#iWeg').onclick=()=>{
       const g=ingGebruikt(naam);
