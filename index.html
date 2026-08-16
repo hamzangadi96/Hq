@@ -1213,6 +1213,16 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .ingvoor.laag{background:#fffdf7;box-shadow:inset 3px 0 0 var(--amber)}
 .ingvoor.laag .hoev{color:var(--amber)}
 
+/* stap voor stap: één vraag per scherm */
+.wzbalk{display:flex;align-items:center;gap:4px;margin:2px 0 22px}
+.wzbalk i{flex:1;height:3px;border-radius:99px;background:var(--lijn);transition:background .3s}
+.wzbalk i.aan{background:var(--accent)}
+.wztel{flex:none;margin-left:8px;font-size:11px;font-weight:700;letter-spacing:.08em;
+  color:var(--grijs2);white-space:nowrap}
+.wzvraag{margin:0 0 8px;font-size:22px;font-weight:600;letter-spacing:-.035em;
+  line-height:1.2;color:var(--ink)}
+.wzuit{margin:0 0 22px;font-size:14.5px;line-height:1.5;color:var(--grijs)}
+
 /* voedingswaarde invullen */
 .vrij{display:flex;align-items:center;gap:12px;padding:10px 16px;
   border-bottom:1px solid var(--lijn)}
@@ -1938,7 +1948,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v319 · 16 aug 2026';
+const APPVERSIE='v320 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14849,7 +14859,8 @@ function ingVeldenHtml(naam,opties){
   opties=opties||{};
   const bron=prijsBron(naam), pr=ingPrijs(naam), lk=ingLink(naam);
   return `<div class="prijsvak">
-      <label>${opties.prijsLabel||('Wat betaal je voor '+esc(naam)+'?')}</label>
+      ${opties.prijsLabel===''?'':`<label>${
+        opties.prijsLabel||('Wat betaal je voor '+esc(naam)+'?')}</label>`}
       <div class="prijsin">
         <span class="pveld euro"><span>€</span><input data-pb="${esc(naam)}" data-veld="bedrag"
           type="text" inputmode="decimal" placeholder="3,49"
@@ -14876,7 +14887,7 @@ function ingVeldenHtml(naam,opties){
                      :'Nog geen prijs')})()}</div>
       <div data-phvak="${esc(naam)}">${opties.historie===false?'':prijsHistHtml(naam)}</div>
     </div>
-    <div class="linkvak">
+    ${opties.alleenPrijs?'':`<div class="linkvak">
       <label>Waar bestel je ${opties.kort?'het':esc(naam)}?</label>
       <div class="linkin">
         <input class="inp" data-link="${esc(naam)}" type="url" inputmode="url"
@@ -14887,7 +14898,7 @@ function ingVeldenHtml(naam,opties){
           aria-label="Openen">${svg(I.winkel)}</a>
       </div>
       <div class="puit" data-linkuit="${esc(naam)}"></div>
-    </div>`;
+    </div>`}`;
 }
 
 /* De bijbehorende bediening. na() draait als er iets verandert dat de rest van
@@ -16065,9 +16076,8 @@ function ingNieuwBinden(na){
       $('#inUit').textContent=naam+' stond er al — je vindt hem in de lijst.';
       return;
     }
-    /* meteen door naar het scherm waar je de prijs invult: dat is waarom je
-       hem toevoegt */
-    sheetIngredient(naam);
+    /* meteen door naar de eerste vraag: dat is waarom je hem toevoegt */
+    sheetIngWizard(naam,0);
   };
   $('#inOk').onclick=doe;
   $('#inNm').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); doe() } };
@@ -16215,6 +16225,112 @@ function sheetVoeding(naam,uitMissend){
   $('#vwTerug').onclick=()=>sheetIngredient(naam,uitMissend);
 }
 
+/* ═══════════ nieuw ingrediënt, stap voor stap ═══════════
+   Alles tegelijk op één scherm werkt als je iets komt bijwerken, maar niet als
+   je iets nieuws invoert: dan weet je niet waar te beginnen. Vier vragen, één
+   per scherm, en alles behalve de prijs mag je overslaan. */
+const INGSTAPPEN=[
+  {k:'prijs',  n:'Prijs'},
+  {k:'link',   n:'Bestellen'},
+  {k:'allerg', n:'Allergenen'},
+  {k:'voeding',n:'Voedingswaarde'}
+];
+
+function sheetIngWizard(naam,stap){
+  stap=Math.max(0,Math.min(INGSTAPPEN.length-1,stap||0));
+  const st=INGSTAPPEN[stap];
+  const laatste=stap===INGSTAPPEN.length-1;
+  const balk=`<div class="wzbalk">${INGSTAPPEN.map((x,i)=>
+    `<i class="${i<=stap?'aan':''}"></i>`).join('')}
+    <span class="wztel">${stap+1} / ${INGSTAPPEN.length}</span></div>`;
+
+  const bron=prijsBron(naam), gk=ingAllerg(naam), w=voeding(naam)||{};
+  let body='', verder='Volgende', over='Overslaan';
+
+  if(st.k==='prijs'){
+    body=`${balk}
+      <h3 class="wzvraag">Wat betaal je voor ${esc(naam)}?</h3>
+      <p class="wzuit">Zoals het op de verpakking staat — € 3,49 voor 250 gram.
+        De app rekent uit wat dat per bonbon kost.</p>
+      ${ingVeldenHtml(naam,{prijsLabel:'',alleenPrijs:true})}`;
+    over='Weet ik nog niet';
+  }
+  if(st.k==='link'){
+    body=`${balk}
+      <h3 class="wzvraag">Waar bestel je het?</h3>
+      <p class="wzuit">Plak de link van de webshop. Die komt op je boodschappenlijst
+        te staan, zodat je met één tik op de productpagina bent.</p>
+      <div class="linkin">
+        <input class="inp" data-link="${esc(naam)}" type="url" inputmode="url"
+          autocapitalize="none" spellcheck="false" placeholder="link naar de webshop"
+          value="${esc(ingLink(naam)||'')}">
+        <a class="linkga${ingLink(naam)?'':' uit'}" data-linkga="${esc(naam)}"
+          href="${esc(ingLink(naam)||'#')}" target="_blank" rel="noopener noreferrer"
+          aria-label="Openen">${svg(I.winkel)}</a>
+      </div>
+      <div class="puit" data-linkuit="${esc(naam)}"></div>`;
+  }
+  if(st.k==='allerg'){
+    body=`${balk}
+      <h3 class="wzvraag">Zitten er allergenen in?</h3>
+      <p class="wzuit">Deze komen vet op je etiket, en in elke smaak waar
+        ${esc(naam)} in gaat. Staat er niets op de verpakking, sla dan over.</p>
+      <div class="chips" id="wzAl">${ALLERGENEN.map(a=>`<button class="chip klein ${
+        gk.includes(a.k)?'aan':''}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
+      <div class="geen" id="wzAlUit" style="padding-top:12px">${gk.length
+        ? gk.map(alNaam).join(', ')+' — komt vet op je etiket'
+        : 'Niets aangevinkt.'}</div>`;
+    over='Geen allergenen';
+  }
+  if(st.k==='voeding'){
+    body=`${balk}
+      <h3 class="wzvraag">Voedingswaarde per 100 gram</h3>
+      <p class="wzuit">Neem de tabel van de verpakking over. Je etiket heeft dit
+        nodig — maar je kunt het ook later doen.</p>
+      <div class="paneel">${VOEDING.map(x=>`
+        <div class="vrij${x.in?' in':''}">
+          <span class="n">${x.n}</span>
+          <span class="pveld"><input data-vw="${x.k}" type="text" inputmode="decimal"
+            value="${w[x.k]!==undefined?komma(w[x.k]):''}" placeholder="0"></span>
+          <span class="e">${x.e}</span>
+        </div>`).join('')}</div>`;
+    verder='Klaar';
+    over='Later invullen';
+  }
+
+  sheet(naam,body,
+    `<button class="prim" style="margin-top:0" id="wzOk">${verder}</button>
+     <button class="sec" id="wzOver">${over}</button>`,
+    'Stap '+(stap+1)+' van '+INGSTAPPEN.length);
+
+  if(st.k==='prijs'||st.k==='link') ingVeldenBinden();
+  if(st.k==='allerg'){
+    $$('#wzAl [data-al]').forEach(c=>c.onclick=()=>{
+      const set=new Set(ingAllerg(naam));
+      set.has(c.dataset.al)?set.delete(c.dataset.al):set.add(c.dataset.al);
+      const lijst=ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k);
+      if(lijst.length) S.allerg[naam]=lijst; else delete S.allerg[naam];
+      bewaarNu();
+      c.classList.toggle('aan',set.has(c.dataset.al));
+      $('#wzAlUit').textContent=lijst.length
+        ? lijst.map(alNaam).join(', ')+' — komt vet op je etiket'
+        : 'Niets aangevinkt.';
+    });
+  }
+  const bewaarVoeding=()=>{
+    if(st.k!=='voeding') return;
+    const d={}; $$('#sheetBody [data-vw]').forEach(i=>d[i.dataset.vw]=i.value);
+    voedingZet(naam,d);
+  };
+  const door=()=>{
+    bewaarVoeding();
+    if(laatste){ sheetIngredient(naam); toast(naam+' staat erin.'); return }
+    sheetIngWizard(naam,stap+1);
+  };
+  $('#wzOk').onclick=door;
+  $('#wzOver').onclick=door;
+}
+
 /* Eén ingrediënt, alles bij elkaar. */
 function sheetIngredient(naam,uitMissend){
   S.allerg=S.allerg||{};
@@ -16240,6 +16356,10 @@ function sheetIngredient(naam,uitMissend){
            ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
            : 'Nog niet in gebruik in een smaak.';
        })()}</div>
+       <button class="beheerrij" id="iWiz" style="padding:14px 0 2px">
+         ${svg(I.pijl)}<span class="l">Stap voor stap doorlopen
+           <small>Prijs, bestellink, allergenen en voedingswaarde na elkaar</small></span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>
        <button class="beheerrij" id="iVoed" style="padding:14px 0 2px">
          ${svg(I.klembord)}<span class="l">Voedingswaarde
            <small>${(()=>{const w=voeding(naam);
@@ -16299,6 +16419,7 @@ function sheetIngredient(naam,uitMissend){
         : 'Geen — dan komt er ook niets op je etiket';
     });
     ingVeldenBinden();
+    $('#iWiz').onclick=()=>sheetIngWizard(naam,0);
     $('#iVoed').onclick=()=>sheetVoeding(naam,uitMissend);
     $('#iArch').onclick=()=>{
       const aan=!ingGearchiveerd(naam);
