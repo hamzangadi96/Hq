@@ -1972,7 +1972,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v336 · 16 aug 2026';
+const APPVERSIE='v337 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2942,8 +2942,8 @@ function stopStap(){
 }
 
 /* ================= batch-logica ================= */
-const batch=()=>S.batches.find(b=>b.id===S.batchId);
-const recept=id=>S.recepten.find(r=>r.id===id)||{naam:'?',tht:0,onderdelen:[],stappen:[]};
+const batch=()=>(S.batches||[]).find(b=>b.id===S.batchId);
+const recept=id=>(S.recepten||[]).find(r=>r.id===id)||{naam:'?',tht:0,onderdelen:[],stappen:[]};
 const gramPerBonbon=r=>(r.onderdelen||[]).reduce((s,o)=>s+(parseFloat(o.gram)||0),0);
 /* verdeel het gewicht van een onderdeel over zijn ingrediënten, op basis van de verhouding */
 function verdeel(o,totaalGram){
@@ -12259,10 +12259,10 @@ function sheetOntvangst(vooraf){
     `<p class="hint">Leg de partij hier één keer vast. Bij het loggen van je ingrediënten kies je 'm daarna uit een lijst.${
        b?'':' Er loopt nu geen batch, dus dit wordt los vastgelegd.'}</p>
      <div class="veld"><label>Leverancier</label>
-      <div class="chips" id="oC">${S.leveranciers.map((l,i)=>`<button class="chip ${
+      <div class="chips" id="oC">${(S.leveranciers||[]).map((l,i)=>`<button class="chip ${
         vooraf.leverancier?(l===vooraf.leverancier?'aan':''):(i?'':'aan')
         }" data-v="${esc(l)}">${esc(l)}</button>`).join('')}${nieuwChip('oNieuw')}</div>
-      ${S.leveranciers.length?'':'<div class="geen" style="padding-top:8px">Nog geen leveranciers — voeg je eerste toe.</div>'}
+      ${(S.leveranciers||[]).length?'':'<div class="geen" style="padding-top:8px">Nog geen leveranciers — voeg je eerste toe.</div>'}
       <div class="inlineform" id="oForm"><div class="rijtje">
         <input class="mini" id="oFN" placeholder="Naam leverancier">
         <button class="miniknop" id="oFormOk">Opslaan</button></div></div></div>
@@ -12299,6 +12299,7 @@ function sheetOntvangst(vooraf){
   chips('#oC'); chips('#oPl');
   koppelInline('oNieuw','oForm','oFN',()=>{
     const v=$('#oFN').value.trim(); if(!v) return toast('Vul een naam in.');
+    S.leveranciers=S.leveranciers||[];
     if(S.leveranciers.some(x=>gKey(x)===gKey(v)))
       return toast(v+' staat er al bij.');
     S.leveranciers.push(v); bewaarNu(); sheetOntvangst(); toast('Leverancier toegevoegd.');
@@ -12317,9 +12318,13 @@ function sheetOntvangst(vooraf){
     if(gekoeld==='ja'&&tmp==='') return toast('Vul de temperatuur bij ontvangst in.');
     if(staat==='fout'&&!a) return toast('Beschrijf kort wat er mis was.');
     if(staat==='ok'){
-      S.lots.push({id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:h,eenheid:e,
+      S.lots=S.lots||[];
+      S.lots.push({id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:getalIn0(h),eenheid:e,
         plek:chipV('#oPl')||'',ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''});
-      if(h) gBoek(p,parseFloat(h)||0,e,'Ontvangst '+lev,l);
+      /* "2,5 kg" werd hier 2 kg: parseFloat kapt af op de komma. De prijs ging
+         al door getalIn0, de voorraad nog niet — dus je bon klopte wel en je
+         voorraad niet. */
+      if(h) gBoek(p,getalIn0(h),e,'Ontvangst '+lev,l);
       const pr=getalIn0($('#oPr').value);
       if(pr>0&&h){ const basisAantal=naarBasis(getalIn0(h),e);
         if(basisAantal>0) zetArt(p,{prijs:pr/basisAantal});
@@ -12337,6 +12342,7 @@ function sheetOntvangst(vooraf){
       }
     }
     if(!b){
+      S.ontvangsten=S.ontvangsten||[];
       S.ontvangsten.push({id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
         hoeveel:h,eenheid:e,temp:gekoeld==='ja'?tmp:'',staat,actie:a});
       bewaarNu(); dicht(); render();
@@ -18255,7 +18261,7 @@ function sheetInstellingen(){
        (S.kleuren||[]).length||'geen'}</span></button>
 
      <div class="mkop">Inkoop</div>
-     <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${S.leveranciers.length}</span></button>
+     <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${(S.leveranciers||[]).length}</span></button>
      <button class="menurij" data-ins="levertijd">${svg(I.klok)}Levertijden<span class="tel">${
        Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld'}</span></button>
 
