@@ -1948,7 +1948,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v320 · 16 aug 2026';
+const APPVERSIE='v321 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16334,50 +16334,55 @@ function sheetIngWizard(naam,stap){
 /* Eén ingrediënt, alles bij elkaar. */
 function sheetIngredient(naam,uitMissend){
   S.allerg=S.allerg||{};
+  /* Is er nog geen prijs, dan is dit ingrediënt nieuw voor je: dan loop je hem
+     door in plaats van naar een scherm vol rijen te kijken waarvan je er negen
+     nog niet nodig hebt. */
+  if(ingPrijs(naam)===null&&!prijsBron(naam)) return sheetIngWizard(naam,0);
+
   const teken=()=>{
-    const gk=ingAllerg(naam), d=ingDelen(naam);
-    /* met welk ingrediënt kun je hierna verder? */
+    const gk=ingAllerg(naam), d=ingDelen(naam), w=voeding(naam);
     const rest=alleIngredienten().map(ingStand).filter(x=>x.mist&&x.naam!==naam);
+    /* wat er nog ontbreekt komt bovenaan, met een teller — de rest eronder */
+    const rijen=[
+      {id:'voed', ico:I.klembord, n:'Voedingswaarde',
+       w: w&&voedingCompleet(naam)?Math.round(w.kcal)+' kcal':(w?'onvolledig':''),
+       mist:!voedingCompleet(naam)},
+      {id:'allerg', ico:I.alarm, n:'Allergenen',
+       w: gk.length?gk.map(alNaam).join(', '):'geen', mist:false},
+      {id:'delen', ico:I.doc, n:'Bestaat uit meerdere ingrediënten',
+       w: d.length?d.length+' onderdelen':'nee', mist:false}
+    ];
+    const open=rijen.filter(x=>x.mist), af=rijen.filter(x=>!x.mist);
+    const rij=x=>`<button class="arij" data-ir="${x.id}">
+      <span class="ivak">${svg(x.ico)}</span>
+      <span class="naam">${esc(x.n)}</span>
+      <span class="waarde ${x.w?'gevuld':'let'}">${x.w?esc(x.w):'invullen'}</span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+
     sheet(naam,
       `${ingVeldenHtml(naam,{prijsLabel:'Wat betaal je ervoor?',kort:true})}
-       <button class="beheerrij" id="iAlKop" style="margin-top:20px;padding:14px 0">
-         ${svg(I.alarm)}<span class="l">Allergenen
-           <small id="iAlSub">${gk.length?gk.map(alNaam).join(', ')+' — komt vet op je etiket'
-             :'Geen \u2014 dan komt er ook niets op je etiket'}</small></span>
-         <span class="p" id="iAlP">${svg(I.pijl,'2')}</span></button>
-       <div class="klapin" id="iAlVak">
-         <div class="chips" style="padding-bottom:6px">${ALLERGENEN.map(a=>`<button class="chip klein ${
-           gk.includes(a.k)?'aan':''}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
-       </div>
        ${ingVoorraadHtml(naam)}
-       <div class="geen" style="padding:14px 0 0">${(()=>{
-         const g=ingGebruikt(naam);
-         return g.length
-           ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
-           : 'Nog niet in gebruik in een smaak.';
-       })()}</div>
-       <button class="beheerrij" id="iWiz" style="padding:14px 0 2px">
-         ${svg(I.pijl)}<span class="l">Stap voor stap doorlopen
-           <small>Prijs, bestellink, allergenen en voedingswaarde na elkaar</small></span>
-         <span class="p">${svg(I.pijl,'2')}</span></button>
-       <button class="beheerrij" id="iVoed" style="padding:14px 0 2px">
-         ${svg(I.klembord)}<span class="l">Voedingswaarde
-           <small>${(()=>{const w=voeding(naam);
-             if(!w) return 'Nog niet ingevuld — je etiket heeft dit nodig';
-             if(!voedingCompleet(naam)) return 'Onvolledig — vul de rest aan';
-             return Math.round(w.kcal)+' kcal · '+komma(getal(w.vet))+' g vet · '
-               +komma(getal(w.suik))+' g suikers per 100 g'})()}</small></span>
-         <span class="p">${svg(I.pijl,'2')}</span></button>
-       <button class="beheerrij" id="iArch" style="padding:14px 0 2px">
-         ${svg(I.doos)}<span class="l">${ingGearchiveerd(naam)?'Terughalen uit het archief'
-           :'Naar het archief'}
-           <small>${ingGearchiveerd(naam)?'Komt weer in je lijst en bij de suggesties te staan'
-             :'Uit je lijst en uit de suggesties, maar alles blijft bewaard'}</small></span>
-         <span class="p">${svg(I.pijl,'2')}</span></button>
-       <button class="beheerrij" id="iNaam" style="padding:14px 0 2px">
-         ${svg(I.doc)}<span class="l">Naam aanpassen
-           <small>Verandert overal mee: je recepten, voorraad en etiketten</small></span>
-         <span class="p">${svg(I.pijl,'2')}</span></button>
+       ${open.length?`<div class="blokkop" style="margin-top:24px">
+         <span class="eyebrow">Nog invullen</span><span class="tel let">${open.length}</span></div>
+         <div class="paneel">${open.map(rij).join('')}</div>`:''}
+       ${af.length?`<div class="blokkop" style="margin-top:${open.length?22:24}px">
+         <span class="eyebrow">Ingevuld</span></div>
+         <div class="paneel">${af.map(rij).join('')}</div>`:''}
+       <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Dit ingrediënt</span></div>
+       <div class="paneel">
+         <button class="arij" data-ir="wiz"><span class="ivak">${svg(I.vink)}</span>
+           <span class="naam">Alles langslopen</span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>
+         <button class="arij" data-ir="naam"><span class="ivak">${svg(I.doc)}</span>
+           <span class="naam">Naam aanpassen</span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>
+         <button class="arij" data-ir="arch"><span class="ivak">${svg(I.doos)}</span>
+           <span class="naam">${ingGearchiveerd(naam)?'Terughalen uit het archief':'Naar het archief'}</span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>
+         <button class="arij" data-ir="weg"><span class="ivak">${svg(I.prul)}</span>
+           <span class="naam" style="color:var(--rood)">Verwijderen</span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       </div>
        <div class="inlineform" id="iNaamF">
          <div class="rijtje">
            <input class="mini" id="iNaamV" value="${esc(naam)}"
@@ -16386,57 +16391,24 @@ function sheetIngredient(naam,uitMissend){
          </div>
          <div class="geen" id="iNaamUit" style="padding:8px 0 0"></div>
        </div>
-       <button class="beheerrij" id="iDelen" style="padding:14px 0 2px">
-         ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
-           <small>Zoals praline uit suiker en noten \u2014 dan rekent de app de prijs erbij uit</small></span>
-         <span class="w" style="white-space:nowrap">${d.length?d.length+' onderdelen':'nee'}</span>
-         <span class="p">${svg(I.pijl,'2')}</span></button>`,
+       <div class="geen" style="padding:16px 0 0">${(()=>{
+         const g=ingGebruikt(naam);
+         return g.length
+           ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
+           : 'Nog niet in gebruik in een smaak.';
+       })()}</div>`,
       `${rest.length?`<button class="prim tweeregels" style="margin-top:0" id="iVolg">
          <span>Volgende zonder prijs</span><em>${esc(rest[0].naam)}</em></button>
         <button class="sec" id="iTerug">Terug naar de lijst</button>`
-       :`<button class="prim" style="margin-top:0" id="iTerug">Terug naar de lijst</button>`}
-       <button class="sec" id="iWeg" style="color:var(--rood)">Ingrediënt verwijderen</button>`);
+       :`<button class="prim" style="margin-top:0" id="iTerug">Terug naar de lijst</button>`}`);
 
-    /* Allergenen stel je één keer in, je prijs werk je regelmatig bij. Daarom
-       staan die veertien knoppen dicht: ze zouden anders het grootste blok op
-       het scherm zijn. */
-    $('#iAlKop').onclick=()=>{
-      const open=$('#iAlVak').classList.toggle('open');
-      $('#iAlP').style.transform=open?'rotate(90deg)':'';
-    };
-    $$('#sheetBody [data-al]').forEach(c=>c.onclick=()=>{
-      const set=new Set(ingAllerg(naam));
-      set.has(c.dataset.al)?set.delete(c.dataset.al):set.add(c.dataset.al);
-      const w=ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k);
-      if(w.length) S.allerg[naam]=w; else delete S.allerg[naam];
-      bewaarNu();
-      /* alleen de chip omzetten, niet het hele scherm: anders raak je bij het
-         aanvinken je toetsenbord en je halve prijsinvoer kwijt */
-      c.classList.toggle('aan',set.has(c.dataset.al));
-      const sub=$('#iAlSub');
-      if(sub) sub.textContent=w.length
-        ? w.map(alNaam).join(', ')+' — komt vet op je etiket'
-        : 'Geen — dan komt er ook niets op je etiket';
-    });
     ingVeldenBinden();
-    $('#iWiz').onclick=()=>sheetIngWizard(naam,0);
-    $('#iVoed').onclick=()=>sheetVoeding(naam,uitMissend);
-    $('#iArch').onclick=()=>{
-      const aan=!ingGearchiveerd(naam);
-      ingArchiveer(naam,aan);
-      sheetIngredientenLijst(uitMissend);
-      toast(aan?naam+' gearchiveerd.':naam+' staat weer in je lijst.');
-    };
-    $('#iNaam').onclick=()=>{
-      $('#iNaamF').classList.toggle('open');
-      if($('#iNaamF').classList.contains('open')) $('#iNaamV').focus();
-    };
     const naamOpslaan=()=>{
       const nieuw=($('#iNaamV').value||'').trim();
       if(!nieuw||nieuw===naam) return $('#iNaamF').classList.remove('open');
       const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron','ingLink',
-        'allerg','samenstelling','gmut','lots','boodschappen','ontvangsten',
-        'artikelen','drempels','levertijden']);
+        'allerg','samenstelling','voeding','prijsHist','ingArchief','gmut','lots',
+        'boodschappen','ontvangsten','artikelen','drempels','levertijden']);
       const uit=ingHernoem(naam,nieuw);
       if(uit==='bestaat'){
         $('#iNaamUit').textContent=nieuw+' bestaat al. Kies een andere naam, of '
@@ -16451,27 +16423,43 @@ function sheetIngredient(naam,uitMissend){
     };
     $('#iNaamOk').onclick=naamOpslaan;
     $('#iNaamV').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); naamOpslaan() } };
-    $('#iDelen').onclick=()=>sheetIngDelen(naam);
-    $('#iWeg').onclick=()=>{
-      const g=ingGebruikt(naam);
-      const waarschuwing=g.length
-        ? naam+' zit in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.join(', ')+
-          '.\n\nVerwijderen haalt hem daar ook uit. Je afgeronde batches blijven zoals ze waren.'
-        : naam+' verwijderen? Prijs, link en allergenen gaan mee weg.';
-      if(!confirm(waarschuwing)) return;
-      /* alles wat eraan kan hangen in het terugpunt, zodat één tik het herstelt */
-      const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron',
-        'ingLink','allerg','samenstelling']);
-      ingWeg(naam);
-      sheetIngredientenLijst(uitMissend);
-      toast(naam+' verwijderd.',herstel);
-    };
+
+    $$('#sheetBody [data-ir]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.ir;
+      if(k==='voed')   return sheetVoeding(naam,uitMissend);
+      if(k==='allerg') return sheetIngWizard(naam,2);
+      if(k==='delen')  return sheetIngDelen(naam);
+      if(k==='wiz')    return sheetIngWizard(naam,0);
+      if(k==='naam'){
+        $('#iNaamF').classList.toggle('open');
+        if($('#iNaamF').classList.contains('open')) $('#iNaamV').focus();
+        return;
+      }
+      if(k==='arch'){
+        const aan=!ingGearchiveerd(naam);
+        ingArchiveer(naam,aan);
+        sheetIngredientenLijst(uitMissend);
+        return toast(aan?naam+' gearchiveerd.':naam+' staat weer in je lijst.');
+      }
+      if(k==='weg'){
+        const g=ingGebruikt(naam);
+        const vraag=g.length
+          ? naam+' zit in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.join(', ')+
+            '.\n\nVerwijderen haalt hem daar ook uit. Je afgeronde batches blijven zoals ze waren.'
+          : naam+' verwijderen? Prijs, link, allergenen en voedingswaarde gaan mee weg.';
+        if(!confirm(vraag)) return;
+        const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron',
+          'ingLink','allerg','samenstelling','voeding','prijsHist','ingArchief']);
+        ingWeg(naam);
+        sheetIngredientenLijst(uitMissend);
+        toast(naam+' verwijderd.',herstel);
+      }
+    });
     if($('#iVolg')) $('#iVolg').onclick=()=>sheetIngredient(rest[0].naam,uitMissend);
     if($('#iTerug')) $('#iTerug').onclick=()=>sheetIngredientenLijst(uitMissend);
   };
   teken();
 }
-
 /* de oude naam blijft werken: hij wordt op vier plekken aangeroepen */
 function sheetAllergenen(){ sheetIngredientenLijst(false) }
 
