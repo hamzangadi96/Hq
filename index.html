@@ -1848,7 +1848,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v302 · 15 aug 2026';
+const APPVERSIE='v303 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14424,24 +14424,46 @@ function ingVeldenBinden(na){
     i.oninput=()=>reken(nm);
     i.onchange=()=>{ reken(nm); if(na) na() };
   });
-  $$('[data-link]').forEach(i=>i.onchange=()=>{
+  const linkDoe=(i,bewaren)=>{
     const nm=i.dataset.link;
-    const u=ingLinkZet(nm,i.value);
-    i.value=u||'';
+    const u=bewaren?ingLinkZet(nm,i.value):(()=>{
+      /* tijdens het typen nog niet opslaan, wel alvast kijken */
+      let t=(i.value||'').trim();
+      if(!t) return null;
+      if(!/^https?:\/\//i.test(t)){
+        if(/^(javascript|data|file):/i.test(t)) return null;
+        t='https://'+t.replace(/^\/+/,'');
+      }
+      return t;
+    })();
+    if(bewaren) i.value=u||'';
     const knop=document.querySelector(`[data-linkga="${CSS.escape(nm)}"]`);
     if(knop){ knop.href=u||'#'; knop.classList.toggle('uit',!u) }
     const melding=document.querySelector(`[data-linkuit="${CSS.escape(nm)}"]`);
-    if(melding) melding.textContent='';
-    if(!u) return;
-    /* staat de verpakking in de link, vul hem dan vast in — maar overschrijf
-       nooit wat je zelf al hebt ingetikt */
+    const zeg=t=>{ if(melding) melding.textContent=t||'' };
+    if(!u) return zeg('');
     const hoev=linkHoeveelheid(u);
     const h=veld(nm,'hoeveel'), e=veld(nm,'eenheid');
-    if(!hoev||!h||!e||getalIn(h.value)) return;
+    /* Zwijgen als er niets uit te halen valt voelt alsof de app stuk is.
+       Daarom altijd zeggen wat er wél en niet gevonden is. */
+    if(!hoev) return zeg('In deze link staat geen verpakkingsmaat. '+
+      'Vul de prijs en hoeveelheid zelf in \u2014 de naam en prijs van de pagina '+
+      'kan de app niet lezen.');
+    if(!h||!e) return;
+    if(getalIn(h.value)) return zeg('In de link staat '+komma(hoev.hoeveel)+' '+
+      PRIJSEENHEID[hoev.eenheid].n+'. Je eigen invoer laat ik staan.');
     h.value=komma(hoev.hoeveel); e.value=hoev.eenheid;
-    if(melding) melding.textContent='Uit de link gehaald: '+komma(hoev.hoeveel)+' '+
-      PRIJSEENHEID[hoev.eenheid].n+'. Vul de prijs zelf in.';
+    zeg('Uit de link gehaald: '+komma(hoev.hoeveel)+' '+
+      PRIJSEENHEID[hoev.eenheid].n+'. Vul de prijs zelf in.');
     reken(nm);
+  };
+  $$('[data-link]').forEach(i=>{
+    /* change vuurt pas als je het veld verlaat; na plakken wil je het meteen
+       zien, dus input en paste doen alvast de voorvertoning */
+    i.oninput=()=>linkDoe(i,false);
+    i.onpaste=()=>setTimeout(()=>linkDoe(i,false),0);
+    i.onchange=()=>linkDoe(i,true);
+    i.onblur=()=>linkDoe(i,true);
   });
   $$('[data-linkga]').forEach(a=>a.onclick=ev=>{ if(a.classList.contains('uit')) ev.preventDefault() });
 }
