@@ -1223,6 +1223,13 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   line-height:1.2;color:var(--ink)}
 .wzuit{margin:0 0 22px;font-size:14.5px;line-height:1.5;color:var(--grijs)}
 
+/* genummerde uitleg */
+.uitleg{margin:0 0 18px;padding:0 0 0 22px;font-size:14px;line-height:1.55;color:var(--grijs)}
+.uitleg li{margin-bottom:7px;padding-left:3px}
+.uitleg li::marker{font-weight:700;color:var(--grijs3)}
+.uitleg b{color:var(--ink2);font-weight:600}
+.uitleg svg{width:13px;height:13px;vertical-align:-2px;color:var(--grijs2)}
+
 /* voedingswaarde invullen */
 .vrij{display:flex;align-items:center;gap:12px;padding:10px 16px;
   border-bottom:1px solid var(--lijn)}
@@ -1948,7 +1955,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v323 · 16 aug 2026';
+const APPVERSIE='v324 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16359,12 +16366,21 @@ function sheetVoeding(naam,uitMissend){
    gezien hebt: eerst tonen wat er gevonden is, dan pas overnemen. */
 function sheetVerpakking(naam,terug){
   sheet('Van de verpakking · '+naam,
-    `<p class="hint">Maak een foto van de verpakking, tik in Foto's op het
-      tekstsymbool, selecteer de tabel en kopieer. Plak hem hieronder.</p>
-     <textarea class="inp" id="vpT" rows="7"
-       placeholder="Voedingswaarde per 100 g&#10;Energie 2372 kJ / 567 kcal&#10;Vetten 32,1 g&#10;waarvan verzadigde vetzuren 19,5 g&#10;..."></textarea>
+    `<ol class="uitleg">
+       <li>Maak een <b>foto van de verpakking</b> — de tabel en de ingrediëntenlijst.</li>
+       <li>Open hem in <b>Foto's</b> en tik rechtsonder op het tekstsymbool ${
+         svg(I.doc)} — je iPhone herkent de tekst dan zelf.</li>
+       <li>Sleep over de tabel om te selecteren en tik op <b>Kopieer</b>.</li>
+       <li>Kom hier terug en tik op <b>Plakken</b>.</li>
+     </ol>
+     <button class="sec" id="vpPlak" style="margin:0 0 14px">${svg(I.doc)}&nbsp;Plakken</button>
+     <textarea class="inp" id="vpT" rows="6"
+       placeholder="of tik hier en plak met de hand"></textarea>
      <div class="geen" id="vpUit" style="padding-top:14px">Nog niets geplakt.</div>
-     <div id="vpVoor"></div>`,
+     <div id="vpVoor"></div>
+     <p class="hint" style="margin-top:18px">De app kan een foto niet zelf lezen —
+       een browser kan dat niet. Zodra je Cloud Functions draaien kan dat wel,
+       en hoef je alleen nog de foto te kiezen.</p>`,
     `<button class="prim" style="margin-top:0" id="vpOk" disabled>Overnemen</button>
      <button class="sec" id="vpTerug">Terug</button>`);
 
@@ -16397,6 +16413,19 @@ function sheetVerpakking(naam,terug){
   };
   $('#vpT').oninput=kijk;
   $('#vpT').onpaste=()=>setTimeout(kijk,0);
+  /* scheelt lang indrukken en het plakmenu zoeken; iOS vraagt eenmalig
+     toestemming om het klembord te lezen */
+  $('#vpPlak').onclick=async()=>{
+    try{
+      const t=await navigator.clipboard.readText();
+      if(!t||!t.trim()){ $('#vpUit').textContent='Je klembord is leeg. Kopieer eerst de tekst in Foto\'s.'; return }
+      $('#vpT').value=t; kijk();
+    }catch(e){
+      $('#vpUit').textContent='Plakken lukte niet. Tik in het vak hieronder en '
+        +'houd je vinger ingedrukt om te plakken.';
+      $('#vpT').focus();
+    }
+  };
   $('#vpOk').onclick=()=>{
     const vw=Object.assign({},voeding(naam)||{},gevonden.vw);
     if(Object.keys(gevonden.vw).length) voedingZet(naam,vw);
