@@ -1,13 +1,19 @@
 /* Cacaoboetiek HQ — service worker
    Verhoog VERSIE bij elke nieuwe upload. */
-const VERSIE = 'hq-v339';
+const VERSIE = 'hq-v341';
 
 /* alleen plaatjes en manifest cachen; de app zelf halen we altijd vers op */
 const SCHIL = [
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
-  './apple-touch-icon.png'
+  './apple-touch-icon.png',
+  /* Firebase staat sinds v341 in je eigen repo in plaats van bij Google.
+     Gecachet, want zonder deze bestanden werkt inloggen en synchroniseren niet. */
+  './firebase-app-compat.js',
+  './firebase-auth-compat.js',
+  './firebase-database-compat.js',
+  './firebase-functions-compat.js'
 ];
 
 self.addEventListener('install', e => {

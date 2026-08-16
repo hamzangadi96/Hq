@@ -8,7 +8,7 @@
      Hosting in firebase.json, niet hier. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
   img-src 'self' data: blob:;
@@ -1921,10 +1921,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 </div>
 <div id="printvel"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+<script src="firebase-app-compat.js"></script>
+<script src="firebase-auth-compat.js"></script>
+<script src="firebase-database-compat.js"></script>
+<script src="firebase-functions-compat.js"></script>
 <script src="config.js"></script>
 <script>
 /* ================= iconen ================= */
@@ -1988,7 +1988,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v339 · 16 aug 2026';
+const APPVERSIE='v341 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2283,10 +2283,26 @@ let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbT
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
 const claudeOpslag = !!(window.storage && window.storage.get);
+/* Lukt het opslaan niet — toestel vol, privémodus, browser die het blokkeert —
+   dan bleef dat stil. Je denkt dat je recept bewaard is en het is weg. Dat is
+   het ergste wat een app stil kan laten mislukken, dus dit meldt zich. */
+let opslagStuk=false;
 function lokaalSchrijf(d){
   const j=JSON.stringify(d);
-  if(claudeOpslag){ try{ window.storage.set(SLEUTEL,j) }catch(e){} return }
-  try{ localStorage.setItem(SLEUTEL,j) }catch(e){}
+  try{
+    if(claudeOpslag) window.storage.set(SLEUTEL,j);
+    else localStorage.setItem(SLEUTEL,j);
+    if(opslagStuk){ opslagStuk=false; toast('Opslaan werkt weer.') }
+  }catch(e){
+    if(!opslagStuk){
+      opslagStuk=true;
+      const vol=/quota|storage|full/i.test(String((e&&(e.name||e.message))||''));
+      toast(vol
+        ? 'Je toestel zit vol \u2014 opslaan lukt niet. Maak ruimte vrij, anders raak je werk kwijt.'
+        : 'Opslaan lukt niet op dit toestel. Werk niet verder tot dit opgelost is.');
+    }
+    console.error('lokaalSchrijf:',e);
+  }
 }
 async function lokaalLees(){
   if(claudeOpslag){
@@ -11691,7 +11707,7 @@ function sheet(t,b,v,stapLabel){
   $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true;
   if(window.__sheetPas) setTimeout(window.__sheetPas,60)}
 function dicht(){stopStap();plKies=null;sluitVeeg();let ververs=false;
-  if(bijSluiten){try{bijSluiten();ververs=true}catch(e){};bijSluiten=null}
+  if(bijSluiten){try{bijSluiten();ververs=true}catch(e){console.error('bijSluiten:',e)};bijSluiten=null}
   if(ververs)setTimeout(render,0);
   hulpDicht(); ballonDicht(); rlStop();
   $('#sheet').classList.remove('open');$('#overlay').classList.remove('open');sheetOpen=false}
@@ -11741,7 +11757,7 @@ function toast(m,terug){
     knop.onclick=()=>{
       clearTimeout(tt);
       t.classList.remove('open','metknop');
-      try{ terug() }catch(e){}
+      try{ terug() }catch(e){ console.error('terug:',e); toast('Terugkeren lukte niet.') }
       setTimeout(()=>toast('Teruggedraaid.'),260);
     };
     tt=setTimeout(()=>t.classList.remove('open','metknop'),10000);
@@ -16591,6 +16607,10 @@ function ocrLaden(){
   ocrBezig=new Promise((ok,mis)=>{
     const sc=document.createElement('script');
     sc.src=OCRBASIS+'tesseract.min.js';
+    /* jsDelivr levert exact het pakket van npm; deze vingerafdruk hoort daarbij.
+       Wordt er iets anders geserveerd, dan weigert de browser het te draaien. */
+    sc.integrity='sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F';
+    sc.crossOrigin='anonymous';
     sc.onload=()=>ok();
     sc.onerror=()=>{ ocrBezig=null; mis(new Error('niet geladen')) };
     document.head.appendChild(sc);
