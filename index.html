@@ -1187,6 +1187,23 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .alkop .g{font-size:12.5px;font-weight:500;color:var(--grijs3);text-align:right}
 .alkop .g.aan{color:var(--rood);font-weight:600}
 .lotkop .g.goed{color:var(--groen);font-weight:700}
+/* de webshop waar je het haalt */
+.linkvak{margin-top:14px}
+.linkvak label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);
+  margin-bottom:8px;letter-spacing:-.01em}
+.linkin{display:flex;align-items:center;gap:8px}
+.linkin .inp{flex:1;min-width:0;height:46px;font-size:15px;font-weight:500}
+.linkga{width:46px;height:46px;border-radius:12px;background:var(--bg);flex:none;
+  display:grid;place-items:center;color:var(--ink)}
+.linkga svg{width:18px;height:18px;stroke-width:1.9}
+.linkga.uit{color:var(--grijs3)}
+.linkga:active{background:var(--lijn)}
+/* en op de boodschappenlijst, waar je hem echt nodig hebt */
+.bestelknop{width:38px;height:38px;border-radius:12px;background:var(--bg);flex:none;
+  display:grid;place-items:center;color:var(--ink)}
+.bestelknop svg{width:16px;height:16px;stroke-width:1.9}
+.bestelknop:active{background:var(--lijn)}
+
 /* prijs invullen zoals op het pak: bedrag, hoeveelheid, eenheid */
 .prijsvak{margin-top:14px}
 .prijsvak label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);
@@ -1768,6 +1785,7 @@ const I={
   qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>'
     +'<rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 19h2M14 21h3"/>',
   klok:'<circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.1 1.9"/>',
+  winkel:`<path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 13h6"/>`,
   palet:'<path d="M12 3a9 9 0 0 0 0 18c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6h1.9A4.7 4.7 0 0 0 21 11c0-4.4-4-8-9-8z"/>'
     +'<circle cx="7.8" cy="11.2" r="1.05"/><circle cx="11.4" cy="7.6" r="1.05"/><circle cx="15.9" cy="9.4" r="1.05"/>',
   bonbon:'<path d="M12 4.5 20 9v6l-8 4.5L4 15V9z"/><path d="M12 4.5V19.5M4 9l8 4.5 8-4.5"/>',
@@ -1821,7 +1839,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v297 · 15 aug 2026';
+const APPVERSIE='v298 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9519,6 +9537,9 @@ function sheetBoodschappen(){
                  v?' · nu '+toonHoeveel(v.saldo,v.basis):' · niet op voorraad'}${
                  h.bij?' · '+h.bij:''}</small></span>
                <span class="waarde gevuld">${h.tekst}</span>
+               ${ingLink(x.product)?`<a class="bestelknop" href="${esc(ingLink(x.product))}"
+                 target="_blank" rel="noopener noreferrer"
+                 aria-label="Bestellen bij ${esc(linkKort(ingLink(x.product)))}">${svg(I.winkel)}</a>`:''}
                ${x.auto?'':`<button class="wisbtn" data-bwis="${x.id}">${svg(I.kruis,'2')}</button>`}
              </div>`}).join('')}</div>`).join('')}`
       : `<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
@@ -14309,6 +14330,29 @@ const PRIJSEENHEID={
 
 function prijsBron(naam){ return (S.prijsBron||{})[naam]||null }
 
+/* De webshop waar je dit ingrediënt haalt. Alleen http en https: een link
+   met javascript: erin zou code uitvoeren zodra je erop tikt. */
+function ingLink(naam){
+  const u=(S.ingLink||{})[naam];
+  return (typeof u==='string'&&/^https?:\/\//i.test(u))?u:null;
+}
+function ingLinkZet(naam,waarde){
+  S.ingLink=S.ingLink||{};
+  let u=(waarde||'').trim();
+  if(!u){ delete S.ingLink[naam]; bewaarNu(); return null }
+  /* plak je alleen "bakkersgrondstoffen.nl/boter", dan maken we er https van */
+  if(!/^https?:\/\//i.test(u)){
+    if(/^(javascript|data|file):/i.test(u)){ delete S.ingLink[naam]; bewaarNu(); return null }
+    u='https://'+u.replace(/^\/+/,'');
+  }
+  S.ingLink[naam]=u; bewaarNu();
+  return u;
+}
+/* alleen de domeinnaam tonen: een volledige productlink is een regel of drie */
+function linkKort(u){
+  try{ return new URL(u).hostname.replace(/^www\./,'') }catch(e){ return u }
+}
+
 /* bedrag + hoeveelheid + eenheid → prijs per kilo */
 function prijsPerKilo(bedrag,hoeveel,eenheid){
   const e=PRIJSEENHEID[eenheid]||PRIJSEENHEID.g;
@@ -15131,7 +15175,7 @@ function sheetAllergenen(){
         dan kun je hier per ingrediënt aangeven welke allergenen erin zitten.</p>`,'');
   }
   const rij=n=>{
-    const gk=ingAllerg(n), pr=ingPrijs(n), d=ingDelen(n), bron=prijsBron(n);
+    const gk=ingAllerg(n), pr=ingPrijs(n), d=ingDelen(n), bron=prijsBron(n), lk=ingLink(n);
     return `<div class="alblok">
       <div class="alkop"><span class="n">${esc(n)}</span>
         <span class="g ${gk.length?'aan':''}">${gk.length?gk.map(alNaam).join(', '):'geen'}</span></div>
@@ -15153,6 +15197,17 @@ function sheetAllergenen(){
         <div class="puit" data-puit="${esc(n)}">${
           pr!==null?'= '+euro(pr)+' per kilo'+(bron?'':' \u00b7 uit je laatste ontvangst')
                    :'Nog geen prijs \u2014 deze smaak telt niet mee in je kostprijs.'}</div>
+      </div>
+      <div class="linkvak">
+        <label>Waar bestel je het?</label>
+        <div class="linkin">
+          <input class="inp" data-link="${esc(n)}" type="url" inputmode="url"
+            autocapitalize="none" spellcheck="false" placeholder="link naar de webshop"
+            value="${esc(lk||'')}">
+          <a class="linkga${lk?'':' uit'}" data-linkga="${esc(n)}"
+            href="${esc(lk||'#')}" target="_blank" rel="noopener noreferrer"
+            aria-label="Openen">${svg(I.winkel)}</a>
+        </div>
       </div>
       <button class="beheerrij" data-delen="${esc(n)}" style="padding:12px 0 2px">
         ${svg(I.doc)}<span class="l">Bestaat uit</span>
@@ -15208,6 +15263,14 @@ function sheetAllergenen(){
     i.onchange=doe;
     if(i.tagName==='INPUT') i.oninput=doe;
   });
+  $$('[data-link]').forEach(i=>i.onchange=()=>{
+    const naam=i.dataset.link;
+    const u=ingLinkZet(naam,i.value);
+    i.value=u||'';
+    const knop=document.querySelector(`[data-linkga="${CSS.escape(naam)}"]`);
+    if(knop){ knop.href=u||'#'; knop.classList.toggle('uit',!u) }
+  });
+  $$('[data-linkga]').forEach(a=>a.onclick=ev=>{ if(a.classList.contains('uit')) ev.preventDefault() });
   $('#alOk').onclick=sheetInstellingen;
 }
 
