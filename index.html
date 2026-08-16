@@ -1848,7 +1848,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v301 · 15 aug 2026';
+const APPVERSIE='v302 · 15 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14360,6 +14360,92 @@ const PRIJSEENHEID={
 
 function prijsBron(naam){ return (S.prijsBron||{})[naam]||null }
 
+/* Het prijs- en linkblok staat op twee plekken: bij een ingrediënt en bij elk
+   onderdeel van een samengesteld ingrediënt. Eén functie, zodat ze niet uit
+   elkaar gaan lopen. Alles wordt op de naam bewaard, dus kristalsuiker is
+   overal in de app dezelfde kristalsuiker. */
+function ingVeldenHtml(naam,opties){
+  opties=opties||{};
+  const bron=prijsBron(naam), pr=ingPrijs(naam), lk=ingLink(naam);
+  return `<div class="prijsvak">
+      <label>${opties.prijsLabel||('Wat betaal je voor '+esc(naam)+'?')}</label>
+      <div class="prijsin">
+        <span class="pveld euro"><span>€</span><input data-pb="${esc(naam)}" data-veld="bedrag"
+          type="text" inputmode="decimal" placeholder="3,49"
+          value="${bron?komma(bron.bedrag):''}"></span>
+        <span class="pvoor">voor</span>
+        <span class="pveld"><input data-pb="${esc(naam)}" data-veld="hoeveel" type="text"
+          inputmode="decimal" placeholder="250" value="${bron?komma(bron.hoeveel):''}"></span>
+        <select class="peenh" data-pb="${esc(naam)}" data-veld="eenheid">${
+          Object.keys(PRIJSEENHEID).map(k=>`<option value="${k}"${
+            bron&&bron.eenheid===k?' selected':''}>${PRIJSEENHEID[k].n}</option>`).join('')}</select>
+      </div>
+      <div class="puit${pr!==null?' aan':''}" data-puit="${esc(naam)}">${
+        pr!==null?'= '+euro(pr)+' per kilo'+(bron?'':' \u00b7 uit je laatste ontvangst')
+                 :'Nog geen prijs'}</div>
+    </div>
+    <div class="linkvak">
+      <label>Waar bestel je ${opties.kort?'het':esc(naam)}?</label>
+      <div class="linkin">
+        <input class="inp" data-link="${esc(naam)}" type="url" inputmode="url"
+          autocapitalize="none" spellcheck="false" placeholder="link naar de webshop"
+          value="${esc(lk||'')}">
+        <a class="linkga${lk?'':' uit'}" data-linkga="${esc(naam)}"
+          href="${esc(lk||'#')}" target="_blank" rel="noopener noreferrer"
+          aria-label="Openen">${svg(I.winkel)}</a>
+      </div>
+      <div class="puit" data-linkuit="${esc(naam)}"></div>
+    </div>`;
+}
+
+/* De bijbehorende bediening. na() draait als er iets verandert dat de rest van
+   het scherm raakt — in de uitsplitsing verandert dan namelijk ook de som. */
+function ingVeldenBinden(na){
+  const veld=(nm,k)=>document.querySelector(
+    `[data-pb="${CSS.escape(nm)}"][data-veld="${k}"]`);
+  const toon=(nm,perKilo)=>{
+    const uit=document.querySelector(`[data-puit="${CSS.escape(nm)}"]`);
+    if(!uit) return;
+    const val=perKilo===null?ingPrijs(nm):perKilo;
+    uit.textContent=val!==null
+      ? '= '+euro(val)+' per kilo'+(prijsBron(nm)?'':' \u00b7 uit je laatste ontvangst')
+      : 'Nog geen prijs';
+    uit.classList.toggle('aan',val!==null);
+  };
+  const reken=nm=>{
+    const b=veld(nm,'bedrag'), h=veld(nm,'hoeveel'), e=veld(nm,'eenheid');
+    if(!b||!h||!e) return null;
+    const perKilo=prijsBronZet(nm,b.value,h.value,e.value);
+    toon(nm,perKilo);
+    return perKilo;
+  };
+  $$('[data-pb]').forEach(i=>{
+    const nm=i.dataset.pb;
+    i.oninput=()=>reken(nm);
+    i.onchange=()=>{ reken(nm); if(na) na() };
+  });
+  $$('[data-link]').forEach(i=>i.onchange=()=>{
+    const nm=i.dataset.link;
+    const u=ingLinkZet(nm,i.value);
+    i.value=u||'';
+    const knop=document.querySelector(`[data-linkga="${CSS.escape(nm)}"]`);
+    if(knop){ knop.href=u||'#'; knop.classList.toggle('uit',!u) }
+    const melding=document.querySelector(`[data-linkuit="${CSS.escape(nm)}"]`);
+    if(melding) melding.textContent='';
+    if(!u) return;
+    /* staat de verpakking in de link, vul hem dan vast in — maar overschrijf
+       nooit wat je zelf al hebt ingetikt */
+    const hoev=linkHoeveelheid(u);
+    const h=veld(nm,'hoeveel'), e=veld(nm,'eenheid');
+    if(!hoev||!h||!e||getalIn(h.value)) return;
+    h.value=komma(hoev.hoeveel); e.value=hoev.eenheid;
+    if(melding) melding.textContent='Uit de link gehaald: '+komma(hoev.hoeveel)+' '+
+      PRIJSEENHEID[hoev.eenheid].n+'. Vul de prijs zelf in.';
+    reken(nm);
+  });
+  $$('[data-linkga]').forEach(a=>a.onclick=ev=>{ if(a.classList.contains('uit')) ev.preventDefault() });
+}
+
 /* De webshop waar je dit ingrediënt haalt. Alleen http en https: een link
    met javascript: erin zou code uitvoeren zodra je erop tikt. */
 function ingLink(naam){
@@ -15214,24 +15300,7 @@ function sheetIngDelen(naam){
            <div class="prijsrij"><label>Percentage, als je het weet</label>
              <div class="pveld"><input class="inp" data-dp="${i}" type="text"
                inputmode="decimal" value="${d.pct||''}" placeholder="—"><span>%</span></div></div>
-           ${d.naam?(()=>{const bron=prijsBron(d.naam), pr=ingPrijs(d.naam);return `
-           <div class="prijsvak">
-             <label>Wat betaal je voor ${esc(d.naam)}?</label>
-             <div class="prijsin">
-               <span class="pveld euro"><span>€</span><input data-pb="${esc(d.naam)}" data-veld="bedrag"
-                 type="text" inputmode="decimal" placeholder="3,49"
-                 value="${bron?bron.bedrag:''}"></span>
-               <span class="pvoor">voor</span>
-               <span class="pveld"><input data-pb="${esc(d.naam)}" data-veld="hoeveel" type="text"
-                 inputmode="decimal" placeholder="250" value="${bron?bron.hoeveel:''}"></span>
-               <select class="peenh" data-pb="${esc(d.naam)}" data-veld="eenheid">${
-                 Object.keys(PRIJSEENHEID).map(k=>`<option value="${k}"${
-                   bron&&bron.eenheid===k?' selected':''}>${PRIJSEENHEID[k].n}</option>`).join('')}</select>
-             </div>
-             <div class="puit${pr!==null?' aan':''}" data-puit="${esc(d.naam)}">${
-               pr!==null?'= '+euro(pr)+' per kilo'+(bron?'':' \u00b7 uit je laatste ontvangst')
-                        :'Nog geen prijs'}</div>
-           </div>`})():''}
+           ${d.naam?ingVeldenHtml(d.naam):''}
            <div class="chips">${ALLERGENEN.map(a=>`<button class="chip klein ${
              (d.al||[]).includes(a.k)?'aan':''}" data-da="${i}" data-ak="${a.k}">${a.n}</button>`).join('')}</div>
          </div>`).join('')}</div>`
@@ -15273,26 +15342,9 @@ function sheetIngDelen(naam){
       set.has(k)?set.delete(k):set.add(k);
       D[i].al=[...set]; teken();
     });
-    /* prijsvelden per onderdeel: zelfde opslag als bij Ingrediënten, dus
-       kristalsuiker is overal in de app dezelfde kristalsuiker */
-    $$('[data-pb]').forEach(i=>{
-      const doe=()=>{
-        const nm=i.dataset.pb;
-        const veld=k=>document.querySelector(`[data-pb="${CSS.escape(nm)}"][data-veld="${k}"]`);
-        const b2=veld('bedrag'), h2=veld('hoeveel'), e2=veld('eenheid');
-        if(!b2||!h2||!e2) return;
-        const perKilo=prijsBronZet(nm,(b2.value||'').replace(',','.'),
-          (h2.value||'').replace(',','.'), e2.value);
-        const uit=document.querySelector(`[data-puit="${CSS.escape(nm)}"]`);
-        if(uit){
-          const val=perKilo===null?ingPrijs(nm):perKilo;
-          uit.textContent=val!==null?'= '+euro(val)+' per kilo':'Nog geen prijs';
-          uit.classList.toggle('aan',val!==null);
-        }
-      };
-      i.onchange=()=>{ doe(); lees(); teken() };
-      if(i.tagName==='INPUT') i.oninput=doe;
-    });
+    /* zelfde velden als bij Ingrediënten; na een wijziging opnieuw tekenen,
+       want dan verandert ook de som onderaan */
+    ingVeldenBinden(()=>{lees();teken()});
     /* naam of percentage aangepast? dan verandert ook de rekensom eronder */
     $$('[data-dn],[data-dp]').forEach(i=>i.onchange=()=>{lees();teken()});
     $$('[data-dw]').forEach(b=>b.onclick=()=>{lees();D.splice(+b.dataset.dw,1);teken()});
@@ -15329,35 +15381,7 @@ function sheetAllergenen(){
         <span class="g ${gk.length?'aan':''}">${gk.length?gk.map(alNaam).join(', '):'geen'}</span></div>
       <div class="chips">${ALLERGENEN.map(a=>`<button class="chip klein ${gk.includes(a.k)?'aan':''}"
         data-ing="${esc(n)}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
-      <div class="prijsvak">
-        <label>Wat betaal je ervoor?</label>
-        <div class="prijsin">
-          <span class="pveld euro"><span>€</span><input data-pb="${esc(n)}" data-veld="bedrag"
-            type="text" inputmode="decimal" placeholder="3,49"
-            value="${bron?bron.bedrag:''}"></span>
-          <span class="pvoor">voor</span>
-          <span class="pveld"><input data-pb="${esc(n)}" data-veld="hoeveel" type="text"
-            inputmode="decimal" placeholder="250" value="${bron?bron.hoeveel:''}"></span>
-          <select class="peenh" data-pb="${esc(n)}" data-veld="eenheid">${
-            Object.keys(PRIJSEENHEID).map(k=>`<option value="${k}"${
-              bron&&bron.eenheid===k?' selected':''}>${PRIJSEENHEID[k].n}</option>`).join('')}</select>
-        </div>
-        <div class="puit" data-puit="${esc(n)}">${
-          pr!==null?'= '+euro(pr)+' per kilo'+(bron?'':' \u00b7 uit je laatste ontvangst')
-                   :'Nog geen prijs \u2014 deze smaak telt niet mee in je kostprijs.'}</div>
-      </div>
-      <div class="linkvak">
-        <label>Waar bestel je het?</label>
-        <div class="linkin">
-          <input class="inp" data-link="${esc(n)}" type="url" inputmode="url"
-            autocapitalize="none" spellcheck="false" placeholder="link naar de webshop"
-            value="${esc(lk||'')}">
-          <a class="linkga${lk?'':' uit'}" data-linkga="${esc(n)}"
-            href="${esc(lk||'#')}" target="_blank" rel="noopener noreferrer"
-            aria-label="Openen">${svg(I.winkel)}</a>
-        </div>
-        <div class="puit" data-linkuit="${esc(n)}"></div>
-      </div>
+      ${ingVeldenHtml(n,{prijsLabel:'Wat betaal je ervoor?',kort:true})}
       <button class="beheerrij" data-delen="${esc(n)}" style="padding:12px 0 2px">
         ${svg(I.doc)}<span class="l">Bestaat het uit meerdere ingrediënten?
           <small>Zoals praline uit suiker en noten \u2014 dan rekent de app de prijs erbij uit</small></span>
@@ -15385,56 +15409,7 @@ function sheetAllergenen(){
     if(v.length) S.allerg[n]=v; else delete S.allerg[n];
     bewaarNu(); sheetAllergenen();
   });
-  /* per ingrediënt de drie velden bij elkaar zoeken en omrekenen */
-  const prijsLees=naam=>{
-    const veld=k=>document.querySelector(`[data-pb="${CSS.escape(naam)}"][data-veld="${k}"]`);
-    return {b:veld('bedrag'), h:veld('hoeveel'), e:veld('eenheid')};
-  };
-  const prijsBij=naam=>{
-    const f=prijsLees(naam);
-    if(!f.b||!f.h||!f.e) return;
-    const perKilo=prijsBronZet(naam,
-      (f.b.value||'').replace(',','.'), (f.h.value||'').replace(',','.'), f.e.value);
-    const uit=document.querySelector(`[data-puit="${CSS.escape(naam)}"]`);
-    if(!uit) return;
-    if(perKilo===null){
-      const val=ingPrijs(naam);
-      uit.textContent=val!==null
-        ? '= '+euro(val)+' per kilo · uit je laatste ontvangst'
-        : 'Nog geen prijs — deze smaak telt niet mee in je kostprijs.';
-      uit.classList.remove('aan');
-    } else {
-      uit.textContent='= '+euro(perKilo)+' per kilo';
-      uit.classList.add('aan');
-    }
-  };
-  $$('[data-pb]').forEach(i=>{
-    const doe=()=>prijsBij(i.dataset.pb);
-    i.onchange=doe;
-    if(i.tagName==='INPUT') i.oninput=doe;
-  });
-  $$('[data-link]').forEach(i=>i.onchange=()=>{
-    const naam=i.dataset.link;
-    const u=ingLinkZet(naam,i.value);
-    i.value=u||'';
-    const knop=document.querySelector(`[data-linkga="${CSS.escape(naam)}"]`);
-    if(knop){ knop.href=u||'#'; knop.classList.toggle('uit',!u) }
-    const melding=document.querySelector(`[data-linkuit="${CSS.escape(naam)}"]`);
-    if(melding) melding.textContent='';
-    if(!u) return;
-    /* staat de verpakking in de link, vul hem dan vast in — maar overschrijf
-       nooit wat je zelf al hebt ingetikt */
-    const h=linkHoeveelheid(u);
-    if(!h) return;
-    const veld=k=>document.querySelector(`[data-pb="${CSS.escape(naam)}"][data-veld="${k}"]`);
-    const hv=veld('hoeveel'), ev=veld('eenheid'), bv=veld('bedrag');
-    if(!hv||!ev||getalIn(hv.value)) return;
-    hv.value=komma(h.hoeveel); ev.value=h.eenheid;
-    if(melding) melding.textContent='Uit de link gehaald: '+komma(h.hoeveel)+' '+
-      PRIJSEENHEID[h.eenheid].n+'. Vul de prijs zelf in.';
-    if(bv&&getalIn(bv.value)) bv.dispatchEvent(new Event('change'));
-  });
-  $$('[data-linkga]').forEach(a=>a.onclick=ev=>{ if(a.classList.contains('uit')) ev.preventDefault() });
+  ingVeldenBinden();
   $('#alOk').onclick=sheetInstellingen;
 }
 
