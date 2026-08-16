@@ -1972,7 +1972,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v332 · 16 aug 2026';
+const APPVERSIE='v334 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15121,14 +15121,16 @@ function ingVeldenHtml(naam,opties){
       </div>
       <div class="perstuk${bron&&bron.eenheid==='st'?' aan':''}" data-perstuk="${esc(naam)}">
         <div class="perstukrij">
-          <span>Eén stuk weegt</span>
+          <span>Eén stuk weegt gemiddeld</span>
           <span class="pveld"><input data-pb="${esc(naam)}" data-veld="gramPerStuk" type="text"
             inputmode="decimal" placeholder="200" value="${bron&&bron.gramPerStuk?komma(bron.gramPerStuk):''}"></span>
           <span>gram</span>
         </div>
-        <div class="perstukuit">Je recept rekent in grammen, dus dit is nodig om te
-          weten wat er per bonbon in gaat. Weet je het niet? Weeg er één, of schat het —
-          bij een ananas gaat het om het bruikbare vruchtvlees.</div>
+        <div class="perstukuit">Een gemiddelde is genoeg: de ene ananas is groter dan
+          de andere, maar je betaalt er hetzelfde voor. Weeg er één keer één uit en je
+          zit er over een hele voorraad niet ver naast. Wil je het per levering precies?
+          Boek bij <b>Ontvangst</b> het werkelijke gewicht in plaats van het aantal stuks —
+          dan werkt die prijs je kostprijs bij.</div>
       </div>
       <div class="puit${pr!==null?' aan':''}" data-puit="${esc(naam)}">${(()=>{
         const st=prijsPerStuk(naam);
@@ -15242,16 +15244,20 @@ function ingVeldenBinden(na){
   });
   const linkDoe=(i,bewaren)=>{
     const nm=i.dataset.link;
+    const ruw=(i.value||'').trim();
     const u=bewaren?ingLinkZet(nm,i.value):(()=>{
       /* tijdens het typen nog niet opslaan, wel alvast kijken */
-      let t=(i.value||'').trim();
-      if(!t) return null;
-      if(!/^https?:\/\//i.test(t)){
-        if(/^(javascript|data|file):/i.test(t)) return null;
-        t='https://'+t.replace(/^\/+/,'');
-      }
-      return t;
+      if(!ruw||!lijktOpLink(ruw)) return null;
+      if(/^https?:\/\//i.test(ruw)) return ruw;
+      return 'https://'+ruw.replace(/^\/+/,'');
     })();
+    if(u===false){
+      /* wel iets ingevuld, maar geen webadres — laat staan zodat je het ziet */
+      const m=document.querySelector(`[data-linkuit="${CSS.escape(nm)}"]`);
+      if(m) m.textContent='Dit lijkt geen webadres. Plak de link van de '
+        +'productpagina — die begint met www of https.';
+      return;
+    }
     if(bewaren) i.value=u||'';
     const knop=document.querySelector(`[data-linkga="${CSS.escape(nm)}"]`);
     if(knop){ knop.href=u||'#'; knop.classList.toggle('uit',!u) }
@@ -15262,10 +15268,17 @@ function ingVeldenBinden(na){
     const h=veld(nm,'hoeveel'), e=veld(nm,'eenheid');
     /* Zwijgen als er niets uit te halen valt voelt alsof de app stuk is.
        Daarom altijd zeggen wat er wél en niet gevonden is. */
-    if(!hoev) return zeg('In deze link staat geen verpakkingsmaat. '+
-      'Vul de prijs en hoeveelheid zelf in \u2014 de naam en prijs van de pagina '+
-      'kan de app niet lezen.');
-    if(!h||!e) return;
+    if(!hoev) return zeg('Bewaard \u2014 je vindt hem terug op je boodschappenlijst.');
+    if(!h||!e){
+      /* de prijsvelden staan op een ander scherm; de maat uit de link is dan
+         nog steeds bruikbaar zolang je zelf niets had ingevuld */
+      const bron=prijsBron(nm);
+      if(bron&&bron.hoeveel) return zeg('In de link staat '+komma(hoev.hoeveel)+' '+
+        PRIJSEENHEID[hoev.eenheid].n+'. Je eigen invoer laat ik staan.');
+      prijsBronZet(nm,bron?bron.bedrag:'',hoev.hoeveel,hoev.eenheid);
+      return zeg('Uit de link gehaald: '+komma(hoev.hoeveel)+' '+
+        PRIJSEENHEID[hoev.eenheid].n+'. Die staat nu bij de prijs.');
+    }
     if(getalIn(h.value)) return zeg('In de link staat '+komma(hoev.hoeveel)+' '+
       PRIJSEENHEID[hoev.eenheid].n+'. Je eigen invoer laat ik staan.');
     h.value=komma(hoev.hoeveel); e.value=hoev.eenheid;
@@ -15314,15 +15327,24 @@ function ingLink(naam){
   const u=(S.ingLink||{})[naam];
   return (typeof u==='string'&&/^https?:\/\//i.test(u))?u:null;
 }
+/* Lijkt dit op een webadres? Plak je per ongeluk de voedingstabel in dit veld,
+   dan maakte de app daar "https://Voedingswaarde per 100 g…" van en bewaarde
+   dat als link. Een adres heeft geen spaties en wel een punt met een domein. */
+function lijktOpLink(t){
+  const u=(t||'').trim();
+  if(!u||/\s/.test(u)) return false;
+  if(/^https?:\/\//i.test(u)) return u.length>10;
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$|\?)/i.test(u);
+}
+
 function ingLinkZet(naam,waarde){
   S.ingLink=S.ingLink||{};
   let u=(waarde||'').trim();
   if(!u){ delete S.ingLink[naam]; bewaarNu(); return null }
+  if(/^(javascript|data|file):/i.test(u)){ delete S.ingLink[naam]; bewaarNu(); return null }
+  if(!lijktOpLink(u)) return false;          /* false: niet leeg, wel ongeldig */
   /* plak je alleen "bakkersgrondstoffen.nl/boter", dan maken we er https van */
-  if(!/^https?:\/\//i.test(u)){
-    if(/^(javascript|data|file):/i.test(u)){ delete S.ingLink[naam]; bewaarNu(); return null }
-    u='https://'+u.replace(/^\/+/,'');
-  }
+  if(!/^https?:\/\//i.test(u)) u='https://'+u.replace(/^\/+/,'');
   S.ingLink[naam]=u; bewaarNu();
   return u;
 }
