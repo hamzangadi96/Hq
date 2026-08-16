@@ -1972,7 +1972,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v334 · 16 aug 2026';
+const APPVERSIE='v335 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8390,6 +8390,9 @@ function voorraadHTML(){
   const alles=grondVoorraad();
   const w2=voorraadWaarde();
   const laagNu=alles.filter(grondOnder);
+  /* Nog niets geboekt? Dan stonden hier vier lege tegels en drie lege kaarten
+     die alle zeven hetzelfde zeiden. Eén uitnodiging is genoeg. */
+  const kaal=!gereed.length&&!alles.length;
 
   let h='';
 
@@ -8411,7 +8414,7 @@ function voorraadHTML(){
     <span class="tw ${waarde==='—'?'nul':''}">${waarde}</span>
     <span class="ts ${klas||''}">${sub}</span></button>`;
 
-  h+=`<div class="tegels">
+  if(!kaal) h+=`<div class="tegels">
     ${tegel('data-naar="productie"',I.doos,'Gereed',totaal||'—',
       gereed.length?gereed.length+(gereed.length===1?' partij':' partijen'):'nog geen product')}
     ${tegel('data-waardering',I.euro,'Waarde',w2.bekend?euro(w2.bekend):'—',
@@ -8423,10 +8426,36 @@ function voorraadHTML(){
       vlOverT?'fout':vlT.length?'let':'')}
   </div>`;
 
+  const brij=(attr,icoon,label,waarde,let2)=>`<button class="beheerrij" ${attr}>
+    ${svg(icoon)}<span class="l">${label}</span>
+    ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
+    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+
   /* een lege categorie wordt één rij die je verder helpt, geen groot leeg vlak */
   const leegRij=(tekst,sub,attr)=>`<div class="paneel"><button class="arij" ${attr||''}>
     <span class="naam">${tekst}<small>${sub}</small></span>
     ${attr?`<span class="pijl">${svg(I.pijl,'2')}</span>`:''}</button></div>`;
+
+  if(kaal){
+    const zonder=alleIngredienten().filter(n=>!ingGearchiveerd(n)&&ingPrijs(n)===null).length;
+    h+=`<div class="paneel"><div class="rustig">
+      <div class="ico">${svg(I.doos,'2.2')}</div>
+      <p><b>Je voorraad is nog leeg.</b><br>
+        Boek een levering en de app houdt vanaf dat moment bij wat er ligt,
+        welk lot waar in zit en wanneer het afloopt.</p>
+      <button class="prim" style="max-width:280px" data-sheet="ontvangst">${svg(I.plus)}
+        Eerste levering vastleggen</button>
+    </div></div>`;
+    h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bijhouden</span></div>
+      <div class="paneel">
+        ${(()=>{const alleI=alleIngredienten().filter(n=>!ingGearchiveerd(n));
+          return brij('data-ingr',I.pot,'Ingrediënten',
+            alleI.length? alleI.length+(zonder?' \u00b7 '+zonder+' zonder prijs':'')
+                        : 'nog geen', !!zonder)})()}
+        ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
+      </div>`;
+    return h;
+  }
 
   /* ── gereed product ── */
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Gereed product</span>
@@ -8509,11 +8538,6 @@ function voorraadHTML(){
   /* ── beheer ── */
   const teBestellen=alles.filter(v=>grondOnder(v)||v.saldo<=0).length;
   const vl=verlopenPartijen(), vlOver=vl.filter(x=>x.dagen<0).length;
-  const brij=(attr,icoon,label,waarde,let2)=>`<button class="beheerrij" ${attr}>
-    ${svg(icoon)}<span class="l">${label}</span>
-    ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
-    <span class="p">${svg(I.pijl,'2')}</span></button>`;
-
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bijhouden</span></div>
     <div class="paneel">
       ${(()=>{const alle=alleIngredienten().filter(n=>!ingGearchiveerd(n));
