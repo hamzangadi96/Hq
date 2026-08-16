@@ -1194,9 +1194,10 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .bestelknop.gehaald:active{opacity:.85}
 
 /* gewicht per stuk, alleen zichtbaar als je per stuk inkoopt */
-.perstuk{display:none;align-items:center;gap:8px;margin-top:10px;
-  font-size:13px;color:var(--grijs)}
-.perstuk.aan{display:flex}
+.perstuk{display:none;margin-top:12px;font-size:13px;color:var(--grijs)}
+.perstuk.aan{display:block}
+.perstukrij{display:flex;align-items:center;gap:8px}
+.perstukuit{margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--grijs2)}
 .perstuk .pveld{flex:0 0 86px;display:flex;align-items:center;background:var(--bg);
   border-radius:12px;padding:0 12px;height:40px}
 .perstuk .pveld input{width:100%;min-width:0;background:none;border:none;outline:none;
@@ -1222,6 +1223,13 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .wzvraag{margin:0 0 8px;font-size:22px;font-weight:600;letter-spacing:-.035em;
   line-height:1.2;color:var(--ink)}
 .wzuit{margin:0 0 22px;font-size:14.5px;line-height:1.5;color:var(--grijs)}
+
+/* plakvak in een stap */
+.wzplak{margin:0 0 20px}
+.wzplak textarea{min-height:78px;font-size:15px;line-height:1.45}
+.wzplakknoppen{display:flex;gap:8px;margin-top:8px}
+.wzplakknoppen .sec{margin-top:0;flex:1;height:44px;font-size:14px;
+  text-decoration:none;color:var(--ink)}
 
 /* een tweede manier, ingeklapt */
 .anders{margin:0 0 16px}
@@ -1964,7 +1972,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v330 · 16 aug 2026';
+const APPVERSIE='v332 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15112,10 +15120,15 @@ function ingVeldenHtml(naam,opties){
             bron&&bron.eenheid===k?' selected':''}>${PRIJSEENHEID[k].n}</option>`).join('')}</select>
       </div>
       <div class="perstuk${bron&&bron.eenheid==='st'?' aan':''}" data-perstuk="${esc(naam)}">
-        <span>Eén stuk weegt</span>
-        <span class="pveld"><input data-pb="${esc(naam)}" data-veld="gramPerStuk" type="text"
-          inputmode="decimal" placeholder="3" value="${bron&&bron.gramPerStuk?komma(bron.gramPerStuk):''}"></span>
-        <span>gram</span>
+        <div class="perstukrij">
+          <span>Eén stuk weegt</span>
+          <span class="pveld"><input data-pb="${esc(naam)}" data-veld="gramPerStuk" type="text"
+            inputmode="decimal" placeholder="200" value="${bron&&bron.gramPerStuk?komma(bron.gramPerStuk):''}"></span>
+          <span>gram</span>
+        </div>
+        <div class="perstukuit">Je recept rekent in grammen, dus dit is nodig om te
+          weten wat er per bonbon in gaat. Weet je het niet? Weeg er één, of schat het —
+          bij een ananas gaat het om het bruikbare vruchtvlees.</div>
       </div>
       <div class="puit${pr!==null?' aan':''}" data-puit="${esc(naam)}">${(()=>{
         const st=prijsPerStuk(naam);
@@ -16674,6 +16687,84 @@ const INGSTAPPEN=[
   {k:'voeding',n:'Voedingswaarde'}
 ];
 
+/* Plakken hoort in de stap zelf te kunnen, niet achter een knop naar een
+   tussenscherm. Staat er een productlink, dan zetten we die erbij: op zo'n
+   pagina staat alles wat je nodig hebt, je hoeft het alleen te kopiëren. */
+function wzPlakvakHtml(naam){
+  const lk=ingLink(naam);
+  return `<div class="wzplak">
+    <textarea class="inp" id="wzPT" rows="3"
+      placeholder="Plak hier de tekst van de verpakking of webshop"></textarea>
+    <div class="wzplakknoppen">
+      <button class="sec" id="wzFoto">${svg(I.camera)}&nbsp;Foto</button>
+      ${lk?`<a class="sec" href="${esc(lk)}" target="_blank" rel="noopener noreferrer"
+        >${svg(I.winkel)}&nbsp;Productpagina</a>`:''}
+    </div>
+    <input type="file" id="wzBestand" accept="image/*" hidden>
+    <div class="geen" id="wzPUit" style="padding-top:8px"></div>
+  </div>`;
+}
+
+/* verwerkt geplakte of herkende tekst en vult in wat op dit scherm staat */
+function wzPlakvakBinden(naam,stap,opnieuw){
+  const vak=$('#wzPT');
+  if(!vak) return;
+  const meld=t=>{ const u=$('#wzPUit'); if(u) u.textContent=t };
+
+  const verwerk=tekst=>{
+    if(!tekst||!tekst.trim()) return meld('');
+    const vw=leesVoedingTekst(tekst), al=leesAllergenenTekst(tekst),
+          ing=leesIngredientenTekst(tekst);
+    const gevonden=[];
+    /* voedingswaarden in de velden zetten die op dit scherm staan */
+    const n=Object.keys(vw).length;
+    if(n){
+      const oud=voeding(naam)||{};
+      voedingZet(naam,Object.assign({},oud,vw));
+      VOEDING.forEach(x=>{
+        const veld=document.querySelector(`[data-vw="${x.k}"]`);
+        if(veld&&vw[x.k]!==undefined) veld.value=komma(vw[x.k]);
+      });
+      gevonden.push(n+' van de 8 voedingswaarden');
+    }
+    if(al.length){
+      const set=new Set(ingAllerg(naam).concat(al));
+      const lijst=ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k);
+      allergZet(naam,lijst);
+      $$('#wzAl [data-al]').forEach(c=>c.classList.toggle('aan',lijst.includes(c.dataset.al)));
+      const u=$('#wzAlUit');
+      if(u) u.textContent=lijst.map(alNaam).join(', ')+' — komt vet op je etiket';
+      gevonden.push(al.length+' '+(al.length===1?'allergeen':'allergenen'));
+    }
+    if(ing.length>1){
+      S.samenstelling=S.samenstelling||{};
+      S.samenstelling[naam]=ing.map(x=>({naam:x.naam,pct:x.pct,al:x.al}));
+      bewaarNu();
+      gevonden.push(ing.length+' ingrediënten');
+    }
+    meld(gevonden.length
+      ? 'Overgenomen: '+gevonden.join(' · ')+'. Controleer de getallen.'
+      : 'Hier haal ik niets uit. Staat de tabel of de ingrediëntenlijst erbij?');
+  };
+
+  vak.oninput=()=>verwerk(vak.value);
+  vak.onpaste=()=>setTimeout(()=>verwerk(vak.value),0);
+  $('#wzFoto').onclick=()=>$('#wzBestand').click();
+  $('#wzBestand').onchange=async ev=>{
+    const f=ev.target.files&&ev.target.files[0];
+    if(!f) return;
+    $('#wzFoto').disabled=true;
+    meld('Foto inlezen…');
+    try{
+      const tekst=await ocrLees(f,meld);
+      if(!tekst.trim()) meld('Geen tekst gevonden. Probeer dichterbij, rechter en met meer licht.');
+      else { vak.value=tekst; verwerk(tekst); }
+    }catch(e){
+      meld('De tekstherkenning kon niet geladen worden. Ben je online?');
+    } finally { $('#wzFoto').disabled=false; ev.target.value='' }
+  };
+}
+
 function sheetIngWizard(naam,stap){
   stap=Math.max(0,Math.min(INGSTAPPEN.length-1,stap||0));
   const st=INGSTAPPEN[stap];
@@ -16713,8 +16804,7 @@ function sheetIngWizard(naam,stap){
       <h3 class="wzvraag">Zitten er allergenen in?</h3>
       <p class="wzuit">Deze komen vet op je etiket, en in elke smaak waar
         ${esc(naam)} in gaat. Staat er niets op de verpakking, sla dan over.</p>
-      <button class="sec" id="wzPlak" style="margin:0 0 18px">${svg(I.camera)}
-        &nbsp;Van de verpakking overnemen</button>
+      ${wzPlakvakHtml(naam)}
       <div class="chips" id="wzAl">${ALLERGENEN.map(a=>`<button class="chip klein ${
         gk.includes(a.k)?'aan':''}" data-al="${a.k}">${a.n}</button>`).join('')}</div>
       <div class="geen" id="wzAlUit" style="padding-top:12px">${gk.length
@@ -16727,8 +16817,7 @@ function sheetIngWizard(naam,stap){
       <h3 class="wzvraag">Voedingswaarde per 100 gram</h3>
       <p class="wzuit">Neem de tabel van de verpakking over. Je etiket heeft dit
         nodig — maar je kunt het ook later doen.</p>
-      <button class="sec" id="wzPlak" style="margin:0 0 18px">${svg(I.camera)}
-        &nbsp;Van de verpakking overnemen</button>
+      ${wzPlakvakHtml(naam)}
       <div class="paneel">${VOEDING.map(x=>`
         <div class="vrij${x.in?' in':''}">
           <span class="n">${x.n}</span>
@@ -16760,10 +16849,7 @@ function sheetIngWizard(naam,stap){
     const d={}; $$('#sheetBody [data-vw]').forEach(i=>d[i.dataset.vw]=i.value);
     voedingZet(naam,d);
   };
-  if($('#wzPlak')) $('#wzPlak').onclick=()=>{
-    bewaarVoeding();
-    sheetVerpakking(naam,()=>sheetIngWizard(naam,stap));
-  };
+  wzPlakvakBinden(naam,stap);
   const door=()=>{
     bewaarVoeding();
     if(laatste){ sheetIngredient(naam); toast(naam+' staat erin.'); return }
