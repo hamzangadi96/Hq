@@ -1312,6 +1312,14 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .pveld.breed{display:flex;align-items:center;width:100%;box-sizing:border-box}
 .pveld.breed input{width:100%;min-width:0}
 
+/* een regel op een inkoopbon */
+.inkrij{display:grid;grid-template-columns:1fr 72px 82px 34px;gap:6px;
+  align-items:center;margin-bottom:8px}
+.inkrij select,.inkrij input{height:46px;background:var(--bg);border-radius:12px;
+  padding:0 10px;font-size:14px;min-width:0;width:100%;box-sizing:border-box}
+.inkrij input{text-align:right}
+.inkrij .wisbtn{width:34px;height:34px}
+
 /* kostprijsrapport */
 .rapkop{text-align:center;padding:22px 0 4px}
 .rapkop .g{display:block;font-size:38px;font-weight:700;letter-spacing:-.04em}
@@ -2121,7 +2129,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v376 · 17 aug 2026';
+const APPVERSIE='v377 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2411,7 +2419,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar',
+  'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -11469,6 +11477,201 @@ function recallRapport(r){
 /* Je verpakkingsonderdelen horen in één lijst te staan, net als je
    ingrediënten: welke heb je, wat kosten ze, en waar mist er nog een prijs.
    Ze stonden verspreid over het voorraadscherm, dus je moest ze zoeken. */
+/* ═══════════ inkoopbon ═══════════
+   Op je factuur staan de regels in de valuta van je leverancier, en daaronder
+   vracht en betaalkosten die over alles heen gaan. Wat een doos je werkelijk
+   kost is dat allemaal bij elkaar, omgerekend naar wat er van je rekening ging.
+   Dat rekenwerk hoort de app te doen, niet jij. */
+const inkopen=()=>S.inkopen||[];
+
+function inkoopReken(b){
+  const regels=(b.regels||[]).map(r=>{
+    const n=getalIn0(r.aantal), pu=getalIn0(r.prijs);
+    return {artikel:r.artikel, aantal:n, prijs:pu, totaal:n*pu};
+  }).filter(r=>r.artikel&&r.aantal>0);
+
+  const goed=regels.reduce((a,r)=>a+r.totaal,0);
+  const vracht=getalIn0(b.vracht);
+  const betaald=getalIn0(b.betaald);          /* in euro's, van je afschrift */
+  const totaalVreemd=goed+vracht;
+
+  /* De koers leiden we af uit wat je écht betaalde: dan zitten de opslag van
+     je bank en de betaalkosten er vanzelf in. */
+  const koers=(betaald>0&&totaalVreemd>0)?betaald/totaalVreemd:null;
+  const opslag=goed>0?vracht/goed:0;
+
+  const uit=regels.map(r=>{
+    const metVracht=r.totaal*(1+opslag);
+    const euro=koers===null?null:metVracht*koers;
+    return Object.assign({},r,{metVracht, euro,
+      perStuk: (euro===null||!r.aantal)?null:euro/r.aantal});
+  });
+
+  return {regels:uit, goed, vracht, betaald, koers, opslag,
+    totaalVreemd, compleet: koers!==null&&uit.length>0};
+}
+
+function sheetInkoop(id){
+  const nieuw=!id;
+  const b=nieuw
+    ? {id:uid(),datum:vandaag(),lev:'',valuta:'USD',vracht:'',betaald:'',
+       regels:[{artikel:'',aantal:'',prijs:''}]}
+    : JSON.parse(JSON.stringify(inkopen().find(x=>x.id===id)||{}));
+  const arts=verpakkingsArtikelen();
+
+  const lezen=()=>{
+    b.datum=$('#ikD').value; b.lev=$('#ikL').value.trim();
+    b.valuta=$('#ikV').value;
+    b.vracht=$('#ikVr').value.trim(); b.betaald=$('#ikB').value.trim();
+    b.regels=$$('#ikR .inkrij').map(el=>({
+      artikel:el.querySelector('[data-ika]').value,
+      aantal:el.querySelector('[data-ikn]').value.trim(),
+      prijs:el.querySelector('[data-ikp]').value.trim()
+    }));
+  };
+
+  const teken=()=>{
+    const k=inkoopReken(b);
+    const val=b.valuta||'USD';
+    const t=n=>val==='EUR'?euro(n):'$ '+n.toFixed(2).replace('.',',');
+
+    sheet(nieuw?'Bestelling registreren':(b.lev||'Bestelling'),
+      `<p class="hint">Neem je factuur over. Vracht en betaalkosten verdeelt de
+        app zelf over de regels, en de koers volgt uit wat je werkelijk betaalde.</p>
+
+       <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+         <div><label>Datum</label>
+           <input class="inp" id="ikD" type="date" value="${esc(b.datum)}"></div>
+         <div><label>Valuta op de bon</label>
+           <select class="inp" id="ikV">
+             <option value="USD"${val==='USD'?' selected':''}>dollar</option>
+             <option value="EUR"${val==='EUR'?' selected':''}>euro</option>
+           </select></div>
+       </div>
+       <div class="veld"><label>Leverancier</label>
+         <input class="inp" id="ikL" value="${esc(b.lev)}" placeholder="Bijv. CyGedin"></div>
+
+       <div class="veld"><label>Wat staat er op de bon?</label>
+         <div id="ikR">${(b.regels.length?b.regels:[{artikel:'',aantal:'',prijs:''}])
+           .map(r=>`<div class="inkrij">
+             <select class="ika" data-ika>
+               <option value="">Kies een onderdeel</option>
+               ${arts.map(a=>`<option value="${esc(a)}"${a===r.artikel?' selected':''}>${
+                 esc(a)}</option>`).join('')}
+             </select>
+             <input class="ikn" data-ikn type="text" inputmode="decimal"
+               value="${esc(r.aantal)}" placeholder="aantal">
+             <input class="ikp" data-ikp type="text" inputmode="decimal"
+               value="${esc(r.prijs)}" placeholder="per stuk">
+             <button class="wisbtn" data-ikw>${svg(I.kruis,'2')}</button>
+           </div>`).join('')}</div>
+         <button class="sec" id="ikPlus" style="margin-top:2px">${svg(I.plus)}&nbsp; Regel toevoegen</button>
+       </div>
+
+       <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+         <div><label>Vracht (${val==='EUR'?'€':'$'})</label>
+           <input class="inp" id="ikVr" type="text" inputmode="decimal"
+             value="${esc(b.vracht)}" placeholder="0,00"></div>
+         <div><label>Betaald in euro's</label>
+           <input class="inp" id="ikB" type="text" inputmode="decimal"
+             value="${esc(b.betaald)}" placeholder="0,00"></div>
+       </div>
+       <p class="hint" style="margin-top:-6px">Het bedrag dat van je rekening ging,
+         inclusief betaalkosten. Daaruit volgt de koers.</p>
+
+       <div class="paneel" style="margin-top:8px">
+         <div class="arij" style="cursor:default"><span class="naam">Goederen<small>${
+           k.regels.length} ${k.regels.length===1?'regel':'regels'}</small></span>
+           <span class="waarde gevuld">${t(k.goed)}</span></div>
+         ${k.vracht?`<div class="arij" style="cursor:default"><span class="naam">Vracht<small>${
+           getal(k.opslag*100)}% over de goederen verdeeld</small></span>
+           <span class="waarde gevuld">${t(k.vracht)}</span></div>`:''}
+         <div class="arij" style="cursor:default;background:var(--bg)">
+           <span class="naam"><b>Betaald</b><small>${k.koers!==null
+             ? '1 '+val+' = '+euro(k.koers)
+             : "vul in wat je in euro's betaalde"}</small></span>
+           <span class="waarde ${k.koers===null?'let':'gevuld'}" style="font-size:16px">${
+             k.betaald?euro(k.betaald):'—'}</span></div>
+       </div>
+
+       ${k.compleet?`
+       <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Wat het per stuk wordt</span></div>
+       <div class="paneel">${k.regels.map(r=>`
+         <div class="arij" style="cursor:default">
+           <span class="naam">${esc(r.artikel)}<small>${getal(r.aantal)} × ${
+             t(r.prijs)} + vracht</small></span>
+           <span class="waarde gevuld">${euro(r.perStuk)}<small style="display:block;font-size:11px">${
+             euro(r.euro)} totaal</small></span></div>`).join('')}</div>`:''}`,
+      `<button class="prim" style="margin-top:0" id="ikOk"${k.compleet?'':' disabled'}>${
+         k.compleet?'Opslaan en prijzen bijwerken':'Vul de bon eerst in'}</button>
+       ${nieuw?'':`<button class="sec" id="ikWis">Bestelling verwijderen</button>`}
+       <button class="sec" id="ikT">Terug</button>`);
+
+    const hert=()=>{lezen();teken()};
+    ['ikD','ikL','ikV','ikVr','ikB'].forEach(i=>{const e=$('#'+i); if(e) e.onchange=hert});
+    $$('#ikR [data-ika], #ikR [data-ikn], #ikR [data-ikp]').forEach(e=>e.onchange=hert);
+    $$('#ikR [data-ikw]').forEach(w=>w.onclick=()=>{
+      lezen();
+      const i=[...$$('#ikR .inkrij')].indexOf(w.parentElement);
+      b.regels.splice(i,1);
+      if(!b.regels.length) b.regels=[{artikel:'',aantal:'',prijs:''}];
+      teken();
+    });
+    $('#ikPlus').onclick=()=>{lezen();b.regels.push({artikel:'',aantal:'',prijs:''});teken()};
+    $('#ikOk').onclick=()=>{
+      lezen();
+      const kk=inkoopReken(b);
+      if(!kk.compleet) return toast('Vul de regels en het betaalde bedrag in.');
+      const herstel=terugpunt(['inkopen','verpBron','artikelen']);
+      S.inkopen=S.inkopen||[];
+      const i=S.inkopen.findIndex(x=>x.id===b.id);
+      if(i<0) S.inkopen.push(b); else S.inkopen[i]=b;
+      /* de prijs per stuk landt bij het artikel zelf */
+      kk.regels.forEach(r=>{
+        if(r.perStuk===null) return;
+        S.verpBron=S.verpBron||{};
+        S.verpBron[gKey(r.artikel)]={bedrag:r.euro,aantal:r.aantal,datum:b.datum};
+        zetArt(r.artikel,{prijs:r.perStuk});
+      });
+      bewaarNu(); sheetInkopen();
+      toast(kk.regels.length+' '+(kk.regels.length===1?'prijs':'prijzen')+' bijgewerkt.',herstel);
+    };
+    if($('#ikWis')) $('#ikWis').onclick=()=>{
+      const herstel=terugpunt(['inkopen']);
+      S.inkopen=(S.inkopen||[]).filter(x=>x.id!==b.id);
+      bewaarNu(); sheetInkopen(); toast('Bestelling verwijderd.',herstel);
+    };
+    $('#ikT').onclick=sheetInkopen;
+  };
+  teken();
+}
+
+function sheetInkopen(){
+  const lijst=inkopen().slice().sort((a,b2)=>(b2.datum||'').localeCompare(a.datum||''));
+  sheet('Bestellingen',
+    lijst.length
+    ? `<p class="hint">Wat je hebt ingekocht, met vracht en koers erin verwerkt.
+        Tik er een aan om hem aan te passen.</p>
+       <div class="paneel">${lijst.map(b=>{
+         const k=inkoopReken(b);
+         return `<button class="arij" data-ikb="${esc(b.id)}">
+           <span class="naam">${esc(b.lev||'Bestelling')}<small>${
+             kort(new Date(b.datum))} · ${k.regels.length} ${
+             k.regels.length===1?'regel':'regels'}</small></span>
+           <span class="waarde gevuld">${k.betaald?euro(k.betaald):'—'}</span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
+    : `<div class="paneel"><div class="rustig">
+        <div class="ico">${svg(I.doc,'2.2')}</div>
+        <p><b>Nog geen bestellingen.</b><br>Neem een factuur over en de app rekent
+          uit wat elk onderdeel je per stuk kost — vracht en koers inbegrepen.</p>
+       </div></div>`,
+    `<button class="prim" style="margin-top:0" id="ikN">${svg(I.plus)}&nbsp;Bestelling registreren</button>
+     <button class="sec" id="ikOk2">Klaar</button>`);
+  $$('#sheetBody [data-ikb]').forEach(b=>b.onclick=()=>sheetInkoop(b.dataset.ikb));
+  $('#ikN').onclick=()=>sheetInkoop(null);
+  $('#ikOk2').onclick=sheetVerpakkingLijst;
+}
+
 function sheetVerpakkingLijst(){
   let vzoek='';
   const teken=()=>{
@@ -11517,7 +11720,8 @@ function sheetVerpakkingLijst(){
            : af.length+' onderdelen worden niet meer gebruikt; die kosten'} worden
            over je dozen verdeeld.</p>`:''}`,
       `<button class="prim" style="margin-top:0" id="vlN">${svg(I.plus)}&nbsp;Verpakking toevoegen</button>
-       ${alle.length?`<button class="sec" id="vlD">${svg(I.doos)}&nbsp;Dozen samenstellen</button>`:''}
+       ${alle.length?`<button class="sec" id="vlB">${svg(I.doc)}&nbsp;Bestelling registreren</button>
+       <button class="sec" id="vlD">${svg(I.doos)}&nbsp;Dozen samenstellen</button>`:''}
        <button class="sec" id="vlOk">Klaar</button>`);
 
     if($('#vlZ')){
@@ -11527,6 +11731,7 @@ function sheetVerpakkingLijst(){
     }
     $$('#sheetBody [data-vl]').forEach(b=>b.onclick=()=>sheetGrondstof(b.dataset.vl));
     $('#vlN').onclick=sheetVerpakkingNieuw;
+    if($('#vlB')) $('#vlB').onclick=sheetInkopen;
     if($('#vlD')) $('#vlD').onclick=sheetDozen;
     $('#vlOk').onclick=()=>{S.tab='voorraad';dicht();render()};
   };
