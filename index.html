@@ -2099,7 +2099,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v365 · 17 aug 2026';
+const APPVERSIE='v366 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14247,8 +14247,42 @@ function verwijderSmaak(id){
   toast(r.naam+' verwijderd.',herstel);
 }
 
+/* Je denkt in chocoladesoort: eerst kies je waar je mee werkt, dan welke smaak.
+   Alles onder elkaar met kopjes ertussen werkt zolang je vijf smaken hebt;
+   daarna scrol je langs melk en puur om bij wit te komen. */
+let SMAAKSOORT=null;
+
+function sheetSoortKiezen(){
+  const rijen=soorten().map(c=>{
+    const l=(S.recepten||[]).filter(r=>r.chocolade===c.key&&smaakActief(r));
+    return `<button class="arij" data-soort="${esc(c.key)}">
+      <span class="ivak">${svg(I.bonbon)}</span>
+      <span class="naam">${esc(c.naam)}<small>${l.length
+        ? l.length+(l.length===1?' smaak':' smaken')
+        : 'nog geen smaken'}</small></span>
+      <span class="waarde${l.length?' gevuld':''}">${l.length||''}</span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+  }).join('');
+
+  const gearchiveerd=(S.recepten||[]).filter(r=>!smaakActief(r)).length;
+
+  sheet('Smaken',
+    `<div class="paneel">${rijen}</div>
+     ${gearchiveerd?`<button class="toevoeg" id="smArch" style="margin-top:14px">${
+       svg(I.doos)}Archief (${gearchiveerd})</button>`:''}`,
+    `<button class="prim" style="margin-top:0" id="smNieuw">${svg(I.plus)}&nbsp;Nieuwe smaak</button>`);
+
+  $$('#sheetBody [data-soort]').forEach(b=>b.onclick=()=>{
+    SMAAKSOORT=b.dataset.soort; sheetRecepten();
+  });
+  if($('#smArch')) $('#smArch').onclick=()=>{ SMAAKSOORT='archief'; sheetRecepten() };
+  $('#smNieuw').onclick=()=>sheetReceptForm();
+}
+
 function sheetRecepten(){
-  const perChoc=soorten().map(c=>{
+  /* geen soort gekozen? dan eerst kiezen */
+  if(!SMAAKSOORT) return sheetSoortKiezen();
+  const perChoc=soorten().filter(c=>SMAAKSOORT==='archief'||c.key===SMAAKSOORT).map(c=>{
     const l=S.recepten.filter(r=>r.chocolade===c.key&&smaakActief(r));
     if(!l.length) return '';
     return `<div class="uwkop" style="border-bottom:none;padding-top:16px"><span class="n">${c.naam}</span>
@@ -14262,7 +14296,9 @@ function sheetRecepten(){
         <button class="wisbtn" data-smaakwis="${r.id}">${svg(I.kruis,'2')}</button></div>`).join('');
   }).join('');
 
-  const gearchiveerd=(S.recepten||[]).filter(r=>!smaakActief(r));
+  /* het archief hoort alleen bij zijn eigen keuze, niet onder elke soort */
+  const gearchiveerd=SMAAKSOORT==='archief'
+    ? (S.recepten||[]).filter(r=>!smaakActief(r)) : [];
   const archief=gearchiveerd.length?`
     <div class="uwkop" style="border-bottom:none;padding-top:20px"><span class="n">Archief</span>
       <span class="a">${gearchiveerd.length}</span></div>
@@ -14272,13 +14308,17 @@ function sheetRecepten(){
       <div class="rnaam" style="color:var(--grijs)">${esc(r.naam)}</div>
       <div class="rsub">${chocNaam(r.chocolade)}</div></div>
       <button class="chip klein" data-smaakterug="${r.id}">Terugzetten</button></div>`).join('')}`:'';
-  sheet('Smaken',
+  const soortNaam = SMAAKSOORT==='archief' ? 'Archief'
+    : (soorten().find(c=>c.key===SMAAKSOORT)||{}).naam || 'Smaken';
+  sheet(soortNaam,
     S.recepten.length
     ? `${S.recepten.length>6?`<div class="veld" style="margin-bottom:4px">
          <input class="inp" id="rzZ" placeholder="Zoek een smaak" autocomplete="off"></div>`:''}
        <div id="rzL">${perChoc}</div>${archief}`
     :`<p class="hint">Nog geen smaken. Een smaak is de opbouw van één bonbon: de schelp, de lagen erin, en hoeveel gram elk onderdeel weegt. Hoeveel bonbons je maakt kies je pas bij een batch.</p>`,
-    `<button class="prim" style="margin-top:0" id="rN">Nieuwe smaak</button>`);
+    `<button class="prim" style="margin-top:0" id="rN">Nieuwe smaak</button>
+     <button class="sec" id="rTerug">Andere chocoladesoort</button>`);
+  if($('#rTerug')) $('#rTerug').onclick=()=>{ SMAAKSOORT=null; sheetSoortKiezen() };
   $$('[data-smaakwis]').forEach(b=>b.onclick=()=>verwijderSmaak(b.dataset.smaakwis));
   $$('[data-smaakterug]').forEach(b=>b.onclick=()=>{
     const r=(S.recepten||[]).find(x=>x.id===b.dataset.smaakterug); if(!r) return;
@@ -14304,6 +14344,8 @@ function sheetRecepten(){
 }
 
 function sheetReceptForm(id,voorChoc){
+  /* kwam je binnen via "Melkchocolade", dan is dat je startpunt */
+  if(!id&&!voorChoc&&SMAAKSOORT&&SMAAKSOORT!=='archief') voorChoc=SMAAKSOORT;
   const best=id?S.recepten.find(x=>x.id===id):null;
   R.id=id||null;
   R.naam=best?best.naam:'';
