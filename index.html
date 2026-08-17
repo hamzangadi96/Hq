@@ -2117,7 +2117,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v368 · 17 aug 2026';
+const APPVERSIE='v369 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2407,7 +2407,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'laatsteBackup','storingen',
+  'laatsteBackup','storingen','dozen',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -7065,6 +7065,61 @@ function sheetGrondstofJaar(jaar){
    kostprijsVol() rekent per smaak al vier lagen uit: grondstof, wat je aan
    afkeur kwijtraakt, je arbeid en je vaste lasten. Los per smaak zie je dat
    wel, naast elkaar niet — en juist dan zie je waar je marge zit. */
+/* ═══════════ wat kost een doos ═══════════
+   Een verkoopdoos is meer dan de bonbons erin: de doos zelf, het inlegvel, de
+   sleeve en wat het kost om hem te versturen. Zonder die vier weet je niet wat
+   je moet vragen, en dus ook niet wat je overhoudt. */
+const dozen=()=>S.dozen||[];
+const doos=id=>dozen().find(d=>d.id===id);
+
+function verpakkingsArtikelen(){
+  return grondVoorraad().filter(v=>artSoort(v.product)==='verpakking')
+    .map(v=>v.product).sort((a,b2)=>a.localeCompare(b2));
+}
+
+/* de prijs per stuk van een verpakkingsartikel */
+function verpPrijs(naam){
+  const a=art(naam);
+  if(typeof a.prijs==='number'&&a.prijs>0) return a.prijs;
+  return null;
+}
+
+function doosKosten(d,smaakId){
+  const regels=(d.regels||[]).map(x=>{
+    const pr=verpPrijs(x.artikel);
+    const n=getalIn0(x.aantal)||1;
+    return {artikel:x.artikel, aantal:n, prijs:pr, totaal:pr===null?null:pr*n};
+  });
+  const mist=regels.filter(x=>x.totaal===null).map(x=>x.artikel);
+  const verp=regels.reduce((n,x)=>n+(x.totaal||0),0);
+
+  /* de bonbons erin: één smaak, of het gemiddelde over je smaken */
+  const n=getalIn0(d.bonbons)||0;
+  let perBonbon=null, bron='';
+  if(smaakId){
+    const r=recept(smaakId);
+    const kv=r&&r.id?kostprijsVol(r):null;
+    if(kv&&kv.totaal!==null){ perBonbon=kv.totaal; bron=r.naam }
+  }
+  if(perBonbon===null){
+    const k=kostenRapport();
+    if(k.gem!==null){ perBonbon=k.gem; bron='gemiddeld' }
+  }
+  const inhoud=perBonbon===null?null:perBonbon*n;
+
+  return {regels, verp, mist, bonbons:n, perBonbon, bron,
+    inhoud, totaal: inhoud===null?null:inhoud+verp};
+}
+
+/* wat vraag je ervoor? Consument betaalt btw, zakelijk niet. */
+function doosPrijzen(kost,d){
+  if(kost===null) return null;
+  const b2c=getalIn0(d.b2c), b2b=getalIn0(d.b2b);
+  const mk=p2=>p2>0?{prijs:p2, marge:p2-kost, pct:p2?(p2-kost)/p2*100:0}:null;
+  return {b2c:mk(b2c/(1+BTW_ETEN)), b2b:mk(b2b),
+    b2cBruto:b2c||0, b2bBruto:b2b||0};
+}
+
 function kostenRapport(){
   const smaken=(S.recepten||[]).filter(r=>smaakActief(r)&&(r.onderdelen||[]).length);
   const rijen=smaken.map(r=>{
@@ -7098,6 +7153,149 @@ function productieRapport(){
     grondPerStuk: goed? kosten/goed : null,
     dervingPct: (goed+afk)? afk/(goed+afk)*100 : 0,
     uren, urenPerStuk: goed&&uren? uren*60/goed : null};
+}
+
+function sheetDoos(id){
+  const nieuw=!id;
+  const d=nieuw?{id:uid(),naam:'',bonbons:'16',regels:[{artikel:'',aantal:'1'}],b2c:'',b2b:''}
+               :JSON.parse(JSON.stringify(doos(id)));
+  const arts=verpakkingsArtikelen();
+
+  const lezen=()=>{
+    d.naam=$('#dzN').value.trim();
+    d.bonbons=$('#dzB').value.trim();
+    d.b2c=$('#dzC')?$('#dzC').value.trim():'';
+    d.b2b=$('#dzZ')?$('#dzZ').value.trim():'';
+    d.regels=$$('#dzR .ingrij').map(el=>({
+      artikel:el.querySelector('[data-dza]').value,
+      aantal:el.querySelector('[data-dzn]').value.trim()
+    })).filter(x=>x.artikel);
+  };
+
+  const teken=()=>{
+    const k=doosKosten(d);
+    const pr=doosPrijzen(k.totaal,d);
+    sheet(nieuw?'Doos samenstellen':(d.naam||'Doos'),
+      `<div class="veld"><label>Hoe noem je deze doos?</label>
+        <input class="inp" id="dzN" value="${esc(d.naam)}" placeholder="Bijv. Doos 16"></div>
+       <div class="veld"><label>Hoeveel bonbons gaan erin?</label>
+        <input class="inp" id="dzB" type="text" inputmode="numeric" value="${esc(d.bonbons)}"
+          placeholder="16"></div>
+
+       <div class="veld"><label>Waar bestaat de verpakking uit?</label>
+        <p class="hint" style="margin-bottom:10px">De doos zelf, het inlegvel, de sleeve
+          en wat het versturen kost — alles wat je per doos verbruikt.</p>
+        ${arts.length?`<div id="dzR">${(d.regels.length?d.regels:[{artikel:'',aantal:'1'}])
+          .map(x=>`<div class="ingrij">
+            <select class="nm" data-dza>
+              <option value="">Kies een artikel</option>
+              ${arts.map(a=>`<option value="${esc(a)}"${a===x.artikel?' selected':''}>${
+                esc(a)}${verpPrijs(a)!==null?' — '+euro(verpPrijs(a)):' — geen prijs'}</option>`).join('')}
+            </select>
+            <input class="hv" data-dzn type="text" inputmode="numeric" value="${esc(x.aantal)}" placeholder="1">
+            <button class="wisbtn" data-dzw>${svg(I.kruis,'2')}</button></div>`).join('')}</div>
+          <button class="sec" id="dzP" style="margin-top:2px">${svg(I.plus)}&nbsp; Onderdeel toevoegen</button>`
+        :`<div class="melding amber">${svg(I.alarm,'2')}<span>Je hebt nog geen
+           verpakkingsartikelen. Maak ze eerst aan bij Voorraad \u2192 Verpakking toevoegen.</span></div>`}
+       </div>
+
+       <div class="paneel" style="margin-top:6px">
+         <div class="arij" style="cursor:default"><span class="naam">Verpakking<small>${
+           k.regels.length? k.regels.map(x=>x.artikel+(x.aantal>1?' ×'+x.aantal:'')).join(', ')
+           :'nog niets gekozen'}</small></span>
+           <span class="waarde gevuld">${euro(k.verp)}</span></div>
+         <div class="arij" style="cursor:default"><span class="naam">${k.bonbons||0} bonbons<small>${
+           k.perBonbon===null?'nog geen kostprijs per bonbon'
+           :euro(k.perBonbon)+' per stuk · '+esc(k.bron)}</small></span>
+           <span class="waarde ${k.inhoud===null?'let':'gevuld'}">${
+             k.inhoud===null?'—':euro(k.inhoud)}</span></div>
+         <div class="arij" style="cursor:default;background:var(--bg)">
+           <span class="naam"><b>Kostprijs van deze doos</b></span>
+           <span class="waarde gevuld" style="font-size:17px">${
+             k.totaal===null?'—':euro(k.totaal)}</span></div>
+       </div>
+       ${k.mist.length?`<div class="melding amber" style="margin-top:10px">${svg(I.alarm,'2')}
+         <span>Geen prijs bij ${k.mist.map(esc).join(', ')}. Boek een ontvangst met
+           prijs, dan telt het mee.</span></div>`:''}
+
+       <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Wat vraag je ervoor</span></div>
+       <div class="veld"><label>Consument — inclusief 9% btw</label>
+         <input class="inp" id="dzC" type="text" inputmode="decimal" value="${esc(d.b2c)}"
+           placeholder="Bijv. 24,95"></div>
+       <div class="veld"><label>Zakelijk — exclusief btw</label>
+         <input class="inp" id="dzZ" type="text" inputmode="decimal" value="${esc(d.b2b)}"
+           placeholder="Bijv. 14,50"></div>
+       ${pr?`<div class="paneel">
+         ${['b2c','b2b'].map(kk=>{const x=pr[kk]; if(!x) return '';
+           return `<div class="arij" style="cursor:default">
+             <span class="naam">${kk==='b2c'?'Consument':'Zakelijk'}<small>${
+               euro(x.prijs)} ${kk==='b2c'?'exclusief btw':'exclusief btw'} \u00b7 kostprijs ${euro(k.totaal)}</small></span>
+             <span class="waarde" style="color:${x.marge<=0?'var(--rood)':x.pct<40?'var(--amber)':'var(--groen)'}">
+               ${x.marge<=0?'verlies':'+'+euro(x.marge)}
+               <small style="display:block;font-size:11px">${getal(x.pct)}% marge</small></span></div>`
+         }).join('')||`<div class="geen" style="padding:16px">Vul een verkoopprijs in.</div>`}
+       </div>`:''}`,
+      `<button class="prim" style="margin-top:0" id="dzOk">${nieuw?'Doos opslaan':'Wijzigingen opslaan'}</button>
+       ${nieuw?'':`<button class="sec" id="dzWis">Doos verwijderen</button>`}
+       <button class="sec" id="dzT">Terug</button>`);
+
+    const hert=()=>{lezen();teken()};
+    ['dzN','dzB','dzC','dzZ'].forEach(i=>{const el=$('#'+i); if(el) el.onchange=hert});
+    $$('#dzR [data-dza]').forEach(e=>e.onchange=hert);
+    $$('#dzR [data-dzn]').forEach(e=>e.onchange=hert);
+    $$('#dzR [data-dzw]').forEach(b=>b.onclick=()=>{
+      lezen();
+      const i=[...$$('#dzR .ingrij')].indexOf(b.parentElement);
+      d.regels.splice(i,1); if(!d.regels.length) d.regels=[{artikel:'',aantal:'1'}];
+      teken();
+    });
+    if($('#dzP')) $('#dzP').onclick=()=>{lezen();d.regels.push({artikel:'',aantal:'1'});teken()};
+    $('#dzOk').onclick=()=>{
+      lezen();
+      if(!d.naam) return toast('Geef de doos een naam.');
+      S.dozen=S.dozen||[];
+      const i=S.dozen.findIndex(x=>x.id===d.id);
+      if(i<0) S.dozen.push(d); else S.dozen[i]=d;
+      bewaarNu(); sheetDozen(); toast(d.naam+' opgeslagen.');
+    };
+    if($('#dzWis')) $('#dzWis').onclick=()=>{
+      const herstel=terugpunt(['dozen']);
+      S.dozen=(S.dozen||[]).filter(x=>x.id!==d.id);
+      bewaarNu(); sheetDozen(); toast('Doos verwijderd.',herstel);
+    };
+    $('#dzT').onclick=sheetDozen;
+  };
+  teken();
+}
+
+function sheetDozen(){
+  const lijst=dozen();
+  sheet('Dozen',
+    lijst.length
+    ? `<p class="hint">Wat een doos kost is de verpakking plus de bonbons erin.
+        Tik er een aan om de onderdelen of je verkoopprijzen aan te passen.</p>
+       <div class="paneel">${lijst.map(d=>{
+         const k=doosKosten(d);
+         const pr=doosPrijzen(k.totaal,d);
+         const m=pr&&pr.b2c?pr.b2c:(pr&&pr.b2b?pr.b2b:null);
+         return `<button class="arij" data-dz="${esc(d.id)}">
+           <span class="naam">${esc(d.naam)}<small>${k.bonbons} bonbons · verpakking ${
+             euro(k.verp)}${k.mist.length?' · '+k.mist.length+' zonder prijs':''}</small></span>
+           <span class="waarde gevuld" style="text-align:right">${
+             k.totaal===null?'—':euro(k.totaal)}
+             ${m?`<small style="display:block;font-size:11px;color:${
+               m.marge<=0?'var(--rood)':m.pct<40?'var(--amber)':'var(--groen)'}">${
+               m.marge<=0?'verlies':'+'+euro(m.marge)}</small>`:''}</span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
+    : `<div class="paneel"><div class="rustig">
+        <div class="ico">${svg(I.doos,'2.2')}</div>
+        <p><b>Nog geen dozen.</b><br>Stel er een samen — doos, inlegvel, sleeve,
+          transport — en je ziet wat een doosje van 16 of 25 werkelijk kost.</p></div></div>`,
+    `<button class="prim" style="margin-top:0" id="dzN2">${svg(I.plus)}&nbsp;Doos samenstellen</button>
+     <button class="sec" id="dzTerug">Klaar</button>`);
+  $$('#sheetBody [data-dz]').forEach(b=>b.onclick=()=>sheetDoos(b.dataset.dz));
+  $('#dzN2').onclick=()=>sheetDoos(null);
+  $('#dzTerug').onclick=sheetKostprijzen;
 }
 
 function sheetKostprijzen(){
@@ -7140,6 +7338,20 @@ function sheetKostprijzen(){
              :`<small style="display:block;font-size:11px;color:var(--grijs3)">geen verkoopprijs</small>`}
           </span></button>`}).join('')}</div>
 
+      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Per doos</span>
+        <span class="tel">${dozen().length||''}</span></div>
+      <div class="paneel">${dozen().length
+        ? dozen().map(d=>{const dk=doosKosten(d);
+            return `<button class="arij" data-dz="${esc(d.id)}">
+              <span class="naam">${esc(d.naam)}<small>${d.bonbons} bonbons · verpakking ${
+                euro(dk.verp)}</small></span>
+              <span class="waarde gevuld">${dk.totaal===null?'—':euro(dk.totaal)}</span>
+              <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')
+        : `<button class="arij" data-dznieuw>
+            <span class="ivak">${svg(I.plus)}</span>
+            <span class="naam">Doos samenstellen<small>doos, inlegvel, sleeve, transport</small></span>
+            <span class="pijl">${svg(I.pijl,'2')}</span></button>`}</div>
+
       <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Je productie</span></div>
       ${pr.batches?`<div class="paneel">
         <div class="arij" style="cursor:default"><span class="naam">Afgeronde batches<small>${
@@ -7161,6 +7373,8 @@ function sheetKostprijzen(){
      <button class="sec" id="kpOk">Klaar</button>`);
 
   $$('#sheetBody [data-kpsmaak]').forEach(b=>b.onclick=()=>sheetReceptForm(b.dataset.kpsmaak));
+  $$('#sheetBody [data-dz]').forEach(b=>b.onclick=()=>sheetDoos(b.dataset.dz));
+  $$('#sheetBody [data-dznieuw]').forEach(b=>b.onclick=()=>sheetDoos(null));
   $('#kpBasis').onclick=sheetKostenbasis;
   $('#kpOk').onclick=()=>{S.tab='geld';dicht();render()};
 }
