@@ -1308,6 +1308,14 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* kostprijsrapport */
+.rapkop{text-align:center;padding:22px 0 4px}
+.rapkop .g{display:block;font-size:38px;font-weight:700;letter-spacing:-.04em}
+.rapkop small{display:block;margin-top:4px;font-size:13px;color:var(--grijs2)}
+.kpbalk{display:flex;gap:2px;margin-top:8px;height:5px;border-radius:99px;overflow:hidden;
+  width:100%;max-width:190px}
+.kpbalk i{display:block;height:100%;border-radius:99px}
+
 /* een ingrediënt kies je, je typt het niet */
 .ingrij .nm.kies{display:flex;align-items:center;gap:8px;justify-content:flex-start;
   text-align:left;min-width:0;background:var(--bg);border-radius:12px;
@@ -2109,7 +2117,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v367 · 17 aug 2026';
+const APPVERSIE='v368 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7053,6 +7061,110 @@ function sheetGrondstofJaar(jaar){
   };
 }
 
+/* ═══════════ wat kost een bonbon ═══════════
+   kostprijsVol() rekent per smaak al vier lagen uit: grondstof, wat je aan
+   afkeur kwijtraakt, je arbeid en je vaste lasten. Los per smaak zie je dat
+   wel, naast elkaar niet — en juist dan zie je waar je marge zit. */
+function kostenRapport(){
+  const smaken=(S.recepten||[]).filter(r=>smaakActief(r)&&(r.onderdelen||[]).length);
+  const rijen=smaken.map(r=>{
+    const kv=kostprijsVol(r);
+    const vk=prijsVoor(null,r.id,1);
+    const marge=(kv.totaal!==null&&vk!==null)?vk/(1+BTW_ETEN)-kv.totaal:null;
+    return {r,kv,vk,marge,
+      pct:(marge!==null&&vk)?marge/(vk/(1+BTW_ETEN))*100:null};
+  }).sort((a,b2)=>{
+    if(a.marge===null&&b2.marge===null) return a.r.naam.localeCompare(b2.r.naam);
+    if(a.marge===null) return 1;
+    if(b2.marge===null) return -1;
+    return a.marge-b2.marge;          /* de smalste marge bovenaan */
+  });
+  const compleet=rijen.filter(x=>x.kv.totaal!==null);
+  const gem=compleet.length
+    ? compleet.reduce((n,x)=>n+x.kv.totaal,0)/compleet.length : null;
+  return {rijen,gem,compleet:compleet.length,totaal:smaken.length};
+}
+
+function productieRapport(){
+  const af=(S.batches||[]).filter(b=>b.status==='klaar'&&b.resultaat);
+  if(!af.length) return {batches:0};
+  const goed=af.reduce((n,b)=>n+(b.resultaat.goed||0),0);
+  const afk=af.reduce((n,b)=>n+(b.resultaat.afkeur||0),0);
+  const kosten=af.reduce((n,b)=>n+(batchKostenVast(b,true).grond||0),0);
+  const uren=af.reduce((n,b)=>n+(werkTotaal(b)||0)/3600,0);
+  return {batches:af.length, goed, afkeur:afk,
+    perBatch: goed/af.length,
+    grond: kosten,
+    grondPerStuk: goed? kosten/goed : null,
+    dervingPct: (goed+afk)? afk/(goed+afk)*100 : 0,
+    uren, urenPerStuk: goed&&uren? uren*60/goed : null};
+}
+
+function sheetKostprijzen(){
+  const k=kostenRapport();
+  const pr=productieRapport();
+  const bal=n=>Math.max(2,Math.min(100,n));
+
+  sheet('Wat kost een bonbon',
+    !k.totaal
+    ? `<p class="hint">Nog geen smaken met onderdelen. Zodra je een smaak hebt
+        uitgewerkt, staat hier wat hij kost.</p>`
+    : `<div class="rapkop">
+        <span class="g">${k.gem!==null?euro(k.gem):'—'}</span>
+        <small>gemiddeld per bonbon${k.compleet<k.totaal
+          ? ' · '+(k.totaal-k.compleet)+' smaak'+(k.totaal-k.compleet===1?'':'en')+' incompleet':''}</small>
+      </div>
+
+      <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Per smaak</span>
+        <span class="tel">smalste marge eerst</span></div>
+      <div class="paneel">${k.rijen.map(x=>{
+        const kv=x.kv, t=kv.totaal;
+        const delen=t?[
+          {n:'grondstof',v:kv.grond,k:'var(--ink)'},
+          {n:'afkeur',v:kv.verlies,k:'var(--grijs2)'},
+          {n:'arbeid',v:kv.arbeid,k:'var(--grijs3)'},
+          {n:'vaste lasten',v:kv.vast,k:'var(--lijn)'}].filter(d=>d.v>0):[];
+        return `<button class="arij" style="align-items:flex-start" data-kpsmaak="${esc(x.r.id)}">
+          <span class="naam">${esc(x.r.naam)}
+            <small>${t===null
+              ? '<b style="color:var(--amber)">geen prijs voor '+esc((kv.mist||[]).slice(0,2).join(', '))+'</b>'
+              : delen.map(d=>d.n+' '+euro(d.v)).join(' · ')}</small>
+            ${t!==null&&delen.length?`<span class="kpbalk">${delen.map(d=>
+              `<i style="width:${bal(d.v/t*100)}%;background:${d.k}"></i>`).join('')}</span>`:''}
+          </span>
+          <span class="waarde ${t===null?'':'gevuld'}" style="text-align:right">
+            ${t===null?'—':euro(t)}
+            ${x.marge!==null?`<small style="display:block;font-size:11px;color:${
+              x.marge<=0?'var(--rood)':x.pct<30?'var(--amber)':'var(--groen)'}">${
+              x.marge<=0?'verlies':'+'+euro(x.marge)}</small>`
+             :`<small style="display:block;font-size:11px;color:var(--grijs3)">geen verkoopprijs</small>`}
+          </span></button>`}).join('')}</div>
+
+      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Je productie</span></div>
+      ${pr.batches?`<div class="paneel">
+        <div class="arij" style="cursor:default"><span class="naam">Afgeronde batches<small>${
+          pr.batches===1?'één batch':pr.batches+' batches'} \u00b7 ${getal(Math.round(pr.perBatch))} bonbons gemiddeld</small></span>
+          <span class="waarde gevuld">${getal(pr.goed)}</span></div>
+        <div class="arij" style="cursor:default"><span class="naam">Grondstof per bonbon<small>uit wat je werkelijk verbruikt hebt</small></span>
+          <span class="waarde gevuld">${pr.grondPerStuk!==null?euro(pr.grondPerStuk):'—'}</span></div>
+        <div class="arij" style="cursor:default"><span class="naam">Afkeur<small>${
+          pr.afkeur} van ${getal(pr.goed+pr.afkeur)} stuks</small></span>
+          <span class="waarde ${pr.dervingPct>10?'let':'gevuld'}">${komma(getal(pr.dervingPct))}%</span></div>
+        ${pr.urenPerStuk?`<div class="arij" style="cursor:default">
+          <span class="naam">Tijd per bonbon<small>${komma(getal(pr.uren))} uur over ${pr.batches} batches</small></span>
+          <span class="waarde gevuld">${komma(getal(pr.urenPerStuk))} min</span></div>`:''}
+      </div>`
+      :`<div class="paneel"><div class="geen" style="padding:18px">
+          Nog geen afgeronde batches. Zodra je er een afrondt, staat hier wat je
+          werkelijk verbruikt hebt — naast wat je recept voorspelt.</div></div>`}`,
+    `<button class="prim" style="margin-top:0" id="kpBasis">Kostenbasis aanpassen</button>
+     <button class="sec" id="kpOk">Klaar</button>`);
+
+  $$('#sheetBody [data-kpsmaak]').forEach(b=>b.onclick=()=>sheetReceptForm(b.dataset.kpsmaak));
+  $('#kpBasis').onclick=sheetKostenbasis;
+  $('#kpOk').onclick=()=>{S.tab='geld';dicht();render()};
+}
+
 function sheetKostenbasis(){
   const d=dervingInfo(), p=productiePerMaand(), vb=vastPerBonbon();
   const posten=(S.vasteLasten||[]);
@@ -7671,6 +7783,10 @@ function geldHTML(){
      viel. Beide rijen horen in hetzelfde paneel. */
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Kosten</span></div>
     <div class="paneel">
+      ${(()=>{const k=kostenRapport();
+        return rij('data-kostprijzen',I.euro,'Wat kost een bonbon',
+          k.gem!==null? euro(k.gem)+' gemiddeld'
+          : (k.totaal?'nog geen volledige prijs':'nog geen smaken'), k.gem===null)})()}
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
         /* Stond even achter het tandwiel, maar je vaste lasten en derving
            veranderen elke maand. Dat is bijhouden, geen instellen. */
@@ -11652,6 +11768,7 @@ function bind(){
   $$('[data-btw]').forEach(x=>x.onclick=sheetBtw);
   $$('[data-verkoop]').forEach(x=>x.onclick=sheetVerkoopprijzen);
   $$('[data-kostenbasis]').forEach(x=>x.onclick=sheetKostenbasis);
+  $$('[data-kostprijzen]').forEach(x=>x.onclick=sheetKostprijzen);
   $$('[data-grondjaar]').forEach(x=>x.onclick=()=>sheetGrondstofJaar());
   $$('[data-bedrijfsprofiel]').forEach(x=>x.onclick=sheetBedrijf);
   $$('[data-bonnen]').forEach(x=>x.onclick=sheetBonnen);
