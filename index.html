@@ -2133,7 +2133,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v382 · 17 aug 2026';
+const APPVERSIE='v383 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12978,11 +12978,27 @@ document.addEventListener('keydown',e=>{
   if(sheetOpen) dicht();
 });
 let tt;
+/* De melding stond op een vaste hoogte boven de tabbalk. Is er een scherm open
+   met knoppen onderin, dan lag hij daar precies overheen: je kon niet verder
+   tot hij vanzelf wegging. */
+function toastPlaats(t){
+  const sheet=document.querySelector('#sheet.open');
+  const voet=sheet?document.getElementById('sheetVoet'):null;
+  const h=(voet&&voet.offsetHeight)?voet.offsetHeight:0;
+  t.style.bottom=(sheet?(h+18):88)+'px';
+}
+
 function toast(m,terug){
   const t=$('#toast');
   clearTimeout(tt);
+  toastPlaats(t);
+  /* tikken op de melding zelf laat hem verdwijnen, zodat je niet hoeft te
+     wachten tot hij vanzelf weggaat */
+  t.onclick=e=>{
+    if(e.target.closest('.tterug')) return;
+    clearTimeout(tt); t.classList.remove('open','metknop');
+  };
   if(terug){
-    /* een melding met een weg terug: tien seconden lang */
     t.innerHTML=`<span class="tm">${esc(m)}</span>
       <button class="tterug" id="tTerug">Ongedaan maken</button>`;
     t.classList.add('open','metknop');
@@ -12993,7 +13009,7 @@ function toast(m,terug){
       try{ terug() }catch(e){ console.error('terug:',e); toast('Terugkeren lukte niet.') }
       setTimeout(()=>toast('Teruggedraaid.'),260);
     };
-    tt=setTimeout(()=>t.classList.remove('open','metknop'),10000);
+    tt=setTimeout(()=>t.classList.remove('open','metknop'),7000);
   }else{
     t.textContent=m; t.classList.add('open'); t.classList.remove('metknop');
     tt=setTimeout(()=>t.classList.remove('open'),2600);
