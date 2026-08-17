@@ -2009,7 +2009,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v352 · 17 aug 2026';
+const APPVERSIE='v353 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16761,7 +16761,31 @@ function ocrLaden(){
   return ocrBezig;
 }
 
+/* Je eigen server leest de foto uit met de tekstherkenning van Google. Die is
+   veel nauwkeuriger dan wat in de browser past: geen "3219" meer waar 32,1 g
+   staat. Draait de server niet, dan valt hij terug op de browserversie. */
+function bestandNaarTekst(f){
+  return new Promise((ok,mis)=>{
+    const r=new FileReader();
+    r.onload=()=>ok(String(r.result).split(',')[1]||'');
+    r.onerror=()=>mis(new Error('foto niet te lezen'));
+    r.readAsDataURL(f);
+  });
+}
+
 async function ocrLees(bestand,meld){
+  /* eerst de server proberen */
+  if(fbUser){
+    try{
+      meld('Foto naar de server…');
+      const b64=await bestandNaarTekst(bestand);
+      const r=await roep('leesFoto',{foto:b64});
+      if(r&&r.tekst&&r.tekst.trim()) return r.tekst;
+    }catch(e){
+      console.warn('server-uitlezen mislukt, val terug op de browser:',e&&e.message);
+    }
+  }
+  meld('Tekstherkenning laden…');
   await ocrLaden();
   meld('Tekst zoeken…');
   const w=await Tesseract.createWorker('nld',1,{
@@ -16948,8 +16972,7 @@ function wzPlakvakHtml(naam){
       placeholder="Plak hier de tekst van de verpakking of webshop"></textarea>
     <div class="wzplakknoppen">
       <button class="sec" id="wzFoto">${svg(I.camera)}&nbsp;Foto</button>
-      ${lk?`<a class="sec" href="${esc(lk)}" target="_blank" rel="noopener noreferrer"
-        >${svg(I.winkel)}&nbsp;Productpagina</a>`:''}
+      ${lk?`<button class="sec" id="wzPagina">${svg(I.winkel)}&nbsp;Productpagina</button>`:''}
     </div>
     <input type="file" id="wzBestand" accept="image/*" hidden>
     <div class="geen" id="wzPUit" style="padding-top:8px"></div>
@@ -17001,6 +17024,28 @@ function wzPlakvakBinden(naam,stap,opnieuw){
   vak.oninput=()=>verwerk(vak.value);
   vak.onpaste=()=>setTimeout(()=>verwerk(vak.value),0);
   $('#wzFoto').onclick=()=>$('#wzBestand').click();
+  /* De link staat er al; de server haalt de pagina op en geeft de tekst terug,
+     zodat je niets meer hoeft te kopiëren. */
+  const paginaKnop=$('#wzPagina');
+  if(paginaKnop) paginaKnop.onclick=veilig('productpagina ophalen',async()=>{
+    const lk=ingLink(naam);
+    if(!lk) return meld('Vul eerst een bestellink in bij stap 2.');
+    paginaKnop.disabled=true;
+    meld('Pagina ophalen…');
+    try{
+      const r=await roep('haalPagina',{url:lk});
+      const stukken=[r&&r.naam?r.naam:'', r&&r.tekst?r.tekst:''].filter(Boolean).join('\n');
+      if(!stukken.trim()) return meld('Op die pagina staat niets bruikbaars.');
+      vak.value=stukken;
+      verwerk(stukken);
+      if(r&&r.prijs) meld($('#wzPUit').textContent+' Prijs op de pagina: '+euro(getalIn0(r.prijs))+'.');
+    }catch(e){
+      const c=String((e&&(e.code||e.message))||'');
+      meld(/unauthenticated|Log eerst/i.test(c)
+        ? 'Log eerst in, dan kan de server de pagina ophalen.'
+        : 'De pagina kon niet opgehaald worden. Werkt de link nog?');
+    } finally { paginaKnop.disabled=false }
+  });
   $('#wzBestand').onchange=async ev=>{
     const f=ev.target.files&&ev.target.files[0];
     if(!f) return;
