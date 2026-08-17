@@ -1307,6 +1307,30 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* je bedrijf in de kop */
+.hbtn.profiel{display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:50%;overflow:hidden;
+  background:var(--accent);color:var(--accentTekst);
+  font-size:13.5px;font-weight:700;letter-spacing:.01em}
+.hbtn.profiel img{width:100%;height:100%;object-fit:cover;display:block}
+.hbtn.profiel:active{opacity:.8}
+
+/* de kaart bovenaan het menu */
+.bedrijfkaart{display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  padding:14px 16px;margin-bottom:22px;background:#fff;border-radius:18px;
+  box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.bedrijfkaart:active{background:var(--bg)}
+.bk-vak{flex:none;width:46px;height:46px;border-radius:14px;overflow:hidden;
+  background:var(--accent);color:var(--accentTekst);
+  display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
+.bk-vak img{width:100%;height:100%;object-fit:cover;display:block}
+.bk-in{flex:1;min-width:0}
+.bk-naam{display:block;font-size:16px;font-weight:600;letter-spacing:-.02em}
+.bk-in small{display:block;font-size:12.5px;color:var(--grijs2);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-in small.let{color:var(--amber);font-weight:600}
+.bk-pijl{width:15px;height:15px;color:var(--grijs3);flex:none}
+
 /* kiezen om te archiveren */
 .ingrij2.kies .vink{flex:none;width:22px;height:22px;border-radius:7px;
   border:1.5px solid var(--lijn);display:flex;align-items:center;justify-content:center;
@@ -2009,7 +2033,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v353 · 17 aug 2026';
+const APPVERSIE='v355 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11513,7 +11537,25 @@ function bind(){
 
 /* ================= chrome ================= */
 $('#sheetSluit').innerHTML=svg(I.kruis,'2');
-$('#btnInstel').innerHTML=svg(I.instel);
+
+/* Een tandwiel zegt "hier kun je iets afstellen"; het merendeel van wat erin
+   staat gaat over je bedrijf. Daarom je eigen logo, of je initialen zolang je
+   er nog geen hebt. */
+function bedrijfInitialen(){
+  const n=(bedrijf().naam||'Cacaoboetiek').trim();
+  const delen=n.split(/[\s-]+/).filter(Boolean);
+  return ((delen[0]||'C')[0]+(delen[1]?delen[1][0]:'')).toUpperCase();
+}
+function profielKnopTeken(){
+  const k=$('#btnInstel'); if(!k) return;
+  const b=bedrijf();
+  k.classList.add('profiel');
+  k.setAttribute('aria-label','Je bedrijf en instellingen');
+  k.innerHTML=b.logo
+    ? `<img src="${esc(b.logo)}" alt="">`
+    : `<span>${esc(bedrijfInitialen())}</span>`;
+}
+profielKnopTeken();
 $('#btnInstel').onclick=()=>sheetMenu();
 /* Zat aan een knop in de kop, maar alles daarin stond al onderin bij Meer.
    Nu een functie, bereikbaar via "App & opslag". */
@@ -18608,6 +18650,27 @@ function sheetBackup(){
   $('#buOk').onclick=sheetInstellingen;
 }
 
+/* De kaart bovenaan het menu: wie ben je, en wat mist er nog. */
+function bedrijfKaartHtml(){
+  const b=bedrijf();
+  const mist=[];
+  if(!b.naam) mist.push('naam');
+  if(!b.adres) mist.push('adres');
+  if(!b.kvk) mist.push('KvK');
+  if(!b.btw) mist.push('btw-nummer');
+  if(!b.iban) mist.push('IBAN');
+  return `<button class="bedrijfkaart" data-ins="bedrijf">
+    <span class="bk-vak">${b.logo?`<img src="${esc(b.logo)}" alt="">`
+      :`<b>${esc(bedrijfInitialen())}</b>`}</span>
+    <span class="bk-in">
+      <span class="bk-naam">${esc(b.naam||'Nog geen bedrijfsnaam')}</span>
+      <small class="${mist.length?'let':''}">${mist.length
+        ? 'Nog invullen: '+mist.join(', ')
+        : esc([b.adres,b.kvk?'KvK '+b.kvk:''].filter(Boolean).join(' · '))}</small>
+    </span>
+    <span class="bk-pijl">${svg(I.pijl,'2')}</span></button>`;
+}
+
 function sheetInstellingen(){
   sheet('Instellingen',
     /* Alleen waardes die je invult en laat staan. Wat je dóét hoort in het
@@ -18624,14 +18687,19 @@ function sheetInstellingen(){
        - Ingrediënten en Kleuren horen bij je receptuur, niet in één bak met
          leveranciers.
        - Leveranciers en Levertijden gaan over inkopen. Eigen kopje, want ze
-         bepalen samen wanneer je moet bestellen. */
-    `<div class="mkop" style="margin-top:2px">Je bedrijf</div>
-     <button class="menurij" data-ins="bedrijf">${svg(I.doc)}Bedrijfsprofiel<span class="tel">${
-       bedrijf().logo?'eigen logo':esc(bedrijf().naam||'nog niets')}</span></button>
+         bepalen samen wanneer je moet bestellen.
+
+       En bij de tweede ronde: kopjes met één rij eronder zijn geen indeling,
+       alleen ruis. Orders (alleen de verzendregel) en Recepten (alleen de
+       kleuren) zijn opgegaan in Je bedrijf en Productie. Weergave, Beheer en
+       Zelden gingen alledrie over de app in plaats van over je bedrijf; die
+       staan nu samen onderaan. */
+    `${bedrijfKaartHtml()}
+
+     <div class="mkop">Je bedrijf</div>
      <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
 
-     <div class="mkop">Orders</div>
      <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
        verzendgrens()}:00</span></button>
 
@@ -18641,14 +18709,15 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="werkplan">${svg(I.lijst)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
      <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
 
+     <button class="menurij" data-ins="kleuren">${svg(I.palet)}Kleuren<span class="tel">${
+       (S.kleuren||[]).length||'geen'}</span></button>
+
      <div class="mkop">Voedselveiligheid</div>
      <button class="menurij" data-ins="meetpunten">${svg(I.temp)}Meetpunten<span class="tel">${S.meetpunten.length}</span></button>
      <button class="menurij" data-ins="zones">${svg(I.huis)}Schoonmaakzones<span class="tel">${S.zones.length}</span></button>
      <button class="menurij" data-ins="middelen">${svg(I.fles)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
 
-     <div class="mkop">Recepten</div>
-     <button class="menurij" data-ins="kleuren">${svg(I.palet)}Kleuren<span class="tel">${
-       (S.kleuren||[]).length||'geen'}</span></button>
+
 
      <div class="mkop">Inkoop</div>
      <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${(S.leveranciers||[]).length}</span></button>
@@ -18663,11 +18732,7 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
        (S.plekken||[]).length||'geen'}</span></button>
 
-     ${isBeheerder()?`<div class="mkop">Beheer</div>
-     <button class="menurij" data-ins="beheer">${svg(I.instel)}Beheer<span class="tel">${
-       (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
-
-     <div class="mkop">Weergave</div>
+     <div class="mkop">De app zelf</div>
      <button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
        accentNaam()}</span></button>
 
@@ -18681,7 +18746,8 @@ function sheetInstellingen(){
              const d=dagenTussen(l,vandaag());
              return d===0?'vandaag':d===1?'gisteren':d+' dagen geleden'})()}</span></button>
 
-     <div class="mkop">Zelden</div>
+     ${isBeheerder()?`<button class="menurij" data-ins="beheer">${svg(I.instel)}Beheer<span class="tel">${
+       (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
      <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
        Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
 
@@ -18848,11 +18914,13 @@ function sheetBedrijf(){
     const f=e.target.files&&e.target.files[0]; if(!f) return;
     toast('Logo wordt klaargemaakt…');
     verkleinLogo(f).then(data=>{
-      bedrijf().logo=data; bewaarNu(); sheetBedrijf(); render(); toast('Logo ingesteld.');
+      bedrijf().logo=data; bewaarNu(); profielKnopTeken();
+      sheetBedrijf(); render(); toast('Logo ingesteld.');
     }).catch(()=>toast('Dat bestand lukte niet. Probeer een png of jpg.'));
   };
   if($('#bpWeg')) $('#bpWeg').onclick=()=>{
     bewaarVelden(); bedrijf().logo=''; bewaarNu(); sheetBedrijf(); render(); toast('Logo verwijderd.');
+      profielKnopTeken();
   };
   $('#bpOk').onclick=()=>{
     /* Deze gegevens staan straks op je facturen. Een IBAN met een typefout
@@ -18865,7 +18933,7 @@ function sheetBedrijf(){
       if(r.fout){ el.focus(); return toast(naam+': '+r.fout) }
       el.value=r.waarde;                    /* meteen netjes gezet */
     }
-    bewaarVelden(); bewaarNu(); dicht(); render(); toast('Bedrijfsprofiel bewaard.');
+    bewaarVelden(); bewaarNu(); profielKnopTeken(); dicht(); render(); toast('Bedrijfsprofiel bewaard.');
   };
 }
 
