@@ -1308,6 +1308,12 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* achterstallig werk */
+.arij.telaat .naam small b{color:var(--amber);font-weight:600}
+.taakvink{flex:none;width:26px;height:26px;border-radius:9px;
+  border:1.6px solid var(--lijn);background:#fff;margin-right:2px}
+.taakvink:active{background:var(--bg);transform:scale(.94)}
+
 /* je bedrijf in de kop */
 /* De kop is op het dashboard een raster met drie vaste plekken. Een losse
    tweede knop viel daardoor in de volgende rij, onder de loep. Nu staan ze
@@ -2044,7 +2050,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v362 · 17 aug 2026';
+const APPVERSIE='v363 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9298,7 +9304,8 @@ function haccpTaken(){
     /* een jaarcontrole hoeft niet elf maanden vooruit in beeld te staan */
     if(n>Math.min(60,Math.round(h.dagen/3))) return;
     uit.push({datum:n<0?vandaag():datum, soort:'haccp', check:h,
-      tekst:h.n+(l?'':' — nog nooit gedaan'),
+      telaat: n<0 ? -n : 0,
+      tekst:h.n,
       /* nooit gedaan is geen dagtaak: die staan al onder "Een keer doen" op je
          dashboard. Hier alleen zichtbaar in je agenda en weekstrook. */
       eerste:!l, tijd:'', over:n});
@@ -9306,8 +9313,19 @@ function haccpTaken(){
   return uit;
 }
 
+/* Een klus die je gisteren niet hebt gedaan is vandaag nog steeds een klus.
+   Bleef hij op zijn oude datum staan, dan verdween hij uit je agenda — die
+   kijkt vooruit. Nu schuift hij mee tot je hem afvinkt, met erbij hoe lang
+   hij al wacht. */
+const losseTaken=()=>(S.taken||[]).filter(t=>!t.klaar).map(t=>{
+  const laat=dagenTussen(t.datum,vandaag());
+  return {datum: laat>0 ? vandaag() : t.datum,
+          soort:t.soort, tekst:t.tekst, los:t, tijd:t.tijd||'',
+          telaat: laat>0 ? laat : 0, oorspronkelijk:t.datum};
+});
+
 const allePlanTaken=()=>haccpTaken().concat(planLijst().flatMap(planTaken))
-  .concat((S.taken||[]).map(t=>({datum:t.datum,soort:t.soort,tekst:t.tekst,los:t,tijd:t.tijd||''})))
+  .concat(losseTaken())
   .concat(verzendTaken().map(v=>({datum:v.datum,soort:'verzenden',
     tekst:v.naam,verzend:v,tijd:''})));
 
@@ -11108,13 +11126,23 @@ function agendaHTML(){
     return n===0?'vandaag':n===1?'morgen':n<7?'over '+n+' dagen':kort(new Date(d));
   };
 
+  /* Hoe lang iets al wacht hoort in de subregel, niet in de titel: een titel
+     van twee regels leest niet en je ziet niet meer waar het over gaat. */
+  const wacht=t=>{
+    if(t.telaat>0) return t.telaat===1?'sinds gisteren':t.telaat+' dagen te laat';
+    if(t.soort==='haccp'&&t.eerste) return 'nog nooit gedaan';
+    return '';
+  };
+
   const soortRij=t=>{
     if(t.soort==='haccp'){
       const so=DAGSOORT.haccp;
-      return `<button class="arij" data-haccpdoe="${t.check.doe}">
+      const w=wacht(t);
+      return `<button class="arij${w?' telaat':''}" data-haccpdoe="${t.check.doe}">
         <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I.klembord)}</span>
-        <span class="naam">${esc(t.tekst)}<small>${
-          t.over<0?'te laat':t.over===0?'vandaag':t.over===1?'morgen':'over '+t.over+' dagen'
+        <span class="naam">${esc(t.tekst)}<small>${w
+          ? '<b>'+esc(w)+'</b>'
+          : (t.over===0?'vandaag':t.over===1?'morgen':'over '+t.over+' dagen')
         } · elke ${t.check.dagen===365?'12 maanden':t.check.dagen===180?'6 maanden':'3 maanden'}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
     }
@@ -11123,6 +11151,12 @@ function agendaHTML(){
       <span class="naam">Leveren<small>${esc(t.tekst)}</small></span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
     const so=DAGSOORT[t.soort]||{n:'Overig',kleur:'var(--grijs)',ico:'klembord'};
+    const w=wacht(t);
+    /* een klus kun je afvinken; dan schuift hij niet meer mee */
+    if(t.los) return `<div class="arij${w?' telaat':''}" style="cursor:default">
+      <button class="taakvink" data-taakaf="${esc(t.los.id)}" aria-label="Afvinken"></button>
+      <span class="naam">${esc(t.tekst||so.n)}<small>${w?'<b>'+esc(w)+'</b>':so.n.toLowerCase()}${
+        t.tijd?' · '+esc(t.tijd):''}</small></span></div>`;
     return `<div class="arij" style="cursor:default">
       <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
       <span class="naam">${esc(t.tekst||so.n)}<small>${so.n.toLowerCase()}${
@@ -11331,6 +11365,14 @@ const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,on
   haccp:sheetHaccp,wenskaart:()=>sheetWenskaart(''),bedrijf:sheetBedrijf};
 function bind(){
   insBinden();
+  /* een klus afvinken kan overal waar hij staat: agenda, dashboard, planning */
+  $$('[data-taakaf]').forEach(b=>b.onclick=()=>{
+    const t=(S.taken||[]).find(x=>x.id===b.dataset.taakaf);
+    if(!t) return;
+    const herstel=terugpunt(['taken']);
+    t.klaar=vandaag(); bewaarNu(); render();
+    toast('Afgevinkt.',herstel);
+  });
   $$('[data-toast]').forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
