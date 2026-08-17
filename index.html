@@ -2044,7 +2044,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v361 · 17 aug 2026';
+const APPVERSIE='v362 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4332,6 +4332,20 @@ function productieHTML(){
       ${brij('data-doosetiket',I.doc,'Doosetiket voor een gemengde doos','')}
       ${brij('data-dossier',I.doc,'Dossier voor de inspectie','')}
       ${brij('data-trace',I.loep,'Lot terugzoeken','')}
+      ${brij('data-ins="meetpunten"',I.temp,'Meetpunten',(S.meetpunten||[]).length||'geen')}
+      ${brij('data-ins="zones"',I.huis,'Schoonmaakzones',(S.zones||[]).length||'geen')}
+      ${brij('data-ins="middelen"',I.fles,'Schoonmaakmiddelen',(S.middelen||[]).length||'geen')}
+    </div>`;
+
+  /* Deze lijsten stonden bij je bedrijfsprofiel, maar het zijn de bouwstenen
+     van je werk: je gebruikt ze hier, dus horen ze hier. */
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Waar je mee werkt</span></div>
+    <div class="paneel">
+      ${brij('data-ins="mallen"',I.bonbon,vakHoofd('mallen'),
+        mallen().length?mallen().length+' '+(mallen().length===1?vak('mal'):vak('mallen')):'geen')}
+      ${brij('data-ins="werkplan"',I.lijst,'Productiestappen',(S.werkplan||[]).length||'geen')}
+      ${brij('data-ins="activiteiten"',I.ververs,'Werkzaamheden',(S.activiteiten||[]).length||'geen')}
+      ${brij('data-ins="kleuren"',I.palet,'Kleuren',(S.kleuren||[]).length||'geen')}
     </div>`;
   return h;
 }
@@ -8680,6 +8694,9 @@ function voorraadHTML(){
         ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
         ${brij('data-partijen',I.doos,'Partijen in huis','geen')}
         ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
+        ${brij('data-ins="leveranciers"',I.vracht,'Leveranciers',(S.leveranciers||[]).length||'geen')}
+        ${brij('data-ins="levertijd"',I.klok,'Levertijden',
+          Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld')}
         ${brij('data-telronde',I.vink,'Telronde','')}
         ${brij('data-vmut',I.ververs,'Alle mutaties','geen')}
       </div>`;
@@ -11313,6 +11330,7 @@ const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,on
   recepten:sheetRecepten,receptnieuw:()=>sheetReceptForm(),instellingen:sheetInstellingen,
   haccp:sheetHaccp,wenskaart:()=>sheetWenskaart(''),bedrijf:sheetBedrijf};
 function bind(){
+  insBinden();
   $$('[data-toast]').forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
@@ -18720,6 +18738,40 @@ function sheetApp(){
   if(vv) vv.onclick=()=>location.replace(location.pathname+'?v='+Date.now());
 }
 
+/* Deze rijen staan sinds v362 ook op je tabbladen — daar gebruik je ze.
+   De koppeling zat in het instellingenscherm, dus daarbuiten deden ze niets. */
+function insBinden(){
+  $$('[data-ins]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.ins;
+    if(k==='beheer') return sheetBeheer();
+    if(k==='mallen') return sheetMallen();
+    if(k==='kleuren') return sheetKleuren();
+    if(k==='accent') return sheetAccent();
+    if(k==='uitleg') return sheetUitleg();
+    if(k==='kostenbasis') return sheetKostenbasis();
+    if(k==='plekken') return sheetPlekken();
+    if(k==='kmtarief') return sheetKmTarief();
+    if(k==='autosoort') return sheetAutoSoort();
+    if(k==='bedrijf') return sheetBedrijf();
+    if(k==='uurtarief') return sheetUurtarief();
+    if(k==='levertijd') return sheetLevertijden();
+    if(k==='verkoop') return sheetVerkoopprijzen();
+    if(k==='verzend') return sheetVerzendregel();
+    if(k==='recepten') return sheetRecepten();
+    if(k==='meetpunten') return sheetMeetpunten();
+    if(k==='mal') return sheetMal();
+    if(k==='ijking') return sheetIjking();
+    if(k==='checks') return sheetChecks();
+    if(k==='lots') return sheetLots();
+    if(k==='allerg') return sheetAllergenen();
+    if(k==='backup') return sheetBackup();
+    if(k==='storingen') return sheetStoringen();
+    if(k==='backup') return sheetBackup();
+    if(k==='storingen') return sheetStoringen();
+    sheetLijst(k);
+  });
+}
+
 function sheetInstellingen(){
   /* Tik je op je eigen profiel, dan hoor je op jouw scherm te komen. "Instellingen"
      als titel zette dat op zijn kop: dan valt je bedrijf onder een technische
@@ -18751,30 +18803,8 @@ function sheetInstellingen(){
      <div class="mkop">Tarieven en regels</div>
      <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
-
      <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
        verzendgrens()}:00</span></button>
-
-     <div class="mkop">Productie</div>
-     <button class="menurij" data-ins="mallen">${svg(I.bonbon)}${vakHoofd('mallen')}<span class="tel">${
-       mallen().length?mallen().length+' '+(mallen().length===1?vak('mal'):vak('mallen')):'geen'}</span></button>
-     <button class="menurij" data-ins="werkplan">${svg(I.lijst)}Productiestappen<span class="tel">${S.werkplan.length}</span></button>
-     <button class="menurij" data-ins="activiteiten">${svg(I.ververs)}Werkzaamheden<span class="tel">${S.activiteiten.length}</span></button>
-
-     <button class="menurij" data-ins="kleuren">${svg(I.palet)}Kleuren<span class="tel">${
-       (S.kleuren||[]).length||'geen'}</span></button>
-
-     <div class="mkop">Voedselveiligheid</div>
-     <button class="menurij" data-ins="meetpunten">${svg(I.temp)}Meetpunten<span class="tel">${S.meetpunten.length}</span></button>
-     <button class="menurij" data-ins="zones">${svg(I.huis)}Schoonmaakzones<span class="tel">${S.zones.length}</span></button>
-     <button class="menurij" data-ins="middelen">${svg(I.fles)}Schoonmaakmiddelen<span class="tel">${S.middelen.length}</span></button>
-
-
-
-     <div class="mkop">Inkoop</div>
-     <button class="menurij" data-ins="leveranciers">${svg(I.vracht)}Leveranciers<span class="tel">${(S.leveranciers||[]).length}</span></button>
-     <button class="menurij" data-ins="levertijd">${svg(I.klok)}Levertijden<span class="tel">${
-       Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld'}</span></button>
 
      <div class="mkop">Auto</div>
      <button class="menurij" data-ins="kmtarief">${svg(I.euro)}Kilometervergoeding<span class="tel">${
@@ -18782,9 +18812,7 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="autosoort">${svg(I.auto)}Soort auto<span class="tel">${
        S.autoSoort==='zaak'?'van de zaak':'privé'}</span></button>
      <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
-       (S.plekken||[]).length||'geen'}</span></button>
-
-`,'');
+       (S.plekken||[]).length||'geen'}</span></button>`,'');
 
   /* Deze zaten in een tussenscherm dat "Menu" heette terwijl je op een tandwiel
      drukte. Nu staan ze hier, en opent het tandwiel meteen dit scherm. */
@@ -18816,35 +18844,7 @@ function sheetInstellingen(){
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
   });
-  $$('[data-ins]').forEach(b=>b.onclick=()=>{
-    const k=b.dataset.ins;
-    if(k==='beheer') return sheetBeheer();
-    if(k==='mallen') return sheetMallen();
-    if(k==='kleuren') return sheetKleuren();
-    if(k==='accent') return sheetAccent();
-    if(k==='uitleg') return sheetUitleg();
-    if(k==='kostenbasis') return sheetKostenbasis();
-    if(k==='plekken') return sheetPlekken();
-    if(k==='kmtarief') return sheetKmTarief();
-    if(k==='autosoort') return sheetAutoSoort();
-    if(k==='bedrijf') return sheetBedrijf();
-    if(k==='uurtarief') return sheetUurtarief();
-    if(k==='levertijd') return sheetLevertijden();
-    if(k==='verkoop') return sheetVerkoopprijzen();
-    if(k==='verzend') return sheetVerzendregel();
-    if(k==='recepten') return sheetRecepten();
-    if(k==='meetpunten') return sheetMeetpunten();
-    if(k==='mal') return sheetMal();
-    if(k==='ijking') return sheetIjking();
-    if(k==='checks') return sheetChecks();
-    if(k==='lots') return sheetLots();
-    if(k==='allerg') return sheetAllergenen();
-    if(k==='backup') return sheetBackup();
-    if(k==='storingen') return sheetStoringen();
-    if(k==='backup') return sheetBackup();
-    if(k==='storingen') return sheetStoringen();
-    sheetLijst(k);
-  });
+  insBinden();
 }
 const LIJSTEN={
   werkplan:{titel:'Productiestappen',hint:'De volgorde waarin je een batch maakt. De app loopt deze met je door.',ph:'Bijv. decoreren'},
