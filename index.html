@@ -1308,6 +1308,10 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* twee velden naast elkaar die niet buiten beeld lopen */
+.pveld.breed{display:flex;align-items:center;width:100%;box-sizing:border-box}
+.pveld.breed input{width:100%;min-width:0}
+
 /* kostprijsrapport */
 .rapkop{text-align:center;padding:22px 0 4px}
 .rapkop .g{display:block;font-size:38px;font-weight:700;letter-spacing:-.04em}
@@ -2117,7 +2121,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v372 · 17 aug 2026';
+const APPVERSIE='v374 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7344,6 +7348,107 @@ function sheetDoos(id){
   teken();
 }
 
+/* ═══════════ prijsopgave ═══════════
+   Een afnemer vraagt niet om één doos maar om een bestelling: veertig van
+   zestien, twintig van vijfentwintig. Dan wil je in één blik weten wat je
+   eraan overhoudt voordat je een prijs noemt. */
+let OFFERTE={};
+
+function sheetOfferte(){
+  const lijst=dozen();
+  const regels=lijst.map(d=>{
+    const n=getalIn0(OFFERTE[d.id])||0;
+    const k=doosKosten(d);
+    const pr=doosPrijzen(k.totaal,d);
+    return {d,n,k,pr,
+      kost: k.totaal===null?null:k.totaal*n,
+      b2b: (pr&&pr.b2b)? pr.b2b.prijs*n : null,
+      b2c: (pr&&pr.b2c)? pr.b2cBruto*n : null};
+  });
+  const gekozen=regels.filter(x=>x.n>0);
+  const stuks=gekozen.reduce((a,x)=>a+x.n,0);
+  const bonbons=gekozen.reduce((a,x)=>a+x.n*(getalIn0(x.d.bonbons)||0),0);
+  const kost=gekozen.reduce((a,x)=>a+(x.kost||0),0);
+  const kostOnbekend=gekozen.some(x=>x.kost===null);
+  const b2b=gekozen.reduce((a,x)=>a+(x.b2b||0),0);
+  const b2bOnbekend=gekozen.some(x=>x.b2b===null);
+  const marge=b2b-kost;
+  const pct=b2b?marge/b2b*100:0;
+
+  sheet('Prijsopgave',
+    !lijst.length
+    ? `<div class="paneel"><div class="rustig">
+        <div class="ico">${svg(I.doos,'2.2')}</div>
+        <p><b>Stel eerst een doos samen.</b><br>Dan kun je hier uitrekenen wat een
+          bestelling je oplevert.</p></div></div>`
+    : `<p class="hint">Vul in hoeveel dozen er gevraagd worden. Je ziet wat het je
+        kost en wat je eraan overhoudt tegen je zakelijke prijs.</p>
+       <div class="paneel">${regels.map(x=>`
+         <div class="doosrij${x.n?' aan':''}">
+           <span class="nm">${esc(x.d.naam)}<small>${x.d.bonbons} bonbons · kostprijs ${
+             x.k.totaal===null?'onbekend':euro(x.k.totaal)}${
+             (x.pr&&x.pr.b2b)?' · zakelijk '+euro(x.pr.b2b.prijs):' · geen zakelijke prijs'}</small></span>
+           <span class="ostep">
+             <button class="stepbtn klein" data-ofmin="${esc(x.d.id)}">${svg(I.min)}</button>
+             <b>${x.n}</b>
+             <button class="stepbtn klein" data-ofplus="${esc(x.d.id)}">${svg(I.plus)}</button>
+           </span></div>`).join('')}</div>
+
+       ${gekozen.length?`
+       <div class="rapkop" style="padding-top:24px">
+         <span class="g">${b2bOnbekend?'—':euro(b2b)}</span>
+         <small>${stuks} ${stuks===1?'doos':'dozen'} · ${getal(bonbons)} bonbons</small>
+       </div>
+       <div class="paneel" style="margin-top:14px">
+         <div class="arij" style="cursor:default"><span class="naam">Wat het je kost<small>${
+           kostOnbekend?'niet compleet — vul de ontbrekende prijzen in':'verpakking, bonbons en afschrijving'}</small></span>
+           <span class="waarde ${kostOnbekend?'let':'gevuld'}">${kostOnbekend?'—':euro(kost)}</span></div>
+         <div class="arij" style="cursor:default"><span class="naam">Zakelijk, exclusief btw<small>${
+           b2bOnbekend?'niet elke doos heeft een zakelijke prijs':'wat je factureert'}</small></span>
+           <span class="waarde ${b2bOnbekend?'let':'gevuld'}">${b2bOnbekend?'—':euro(b2b)}</span></div>
+         ${(!kostOnbekend&&!b2bOnbekend)?`
+         <div class="arij" style="cursor:default;background:var(--bg)">
+           <span class="naam"><b>Wat je overhoudt</b><small>${getal(pct)}% marge</small></span>
+           <span class="waarde" style="font-size:17px;color:${
+             marge<=0?'var(--rood)':pct<30?'var(--amber)':'var(--groen)'}">${
+             marge<=0?euro(marge):'+'+euro(marge)}</span></div>`:''}
+       </div>
+       ${(!kostOnbekend&&!b2bOnbekend&&marge>0)?`<p class="hint" style="margin-top:12px">
+         Dat is ${euro(marge/Math.max(1,stuks))} per doos. Btw komt daar nog bovenop
+         voor je afnemer: 9% over de bonbons.</p>`:''}`
+       :`<div class="paneel" style="margin-top:14px"><div class="geen" style="padding:18px">
+          Kies hierboven hoeveel dozen er gevraagd worden.</div></div>`}`,
+    lijst.length
+    ? `<button class="prim" style="margin-top:0" id="ofKopie"${gekozen.length?'':' disabled'}>
+         ${svg(I.doc)}&nbsp;Opgave kopiëren</button>
+       <button class="sec" id="ofLeeg">Leegmaken</button>
+       <button class="sec" id="ofT">Terug</button>`
+    : `<button class="prim" style="margin-top:0" id="ofNieuw">Doos samenstellen</button>
+       <button class="sec" id="ofT">Terug</button>`);
+
+  $$('#sheetBody [data-ofplus]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.ofplus;
+    OFFERTE[id]=(getalIn0(OFFERTE[id])||0)+1; sheetOfferte();
+  });
+  $$('#sheetBody [data-ofmin]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.ofmin;
+    OFFERTE[id]=Math.max(0,(getalIn0(OFFERTE[id])||0)-1); sheetOfferte();
+  });
+  if($('#ofLeeg')) $('#ofLeeg').onclick=()=>{ OFFERTE={}; sheetOfferte() };
+  if($('#ofNieuw')) $('#ofNieuw').onclick=()=>sheetDoos(null);
+  if($('#ofKopie')) $('#ofKopie').onclick=()=>{
+    const r=[bedrijf().naam||'Cacaoboetiek','Prijsopgave '+kort(new Date()),''];
+    gekozen.forEach(x=>r.push(x.n+'× '+x.d.naam+' ('+x.d.bonbons+' bonbons)'+
+      (x.b2b!==null?' — '+euro(x.b2b):'')));
+    r.push('');
+    if(!b2bOnbekend) r.push('Totaal exclusief btw: '+euro(b2b));
+    r.push(getal(bonbons)+' bonbons in '+stuks+' '+(stuks===1?'doos':'dozen'));
+    try{ navigator.clipboard.writeText(r.join('\n')); toast('Gekopieerd \u2014 plak het in je mail.') }
+    catch(e){ toast('Kopiëren lukte niet.') }
+  };
+  $('#ofT').onclick=sheetDozen;
+}
+
 function sheetDozen(){
   const lijst=dozen();
   sheet('Dozen',
@@ -7368,7 +7473,9 @@ function sheetDozen(){
         <p><b>Nog geen dozen.</b><br>Stel er een samen — doos, inlegvel, sleeve,
           transport — en je ziet wat een doosje van 16 of 25 werkelijk kost.</p></div></div>`,
     `<button class="prim" style="margin-top:0" id="dzN2">${svg(I.plus)}&nbsp;Doos samenstellen</button>
+     ${lijst.length?`<button class="sec" id="dzOff">${svg(I.euro)}&nbsp;Prijsopgave maken</button>`:''}
      <button class="sec" id="dzTerug">Klaar</button>`);
+  if($('#dzOff')) $('#dzOff').onclick=sheetOfferte;
   $$('#sheetBody [data-dz]').forEach(b=>b.onclick=()=>sheetDoos(b.dataset.dz));
   $('#dzN2').onclick=()=>sheetDoos(null);
   $('#dzTerug').onclick=sheetKostprijzen;
@@ -9283,13 +9390,13 @@ function sheetVerpPrijs(product,terug){
     `<p class="hint">Neem het over van je factuur: het bedrag en hoeveel stuks je
       ervoor kreeg. De app rekent de prijs per stuk uit en gebruikt die in je
       doosprijzen.</p>
-     <div class="prijsrij">
-       <span class="pveld"><i>€</i><input id="vpB" type="text" inputmode="decimal"
-         value="${b.bedrag?komma(b.bedrag):''}" placeholder="0,00"></span>
-       <span class="voor">voor</span>
-       <span class="pveld"><input id="vpA" type="text" inputmode="decimal"
-         value="${b.aantal?komma(b.aantal):''}" placeholder="100"></span>
-       <span class="eenh">stuks</span>
+     <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+       <div><label>Bedrag</label>
+         <span class="pveld breed"><i>€</i><input id="vpB" type="text" inputmode="decimal"
+           value="${b.bedrag?komma(b.bedrag):''}" placeholder="0,00"></span></div>
+       <div><label>Aantal stuks</label>
+         <span class="pveld breed"><input id="vpA" type="text" inputmode="decimal"
+           value="${b.aantal?komma(b.aantal):''}" placeholder="200"></span></div>
      </div>
      <div class="puit" id="vpU"></div>`,
     `<button class="prim" style="margin-top:0" id="vpOk2">Opslaan</button>
