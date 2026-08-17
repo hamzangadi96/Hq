@@ -1323,24 +1323,30 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .agpijl:first-child svg{transform:rotate(180deg)}
 .agpijl:active{background:var(--bg)}
 
-.agdagen{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.agdagen{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:8px}
 .agdagen span{text-align:center;font-size:11px;font-weight:600;
   letter-spacing:.06em;text-transform:uppercase;color:var(--grijs3)}
 
-.agraster{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.agcel{position:relative;aspect-ratio:1;border-radius:50%;
+.agraster{display:grid;grid-template-columns:repeat(7,1fr);gap:6px 5px}
+/* Elke dag een eigen rondje: dat maakt er een raster van in plaats van losse
+   cijfers die in de witruimte zweven. */
+.agcel{position:relative;aspect-ratio:1;max-height:44px;border-radius:50%;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:transparent;font-size:15px;color:var(--ink);gap:1px}
-.agcel.vol{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.agcel.buiten{color:var(--grijs3)}
-.agcel.buiten.vol{background:transparent;box-shadow:none}
-.agcel.nu{box-shadow:inset 0 0 0 1.5px var(--ink)}
-.agcel.aan{background:var(--accent);color:var(--accentTekst);box-shadow:none}
-.agcel.aan .stip{background:var(--accentTekst)}
+  background:#fff;font-size:15px;color:var(--ink);gap:2px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04)}
 .agcel .n{line-height:1;font-variant-numeric:tabular-nums}
-.agcel .stip{width:4px;height:4px;border-radius:50%;background:var(--grijs2)}
+.agcel .stip{position:absolute;bottom:7px;width:4px;height:4px;border-radius:50%;
+  background:var(--grijs2)}
 .agcel .stip.let{background:var(--amber)}
-.agcel:active{transform:scale(.92)}
+.agcel.vol .n{font-weight:600}
+/* dagen uit de vorige of volgende maand horen op de achtergrond te blijven */
+.agcel.buiten{background:transparent;box-shadow:none;color:var(--grijs3)}
+.agcel.buiten .stip{display:none}
+.agcel.nu{box-shadow:inset 0 0 0 1.6px var(--ink)}
+.agcel.aan{background:var(--accent);color:var(--accentTekst);
+  box-shadow:0 2px 8px rgba(24,24,27,.18)}
+.agcel.aan .stip{background:var(--accentTekst)}
+.agcel:active{transform:scale(.9)}
 
 .agdagkop{display:flex;align-items:center;gap:14px;margin:26px 0 12px;
   padding-left:3px}
@@ -2093,7 +2099,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v364 · 17 aug 2026';
+const APPVERSIE='v365 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
