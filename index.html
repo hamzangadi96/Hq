@@ -1308,6 +1308,49 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* maandkalender */
+.agkop{display:flex;align-items:center;justify-content:space-between;
+  margin:0 0 14px;gap:12px}
+.agmaand{display:flex;align-items:center;gap:8px;padding:8px 14px;
+  background:#fff;border-radius:99px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.agmaand svg{width:15px;height:15px;color:var(--grijs2)}
+.agmaand b{font-size:15px;font-weight:600;letter-spacing:-.02em}
+.agpijlen{display:flex;gap:6px;flex:none}
+.agpijl{width:34px;height:34px;border-radius:99px;background:#fff;
+  display:grid;place-items:center;box-shadow:0 1px 2px rgba(0,0,0,.05);
+  color:var(--grijs)}
+.agpijl svg{width:15px;height:15px}
+.agpijl:first-child svg{transform:rotate(180deg)}
+.agpijl:active{background:var(--bg)}
+
+.agdagen{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.agdagen span{text-align:center;font-size:11px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--grijs3)}
+
+.agraster{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.agcel{position:relative;aspect-ratio:1;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:transparent;font-size:15px;color:var(--ink);gap:1px}
+.agcel.vol{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.agcel.buiten{color:var(--grijs3)}
+.agcel.buiten.vol{background:transparent;box-shadow:none}
+.agcel.nu{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.agcel.aan{background:var(--accent);color:var(--accentTekst);box-shadow:none}
+.agcel.aan .stip{background:var(--accentTekst)}
+.agcel .n{line-height:1;font-variant-numeric:tabular-nums}
+.agcel .stip{width:4px;height:4px;border-radius:50%;background:var(--grijs2)}
+.agcel .stip.let{background:var(--amber)}
+.agcel:active{transform:scale(.92)}
+
+.agdagkop{display:flex;align-items:center;gap:14px;margin:26px 0 12px;
+  padding-left:3px}
+.agdagkop .d{display:flex;align-items:baseline;gap:7px}
+.agdagkop .d b{font-size:12px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--grijs2)}
+.agdagkop .d .nr{font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.agdagkop .d small{font-size:13px;color:var(--grijs2)}
+.agdagkop .t{margin-left:auto;font-size:13px;color:var(--grijs2)}
+
 /* achterstallig werk */
 .arij.telaat .naam small b{color:var(--amber);font-weight:600}
 .taakvink{flex:none;width:26px;height:26px;border-radius:9px;
@@ -2050,7 +2093,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v363 · 17 aug 2026';
+const APPVERSIE='v364 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11108,18 +11151,69 @@ function sheetHaccp(){
    De vraag: wanneer heb ik tijd, en wat staat er dan al?
    Je baan vul je hier in. Productie, leveren en boodschappen komen uit
    Productie en Orders — die lees je hier alleen. */
+/* ═══════════ maandkalender ═══════════
+   Een strook van veertien dagen laat je nooit zien hoe je maand eruitziet.
+   Een raster wel: in één blik zie je welke dagen vol zitten en welke leeg.
+   Je tikt een dag aan en ziet eronder wat er die dag staat. */
+let AGDAG=null, AGMND=null;
+
+function agendaMaand(){
+  if(!AGMND){ const d=new Date(); AGMND={j:d.getFullYear(),m:d.getMonth()} }
+  return AGMND;
+}
+function agendaDag(){ return AGDAG||vandaag() }
+
+function maandRasterHtml(perDag){
+  const {j,m}=agendaMaand();
+  const eerste=new Date(j,m,1);
+  /* maandag als eerste kolom */
+  const start=(eerste.getDay()+6)%7;
+  const dagenIn=new Date(j,m+1,0).getDate();
+  const gekozen=agendaDag();
+  const nu=vandaag();
+
+  const cel=(d,buiten)=>{
+    const taken=perDag[d]||[];
+    const laat=taken.some(t=>t.telaat>0||(t.soort==='haccp'&&t.eerste));
+    const dt=new Date(d);
+    return `<button class="agcel${d===gekozen?' aan':''}${d===nu?' nu':''}${
+      buiten?' buiten':''}${taken.length?' vol':''}" data-agdag="${d}">
+      <span class="n">${dt.getDate()}</span>
+      ${taken.length?`<span class="stip${laat?' let':''}"></span>`:''}
+    </button>`;
+  };
+
+  let cellen='';
+  for(let i=0;i<start;i++){
+    const d=iso(new Date(j,m,1-(start-i)));
+    cellen+=cel(d,true);
+  }
+  for(let i=1;i<=dagenIn;i++) cellen+=cel(iso(new Date(j,m,i)),false);
+  const rest=(7-((start+dagenIn)%7))%7;
+  for(let i=1;i<=rest;i++) cellen+=cel(iso(new Date(j,m+1,i)),true);
+
+  return `<div class="agkop">
+      <button class="agmaand" data-agmnd="nu">${svg(I.klok)}
+        <b>${MND[m]} ${j}</b></button>
+      <span class="agpijlen">
+        <button class="agpijl" data-agmnd="-1" aria-label="Vorige maand">${svg(I.pijl,'2')}</button>
+        <button class="agpijl" data-agmnd="1" aria-label="Volgende maand">${svg(I.pijl,'2')}</button>
+      </span>
+    </div>
+    <div class="agdagen">${['ma','di','wo','do','vr','za','zo']
+      .map(x=>`<span>${x}</span>`).join('')}</div>
+    <div class="agraster">${cellen}</div>`;
+}
+
 function agendaHTML(){
   const perDag={};
   allePlanTaken().forEach(t=>{(perDag[t.datum]=perDag[t.datum]||[]).push(t)});
-  (S.orders||[]).filter(o=>o.status==='nieuw'&&o.leverdatum).forEach(o=>{
+  (S.orders||[]).filter(o=>oStatus(o)==='nieuw'&&o.leverdatum).forEach(o=>{
     (perDag[o.leverdatum]=perDag[o.leverdatum]||[])
       .push({soort:'leveren',tekst:klantNaam(o.klantId)+' · '+orderAantal(o)+' bonbons',order:o});
   });
 
-  let h=weekstripHTML(14);
-
-  const dagen=[];
-  for(let i=0;i<14;i++) dagen.push(datumPlus(vandaag(),i));
+  let h=maandRasterHtml(perDag);
 
   const label=d=>{
     const n=dagenTussen(vandaag(),d);
@@ -11163,27 +11257,28 @@ function agendaHTML(){
         t.tijd?' · '+esc(t.tijd):''}</small></span></div>`;
   };
 
-  /* de komende twee weken, maar lege dagen zonder werk slaan we over —
-     anders scrol je door veertien lege kaarten */
-  let getoond=0;
-  const blokken=dagen.map(d=>{
-    const taken=perDag[d]||[];
-    if(!taken.length&&dagenTussen(vandaag(),d)>1) return '';
-    getoond++;
-    const dt=new Date(d);
-    return `<div class="blokkop" style="margin-top:22px">
-        <span class="eyebrow">${DAG[dt.getDay()]} ${dt.getDate()} ${MND[dt.getMonth()]}</span>
-        <span class="tel">${label(d)}</span></div>
-      <div class="paneel">
-        ${taken.map(soortRij).join('')}
-        ${!taken.length?`<div class="geen" style="padding:16px">Niets gepland.</div>`:''}
-      </div>`;
-  }).join('');
+  /* Hier stonden veertien dagblokken onder elkaar. Met een maandraster is dat
+     dubbelop: je kiest een dag en ziet die dag. */
 
-  h+=`<div class="blokkop" style="margin-top:20px"><span class="eyebrow">Komende twee weken</span>
-      <span class="tel">${getoond} ${getoond===1?'dag':'dagen'}</span></div>`.replace(
-      '<div class="blokkop" style="margin-top:20px">','<div class="blokkop" style="margin-top:20px">');
-  h+=blokken||`<div class="paneel"><div class="geen">Niets in beeld.</div></div>`;
+  /* de gekozen dag, met alles wat er die dag staat */
+  const gd=agendaDag(), gdt=new Date(gd);
+  const taken=perDag[gd]||[];
+  const nlaat=taken.filter(t=>t.telaat>0||(t.soort==='haccp'&&t.eerste)).length;
+  h+=`<div class="agdagkop">
+      <span class="d">
+        <b>${gd===vandaag()?'Vandaag':gd===datumPlus(vandaag(),1)?'Morgen':DAG[gdt.getDay()]}</b>
+        <span class="nr">${gdt.getDate()}</span>
+        <small>${MND[gdt.getMonth()]}</small>
+      </span>
+      <span class="t">${taken.length
+        ? taken.length+' '+(taken.length===1?'ding':'dingen')+(nlaat?' \u00b7 '+nlaat+' te laat':'')
+        : 'niets gepland'}</span>
+    </div>
+    <div class="paneel">${taken.length
+      ? taken.map(soortRij).join('')
+      : `<div class="geen" style="padding:18px">Niets op deze dag.
+          <br>Plan hieronder iets in.</div>`}</div>`;
+
 
   const brij=(attr,icoon,label2,waarde,let2)=>`<button class="beheerrij" ${attr}>
     ${svg(icoon)}<span class="l">${label2}</span>
@@ -11366,6 +11461,19 @@ const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,on
 function bind(){
   insBinden();
   /* een klus afvinken kan overal waar hij staat: agenda, dashboard, planning */
+  $$('[data-agdag]').forEach(b=>b.onclick=()=>{
+    AGDAG=b.dataset.agdag;
+    const d=new Date(AGDAG);
+    AGMND={j:d.getFullYear(),m:d.getMonth()};   /* tik je een dag uit een andere maand, dan spring je mee */
+    render();
+  });
+  $$('[data-agmnd]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.agmnd;
+    if(k==='nu'){ const d=new Date(); AGMND={j:d.getFullYear(),m:d.getMonth()}; AGDAG=vandaag(); }
+    else { const {j,m}=agendaMaand(); const d=new Date(j,m+parseInt(k),1);
+           AGMND={j:d.getFullYear(),m:d.getMonth()}; }
+    render();
+  });
   $$('[data-taakaf]').forEach(b=>b.onclick=()=>{
     const t=(S.taken||[]).find(x=>x.id===b.dataset.taakaf);
     if(!t) return;
