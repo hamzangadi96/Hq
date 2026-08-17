@@ -2117,7 +2117,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v369 · 17 aug 2026';
+const APPVERSIE='v370 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2407,7 +2407,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'laatsteBackup','storingen','dozen',
+  'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -7078,6 +7078,48 @@ function verpakkingsArtikelen(){
 }
 
 /* de prijs per stuk van een verpakkingsartikel */
+/* Wat je voor een verpakkingsonderdeel betaalde, net zo vastgelegd als bij een
+   ingrediënt: een bedrag voor een aantal stuks. */
+function verpPrijsZet(naam,bedrag,aantal){
+  const b=getalIn0(bedrag), n=getalIn0(aantal);
+  S.verpBron=S.verpBron||{};
+  if(!b||!n){ delete S.verpBron[gKey(naam)]; bewaarNu(); return null }
+  const per=b/n;
+  S.verpBron[gKey(naam)]={bedrag:b,aantal:n,datum:vandaag()};
+  zetArt(naam,{prijs:per});
+  bewaarNu();
+  return per;
+}
+const verpBron=naam=>(S.verpBron||{})[gKey(naam)]||null;
+
+/* Artikelen die je hebt gekocht maar niet meer gebruikt — verkeerde maat,
+   lelijk design, verkeerd besteld. Je hebt ze wél betaald, dus die kosten
+   horen ergens terug te komen. */
+const verpAfgeschreven=()=>S.verpAf||[];
+const verpIsAf=naam=>verpAfgeschreven().some(x=>gKey(x)===gKey(naam));
+function verpAfZet(naam,aan){
+  S.verpAf=(S.verpAf||[]).filter(x=>gKey(x)!==gKey(naam));
+  if(aan) S.verpAf.push(naam);
+  bewaarNu();
+}
+
+/* de waarde die je in ongebruikte verpakking hebt zitten */
+function afgeschrevenWaarde(){
+  let euro2=0; const lijst=[];
+  verpAfgeschreven().forEach(n=>{
+    const v2=grondVoorraad().find(x=>gKey(x.product)===gKey(n));
+    const pr=(art(n).prijs)||0;
+    const aantal=v2?v2.saldo:0;
+    /* Ligt er niets meer, dan reken je met wat je ooit kocht: dat geld is
+       hoe dan ook uitgegeven. */
+    const bron=verpBron(n);
+    const stuks=aantal>0?aantal:(bron?bron.aantal:0);
+    const w=pr*stuks;
+    if(w>0){ euro2+=w; lijst.push({naam:n,stuks,per:pr,waarde:w}) }
+  });
+  return {totaal:euro2,lijst};
+}
+
 function verpPrijs(naam){
   const a=art(naam);
   if(typeof a.prijs==='number'&&a.prijs>0) return a.prijs;
@@ -7107,8 +7149,16 @@ function doosKosten(d,smaakId){
   }
   const inhoud=perBonbon===null?null:perBonbon*n;
 
+  /* Wat je betaalde voor verpakking die je niet gebruikt, verdeeld over het
+     aantal dozen dat je per jaar verwacht te verkopen. Die sleeves die je liet
+     liggen hebben je geld gekost; dat hoort in je prijs terug te komen. */
+  const af=afgeschrevenWaarde();
+  const perJaar=getalIn0(S.doosPerJaar)||0;
+  const afPer=(af.totaal>0&&perJaar>0)?af.totaal/perJaar:0;
+
   return {regels, verp, mist, bonbons:n, perBonbon, bron,
-    inhoud, totaal: inhoud===null?null:inhoud+verp};
+    afTotaal:af.totaal, afLijst:af.lijst, afPer, afOnbekend:af.totaal>0&&!perJaar,
+    inhoud, totaal: inhoud===null?null:inhoud+verp+afPer};
 }
 
 /* wat vraag je ervoor? Consument betaalt btw, zakelijk niet. */
@@ -7209,6 +7259,13 @@ function sheetDoos(id){
            :euro(k.perBonbon)+' per stuk · '+esc(k.bron)}</small></span>
            <span class="waarde ${k.inhoud===null?'let':'gevuld'}">${
              k.inhoud===null?'—':euro(k.inhoud)}</span></div>
+         ${k.afTotaal>0?`<div class="arij" style="cursor:default" data-doosaf>
+           <span class="naam">Niet gebruikte verpakking<small>${
+             k.afLijst.map(x=>esc(x.naam)).join(', ')} \u00b7 ${euro(k.afTotaal)} betaald${
+             k.afOnbekend?'' : ' \u00b7 over '+getal(getalIn0(S.doosPerJaar))+' dozen per jaar'}</small></span>
+           <span class="waarde ${k.afOnbekend?'let':'gevuld'}">${
+             k.afOnbekend?'hoeveel dozen?':euro(k.afPer)}</span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></div>`:''}
          <div class="arij" style="cursor:default;background:var(--bg)">
            <span class="naam"><b>Kostprijs van deze doos</b></span>
            <span class="waarde gevuld" style="font-size:17px">${
@@ -7238,6 +7295,25 @@ function sheetDoos(id){
       `<button class="prim" style="margin-top:0" id="dzOk">${nieuw?'Doos opslaan':'Wijzigingen opslaan'}</button>
        ${nieuw?'':`<button class="sec" id="dzWis">Doos verwijderen</button>`}
        <button class="sec" id="dzT">Terug</button>`);
+
+    $$('#sheetBody [data-doosaf]').forEach(b=>b.onclick=()=>{
+      lezen(); ONDERDEELBUF=null;
+      sheet('Hoeveel dozen per jaar?',
+        `<p class="hint">Je betaalde ${euro(k.afTotaal)} voor verpakking die je niet
+          gebruikt. Over hoeveel verkochte dozen wil je dat uitsmeren? Een schatting
+          is genoeg — je kunt het altijd bijstellen.</p>
+         <div class="veld"><label>Dozen per jaar</label>
+           <input class="inp" id="dpjV" type="text" inputmode="numeric"
+             value="${esc(S.doosPerJaar||'')}" placeholder="Bijv. 400"></div>
+         <div class="puit" id="dpjU"></div>`,
+        `<button class="prim" style="margin-top:0" id="dpjOk">Opslaan</button>
+         <button class="sec" id="dpjAf">Terug</button>`);
+      const r2=()=>{const n2=getalIn0($('#dpjV').value);
+        $('#dpjU').textContent=n2? '= '+euro(k.afTotaal/n2)+' per doos' : ''};
+      $('#dpjV').oninput=r2; r2();
+      $('#dpjOk').onclick=()=>{ S.doosPerJaar=$('#dpjV').value.trim(); bewaarNu(); teken() };
+      $('#dpjAf').onclick=teken;
+    });
 
     const hert=()=>{lezen();teken()};
     ['dzN','dzB','dzC','dzZ'].forEach(i=>{const el=$('#'+i); if(el) el.onchange=hert});
@@ -9201,6 +9277,39 @@ function voorraadHTML(){
 
 
 /* ---------- één grondstof: saldo, lots en bijboeken of afboeken ---------- */
+function sheetVerpPrijs(product,terug){
+  const b=verpBron(product)||{bedrag:'',aantal:''};
+  sheet('Wat heb je betaald?',
+    `<p class="hint">Neem het over van je factuur: het bedrag en hoeveel stuks je
+      ervoor kreeg. De app rekent de prijs per stuk uit en gebruikt die in je
+      doosprijzen.</p>
+     <div class="prijsrij">
+       <span class="pveld"><i>€</i><input id="vpB" type="text" inputmode="decimal"
+         value="${b.bedrag?komma(b.bedrag):''}" placeholder="0,00"></span>
+       <span class="voor">voor</span>
+       <span class="pveld"><input id="vpA" type="text" inputmode="decimal"
+         value="${b.aantal?komma(b.aantal):''}" placeholder="100"></span>
+       <span class="eenh">stuks</span>
+     </div>
+     <div class="puit" id="vpU"></div>`,
+    `<button class="prim" style="margin-top:0" id="vpOk2">Opslaan</button>
+     <button class="sec" id="vpAf2">Terug</button>`);
+
+  const reken=()=>{
+    const bd=getalIn0($('#vpB').value), an=getalIn0($('#vpA').value);
+    $('#vpU').textContent=(bd&&an)
+      ? '= '+euro(bd/an)+' per stuk'
+      : 'Vul allebei in, dan zie je de prijs per stuk.';
+  };
+  ['vpB','vpA'].forEach(i=>{$('#'+i).oninput=reken});
+  reken();
+  $('#vpOk2').onclick=()=>{
+    verpPrijsZet(product,$('#vpB').value,$('#vpA').value);
+    terug(); toast('Prijs opgeslagen.');
+  };
+  $('#vpAf2').onclick=terug;
+}
+
 function sheetGrondstof(product){
   const v=grondVoorraad().find(x=>gKey(x.product)===gKey(product));
   if(!v) return;
@@ -9212,8 +9321,27 @@ function sheetGrondstof(product){
     .sort((a,b2)=>(b2.datum+b2.tijd).localeCompare(a.datum+a.tijd));
   const d=grondDrempel(product);
 
+  const isVerp=artSoort(product)==='verpakking';
+  const vb=verpBron(product), vp=art(product).prijs;
+
   sheet(v.product,
-    `<div class="vrkop"><div class="vrgetal">${toonHoeveel(v.saldo,basis)}<em>op voorraad</em></div>
+    `${isVerp?`<div class="paneel" style="margin-bottom:16px">
+      <button class="arij" data-verpprijs>
+        <span class="naam">Wat heb je betaald?<small>${vb
+          ? euro(vb.bedrag)+' voor '+getal(vb.aantal)+' stuks · '+euro(vp||0)+' per stuk'
+          : (vp?euro(vp)+' per stuk':'nog niet ingevuld')}</small></span>
+        <span class="waarde ${vp?'gevuld':'let'}">${vp?euro(vp):'—'}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+      <button class="arij" data-verpaf>
+        <span class="naam">${verpIsAf(product)?'Wordt niet meer gebruikt':'Gebruik je dit nog?'}
+          <small>${verpIsAf(product)
+            ? 'de kosten worden verdeeld over je dozen'
+            : 'zet uit als je het hebt betaald maar niet verwerkt'}</small></span>
+        <span class="waarde ${verpIsAf(product)?'let':''}">${
+          verpIsAf(product)?'afgeschreven':'in gebruik'}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>
+    </div>`:''}
+     <div class="vrkop"><div class="vrgetal">${toonHoeveel(v.saldo,basis)}<em>op voorraad</em></div>
       <div class="vrmeta">${d?'drempel '+toonHoeveel(d,basis)+(grondOnder(v)?' — bijna op':''):'geen drempel ingesteld'}${
         waardeVan(v)!==null?'<br>waarde '+euro(waardeVan(v)):''}</div></div>
      ${(()=>{const f=fefoLot(product); if(!f) return '';
@@ -9351,6 +9479,17 @@ function sheetGrondstof(product){
     bewaarNu(); dicht(); render();
     toast((k==='bij'?'Bijgeboekt: ':'Afgeboekt: ')+getal(n)+' '+e+'.');
   };
+
+  $$('#sheetBody [data-verpprijs]').forEach(b=>b.onclick=()=>
+    sheetVerpPrijs(product,()=>sheetGrondstof(product)));
+  $$('#sheetBody [data-verpaf]').forEach(b=>b.onclick=()=>{
+    const aan=!verpIsAf(product);
+    verpAfZet(product,aan);
+    sheetGrondstof(product);
+    toast(aan
+      ? 'Wordt niet meer gebruikt — de kosten tellen mee in je doosprijs.'
+      : 'Staat weer in gebruik.');
+  });
 }
 
 /* ---------- branche kiezen en het sjabloon toepassen ----------
