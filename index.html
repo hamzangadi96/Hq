@@ -2001,7 +2001,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v348 · 16 aug 2026';
+const APPVERSIE='v349 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16998,7 +16998,7 @@ function sheetIngWizard(naam,stap){
   wzPlakvakBinden(naam,stap);
   const door=()=>{
     bewaarVoeding();
-    if(laatste){ sheetIngredient(naam); toast(naam+' staat erin.'); return }
+    if(laatste){ sheetIngredient(naam,false,true); toast(naam+' staat erin.'); return }
     sheetIngWizard(naam,stap+1);
   };
   $('#wzOk').onclick=door;
@@ -17006,12 +17006,21 @@ function sheetIngWizard(naam,stap){
 }
 
 /* Eén ingrediënt, alles bij elkaar. */
-function sheetIngredient(naam,uitMissend){
+function sheetIngredient(naam,uitMissend,vanWizard){
   S.allerg=S.allerg||{};
-  /* Is er nog geen prijs, dan is dit ingrediënt nieuw voor je: dan loop je hem
-     door in plaats van naar een scherm vol rijen te kijken waarvan je er negen
-     nog niet nodig hebt. */
-  if(ingPrijs(naam)===null&&!prijsBron(naam)) return sheetIngWizard(naam,0);
+  /* Is dit ingrediënt nog helemaal leeg, dan loop je hem door in plaats van
+     naar een scherm vol rijen te kijken waarvan je er negen nog niet nodig hebt.
+
+     Twee dingen die hier eerder misgingen. Alleen op de prijs kijken betekende
+     dat je met "weet ik nog niet" nooit uit de wizard kwam: Klaar bracht je
+     naar dit scherm, dit scherm bracht je terug naar stap 1. En had je alleen
+     allergenen ingevuld, dan begon je de volgende keer weer bij stap 1.
+     Daarom: kom je net uit de wizard, dan nooit terug, en één ingevuld ding
+     is genoeg om het overzicht te krijgen. */
+  const leeg = ingPrijs(naam)===null && !prijsBron(naam)
+    && !ingAllerg(naam).length && !voeding(naam) && !ingLink(naam)
+    && !ingDelen(naam).length;
+  if(!vanWizard&&leeg) return sheetIngWizard(naam,0);
 
   const teken=()=>{
     const gk=ingAllerg(naam), d=ingDelen(naam), w=voeding(naam);
