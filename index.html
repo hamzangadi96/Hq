@@ -2001,7 +2001,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v346 · 16 aug 2026';
+const APPVERSIE='v347 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3578,12 +3578,7 @@ function weekstripHTML(dagenVooruit){
   const loopt=lopende();
   if(loopt.length) (perDag[vandaag()]=perDag[vandaag()]||[])
     .push({soort:'productie',tekst:'batch onderweg'});
-  /* je baan hoort er ook in: anders lijkt een volle werkdag leeg */
-  for(let j=0;j<n;j++){
-    const dd=datumPlus(vandaag(),j), ww=werkOp(dd);
-    if(ww&&ww.plek!=='vrij') (perDag[dd]=perDag[dd]||[])
-      .push({soort:'baan',tekst:werkTekst(ww)});
-  }
+  /* je baan naast het bedrijf stond hier ook in; die functie is eruit gehaald */
 
   let uit=`<div class="weekstrip">`;
   for(let i=0;i<n;i++){
@@ -3871,17 +3866,7 @@ function dashboardHTML(){
       <h2 style="margin-top:6px">${esc(p.regels.map(r=>smaakNaam(r.receptId)).join(', '))}</h2>
       <div class="sub">${chocNaam(p.chocolade).toLowerCase()} · ${p.regels.reduce((n,r)=>n+r.mallen,0)} mallen${
         dek.length?' · '+dek.length+' grondstof'+(dek.length===1?'':'fen')+' tekort':' · alles in huis'}</div>
-      ${(()=>{
-        /* De app kent je werkweek sinds v190, maar zei er niets over. Sta je
-           vandaag op kantoor, dan is dat nogal bepalend voor je planning. */
-        const w=werkOp(vandaag());
-        if(!w||w.plek==='vrij') return '';
-        const ru=(w.ruimte||'avond');
-        return `<div class="sub werkregel">
-          <span class="wi">${svg(I.klok)}</span>${esc(werkTekst(w))} · ${
-            ru==='geen'?'geen ruimte vandaag'
-            :ru==='avond'?"pas 's avonds ruimte":'hele dag ruimte'}</div>`;
-      })()}
+      ${''/* je baan naast het bedrijf is uit de app gehaald */}
       <button class="prim" data-planstart="${p.id}">${svg(I.plus)}Batch starten</button></div>`;
     if(dek.length){
       h+=`<div class="blokkop"><span class="eyebrow">Kom je tekort</span>
@@ -10038,10 +10023,6 @@ function klaarPunten(){
     'Op je facturen staat nu "IBAN nog invullen". Klanten kunnen niet betalen.',
     ()=>sheetBedrijf(),'rood');
 
-  zet(!!S.werkGezet3,'Je werkweek invullen',
-    'De app rekent met een standaardweek. Je planning en je waarschuwingen over ruimte kloppen dan niet.',
-    ()=>sheetWerkweek());
-
   const ijk=laatsteIjking();
   zet(!!ijk,'Thermometer ijken',
     'Zonder ijking zijn je temperatuurmetingen bij een controle aanvechtbaar.',
@@ -10892,12 +10873,8 @@ function sheetInrichten(stap){
   sheet('Wanneer werk je?',
     `${balk}<p class="hint">De app plant je batches rond je andere werk. Heb je een baan
        ernaast, vul die dan hier in — dan waarschuwt hij als een productiedag niet past.</p>
-     <div class="melding" style="margin-top:4px">${svg(I.klok,'2')}
-       <span>Je kunt dit ook overslaan. De app rekent dan met een gewone werkweek en je
-         vult het later in bij Instellingen.</span></div>`,
-    `<button class="prim" style="margin-top:0" id="inWerk">Mijn werkweek invullen</button>
-     <button class="sec" id="inKlaar">Overslaan en beginnen</button>`);
-  $('#inWerk').onclick=()=>{ inrichtingKlaar(); sheetWerkweek(); };
+`,
+    `<button class="prim" style="margin-top:0" id="inKlaar">Beginnen</button>`);
   $('#inKlaar').onclick=()=>{ inrichtingKlaar(); dicht(); render();
     toast('Je bent er klaar voor. Begin met een smaak.'); };
 }
@@ -11112,27 +11089,16 @@ function agendaHTML(){
      anders scrol je door veertien lege kaarten */
   let getoond=0;
   const blokken=dagen.map(d=>{
-    const w=werkOp(d), taken=perDag[d]||[];
-    const werktMee=w&&w.plek!=='vrij';
-    if(!werktMee&&!taken.length&&dagenTussen(vandaag(),d)>1) return '';
+    const taken=perDag[d]||[];
+    if(!taken.length&&dagenTussen(vandaag(),d)>1) return '';
     getoond++;
     const dt=new Date(d);
-    const ru=RUIMTE[(w&&w.ruimte)||'dag']||RUIMTE.dag;
     return `<div class="blokkop" style="margin-top:22px">
         <span class="eyebrow">${DAG[dt.getDay()]} ${dt.getDate()} ${MND[dt.getMonth()]}</span>
         <span class="tel">${label(d)}</span></div>
       <div class="paneel">
-        ${werktMee?`<button class="arij" data-werkdag="${d}">
-          <span class="ivak" style="background:${WERKPLEK[w.plek].kleur}1f;color:${
-            WERKPLEK[w.plek].kleur}">${svg(I.klok)}</span>
-          <span class="naam">${esc(werkTekst(w))}<small>je baan · ${werkUren(w)} uur${
-            w.afwijking?' · afwijking':''} · ${esc(ru.n.toLowerCase())} ruimte</small></span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>`:''}
         ${taken.map(soortRij).join('')}
-        ${!werktMee&&!taken.length?`<button class="arij" data-werkdag="${d}">
-          <span class="ivak groen">${svg(I.vink)}</span>
-          <span class="naam">Vrij<small>hele dag ruimte voor Cacaoboetiek</small></span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>`:''}
+        ${!taken.length?`<div class="geen" style="padding:16px">Niets gepland.</div>`:''}
       </div>`;
   }).join('');
 
@@ -11146,14 +11112,7 @@ function agendaHTML(){
     ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
 
-  const afw=Object.keys(S.werkafwijk||{}).filter(d=>d>=vandaag()).length;
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Mijn werk</span></div>
-    <div class="paneel">
-      ${brij('data-werkweek',I.klok,'Werkweek',komma(werkurenPerWeek())+' uur per week')}
-      ${brij('data-werkvrij',I.vink,'Vrij nemen of afwijken',afw?afw+' gepland':'niets')}
-    </div>
-
-    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Inplannen</span></div>
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Inplannen</span></div>
     <div class="paneel">
       ${brij('data-planning',I.vorm,'Productie plannen','')}
       ${brij('data-taaknieuw',I.plus,'Losse afspraak of klus','')}
@@ -18270,8 +18229,6 @@ const SCHERMUITLEG=[
   {t:"Mutaties",u:"Elke verandering in je gereed product, met reden. Dit is je onderbouwing bij derving.",f:"sheetMutaties"},
   {t:"Batch aanpassen",u:"Aantallen kloppen niet meer, of je voegt een smaak toe. De receptuur van deze batch blijft zoals hij was toen je begon.",f:"sheetBatchWijzig"},
   {t:"Zet in mijn agenda",u:"Je productiedagen, boodschappen, leverdata en controles gaan als afspraken naar de agenda van je telefoon. Eén kant op: HQ kan niet bij je eigen afspraken — daar is een echte app voor nodig.",f:"sheetAgendaExport"},
-  {t:"Werkweek",u:"Zo weet de app wanneer je tijd hebt. Plan je een batch op een dag dat je werkt, dan waarschuwt hij.",f:"sheetWerkweek"},
-  {t:"Vrij nemen of afwijken",u:"Dagen die anders lopen dan je vaste week.",f:"sheetWerkVrij"},
   {t:"Waar ga je heen?",u:"De app onthoudt je bestemming, opent Kaarten voor de route en telt ondertussen je kilometers door.",f:"sheetWerkVrij"},
   {t:"Vertrekadres",u:"Dit adres komt in je rittenregistratie. Klopt het huisnummer niet, pas het aan — dan staat het meteen goed.",f:"sheetWerkVrij"},
   {t:"Welke smaak?",u:"Deze batch heeft smaken. Elke smaak krijgt zijn eigen stickers.",f:"sheetWerkVrij"},
