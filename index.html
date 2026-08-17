@@ -2117,7 +2117,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v371 · 17 aug 2026';
+const APPVERSIE='v372 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9466,6 +9466,9 @@ function sheetGrondstof(product){
   $('#gOk').onclick=()=>{
     const k=chipV('#gS'), n=getalIn0($('#gH').value), e=$('#gE').value, r=$('#gR').value.trim();
     if(!n) return toast('Vul een hoeveelheid in.');
+    /* liever niets doen dan de verkeerde kant op boeken */
+    if(k!=='bij'&&k!=='af'&&k!=='tel')
+      return toast('Kies eerst bijboeken, afboeken of tellen.');
     if(k==='tel'){
       const geteld=naarBasis(n,e);
       const verschil=geteld-v.saldo;
@@ -12495,7 +12498,15 @@ function chips(sel,multi,cb){$$(sel+' .chip:not(.nieuw)').forEach(c=>c.onclick=(
   sluitToetsenbord();
   if(multi)c.classList.toggle('aan');else{$$(sel+' .chip').forEach(x=>x.classList.remove('aan'));c.classList.add('aan')}
   if(cb)cb()})}
-const chipV=sel=>{const c=document.querySelector(sel+' .chip.aan');return c?c.dataset.v:null};
+/* Zocht alleen naar ".chip.aan", maar de knoppen in een duo of duo3 hebben
+   geen chip-klasse — alleen "aan". Die kwamen dus leeg terug. Bij het boeken
+   van voorraad betekende dat: geen keuze herkend, dus afboeken. Elke
+   bijboeking werd een afboeking, en dat zag je pas aan een negatief saldo. */
+const chipV=sel=>{
+  const c=document.querySelector(sel+' .chip.aan')
+       || document.querySelector(sel+' [data-v].aan');
+  return c?c.dataset.v:null;
+};
 function klaarSheet(msg){dicht();render();if(msg)toast(msg)}
 function sluitToetsenbord(){
   const a=document.activeElement;
