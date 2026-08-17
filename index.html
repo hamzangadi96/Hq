@@ -1220,6 +1220,19 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   font-size:16px;font-weight:600;text-align:right;padding:0;
   font-variant-numeric:tabular-nums;color:var(--ink)}
 
+/* een doos samenstellen */
+.doosrij{display:flex;align-items:center;gap:12px;padding:12px 16px;
+  border-bottom:1px solid var(--lijn)}
+.doosrij:last-child{border-bottom:none}
+.doosrij .nm{flex:1;min-width:0;font-size:15px;font-weight:500;letter-spacing:-.015em}
+.doosrij .nm small{display:block;font-size:12px;color:var(--grijs2);
+  font-weight:400;margin-top:2px}
+.doosrij.aan{background:var(--bg)}
+.doosrij .ostep{display:flex;align-items:center;gap:10px;flex:none}
+.doosrij .ostep b{min-width:20px;text-align:center;font-size:16px;
+  font-variant-numeric:tabular-nums}
+
+
 /* voorraad en leverancier bij een ingrediënt */
 .ingvoor{margin-top:18px;padding:13px 15px;background:var(--bg);border-radius:14px;
   display:flex;flex-direction:column;gap:3px}
@@ -1988,7 +2001,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v343 · 16 aug 2026';
+const APPVERSIE='v345 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2790,6 +2803,80 @@ function declaratie(r){
       uit+=' ('+delen.map(d=>{
         const t=esc(d.naam)+(d.pct?' '+getal(parseFloat(d.pct))+'%':'');
         return (d.al&&d.al.length)?`<b>${t}</b>`:t;
+      }).join(', ')+')';
+    }
+    return uit;
+  }).join(', ');
+}
+
+/* ═══════════ gemengde doos ═══════════
+   Zit er meer dan één smaak in een doos, dan hoort daar één etiket op met alle
+   ingrediënten bij elkaar. Alles wordt gewogen naar wat er werkelijk in gaat:
+   drie pistachebonbons van 9 gram wegen zwaarder dan één karamel van 7. */
+function doosInhoud(regels){
+  /* regels: [{receptId, aantal}] */
+  const posten=(regels||[]).map(x=>({r:recept(x.receptId),aantal:getalIn0(x.aantal)}))
+    .filter(x=>x.r&&x.r.id&&x.aantal>0);
+  if(!posten.length) return null;
+
+  const per={};                      /* ingrediënt → totaal gram in de hele doos */
+  let totaal=0, stuks=0;
+  posten.forEach(x=>{
+    smaakIngredienten(x.r).forEach(i=>{
+      const g=i.gram*x.aantal;
+      per[i.naam]=(per[i.naam]||0)+g;
+      totaal+=g;
+    });
+    stuks+=x.aantal;
+  });
+  if(!totaal) return null;
+
+  const lijst=Object.keys(per).map(naam=>({naam, gram:per[naam],
+    pct:per[naam]/totaal*100})).sort((a,b2)=>b2.gram-a.gram);
+
+  /* allergenen van alle smaken samen */
+  const al=new Set();
+  posten.forEach(x=>smaakAllergenen(x.r).forEach(k=>al.add(k)));
+
+  /* de kortste houdbaarheid bepaalt de doos */
+  const tht=Math.min.apply(null,posten.map(x=>x.r.tht||0).filter(n=>n>0));
+
+  /* voedingswaarde, gewogen naar het gewicht van elke smaak */
+  let vw=null;
+  const mist=[];
+  const delen=posten.map(x=>{
+    const v2=voedingVanSmaak(x.r);
+    const gram=gramPerBonbon(x.r)*x.aantal;
+    if(!v2||!v2.per100) (v2&&v2.mist||[]).forEach(n=>{ if(mist.indexOf(n)<0) mist.push(n) });
+    return {v:v2,gram};
+  });
+  if(!mist.length&&delen.every(d=>d.v&&d.v.per100)){
+    const gTot=delen.reduce((n,d)=>n+d.gram,0);
+    if(gTot){
+      vw={};
+      VOEDING.forEach(x=>{
+        vw[x.k]=delen.reduce((n,d)=>n+d.v.per100[x.k]*d.gram,0)/gTot;
+      });
+    }
+  }
+
+  return {posten, lijst, totaal, stuks, tht:isFinite(tht)?tht:0,
+          allergenen:ALLERGENEN.filter(a=>al.has(a.k)).map(a=>a.k),
+          voeding:vw, voedingMist:mist};
+}
+
+/* dezelfde opmaak als bij één smaak: zwaar naar licht, allergenen vet,
+   samengestelde ingrediënten tussen haakjes */
+function doosDeclaratie(d){
+  return d.lijst.map(i=>{
+    const vet=isAllergeen(i.naam);
+    let uit=esc(i.naam)+' '+getal(i.pct)+'%';
+    if(vet) uit=`<b>${uit}</b>`;
+    const onder=ingDelen(i.naam);
+    if(onder.length){
+      uit+=' ('+onder.map(x=>{
+        const t=esc(x.naam)+(x.pct?' '+getal(parseFloat(x.pct))+'%':'');
+        return (x.al&&x.al.length)?`<b>${t}</b>`:t;
       }).join(', ')+')';
     }
     return uit;
@@ -4175,6 +4262,7 @@ function productieHTML(){
       ${brij('data-ins2="ijking"',I.temp,'Thermometer ijken',
         laatsteIjking()?kort(new Date(laatsteIjking().datum)):'nooit',!laatsteIjking())}
       ${brij('data-ins2="checks"',I.vink,'Openingscheck instellen',S.checks.length||'geen')}
+      ${brij('data-doosetiket',I.doc,'Doosetiket voor een gemengde doos','')}
       ${brij('data-dossier',I.doc,'Dossier voor de inspectie','')}
       ${brij('data-trace',I.loep,'Lot terugzoeken','')}
     </div>`;
@@ -11532,6 +11620,7 @@ function bind(){
   $$('[data-bnotitie]').forEach(x=>x.onclick=sheetNotitie);
   $$('[data-bstatus]').forEach(x=>x.onclick=sheetBatchStatus);
   $$('[data-bdag]').forEach(x=>x.onclick=sheetDagAfsluiten);
+  $$('[data-doosetiket]').forEach(x=>x.onclick=sheetDoosEtiket);
   $$('[data-dossier]').forEach(x=>x.onclick=sheetDossier);
   $$('[data-winst]').forEach(x=>x.onclick=sheetWinst);
   $$('[data-uurtarief]').forEach(x=>x.onclick=sheetUurtarief);
@@ -12915,6 +13004,138 @@ function sheetEtikettenOrder(orderId){
   setTimeout(()=>pasSchaal('eoSchaal'),30);
   $('#eoDicht').onclick=dicht;
   $('#eoPrint').onclick=()=>drukAf(html,'Etiketten','@page{size:A4;margin:0}');
+}
+
+/* Het etiket zelf, zodat het voorbeeld en de afdruk niet uit elkaar lopen. */
+function doosEtiketHtml(d,e,lot,thtDatum){
+  const b=BEDRIJF;
+  return `<div class="etiket et-product">
+    <div class="en">${esc(e.naam||'Gemengde doos')}</div>
+    <div class="eb2">${esc(e.benaming||'')}</div>
+    <div class="ing"><b>Ingrediënten:</b> ${doosDeclaratie(d)}</div>
+    ${d.allergenen.length?`<div class="r"><b>Bevat:</b> ${
+      d.allergenen.map(k=>esc(alNaam(k).toLowerCase())).join(', ')}</div>`:''}
+    ${d.voeding?`<table class="vtab">
+      <tr><td colspan="2"><b>Voedingswaarde per 100 g</b></td></tr>
+      <tr><td>Energie</td><td>${Math.round(d.voeding.kj)} kJ / ${Math.round(d.voeding.kcal)} kcal</td></tr>
+      <tr><td>Vetten</td><td>${komma(getal(d.voeding.vet))} g</td></tr>
+      <tr class="in"><td>waarvan verzadigde vetzuren</td><td>${komma(getal(d.voeding.verz))} g</td></tr>
+      <tr><td>Koolhydraten</td><td>${komma(getal(d.voeding.koolh))} g</td></tr>
+      <tr class="in"><td>waarvan suikers</td><td>${komma(getal(d.voeding.suik))} g</td></tr>
+      <tr><td>Eiwitten</td><td>${komma(getal(d.voeding.eiwit))} g</td></tr>
+      <tr><td>Zout</td><td>${komma(getal(d.voeding.zout))} g</td></tr></table>`:''}
+    <div class="r">${esc(e.bewaar||'')}</div>
+    <div class="r"><b>Netto</b> ${d.stuks} stuks (${getal(Math.round(d.totaal))} g)
+      <span style="float:right"><b>THT</b> ${esc(thtDatum||('+ '+d.tht+' dagen na productie'))}</span></div>
+    <div class="r">Lotnummer<span style="float:right">${esc(lot||'CB-JJJJMMDD-NN')}</span></div>
+    <div class="voet">${esc(b.naam)} · ${esc(b.adres||'')}${
+      b.kvk?' · KvK '+esc(b.kvk):''}${b.web?' · '+esc(b.web):''}</div>
+  </div>`;
+}
+
+/* Elke bestelling is anders samengesteld, dus je stelt de doos hier samen en
+   krijgt er meteen het etiket bij. Niets wordt vastgelegd — het is een doos
+   voor deze bestelling. */
+let DOOS={regels:{}, naam:'', benaming:'', bewaar:'', lot:''};
+
+function sheetDoosEtiket(){
+  const smaken=(S.recepten||[]).filter(r=>r.id);
+  if(!smaken.length){
+    sheet('Doosetiket',
+      `<p class="hint">Je hebt nog geen smaken. Maak er eerst een paar aan bij
+        Smaken, dan kun je hier een doos samenstellen.</p>`,
+      `<button class="prim" style="margin-top:0" id="deT">Terug</button>`);
+    $('#deT').onclick=()=>{S.tab='productie';dicht();render()};
+    return;
+  }
+  if(!DOOS.bewaar) DOOS.bewaar=(smaken.find(r=>r.etiket&&r.etiket.bewaar)||{etiket:{}}).etiket.bewaar||'';
+
+  const regels=Object.keys(DOOS.regels).map(id=>({receptId:id,aantal:DOOS.regels[id]}))
+    .filter(x=>getalIn0(x.aantal)>0);
+  const d=doosInhoud(regels);
+
+  const teken=()=>{
+    sheet('Doosetiket',
+      `<div class="blokkop"><span class="eyebrow">Wat zit er in de doos</span>
+         ${d?`<span class="tel">${d.stuks} stuks</span>`:''}</div>
+       <div class="paneel">${smaken.map(r=>{
+         const n=DOOS.regels[r.id]||0;
+         return `<div class="doosrij${n?' aan':''}">
+           <span class="nm">${esc(r.naam)}<small>${getal(gramPerBonbon(r))} g per stuk
+             · THT ${r.tht} dagen</small></span>
+           <span class="ostep">
+             <button class="stepbtn klein" data-dmin="${esc(r.id)}">${svg(I.min)}</button>
+             <b>${n}</b>
+             <button class="stepbtn klein" data-dplus="${esc(r.id)}">${svg(I.plus)}</button>
+           </span></div>`}).join('')}</div>
+
+       ${d?`
+       <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Etiket</span></div>
+       <div class="etvoorbeeld" style="padding:12px"><div class="schaal" id="deSchaal">${
+         doosEtiketHtml(d,{naam:DOOS.naam,benaming:DOOS.benaming,
+         bewaar:DOOS.bewaar},DOOS.lot,'')}</div></div>
+
+       ${d.voedingMist.length?`<div class="melding amber" style="margin-top:12px">
+         ${svg(I.alarm,'2')}<span>Geen voedingswaarde bij ${
+           d.voedingMist.map(esc).join(', ')} — de tabel blijft van het etiket.</span></div>`:''}
+       ${d.posten.length>1?`<div class="melding" style="margin-top:12px">${svg(I.klok,'2')}
+         <span>De kortste houdbaarheid telt: ${d.tht} dagen, van ${
+           esc(d.posten.reduce((a,b2)=>(b2.r.tht||999)<(a.r.tht||999)?b2:a).r.naam)}.</span></div>`:''}
+
+       <div class="veld" style="margin-top:20px"><label>Naam op het etiket</label>
+         <input class="inp" id="deNaam" value="${esc(DOOS.naam)}"
+           placeholder="Bijv. Gemengde doos ${d.stuks}"></div>
+       <div class="veld"><label>Wettelijke benaming</label>
+         <input class="inp" id="deBen" value="${esc(DOOS.benaming)}"
+           placeholder="Bijv. Assortiment bonbons"></div>
+       <div class="veld"><label>Bewaaradvies</label>
+         <input class="inp" id="deBew" value="${esc(DOOS.bewaar)}"
+           placeholder="Koel en droog bewaren, 15 – 18 °C"></div>
+       <div class="veld"><label>Lotnummer — mag leeg</label>
+         <input class="inp" id="deLot" value="${esc(DOOS.lot)}"
+           placeholder="CB-JJJJMMDD-NN"></div>`
+       :`<div class="paneel" style="margin-top:20px"><div class="rustig">
+          <div class="ico">${svg(I.doc,'2.2')}</div>
+          <p>Kies hierboven hoeveel bonbons van elke smaak er in de doos gaan.<br>
+            Daarna zie je het etiket met alle ingrediënten bij elkaar.</p>
+         </div></div>`}`,
+      d?`<button class="prim" style="margin-top:0" id="deDruk">${svg(I.doc)}&nbsp;Etiket afdrukken</button>
+         <button class="sec" id="deLeeg">Doos leegmaken</button>`
+       :`<button class="prim" style="margin-top:0" id="deT">Terug</button>`);
+
+    if($('#deSchaal')) setTimeout(()=>pasSchaal('deSchaal'),30);
+    $$('[data-dplus]').forEach(b=>b.onclick=()=>{
+      const id=b.dataset.dplus;
+      DOOS.regels[id]=(DOOS.regels[id]||0)+1; sheetDoosEtiket();
+    });
+    $$('[data-dmin]').forEach(b=>b.onclick=()=>{
+      const id=b.dataset.dmin;
+      DOOS.regels[id]=Math.max(0,(DOOS.regels[id]||0)-1);
+      if(!DOOS.regels[id]) delete DOOS.regels[id];
+      sheetDoosEtiket();
+    });
+    const lees=()=>{
+      if($('#deNaam')) DOOS.naam=$('#deNaam').value;
+      if($('#deBen'))  DOOS.benaming=$('#deBen').value;
+      if($('#deBew'))  DOOS.bewaar=$('#deBew').value;
+      if($('#deLot'))  DOOS.lot=$('#deLot').value;
+    };
+    ['deNaam','deBen','deBew','deLot'].forEach(id=>{
+      const el=$('#'+id); if(el) el.onchange=()=>{lees();sheetDoosEtiket()};
+    });
+    if($('#deDruk')) $('#deDruk').onclick=()=>{
+      lees();
+      const thtDatum=d.tht?kort(plusDagen(new Date(),d.tht)):'';
+      drukAf(doosEtiketHtml(d,{naam:DOOS.naam,benaming:DOOS.benaming,
+        bewaar:DOOS.bewaar},DOOS.lot,thtDatum),'Doosetiket','@page{size:A4;margin:10mm}');
+    };
+    if($('#deLeeg')) $('#deLeeg').onclick=()=>{
+      DOOS={regels:{},naam:'',benaming:'',bewaar:'',lot:''};
+      sheetDoosEtiket();
+    };
+    if($('#deT')) $('#deT').onclick=()=>{S.tab='productie';dicht();render()};
+  };
+  teken();
 }
 
 function sheetProductEtiket(receptId){
