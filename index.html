@@ -2129,7 +2129,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v377 · 17 aug 2026';
+const APPVERSIE='v378 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9282,7 +9282,7 @@ function voorraadHTML(){
         ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
         ${(()=>{const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
           const z=vp.filter(x=>verpPrijs(x.product)===null).length;
-          return brij('data-verplijst',I.doos,'Verpakkingsonderdelen',
+          return brij('data-verplijst',I.doos,'Verpakking',
             vp.length? vp.length+(z?' \u00b7 '+z+' zonder prijs':'') : 'nog geen', !!z)})()}
         ${brij('data-ins="leveranciers"',I.vracht,'Leveranciers',(S.leveranciers||[]).length||'geen')}
         ${brij('data-ins="levertijd"',I.klok,'Levertijden',
@@ -9342,34 +9342,9 @@ function voorraadHTML(){
       <div class="paneel">${half.map(rij).join('')}</div>`;
   }
 
-  /* ── verpakking ── */
-  const verp=alles.filter(v=>artSoort(v.product)==='verpakking');
-  const laagV=verp.filter(grondOnder);
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Verpakking</span>
-      <span class="tel ${laagV.length?'let':''}">${laagV.length?laagV.length+' bijna op'
-        :(verp.length?verp.length+(verp.length===1?' artikel':' artikelen'):'')}</span></div>`;
-  if(verp.length){
-    const maten=[...new Set(verp.map(v=>art(v.product).maat).filter(Boolean))].sort((a,b2)=>a-b2);
-    const kleuren=[...new Set(verp.map(v=>art(v.product).kleur).filter(Boolean))];
-    const los=verp.filter(v=>!art(v.product).maat||!art(v.product).kleur);
-    if(maten.length&&kleuren.length){
-      h+=`<div class="paneel" style="padding:4px 0"><div class="vraster">
-        <div class="vrhoek"></div>
-        ${maten.map(m=>`<div class="vrmaat">${m}<small>st</small></div>`).join('')}
-        ${kleuren.map(k=>`<div class="vrkleur">${esc(k)}</div>
-          ${maten.map(m=>{
-            const v=verp.find(x=>art(x.product).maat===m&&art(x.product).kleur===k);
-            if(!v) return `<div class="vrcel leeg">—</div>`;
-            const st=grondOnder(v)?(v.saldo<=0?'rood':'amber'):'';
-            return `<button class="vrcel ${st}" data-gs="${esc(v.product)}">${getal(v.saldo)}</button>`;
-          }).join('')}`).join('')}
-      </div></div>`;
-    }
-    if(los.length) h+=`<div class="paneel" style="margin-top:${maten.length&&kleuren.length?'10px':'0'}">${
-      los.map(rij).join('')}</div>`;
-  } else {
-    h+=leegRij('Nog geen verpakking','maak je doosjes in één keer aan','data-verpnieuw');
-  }
+  /* Het blok "Verpakking" stond hier met dezelfde artikelen die ook onder
+     Bijhouden staan — één keer als voorraadraster en één keer als lijst.
+     Eén plek is genoeg; de lijst toont voorraad én prijs. */
 
   /* ── beheer ── */
   const teBestellen=alles.filter(v=>grondOnder(v)||v.saldo<=0).length;
@@ -9383,7 +9358,7 @@ function voorraadHTML(){
                      : 'nog geen', !!zonder)})()}
       ${(()=>{const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
         const z=vp.filter(x=>verpPrijs(x.product)===null).length;
-        return brij('data-verplijst',I.doos,'Verpakkingsonderdelen',
+        return brij('data-verplijst',I.doos,'Verpakking',
           vp.length? vp.length+(z?' \u00b7 '+z+' zonder prijs':'') : 'nog geen', !!z)})()}
       ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
       ${brij('data-partijen',I.doos,'Partijen in huis',(S.lots||[]).length||'geen')}
@@ -11686,7 +11661,7 @@ function sheetVerpakkingLijst(){
     const zonder=alle.filter(v2=>verpPrijs(v2.product)===null).length;
     const af=alle.filter(v2=>verpIsAf(v2.product));
 
-    sheet('Verpakkingsonderdelen',
+    sheet('Verpakking',
       !alle.length
       ? `<div class="paneel"><div class="rustig">
           <div class="ico">${svg(I.doos,'2.2')}</div>
