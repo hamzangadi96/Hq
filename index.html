@@ -2138,7 +2138,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v385 · 17 aug 2026';
+const APPVERSIE='v386 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11872,10 +11872,10 @@ function sheetVerpakkingLijst(){
     sheet('Verpakking',
       !alle.length
       ? `<div class="paneel"><div class="rustig">
-          <div class="ico">${svg(I.doos,'2.2')}</div>
-          <p><b>Nog geen verpakking.</b><br>Maak je dozen, inlegvellen, sleeves en
-            draagtassen aan. Daarna leg je per onderdeel vast wat je ervoor
-            betaalde, en weet de app wat een doos je kost.</p></div></div>`
+          <div class="ico">${svg(I.doc,'2.2')}</div>
+          <p><b>Begin bij je factuur.</b><br>Neem een bestelling over — de
+            onderdelen maak je onderweg aan, de prijzen worden berekend inclusief
+            vracht, en je voorraad staat meteen goed.</p></div></div>`
       : `<div class="ingtop">
            <b>${alle.length} ${alle.length===1?'onderdeel':'onderdelen'}</b>
            ${zonder?`<span class="let">${zonder} zonder prijs</span>`:''}
@@ -11902,10 +11902,14 @@ function sheetVerpakkingLijst(){
            ? 'Eén onderdeel wordt niet meer gebruikt; die kosten'
            : af.length+' onderdelen worden niet meer gebruikt; die kosten'} worden
            over je dozen verdeeld.</p>`:''}`,
-      `<button class="prim" style="margin-top:0" id="vlN">${svg(I.plus)}&nbsp;Onderdeel toevoegen</button>
-       ${alle.length?`<button class="sec" id="vlB">${svg(I.doc)}&nbsp;Bestelling registreren</button>
-       <button class="sec" id="vlD">${svg(I.doos)}&nbsp;Dozen samenstellen</button>`:''}
-       <button class="sec" id="vlOk">Klaar</button>`);
+      alle.length
+      ? `<button class="prim" style="margin-top:0" id="vlB">${svg(I.doc)}&nbsp;Bestelling registreren</button>
+         <button class="sec" id="vlN">${svg(I.plus)}&nbsp;Onderdeel toevoegen</button>
+         <button class="sec" id="vlD">${svg(I.doos)}&nbsp;Dozen samenstellen</button>
+         <button class="sec" id="vlOk">Klaar</button>`
+      : `<button class="prim" style="margin-top:0" id="vlB">${svg(I.doc)}&nbsp;Bestelling registreren</button>
+         <button class="sec" id="vlN">${svg(I.plus)}&nbsp;Los onderdeel toevoegen</button>
+         <button class="sec" id="vlOk">Klaar</button>`);
 
     if($('#vlZ')){
       const z=$('#vlZ');
@@ -11914,7 +11918,9 @@ function sheetVerpakkingLijst(){
     }
     $$('#sheetBody [data-vl]').forEach(b=>b.onclick=()=>sheetGrondstof(b.dataset.vl));
     $('#vlN').onclick=sheetVerpEen;
-    if($('#vlB')) $('#vlB').onclick=sheetInkopen;
+    /* heb je nog geen bestellingen, dan is de lijst een lege tussenstap */
+    if($('#vlB')) $('#vlB').onclick=()=>
+      inkopen().length? sheetInkopen() : sheetInkoop(null);
     if($('#vlD')) $('#vlD').onclick=sheetDozen;
     $('#vlOk').onclick=()=>{S.tab='voorraad';dicht();render()};
   };
