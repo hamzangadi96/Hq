@@ -997,7 +997,9 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .rijtje{display:flex;gap:8px}
 .inlineform .rijtje{display:flex;gap:8px;margin-bottom:8px}
 .inlineform .rijtje:last-child{margin-bottom:0}
-.mini{height:48px;border-radius:14px;border:none;background:#fff;padding:0 12px;font-size:16px;font-weight:500;outline:none;width:100%}
+/* Was wit terwijl elk ander invoerveld in de app grijs is; op één scherm zag
+   je daardoor twee soorten velden naast elkaar. */
+.mini{height:48px;border-radius:14px;border:none;background:var(--bg);padding:0 12px;font-size:16px;font-weight:500;outline:none;width:100%}
 .mini:focus{box-shadow:inset 0 0 0 1.5px var(--ink)}
 .miniknop{height:48px;padding:0 16px;border-radius:14px;background:var(--ink);color:#fff;font-size:14px;font-weight:600;flex:none;display:flex;align-items:center;justify-content:center}
 .stepper{display:flex;align-items:center;gap:12px}
@@ -1308,15 +1310,13 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
-/* twee velden naast elkaar die niet buiten beeld lopen */
-.pveld.breed{display:flex;align-items:center;width:100%;box-sizing:border-box}
-.pveld.breed input{width:100%;min-width:0}
-
 /* een regel op een inkoopbon */
 .inkrij{display:grid;grid-template-columns:1fr 72px 82px 34px;gap:6px;
   align-items:center;margin-bottom:8px}
 .inkrij select,.inkrij input{height:46px;background:var(--bg);border-radius:12px;
-  padding:0 10px;font-size:14px;min-width:0;width:100%;box-sizing:border-box}
+  padding:0 10px;font-size:14px;min-width:0;width:100%;box-sizing:border-box;
+  border:none;outline:none;-webkit-appearance:none;appearance:none;
+  font-weight:500;color:var(--ink)}
 .inkrij input{text-align:right}
 .inkrij .wisbtn{width:34px;height:34px}
 
@@ -2129,7 +2129,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v378 · 17 aug 2026';
+const APPVERSIE='v379 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9381,12 +9381,12 @@ function sheetVerpPrijs(product,terug){
       ervoor kreeg. De app rekent de prijs per stuk uit en gebruikt die in je
       doosprijzen.</p>
      <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-       <div><label>Bedrag</label>
-         <span class="pveld breed"><i>€</i><input id="vpB" type="text" inputmode="decimal"
-           value="${b.bedrag?komma(b.bedrag):''}" placeholder="0,00"></span></div>
+       <div><label>Bedrag in euro's</label>
+         <input class="inp" id="vpB" type="text" inputmode="decimal"
+           value="${b.bedrag?komma(b.bedrag):''}" placeholder="0,00"></div>
        <div><label>Aantal stuks</label>
-         <span class="pveld breed"><input id="vpA" type="text" inputmode="decimal"
-           value="${b.aantal?komma(b.aantal):''}" placeholder="200"></span></div>
+         <input class="inp" id="vpA" type="text" inputmode="decimal"
+           value="${b.aantal?komma(b.aantal):''}" placeholder="200"></div>
      </div>
      <div class="puit" id="vpU"></div>`,
     `<button class="prim" style="margin-top:0" id="vpOk2">Opslaan</button>
