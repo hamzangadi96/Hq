@@ -2138,7 +2138,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v384 · 17 aug 2026';
+const APPVERSIE='v385 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11604,6 +11604,7 @@ function sheetInkoop(id){
 
   const lezen=()=>{
     b.datum=$('#ikD').value; b.lev=$('#ikL').value.trim();
+    if($('#ikG')) b.geleverd=chipV('#ikG')!=='nee';
     b.valuta=$('#ikV').value;
     b.vracht=$('#ikVr').value.trim(); b.betaald=$('#ikB').value.trim();
     b.regels=$$('#ikR .inkrij').map(el=>({
@@ -11660,6 +11661,16 @@ function sheetInkoop(id){
        <p class="hint" style="margin-top:-6px">Het bedrag dat van je rekening ging,
          inclusief betaalkosten. Daaruit volgt de koers.</p>
 
+       <div class="veld"><label>Is deze bestelling al binnen?</label>
+         <div class="duo" id="ikG">
+           <button data-v="ja"${b.geleverd!==false?' class="aan"':''}>Ja, ligt in huis</button>
+           <button data-v="nee"${b.geleverd===false?' class="aan"':''}>Nog onderweg</button>
+         </div>
+         <div class="hint" style="margin-top:8px">${b.geleverd!==false
+           ? 'De aantallen worden bij je voorraad opgeteld.'
+           : 'Alleen de prijzen worden vastgelegd; je voorraad blijft zoals hij is.'}</div>
+       </div>
+
        <div class="paneel" style="margin-top:8px">
          <div class="arij" style="cursor:default"><span class="naam">Goederen<small>${
            k.regels.length} ${k.regels.length===1?'regel':'regels'}</small></span>
@@ -11690,6 +11701,7 @@ function sheetInkoop(id){
 
     const hert=()=>{lezen();teken()};
     ['ikD','ikL','ikV','ikVr','ikB'].forEach(i=>{const e=$('#'+i); if(e) e.onchange=hert});
+    if($('#ikG')) chips('#ikG',false,()=>{ b.geleverd=chipV('#ikG')!=='nee'; teken() });
     $$('#ikR [data-ikn], #ikR [data-ikp]').forEach(e=>e.onchange=hert);
     $$('#ikR [data-ika]').forEach(knop=>knop.onclick=()=>{
       lezen();
@@ -11722,8 +11734,20 @@ function sheetInkoop(id){
         S.verpBron[gKey(r.artikel)]={bedrag:r.euro,aantal:r.aantal,datum:b.datum};
         zetArt(r.artikel,{prijs:r.perStuk});
       });
+      /* Ligt het in huis, dan hoort het ook in je voorraad te staan. Boek je
+         dezelfde bon nog eens op, dan zou je dubbel tellen; daarom onthouden
+         we of dit al gebeurd is. */
+      let geboekt=0;
+      if(b.geleverd!==false&&!b.voorraadGeboekt){
+        kk.regels.forEach(r=>{
+          gBoek(r.artikel,r.aantal,'st','Levering '+(b.lev||'inkoop'));
+          geboekt++;
+        });
+        b.voorraadGeboekt=true;
+      }
       bewaarNu(); sheetInkopen();
-      toast(kk.regels.length+' '+(kk.regels.length===1?'prijs':'prijzen')+' bijgewerkt.',herstel);
+      toast(kk.regels.length+' '+(kk.regels.length===1?'prijs':'prijzen')+' bijgewerkt'+
+        (geboekt?' \u00b7 voorraad bijgeboekt':'')+'.',herstel);
     };
     if($('#ikWis')) $('#ikWis').onclick=()=>{
       const herstel=terugpunt(['inkopen']);
@@ -11744,9 +11768,11 @@ function sheetInkopen(){
        <div class="paneel">${lijst.map(b=>{
          const k=inkoopReken(b);
          return `<button class="arij" data-ikb="${esc(b.id)}">
-           <span class="naam">${esc(b.lev||'Bestelling')}<small>${
-             kort(new Date(b.datum))} · ${k.regels.length} ${
-             k.regels.length===1?'regel':'regels'}</small></span>
+           <span class="naam">${esc(b.lev||'Bestelling')}<small>${[
+             kort(new Date(b.datum)),
+             k.regels.length+' '+(k.regels.length===1?'regel':'regels'),
+             b.geleverd===false?'nog onderweg':(b.voorraadGeboekt?'in voorraad':'')
+           ].filter(Boolean).join(' · ')}</small></span>
            <span class="waarde gevuld">${k.betaald?euro(k.betaald):'—'}</span>
            <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
     : `<div class="paneel"><div class="rustig">
