@@ -2033,7 +2033,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v355 · 17 aug 2026';
+const APPVERSIE='v357 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4169,7 +4169,8 @@ function dashboardHTML(){
     <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
     <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
     <button class="snelknop" data-uitlegopen>${svg(I.boek)}Hoe werkt het?</button>
-    <button class="snelknop" data-sheet="instellingen">${svg(I.instel)}Instellingen</button>
+    <button class="snelknop" data-sheet="instellingen">${svg(I.instel)}${
+      esc(bedrijf().naam||'Je bedrijf')}</button>
   </div>`;
   /* Een back-up die je één keer maakt en dan vergeet is over drie maanden
      waardeloos. Na twee maanden vraagt hij er zelf om, onderaan zodat het
@@ -18663,16 +18664,19 @@ function bedrijfKaartHtml(){
     <span class="bk-vak">${b.logo?`<img src="${esc(b.logo)}" alt="">`
       :`<b>${esc(bedrijfInitialen())}</b>`}</span>
     <span class="bk-in">
-      <span class="bk-naam">${esc(b.naam||'Nog geen bedrijfsnaam')}</span>
+      <span class="bk-naam">${b.naam?'Gegevens voor je facturen':'Vul je bedrijfsgegevens in'}</span>
       <small class="${mist.length?'let':''}">${mist.length
         ? 'Nog invullen: '+mist.join(', ')
-        : esc([b.adres,b.kvk?'KvK '+b.kvk:''].filter(Boolean).join(' · '))}</small>
+        : esc([b.adres,b.kvk?'KvK '+b.kvk:'',b.iban?'IBAN bekend':''].filter(Boolean).join(' · '))}</small>
     </span>
     <span class="bk-pijl">${svg(I.pijl,'2')}</span></button>`;
 }
 
 function sheetInstellingen(){
-  sheet('Instellingen',
+  /* Tik je op je eigen profiel, dan hoor je op jouw scherm te komen. "Instellingen"
+     als titel zette dat op zijn kop: dan valt je bedrijf onder een technische
+     categorie in plaats van andersom. */
+  sheet(bedrijf().naam||'Je bedrijf',
     /* Alleen waardes die je invult en laat staan. Wat je dóét hoort in het
        scherm waar dat werk plaatsvindt, niet hier.
 
@@ -18696,7 +18700,7 @@ function sheetInstellingen(){
        staan nu samen onderaan. */
     `${bedrijfKaartHtml()}
 
-     <div class="mkop">Je bedrijf</div>
+     <div class="mkop">Tarieven en regels</div>
      <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
 
