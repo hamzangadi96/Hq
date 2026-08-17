@@ -2117,7 +2117,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v370 · 17 aug 2026';
+const APPVERSIE='v371 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15708,6 +15708,17 @@ const gKey=p=>String(p||'').trim().toLowerCase();
 
 function grondVoorraad(){
   const map={};
+  /* Maak je een verpakkingsartikel aan zonder beginvoorraad, dan is er geen
+     mutatie en bestond het artikel nergens: je kon er dus ook geen prijs op
+     zetten. Alles wat je hebt aangemaakt hoort in je lijst te staan, ook met
+     nul op voorraad. */
+  Object.keys(S.artikelen||{}).forEach(k=>{
+    const a=S.artikelen[k];
+    if(!a||!a.naam) return;
+    const soort=a.soort||'ingredient';
+    map[k]={product:a.naam, basis:soort==='ingredient'||soort==='half'?'g':'st',
+      saldo:0, lots:{}};
+  });
   (S.gmut||[]).forEach(m=>{
     const k=gKey(m.product); if(!k) return;
     const soort=artSoort(m.product);
@@ -15739,7 +15750,10 @@ function art(product){
 function zetArt(product,d){
   const k=gKey(product); if(!k) return;
   S.artikelen=S.artikelen||{};
-  S.artikelen[k]=Object.assign({soort:'ingredient'},S.artikelen[k]||{},d);
+  /* de naam zoals jij hem schreef, zodat een artikel zonder voorraad ook
+     leesbaar in je lijst staat */
+  S.artikelen[k]=Object.assign({soort:'ingredient',naam:product},S.artikelen[k]||{},d,
+    {naam:product});
 }
 const artSoort=p=>art(p).soort||'ingredient';
 
