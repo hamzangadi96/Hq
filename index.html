@@ -2001,7 +2001,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v350 · 17 aug 2026';
+const APPVERSIE='v351 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2291,7 +2291,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'laatsteBackup',
+  'laatsteBackup','storingen',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -2623,6 +2623,37 @@ function fbGeweigerd(pad,fout){
   console.warn('Firebase weigerde '+pad+':',code);
   if(/permission|denied/i.test(String(code)))
     toast('Geen toegang tot "'+pad+'" \u2014 controleer je security rules in de Firebase-console.');
+}
+
+/* ═══════════ storingen zichtbaar maken ═══════════
+   Een fout in een klikafhandeling verdwijnt normaal in de console die je op een
+   telefoon niet ziet: de knop lijkt dan gewoon niet te werken. Dit vangt ze op
+   en zet ze in een lijst die je kunt openen en doorsturen. */
+S.storingen=S.storingen||[];
+function storingLog(waar,fout){
+  const t=String((fout&&(fout.message||fout))||'onbekend');
+  const regel={tijd:new Date().toISOString().slice(11,19), waar, fout:t,
+    versie:APPVERSIE, stapel:String((fout&&fout.stack)||'').split('\n')[1]||''};
+  S.storingen=(S.storingen||[]).concat([regel]).slice(-40);
+  try{ bewaarNu() }catch(e){}
+  console.error('['+waar+']',fout);
+  toast('Er ging iets mis bij "'+waar+'". Instellingen → Storingen.');
+}
+
+/* Elke klik loopt hierlangs; crasht er iets, dan zie je het. */
+window.addEventListener('error',e=>{
+  if(e&&e.message&&/ResizeObserver/.test(e.message)) return;
+  storingLog('de app', e.error||e.message);
+});
+window.addEventListener('unhandledrejection',e=>storingLog('een achtergrondtaak', e.reason));
+
+/* onclick-handlers vangen we apart af: die vallen buiten window.onerror
+   zodra ze in een eigen aanroep zitten. */
+function veilig(naam,fn){
+  return function(){
+    try{ return fn.apply(this,arguments) }
+    catch(e){ storingLog(naam,e) }
+  };
 }
 
 function fbConfig(){
@@ -11409,6 +11440,7 @@ function bind(){
     if(k==='ijking') return sheetIjking();
     if(k==='checks') return sheetChecks();
     if(k==='backup') return sheetBackup();
+    if(k==='storingen') return sheetStoringen();
   });
   $$('[data-bcorrectie]').forEach(x=>x.onclick=sheetBatchCorrectie);
   $$('[data-bnotitie]').forEach(x=>x.onclick=sheetNotitie);
@@ -11444,7 +11476,9 @@ function bind(){
     if(k==='traceer') return sheetTraceer('');
     if(k==='allerg') return sheetAllergenen();
     if(k==='backup') return sheetBackup();
+    if(k==='storingen') return sheetStoringen();
     if(k==='backup') return sheetBackup();
+    if(k==='storingen') return sheetStoringen();
     if(k==='ontvangst') return sheetOntvangst();
     if(k==='dagrapport') return sheetRapport('dag',null,vandaag());
     sheetControles(k==='klacht'?'klacht':k);
@@ -16989,13 +17023,14 @@ function sheetIngWizard(naam,stap){
 
   if(st.k==='prijs'||st.k==='link') ingVeldenBinden();
   if(st.k==='allerg'){
-    $$('#wzAl [data-al]').forEach(c=>c.onclick=()=>{
+    $$('#wzAl [data-al]').forEach(c=>c.onclick=veilig('allergeen aanvinken',()=>{
       const lijst=allergWissel(naam,c.dataset.al);
       c.classList.toggle('aan',lijst.includes(c.dataset.al));
-      $('#wzAlUit').textContent=lijst.length
+      const u=$('#wzAlUit');
+      if(u) u.textContent=lijst.length
         ? lijst.map(alNaam).join(', ')+' — komt vet op je etiket'
         : 'Niets aangevinkt.';
-    });
+    }));
   }
   const bewaarVoeding=()=>{
     if(st.k!=='voeding') return;
@@ -17008,8 +17043,8 @@ function sheetIngWizard(naam,stap){
     if(laatste){ sheetIngredient(naam,false,true); toast(naam+' staat erin.'); return }
     sheetIngWizard(naam,stap+1);
   };
-  $('#wzOk').onclick=door;
-  $('#wzOver').onclick=door;
+  $('#wzOk').onclick=veilig('volgende stap',door);
+  $('#wzOver').onclick=veilig('overslaan',door);
 }
 
 /* Eén ingrediënt, alles bij elkaar. */
@@ -18344,6 +18379,32 @@ function backupTekst(t){
   }).join(' \u00b7 ')||'leeg';
 }
 
+function sheetStoringen(){
+  const lijst=(S.storingen||[]).slice().reverse();
+  const tekst=lijst.map(x=>x.tijd+' · '+x.waar+' · '+x.fout+
+    (x.stapel?' · '+x.stapel.trim():'')+' · '+x.versie).join('\n');
+  sheet('Storingen',
+    lijst.length
+      ? `<p class="hint">Wat er misging terwijl je aan het werk was. Stuur deze
+          lijst door als iets niet werkt zoals het hoort.</p>
+         <div class="paneel">${lijst.map(x=>`<div class="arij" style="cursor:default">
+           <span class="naam">${esc(x.waar)}<small>${esc(x.tijd)} · ${esc(x.fout)}</small></span>
+           <span class="waarde">${esc(x.versie.split(' ')[0])}</span></div>`).join('')}</div>`
+      : `<div class="paneel"><div class="rustig">
+          <div class="ico">${svg(I.vink,'2.2')}</div>
+          <p><b>Geen storingen.</b><br>Alles wat je deed is goed gegaan.</p></div></div>`,
+    lijst.length
+      ? `<button class="prim" style="margin-top:0" id="stKopie">Lijst kopiëren</button>
+         <button class="sec" id="stWis">Lijst wissen</button>`
+      : `<button class="prim" style="margin-top:0" id="stOk">Klaar</button>`);
+  if($('#stKopie')) $('#stKopie').onclick=()=>{
+    try{ navigator.clipboard.writeText(tekst); toast('Gekopieerd \u2014 plak het in de chat.') }
+    catch(e){ toast('Kopiëren lukte niet.') }
+  };
+  if($('#stWis')) $('#stWis').onclick=()=>{ S.storingen=[]; bewaarNu(); sheetStoringen() };
+  if($('#stOk')) $('#stOk').onclick=sheetInstellingen;
+}
+
 function sheetBackup(){
   const laatste=S.laatsteBackup||null;
   const dagen=laatste?dagenTussen(laatste,vandaag()):null;
@@ -18501,6 +18562,8 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
        accentNaam()}</span></button>
 
+     <button class="menurij" data-ins="storingen">${svg(I.alarm)}Storingen<span class="tel${
+       (S.storingen||[]).length?' let':''}">${(S.storingen||[]).length||'geen'}</span></button>
      <button class="menurij" data-ins="backup">${svg(I.doc)}Back-up<span class="tel${
        (()=>{const l=S.laatsteBackup; if(!l) return ' let';
              return dagenTussen(l,vandaag())>30?' let':''})()}">${
@@ -18563,7 +18626,9 @@ function sheetInstellingen(){
     if(k==='lots') return sheetLots();
     if(k==='allerg') return sheetAllergenen();
     if(k==='backup') return sheetBackup();
+    if(k==='storingen') return sheetStoringen();
     if(k==='backup') return sheetBackup();
+    if(k==='storingen') return sheetStoringen();
     sheetLijst(k);
   });
 }
