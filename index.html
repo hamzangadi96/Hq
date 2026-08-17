@@ -125,7 +125,7 @@ header.gecentreerd .onder{display:block;font-size:12.5px;color:var(--grijs);
   margin-top:1px;font-weight:500;letter-spacing:-.005em}
 header.gecentreerd h1{font-size:17px;font-weight:600;letter-spacing:-.02em}
 header.gecentreerd .hbtn.terug{display:none}
-header.gecentreerd .hbtn.instel{grid-row:1;justify-self:end}
+header.gecentreerd .hbtn.instel{grid-column:1;grid-row:1;justify-self:start}
 
 .merk{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600;
   letter-spacing:.16em;line-height:1;color:var(--ink);padding-left:.16em;
@@ -200,7 +200,7 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
 .hbtn svg{width:18px;height:18px}
 .hbtn.terug{margin-left:-8px}
 .hbtn.menu{margin-right:-8px}
-.hbtn.instel{margin-right:-6px}
+.hbtn.instel{margin-left:-2px}
 
 main{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   padding:calc(var(--kopHoogte) + 12px) 20px 32px;-webkit-overflow-scrolling:touch}
@@ -649,6 +649,8 @@ header.zoekt .vlak h1,
 header.zoekt .vlak .onder,
 header.zoekt .hbtn.zoek,
 header.zoekt .hbtn.instel,
+header.zoekt .hbtn.app,
+header.zoekt .kopacties,
 header.zoekt .hbtn.menu{opacity:0!important;pointer-events:none;
   transition:opacity .16s}
 /* De balk schuift van de zoekknop naar rechts open, als een lade.
@@ -697,8 +699,7 @@ header .hbtn:active{background:var(--bg)}
 /* Drie kolommen werd te krap voor twee knoppen rechts: die kwamen in
    dezelfde cel terecht en lagen boven op elkaar. Nu een eigen kolom. */
 header.gecentreerd{grid-template-columns:36px 1fr 36px;gap:8px}
-header.gecentreerd .hbtn.instel{grid-column:3;grid-row:1}
-header.gecentreerd .hbtn.zoek{grid-column:1;grid-row:1;display:grid}
+header.gecentreerd .hbtn.zoek{grid-column:3;grid-row:1;display:grid}
 /* alleen op het dashboard is de kop een raster; elders hoort de balk er niet */
 header:not(.gecentreerd) .zoekbalk{display:none}
 header .hbtn.zoek{display:none}
@@ -1308,6 +1309,13 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
 /* je bedrijf in de kop */
+/* De kop is op het dashboard een raster met drie vaste plekken. Een losse
+   tweede knop viel daardoor in de volgende rij, onder de loep. Nu staan ze
+   samen in één plek. */
+.kopacties{display:flex;align-items:center;gap:8px;flex:none}
+header.gecentreerd .kopacties{grid-column:3;grid-row:1;justify-self:end}
+header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opacity .16s}
+.hbtn.app{color:var(--grijs)}
 .hbtn.profiel{display:flex;align-items:center;justify-content:center;
   width:38px;height:38px;border-radius:50%;overflow:hidden;
   background:var(--accent);color:var(--accentTekst);
@@ -1919,7 +1927,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 <div class="app">
   <header>
     <button class="hbtn terug" id="btnTerug" aria-label="Terug" style="display:none"></button>
-    <button class="hbtn zoek" id="btnZoek" aria-label="Zoeken"></button>
+    <button class="hbtn instel" id="btnInstel" aria-label="Je bedrijf"></button>
     <div class="zoekbalk" id="zoekbalk">
       <label class="veldje"><span id="zbIco"></span>
         <input id="zbQ" placeholder="Smaak, batch, lot, klant of grondstof"
@@ -1928,7 +1936,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
     </div>
     <div class="vlak"><h1 id="kopTitel"></h1><div class="onder" id="kopOnder"></div>
       <div class="kpi" id="kopKpi"></div></div>
-    <button class="hbtn instel" id="btnInstel" aria-label="App en opslag"></button>
+    <div class="kopacties">
+      <button class="hbtn zoek" id="btnZoek" aria-label="Zoeken"></button>
+      <button class="hbtn app" id="btnApp" aria-label="De app"></button>
+    </div>
 
   </header>
   <main id="scherm"></main>
@@ -2033,7 +2044,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v357 · 17 aug 2026';
+const APPVERSIE='v361 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11558,6 +11569,10 @@ function profielKnopTeken(){
 }
 profielKnopTeken();
 $('#btnInstel').onclick=()=>sheetMenu();
+/* Je bedrijf en de app zijn twee dingen. Het rondje is van jou, het tandwiel
+   gaat over de app: hoe hij eruitziet, wat er misging, en je back-up. */
+$('#btnApp').innerHTML=svg(I.instel);
+$('#btnApp').onclick=()=>sheetApp();
 /* Zat aan een knop in de kop, maar alles daarin stond al onderin bij Meer.
    Nu een functie, bereikbaar via "App & opslag". */
 /* Het tandwiel opende een tussenscherm met de titel "Menu" waarin
@@ -18672,6 +18687,39 @@ function bedrijfKaartHtml(){
     <span class="bk-pijl">${svg(I.pijl,'2')}</span></button>`;
 }
 
+function sheetApp(){
+  sheet('De app',
+    `<button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
+       accentNaam()}</span></button>
+     <button class="menurij" data-ins="storingen">${svg(I.alarm)}Storingen<span class="tel${
+       (S.storingen||[]).length?' let':''}">${(S.storingen||[]).length||'geen'}</span></button>
+     <button class="menurij" data-ins="backup">${svg(I.doc)}Back-up<span class="tel${
+       (()=>{const l=S.laatsteBackup; if(!l) return ' let';
+             return dagenTussen(l,vandaag())>30?' let':''})()}">${
+       (()=>{const l=S.laatsteBackup;
+             if(!l) return 'nog nooit';
+             const d=dagenTussen(l,vandaag());
+             return d===0?'vandaag':d===1?'gisteren':d+' dagen geleden'})()}</span></button>
+     ${isBeheerder()?`<button class="menurij" data-ins="beheer">${svg(I.instel)}Beheer<span class="tel">${
+       (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
+     <button class="menurij" id="mVers2" style="color:var(--grijs2)">${svg(I.ververs)}
+       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>
+
+     <div class="mkop">Je bedrijf</div>
+     <button class="menurij" data-appnaar="bedrijf">${svg(I.doc)}${
+       esc(bedrijf().naam||'Je bedrijf')}<span class="tel">instellingen</span></button>`,'');
+  $$('#sheetBody [data-appnaar]').forEach(b=>b.onclick=sheetInstellingen);
+  $$('#sheetBody [data-ins]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.ins;
+    if(k==='accent')    return sheetAccent();
+    if(k==='storingen') return sheetStoringen();
+    if(k==='backup')    return sheetBackup();
+    if(k==='beheer')    return sheetBeheer();
+  });
+  const vv=$('#mVers2');
+  if(vv) vv.onclick=()=>location.replace(location.pathname+'?v='+Date.now());
+}
+
 function sheetInstellingen(){
   /* Tik je op je eigen profiel, dan hoor je op jouw scherm te komen. "Instellingen"
      als titel zette dat op zijn kop: dan valt je bedrijf onder een technische
@@ -18736,24 +18784,7 @@ function sheetInstellingen(){
      <button class="menurij" data-ins="plekken">${svg(I.huis)}Vaste plekken<span class="tel">${
        (S.plekken||[]).length||'geen'}</span></button>
 
-     <div class="mkop">De app zelf</div>
-     <button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
-       accentNaam()}</span></button>
-
-     <button class="menurij" data-ins="storingen">${svg(I.alarm)}Storingen<span class="tel${
-       (S.storingen||[]).length?' let':''}">${(S.storingen||[]).length||'geen'}</span></button>
-     <button class="menurij" data-ins="backup">${svg(I.doc)}Back-up<span class="tel${
-       (()=>{const l=S.laatsteBackup; if(!l) return ' let';
-             return dagenTussen(l,vandaag())>30?' let':''})()}">${
-       (()=>{const l=S.laatsteBackup;
-             if(!l) return 'nog nooit';
-             const d=dagenTussen(l,vandaag());
-             return d===0?'vandaag':d===1?'gisteren':d+' dagen geleden'})()}</span></button>
-
-     ${isBeheerder()?`<button class="menurij" data-ins="beheer">${svg(I.instel)}Beheer<span class="tel">${
-       (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
-     <button class="menurij" id="mVers" style="color:var(--grijs2)">${svg(I.ververs)}
-       Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>`,'');
+`,'');
 
   /* Deze zaten in een tussenscherm dat "Menu" heette terwijl je op een tandwiel
      drukte. Nu staan ze hier, en opent het tandwiel meteen dit scherm. */
@@ -18778,6 +18809,10 @@ function sheetInstellingen(){
     location.replace(location.pathname+'?v='+Date.now());
   };
 
+  $$('#sheetBody [data-appnaar]').forEach(b=>b.onclick=()=>{
+    if(b.dataset.appnaar==='app') return sheetApp();
+    sheetInstellingen();
+  });
   $$('[data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null; dicht(); render(); $('#scherm').scrollTop=0;
   });
