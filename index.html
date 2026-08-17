@@ -1628,10 +1628,15 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .toast .tterug{flex:none;background:#fff;color:var(--ink);border:none;border-radius:11px;
   padding:9px 13px;font-size:13.5px;font-weight:600;letter-spacing:-.015em}
 .toast .tterug:active{background:#e4e4e7}
-.toast{position:absolute;left:20px;right:20px;bottom:88px;z-index:80;background:var(--ink);color:#fff;
+/* Onderaan lag de melding altijd in de buurt van je knoppen — met een scherm
+   open zelfs eroverheen. Bovenaan is er ruimte, want daar staat alleen je
+   titel. Hij zakt van boven binnen. */
+.toast{position:absolute;left:20px;right:20px;
+  top:calc(var(--veiligBoven) + 12px);z-index:80;background:var(--ink);color:#fff;
   border-radius:14px;padding:16px 16px;font-size:14px;font-weight:450;line-height:1.4;
-  opacity:0;transform:translateY(8px);pointer-events:none;transition:all .25s}
-.toast.open{opacity:1;transform:translateY(0)}
+  box-shadow:0 8px 24px rgba(24,24,27,.22);
+  opacity:0;transform:translateY(-10px);pointer-events:none;transition:all .25s}
+.toast.open{opacity:1;transform:translateY(0);pointer-events:auto}
 .tijdbalk{display:flex;align-items:center;gap:12px;width:100%;background:var(--ink);color:#fff;
   border-radius:18px;padding:12px 16px;margin-bottom:16px;text-align:left}
 .tijdbalk.uit{background:transparent;color:var(--grijs);border:1px dashed #dcdce0;
@@ -2133,7 +2138,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v383 · 17 aug 2026';
+const APPVERSIE='v384 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12978,20 +12983,9 @@ document.addEventListener('keydown',e=>{
   if(sheetOpen) dicht();
 });
 let tt;
-/* De melding stond op een vaste hoogte boven de tabbalk. Is er een scherm open
-   met knoppen onderin, dan lag hij daar precies overheen: je kon niet verder
-   tot hij vanzelf wegging. */
-function toastPlaats(t){
-  const sheet=document.querySelector('#sheet.open');
-  const voet=sheet?document.getElementById('sheetVoet'):null;
-  const h=(voet&&voet.offsetHeight)?voet.offsetHeight:0;
-  t.style.bottom=(sheet?(h+18):88)+'px';
-}
-
 function toast(m,terug){
   const t=$('#toast');
   clearTimeout(tt);
-  toastPlaats(t);
   /* tikken op de melding zelf laat hem verdwijnen, zodat je niet hoeft te
      wachten tot hij vanzelf weggaat */
   t.onclick=e=>{
