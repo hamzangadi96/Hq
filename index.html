@@ -1313,7 +1313,11 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 /* een regel op een inkoopbon */
 .inkrij{display:grid;grid-template-columns:1fr 72px 82px 34px;gap:6px;
   align-items:center;margin-bottom:8px}
-.inkrij select,.inkrij input{height:46px;background:var(--bg);border-radius:12px;
+.inkrij .ika.kies{display:flex;align-items:center;text-align:left;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.inkrij .ika.kies.leeg{color:var(--grijs3);font-weight:400}
+.inkrij .ika.kies:active{background:#ececee}
+.inkrij select,.inkrij .ika,.inkrij input{height:46px;background:var(--bg);border-radius:12px;
   padding:0 10px;font-size:14px;min-width:0;width:100%;box-sizing:border-box;
   border:none;outline:none;-webkit-appearance:none;appearance:none;
   font-weight:500;color:var(--ink)}
@@ -2129,7 +2133,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v380 · 17 aug 2026';
+const APPVERSIE='v382 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2841,6 +2845,14 @@ async function laden(){
   if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; bewaarNu(); }
   /* De app hield bij wanneer je naast Cacaoboetiek werkte. Die functie is eruit,
      dus horen de gegevens er ook niet meer te staan — ook niet in Firebase. */
+  /* namen aanvullen bij artikelen die er nog geen hadden */
+  (()=>{let n=0;
+    Object.keys(S.artikelen||{}).forEach(k=>{
+      const a=S.artikelen[k];
+      if(a&&!a.naam){ a.naam=k; n++ }
+    });
+    if(n) bewaarNu();
+  })();
   if(S.werkweek||S.werkafwijk||S.werkGezet3!==undefined){
     delete S.werkweek; delete S.werkafwijk; delete S.werkGezet3;
     bewaarNu();
@@ -11535,6 +11547,48 @@ function inkoopReken(b){
     totaalVreemd, compleet: koers!==null&&uit.length>0};
 }
 
+/* Je hebt een factuur voor je en wilt hem overnemen. Dan moet je een onderdeel
+   dat er nog niet is ter plekke kunnen aanmaken — net als bij je ingrediënten.
+   Anders moet je halverwege stoppen, elders iets aanmaken en terugkomen. */
+function sheetVerpKiezen(huidig, klaar){
+  let zoek='';
+  const teken=()=>{
+    const alle=verpakkingsArtikelen();
+    const q=zoek.trim().toLowerCase();
+    const lijst=q?alle.filter(n=>n.toLowerCase().includes(q)):alle;
+    const nieuw=zoek.trim()&&!alle.some(n=>n.toLowerCase()===q);
+
+    sheet('Welk onderdeel?',
+      `<div class="veld" style="margin-bottom:10px">
+         <input class="inp" id="vkZ" placeholder="Zoeken of een nieuwe naam typen"
+           autocomplete="off" value="${esc(zoek)}"></div>
+       ${nieuw?`<button class="toevoeg" id="vkNieuw" style="margin-bottom:12px">${svg(I.plus)}
+         "${esc(zoek.trim())}" toevoegen aan je verpakking</button>`:''}
+       ${lijst.length?`<div class="paneel">${lijst.map(n=>{
+          const pr=verpPrijs(n);
+          return `<button class="arij${n===huidig?' aan':''}" data-vk="${esc(n)}">
+            <span class="naam">${esc(n)}<small>${pr===null?'geen prijs':euro(pr)+' per stuk'}</small></span>
+            ${n===huidig?`<span class="waarde gevuld">${svg(I.vink,'2.4')}</span>`:''}
+          </button>`}).join('')}</div>`
+        :`<div class="paneel"><div class="geen" style="padding:18px">${
+            zoek.trim()?'Niets gevonden. Typ de naam en voeg hem toe.'
+                       :'Je hebt nog geen verpakking.'}</div></div>`}`,
+      `<button class="sec" style="margin-top:0" id="vkAf">Annuleren</button>`);
+
+    const z=$('#vkZ');
+    if(z) z.oninput=()=>{ zoek=z.value; const c=z.selectionStart; teken();
+      const n2=$('#vkZ'); if(n2){ n2.focus(); n2.setSelectionRange(c,c) } };
+    if($('#vkNieuw')) $('#vkNieuw').onclick=()=>{
+      const n=zoek.trim();
+      zetArt(n,{soort:'verpakking'}); bewaarNu();
+      klaar(n); toast(n+' staat nu in je verpakking.');
+    };
+    $$('#sheetBody [data-vk]').forEach(b=>b.onclick=()=>klaar(b.dataset.vk));
+    $('#vkAf').onclick=()=>klaar(null);
+  };
+  teken();
+}
+
 function sheetInkoop(id){
   const nieuw=!id;
   const b=nieuw
@@ -11548,7 +11602,7 @@ function sheetInkoop(id){
     b.valuta=$('#ikV').value;
     b.vracht=$('#ikVr').value.trim(); b.betaald=$('#ikB').value.trim();
     b.regels=$$('#ikR .inkrij').map(el=>({
-      artikel:el.querySelector('[data-ika]').value,
+      artikel:(el.querySelector('[data-ika]').dataset.naam||'').trim(),
       aantal:el.querySelector('[data-ikn]').value.trim(),
       prijs:el.querySelector('[data-ikp]').value.trim()
     }));
@@ -11578,11 +11632,9 @@ function sheetInkoop(id){
        <div class="veld"><label>Wat staat er op de bon?</label>
          <div id="ikR">${(b.regels.length?b.regels:[{artikel:'',aantal:'',prijs:''}])
            .map(r=>`<div class="inkrij">
-             <select class="ika" data-ika>
-               <option value="">Kies een onderdeel</option>
-               ${arts.map(a=>`<option value="${esc(a)}"${a===r.artikel?' selected':''}>${
-                 esc(a)}</option>`).join('')}
-             </select>
+             <button class="ika kies${r.artikel?'':' leeg'}" data-ika
+               data-naam="${esc(r.artikel||'')}">${
+               r.artikel?esc(r.artikel):'Kies of typ'}</button>
              <input class="ikn" data-ikn type="text" inputmode="decimal"
                value="${esc(r.aantal)}" placeholder="aantal">
              <input class="ikp" data-ikp type="text" inputmode="decimal"
@@ -11633,7 +11685,15 @@ function sheetInkoop(id){
 
     const hert=()=>{lezen();teken()};
     ['ikD','ikL','ikV','ikVr','ikB'].forEach(i=>{const e=$('#'+i); if(e) e.onchange=hert});
-    $$('#ikR [data-ika], #ikR [data-ikn], #ikR [data-ikp]').forEach(e=>e.onchange=hert);
+    $$('#ikR [data-ikn], #ikR [data-ikp]').forEach(e=>e.onchange=hert);
+    $$('#ikR [data-ika]').forEach(knop=>knop.onclick=()=>{
+      lezen();
+      const i=[...$$('#ikR .inkrij')].indexOf(knop.parentElement);
+      sheetVerpKiezen(knop.dataset.naam||'', gekozen=>{
+        if(gekozen&&b.regels[i]) b.regels[i].artikel=gekozen;
+        teken();
+      });
+    });
     $$('#ikR [data-ikw]').forEach(w=>w.onclick=()=>{
       lezen();
       const i=[...$$('#ikR .inkrij')].indexOf(w.parentElement);
@@ -16243,9 +16303,13 @@ function grondVoorraad(){
      nul op voorraad. */
   Object.keys(S.artikelen||{}).forEach(k=>{
     const a=S.artikelen[k];
-    if(!a||!a.naam) return;
+    if(!a) return;
+    /* Artikelen van vóór v371 hebben geen naam opgeslagen, alleen een sleutel.
+       Die overslaan betekende dat ze uit je lijst verdwenen terwijl ze er wel
+       waren. De sleutel is dan de beste naam die we hebben. */
+    const naam=a.naam||k;
     const soort=a.soort||'ingredient';
-    map[k]={product:a.naam, basis:soort==='ingredient'||soort==='half'?'g':'st',
+    map[k]={product:naam, basis:soort==='ingredient'||soort==='half'?'g':'st',
       saldo:0, lots:{}};
   });
   (S.gmut||[]).forEach(m=>{
