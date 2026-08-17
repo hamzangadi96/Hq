@@ -1310,6 +1310,19 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* een rij in het kiesscherm: kiezen links, hernoemen rechts */
+.kiesrij{display:flex;align-items:stretch;border-bottom:1px solid var(--lijn)}
+.kiesrij:last-child{border-bottom:none}
+.kiesrij.aan{background:var(--bg)}
+.kiesrij .kk{flex:1;min-width:0;display:flex;align-items:center;gap:12px;
+  padding:15px 4px 15px 18px;text-align:left}
+.kiesrij .naam{flex:1;min-width:0;font-size:15px;font-weight:500;letter-spacing:-.015em}
+.kiesrij .naam small{display:block;font-size:11px;font-weight:600;color:var(--grijs3);
+  margin-top:4px;letter-spacing:.03em;text-transform:uppercase}
+.kiesrij .kpen{flex:none;width:52px;display:grid;place-items:center;color:var(--grijs2)}
+.kiesrij .kpen svg{width:17px;height:17px}
+.kiesrij .kpen:active{background:#ececee}
+
 /* een regel op een inkoopbon */
 .inkrij{display:grid;grid-template-columns:1fr 72px 82px 34px;gap:6px;
   align-items:center;margin-bottom:8px}
@@ -2134,11 +2147,12 @@ const I={
   spark:'<path d="M12 3l1.7 4.6L18.3 9.3 13.7 11l-1.7 4.6L10.3 11 5.7 9.3l4.6-1.7z"/><path d="M18 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
   vracht:'<path d="M3 6h11v9H3z"/><path d="M14 9h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/>',
   doc:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  potlood:`<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>`,
   instel:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>'
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v390 · 17 aug 2026';
+const APPVERSIE='v391 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11573,10 +11587,14 @@ function sheetVerpKiezen(huidig, klaar){
          "${esc(zoek.trim())}" toevoegen aan je verpakking</button>`:''}
        ${lijst.length?`<div class="paneel">${lijst.map(n=>{
           const pr=verpPrijs(n);
-          return `<button class="arij${n===huidig?' aan':''}" data-vk="${esc(n)}">
-            <span class="naam">${esc(n)}<small>${pr===null?'geen prijs':euro(pr)+' per stuk'}</small></span>
-            ${n===huidig?`<span class="waarde gevuld">${svg(I.vink,'2.4')}</span>`:''}
-          </button>`}).join('')}</div>`
+          return `<div class="kiesrij${n===huidig?' aan':''}">
+            <button class="kk" data-vk="${esc(n)}">
+              <span class="naam">${esc(n)}<small>${pr===null?'geen prijs':euro(pr)+' per stuk'}</small></span>
+              ${n===huidig?`<span class="waarde gevuld">${svg(I.vink,'2.4')}</span>`:''}
+            </button>
+            <button class="kpen" data-vkpen="${esc(n)}" aria-label="Naam aanpassen">${
+              svg(I.potlood,'1.9')}</button>
+          </div>`}).join('')}</div>`
         :`<div class="paneel"><div class="rustig" style="padding:26px 20px">
             <div class="ico">${svg(I.doos,'2')}</div>
             <p>${zoek.trim()
@@ -11597,6 +11615,29 @@ function sheetVerpKiezen(huidig, klaar){
       klaar(n); toast(n+' staat nu in je verpakking.');
     };
     $$('#sheetBody [data-vk]').forEach(b=>b.onclick=()=>klaar(b.dataset.vk));
+    $$('#sheetBody [data-vkpen]').forEach(b=>b.onclick=()=>{
+      const oud=b.dataset.vkpen;
+      sheet('Naam aanpassen',
+        `<div class="veld"><label>Nieuwe naam</label>
+           <input class="inp" id="vkrN" value="${esc(oud)}" autocomplete="off"></div>
+         <p class="hint">De naam verandert overal: in je voorraad, je bestellingen
+           en de dozen waar dit onderdeel in zit.</p>`,
+        `<button class="prim" style="margin-top:0" id="vkrOk">Opslaan</button>
+         <button class="sec" id="vkrAf">Terug</button>`);
+      setTimeout(()=>{const e=$('#vkrN'); if(e){e.focus();e.select()}},140);
+      $('#vkrOk').onclick=()=>{
+        const nieuw=$('#vkrN').value.trim();
+        if(!nieuw) return toast('Vul een naam in.');
+        const r=verpHernoem(oud,nieuw);
+        if(r==='bestaat') return toast(nieuw+' bestaat al.');
+        if(r===false) return teken();
+        /* stond dit onderdeel op de regel die je aan het kiezen bent, dan
+           moet die naam meelopen */
+        if(huidig===oud) huidig=nieuw;
+        teken(); render(); toast('Heet nu '+nieuw+'.');
+      };
+      $('#vkrAf').onclick=teken;
+    });
     $('#vkPlus').onclick=()=>{
       sheet('Nieuw onderdeel',
         `<div class="veld"><label>Hoe noem je het?</label>
