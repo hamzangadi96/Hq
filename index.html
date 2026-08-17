@@ -2138,7 +2138,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v389 · 17 aug 2026';
+const APPVERSIE='v390 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11580,17 +11580,16 @@ function sheetVerpKiezen(huidig, klaar){
         :`<div class="paneel"><div class="rustig" style="padding:26px 20px">
             <div class="ico">${svg(I.doos,'2')}</div>
             <p>${zoek.trim()
-              ? '<b>Niets gevonden.</b><br>Tik op de knop hierboven om '+esc(zoek.trim())+' aan te maken.'
-              : '<b>Nog geen verpakking.</b><br>Typ hierboven een naam — bijvoorbeeld Doos 16 of Inlegvel — en je maakt hem meteen aan.'}</p>
+              ? '<b>Niets gevonden.</b><br>Voeg '+esc(zoek.trim())+' toe met de knop onderaan.'
+              : '<b>Nog geen verpakking.</b><br>Voeg je eerste onderdeel toe met de knop onderaan.'}</p>
           </div></div>`}`,
-      `<button class="sec" style="margin-top:0" id="vkAf">Annuleren</button>`);
+      `<button class="prim" style="margin-top:0" id="vkPlus">${svg(I.plus)}&nbsp;Nieuw onderdeel</button>
+       <button class="sec" id="vkAf">Annuleren</button>`);
 
     const z=$('#vkZ');
     if(z){
       z.oninput=()=>{ zoek=z.value; const c=z.selectionStart; teken();
         const n2=$('#vkZ'); if(n2){ n2.focus(); n2.setSelectionRange(c,c) } };
-      /* heb je nog niets, dan is typen het enige wat je kunt doen */
-      if(!alle.length&&!zoek) setTimeout(()=>{const e=$('#vkZ'); if(e) e.focus()},140);
     }
     if($('#vkNieuw')) $('#vkNieuw').onclick=()=>{
       const n=zoek.trim();
@@ -11598,6 +11597,24 @@ function sheetVerpKiezen(huidig, klaar){
       klaar(n); toast(n+' staat nu in je verpakking.');
     };
     $$('#sheetBody [data-vk]').forEach(b=>b.onclick=()=>klaar(b.dataset.vk));
+    $('#vkPlus').onclick=()=>{
+      sheet('Nieuw onderdeel',
+        `<div class="veld"><label>Hoe noem je het?</label>
+           <input class="inp" id="vnpN" value="${esc(zoek.trim())}"
+             placeholder="Bijv. Doos 16 bordeaux" autocomplete="off"></div>`,
+        `<button class="prim" style="margin-top:0" id="vnpOk">Toevoegen</button>
+         <button class="sec" id="vnpAf">Terug</button>`);
+      setTimeout(()=>{const e=$('#vnpN'); if(e){e.focus();e.select()}},140);
+      $('#vnpOk').onclick=()=>{
+        const n=$('#vnpN').value.trim();
+        if(!n) return toast('Vul een naam in.');
+        if(verpakkingsArtikelen().some(x=>gKey(x)===gKey(n)))
+          return toast(n+' staat er al.');
+        zetArt(n,{soort:'verpakking'}); bewaarNu();
+        klaar(n); toast(n+' toegevoegd.');
+      };
+      $('#vnpAf').onclick=teken;
+    };
     $('#vkAf').onclick=()=>klaar(null);
   };
   teken();
