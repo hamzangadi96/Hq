@@ -1307,6 +1307,14 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* kiezen om te archiveren */
+.ingrij2.kies .vink{flex:none;width:22px;height:22px;border-radius:7px;
+  border:1.5px solid var(--lijn);display:flex;align-items:center;justify-content:center;
+  margin-right:2px;color:#fff}
+.ingrij2.kies .vink svg{width:13px;height:13px}
+.ingrij2.kies.aan .vink{background:var(--accent);border-color:var(--accent)}
+.ingrij2.kies.aan{background:var(--bg)}
+
 /* ── ingrediëntenlijst ── */
 .ingtop{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
   padding-bottom:14px}
@@ -2001,7 +2009,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v351 · 17 aug 2026';
+const APPVERSIE='v352 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16519,6 +16527,11 @@ function ingNieuwBinden(na){
   $('#inNm').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); doe() } };
 }
 
+/* Seizoensingrediënten archiveer je met een handvol tegelijk — kersen, aardbei
+   en ananas gaan in november samen de kast in. Eén voor één door het detail
+   is dan zes tikken per ingrediënt. */
+let ingKeuze = null;   /* null = gewone lijst, anders een Set met namen */
+
 function sheetIngredientenLijst(alleenMissend){
   S.allerg=S.allerg||{};
   const namen=alleIngredienten();
@@ -16548,6 +16561,15 @@ function sheetIngredientenLijst(alleenMissend){
       x.allerg.length?x.allerg.map(alNaam).join(', '):'',
       x.delen.length?x.delen.length+' onderdelen':''
     ].filter(Boolean).join(' · ');
+    if(ingKeuze){
+      const aan=ingKeuze.has(x.naam);
+      return `<button class="ingrij2 kies${aan?' aan':''}" data-kies="${esc(x.naam)}">
+        <span class="vink">${aan?svg(I.vink,'2.6'):''}</span>
+        <span class="in">
+          <span class="nm">${esc(x.naam)}</span>
+          ${onder?`<small>${esc(onder)}</small>`:''}
+        </span></button>`;
+    }
     return `<button class="ingrij2${x.mist?' mist':''}" data-ing="${esc(x.naam)}">
     <span class="in">
       <span class="nm">${esc(x.naam)}</span>
@@ -16557,6 +16579,34 @@ function sheetIngredientenLijst(alleenMissend){
       :euro(x.prijs)+'<em>/kg</em>'+(prijsVerouderd(x.naam)?'<i class="poud">oud</i>':'')}</span>
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
   };
+
+  if(ingKeuze){
+    const gekozen=[...ingKeuze];
+    sheet('Kiezen om te archiveren',
+      `<p class="hint">Tik de ingrediënten aan die je een tijdje niet gebruikt.
+        Ze verdwijnen uit je lijst en uit de suggesties, maar prijs, allergenen
+        en voedingswaarde blijven bewaard.</p>
+       <div class="paneel">${lijst.map(rij).join('')}</div>`,
+      `<button class="prim" style="margin-top:0" id="ilKA"${gekozen.length?'':' disabled'}>${
+         gekozen.length? 'Archiveer '+gekozen.length+' '+(gekozen.length===1?'ingrediënt':'ingrediënten')
+                       : 'Kies er minstens één'}</button>
+       <button class="sec" id="ilKS">Annuleren</button>`);
+    $$('#sheetBody [data-kies]').forEach(b=>b.onclick=()=>{
+      const n=b.dataset.kies;
+      ingKeuze.has(n)?ingKeuze.delete(n):ingKeuze.add(n);
+      sheetIngredientenLijst(alleenMissend);
+    });
+    $('#ilKS').onclick=()=>{ ingKeuze=null; sheetIngredientenLijst(alleenMissend) };
+    $('#ilKA').onclick=()=>{
+      if(!gekozen.length) return;
+      const herstel=terugpunt(['ingArchief']);
+      gekozen.forEach(n=>ingArchiveer(n,true));
+      ingKeuze=null;
+      sheetIngredientenLijst(alleenMissend);
+      toast(gekozen.length+' '+(gekozen.length===1?'ingrediënt':'ingrediënten')+' gearchiveerd.',herstel);
+    };
+    return;
+  }
 
   sheet('Ingrediënten',
     `<div class="ingtop">
@@ -16577,13 +16627,17 @@ function sheetIngredientenLijst(alleenMissend){
      <div class="paneel" id="ilL">${lijst.map(rij).join('')}</div>
      <button class="toevoeg" id="ilN">${svg(I.plus)}Ingrediënt toevoegen</button>
      ${ingNieuwHtml()}
+     ${alles.length>1?`<button class="toevoeg" id="ilKies" style="margin-top:8px">${
+       svg(I.doos)}Meerdere archiveren</button>`:''}
      ${archief.length?`<button class="klapkop" id="ilArK">${svg(I.pijl,'2')}
        Archief (${archief.length})</button>
        <div class="klapin" id="ilAr"><div class="paneel">${archief.map(n=>
          `<button class="ingrij2" data-ing="${esc(n)}">
            <span class="in"><span class="nm">${esc(n)}</span>
              <small>gearchiveerd</small></span>
-           <span class="p">${svg(I.pijl,'2')}</span></button>`).join('')}</div></div>`:''}
+           <span class="p">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
+         <button class="toevoeg" id="ilAlles" style="margin-top:8px">${svg(I.ververs)}
+           Alles terughalen</button></div>`:''}
      ${lijst.length?'':`<div class="geen">Alles ingevuld.</div>`}
      <p class="hint" style="margin-top:16px">Alles wat je bij Smaken intikt komt
        hier vanzelf te staan. Wat je hier invult gebruiken je kostprijs, je
@@ -16595,10 +16649,20 @@ function sheetIngredientenLijst(alleenMissend){
   bindRijen();
   if($('#ilF')) $('#ilF').onclick=()=>sheetIngredientenLijst(!alleenMissend);
   $('#ilN').onclick=()=>{ $('#inForm').classList.add('open'); $('#inNm').focus() };
+  if($('#ilKies')) $('#ilKies').onclick=()=>{
+    ingKeuze=new Set(); sheetIngredientenLijst(alleenMissend);
+  };
   if($('#ilArK')) $('#ilArK').onclick=()=>{
     $('#ilArK').classList.toggle('open');
     $('#ilAr').classList.toggle('open');
     $$('#ilAr [data-ing]').forEach(b=>b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend));
+    if($('#ilAlles')) $('#ilAlles').onclick=()=>{
+      const herstel=terugpunt(['ingArchief']);
+      const n=archief.length;
+      S.ingArchief=[]; bewaarNu();
+      sheetIngredientenLijst(alleenMissend);
+      toast(n+' '+(n===1?'ingrediënt staat':'ingrediënten staan')+' weer in je lijst.',herstel);
+    };
   };
   ingNieuwBinden(()=>sheetIngredientenLijst(alleenMissend));
   if($('#ilZ')) $('#ilZ').oninput=()=>{
