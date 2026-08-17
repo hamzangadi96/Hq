@@ -2001,7 +2001,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v345 · 16 aug 2026';
+const APPVERSIE='v346 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3708,9 +3708,11 @@ function tegelsHTML(){
   const om30=omzetTussen(dagenTerug(30),vandaag());
   const omVorig=omzetTussen(dagenTerug(60),dagenTerug(31));
   h+=tegel('data-naar="geld"','Openstaand',I.euro,
-    osTot?euro(osTot):null,
-    os.length?os.length+(os.length===1?' factuur':' facturen'):'alles betaald',
-    osTot?'let':'',
+    osTot?euro(osTot):(os.length?String(os.length):null),
+    os.length&&!osTot
+      ? (os.length===1?'factuur':'facturen')+' \u00b7 nog geen verkoopprijs'
+      : (os.length?os.length+(os.length===1?' factuur':' facturen'):'alles betaald'),
+    osTot||os.length?'let':'',
     om30||omVorig?verschil(om30,omVorig,'maand'):null);
 
   /* wat er vandaag te doen is, inclusief je baan */
@@ -7436,9 +7438,17 @@ function geldHTML(){
       ${tegel('data-winst',I.spark,'Resultaat',
         (wv.resultaat<0?'−':'')+euro(Math.abs(wv.resultaat)),
         wv.resultaat<0?'verlies dit kwartaal':'na alle kosten',wv.resultaat<0?'fout':'')}
-      ${tegel('data-openstaand',I.klok,'Openstaand',openTot?euro(openTot):'—',
-        openst.length?openst.length+(openst.length===1?' order open':' orders open'):'alles betaald',
-        openst.some(x=>x.dagen>30)?'fout':openst.some(x=>x.dagen>14)?'let':'')}
+      ${(()=>{
+        /* Stond er een streepje terwijl er wel orders openstonden? Dan waren er
+           geen verkoopprijzen om mee te rekenen. Dat streepje zei niets; het
+           aantal wel. */
+        const geenPrijs=openst.length&&!openTot;
+        return tegel('data-openstaand',I.klok,'Openstaand',
+          openTot?euro(openTot):(geenPrijs?String(openst.length):'—'),
+          geenPrijs
+            ? (openst.length===1?'order open':'orders open')+' \u00b7 vul je verkoopprijzen in'
+            : (openst.length?openst.length+(openst.length===1?' order open':' orders open'):'alles betaald'),
+          geenPrijs?'let':openst.some(x=>x.dagen>30)?'fout':openst.some(x=>x.dagen>14)?'let':'')})()}
       ${tegel('data-marges',I.vorm,'Marge',margeGem!==null?margeGem+'%':'—',
         margeGem!==null?'gemiddeld per bonbon':'geen verkoopprijzen',margeGem!==null&&margeGem<40?'let':'')}
       ${tegel('data-bonnen',I.doos,'Bonnen',bonTotaal(jr0)?euro(bonTotaal(jr0)):'—',
@@ -8111,8 +8121,8 @@ function sheetMacOrder(nr){
 
 function ordersHTML(){
   const alle=(S.orders||[]).slice().sort((a,b2)=>(a.leverdatum||'9').localeCompare(b2.leverdatum||'9'));
-  const open=alle.filter(o=>o.status==='nieuw');
-  const rest=alle.filter(o=>o.status!=='nieuw').reverse();
+  const open=alle.filter(o=>oStatus(o)==='nieuw');
+  const rest=alle.filter(o=>oStatus(o)!=='nieuw').reverse();
   const krap=open.filter(o=>dekking(o).some(d=>d.tekort>0));
 
   let h='';
@@ -8180,14 +8190,14 @@ function ordersHTML(){
 
   const rij=o=>{
     const d=dekking(o), tekort=d.some(x=>x.tekort>0);
-    const st=OSTATUS[o.status]||OSTATUS.nieuw;
+    const st=OSTATUS[oStatus(o)];
     const dag=o.leverdatum?dagenTotTHT(o.leverdatum):null;
     return `<button class="arij" data-order="${o.id}">
       <span class="naam">${esc(klantNaam(o.klantId))}<small>${o.nummer} · ${orderAantal(o)} st${
         o.leverdatum?' · '+kort(new Date(o.leverdatum))+(dag!==null&&dag>=0&&dag<=7&&o.status==='nieuw'
           ?(dag===0?' — vandaag':dag===1?' — morgen':' — over '+dag+' dagen'):''):''}</small></span>
-      ${o.status==='nieuw'&&tekort?'<span class="stip amber"></span>':''}
-      <span class="waarde ${o.status==='nieuw'?'':'gevuld'}">${st.n}</span>
+      ${oStatus(o)==='nieuw'&&tekort?'<span class="stip amber"></span>':''}
+      <span class="waarde ${oStatus(o)==='nieuw'?'':'gevuld'}">${st.n}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
   };
 
@@ -15102,6 +15112,12 @@ const OSTATUS={
   geleverd:{n:'Geleverd',k:''},
   vervallen:{n:'Vervallen',k:''}
 };
+/* Een order met een lege of onbekende status kwam onder "Afgehandeld" te staan
+   — want zijn status was niet 'nieuw' — maar kreeg wel de badge "Nieuw", omdat
+   die terugviel op de standaardwaarde. Twee regels voor dezelfde vraag.
+   Nu één: kent de app de status niet, dan telt de order als nieuw. Dat is de
+   veilige kant; je wilt niet dat een order stilletjes als afgehandeld geldt. */
+const oStatus=o=>(o&&OSTATUS[o.status])?o.status:'nieuw';
 const klantNaam=id=>{const k=(S.klanten||[]).find(x=>x.id===id);return k?k.naam:'onbekende klant'};
 const nieuwOrdernr=()=>{
   const jaar=new Date().getFullYear(), voor='O-'+jaar+'-';
