@@ -2138,7 +2138,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v388 · 17 aug 2026';
+const APPVERSIE='v389 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11709,7 +11709,11 @@ function sheetInkoop(id){
        <button class="sec" id="ikT">Terug</button>`);
 
     const hert=()=>{lezen();teken()};
-    ['ikD','ikL','ikV','ikVr','ikB'].forEach(i=>{const e=$('#'+i); if(e) e.onchange=hert});
+    /* Datum en leverancier veranderen niets aan de berekening. Hertekenden we
+       daarop, dan verdween het invoerveld tijdens het kiezen en klapte de
+       datumkiezer dicht voordat je jaar en dag had gekozen. */
+    ['ikD','ikL'].forEach(i=>{const e=$('#'+i); if(e) e.onchange=()=>lezen()});
+    ['ikV','ikVr','ikB'].forEach(i=>{const e=$('#'+i); if(e) e.onchange=hert});
     if($('#ikG')) chips('#ikG',false,()=>{ b.geleverd=chipV('#ikG')!=='nee'; teken() });
     $$('#ikR [data-ikn], #ikR [data-ikp]').forEach(e=>e.onchange=hert);
     $$('#ikR [data-ika]').forEach(knop=>knop.onclick=()=>{
