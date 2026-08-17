@@ -2121,7 +2121,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v374 · 17 aug 2026';
+const APPVERSIE='v375 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9417,7 +9417,11 @@ function sheetVerpPrijs(product,terug){
   $('#vpAf2').onclick=terug;
 }
 
-function sheetGrondstof(product){
+/* Dit scherm was tien blokken lang met vier verschillende opslaanknoppen.
+   Nu toont hij standaard alleen het overzicht; boeken, instellingen en
+   historie zitten elk achter hun eigen rij. */
+function sheetGrondstof(product,deel){
+  const D=deel||'kort';
   const v=grondVoorraad().find(x=>gKey(x.product)===gKey(product));
   if(!v) return;
   const basis=v.basis;
@@ -9457,6 +9461,7 @@ function sheetGrondstof(product){
          <span>Gebruik lot ${esc(f.lot)} eerst — ${fd<0?'verlopen':'nog '+fd+' dagen'},
            ${toonHoeveel(f.rest,basis)} over.</span></div>`})()}
 
+     ${D!=='boeken'?'':`
      <div class="veld"><label>Wat wil je doen?</label>
        <div class="duo3" id="gS">
          <button class="aan" data-v="bij">Bijboeken</button>
@@ -9476,7 +9481,8 @@ function sheetGrondstof(product){
 
      <div class="veld"><label>Reden</label>
        <input class="inp" id="gR" placeholder="Bijv. breuk, weggegooid, verbruikt"></div>
-
+     `}
+     ${D!=='inst'?'':`
      <div class="veld"><label>Soort</label>
        <div class="chips" id="gSo">${Object.keys(SOORTEN).map(k=>
          `<button class="chip ${artSoort(product)===k?'aan':''}" data-v="${k}">${SOORTEN[k].enk}</button>`).join('')}</div></div>
@@ -9521,6 +9527,8 @@ function sheetGrondstof(product){
            <div class="hint" style="margin:8px 0 0">Je gebruikt ongeveer ${toonHoeveel(a.perDag,basis)} per dag
              en ${esc(a.lev||'je leverancier')} levert in ${a.dagen} dagen.</div>`})()}</div>
 
+     `}
+     ${D!=='hist'?'':`
      ${verbruikBlok(product,basis)}
      ${(()=>{const pl=(S.lots||[]).filter(x=>gKey(x.product)===gKey(product)&&x.plek)
         .map(x=>x.plek); const uniek=[...new Set(pl)];
@@ -9532,16 +9540,47 @@ function sheetGrondstof(product){
        <div class="paneel">${regels.slice(0,10).map(m=>`<div class="arij" style="cursor:default">
          <span class="naam">${esc(m.reden||'Mutatie')}<small>${kort(new Date(m.datum))} ${esc(m.tijd)}${m.lot?' · lot '+esc(m.lot):''}</small></span>
          <span class="waarde gevuld">${m.aantal<0?'−':'+'}${toonHoeveel(Math.abs(naarBasis(m.aantal,m.eenheid)),basis)}</span>
-       </div>`).join('')}</div>`:''}`,
-    `<button class="prim" style="margin-top:0" id="gOk">Vastleggen</button>`);
+       </div>`).join('')}</div>`:''}
+     `}
+     ${D!=='kort'?'':`
+     <div class="paneel" style="margin-top:18px">
+       <button class="arij" data-gnaar="boeken">
+         <span class="ivak">${svg(I.ververs)}</span>
+         <span class="naam">Voorraad bijwerken<small>bijboeken, afboeken of tellen</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" data-gnaar="inst">
+         <span class="ivak">${svg(I.instel)}</span>
+         <span class="naam">Instellingen<small>${[
+           (SOORTEN[artSoort(product)]||{}).enk||'',
+           art(product).inkAantal?'per '+komma(art(product).inkAantal)+' '+(art(product).inkEenheid||''):'',
+           d?'drempel '+toonHoeveel(d,basis):'geen drempel'
+         ].filter(Boolean).join(' · ')}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" data-gnaar="hist">
+         <span class="ivak">${svg(I.klok)}</span>
+         <span class="naam">Verbruik en historie<small>${
+           regels.length?regels.length+(regels.length===1?' mutatie':' mutaties'):'nog niets geboekt'}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+     </div>`}`,
+    D==='boeken'
+      ? `<button class="prim" style="margin-top:0" id="gOk">Vastleggen</button>
+         <button class="sec" data-gnaar="kort">Terug</button>`
+      : D==='kort'
+      ? `<button class="prim" style="margin-top:0" data-gnaar="boeken">Voorraad bijwerken</button>
+         <button class="sec" id="gDicht">Klaar</button>`
+      : `<button class="sec" style="margin-top:0" data-gnaar="kort">Terug</button>`);
 
-  chips('#gS',false,()=>{
+  $$('#sheetBody [data-gnaar], #sheetVoet [data-gnaar]').forEach(b=>
+    b.onclick=()=>sheetGrondstof(product,b.dataset.gnaar));
+  if($('#gDicht')) $('#gDicht').onclick=()=>{S.tab='voorraad';dicht();render()};
+
+  if($('#gS')) chips('#gS',false,()=>{
     const k=chipV('#gS');
     $('#gLab').textContent=k==='bij'?'Hoeveelheid erbij':k==='af'?'Hoeveelheid eraf':'Wat heb je geteld?';
     $('#gLotV').style.display=k==='tel'?'none':'';
   });
-  chips('#gL');
-  chips('#gSo',false,()=>{
+  if($('#gL')) chips('#gL');
+  if($('#gSo')) chips('#gSo',false,()=>{
     zetArt(product,{soort:chipV('#gSo')}); bewaarNu(); render(); sheetGrondstof(product);
   });
   if($('#gSc')) chips('#gSc',false,()=>{
@@ -9553,7 +9592,7 @@ function sheetGrondstof(product){
     bewaarNu(); sheetGrondstof(product); render();
     toast(w&&n>0?n+' bonbons per stuk vastgelegd.':'Inhoud gewist.');
   };
-  $('#gIOk').onclick=()=>{
+  if($('#gIOk')) $('#gIOk').onclick=()=>{
     const a=getalIn0($('#gIA').value), e=$('#gIE').value;
     zetArt(product,{inkAantal:a>0?a:null,inkEenheid:a>0?e:null});
     bewaarNu(); sheetGrondstof(product); toast(a>0?'Inkoopeenheid opgeslagen.':'Inkoopeenheid gewist.');
@@ -9563,14 +9602,14 @@ function sheetGrondstof(product){
     S.drempels=S.drempels||{}; S.drempels[gKey(product)]=a.advies;
     bewaarNu(); sheetGrondstof(product); render(); toast('Drempel op het voorstel gezet.');
   };
-  $('#gDOk').onclick=()=>{
+  if($('#gDOk')) $('#gDOk').onclick=()=>{
     const w=$('#gD').value.trim();
     S.drempels=S.drempels||{};
     if(w==='') delete S.drempels[gKey(product)];
     else S.drempels[gKey(product)]=Math.max(0,parseFloat(w)||0);
     bewaarNu(); sheetGrondstof(product); toast(w===''?'Drempel uitgezet.':'Drempel ingesteld.');
   };
-  $('#gOk').onclick=()=>{
+  if($('#gOk')) $('#gOk').onclick=()=>{
     const k=chipV('#gS'), n=getalIn0($('#gH').value), e=$('#gE').value, r=$('#gR').value.trim();
     if(!n) return toast('Vul een hoeveelheid in.');
     /* liever niets doen dan de verkeerde kant op boeken */
