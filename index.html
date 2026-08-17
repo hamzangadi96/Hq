@@ -2138,7 +2138,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v386 · 17 aug 2026';
+const APPVERSIE='v387 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9296,7 +9296,6 @@ function voorraadHTML(){
                         : 'nog geen', !!zonder)})()}
         ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
         ${brij('data-partijen',I.doos,'Partijen in huis','geen')}
-        ${brij('data-verpnieuw',I.plus,'Verpakking toevoegen','')}
         ${(()=>{const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
           const z=vp.filter(x=>verpPrijs(x.product)===null).length;
           return brij('data-verplijst',I.doos,'Verpakking',
@@ -9373,12 +9372,15 @@ function voorraadHTML(){
         return brij('data-ingr',I.pot,'Ingrediënten',
           alle.length? alle.length+(zonder?' \u00b7 '+zonder+' zonder prijs':'')
                      : 'nog geen', !!zonder)})()}
+      ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
+      ${brij('data-partijen',I.doos,'Partijen in huis',(S.lots||[]).length||'geen')}
       ${(()=>{const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
         const z=vp.filter(x=>verpPrijs(x.product)===null).length;
         return brij('data-verplijst',I.doos,'Verpakking',
           vp.length? vp.length+(z?' \u00b7 '+z+' zonder prijs':'') : 'nog geen', !!z)})()}
-      ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
-      ${brij('data-partijen',I.doos,'Partijen in huis',(S.lots||[]).length||'geen')}
+      ${brij('data-ins="leveranciers"',I.vracht,'Leveranciers',(S.leveranciers||[]).length||'geen')}
+      ${brij('data-ins="levertijd"',I.klok,'Levertijden',
+        (S.levertijden&&Object.keys(S.levertijden).length)?Object.keys(S.levertijden).length:'niet ingevuld')}
       ${brij('data-telronde',I.vink,'Telronde','')}
       ${brij('data-vmut',I.ververs,'Alle mutaties',(S.mutaties||[]).length||'geen')}
     </div>
