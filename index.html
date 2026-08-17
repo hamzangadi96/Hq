@@ -2001,7 +2001,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v347 · 16 aug 2026';
+const APPVERSIE='v348 · 16 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2286,7 +2286,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd',
-  'werkweek','werkafwijk','werkGezet3','samenstelling',
+'samenstelling',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
@@ -2680,6 +2680,12 @@ async function laden(){
   });
   if(!S.checksGezet){ standaardChecks(); S.checksGezet=true; bewaarNu(); }
   if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; bewaarNu(); }
+  /* De app hield bij wanneer je naast Cacaoboetiek werkte. Die functie is eruit,
+     dus horen de gegevens er ook niet meer te staan — ook niet in Firebase. */
+  if(S.werkweek||S.werkafwijk||S.werkGezet3!==undefined){
+    delete S.werkweek; delete S.werkafwijk; delete S.werkGezet3;
+    bewaarNu();
+  }
   if(!S.werkGezet2){
     const onaangeroerd=S.activiteiten.length===WERKOUD.length&&S.activiteiten.every(a=>WERKOUD.includes(a));
     if(onaangeroerd||!S.activiteiten.length) S.activiteiten=WERKVOORSTELLEN.slice();
@@ -3710,8 +3716,7 @@ function tegelsHTML(){
     osTot||os.length?'let':'',
     om30||omVorig?verschil(om30,omVorig,'maand'):null);
 
-  /* wat er vandaag te doen is, inclusief je baan */
-  const w=werkOp(vandaag());
+  /* wat er vandaag te doen is */
   const taken=allePlanTaken().filter(x=>x.datum===vandaag()).length;
   /* boodschappen die vandaag gehaald moeten worden tellen mee als "let op":
      doe je ze niet, dan schuift je hele batch op. */
@@ -3720,7 +3725,7 @@ function tegelsHTML(){
   }).length;
   h+=tegel('data-naar="agenda"','Vandaag',I.klok,
     taken||null,
-    w&&w.plek!=='vrij' ? esc(werkTekst(w)) : (taken?'op de rol':'niets gepland'),
+    taken?'op de rol':'niets gepland',
     boodVandaag?'let':'');
 
   /* een brede tegel voor wat er als eerste aan de beurt is */
@@ -9402,63 +9407,10 @@ function leesDatum(ruw, opties){
 
 /* ============ je baan naast Cacaoboetiek ============
    Een vaste week met per dag waar je bent en hoe laat, plus hoeveel ruimte er
-   overblijft. Afwijkingen (vrij, extra dienst) staan per datum apart. */
-const WERKPLEK={
-  kantoor:{n:'Kantoor',kleur:'#6b5b95'},
-  thuis:{n:'Thuis',kleur:'#5b7c6b'},
-  vrij:{n:'Vrij',kleur:'var(--grijs3)'}
-};
-const RUIMTE={
-  geen:{n:'Geen ruimte',k:'geen'},
-  avond:{n:"'s Avonds",k:'avond'},
-  dag:{n:'Hele dag',k:'dag'}
-};
-const STANDAARDWEEK=()=>({
-  1:{plek:'kantoor',van:'09:00',tot:'17:00',ruimte:'avond'},
-  2:{plek:'kantoor',van:'09:00',tot:'17:00',ruimte:'avond'},
-  3:{plek:'thuis',  van:'09:00',tot:'17:00',ruimte:'avond'},
-  4:{plek:'kantoor',van:'09:00',tot:'17:00',ruimte:'avond'},
-  5:{plek:'thuis',  van:'09:00',tot:'17:00',ruimte:'avond'},
-  6:{plek:'vrij',van:'',tot:'',ruimte:'dag'},
-  0:{plek:'vrij',van:'',tot:'',ruimte:'dag'}
-});
-const werkweek=()=>S.werkweek||STANDAARDWEEK();
-
-/* Kun je op deze dag produceren, en zo ja hoeveel ruimte heb je?
-   Geeft null terug als er niets in de weg staat. */
-function werkBotsing(d){
-  const w=werkOp(d);
-  if(!w||w.plek==='vrij') return null;
-  const ru=w.ruimte||'avond';
-  if(ru==='dag') return null;
-  const dt=new Date(d);
-  return {
-    w, ruimte:ru,
-    dag:DAG[dt.getDay()],
-    tekst:(WERKPLEK[w.plek]||{n:'Werk'}).n.toLowerCase()
-      +(w.van&&w.tot?' van '+w.van+' tot '+w.tot:''),
-    ernst:ru==='geen'?'rood':'amber'
-  };
-}
-
-/* wat geldt er op deze datum? een afwijking wint van de vaste week */
-function werkOp(d){
-  const af=(S.werkafwijk||{})[d];
-  if(af) return Object.assign({},af,{afwijking:true});
-  const w=werkweek()[new Date(d).getDay()];
-  return w?Object.assign({},w,{afwijking:false}):null;
-}
-const werkUren=w=>{
-  if(!w||w.plek==='vrij'||!w.van||!w.tot) return 0;
-  const [a,b2]=w.van.split(':').map(Number), [c,d2]=w.tot.split(':').map(Number);
-  return Math.max(0,((c*60+d2)-(a*60+b2))/60);
-};
-const werkurenPerWeek=()=>[0,1,2,3,4,5,6].reduce((n,i)=>n+werkUren(werkweek()[i]),0);
-const werkTekst=w=>{
-  if(!w) return '';
-  if(w.plek==='vrij') return 'Vrij'+(w.reden?' · '+w.reden:'');
-  return (WERKPLEK[w.plek]||{n:'Werk'}).n+(w.van&&w.tot?' · '+w.van+'–'+w.tot:'');
-};
+/* Hier stond de werkweek: waar je werkte naast Cacaoboetiek, hoe laat, en
+   hoeveel uur dat per week was. Die functie is uit de app gehaald — je uren
+   voor Cacaoboetiek registreer je met de klok, en wat je daarnaast doet gaat
+   de app niets aan. */
 const dagenTussen=(a,b2)=>Math.round((new Date(b2)-new Date(a))/86400000);
 
 /* wanneer moet je boodschappen doen voor deze geplande batch? */
@@ -11267,130 +11219,6 @@ async function agendaDelen(blob,naam){
   }
 }
 
-function sheetWerkweek(){
-  const W=JSON.parse(JSON.stringify(werkweek()));
-  const volgorde=[1,2,3,4,5,6,0];
-  const teken=()=>{
-    const tot=volgorde.reduce((n,i)=>n+werkUren(W[i]),0);
-    sheet('Werkweek',
-      `<p class="hint">Zo weet de app wanneer je tijd hebt. Plan je een batch op een
-         dag dat je werkt, dan waarschuwt hij.</p>
-       <div class="vrkop"><div class="vrgetal">${komma(tot)}<em>uur per week</em></div>
-         <div class="vrmeta">${volgorde.filter(i=>W[i].plek!=='vrij').length} werkdagen</div></div>
-       ${volgorde.map(i=>{
-         const w=W[i], werkt=w.plek!=='vrij';
-         return `<div class="blokkop" style="margin-top:18px">
-             <span class="eyebrow">${DAG[i]}</span>
-             <span class="tel">${werkt?werkUren(w)+' uur':'vrij'}</span></div>
-           <div class="keuzeraster" data-plek="${i}">${Object.keys(WERKPLEK).map(k=>
-             `<button class="chip ${w.plek===k?'aan':''}" data-v="${k}">${WERKPLEK[k].n}</button>`).join('')}</div>
-           ${werkt?`<div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
-             <div><label>Van</label><input class="inp" type="time" data-van="${i}" value="${w.van||''}"></div>
-             <div><label>Tot</label><input class="inp" type="time" data-tot="${i}" value="${w.tot||''}"></div></div>
-           <div class="keuzeraster" data-ruimte="${i}" style="margin-top:2px">${Object.keys(RUIMTE).map(k=>
-             `<button class="chip ${w.ruimte===k?'aan':''}" data-v="${k}">${RUIMTE[k].n}</button>`).join('')}</div>`:''}`;
-       }).join('')}`,
-      `<button class="prim" style="margin-top:0" id="wwOk">Bewaren</button>`);
-
-    const lees=()=>{
-      volgorde.forEach(i=>{
-        const v=document.querySelector('[data-van="'+i+'"]');
-        const t=document.querySelector('[data-tot="'+i+'"]');
-        if(v) W[i].van=v.value; if(t) W[i].tot=t.value;
-      });
-    };
-    volgorde.forEach(i=>{
-      chips('[data-plek="'+i+'"]',false,()=>{
-        lees();
-        W[i].plek=chipV('[data-plek="'+i+'"]');
-        if(W[i].plek==='vrij'){W[i].ruimte='dag'}
-        else if(!W[i].van){W[i].van='09:00';W[i].tot='17:00';W[i].ruimte='avond'}
-        teken();
-      });
-      if(W[i].plek!=='vrij') chips('[data-ruimte="'+i+'"]',false,()=>{
-        lees(); W[i].ruimte=chipV('[data-ruimte="'+i+'"]'); teken();
-      });
-    });
-    $('#wwOk').onclick=()=>{
-      lees(); S.werkweek=W; bewaarNu(); dicht(); render();
-      toast('Werkweek bewaard · '+komma(werkurenPerWeek())+' uur per week.');
-    };
-  };
-  teken();
-}
-
-/* een losse dag die anders loopt: vrij, of juist wel werken */
-function sheetWerkAfwijking(datum){
-  const bestaand=(S.werkafwijk||{})[datum];
-  const A=bestaand?Object.assign({},bestaand)
-    :Object.assign({},werkOp(datum)||{plek:'vrij',van:'',tot:'',ruimte:'dag'},{reden:''});
-  A.datum=datum||vandaag();
-  const teken=()=>{
-    const dt=new Date(A.datum);
-    const werkt=A.plek!=='vrij';
-    sheet(DAG[dt.getDay()]+' '+dt.getDate()+' '+MND[dt.getMonth()],
-      `<p class="hint">Wijkt deze dag af van je vaste week? Zet het hier.
-         Je vaste week blijft ongemoeid.</p>
-       <div class="veld"><label>Datum</label>
-         <input class="inp" id="waD" type="date" value="${A.datum}"></div>
-       <div class="veld"><label>Waar ben je?</label>
-         <div class="keuzeraster" id="waP">${Object.keys(WERKPLEK).map(k=>
-           `<button class="chip ${A.plek===k?'aan':''}" data-v="${k}">${WERKPLEK[k].n}</button>`).join('')}</div></div>
-       ${werkt?`<div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-         <div><label>Van</label><input class="inp" id="waV" type="time" value="${A.van||'09:00'}"></div>
-         <div><label>Tot</label><input class="inp" id="waT" type="time" value="${A.tot||'17:00'}"></div></div>
-       <div class="veld"><label>Ruimte voor Cacaoboetiek</label>
-         <div class="keuzeraster" id="waR">${Object.keys(RUIMTE).map(k=>
-           `<button class="chip ${A.ruimte===k?'aan':''}" data-v="${k}">${RUIMTE[k].n}</button>`).join('')}</div></div>`
-       :`<div class="veld"><label>Waarom vrij?</label>
-         <input class="inp" id="waRe" value="${esc(A.reden||'')}" placeholder="Vakantie, ziek, snipperdag"></div>`}`,
-      `<button class="prim" style="margin-top:0" id="waOk">Bewaren</button>
-       ${bestaand?`<button class="sec" id="waWeg" style="color:var(--rood)">Afwijking weghalen</button>`:''}`);
-    const lees=()=>{
-      A.datum=$('#waD').value||A.datum;
-      if($('#waV')) A.van=$('#waV').value;
-      if($('#waT')) A.tot=$('#waT').value;
-      if($('#waRe')) A.reden=$('#waRe').value.trim();
-    };
-    $('#waD').onchange=()=>{lees();teken()};
-    chips('#waP',false,()=>{lees();A.plek=chipV('#waP');
-      if(A.plek!=='vrij'&&!A.van){A.van='09:00';A.tot='17:00';A.ruimte='avond'}
-      teken()});
-    if($('#waR')) chips('#waR',false,()=>{lees();A.ruimte=chipV('#waR');teken()});
-    $('#waOk').onclick=()=>{
-      lees();
-      S.werkafwijk=S.werkafwijk||{};
-      if(bestaand&&bestaand.datum&&bestaand.datum!==A.datum) delete S.werkafwijk[bestaand.datum];
-      const vrij=A.plek==='vrij';
-      S.werkafwijk[A.datum]={plek:A.plek,van:vrij?'':(A.van||''),tot:vrij?'':(A.tot||''),
-        ruimte:vrij?'dag':(A.ruimte||'avond'),reden:vrij?(A.reden||''):'',datum:A.datum};
-      bewaarNu(); dicht(); render(); toast('Bewaard.');
-    };
-    if($('#waWeg')) $('#waWeg').onclick=()=>{
-      delete S.werkafwijk[A.datum]; bewaarNu(); dicht(); render();
-      toast('Afwijking weggehaald.');
-    };
-  };
-  teken();
-}
-
-function sheetWerkVrij(){
-  const lijst=Object.keys(S.werkafwijk||{}).sort();
-  sheet('Vrij nemen of afwijken',
-    `<p class="hint">Dagen die anders lopen dan je vaste week.</p>
-     ${lijst.length?`<div class="paneel">${lijst.map(d=>{
-       const w=S.werkafwijk[d], dt=new Date(d), oud=d<vandaag();
-       return `<button class="arij" data-werkdag="${d}" ${oud?'style="opacity:.5"':''}>
-         <span class="ivak" style="background:${WERKPLEK[w.plek].kleur}1f;color:${
-           WERKPLEK[w.plek].kleur}">${svg(w.plek==='vrij'?I.vink:I.klok)}</span>
-         <span class="naam">${DAG[dt.getDay()]} ${dt.getDate()} ${MND[dt.getMonth()]}
-           <small>${esc(werkTekst(w))}</small></span>
-         <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
-     :`<div class="paneel"><div class="geen">Nog geen afwijkingen.</div></div>`}`,
-    `<button class="prim" style="margin-top:0" id="wvN">Dag toevoegen</button>`);
-  $('#wvN').onclick=()=>sheetWerkAfwijking(vandaag());
-}
-
 function straksHTML(key){
   const s=STRAKS[key];
   return `<div class="straks"><h2>${s.titel}</h2><p class="intro">${s.intro}</p>
@@ -11535,12 +11363,9 @@ function bind(){
   $$('[data-vraag]').forEach(x=>x.onclick=()=>sheetVraag(''));
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
-  $$('[data-werkweek]').forEach(x=>x.onclick=sheetWerkweek);
   $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>
     x.dataset.haccpdoe==='ijking'?sheetIjking():sheetControles());
-  $$('[data-werkvrij]').forEach(x=>x.onclick=sheetWerkVrij);
   $$('[data-agendaexport]').forEach(x=>x.onclick=sheetAgendaExport);
-  $$('[data-werkdag]').forEach(x=>x.onclick=()=>sheetWerkAfwijking(x.dataset.werkdag));
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw(vandaag()));
   $$('[data-trace]').forEach(x=>x.onclick=()=>sheetTrace(''));
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw());
@@ -18229,9 +18054,9 @@ const SCHERMUITLEG=[
   {t:"Mutaties",u:"Elke verandering in je gereed product, met reden. Dit is je onderbouwing bij derving.",f:"sheetMutaties"},
   {t:"Batch aanpassen",u:"Aantallen kloppen niet meer, of je voegt een smaak toe. De receptuur van deze batch blijft zoals hij was toen je begon.",f:"sheetBatchWijzig"},
   {t:"Zet in mijn agenda",u:"Je productiedagen, boodschappen, leverdata en controles gaan als afspraken naar de agenda van je telefoon. Eén kant op: HQ kan niet bij je eigen afspraken — daar is een echte app voor nodig.",f:"sheetAgendaExport"},
-  {t:"Waar ga je heen?",u:"De app onthoudt je bestemming, opent Kaarten voor de route en telt ondertussen je kilometers door.",f:"sheetWerkVrij"},
-  {t:"Vertrekadres",u:"Dit adres komt in je rittenregistratie. Klopt het huisnummer niet, pas het aan — dan staat het meteen goed.",f:"sheetWerkVrij"},
-  {t:"Welke smaak?",u:"Deze batch heeft smaken. Elke smaak krijgt zijn eigen stickers.",f:"sheetWerkVrij"},
+  {t:"Waar ga je heen?",u:"De app onthoudt je bestemming, opent Kaarten voor de route en telt ondertussen je kilometers door."},
+  {t:"Vertrekadres",u:"Dit adres komt in je rittenregistratie. Klopt het huisnummer niet, pas het aan — dan staat het meteen goed."},
+  {t:"Welke smaak?",u:"Deze batch heeft smaken. Elke smaak krijgt zijn eigen stickers."},
   {t:"Ontvangst goederen",u:"Leg de partij hier één keer vast. Bij het loggen van je ingrediënten kies je 'm daarna uit een lijst.",f:"sheetOntvangst"},
   {t:"Ingrediënten",u:"Deze smaken hebben nog geen ingrediënten. Vul de onderdelen aan bij Smaken.",f:"sheetIngredienten"},
   {t:"Schoonmaak",u:"Vink aan wat je hebt gereinigd.",f:"sheetSchoonmaak"},
