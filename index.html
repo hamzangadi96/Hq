@@ -1308,6 +1308,16 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   letter-spacing:.04em;color:var(--amber);background:#fffbeb;border-radius:5px;
   padding:2px 5px;margin-left:6px;vertical-align:1px}
 
+/* een ingrediënt kies je, je typt het niet */
+.ingrij .nm.kies{display:flex;align-items:center;gap:8px;justify-content:flex-start;
+  text-align:left;min-width:0;background:var(--bg);border-radius:12px;
+  padding:0 14px;height:46px;font-size:15px;color:var(--ink)}
+.ingrij .nm.kies>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ingrij .nm.kies.leeg{color:var(--grijs3)}
+.ingrij .nm.kies:active{background:#ececee}
+.ingrij .nm.kies .geenprijs{flex:none;font-style:normal;font-size:11px;
+  font-weight:600;color:var(--amber);background:#fff;border-radius:6px;padding:2px 6px}
+
 /* maandkalender */
 .agkop{display:flex;align-items:center;justify-content:space-between;
   margin:0 0 14px;gap:12px}
@@ -2099,7 +2109,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v366 · 17 aug 2026';
+const APPVERSIE='v367 · 17 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14650,6 +14660,56 @@ function ingZoek(tekst){
   return begint.concat(bevat).slice(0,6);
 }
 
+/* Vrij typen breekt stilletjes je kostprijs: "Slagrom" of "slagroom 35%" is
+   voor de app een ander ingrediënt dan wat er in je prijzenlijst staat, dus
+   telt het niet mee. Kiezen uit je eigen lijst voorkomt dat — met de optie om
+   ter plekke iets nieuws aan te maken, zodat je je werk niet hoeft te
+   onderbreken. */
+function sheetIngKiezen(huidig, klaar){
+  let zoek='';
+  const teken=()=>{
+    const alle=alleIngredienten().filter(n=>!ingGearchiveerd(n));
+    const q=zoek.trim().toLowerCase();
+    const lijst=q?alle.filter(n=>n.toLowerCase().includes(q)):alle;
+    const nieuw=zoek.trim()&&!alle.some(n=>n.toLowerCase()===q);
+
+    sheet('Welk ingrediënt?',
+      `<div class="veld" style="margin-bottom:10px">
+         <input class="inp" id="ikZ" placeholder="Zoeken of een nieuwe naam typen"
+           autocomplete="off" value="${esc(zoek)}"></div>
+       ${nieuw?`<button class="toevoeg" id="ikNieuw" style="margin-bottom:12px">${svg(I.plus)}
+         "${esc(zoek.trim())}" toevoegen aan je ingrediënten</button>`:''}
+       ${lijst.length?`<div class="paneel">${lijst.map(n=>{
+          const pr=ingPrijs(n), al=ingAllerg(n);
+          return `<button class="arij${n===huidig?' aan':''}" data-ik="${esc(n)}">
+            <span class="naam">${esc(n)}<small>${[
+              pr===null?'geen prijs':euro(pr)+'/kg',
+              al.length?al.map(alNaam).join(', '):''].filter(Boolean).join(' · ')}</small></span>
+            ${n===huidig?`<span class="waarde gevuld">${svg(I.vink,'2.4')}</span>`:''}
+            </button>`}).join('')}</div>`
+        :`<div class="paneel"><div class="geen" style="padding:18px">${
+            zoek.trim()?'Niets gevonden.':'Je hebt nog geen ingrediënten.'}</div></div>`}`,
+      `<button class="sec" style="margin-top:0" id="ikAf">Annuleren</button>`);
+
+    if($('#ikZ')){
+      const z=$('#ikZ');
+      z.oninput=()=>{ zoek=z.value; const p=z.selectionStart; teken();
+        const n2=$('#ikZ'); if(n2){ n2.focus(); n2.setSelectionRange(p,p) } };
+    }
+    if($('#ikNieuw')) $('#ikNieuw').onclick=()=>{
+      const n=zoek.trim();
+      ingToevoegen(n); bewaarNu();
+      klaar(n);
+      toast(n+' staat nu in je ingrediënten.');
+    };
+    $$('#sheetBody [data-ik]').forEach(b=>b.onclick=()=>klaar(b.dataset.ik));
+    $('#ikAf').onclick=()=>klaar(null);
+  };
+  teken();
+}
+
+let ONDERDEELBUF=null;
+
 function sheetOnderdeel(idx){
   const nieuw = idx===null;
   /* alle onderdelen die je eerder al hebt uitgewerkt, uit elke smaak */
@@ -14657,15 +14717,24 @@ function sheetOnderdeel(idx){
   (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>{
     if((o.ing||[]).filter(i=>i.naam).length) anderen.push({smaak:r.naam||'Naamloos', o});
   }));
-  const o = nieuw ? {naam:R.voorstel||'',gram:'',ing:[{naam:'',deel:''}],werkwijze:[''],stap:''}
+  /* Ga je een ingrediënt kiezen, dan wordt dit scherm even vervangen. Wat je
+     al had ingevuld staat dan in de buffer, zodat je niets kwijtraakt. */
+  const o = ONDERDEELBUF ? ONDERDEELBUF
+          : nieuw ? {naam:R.voorstel||'',gram:'',ing:[{naam:'',deel:''}],werkwijze:[''],stap:''}
                   : JSON.parse(JSON.stringify(R.onderdelen[idx]));
+  ONDERDEELBUF=null;
   if(nieuw) R.voorstel='';
   if(!o.ing||!o.ing.length) o.ing=[{naam:'',deel:''}];
   if(!o.werkwijze||!o.werkwijze.length) o.werkwijze=[''];
-  const ingRij=i=>`<div class="ingrij">
-    <input class="nm" data-in value="${esc(i.naam)}" placeholder="Ingrediënt">
+  const ingRij=(i,n)=>{
+    const pr=i.naam?ingPrijs(i.naam):null;
+    return `<div class="ingrij">
+    <button class="nm kies${i.naam?'':' leeg'}" data-inkies="${n}" data-naam="${esc(i.naam||'')}">
+      <span>${i.naam?esc(i.naam):'Kies een ingrediënt'}</span>
+      ${i.naam&&pr===null?`<i class="geenprijs">geen prijs</i>`:''}
+    </button>
     <input class="hv" data-id2 type="text" inputmode="decimal" value="${esc(i.deel)}" placeholder="gram">
-    <button class="wisbtn" data-wis-i>${svg(I.kruis,'2')}</button></div>`;
+    <button class="wisbtn" data-wis-i>${svg(I.kruis,'2')}</button></div>`;};
   sheet(nieuw?'Onderdeel toevoegen':'Onderdeel',
     `<div class="veld"><label>Wat is dit onderdeel?</label>
       <input class="inp" id="oN" value="${esc(o.naam)}" placeholder="Bijv. schelp, gelei of ganache"></div>
@@ -14683,7 +14752,7 @@ function sheetOnderdeel(idx){
             <span class="nn">${esc(a.o.naam||'Naamloos onderdeel')}</span>
             <span class="ns">${esc(a.smaak)} · ${(a.o.ing||[]).length} ingrediënten</span>
           </button>`).join('')}</div>`:''}
-      <div id="oI">${o.ing.map(ingRij).join('')}</div>
+      <div id="oI">${o.ing.map((x,n)=>ingRij(x,n)).join('')}</div>
       <button class="sec" id="oP" style="margin-top:2px">${svg(I.plus)}&nbsp; Ingrediënt toevoegen</button>
       <div id="oSam"></div></div>
      <div class="veld"><label>Werkwijze voor dit onderdeel</label>
@@ -14700,10 +14769,12 @@ function sheetOnderdeel(idx){
      ${nieuw?'':`<button class="sec" id="oWis">Onderdeel verwijderen</button>`}
      <button class="sec" id="oTerug">Terug naar smaak</button>`);
 
-  const rijenLezen=()=>$$('#oI .ingrij').map(el=>({
-    naam:el.querySelector('[data-in]').value.trim(),
-    deel:el.querySelector('[data-id2]').value.trim()
-  })).filter(x=>x.naam);
+  /* de naam staat sinds v367 op een knop in plaats van in een invoerveld */
+  const rijenLezen=()=>$$('#oI .ingrij').map(el=>{
+    const k=el.querySelector('[data-inkies]');
+    return {naam:k?(k.dataset.naam||'').trim():'',
+            deel:el.querySelector('[data-id2]').value.trim()};
+  }).filter(x=>x.naam);
 
   const ververs=()=>{
     const rijen=$$('#oI .ingrij');
@@ -14777,10 +14848,29 @@ function sheetOnderdeel(idx){
   const bindRijen=()=>{
     $$('[data-wis-i]').forEach(b=>b.onclick=()=>{if($$('#oI .ingrij').length>1){b.parentElement.remove();bindRijen();ververs()}});
     $$('#oI input').forEach(i=>i.oninput=ververs);
-    $$('#oI [data-in]').forEach(i=>{
-      i.oninput=()=>{ ververs(); sugToon(i) };
-      i.onfocus=()=>sugToon(i);
-      i.onblur=()=>setTimeout(sugWeg,120);
+    $$('#oI [data-inkies]').forEach(b=>b.onclick=()=>{
+      const n=parseInt(b.dataset.inkies);
+      /* alles wat op het scherm staat vasthouden, ook de velden buiten de rijen */
+      const buf={
+        naam:$('#oN')?$('#oN').value:o.naam,
+        gram:$('#oG')?$('#oG').value:o.gram,
+        stap:o.stap||'',
+        ing:$$('#oI .ingrij').map(el=>{
+          const k=el.querySelector('[data-inkies]');
+          return {naam:k?(k.dataset.naam||''):'',
+                  deel:el.querySelector('[data-id2]').value};
+        }),
+        werkwijze:$$('#oW .ingrij input').length
+          ? $$('#oW .ingrij input').map(i=>i.value) : (o.werkwijze||[''])
+      };
+      while(buf.ing.length<=n) buf.ing.push({naam:'',deel:''});
+      sheetIngKiezen(buf.ing[n].naam, gekozen=>{
+        if(gekozen) buf.ing[n].naam=gekozen;
+        /* staat de laatste rij vol, dan meteen een lege erbij */
+        if(gekozen&&n===buf.ing.length-1) buf.ing.push({naam:'',deel:''});
+        ONDERDEELBUF=buf;
+        sheetOnderdeel(idx);
+      });
     });
     $$('[data-wis-w]').forEach(b=>b.onclick=()=>{if($$('#oW .ingrij').length>1)b.parentElement.remove()});
   };
