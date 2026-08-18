@@ -778,6 +778,24 @@ header .hbtn.zoek{display:none}
   display:grid;place-items:center;color:transparent}
 .arij .bol.leeg{border-color:transparent}
 
+/* ── de Nu-kaart ──
+   Wit met een donkere knop: de hoofdkaart erboven is al zwart en er hoort
+   één donkere knop per scherm te staan. */
+.nukaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
+  padding:16px 18px 16px;margin-top:12px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 18px 34px -26px rgba(24,24,27,.26)}
+.nukaart .eyebrow{display:block}
+.nukaart h3{font-size:23px;font-weight:600;letter-spacing:-.03em;color:var(--ink);
+  margin:7px 0 0;line-height:1.15}
+.nukaart .nusub{font-size:13.5px;color:var(--grijs2);line-height:1.4;margin-top:5px}
+.nukaart .nuknop{width:100%;height:50px;margin-top:14px;border-radius:14px;
+  background:var(--ink);color:#fff;font-size:15.5px;font-weight:600;
+  letter-spacing:-.015em;text-align:center;display:grid;place-items:center}
+.nukaart .nuknop:active{background:var(--choco)}
+.nukaart.loopt{border-color:var(--choco-licht);background:var(--choco-wash)}
+.nukaart.loopt .eyebrow{color:var(--choco)}
+.nukaart.af h3{font-size:21px}
+
 /* de route: stappen zijn verbonden, je ziet waar je bent */
 .groep.inroute{position:relative}
 .groep.inroute::before{content:'';position:absolute;left:29px;top:0;bottom:0;width:2px;background:#e9e9ec}
@@ -794,6 +812,10 @@ header .hbtn.zoek{display:none}
 .arij.rnu .naam{font-weight:600}
 .arij .bol svg{width:11px;height:11px}
 .arij .naam small{display:block;font-size:11px;font-weight:600;color:var(--grijs3);margin-top:4px;letter-spacing:.03em;text-transform:uppercase}
+/* Kapitalen schreeuwen in een subregel; hier staat gewone tekst zoals
+   "nu ganache maken", die je moet kunnen lezen zonder te stoppen. */
+.arij .naam small.gewoon{text-transform:none;letter-spacing:0;font-size:12.5px;
+  font-weight:500;color:var(--grijs2);margin-top:3px}
 .arij .waarde{font-size:14px;font-weight:500;color:var(--grijs2);letter-spacing:-.01em}
 .arij .waarde.gevuld{color:var(--ink2)}
 .groep.open .arij{border-bottom:none}
@@ -3118,7 +3140,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v452 · 18 aug 2026';
+const APPVERSIE='v453 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5213,12 +5235,69 @@ function heroBatchHTML(b){
           })()}</div>
           <div class="hk2stap">
             <i class="${b.status==='pauze'?'amber':''}"></i>
-            <span>${v?esc(v.label)+' — volgende stap':'Alle stappen gedaan — afronden'}${
-              w?' · '+esc(w.act)+' loopt':''}</span>
+            <span>${(()=>{
+              /* "Productiestappen — volgende stap" zei niets: dat is de naam
+                 van een categorie, niet van het werk. Zit je in de productie,
+                 dan noemen we de handeling zelf. */
+              if(!v) return 'Alle stappen gedaan — afronden';
+              if(v.key==='productie'){
+                const volg=planVolgende(b);
+                if(volg) return esc(volg)+' — volgende stap';
+              }
+              return esc(v.label)+' — volgende stap';
+            })()}${w?' · '+esc(w.act)+' loopt':''}</span>
           </div>
         </span>
       </div>
     </button>`;
+}
+
+/* ═══════════ wat doe je nú ═══════════
+   Het batchscherm opende met de knop "Lotnummers invullen" — administratie
+   als belangrijkste actie van je productiedag. En daaronder tien identieke
+   grijze regels waar je niet op kon tikken.
+
+   Deze kaart beantwoordt één vraag: waar sta ik en wat is de eerstvolgende
+   handeling. Zit je in de productie, dan noemt hij de stap zelf, met de smaak
+   en het aantal erbij — niet het woord "productiestappen". */
+const NUSUB={
+  ingredienten:'lotnummers vastleggen — mag de dag ervoor',
+  opening:'je eigen checkpunten langs voordat je begint',
+  temperatuur:'meet je koelpunten voordat je met de batch start',
+  schoonmaak:'leg vast wat je hebt schoongemaakt',
+  afronden:'aantallen goed en afkeur invullen'
+};
+function nuKaartHTML(b){
+  const v=bVolgende(b);
+  if(!v){
+    return `<div class="nukaart af">
+      <span class="eyebrow">Alles gedaan</span>
+      <h3>Batch afronden</h3>
+      <div class="nusub">Vul in hoeveel er goed zijn en hoeveel afkeur.</div>
+      <button class="nuknop" data-sheet="afronden">Afronden</button></div>`;
+  }
+  const w=lopendWerk(b);
+  let titel=v.label, sub=NUSUB[v.key]||'', knop=v.knop, attr=`data-sheet="${v.sheet}"`;
+
+  if(v.key==='productie'){
+    const plan=bPlan(b), volg=planVolgende(b);
+    if(volg){
+      titel=volg;
+      const i=plan.indexOf(volg)+1;
+      /* de smaak en het aantal horen hier: dat bepaalt je hoeveelheden */
+      sub=[bNamen(b), bTotaal(b)+' stuks',
+           'stap '+i+' van '+plan.length].filter(Boolean).join(' · ');
+      const loopt=w&&w.act===volg;
+      knop=loopt?'Hervatten':'Beginnen';
+      attr=`data-nustap="${esc(volg)}"`;
+    }
+  }
+  const bezig=w&&w.act;
+  return `<div class="nukaart${bezig?' loopt':''}">
+    <span class="eyebrow">${bezig?'Bezig met '+esc(w.act.toLowerCase()):'Nu aan de beurt'}</span>
+    <h3>${esc(titel)}</h3>
+    ${sub?`<div class="nusub">${esc(sub)}</div>`:''}
+    <button class="nuknop" ${attr}>${esc(knop)}</button></div>`;
 }
 
 function stappenlijnHTML(b){
@@ -5842,10 +5921,9 @@ function batchHTML(){
       <div class="sub">${b.resultaat.goed} goed${b.resultaat.afkeur?` · ${b.resultaat.afkeur} afkeur`:''}</div></div>`;
   } else {
     h+=heroBatchHTML(b);
-    /* De knop van de eerstvolgende stap: los onder de kaart, want de kaart
-       zelf brengt je naar de batch en dit brengt je naar het werk. */
-    h+=`<button class="prim los" style="margin-top:12px" data-sheet="${v.sheet}">${
-      esc(v.knop)}</button>`;
+    /* Was een losse zwarte knop met het label van de route-stap. Die zei
+       "Lotnummers invullen" terwijl je wilde weten wat je moest dóén. */
+    h+=nuKaartHTML(b);
   }
 
   /* uitwerking bovenaan als vaste referentie */
@@ -5876,48 +5954,32 @@ function batchHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
   const naslag=groepen+werkGroep+alGroep;
   const nu=bVolgende(b);
+  /* De route klapte per stap uit tot een lijst met alle onderliggende items.
+     Bij Productiestappen waren dat tien grijze regels met een streepje, goed
+     voor driekwart scherm, en je kon er niet eens op tikken — de knop om er
+     heen te gaan stond onderaan de uitklap, buiten beeld.
+
+     Die details staan al in het scherm van de stap zelf. Hier blijft één
+     regel per stap over: waar sta je, en tikken brengt je erheen. */
   const bstapRij=s=>{
-    const isOpen=S.open===s.key, klaar=s.klaar(b), w=String(s.waarde(b));
+    const klaar=s.klaar(b), w=String(s.waarde(b));
     const stand=klaar?'gedaan':(nu&&nu.key===s.key?'nu':'straks');
-    let inh='';
-    if(s.key==='opening'){
-      const dl=dagenVan(b).filter(x=>x.opening);
-      inh=dl.length?dl.map(x=>`<div class="item"><span class="t">${x.opening.tijd}</span>
-        <span class="b">${kort(new Date(x.datum))}${x.datum===vandaag()?' — vandaag':''}
-        <em>${x.opening.ok?'alles in orde':'met aandachtspunt'}</em></span></div>`).join('')
-        :'<div class="geen">Nog niet gedaan.</div>';
-    } else if(s.key==='ingredienten'){
-      const lijst=bIngredienten(b);
-      inh=lijst.length?lijst.map(i=>`<div class="item"><span class="t">${heeftLot(b,i.naam)?'✓':'—'}</span>
-        <span class="b">${esc(i.naam)} · ${getal(i.hoeveel)} g
-        <em>${heeftLot(b,i.naam)?(lotLijst(b,i.naam).length>1?'lots ':'lot ')+esc(lotTekst(b,i.naam)):'geen lotnummer'}</em></span></div>`).join('')
-        :'<div class="geen">Geen ingrediënten in deze smaken.</div>';
-    } else if(s.key==='productie'){
-      inh=bPlan(b).length?bPlan(b).map(n=>{const x=planVan(b)[n];
-        return `<div class="item"><span class="t">${x&&x.gedaan?x.tijd:'—'}</span>
-          <span class="b" style="${x&&x.gedaan?'':'color:var(--grijs2)'}">${esc(n)}
-          ${x&&x.gedaan?`<em>${kort(new Date(x.datum))}</em>`:''}</span></div>`}).join('')
-        :'<div class="geen">Nog geen stappen ingesteld.</div>';
-    } else if(s.key==='afronden'){
-      inh=b.resultaat?b.resultaat.perSmaak.map(p=>`<div class="item"><span class="t">${b.eind}</span>
-        <span class="b">${esc(receptVan(b,p.receptId).naam)} · ${p.goed} goed<em>${p.afkeur} afkeur · THT ${kort(thtVan(b,receptVan(b,p.receptId)))}</em></span></div>`).join('')
-        :'<div class="geen">Batch loopt nog.</div>';
-    } else {
-      const it=b.logs.filter(l=>l.type===s.key);
-      inh=it.length?it.map(l=>`<div class="item ${l.status||''}"><span class="t">${l.tijd}</span>
-        <span class="b">${esc(l.titel)}${l.sub?`<em>${esc(l.sub)}</em>`:''}</span></div>`).join('')
-        :'<div class="geen">Nog niets gelogd.</div>';
+    /* bij productie zeggen we ook welke stap er nu aan de beurt is */
+    let onder='';
+    if(s.key==='ingredienten') onder='vooraf, dag ervoor';
+    else if(s.key==='productie'&&!klaar){
+      const volg=planVolgende(b);
+      if(volg) onder='nu '+volg.toLowerCase();
     }
-    const knop=(b.status==='klaar')?'':`<button class="toevoeg" data-sheet="${s.sheet}">${svg(I.plus)}${s.knop}</button>`;
-    return `<div class="groep ${isOpen?'open':''} ${s.kern?'inroute':''}">
-      <button class="arij ${s.kern?('r'+stand):''}" data-rij="${s.key}">
+    else if(!s.kern) onder='optioneel';
+    return `<div class="groep ${s.kern?'inroute':''}">
+      <button class="arij ${s.kern?('r'+stand):''}" data-sheet="${s.sheet}">
         ${s.kern?`<span class="rmark">${klaar?svg(I.vink,'2.8'):''}</span>`
                 :'<span class="bol leeg"></span>'}
-        <span class="naam">${s.label}${s.kern?(s.key==='ingredienten'?'<small>vooraf, dag ervoor</small>':''):'<small>optioneel</small>'}</span>
+        <span class="naam">${s.label}${onder?`<small class="gewoon">${esc(onder)}</small>`:''}</span>
         ${b.logs.some(l=>l.type===s.key&&l.status!=='ok')?'<span class="stip amber"></span>':''}
         <span class="waarde ${w!=='—'?'gevuld':''}">${esc(w)}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>
-      <div class="uit"><div class="uitin">${inh}${knop}</div></div></div>`;
+        <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
   };
   groepen=BSTAPPEN.map(bstapRij).join('');
 
@@ -13996,6 +14058,11 @@ function bind(){
   $$('[data-toast]').forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
+  /* De Nu-kaart brengt je niet naar de lijst met stappen maar naar de stap
+     zelf: één tik minder, en je staat meteen in het werk. */
+  $$('[data-nustap]').forEach(b=>b.onclick=()=>{
+    sluitToetsenbord(); sheetStapDoen(b.dataset.nustap);
+  });
   $$('[data-stapfilter]').forEach(b=>b.onclick=()=>{
     S.stapFilter=b.dataset.stapfilter; render();
   });
