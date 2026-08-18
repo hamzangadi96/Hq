@@ -3101,7 +3101,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v448 · 18 aug 2026';
+const APPVERSIE='v449 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3395,7 +3395,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten'];
+  'kleuren','ingericht','mallen','fouten','wwEigen'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -17091,6 +17091,33 @@ const WERKWIJZEROUTE={
     'Fijnmalen tot een pasta','Cacaoboter toevoegen','Snufje zout toevoegen']
 };
 
+/* ═══════════ jouw formulering wint ═══════════
+   De voorstellen zijn hoe het meestal gaat, niet hoe jij het doet. Weeg jij
+   af in een rvs kom in plaats van een hoge beker, dan pas je die handeling
+   één keer aan en onthoudt de app dat: het voorstel zelf verandert mee.
+
+   Bewaard als lijst van paren, niet als object met de zin als sleutel —
+   Firebase weigert sleutels met een punt of haakje erin, en handelingen zijn
+   vrije tekst. */
+function wwCorrecties(){
+  if(!Array.isArray(S.wwEigen)) S.wwEigen=[];
+  return S.wwEigen;
+}
+/* geeft jouw versie van een voorstel, of het voorstel zelf */
+function wwMijn(t){
+  const p=wwCorrecties().find(x=>x&&x.van===t);
+  return p&&p.naar ? p.naar : t;
+}
+/* legt vast dat 'van' bij jou 'naar' heet; hetzelfde terugzetten wist hem */
+function wwCorrectieZet(van,naar){
+  const lijst=wwCorrecties();
+  const i=lijst.findIndex(x=>x&&x.van===van);
+  if(!naar||naar===van){ if(i>=0) lijst.splice(i,1) }
+  else if(i>=0) lijst[i].naar=naar;
+  else lijst.push({van,naar});
+  bewaarNu();
+}
+
 /* Wat je bij eerdere lagen van dezelfde soort al hebt opgeschreven. Na één
    keer typen staat jouw eigen werkwijze er de volgende keer gewoon bij. */
 function ondEigenWw(naam){
@@ -17698,8 +17725,9 @@ function sheetOnderdeel(idx,stap){
     const s=ondSoort(o.naam);
     body=`${balk}
       <h3 class="wzvraag">Hoe maak je het?</h3>
-      <p class="wzuit">Eén handeling per regel. Straks krijg je ze één voor één
-        te zien tijdens het maken, met de tijden en temperaturen erbij.</p>
+      <p class="wzuit">Eén handeling per regel. Tik op een voorstel om hem toe
+        te voegen, tik op de regel zelf om hem in jouw woorden te zetten — die
+        versie onthoud ik.</p>
       ${(WERKWIJZEROUTE[(s&&s.k)]||[]).length?`<button class="sec" id="wwHeel"
         style="margin:0 0 14px">${svg(I.lijst)}&nbsp; Hele werkwijze overnemen
         <em class="wwheeln">${WERKWIJZEROUTE[s.k].length} stappen</em></button>`:''}
@@ -17851,6 +17879,10 @@ function sheetOnderdeel(idx,stap){
   /* ═══════════ stap 4: werkwijze ═══════════ */
   if(st.k==='werk'){
     let bewerkt=-1;   /* welke handeling je nu aan het aanpassen bent */
+    /* Welke regel uit de bibliotheek kwam: pas je zo'n regel aan, dan weten
+       we welk voorstel we moeten bijwerken. */
+    const bron=new Map();
+    const bronZet=(getoond,origineel)=>{ if(getoond&&origineel) bron.set(getoond,origineel) };
 
     const wwTeken=()=>{
       const L=$('#wwL');
@@ -17911,18 +17943,24 @@ function sheetOnderdeel(idx,stap){
       const V=$('#wwV'); if(!V) return;
       const s=ondSoort(o.naam);
       const staat=o.werkwijze.map(x=>x.trim().toLowerCase());
-      const nieuw2=lijst=>lijst.filter(x=>staat.indexOf(x.toLowerCase())<0);
-      const pillen=lijst=>`<div class="wwvoor">${lijst.map(x=>
-        `<button data-wwv="${esc(x)}">${svg(I.plus)}${esc(x)}</button>`).join('')}</div>`;
+      /* eerst jouw formulering erop, dan pas kijken wat er al staat */
+      const nieuw2=lijst=>lijst.map(wwMijn)
+        .filter((x,i,a)=>a.indexOf(x)===i)
+        .filter(x=>staat.indexOf(x.toLowerCase())<0);
+      /* data-wwbron is de oorspronkelijke tekst uit de bibliotheek; die
+         hebben we nodig om jouw aanpassing aan het juiste voorstel te hangen. */
+      const pillen=(lijst,bronnen)=>`<div class="wwvoor">${lijst.map((x,i)=>
+        `<button data-wwv="${esc(x)}"${bronnen&&bronnen[i]&&bronnen[i]!==x
+          ?` data-wwbron="${esc(bronnen[i])}"`:''}>${svg(I.plus)}${esc(x)}</button>`).join('')}</div>`;
 
       /* Twintig handelingen onder elkaar is twee schermen scrollen. Als
          uitklapbare fasen zie je in één blik het hele proces staan en open
          je alleen het stukje waar je nu mee bezig bent. Open blijft wat je
          zelf al eens gebruikte — dat is meestal precies goed. */
-      const groep=(kop,lijst,open)=>`<details class="wwgroep"${open?' open':''}>
+      const groep=(kop,lijst,open,bronnen)=>`<details class="wwgroep"${open?' open':''}>
         <summary><span class="wwvoorkop">${esc(kop)}</span>
           <i class="wwtel">${lijst.length}</i>${svg(I.pijl,'2')}</summary>
-        ${pillen(lijst)}</details>`;
+        ${pillen(lijst,bronnen)}</details>`;
 
       let uit='';
       /* eerst wat je zelf al eens hebt opgeschreven bij dezelfde soort */
@@ -17932,15 +17970,19 @@ function sheetOnderdeel(idx,stap){
       const groepen=WERKWIJZEBIB[(s&&s.k)||'algemeen']||WERKWIJZEBIB.algemeen;
       let eersteOpen=!eigen.length;
       groepen.forEach(g=>{
-        const l=nieuw2(g.v).filter(x=>eigen.indexOf(x)<0);
-        if(!l.length) return;
-        uit+=groep(g.k.toUpperCase(),l,eersteOpen);
+        /* per zin onthouden hoe hij oorspronkelijk heette */
+        const paren=g.v.map(x=>({toon:wwMijn(x), van:x}))
+          .filter((p,i,a)=>a.findIndex(q=>q.toon===p.toon)===i)
+          .filter(p=>staat.indexOf(p.toon.toLowerCase())<0 && eigen.indexOf(p.toon)<0);
+        if(!paren.length) return;
+        uit+=groep(g.k.toUpperCase(),paren.map(p=>p.toon),eersteOpen,paren.map(p=>p.van));
         eersteOpen=false;
       });
       V.innerHTML=uit;
 
       $$('[data-wwv]').forEach(b=>b.onclick=veilig('voorstel toevoegen',()=>{
         o.werkwijze.push(b.dataset.wwv);
+        bronZet(b.dataset.wwv, b.dataset.wwbron||b.dataset.wwv);
         wwTeken(); wwVoor();
       }));
     };
@@ -17951,7 +17993,20 @@ function sheetOnderdeel(idx,stap){
     const wwToevoegen=()=>{
       const t=$('#wwIn').value.trim();
       if(!t) return;
-      if(bewerkt>=0){ o.werkwijze[bewerkt]=t; bewerkt=-1 }
+      if(bewerkt>=0){
+        const oud=o.werkwijze[bewerkt];
+        o.werkwijze[bewerkt]=t;
+        bewerkt=-1;
+        /* Kwam deze regel uit de bibliotheek en heb je hem herschreven, dan
+           is jouw versie voortaan het voorstel. Eén keer "hoge beker" naar
+           "rvs kom" en je ziet het nooit meer anders. */
+        if(oud!==t && bron.has(oud)){
+          const van=bron.get(oud);
+          bron.delete(oud); bronZet(t,van);
+          wwCorrectieZet(van,t);
+          toast('Onthouden — dit voorstel is nu jouw versie.');
+        }
+      }
       else o.werkwijze.push(t);
       $('#wwIn').value='';
       wwKnop(); wwTeken(); wwVoor();
@@ -17965,9 +18020,9 @@ function sheetOnderdeel(idx,stap){
          !confirm('Je hebt al '+o.werkwijze.length+' '+
            (o.werkwijze.length===1?'handeling':'handelingen')+
            '. Die worden vervangen door de volledige werkwijze. Doorgaan?')) return;
-      o.werkwijze=route.slice();
+      o.werkwijze=route.map(x=>{ const m=wwMijn(x); bronZet(m,x); return m });
       wwTeken(); wwVoor();
-      toast('Overgenomen. Pas aan wat jij anders doet.');
+      toast('Overgenomen. Pas aan wat jij anders doet — dat onthoud ik.');
     });
     $('#wwIn').oninput=wwKnop;
     $('#wwIn').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); wwToevoegen() } };
