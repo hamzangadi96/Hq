@@ -2350,8 +2350,88 @@ header.weg{display:none}
 .neg{color:var(--rood);font-variant-numeric:tabular-nums}
 .letop{color:var(--let-op)}
 
+/* ═══ 15. WELKOM ════════════════════════════════════════════════════
+   Het eerste wat een nieuwe gebruiker ziet. Ondoorzichtig en over alles
+   heen: er is nog geen app om doorheen te kijken. */
+
+.welkom{position:fixed;inset:0;z-index:9998;display:none;background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 28px) 24px
+  calc(env(safe-area-inset-bottom) + 28px);overflow:auto}
+.welkom.open{display:flex;align-items:center;justify-content:center}
+.welkomvak{width:100%;max-width:380px;display:flex;flex-direction:column;gap:32px}
+
+.welkommerk{text-align:center}
+.wmlogo{width:66px;height:66px;border-radius:22px;background:var(--choco);
+  color:#fff;display:grid;place-items:center;margin:0 auto 20px;
+  box-shadow:0 4px 18px rgba(74,43,24,.30)}
+.wmlogo svg{width:32px;height:32px;stroke-width:1.6}
+.welkommerk h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.035em;
+  color:var(--ink)}
+.welkommerk p{margin:10px 0 0;font-size:14.5px;line-height:1.5;color:var(--grijs)}
+
+.welkompunten{display:flex;flex-direction:column;gap:12px}
+.welkompunten div{display:flex;align-items:center;gap:12px;font-size:14px;
+  color:var(--ink2);letter-spacing:-.01em}
+.welkompunten span{width:26px;height:26px;border-radius:99px;flex:none;
+  display:grid;place-items:center;background:rgba(21,128,61,.10);color:var(--groen)}
+.welkompunten svg{width:14px;height:14px;stroke-width:2.4}
+
+.welkomknoppen{display:flex;flex-direction:column;gap:10px}
+.welkomknoppen .prim,.welkomknoppen .knop2{margin-top:0;height:52px;
+  border-radius:16px;font-size:15.5px}
+.wkover{font-size:13.5px;font-weight:600;color:var(--grijs2);padding:12px;
+  border-radius:99px}
+.wkover:active{background:var(--choco-wash);color:var(--choco)}
+
+/* ═══ 16. PINSLOT ═══════════════════════════════════════════════════
+   Ligt over alles heen, ook over open bottom-sheets. Ondoorzichtig: wat
+   erachter staat mag niet mee te lezen zijn bij een schermafdruk. */
+
+.pinslot{position:fixed;inset:0;z-index:9999;display:none;
+  background:var(--bg);padding:calc(env(safe-area-inset-top) + 24px) 20px
+  calc(env(safe-area-inset-bottom) + 24px)}
+.pinslot.open{display:grid;place-items:center}
+.pinvak{width:100%;max-width:340px;display:flex;flex-direction:column;
+  align-items:center;gap:26px}
+.pinkop{text-align:center}
+.pinkop h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.03em;
+  color:var(--ink)}
+.pinkop p{margin:8px 0 0;font-size:14px;color:var(--grijs);min-height:1.3em}
+
+/* één bolletje per cijfer, zodat je ziet hoeveel je nog moet */
+.pinbollen{display:flex;gap:14px}
+.pinbollen i{width:13px;height:13px;border-radius:99px;background:none;
+  border:1.5px solid var(--grijs3);transition:background .15s ease,
+  border-color .15s ease,transform .15s ease}
+.pinbollen i.vol{background:var(--choco);border-color:var(--choco);
+  transform:scale(1.12)}
+.pinbollen.mis i{border-color:var(--rood)}
+.pinbollen.mis{animation:pinschud .4s}
+@keyframes pinschud{
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+  40%{transform:translateX(8px)} 60%{transform:translateX(-5px)}
+  80%{transform:translateX(5px)}}
+
+.pintoets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;width:100%}
+.pintoets button{height:64px;border-radius:18px;background:var(--card);
+  font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 2px rgba(24,24,27,.05),0 6px 16px -12px rgba(24,24,27,.26)}
+.pintoets button:active{background:var(--choco);color:#fff;transform:scale(.96)}
+.pintoets button.leeg{background:none;box-shadow:none;pointer-events:none}
+.pintoets button[data-pinwis]{background:none;box-shadow:none;color:var(--grijs)}
+.pintoets button[data-pinwis]:active{background:var(--choco-wash);
+  color:var(--choco)}
+.pintoets svg{width:22px;height:22px;stroke-width:1.9}
+
+.pinuit{font-size:13.5px;font-weight:600;color:var(--grijs2);padding:10px 16px;
+  border-radius:99px}
+.pinuit:active{background:var(--choco-wash);color:var(--choco)}
+
 @media (prefers-reduced-motion:reduce){
   .stapkaart:active{transform:none}
+  .pinbollen.mis{animation:none}
+  .pintoets button:active{transform:none}
 }
 </style>
 </head>
@@ -2479,7 +2559,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v403 · 18 aug 2026';
+const APPVERSIE='v405 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2763,7 +2843,7 @@ const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
-  'klussen','klus','klussoorten','urennorm','badgeGevraagd',
+  'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount',
 'samenstelling',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
@@ -3149,7 +3229,8 @@ function firebaseStart(){
     firebase.auth().onAuthStateChanged(u=>{
       fbUser=u||null;
       if(fbRef){fbRef.off();fbRef=null}
-      if(!u){render();return}
+      if(u) welkomWeg();
+      if(!u){ if(startKlaar&&welkomNodig()) welkomTonen(); render(); return }
       /* de werkvloer: de Mac schrijft status, de app schrijft opdrachten.
          Klantgegevens blijven op de Mac — hier gaan alleen nummers en fases over. */
       if(fbShop){fbShop.off();fbShop=null}
@@ -13130,7 +13211,7 @@ function straksHTML(key){
 }
 
 /* ---------- binding ---------- */
-const SHEETS={nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
+const SHEETS={pin:sheetPin,account:sheetAccount,nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
   kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,vooruit:sheetVooruit,
   vraag:()=>sheetVraag(''),
   beheer:sheetBeheer,
@@ -16623,7 +16704,7 @@ function sheetOnderdeel(idx){
 
 /* ================= account en synchronisatie ================= */
 
-function sheetAccount(){
+function sheetAccount(stand){
   if(!fbKlaar){
     const cfg=fbConfig();
     const mist=cfg&&!cfg.databaseURL;
@@ -16646,18 +16727,28 @@ function sheetAccount(){
        <button class="sec" id="acK">Sluiten</button>`), 
       $('#acK').onclick=dicht,
       $('#acUit').onclick=()=>{if(confirm('Uitloggen? Je gegevens blijven op dit toestel staan.'))
-        firebase.auth().signOut().then(()=>{dicht();render();toast('Uitgelogd.')})};
+        firebase.auth().signOut().then(()=>{
+          S.zonderAccount=false; bewaarNu();
+          dicht();render();toast('Uitgelogd.');
+          if(welkomNodig()) welkomTonen();
+        })};
   }
-  sheet('Inloggen',
-    `<p class="hint">Log één keer in. Daarna blijft de app ingelogd en synchroniseert alles vanzelf.</p>
+  sheet(stand==='nieuw'?'Account aanmaken':'Inloggen',
+    `<p class="hint">${stand==='nieuw'
+       ? 'Kies een e-mailadres en een wachtwoord. Daarmee komt je werk in je eigen database te staan, en zie je het ook op je laptop.'
+       : 'Log \u00e9\u00e9n keer in. Daarna blijft de app ingelogd en synchroniseert alles vanzelf.'}</p>
      <div class="veld"><label>E-mailadres</label>
        <input class="inp" id="acM" type="email" inputmode="email" autocomplete="username" placeholder="jij@jouwbedrijf.nl"></div>
      <div class="veld"><label>Wachtwoord</label>
        <input class="inp" id="acW" type="password" autocomplete="current-password" placeholder="minimaal 6 tekens"></div>
      <div class="geen" id="acFout"></div>`,
-    `<button class="prim" style="margin-top:0" id="acIn">Inloggen</button>
-     <button class="sec" id="acNieuw">Account aanmaken</button>
-     <button class="sec" id="acK">Later</button>`);
+    stand==='nieuw'
+    ? `<button class="prim" style="margin-top:0" id="acNieuw">Account aanmaken</button>
+       <button class="sec" id="acIn">Ik heb al een account</button>
+       <button class="sec" id="acK">Terug</button>`
+    : `<button class="prim" style="margin-top:0" id="acIn">Inloggen</button>
+       <button class="sec" id="acNieuw">Account aanmaken</button>
+       <button class="sec" id="acK">Terug</button>`);
   const melden=e=>{$('#acFout').textContent=({
     'auth/invalid-email':'Dat lijkt geen geldig e-mailadres.',
     'auth/missing-password':'Vul je wachtwoord in.',
@@ -16670,11 +16761,320 @@ function sheetAccount(){
   $('#acK').onclick=dicht;
   $('#acIn').onclick=()=>{const[m,w]=velden();
     firebase.auth().signInWithEmailAndPassword(m,w)
-      .then(()=>{dicht();render();toast('Ingelogd. Je gegevens synchroniseren nu.')}).catch(melden)};
+      .then(()=>{dicht();welkomWeg();render();
+        toast('Ingelogd. Je gegevens synchroniseren nu.')}).catch(melden)};
   $('#acNieuw').onclick=()=>{const[m,w]=velden();
     firebase.auth().createUserWithEmailAndPassword(m,w)
-      .then(()=>{dicht();render();toast('Account aangemaakt.')}).catch(melden)};
+      .then(()=>{
+        dicht();welkomWeg();render();toast('Account aangemaakt.');
+        /* Direct na het aanmaken is het moment dat een pincode logisch voelt.
+           Later in een menu vindt niemand hem. */
+        setTimeout(()=>{ if(!sheetOpen&&!pinAan()) sheetPin() },900);
+      }).catch(melden)};
 
+}
+
+/* ═══════════════════ eerste start ═══════════════════
+   Tot nu toe opende de app zonder meer. Dat werkte zolang alles op één toestel
+   stond, maar zodra je gegevens ook in de cloud staan hoort er een account
+   voor te zitten: anders is er niets dat zegt van wie die gegevens zijn.
+
+   Eén uitzondering, en die is belangrijk: staat er al werk op dit toestel van
+   vóór deze verandering, dan mag je er nooit door buitengesloten worden. In
+   dat geval blijft er een uitweg staan. Op een schone installatie is er niets
+   om buiten te sluiten, en dan is een account verplicht. */
+
+/* Is er iets van betekenis ingevuld? Instellingen tellen niet mee — die staan
+   er ook na één rondje klikken. */
+function heeftWerk(){
+  return ['recepten','batches','orders','klanten','bonnen','ontvangsten',
+    'planning','ritten','artikelen'].some(k=>(S[k]||[]).length>0);
+}
+
+function welkomNodig(){
+  if(!fbKlaar) return false;      /* geen synchronisatie ingesteld: niets te eisen */
+  if(fbUser) return false;        /* al ingelogd */
+  if(S.zonderAccount) return false; /* bewust gekozen om zo door te gaan */
+  return true;
+}
+
+let welkomOpen=false;
+
+function welkomTonen(){
+  if(welkomOpen) return;
+  welkomOpen=true;
+  let el=$('#welkom');
+  if(!el){
+    el=document.createElement('div');
+    el.id='welkom'; el.className='welkom';
+    document.body.appendChild(el);
+  }
+  const bestaand=heeftWerk();
+  el.innerHTML=`<div class="welkomvak">
+    <div class="welkommerk">
+      <span class="wmlogo">${svg(I.bonbon)}</span>
+      <h1>Cacaoboetiek HQ</h1>
+      <p>${bestaand
+        ? 'Je werk staat op dit toestel. Maak een account aan, dan staat het ook veilig in je eigen database en zie je het op elk apparaat.'
+        : 'Productie, orders, voorraad, facturen en administratie op \u00e9\u00e9n plek. Maak een account aan om te beginnen.'}</p>
+    </div>
+    <div class="welkompunten">
+      <div><span>${svg(I.vink)}</span>Je gegevens staan in je eigen database</div>
+      <div><span>${svg(I.vink)}</span>Werkt door zonder verbinding</div>
+      <div><span>${svg(I.vink)}</span>Op je telefoon en je laptop tegelijk</div>
+    </div>
+    <div class="welkomknoppen">
+      <button class="prim" id="wkNieuw">Account aanmaken</button>
+      <button class="knop2" id="wkIn">Ik heb al een account</button>
+      ${bestaand?'<button class="wkover" id="wkOver">Doorgaan zonder account</button>':''}
+    </div>
+  </div>`;
+  el.classList.add('open');
+  $('#wkNieuw').onclick=()=>sheetAccount('nieuw');
+  $('#wkIn').onclick=()=>sheetAccount('in');
+  const o=$('#wkOver');
+  if(o) o.onclick=()=>{
+    if(!confirm('Zonder account blijven je gegevens alleen op dit toestel staan. Raakt de telefoon kwijt, dan is je werk weg. Doorgaan?')) return;
+    S.zonderAccount=true; bewaarNu(); welkomWeg(); render();
+  };
+}
+
+function welkomWeg(){
+  welkomOpen=false;
+  const el=$('#welkom'); if(el) el.classList.remove('open');
+}
+
+/* ═══════════════════ pincode ═══════════════════
+   Een pincode is geen wachtwoord. Vier cijfers zijn tienduizend mogelijkheden;
+   dat raadt een computer in een oogwenk. Daarom gaat deze code nooit naar
+   Firebase en logt hij nergens op in. Hij ontgrendelt alleen de app op dit
+   ene toestel, nadat je je een keer met e-mail en wachtwoord hebt aangemeld.
+
+   Wat er wél gebeurt: de code wordt met PBKDF2 door 250.000 rondes SHA-256
+   gehaald, met een willekeurig zout dat per toestel verschilt. Wat er wordt
+   opgeslagen is die uitkomst, niet je code. Uit de uitkomst valt de code niet
+   terug te rekenen zonder alle mogelijkheden af te lopen, en dat kost door die
+   rondes merkbaar tijd per poging.
+
+   Bewust apart van S: alles in S wordt gesynchroniseerd. De pincode hoort bij
+   dít toestel en nergens anders. */
+
+const PINSLEUTEL='hq-pin';
+const PINRONDES=250000;
+/* Codes die als eerste geprobeerd worden. Vier van de tien mensen kiezen iets
+   uit dit lijstje, dus die weigeren we. */
+const PINSLECHT=['12345','54321','00000','11111','22222','33333','44444',
+  '55555','66666','77777','88888','99999','123456','654321','000000','111111',
+  '121212','123123','112233','101010','123321','159753','147258'];
+
+function pinLees(){
+  try{ const v=localStorage.getItem(PINSLEUTEL); return v?JSON.parse(v):null }
+  catch(e){ return null }
+}
+function pinSchrijf(r){
+  try{ r?localStorage.setItem(PINSLEUTEL,JSON.stringify(r))
+        :localStorage.removeItem(PINSLEUTEL) }
+  catch(e){ toast('Pincode opslaan lukt niet op dit toestel.'); }
+}
+const pinAan=()=>!!(pinLees()||{}).hash;
+
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+
+/* PBKDF2 zit in de browser zelf; er komt geen bibliotheek of dienst aan te pas. */
+async function pinHash(code,zoutHex,rondes){
+  const zout=new Uint8Array((zoutHex.match(/../g)||[]).map(h=>parseInt(h,16)));
+  const sleutel=await crypto.subtle.importKey('raw',
+    new TextEncoder().encode(code),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits(
+    {name:'PBKDF2',salt:zout,iterations:rondes||PINRONDES,hash:'SHA-256'},
+    sleutel,256);
+  return hex(bits);
+}
+
+/* Vergelijken zonder bij het eerste verschil te stoppen. Stopt hij wel, dan
+   verraadt de tijd hoeveel tekens klopten. */
+function gelijkVast(a,b){
+  if(a.length!==b.length) return false;
+  let v=0; for(let i=0;i<a.length;i++) v|=a.charCodeAt(i)^b.charCodeAt(i);
+  return v===0;
+}
+
+function pinZwak(code){
+  if(!/^\d+$/.test(code)) return 'Alleen cijfers.';
+  if(code.length<5) return 'Minimaal 5 cijfers.';
+  if(code.length>8) return 'Maximaal 8 cijfers.';
+  if(PINSLECHT.includes(code)) return 'Deze code wordt te vaak gekozen.';
+  if(/^(\d)\1+$/.test(code)) return 'Niet alleen hetzelfde cijfer.';
+  const op=[...code].every((c,i)=>i===0||+c===+code[i-1]+1);
+  const af=[...code].every((c,i)=>i===0||+c===+code[i-1]-1);
+  if(op||af) return 'Geen opeenvolgende cijfers.';
+  const jr=new Date().getFullYear();
+  for(let j=jr-90;j<=jr;j++) if(code===String(j)) return 'Geen jaartal.';
+  return '';
+}
+
+async function pinZetten(code){
+  const zout=hex(crypto.getRandomValues(new Uint8Array(16)));
+  pinSchrijf({zout,rondes:PINRONDES,hash:await pinHash(code,zout,PINRONDES),
+    lengte:code.length,gemaakt:Date.now(),mis:0,blokTot:0});
+}
+
+/* Hoe langer je blijft proberen, hoe langer je moet wachten. Na tien keer is
+   de code weg en moet je opnieuw met e-mail en wachtwoord naar binnen. */
+function pinWacht(mis){
+  if(mis<3) return 0;
+  return [5,15,60,300,900,1800][Math.min(mis-3,5)]*1000;
+}
+
+async function pinCheck(code){
+  const r=pinLees(); if(!r||!r.hash) return {ok:false,fout:'Geen pincode ingesteld.'};
+  const over=(r.blokTot||0)-Date.now();
+  if(over>0) return {ok:false,wacht:Math.ceil(over/1000)};
+  const ok=gelijkVast(await pinHash(code,r.zout,r.rondes),r.hash);
+  if(ok){ r.mis=0; r.blokTot=0; pinSchrijf(r); return {ok:true} }
+  r.mis=(r.mis||0)+1;
+  if(r.mis>=10){
+    pinSchrijf(null);
+    try{ if(fbKlaar&&fbUser) firebase.auth().signOut() }catch(e){}
+    return {ok:false,gewist:true};
+  }
+  r.blokTot=Date.now()+pinWacht(r.mis);
+  pinSchrijf(r);
+  return {ok:false,over:10-r.mis,wacht:Math.ceil(pinWacht(r.mis)/1000)};
+}
+
+/* ── het slot zelf ── */
+let slotOpen=false, slotInvoer='';
+
+function slotNodig(){
+  if(!pinAan()) return false;
+  const r=pinLees();
+  /* Binnen vijf minuten terug uit de achtergrond hoeft niet opnieuw. Langer
+     weg betekent: de telefoon heeft ergens gelegen. */
+  return !r.ontgrendeld || (Date.now()-r.ontgrendeld)>5*60*1000;
+}
+
+function slotTonen(){
+  if(slotOpen) return;
+  slotOpen=true; slotInvoer='';
+  let el=$('#pinslot');
+  if(!el){
+    el=document.createElement('div');
+    el.id='pinslot'; el.className='pinslot';
+    document.body.appendChild(el);
+  }
+  el.classList.add('open');
+  slotTeken();
+}
+
+function slotWeg(){
+  const r=pinLees(); if(r){ r.ontgrendeld=Date.now(); pinSchrijf(r) }
+  slotOpen=false; slotInvoer='';
+  const el=$('#pinslot'); if(el) el.classList.remove('open');
+}
+
+function slotTeken(melding,bezig){
+  const el=$('#pinslot'); if(!el) return;
+  const r=pinLees()||{}; const len=r.lengte||5;
+  el.innerHTML=`<div class="pinvak">
+    <div class="pinkop">
+      <h2>Cacaoboetiek HQ</h2>
+      <p>${melding?esc(melding):'Voer je pincode in'}</p>
+    </div>
+    <div class="pinbollen${melding&&!bezig?' mis':''}">${
+      Array.from({length:len},(_,i)=>
+        `<i class="${i<slotInvoer.length?'vol':''}"></i>`).join('')}</div>
+    <div class="pintoets">${
+      [1,2,3,4,5,6,7,8,9].map(n=>`<button data-pin="${n}">${n}</button>`).join('')}
+      <button class="leeg" disabled></button>
+      <button data-pin="0">0</button>
+      <button data-pinwis aria-label="Wissen">${svg(I.terug)}</button>
+    </div>
+    <button class="pinuit" data-pinvergeten>Pincode vergeten?</button>
+  </div>`;
+  el.querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>slotCijfer(b.dataset.pin));
+  const w=el.querySelector('[data-pinwis]');
+  if(w) w.onclick=()=>{ slotInvoer=slotInvoer.slice(0,-1); slotTeken() };
+  const v=el.querySelector('[data-pinvergeten]');
+  if(v) v.onclick=()=>{
+    if(!confirm('De pincode van dit toestel wordt gewist. Je logt daarna opnieuw in met e-mail en wachtwoord. Je gegevens blijven staan. Doorgaan?')) return;
+    pinSchrijf(null);
+    try{ if(fbKlaar&&fbUser) firebase.auth().signOut() }catch(e){}
+    slotWeg(); render(); sheetAccount();
+  };
+}
+
+async function slotCijfer(c){
+  const r=pinLees()||{}; const len=r.lengte||5;
+  if(slotInvoer.length>=len) return;
+  slotInvoer+=c;
+  slotTeken();
+  if(slotInvoer.length<len) return;
+  slotTeken('Even controleren\u2026',true);
+  const uit=await pinCheck(slotInvoer);
+  slotInvoer='';
+  if(uit.ok){ slotWeg(); return }
+  if(uit.gewist){
+    slotWeg(); render();
+    alert('Tien keer mis. De pincode is gewist; log opnieuw in met je e-mailadres en wachtwoord.');
+    sheetAccount(); return;
+  }
+  if(uit.wacht) slotTeken(`Onjuist. Wacht ${uit.wacht} seconden.`);
+  else slotTeken(`Onjuist. Nog ${uit.over} ${uit.over===1?'poging':'pogingen'}.`);
+}
+
+/* Bij het openen van de app, en bij terugkomen uit de achtergrond. */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&slotNodig()) slotTonen();
+  if(document.visibilityState==='hidden'&&pinAan()){
+    const r=pinLees(); if(r){ r.ontgrendeld=0; pinSchrijf(r) }
+  }
+});
+
+/* ── instellen en wijzigen ── */
+function sheetPin(){
+  const aan=pinAan();
+  sheet(aan?'Pincode':'Pincode instellen',
+    `<p class="hint">Een pincode ontgrendelt de app op dit toestel. Hij vervangt je
+       wachtwoord niet en wordt nergens naartoe gestuurd \u2014 alleen een versleutelde
+       afdruk blijft op deze telefoon staan.</p>
+     ${aan?`<div class="veld"><label>Huidige pincode</label>
+       <input class="inp" id="pinOud" type="password" inputmode="numeric"
+         autocomplete="off" placeholder="je pincode"></div>`:''}
+     <div class="veld"><label>${aan?'Nieuwe pincode':'Pincode'}</label>
+       <input class="inp" id="pinA" type="password" inputmode="numeric"
+         autocomplete="new-password" placeholder="5 tot 8 cijfers"></div>
+     <div class="veld"><label>Nog een keer</label>
+       <input class="inp" id="pinB" type="password" inputmode="numeric"
+         autocomplete="new-password" placeholder="ter controle"></div>
+     <div class="geen" id="pinFout"></div>
+     <p class="hint">Vergeet je hem, dan log je opnieuw in met e-mail en wachtwoord.
+       Je gegevens blijven staan.</p>`,
+    `<button class="prim" style="margin-top:0" id="pinOk">${aan?'Wijzigen':'Instellen'}</button>
+     ${aan?'<button class="sec" id="pinUit">Pincode uitzetten</button>':''}
+     <button class="sec" id="pinK">Sluiten</button>`);
+
+  const zeg=t=>{ $('#pinFout').textContent=t };
+  $('#pinK').onclick=dicht;
+  $('#pinOk').onclick=async()=>{
+    const a=$('#pinA').value.trim(), b=$('#pinB').value.trim();
+    if(aan){
+      const uit=await pinCheck($('#pinOud').value.trim());
+      if(!uit.ok) return zeg(uit.wacht?`Even wachten: ${uit.wacht} seconden.`
+        :'Je huidige pincode klopt niet.');
+    }
+    const zwak=pinZwak(a); if(zwak) return zeg(zwak);
+    if(a!==b) return zeg('De twee codes zijn niet gelijk.');
+    await pinZetten(a);
+    const r=pinLees(); r.ontgrendeld=Date.now(); pinSchrijf(r);
+    dicht(); render(); toast(aan?'Pincode gewijzigd.':'Pincode ingesteld.');
+  };
+  const u=$('#pinUit');
+  if(u) u.onclick=async()=>{
+    const uit=await pinCheck($('#pinOud').value.trim());
+    if(!uit.ok) return zeg('Vul eerst je huidige pincode in.');
+    pinSchrijf(null); dicht(); render(); toast('Pincode uitgezet.');
+  };
 }
 
 /* ================= gegevens meenemen ================= */
@@ -19989,21 +20389,31 @@ function sheetMeer(){
        <button class="arij" id="meerApp"><span class="ivak">${svg(I.instel)}</span>
          <span class="naam">Instellingen<small>waardes die je een keer bepaalt</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" id="meerPin"><span class="ivak">${svg(I.vink)}</span>
+         <span class="naam">Pincode<small>${pinAan()
+           ?'aan \u00b7 ontgrendelt de app op dit toestel'
+           :'uit \u00b7 de app opent nu zonder code'}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerKop"><span class="ivak">${svg(I.vracht)}</span>
          <span class="naam">Koppelingen<small>${(()=>{
            const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
            return n?n+' van 2 gekoppeld':'webshop en verzendlabels'})()}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerAcc"><span class="ivak">${svg(fbUser?I.vink:I.alarm)}</span>
-         <span class="naam">${fbUser?esc(fbUser.email||'Ingelogd'):'Inloggen'}<small>${
+         <span class="naam">${fbUser?esc(fbUser.email||'Ingelogd')
+             :'Account aanmaken of inloggen'}<small>${
            !fbKlaar?'synchronisatie niet ingesteld'
-           :(fbUser?(fbOnline?'online \u00b7 je gegevens staan veilig':'offline'):'voor synchronisatie')}</small></span>
+           :(fbUser?(fbOnline?'online \u00b7 je gegevens staan veilig':'offline')
+                   :'zodat je gegevens ook op je laptop staan')}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerData"><span class="ivak">${svg(I.doc)}</span>
          <span class="naam">Gegevens meenemen<small>naar een ander toestel</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerNieuw"><span class="ivak">${svg(I.ververs)}</span>
          <span class="naam">Nieuwe dag beginnen<small>wist de batches van vandaag</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <button class="arij" id="meerLeeg"><span class="ivak rood">${svg(I.prul)}</span>
+         <span class="naam">Alles wissen<small>terug naar een lege app \u00b7 maak eerst een back-up</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
      </div>`,'');
 
@@ -20016,6 +20426,22 @@ function sheetMeer(){
   $('#meerKies').onclick=sheetBalkKiezen;
   $('#meerDeApp').onclick=sheetApp;
   $('#meerApp').onclick=sheetInstellingen;
+  $('#meerPin').onclick=sheetPin;
+  /* Twee keer bevestigen, en de tweede keer moet je het woord intikken. Dit
+     wist je hele administratie; één misklik mag dat nooit doen. */
+  $('#meerLeeg').onclick=()=>{
+    if(!confirm('Dit wist ALLES op dit toestel: smaken, batches, orders, klanten, bonnen en instellingen. Heb je een back-up gemaakt?')) return;
+    const w=prompt('Tik WISSEN om te bevestigen.');
+    if((w||'').trim().toUpperCase()!=='WISSEN') return toast('Niets gewist.');
+    BEWAARVELDEN.forEach(k=>{ if(Array.isArray(S[k])) S[k]=[];
+      else if(S[k]&&typeof S[k]==='object') S[k]={}; else S[k]=undefined });
+    S.zonderAccount=false; S.batchId=null; S.open=null; S.tab='dashboard';
+    try{ localStorage.removeItem(PINSLEUTEL) }catch(e){}
+    bewaarNu();
+    const klaar=()=>{ dicht(); location.reload() };
+    if(fbKlaar&&fbUser) firebase.auth().signOut().then(klaar).catch(klaar);
+    else klaar();
+  };
   if($('#meerKop')) $('#meerKop').onclick=sheetKoppelingen;
   $('#meerAcc').onclick=sheetAccount;
   $('#meerData').onclick=sheetData;
@@ -21319,6 +21745,12 @@ let startKlaar=false;
   startKlaar=true;
   accentZetten();
   render();
+  /* Het slot komt vóór alles wat daarna nog een scherm kan openen, anders
+     staat er een half ingevulde bon achter het pinscherm te wachten. */
+  if(slotNodig()) slotTonen();
+  /* Firebase heeft even nodig om te weten of je nog ingelogd bent. Meteen
+     vragen zou het welkomstscherm laten opflitsen bij wie gewoon ingelogd is. */
+  setTimeout(()=>{ if(welkomNodig()) welkomTonen() },1200);
   /* Werd de app weggedrukt terwijl je een bon invulde? Dan pak je hem hier op. */
   try{
     const bez=JSON.parse(localStorage.getItem('hq-bon-bezig')||'null');
