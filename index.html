@@ -2646,7 +2646,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v417 · 18 aug 2026';
+const APPVERSIE='v418 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4697,7 +4697,12 @@ function sheetMeldingen(){
   $$('#sheetBody [data-ins2]').forEach(x=>x.onclick=()=>{
     if(x.dataset.ins2==='backup') sheetBackup();
   });
+  /* Schermen als sheetTemp en sheetOpening beginnen met "const b=batch();
+     if(!b) return" — zonder actieve batch doen ze niets, zonder melding.
+     Vanaf het dashboard staat S.batchId op null, dus tikken op een
+     batchmelding leek kapot. Hier wijzen we eerst de lopende batch aan. */
   $$('#sheetBody [data-sheet]').forEach(x=>x.onclick=()=>{
+    if(!batch()){ const l=lopende()[0]; if(l) S.batchId=l.id }
     const f=SHEETS[x.dataset.sheet]; if(f) f();
   });
   /* Stickers hebben een eigen route: bij één smaak meteen het label, bij
@@ -4706,8 +4711,9 @@ function sheetMeldingen(){
   $$('#sheetBody [data-stickers]').forEach(x=>x.onclick=()=>{
     const b=S.batches.find(y=>y.id===x.dataset.stickers);
     if(!b||!b.regels.length) return;
+    S.batchId=b.id;
     if(b.regels.length===1) return sheetVoorraadLabel(b.id,b.regels[0].receptId);
-    S.batchId=b.id; dicht(); S.tab='productie'; render();
+    dicht(); S.tab='productie'; render();
   });
   $$('#sheetBody [data-naar]').forEach(x=>x.onclick=()=>{
     S.tab=x.dataset.naar; S.batchId=null; S.open=null;
