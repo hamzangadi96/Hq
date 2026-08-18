@@ -2628,7 +2628,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v414 · 18 aug 2026';
+const APPVERSIE='v415 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4493,7 +4493,7 @@ function begroetingHTML(){
       return {t:`${r} ${r===1?'order':'orders'} open`,k:'let'}})()
   ].filter(Boolean);
   const delen=kans.slice(0,2).map(x=>`<span class="${x.k}">${x.t}</span>`);
-  const meld=signalen().length;
+  const meld=meldingen().length;
   return `<div class="groet">
     <div class="groetrij">
       <button class="belknop links" data-account aria-label="${
@@ -4610,16 +4610,40 @@ function stappenlijnHTML(b){
 /* Alles wat je aandacht vraagt maar geen stap in een batch is: houdbaarheid
    die verloopt, een thermometer die geijkt moet worden, controles die te lang
    geleden zijn. Staat bij elkaar achter de bel. */
+/* Wat er achter de bel zit. Eén functie, zodat het stipje op de bel en de
+   lijst erachter nooit uit elkaar kunnen lopen. Naast de signalen uit je
+   productie hoort hier ook de back-upherinnering: dat is net zo goed iets
+   wat je aandacht vraagt maar niet over vandaag gaat. */
+function meldingen(){
+  const uit=signalen().map(x=>({ernst:x.ernst,tekst:x.tekst,extra:x.extra||'',
+    ico:x.ernst==='rood'?I.alarm:I.klok,doe:'data-naar="productie"'}));
+  const bu=S.laatsteBackup, oud=bu?dagenTussen(bu,vandaag()):null;
+  if(!bu||oud>=60) uit.push({ernst:'amber',ico:I.doos,
+    tekst:bu?'Je laatste back-up is van '+kort(new Date(bu)):'Nog geen back-up gemaakt',
+    extra:bu?'maak er een nieuwe':'je administratie staat alleen op dit toestel',
+    doe:'data-ins2="backup"'});
+  return uit;
+}
+
 function sheetMeldingen(){
-  const lijst=signalen();
+  const lijst=meldingen();
   const h=lijst.length
-    ? `<div class="actielijst">${lijst.map(x=>`<div class="actiekaart">
-        <span class="abadge">${svg(x.ernst==='rood'?I.alarm:I.klok)}</span>
-        <span class="atekst"><b>${esc(x.tekst)}</b><small>${esc(x.extra||'')}</small></span>
+    ? `<div class="actielijst">${lijst.map(x=>`<button class="actiekaart" ${x.doe}>
+        <span class="abadge">${svg(x.ico)}</span>
+        <span class="atekst"><b>${esc(x.tekst)}</b><small>${esc(x.extra)}</small></span>
         <span class="amerk ${x.ernst==='rood'?'fout':'let'}">${
-          x.ernst==='rood'?'Nu':'Let op'}</span></div>`).join('')}</div>`
+          x.ernst==='rood'?'Nu':'Let op'}</span></button>`).join('')}</div>`
     : `<div class="stapleeg">Geen meldingen.</div>`;
-  return sheet('Meldingen',h);
+  sheet('Meldingen',h);
+  /* De algemene knoppenbinder loopt bij render(), niet bij het openen van een
+     sheet. Deze knoppen staan in de sheet en moeten dus zelf gekoppeld. */
+  $$('#sheetBody [data-ins2]').forEach(x=>x.onclick=()=>{
+    if(x.dataset.ins2==='backup') sheetBackup();
+  });
+  $$('#sheetBody [data-naar]').forEach(x=>x.onclick=()=>{
+    S.tab=x.dataset.naar; S.batchId=null; S.open=null;
+    dicht(); render(); $('#scherm').scrollTop=0;
+  });
 }
 
 function dashboardHTML(){
@@ -4938,56 +4962,16 @@ function dashboardHTML(){
      productiestappen — het enige waar je op dit scherm iets mee doet — onder
      de vouw. De functie zelf blijft staan: andere schermen gebruiken hem. */
 
-  /* ── wat er echt mis gaat: alleen rood en de dingen met een datum ── */
-  const dringend=sig.filter(x=>x.ernst==='rood');
-  const later=sig.filter(x=>x.ernst!=='rood');
-  if(dringend.length){
-    h+=`<div class="blokkop"><span class="eyebrow">Moet nu</span>
-        <span class="tel let">${dringend.length}</span></div>
-      <div class="paneel">${dringend.slice(0,4).map(s2=>`<button class="arij" data-naar="productie">
-        <span class="ivak rood">${svg(I.alarm)}</span>
-        <span class="naam">${esc(s2.tekst)}<small>${esc(s2.extra)}</small></span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
-  }
-  if(later.length){
-    h+=`<div class="blokkop"><span class="eyebrow">Een keer doen</span>
-        <span class="tel">${later.length}</span></div>
-      <div class="paneel">${later.slice(0,4).map(s2=>`<button class="arij" data-naar="productie">
-        <span class="ivak">${svg(I.alarm)}</span>
-        <span class="naam">${esc(s2.tekst)}<small>${esc(s2.extra)}</small></span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
-  }
+  /* Hier stonden drie blokken: "Moet nu", "Een keer doen" en een rij van
+     vijftien snelknoppen, plus onderaan de back-upherinnering.
 
-  /* ── snel naar ── */
-  h+=`<div class="blokkop"><span class="eyebrow">Snel naar</span></div>
-  <div class="snelrij">
-    <button class="snelknop" data-planning>${svg(I.klok)}Planning</button>
-    <button class="snelknop" data-taaknieuw>${svg(I.plus)}Iets inplannen</button>
-    <button class="snelknop" data-vraag>${svg(I.praat)}Stel een vraag</button>
-    <button class="snelknop" data-sheet="klaar">${svg(I.vink)}Ben je er klaar voor</button>
-    <button class="snelknop" data-sheet="vooruit">${svg(I.vracht)}Wat moet je halen</button>
-    <button class="snelknop" data-boodschap>${svg(I.vracht)}Boodschappen</button>
-    <button class="snelknop" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button>
-    <button class="snelknop" data-sheet="kleurreken">${svg(I.spark)}Kleur rekenen</button>
-    <button class="snelknop" data-sheet="kleurzoek">${svg(I.loep)}Tint zoeken</button>
-    <button class="snelknop" data-sheet="kleurmogelijk">${svg(I.spark)}Wat kun je maken</button>
-    <button class="snelknop" data-sheet="haccp">${svg(I.klembord)}HACCP</button>
-    <button class="snelknop" data-sheet="wenskaart">${svg(I.doc)}Wenskaart</button>
-    <button class="snelknop" data-uitlegopen>${svg(I.boek)}Hoe werkt het?</button>
-    <button class="snelknop" data-sheet="instellingen">${svg(I.instel)}${
-      esc(bedrijf().naam||'Je bedrijf')}</button>
-  </div>`;
-  /* Een back-up die je één keer maakt en dan vergeet is over drie maanden
-     waardeloos. Na twee maanden vraagt hij er zelf om, onderaan zodat het
-     je werk niet in de weg zit. */
-  const bu=S.laatsteBackup;
-  const buOud=bu?dagenTussen(bu,vandaag()):null;
-  if(!bu||buOud>=60) h+=`<button class="melding amber" data-ins2="backup"
-    style="width:100%;text-align:left;margin-top:18px">${svg(I.doos,'2')}
-    <span>${bu
-      ? 'Je laatste back-up is van '+kort(new Date(bu))+'. Maak er een nieuwe.'
-      : 'Je hebt nog geen back-up van je administratie.'}</span>
-    ${svg(I.pijl,'2')}</button>`;
+     De eerste twee stonden sinds de belknop dubbel: dezelfde signalen zag je
+     op het dashboard én achter de bel. En "Snel naar" herhaalde het
+     drie-puntjes-menu, dat er juist voor bestaat.
+
+     Alles wat je aandacht vraagt maar niet over de batch van vandaag gaat,
+     zit nu op één plek: de bel rechtsboven, met een stipje als er iets
+     openstaat. Wat hier overblijft gaat alleen nog over vandaag. */
   return h;
 }
 
