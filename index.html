@@ -1038,12 +1038,23 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .norm{margin-top:12px;font-size:12.5px;font-weight:600;line-height:1.45;display:flex;gap:8px;align-items:flex-start}
 .norm svg{width:15px;height:15px;flex:none;margin-top:2px}
 .norm.ok{color:var(--groen)} .norm.fout{color:var(--rood)}
-.tog{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--lijn);width:100%;background:none;border-left:none;border-right:none;border-top:none;text-align:left;-webkit-user-select:none;user-select:none}
+/* Twintig punten van 58 hoog is vijf schermen scrollen. Op 44 past de hele
+   hygiënecode in twee. */
+.tog{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--lijn);width:100%;background:none;border-left:none;border-right:none;border-top:none;text-align:left;-webkit-user-select:none;user-select:none}
 .tog:last-of-type{border-bottom:none}
 .tog .tekst{flex:1;font-size:15px;font-weight:450;line-height:1.35;letter-spacing:-.01em}
-.tbox{width:26px;height:24px;border-radius:10px;background:var(--bg);flex:none;display:grid;place-items:center;color:transparent}
+/* Een leeg vakje met een randje leest als "nog te doen"; een grijs blok las
+   als uitgezet. */
+.tbox{width:24px;height:24px;border-radius:8px;background:transparent;
+  border:1.7px solid #d8d8dc;flex:none;display:grid;place-items:center;color:transparent}
 .tbox svg{width:15px;height:15px}
-.tog.aan .tbox{background:var(--ink);color:#fff}
+.tog.aan .tbox{background:var(--ink);border-color:var(--ink);color:#fff}
+.allesok{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  height:46px;margin:0 0 6px;border-radius:14px;background:var(--bg);
+  font-size:14.5px;font-weight:600;color:var(--ink2)}
+.allesok svg{width:16px;height:16px}
+.allesok:active{background:var(--choco-wash);color:var(--choco)}
+.allesok.aan{background:var(--choco-wash);color:var(--choco)}
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);padding:4px;border-radius:14px}
 .duo button{height:44px;border-radius:10px;font-size:14px;font-weight:600;color:var(--grijs);text-align:center}
 .duo button.aan{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
@@ -1779,7 +1790,7 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
   border-radius:14px;padding:12px 16px;margin-top:12px}
 .totaalregel .l{font-size:12.5px;font-weight:600;color:var(--grijs)}
 .totaalregel .w{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.025em}
-.meetrij{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--lijn)}
+.meetrij{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--lijn)}
 .meetrij:last-of-type{border-bottom:none}
 .meetrij .mt{flex:1;min-width:0;font-size:15px;font-weight:500;letter-spacing:-.01em}
 .meetrij .mt em{font-style:normal;display:block;font-size:12.5px;font-weight:500;color:var(--grijs2);margin-top:4px}
@@ -3161,7 +3172,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v456 · 18 aug 2026';
+const APPVERSIE='v457 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14897,14 +14908,20 @@ function sheetOpening(){
              <em data-norm="${c.id}">${normTekst(meetpuntVan(c.mpId))}</em></div>
              <input class="mval" data-meet="${c.id}" type="text" inputmode="decimal" step="0.1"
                placeholder="${(meetpuntVan(c.mpId)||{}).eenheid||'°C'}"></div>`
-        : `<button type="button" class="tog aan" data-cid="${c.id}">
+        /* Stond hier op "aan": je opende de check en alles was al afgevinkt.
+           Dan vink je niets af maar bevestig je alleen dat de app gelijk had,
+           en je hygiënecode staat vol met vinkjes die je nooit hebt gezet.
+           Nu begin je leeg, met één knop om alles in orde te verklaren. */
+        : `<button type="button" class="tog" data-cid="${c.id}">
              <span class="tbox">${svg(I.vink,'2.4')}</span><span class="tekst">${esc(c.tekst)}</span></button>`
     ).join('')}</div></div>`).join('');
 
   sheet('Openingscheck',
     over+
     (S.checks.length
-      ? `<p class="hint">Vink af wat in orde is en vul je metingen in.</p>
+      ? `<p class="hint">Vink af wat in orde is en vul je metingen in. Klopt er
+           iets niet, dan vraagt de app wat je eraan gedaan hebt.</p>
+         <button type="button" class="allesok" id="opAlles">${svg(I.vink,'2.4')}Alles in orde</button>
          ${lijst}
          <div class="veld" id="opNV" style="display:none"><label>Wat heb je eraan gedaan?</label>
            <textarea class="inp" id="opN" placeholder="Bijv. thermostaat lager gezet, om 13:00 hermeten"></textarea></div>
@@ -14927,28 +14944,46 @@ function sheetOpening(){
     metingen.forEach(c=>{
       const inp=document.querySelector(`[data-meet="${c.id}"]`); if(!inp) return;
       const m=meetpuntVan(c.mpId), em=document.querySelector(`[data-norm="${c.id}"]`);
+      /* getalIn geeft null bij een leeg veld, en isNaN(null) is false: een
+         leeg veld werd dus als 0 beoordeeld. Bij een norm van 0 tot 7 stond
+         er "binnen norm" zonder dat je iets gemeten had, en bij 15 tot 18
+         "buiten norm" — een aandachtspunt uit het niets. */
       const v=getalIn(inp.value);
-      if(isNaN(v)){nogLeeg++;inp.classList.remove('fout');em.className='';em.textContent=normTekst(m);return}
+      if(v===null||isNaN(v)){nogLeeg++;inp.classList.remove('fout');em.className='';em.textContent=normTekst(m);return}
       const ok=m?(v>=m.min&&v<=m.max):true;
       inp.classList.toggle('fout',!ok);
       em.className=ok?'ok':'fout';
       em.textContent=(ok?'binnen norm · ':'buiten norm · ')+normTekst(m);
       if(!ok) buiten++;
     });
+    const totaal=vinkjes().length, aan=totaal-uit;
     $('#opNV').style.display=(uit||buiten)?'block':'none';
+    /* Zolang je nog niets hebt aangevinkt is "opslaan met 20 aandachtspunten"
+       geen aandachtspunt maar gewoon de beginstand. */
     $('#opOk').textContent = nogLeeg ? `Nog ${nogLeeg} ${nogLeeg===1?'meting':'metingen'} invullen`
+      : !aan ? 'Vink af wat in orde is'
       : (uit||buiten) ? `Opslaan met ${uit+buiten} aandachtspunt${(uit+buiten)>1?'en':''}`
       : `Alles in orde · opslaan om ${nu()}`;
+    const teller=$('#sheetStap');
+    if(teller) teller.textContent=aan+' van '+totaal+' afgevinkt';
+    const ak=$('#opAlles');
+    if(ak) ak.classList.toggle('aan',aan===totaal);
   };
   vinkjes().forEach(t=>t.onclick=()=>{sluitToetsenbord();t.classList.toggle('aan');bijwerken()});
+  if($('#opAlles')) $('#opAlles').onclick=veilig('alles in orde',()=>{
+    sluitToetsenbord();
+    const alles=vinkjes().every(t=>t.classList.contains('aan'));
+    vinkjes().forEach(t=>t.classList.toggle('aan',!alles));
+    bijwerken();
+  });
   $$('[data-meet]').forEach(i=>i.oninput=bijwerken);
   bijwerken();
 
   $('#opOk').onclick=()=>{
     const uit=vinkjes().filter(t=>!t.classList.contains('aan'));
     const waarden=metingen.map(c=>({c,m:meetpuntVan(c.mpId),
-      v:parseFloat((document.querySelector(`[data-meet="${c.id}"]`)||{}).value)}));
-    if(waarden.some(x=>isNaN(x.v))) return toast('Vul eerst al je metingen in.');
+      v:getalIn((document.querySelector(`[data-meet="${c.id}"]`)||{}).value)}));
+    if(waarden.some(x=>x.v===null||isNaN(x.v))) return toast('Vul eerst al je metingen in.');
     const buiten=waarden.filter(x=>x.m&&(x.v<x.m.min||x.v>x.m.max));
     const n=$('#opN').value.trim();
     if((uit.length||buiten.length)&&!n) return toast('Noteer wat je hebt gedaan aan wat niet klopt.');
