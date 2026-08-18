@@ -1332,6 +1332,9 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   margin-left:7px;padding:2px 7px;border-radius:99px;background:var(--choco-wash);
   color:var(--choco);font-size:11.5px;font-weight:600;white-space:nowrap;
   font-variant-numeric:tabular-nums}
+/* Het deel krijgt een eigen, zwaardere pil dan een tijd of temperatuur: dat
+   is het eerste wat je wilt zien als je twee bakjes room voor je hebt staan. */
+.wwkaart .wwt em.wwdeel{background:var(--ink);color:#fff}
 .wwkaart .wwk{flex:none;width:32px;height:32px;border-radius:10px;display:grid;
   place-items:center;color:var(--grijs2)}
 .wwkaart .wwk:active{background:var(--bg);color:var(--ink)}
@@ -3098,7 +3101,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v447 · 18 aug 2026';
+const APPVERSIE='v448 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3975,6 +3978,17 @@ function leesTijd(t){
   if(/^m/.test(e)) return Math.round(n*60);
   return Math.round(n);
 }
+/* Bij welk deel hoort deze handeling? Splits je je room in tweeën, dan wil
+   je tijdens het maken in één oogopslag zien of je nu met het grote of het
+   kleine deel bezig bent. Noemt een regel er twee, dan is het het moment dat
+   ze samenkomen en zetten we er niets bij. */
+function leesDeel(t){
+  const s=String(t||'');
+  const treffers=[];
+  s.replace(/(\d{1,3})\s*%/g,(m,n)=>{ if(treffers.indexOf(n)<0) treffers.push(n); return m });
+  return treffers.length===1 ? treffers[0]+'%' : null;
+}
+
 /* leest '80 °C' of '31,5 C' uit een zin */
 function leesGraden(t){
   const tekst=String(t||'');
@@ -16986,16 +17000,25 @@ const WERKWIJZEBIB={
     {k:'Uitharden', v:['Ondersteboven laten uitlekken 5 min',
       'Laten uitharden 20 min op 16 °C']}
   ],
+  /* Een ganache is geen rechte lijn: je splitst de room, doet met elk deel
+     iets anders, en pas bij de chocolade komen ze samen. Stonden de suikers
+     en de matcha in één lijst "Verwarmen" en "Smaak erin", dan zag je niet
+     meer bij wélk deel een handeling hoorde. Nu heet elke stap zijn eigen
+     deel bij naam. */
   ganache:[
-    {k:'Verwarmen', v:['Room verwarmen tot 80 °C','Room afwegen en splitsen — 80% en 20%',
-      'Room 40 sec in de magnetron','Roeren en nogmaals 30 sec — herhalen tot 80 °C',
-      'Glucosestroop toevoegen','Invertsuiker toevoegen','Roomboter erdoor laten smelten',
-      'Van het vuur halen']},
-    {k:'Smaak erin', v:['Smaakpoeder zeven','Poeder met de 20% room tot een glad papje mengen',
-      'Laten trekken 10 min','Puree toevoegen','Door een zeef halen en terugwegen']},
-    {k:'Mengen', v:['Witte chocoladedruppels afwegen in een hoge beker',
-      'Beide delen over de chocoladedruppels gieten','3 min laten staan',
-      'Vanuit het midden roeren tot de druppels weg zijn',
+    {k:'Voorbereiden', v:['Witte chocoladedruppels afwegen in een hoge beker',
+      'Room afwegen en splitsen — 80% en 20%']},
+    {k:'Deel 1 · de 80% room', v:['Glucosestroop bij de 80% room',
+      'Invertsuiker bij de 80% room','Roomboter bij de 80% room',
+      '80% room 40 sec in de magnetron',
+      'Roeren en nogmaals 30 sec — herhalen tot 80 °C',
+      '80% room verwarmen tot 80 °C','Van het vuur halen']},
+    {k:'Deel 2 · de 20% room', v:['Smaakpoeder zeven',
+      'Poeder met de 20% room tot een glad papje mengen',
+      'Papje 10 min laten trekken','Puree bij de 20% room',
+      'Papje door een zeef halen']},
+    {k:'Samenvoegen', v:['Beide delen over de chocoladedruppels gieten',
+      '3 min laten staan','Vanuit het midden roeren tot de druppels weg zijn',
       'Kort mixen met de staafmixer — niet te lang']},
     {k:'Afwerken', v:['Roomboter erdoor op 35 °C','Afkoelen tot 30 °C',
       'In een spuitzak overdoen','In de schelpen spuiten']}
@@ -17036,9 +17059,9 @@ const WERKWIJZEROUTE={
     'Smaakpoeder zeven',
     'Poeder met de 20% room tot een glad papje mengen',
     'Glucosestroop en invertsuiker bij de 80% room',
-    'Room 40 sec in de magnetron',
+    '80% room 40 sec in de magnetron',
     'Roeren en nogmaals 30 sec — herhalen tot 80 °C',
-    'Roomboter erdoor laten smelten',
+    'Roomboter bij de 80% room laten smelten',
     'Beide delen over de chocoladedruppels gieten',
     '3 min laten staan',
     'Vanuit het midden roeren tot de druppels weg zijn',
@@ -17833,8 +17856,9 @@ function sheetOnderdeel(idx,stap){
       const L=$('#wwL');
       if(!L) return;
       L.innerHTML=o.werkwijze.map((t,i)=>{
-        const sec=leesTijd(t), gr=leesGraden(t);
+        const sec=leesTijd(t), gr=leesGraden(t), dl=leesDeel(t);
         const lab=[
+          dl?`<em class="wwdeel">${esc(dl)}</em>`:'',
           sec?`<em>${svg(I.klok)}${sec>=3600?getal(sec/3600)+' u':sec>=60?Math.round(sec/60)+' min':sec+' s'}</em>`:'',
           gr!==null?`<em>${svg(I.temp)}${getal(gr)}°</em>`:''
         ].join('');
