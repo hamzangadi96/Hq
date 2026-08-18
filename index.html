@@ -792,8 +792,13 @@ header .hbtn.zoek{display:none}
   background:var(--ink);color:#fff;font-size:15.5px;font-weight:600;
   letter-spacing:-.015em;text-align:center;display:grid;place-items:center}
 .nukaart .nuknop:active{background:var(--choco)}
-.nukaart.loopt{border-color:var(--choco-licht);background:var(--choco-wash)}
-.nukaart.loopt .eyebrow{color:var(--choco)}
+/* Heette .loopt, maar die klasse bestond al elders in de app met
+   display:flex. De kaart erfde dat en legde kop, titel, uitleg en knop naast
+   elkaar op één regel — met de knop half buiten de kaart. */
+.nukaart.bezig{border-color:var(--choco-licht);background:var(--choco-wash)}
+.nukaart.bezig .eyebrow{color:var(--choco)}
+/* En voor de zekerheid: deze kaart is altijd een kolom, wat er ook meekomt */
+.nukaart{display:block}
 .nukaart.af h3{font-size:21px}
 
 /* de route: stappen zijn verbonden, je ziet waar je bent */
@@ -3140,7 +3145,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v453 · 18 aug 2026';
+const APPVERSIE='v454 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5201,7 +5206,10 @@ function kpiHTML(){
 /* De donkere kaart die je bovenaan het dashboard ziet. Staat hier als eigen
    functie zodat Productie letterlijk hetzelfde onderdeel toont — één plek om
    te wijzigen, en de twee schermen kunnen niet meer uit elkaar lopen. */
-function heroBatchHTML(b){
+/* metStap staat uit op het batchscherm zelf: daar staat de Nu-kaart er direct
+   onder, met dezelfde stap én een knop. Twee keer hetzelfde onder elkaar maakt
+   de kop alleen maar langer, en de route zakt erdoor onder de tabbalk. */
+function heroBatchHTML(b, metStap){
   const v=bVolgende(b), w=lopendWerk(b);
   const gedaan=bGedaan(b), totaal=KERN.length;
   const pct=totaal?Math.min(100,Math.round(gedaan/totaal*100)):0;
@@ -5233,7 +5241,7 @@ function heroBatchHTML(b){
             return [bTotaal(b)+' bonbons',soort,dn>1?'dag '+dn:''
               ].filter(Boolean).join(' · ');
           })()}</div>
-          <div class="hk2stap">
+          ${metStap===false?'':`<div class="hk2stap">
             <i class="${b.status==='pauze'?'amber':''}"></i>
             <span>${(()=>{
               /* "Productiestappen — volgende stap" zei niets: dat is de naam
@@ -5246,7 +5254,7 @@ function heroBatchHTML(b){
               }
               return esc(v.label)+' — volgende stap';
             })()}${w?' · '+esc(w.act)+' loopt':''}</span>
-          </div>
+          </div>`}
         </span>
       </div>
     </button>`;
@@ -5268,6 +5276,24 @@ const NUSUB={
   afronden:'aantallen goed en afkeur invullen'
 };
 function nuKaartHTML(b){
+  const w=lopendWerk(b), plan=bPlan(b);
+  /* Loopt er een timer op een productiestap, dan is dát waar je mee bezig
+     bent — ook al staat er in de route nog een eerdere stap open. De kaart
+     zei anders "bezig met ganache maken" met "Ingrediënten" eronder. */
+  /* Maar niet als die stap al afgevinkt is: dan loopt de timer nog na en
+     zou de kaart je terugsturen naar werk dat al klaar is. */
+  const lopStand=w?(planVan(b)[w.act]||{}):{};
+  if(w && plan.indexOf(w.act)>=0 && !lopStand.gedaan){
+    const i=plan.indexOf(w.act)+1;
+    const sub=[bNamen(b), bTotaal(b)+' stuks',
+               'stap '+i+' van '+plan.length].filter(Boolean).join(' · ');
+    const sinds=new Date(w.start);
+    return `<div class="nukaart bezig">
+      <span class="eyebrow">Bezig sinds ${pad(sinds.getHours())}:${pad(sinds.getMinutes())}</span>
+      <h3>${esc(w.act)}</h3>
+      <div class="nusub">${esc(sub)}</div>
+      <button class="nuknop" data-nustap="${esc(w.act)}">Verder</button></div>`;
+  }
   const v=bVolgende(b);
   if(!v){
     return `<div class="nukaart af">
@@ -5276,25 +5302,22 @@ function nuKaartHTML(b){
       <div class="nusub">Vul in hoeveel er goed zijn en hoeveel afkeur.</div>
       <button class="nuknop" data-sheet="afronden">Afronden</button></div>`;
   }
-  const w=lopendWerk(b);
   let titel=v.label, sub=NUSUB[v.key]||'', knop=v.knop, attr=`data-sheet="${v.sheet}"`;
 
   if(v.key==='productie'){
-    const plan=bPlan(b), volg=planVolgende(b);
+    const volg=planVolgende(b);
     if(volg){
       titel=volg;
       const i=plan.indexOf(volg)+1;
       /* de smaak en het aantal horen hier: dat bepaalt je hoeveelheden */
       sub=[bNamen(b), bTotaal(b)+' stuks',
            'stap '+i+' van '+plan.length].filter(Boolean).join(' · ');
-      const loopt=w&&w.act===volg;
-      knop=loopt?'Hervatten':'Beginnen';
+      knop='Beginnen';
       attr=`data-nustap="${esc(volg)}"`;
     }
   }
-  const bezig=w&&w.act;
-  return `<div class="nukaart${bezig?' loopt':''}">
-    <span class="eyebrow">${bezig?'Bezig met '+esc(w.act.toLowerCase()):'Nu aan de beurt'}</span>
+  return `<div class="nukaart">
+    <span class="eyebrow">Nu aan de beurt</span>
     <h3>${esc(titel)}</h3>
     ${sub?`<div class="nusub">${esc(sub)}</div>`:''}
     <button class="nuknop" ${attr}>${esc(knop)}</button></div>`;
@@ -5920,7 +5943,7 @@ function batchHTML(){
       <h2>Batch afgerond</h2>
       <div class="sub">${b.resultaat.goed} goed${b.resultaat.afkeur?` · ${b.resultaat.afkeur} afkeur`:''}</div></div>`;
   } else {
-    h+=heroBatchHTML(b);
+    h+=heroBatchHTML(b,false);
     /* Was een losse zwarte knop met het label van de route-stap. Die zei
        "Lotnummers invullen" terwijl je wilde weten wat je moest dóén. */
     h+=nuKaartHTML(b);
