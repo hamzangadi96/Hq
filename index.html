@@ -1336,14 +1336,29 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .wwkaart .wwk[disabled]{opacity:.22}
 .wwkaart.bezig{border-color:var(--choco-licht);background:var(--choco-wash)}
 .wwvoor{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
-.wwvoor button{display:inline-flex;align-items:center;gap:5px;padding:8px 12px;
+.wwvoor button{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;
   border-radius:99px;background:var(--bg);border:1px solid transparent;
-  font-size:13px;color:var(--ink2);letter-spacing:-.01em;text-align:left}
+  font-size:12.5px;color:var(--ink2);letter-spacing:-.01em;text-align:left;
+  line-height:1.3}
 .wwvoor button:active{background:var(--choco-wash);border-color:var(--choco-licht);
   color:var(--choco)}
 .wwvoor button svg{width:13px;height:13px;stroke-width:2.2;flex:none;color:var(--grijs2)}
-.wwvoorkop{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--grijs2);
-  margin:20px 0 0}
+.wwvoorkop{font-size:11px;font-weight:700;letter-spacing:.07em;color:var(--grijs3)}
+.wwvoor{margin-top:8px}
+.wwgroep{border-top:1px solid var(--lijn)}
+.wwgroep:first-child{border-top:none;margin-top:16px}
+.wwgroep summary{display:flex;align-items:center;gap:8px;padding:13px 0 12px;
+  cursor:pointer;list-style:none}
+.wwgroep summary::-webkit-details-marker{display:none}
+.wwgroep summary .wwvoorkop{flex:1;min-width:0}
+.wwgroep summary .wwtel{flex:none;font-style:normal;font-size:11px;font-weight:700;
+  color:var(--grijs2);background:var(--bg);border-radius:99px;padding:2px 8px;
+  font-variant-numeric:tabular-nums}
+.wwgroep summary svg{width:14px;height:14px;flex:none;color:var(--grijs3);
+  transform:rotate(90deg);transition:transform .18s}
+.wwgroep[open] summary svg{transform:rotate(-90deg)}
+.wwgroep[open] summary .wwvoorkop{color:var(--ink2)}
+.wwgroep .wwvoor{margin:0 0 14px}
 
 /* Overslaan links, hoofdactie rechts — één donkere knop per scherm. */
 .wzknoppen{display:flex;gap:10px;align-items:center}
@@ -3079,7 +3094,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v445 · 18 aug 2026';
+const APPVERSIE='v446 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16950,6 +16965,74 @@ const ONDERDEELSOORTEN=[
 ];
 const ANDERSVOORSTEL=['Karamel','Crunch','Croustillant','Marsepein'];
 
+/* ═══════════ handelingen die je kunt aantikken ═══════════
+   De eerste versie had vijf algemene regels per soort. Te weinig: een echte
+   ganache splits je in delen, laat je trekken, giet je over de druppels en
+   mix je kort — dat typte je allemaal zelf. Dit is de volledige gang van
+   zaken, gegroepeerd op moment, zodat je hem in volgorde kunt aantikken.
+   Wat je zelf al eerder hebt getypt komt er bovenop en staat bovenaan. */
+const WERKWIJZEBIB={
+  schelp:[
+    {k:'Mal voorbereiden', v:['Mallen poetsen met watten','Mal verven met cacaoboter',
+      'Verf laten uitharden 10 min']},
+    {k:'Tempereren', v:['Chocolade smelten tot 45 °C','Afkoelen tot 27 °C',
+      'Opwarmen tot 31 °C','Tempertest doen op een mesje']},
+    {k:'Gieten', v:['Mallen volgieten','Afkloppen tegen de rand',
+      'Omkeren en laten uitlopen','Afschrapen met een paletmes']},
+    {k:'Uitharden', v:['Ondersteboven laten uitlekken 5 min',
+      'Laten uitharden 20 min op 16 °C']}
+  ],
+  ganache:[
+    {k:'Verwarmen', v:['Room verwarmen tot 80 °C','Room in twee delen splitsen',
+      'Glucosestroop toevoegen','Invertsuiker toevoegen','Roomboter toevoegen',
+      'Van het vuur halen']},
+    {k:'Smaak erin', v:['Poeder zeven','Poeder met een deel room tot een papje mengen',
+      'Laten trekken 10 min','Puree toevoegen','Door een zeef halen en terugwegen']},
+    {k:'Mengen', v:['Over de chocoladedruppels gieten','Een paar minuten laten staan',
+      'Vanuit het midden roeren','Kort mixen met de staafmixer',
+      'Niet te lang mixen — anders slaat hij op']},
+    {k:'Afwerken', v:['Roomboter erdoor op 35 °C','Afkoelen tot 30 °C',
+      'In een spuitzak overdoen','Laten kristalliseren 12 uur']}
+  ],
+  gelei:[
+    {k:'Verwarmen', v:['Puree verwarmen tot 40 °C','Glucosestroop toevoegen']},
+    {k:'Binden', v:['Suiker en pectine droog mengen','Al kloppend toevoegen',
+      'Aan de kook brengen','Koken tot 104 °C']},
+    {k:'Afwerken', v:['Citroenzuur toevoegen','Direct uitgieten',
+      'Laten opstijven 1 uur']}
+  ],
+  praline:[
+    {k:'Roosteren', v:['Noten roosteren 12 min op 160 °C','Laten afkoelen']},
+    {k:'Karamel', v:['Suiker karamelliseren tot amber','Noten door de karamel scheppen',
+      'Uitstorten op een siliconenmat','Grof breken']},
+    {k:'Malen', v:['Fijnmalen tot een pasta','Cacaoboter toevoegen',
+      'Snufje zout toevoegen']}
+  ],
+  algemeen:[
+    {k:'Handelingen', v:['Afwegen','Verwarmen tot 40 °C','Mengen tot een gladde massa',
+      'Door een zeef halen','Laten afkoelen','In een spuitzak overdoen',
+      'Laten opstijven 1 uur']}
+  ]
+};
+
+/* Wat je bij eerdere lagen van dezelfde soort al hebt opgeschreven. Na één
+   keer typen staat jouw eigen werkwijze er de volgende keer gewoon bij. */
+function ondEigenWw(naam){
+  const s=ondSoort(naam), tel={};
+  (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>{
+    const os=ondSoort(o.naam);
+    const past = s ? (os && os.k===s.k) : (!os && gKey(o.naam)===gKey(naam));
+    if(!past) return;
+    (o.werkwijze||[]).forEach(w=>{
+      const t=String(w||'').trim(); if(!t) return;
+      const k=t.toLowerCase();
+      if(!tel[k]) tel[k]={t,n:0};
+      tel[k].n++;
+    });
+  }));
+  return Object.values(tel).sort((a,b)=>b.n-a.n||a.t.localeCompare(b.t)).map(x=>x.t);
+}
+
 /* Welke soort is dit onderdeel? Bestaande onderdelen hebben alleen een naam,
    dus die herkennen we daaraan — anders zou alles wat je eerder invoerde
    ineens als "anders" gelden. */
@@ -16990,14 +17073,21 @@ function smaakStap3(){
          <span class="w">${getal(totaal)} g</span></div>`
       :''}
      <div class="veld"><label>${R.onderdelen.length?'Nog een laag toevoegen':'Begin met een laag'}</label>
-       <div class="keuzeraster" id="swO">${ONDERDEELVOORSTEL.filter(x=>
-         !R.onderdelen.some(o=>gKey(o.naam)===gKey(x))).map(x=>
-         `<button class="chip" data-nieuwond="${esc(x)}">${x}</button>`).join('')}
+       <div class="keuzeraster" id="swO">${ONDERDEELSOORTEN.filter(x=>x.k!=='anders'&&
+         !R.onderdelen.some(o=>gKey(o.naam)===gKey(x.n))).map(x=>
+         `<button class="chip" data-nieuwond="${esc(x.n)}">${esc(x.n)}</button>`).join('')}
          <button class="chip nieuw breed" data-nieuwond="">${svg(I.plus)}Andere laag</button></div></div>`,
     `<button class="prim" style="margin-top:0" id="sw3">${R.onderdelen.length?'Volgende':'Overslaan'}</button>
      <button class="sec" id="sw3T">Terug</button>`,'Stap 3 van 4');
   $$('[data-ond]').forEach(b=>b.onclick=()=>{R.wizard=3;sheetOnderdeel(parseInt(b.dataset.ond))});
-  $$('[data-nieuwond]').forEach(b=>b.onclick=()=>{R.wizard=3;R.voorstel=b.dataset.nieuwond;sheetOnderdeel(null)});
+  /* Koos je hier al een laag, dan is de eerste vraag van de onderdeelwizard
+     al beantwoord. Die sloegen we niet over: je kreeg precies dezelfde vraag
+     nog een keer, met de teller weer op 1. Nu spring je meteen naar het
+     gewicht. Alleen "Andere laag" begint bij het begin. */
+  $$('[data-nieuwond]').forEach(b=>b.onclick=()=>{
+    R.wizard=3; R.voorstel=b.dataset.nieuwond;
+    sheetOnderdeel(null, b.dataset.nieuwond?1:0);
+  });
   $('#sw3T').onclick=()=>sheetSmaakWizard(2);
   $('#sw3').onclick=()=>sheetSmaakWizard(4);
 }
@@ -17416,6 +17506,13 @@ function sheetOnderdeel(idx,stap){
                   : JSON.parse(JSON.stringify(R.onderdelen[idx]));
   ONDERDEELBUF=null;
   if(nieuw) R.voorstel='';
+  /* Komt de soort van buiten (uit stap 3 van de smaakwizard), dan zetten we
+     het gebruikelijke gewicht meteen klaar — dat deed anders alleen de
+     tegelknop op stap 1, die je in dat geval nooit ziet. */
+  if(!o.gram){
+    const s0=ondSoort(o.naam);
+    if(s0&&s0.gram) o.gram=s0.gram;
+  }
   if(!o.ing||!o.ing.length) o.ing=[{naam:'',deel:''}];
   if(!Array.isArray(o.werkwijze)) o.werkwijze=o.werkwijze?[o.werkwijze]:[];
   o.werkwijze=o.werkwijze.filter(x=>x&&String(x).trim());
@@ -17533,14 +17630,16 @@ function sheetOnderdeel(idx,stap){
         <button class="wwadd" id="wwAdd" disabled>${svg(I.plus)}</button></div>
       <div class="wwlijst" id="wwL"></div>
       <div class="geen" id="wwUit" style="padding-top:10px"></div>
-      ${s&&s.ww.length?`<div class="wwvoorkop" id="wwVK">VOORSTELLEN VOOR EEN ${s.n.toUpperCase()}</div>
-        <div class="wwvoor" id="wwV"></div>`:''}`;
+      <div id="wwV"></div>`;
     over='Later invullen';
   }
 
   /* De titel was "Onderdeel toevoegen": naast "Stap 4 van 4" brak dat over
      twee regels en duwde het de hele kop uit elkaar. Dat je iets toevoegt
      staat al op de knop. */
+  /* De stapteller stond zowel in de kop als in de voortgangsbalk. Naast de
+     "Stap 3 van 4" van de smaakwizard leverde dat twee tellers op één scherm
+     op. De balk laat het al zien, dus de kop houdt het bij de titel. */
   sheet('Onderdeel',
     body,
     `<div class="wzknoppen">
@@ -17548,8 +17647,7 @@ function sheetOnderdeel(idx,stap){
        <button class="prim" id="oOk">${hoofd}</button></div>
      ${stap>0?`<button class="sec terug" id="oTerug">${svg(I.terug,'2')}Vorige</button>`
               :`<button class="sec terug" id="oTerug">${svg(I.terug,'2')}Terug naar smaak</button>`}
-     ${nieuw||stap>0?'':`<button class="sec" id="oWis">Onderdeel verwijderen</button>`}`,
-    'Stap '+(stap+1)+' van '+ONDSTAPPEN.length);
+     ${nieuw||stap>0?'':`<button class="sec" id="oWis">Onderdeel verwijderen</button>`}`);
 
   /* ═══════════ stap 1: soort kiezen ═══════════ */
   if(st.k==='soort'){
@@ -17733,10 +17831,34 @@ function sheetOnderdeel(idx,stap){
       const V=$('#wwV'); if(!V) return;
       const s=ondSoort(o.naam);
       const staat=o.werkwijze.map(x=>x.trim().toLowerCase());
-      const lijst=((s&&s.ww)||[]).filter(x=>staat.indexOf(x.toLowerCase())<0);
-      const kop=$('#wwVK');
-      if(kop) kop.style.display=lijst.length?'':'none';
-      V.innerHTML=lijst.map(x=>`<button data-wwv="${esc(x)}">${svg(I.plus)}${esc(x)}</button>`).join('');
+      const nieuw2=lijst=>lijst.filter(x=>staat.indexOf(x.toLowerCase())<0);
+      const pillen=lijst=>`<div class="wwvoor">${lijst.map(x=>
+        `<button data-wwv="${esc(x)}">${svg(I.plus)}${esc(x)}</button>`).join('')}</div>`;
+
+      /* Twintig handelingen onder elkaar is twee schermen scrollen. Als
+         uitklapbare fasen zie je in één blik het hele proces staan en open
+         je alleen het stukje waar je nu mee bezig bent. Open blijft wat je
+         zelf al eens gebruikte — dat is meestal precies goed. */
+      const groep=(kop,lijst,open)=>`<details class="wwgroep"${open?' open':''}>
+        <summary><span class="wwvoorkop">${esc(kop)}</span>
+          <i class="wwtel">${lijst.length}</i>${svg(I.pijl,'2')}</summary>
+        ${pillen(lijst)}</details>`;
+
+      let uit='';
+      /* eerst wat je zelf al eens hebt opgeschreven bij dezelfde soort */
+      const eigen=nieuw2(ondEigenWw(o.naam));
+      if(eigen.length) uit+=groep('ZOALS JE HET EERDER DEED',eigen,true);
+
+      const groepen=WERKWIJZEBIB[(s&&s.k)||'algemeen']||WERKWIJZEBIB.algemeen;
+      let eersteOpen=!eigen.length;
+      groepen.forEach(g=>{
+        const l=nieuw2(g.v).filter(x=>eigen.indexOf(x)<0);
+        if(!l.length) return;
+        uit+=groep(g.k.toUpperCase(),l,eersteOpen);
+        eersteOpen=false;
+      });
+      V.innerHTML=uit;
+
       $$('[data-wwv]').forEach(b=>b.onclick=veilig('voorstel toevoegen',()=>{
         o.werkwijze.push(b.dataset.wwv);
         wwTeken(); wwVoor();
