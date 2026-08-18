@@ -2900,7 +2900,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v435 · 18 aug 2026';
+const APPVERSIE='v436 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3015,7 +3015,7 @@ function ingHernoem(oud,nieuw){
   };
   S.ingredienten=(S.ingredienten||[]).map(x=>
     (x||'').trim().toLowerCase()===vk?naar:x);
-  S.ingArchief=(S.ingArchief||[]).map(x=>
+  S.ingArchief=alsLijst(S.ingArchief).map(x=>
     (x||'').trim().toLowerCase()===vk?naar:x);
   hernoemSleutel(S.prijzen); hernoemSleutel(S.prijsBron); hernoemSleutel(S.prijsHist);
   hernoemSleutel(S.ingLink); hernoemSleutel(S.allerg);
@@ -3051,11 +3051,14 @@ function ingHernoem(oud,nieuw){
 /* Een ingrediënt dat je een seizoen niet gebruikt hoef je niet weg te gooien.
    Archiveren haalt hem uit je lijst en uit de suggesties, maar laat alles
    staan — ook in de recepten waar hij in zit. */
-const ingGearchiveerd=naam=>(S.ingArchief||[])
+/* Ook hier alsLijst(): normaliseren bij het laden dekt het meeste af, maar
+   een halve synchronisatie kan dit veld alsnog als object achterlaten. Dan
+   hoort de lijst gewoon te openen in plaats van om te vallen. */
+const ingGearchiveerd=naam=>alsLijst(S.ingArchief)
   .some(x=>(x||'').trim().toLowerCase()===(naam||'').trim().toLowerCase());
 
 function ingArchiveer(naam,aan){
-  S.ingArchief=(S.ingArchief||[]).filter(x=>
+  S.ingArchief=alsLijst(S.ingArchief).filter(x=>
     (x||'').trim().toLowerCase()!==(naam||'').trim().toLowerCase());
   if(aan) S.ingArchief.push(naam);
   bewaarNu();
@@ -3064,7 +3067,7 @@ function ingArchiveer(naam,aan){
 function ingWeg(naam){
   const k=(naam||'').trim().toLowerCase();
   S.ingredienten=(S.ingredienten||[]).filter(x=>(x||'').trim().toLowerCase()!==k);
-  S.ingArchief=(S.ingArchief||[]).filter(x=>(x||'').trim().toLowerCase()!==k);
+  S.ingArchief=alsLijst(S.ingArchief).filter(x=>(x||'').trim().toLowerCase()!==k);
   delete (S.prijzen||{})[naam];
   delete (S.prijsBron||{})[naam];
   delete (S.prijsHist||{})[naam];
@@ -3232,7 +3235,31 @@ function pakData(){
   d.bijgewerkt=Date.now();
   return d;
 }
-function zetData(d){ BEWAARVELDEN.forEach(k=>{if(d[k]!==undefined&&d[k]!==null)S[k]=d[k]}); S.bijgewerkt=d.bijgewerkt||0 }
+/* Firebase bewaart een lijst als object zodra de sleutels niet netjes 0,1,2
+   zijn — na een verwijdering bijvoorbeeld. Krijg je dat terug, dan is
+   S.ingArchief ineens {} in plaats van [], en klapt alles om wat er .some(),
+   .filter() of .map() op doet. Eén onopvallend veld legde zo je hele
+   ingrediëntenlijst plat met "er ging iets mis bij de app".
+
+   Welke velden een lijst horen te zijn weten we uit de begintoestand, dus dat
+   hoeven we nergens apart bij te houden. */
+/* ingArchief en prijsHist staan niet in de begintoestand maar zijn wel
+   lijsten zodra je ze gebruikt; die noemen we er los bij. */
+const LIJSTVELDEN=Object.keys(S).filter(k=>Array.isArray(S[k]))
+  .concat(['ingArchief']);
+
+function alsLijst(v){
+  if(Array.isArray(v)) return v;
+  if(v&&typeof v==='object') return Object.keys(v)
+    .sort((a,b)=>(+a||0)-(+b||0)).map(k=>v[k]).filter(x=>x!==null&&x!==undefined);
+  return [];
+}
+
+function zetData(d){
+  BEWAARVELDEN.forEach(k=>{if(d[k]!==undefined&&d[k]!==null)S[k]=d[k]});
+  LIJSTVELDEN.forEach(k=>{ if(!Array.isArray(S[k])) S[k]=alsLijst(S[k]) });
+  S.bijgewerkt=d.bijgewerkt||0;
+}
 
 /* ═══════════ fotokast voor bonnetjes ═══════════
    Bewust buiten S: bewaarNu() schrijft de hele toestand naar Firebase én
