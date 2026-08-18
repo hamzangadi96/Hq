@@ -2149,7 +2149,9 @@ header.weg{display:none}
   font-weight:700;letter-spacing:-.035em;line-height:1.1;color:var(--ink);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .groetsub{margin-top:7px;font-size:14.5px;color:var(--grijs);letter-spacing:-.01em}
+.groetsub:empty{display:none}
 .groetsub .let{color:var(--let-op);font-weight:600}
+.groetsub .fout{color:var(--rood);font-weight:600}
 
 /* de bel: wit rondje, geen rand, alleen een zachte schaduw */
 .belknop{flex:none;width:46px;height:46px;border-radius:99px;background:var(--card);
@@ -2217,7 +2219,10 @@ header.weg{display:none}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpid.pos{color:var(--groen)}
 .kpid.neg{color:var(--rood)}
-.kpid.leeg{min-height:1em}
+/* Het raster rekt de drie kaarten toch al gelijk, dus een lege regel hoeft
+   geen ruimte te reserveren. Doet hij dat wel, dan staat er onderin elke
+   kaart een gat zodra er niets te vergelijken valt. */
+.kpichip{align-content:start}
 
 /* ═══ 9. HERO ═══════════════════════════════════════════════════════
    Ring links, tekst rechts. De oude opzet stapelde ring, titel en regels
@@ -2474,7 +2479,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v402 · 18 aug 2026';
+const APPVERSIE='v403 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4315,18 +4320,27 @@ function begroetingHTML(){
   const groet=u<6?'Goedenacht':u<12?'Goedemorgen':u<18?'Goedemiddag':'Goedenavond';
   const gepland=planLijst().filter(p=>dagenTussen(vandaag(),p.datum)<=0).length;
   const bezig=lopende().length;
-  const open=(S.orders||[]).filter(o=>o.status==='nieuw').length;
-  const delen=[];
-  if(bezig) delen.push(`<span>${bezig} ${bezig===1?'batch':'batches'} bezig</span>`);
-  if(gepland) delen.push(`<span>${gepland} ${gepland===1?'batch':'batches'} gepland</span>`);
-  if(open) delen.push(`<span class="let">${open} ${open===1?'order':'orders'} open</span>`);
-  /* Hier stond "niets dringends vandaag". Dat is geen mededeling maar een
-     verontschuldiging voor een leeg scherm. Is er niets te melden, dan zegt
-     de datum tenminste iets waars. */
-  if(!delen.length){
-    const dt=new Date(vandaag());
-    delen.push(`<span>${DAG[dt.getDay()]} ${dt.getDate()} ${MND[dt.getMonth()]}</span>`);
-  }
+  const ord=(S.orders||[]).filter(o=>o.status==='nieuw');
+  const telaat=ord.filter(o=>o.leverdatum&&o.leverdatum<vandaag()).length;
+  const nuweg=ord.filter(o=>o.leverdatum===vandaag()).length;
+  const rood=signalen().filter(x=>x.ernst==='rood').length;
+
+  /* De subregel is geen samenvatting van alles: hij noemt de twee dingen die
+     er nu het meest toe doen, van dringend naar gewoon. Valt er niets te
+     melden, dan blijft hij leeg. Hier stond eerst de datum als opvulling,
+     maar die weet je zelf ook wel. */
+  const kans=[
+    telaat && {t:`${telaat} ${telaat===1?'order':'orders'} te laat`,k:'fout'},
+    rood   && {t:`${rood} ${rood===1?'melding':'meldingen'}`,k:'fout'},
+    nuweg  && {t:`${nuweg} ${nuweg===1?'order':'orders'} vandaag weg`,k:'let'},
+    bezig  && {t:`${bezig} ${bezig===1?'batch':'batches'} bezig`,k:''},
+    gepland&& {t:`${gepland} ${gepland===1?'batch':'batches'} gepland`,k:''},
+    /* Alleen wat nog niet hierboven genoemd is: anders staat er
+       "1 order vandaag weg · 1 order open" en is dat dezelfde order. */
+    (ord.length-telaat-nuweg>0) && (()=>{const r=ord.length-telaat-nuweg;
+      return {t:`${r} ${r===1?'order':'orders'} open`,k:'let'}})()
+  ].filter(Boolean);
+  const delen=kans.slice(0,2).map(x=>`<span class="${x.k}">${x.t}</span>`);
   const meld=signalen().length;
   const naam=bedrijfVoornaam();
   return `<div class="groet">
@@ -4374,7 +4388,7 @@ function kpiHTML(){
      wordt in CSS vastgehouden zodat de drie kaarten gelijk blijven. */
   const delta=(nu,eerder,eenheid)=>{
     const d=nu-eerder;
-    if(d===0) return '<span class="kpid leeg"></span>';
+    if(d===0) return '';
     const op=d>0;
     return `<span class="kpid ${op?'pos':'neg'}">${op?'\u25B2':'\u25BC'} ${
       op?'+':'\u2212'}${Math.abs(d)}${eenheid||''}</span>`;
@@ -4383,8 +4397,7 @@ function kpiHTML(){
     <div class="kpichip"><b>${bN}</b><span>batches</span>${delta(bN,bG)}</div>
     <div class="kpichip"><b>${sN}</b><span>bonbons</span>${delta(sN,sG)}</div>
     <div class="kpichip"><b>${open.length}</b><span>open orders</span>
-      ${laat?`<span class="kpid neg">${laat} te leveren</span>`
-            :'<span class="kpid leeg"></span>'}</div>
+      ${laat?`<span class="kpid neg">${laat} te leveren</span>`:''}</div>
   </div>`;
 }
 
