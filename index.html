@@ -2179,10 +2179,13 @@ header.weg{display:none}
 .weekstrip .wdag{width:auto;flex:1 1 0;min-width:0;height:52px;padding:0;
   border:none;border-radius:14px;justify-content:center;gap:2px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 6px 16px -12px rgba(24,24,27,.26)}
-.weekstrip .wdag .wd{font-size:11px;font-weight:600;letter-spacing:.06em;
+.weekstrip .wdag .wd{font-size:10.5px;font-weight:500;letter-spacing:.06em;
   line-height:1;color:var(--grijs2)}
-.weekstrip .wdag .wn{font-size:20px;font-weight:700;letter-spacing:-.035em;
-  line-height:1.05;color:var(--ink)}
+/* Stond op 700. Zeven vette cijfers naast elkaar trekken meer aandacht dan
+   de strook verdient — het is context, geen kop. Op 600 lees je ze net zo
+   snel maar duwen ze de begroeting niet meer weg. */
+.weekstrip .wdag .wn{font-size:19px;font-weight:600;letter-spacing:-.03em;
+  line-height:1.05;color:var(--ink2)}
 /* Een dag zonder werk zag er eerst grijzer uit dan de rest. Dat gaf ruis:
    je leest de strook aan de stippen, niet aan de achtergrond. */
 .weekstrip .wdag.leeg{background:var(--card)}
@@ -2193,7 +2196,7 @@ header.weg{display:none}
 .weekstrip .wdag.nu,.weekstrip .wdag.nu.leeg,.weekstrip .wdag.nu.vol{
   background:var(--choco);box-shadow:0 2px 12px rgba(74,43,24,.32)}
 .weekstrip .wdag.nu .wd{color:rgba(255,255,255,.58)}
-.weekstrip .wdag.nu .wn{color:#fff}
+.weekstrip .wdag.nu .wn{color:#fff;font-weight:600}
 /* Eén stip per dag. Er stond een rijtje van één per soort werk; bij een drukke
    dag werden dat er vier en dan werd het blokje een streepjescode. */
 .weekstrip .wstippen{height:5px;margin-top:2px;gap:0;justify-content:center}
@@ -2594,7 +2597,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v406 · 18 aug 2026';
+const APPVERSIE='v407 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
