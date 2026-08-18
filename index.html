@@ -2638,6 +2638,13 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
    te veel even zware knoppen, drie soorten sectiekoppen, dichte lijsten,
    chips die buiten beeld liepen, en subregels in hoofdletters. */
 
+/* ── 0a. dubbele ruimte voor het home-streepje ──
+   Zowel de inhoud als de voetbalk reserveerden de veilige zone onderaan het
+   scherm. Op een iPhone is dat 34 punten, dus stond er 46 punten leegte tussen
+   je laatste veld en de knoppen — terwijl de voetbalk die strook al afdekt.
+   Staat er een voetbalk, dan hoeft de inhoud dat niet nog eens te doen. */
+.sheet:has(.sheetvoet:not(:empty)) .sheetbody{padding-bottom:12px}
+
 /* ── 0. de voetbalk vraagt te veel ruimte ──
    Twee knoppen onder elkaar, elk 48 hoog met marge ertussen: samen bijna 200
    pixels aan het einde van elk scherm. Op een telefoon is dat een kwart van
@@ -2976,7 +2983,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v441 · 18 aug 2026';
+const APPVERSIE='v442 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
