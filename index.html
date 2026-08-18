@@ -2107,21 +2107,36 @@ main .paneel{background:none;border:none;box-shadow:none;overflow:visible;
    in de app een dichte opsomming met scheidingslijnen. Nu krijgen ze dezelfde
    kaartvorm; de uitklap zelf hangt eronder. */
 main .paneel>.groep{background:var(--card);border:1px solid var(--lijn);
-  border-radius:16px;overflow:hidden;
+  border-radius:16px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+/* De overflow zat op de kaart, voor de uitklapanimatie. Die knipte ook de
+   stip weg zodra die buiten de kaart kwam te staan. Nu knipt alleen het
+   uitklapdeel zelf. */
+main .paneel>.groep>.uit{overflow:hidden;border-radius:0 0 15px 15px}
 main .paneel>.groep>.arij{border-bottom:none;padding:14px 16px;background:none}
 main .paneel>.groep.open{border-color:rgba(74,43,24,.18)}
 
-/* De verbindingslijn zat in elke rij zelf. Nu de rijen kaarten zijn met een
-   ronding en overflow:hidden knipt hij af bij elke rand en valt hij uiteen in
-   losse streepjes. Eén doorlopende lijn op het paneel, achter de kaarten
-   langs — net als in de tijdlijn op het dashboard. */
-main .paneel:has(>.groep.inroute){position:relative}
+/* De stip stond ín de kaart, terwijl hij op het dashboard náást de kaart op
+   de lijn staat. Twee lijsten die hetzelfde bedoelen hoorden dat op dezelfde
+   manier te doen. Het paneel schuift naar rechts, de lijn komt in de vrije
+   strook en de stip springt de kaart uit. */
+main .paneel:has(>.groep.inroute){position:relative;padding-left:30px}
 main .paneel:has(>.groep.inroute)::before{content:'';position:absolute;
-  left:31px;top:26px;width:1px;background:var(--lijn);z-index:0;
-  height:calc(100% - 26px)}
+  left:6px;top:22px;bottom:22px;width:1px;background:var(--lijn);z-index:0}
 main .paneel>.groep.inroute::before{display:none}
 main .paneel>.groep{position:relative;z-index:1}
+main .paneel>.groep.inroute>.arij{padding-left:16px}
+main .paneel>.groep.inroute>.arij .rmark{position:absolute;left:-30px;
+  width:13px;height:13px;border-width:2px}
+main .paneel>.groep.inroute>.arij .rmark svg{display:none}
+
+/* En dezelfde randen: bruin waar je nu bent, groen wat af is. */
+main .paneel>.groep.inroute:has(.arij.rnu){background:#f5f1f0;
+  border-color:rgba(74,43,24,.16);box-shadow:inset 3px 0 0 var(--choco),
+  0 1px 2px rgba(24,24,27,.04)}
+main .paneel>.groep.inroute:has(.arij.rgedaan){box-shadow:inset 3px 0 0 var(--groen),
+  0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+main .paneel>.groep.inroute:has(.arij.rstraks){background:#fafafa;box-shadow:none}
 
 /* De stippen spraken hun eigen taal: alles zwart. Dezelfde betekenis als in
    de tijdlijn op het dashboard — groen is klaar, bruin is waar je nu bent. */
@@ -2675,7 +2690,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v419 · 18 aug 2026';
+const APPVERSIE='v420 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
