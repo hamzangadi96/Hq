@@ -2983,7 +2983,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v443 · 18 aug 2026';
+const APPVERSIE='v444 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3312,11 +3312,40 @@ async function lokaalLees(){
 
 /* Velden die je nog nooit hebt gebruikt zijn undefined. Firebase weigert een
    object met undefined-waarden, dus die laten we weg in plaats van meesturen. */
+/* Alleen het bovenste niveau nakijken was niet genoeg. Zat er ergens diep in
+   een object een undefined — bijvoorbeeld gramPerStuk bij een ingrediënt dat
+   je niet per stuk koopt — dan weigerde Firebase de hele set(). Niet dat ene
+   veld: alles. Je zag "set failed: value argument contains undefined" en je
+   werk stond nergens meer.
+
+   Daarom gaat nu alles eréén keer doorheen. undefined verdwijnt uit objecten
+   en wordt null in lijsten, zodat de plekken in een lijst blijven kloppen. */
+function schoonVoorFirebase(v){
+  if(v===undefined) return undefined;
+  if(v===null||typeof v!=='object') return v;
+  if(v instanceof Date) return v.getTime();
+  if(Array.isArray(v)){
+    const uit=[];
+    for(let i=0;i<v.length;i++){
+      const w=schoonVoorFirebase(v[i]);
+      uit.push(w===undefined?null:w);
+    }
+    return uit;
+  }
+  const o={};
+  for(const k in v){
+    if(!Object.prototype.hasOwnProperty.call(v,k)) continue;
+    const w=schoonVoorFirebase(v[k]);
+    if(w!==undefined) o[k]=w;
+  }
+  return o;
+}
+
 function pakData(){
   const d={};
   BEWAARVELDEN.forEach(k=>{ if(S[k]!==undefined) d[k]=S[k] });
   d.bijgewerkt=Date.now();
-  return d;
+  return schoonVoorFirebase(d);
 }
 /* Firebase bewaart een lijst als object zodra de sleutels niet netjes 0,1,2
    zijn — na een verwijdering bijvoorbeeld. Krijg je dat terug, dan is
@@ -3617,7 +3646,10 @@ function sheetBijsnijden(bestand,klaar,terug){
 function bewaarNu(){
   const d=pakData(); S.bijgewerkt=d.bijgewerkt;
   lokaalSchrijf(d); opslagOk=true;
-  if(fbRef){ negeerRemote=true; fbRef.set(d).catch(()=>{}); setTimeout(()=>negeerRemote=false,600); }
+  /* d komt uit pakData() en is dus al schoon; deze extra ronde is er voor het
+     geval bewaarNu() ooit iets anders doorgeeft. Kost niets, scheelt een
+     stilstaande app. */
+  if(fbRef){ negeerRemote=true; fbRef.set(schoonVoorFirebase(d)).catch(()=>{}); setTimeout(()=>negeerRemote=false,600); }
 }
 function bewaar(){clearTimeout(bewaarTimer);bewaarTimer=setTimeout(bewaarNu,400)}
 
@@ -19024,9 +19056,17 @@ function prijsBronZet(naam,bedrag,hoeveel,eenheid,gramPerStuk){
         kilo:oudKilo,datum:oud.datum});
       S.prijsHist[naam]=lijst.slice(0,12);
     }
-    S.prijsBron[naam]={bedrag:getalIn(bedrag), hoeveel:getalIn(hoeveel), eenheid,
-      gramPerStuk:PRIJSEENHEID[eenheid]&&PRIJSEENHEID[eenheid].perStuk?getalIn(gramPerStuk):undefined,
-      datum:vandaag()};
+    /* gramPerStuk stond hier op undefined zodra je niet per stuk inkocht, en
+       dat is precies waar Firebase op afknapt. Koop je niet per stuk, dan
+       hoort het veld er helemaal niet te zijn — dus zetten we hem alleen
+       neer als hij ergens over gaat. */
+    const bron={bedrag:getalIn(bedrag), hoeveel:getalIn(hoeveel),
+      eenheid:eenheid||'g', datum:vandaag()};
+    if(PRIJSEENHEID[eenheid]&&PRIJSEENHEID[eenheid].perStuk){
+      const gps=getalIn(gramPerStuk);
+      if(gps!==null) bron.gramPerStuk=gps;
+    }
+    S.prijsBron[naam]=bron;
     if(perKilo===null) delete S.prijzen[naam]; else S.prijzen[naam]=perKilo;
   }
   bewaarNu();
