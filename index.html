@@ -2575,10 +2575,35 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   border-radius:99px}
 .pinuit:active{background:var(--choco-wash);color:var(--choco)}
 
+/* ═══ 17. ZACHTERE OVERGANGEN ═══════════════════════════════════════
+   De sheet deed 320ms, de overlay 250ms. Dat verschil van 70ms zie je: het
+   scherm is al donker voordat de sheet er is, en licht op voordat hij weg is.
+   Beide even lang en dezelfde curve, dan bewegen ze als één ding. */
+
+/* De curve (.32,.72,0,1) schiet meteen weg: na een tiende van de tijd is de
+   helft van de beweging al gebeurd. Dat leest als een sprong met een staartje.
+   (.4,0,.2,1) verdeelt de beweging gelijkmatiger — rustig op gang, rustig uit. */
+.sheet{transition:transform .40s cubic-bezier(.4,0,.2,1)}
+.overlay{transition:opacity .40s cubic-bezier(.4,0,.2,1)}
+
+/* De inhoud komt net ná de sheet in beeld: eerst zie je het vlak omhoogkomen,
+   pas daarna wat erop staat. Alles tegelijk leest als een sprong. */
+.sheet .sheetkop,.sheet #sheetBody,.sheet .sheetvoet{opacity:0;
+  transition:opacity .22s ease .10s}
+.sheet.open .sheetkop,.sheet.open #sheetBody,.sheet.open .sheetvoet{opacity:1}
+
+/* Wat achter de sheet ligt zakt een fractie weg. Dat geeft diepte zonder dat
+   er iets verspringt — en het maakt duidelijk dat de app er nog is. */
+.app main,.app header{transition:transform .40s cubic-bezier(.4,0,.2,1)}
+.app:has(>.sheet.open) main,.app:has(>.sheet.open) header{transform:scale(.988)}
+
 @media (prefers-reduced-motion:reduce){
   .stapkaart:active{transform:none}
   .pinbollen.mis{animation:none}
   .pintoets button:active{transform:none}
+  .sheet,.overlay,.app main,.app header{transition:none}
+  .sheet .sheetkop,.sheet #sheetBody,.sheet .sheetvoet{opacity:1;transition:none}
+  .app:has(>.sheet.open) main,.app:has(>.sheet.open) header{transform:none}
 }
 </style>
 </head>
@@ -2708,7 +2733,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v421 · 18 aug 2026';
+const APPVERSIE='v422 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4193,7 +4218,11 @@ function renderProberen(){
   const inB=S.tab==='productie'&&S.batchId&&batch();
   const kenmerk=S.tab+(inB?':'+S.batchId:'');
   const wissel=vorigScherm!==null&&kenmerk!==vorigScherm;
-  if(wissel&&document.startViewTransition&&!document.hidden&&!vtBezig
+  /* Staat er een sheet open, dan wisselt er geen scherm — er komt alleen iets
+     overheen. De kruisvervaging maakte dan een momentopname van de hele pagina
+     en vervaagde oud naar nieuw, waardoor je app een fractie wit werd terwijl
+     de sheet omhoog kwam. Dat las als een knipper. */
+  if(wissel&&!sheetOpen&&document.startViewTransition&&!document.hidden&&!vtBezig
      &&!matchMedia('(prefers-reduced-motion: reduce)').matches){
     vtBezig=true;
     try{document.startViewTransition(()=>{
@@ -4260,7 +4289,9 @@ function renderNu(){
   if(gewisseld){
     const el=$('#scherm');
     el.classList.remove('schermIn');
-    if(!vtBezig){ void el.offsetWidth; el.classList.add('schermIn'); }
+    /* Ook deze niet als er een sheet voor staat: je ziet er toch niets van,
+       en het is de derde animatie die tegelijk loopt. */
+    if(!vtBezig&&!sheetOpen){ void el.offsetWidth; el.classList.add('schermIn'); }
   }
   const balk=balkKeuze();
   /* De balk alleen echt opnieuw bouwen als de samenstelling verandert. Blijft hij
