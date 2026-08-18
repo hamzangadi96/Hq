@@ -2240,36 +2240,43 @@ header.weg{display:none}
    Ring links, tekst rechts. De oude opzet stapelde ring, titel en regels
    onder elkaar en was daardoor bijna een heel scherm hoog. */
 
-.hoofdkaart.hk2{padding:18px 18px 16px;border-radius:22px;
-  display:flex;flex-direction:column;gap:14px}
+.hoofdkaart.hk2{padding:20px;border-radius:22px;
+  display:flex;flex-direction:column;gap:18px}
 .hk2kop{display:flex;align-items:center;gap:10px}
-.hk2kop .eyebrow{flex:1;font-size:11px;letter-spacing:.09em;color:#8f8f98}
-.hk2badge{flex:none;padding:5px 11px;border-radius:99px;font-size:11.5px;
-  font-weight:600;background:rgba(110,70,48,.55);color:#fff}
-.hk2lijf{display:flex;align-items:center;gap:16px}
+.hk2kop .eyebrow{flex:1;font-size:11px;font-weight:600;letter-spacing:.09em;
+  color:#8f8f98}
+/* Was doorschijnend bruin en daardoor nauwelijks te onderscheiden van de
+   kaart. Een massief vlak leest als een label, niet als een vlek. */
+.hk2badge{flex:none;padding:6px 14px;border-radius:99px;font-size:12px;
+  font-weight:600;letter-spacing:-.01em;background:#372A22;color:#efe6e0}
+/* De ring staat tegenover de hele rechterkolom, niet alleen tegenover de
+   titel. Vandaar center op dit niveau en niet op de tekst zelf. */
+.hk2lijf{display:flex;align-items:center;gap:18px}
 .hk2ring{position:relative;width:78px;height:78px;flex:none;display:grid;
   place-items:center}
 .hk2ring svg{position:absolute;inset:0;width:100%;height:100%;
   transform:rotate(-90deg)}
-.hk2ring .baan{fill:none;stroke:rgba(255,255,255,.12);stroke-width:6}
-.hk2ring .vul{fill:none;stroke:var(--choco-licht);stroke-width:6;
+.hk2ring .baan{fill:none;stroke:#353439;stroke-width:7}
+.hk2ring .vul{fill:none;stroke:var(--choco-licht);stroke-width:7;
   stroke-linecap:round;transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
 .hk2ring.amber .vul{stroke:#fbbf24}
 .hk2ring .binnen{display:flex;flex-direction:column;align-items:center;line-height:1}
-.hk2ring .binnen b{font-size:19px;font-weight:700;letter-spacing:-.04em;color:#fff;
+.hk2ring .binnen b{font-size:20px;font-weight:700;letter-spacing:-.04em;color:#fff;
   font-variant-numeric:tabular-nums}
-.hk2ring .binnen em{font-size:9.5px;font-style:normal;color:#8f8f98;margin-top:3px}
+.hk2ring .binnen em{font-size:10px;font-style:normal;color:#8f8f98;margin-top:2px}
 .hk2tekst{flex:1;min-width:0}
 .hoofdkaart.hk2 .hk2tekst h2{margin:0;font-size:21px;font-weight:700;
   letter-spacing:-.03em;line-height:1.15;color:#fff}
-.hoofdkaart.hk2 .hk2tekst .sub{margin-top:5px;font-size:13px;color:#a1a1aa;
-  line-height:1.4}
-.hk2stap{display:flex;align-items:flex-start;gap:9px;padding-top:13px;
-  border-top:1px solid rgba(255,255,255,.10)}
-.hk2stap i{width:7px;height:7px;border-radius:99px;background:var(--choco-licht);
-  flex:none;margin-top:5px;animation:pols 2s infinite}
+.hoofdkaart.hk2 .hk2tekst .sub{margin-top:6px;font-size:13px;color:#959499;
+  line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Hier stond een streep over de volle breedte met de regel eronder. Dat knipte
+   de kaart in tweeën, terwijl deze regel juist bij de batch hoort. Nu staat hij
+   in dezelfde kolom als de titel, ingesprongen door het stipje. */
+.hk2stap{display:flex;align-items:flex-start;gap:10px;margin-top:12px}
+.hk2stap i{width:6px;height:6px;border-radius:99px;background:var(--choco-licht);
+  flex:none;margin-top:6px;animation:pols 2s infinite}
 .hk2stap i.amber{background:#fbbf24}
-.hk2stap span{font-size:13.5px;color:#fff;line-height:1.4;letter-spacing:-.01em}
+.hk2stap span{font-size:13.5px;color:#fff;line-height:1.42;letter-spacing:-.01em}
 
 /* ═══ 10. SEGMENTED CONTROL ═════════════════════════════════════════ */
 
@@ -2608,7 +2615,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v408 · 18 aug 2026';
+const APPVERSIE='v409 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4599,7 +4606,7 @@ function dashboardHTML(){
     h+=`<div class="hoofdkaart hk2">
       <div class="hk2kop">
         <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
-        <span class="hk2badge">${esc(b.code)}</span>
+        <span class="hk2badge">Batch ${esc(b.code)}</span>
       </div>
       <div class="hk2lijf">
         <span class="hk2ring ${b.status==='pauze'?'amber':''}">
@@ -4612,14 +4619,22 @@ function dashboardHTML(){
         </span>
         <span class="hk2tekst">
           <h2>${esc(bNamen(b))}</h2>
-          <div class="sub">${bTotaal(b)} bonbons · ${chocNaam(b.chocolade||'').toLowerCase()
-            } · dag ${dagNummer(b)}</div>
+          <div class="sub">${(()=>{
+            /* "pure chocolade · dag 1" liet de regel afbreken, en een tweede
+               regel kost hier meer dan hij oplevert. De soort zegt genoeg
+               zonder het woord chocolade erachter, en dag 1 is geen nieuws. */
+            const soort=chocNaam(b.chocolade||'').toLowerCase()
+              .replace(/\s*chocolade\s*$/,'');
+            const dn=dagNummer(b);
+            return [bTotaal(b)+' bonbons',soort,dn>1?'dag '+dn:''
+              ].filter(Boolean).join(' · ');
+          })()}</div>
+          <div class="hk2stap">
+            <i class="${b.status==='pauze'?'amber':''}"></i>
+            <span>${v?esc(v.label)+' — volgende stap':'Alle stappen gedaan — afronden'}${
+              w?' · '+esc(w.act)+' loopt':''}</span>
+          </div>
         </span>
-      </div>
-      <div class="hk2stap">
-        <i class="${b.status==='pauze'?'amber':''}"></i>
-        <span>${v?esc(v.label)+' — volgende stap':'Alle stappen gedaan — afronden'}${
-          w?' · '+esc(w.act)+' loopt':''}</span>
       </div>
     </div>`;
 
