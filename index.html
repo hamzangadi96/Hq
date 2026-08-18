@@ -1256,6 +1256,102 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   line-height:1.2;color:var(--ink)}
 .wzuit{margin:0 0 22px;font-size:14.5px;line-height:1.5;color:var(--grijs)}
 
+/* ── onderdeel kiezen: vier soorten als tegels ──
+   De naam was een vrij tekstveld, maar in de praktijk is een laag altijd een
+   schelp, een gelei, een ganache of een praliné. Kiezen is sneller dan typen
+   en de app weet daardoor meteen bij welke productiestap het hoort. */
+.ondtegels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 4px}
+.ondtegel{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
+  padding:15px 14px 14px;text-align:left;display:flex;flex-direction:column;gap:9px;
+  min-height:104px;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
+.ondtegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
+.ondtegel.aan{background:var(--choco-wash);border-color:var(--choco-licht)}
+.ondtegel .ovak{width:34px;height:34px;border-radius:11px;flex:none;display:grid;
+  place-items:center;background:var(--bg);color:var(--grijs)}
+.ondtegel.aan .ovak{background:var(--choco);color:#fff}
+.ondtegel .ovak svg{width:17px;height:17px;stroke-width:1.9}
+/* Stond op margin-top:auto, waardoor de naam bij een korte subregel naar de
+   onderkant zakte en bij een lange bleef hangen: twee tegels naast elkaar met
+   de naam op verschillende hoogte. Alles sluit nu gewoon aan onder het icoon. */
+.ondtegel .on{font-size:16px;font-weight:600;letter-spacing:-.025em;color:var(--ink)}
+.ondtegel .os{font-size:12.5px;color:var(--grijs);line-height:1.35;letter-spacing:-.01em}
+.ondtegel.breed{grid-column:1 / -1;min-height:0;flex-direction:row;align-items:center;gap:12px}
+.ondtegel.breed{padding:14px}
+
+/* ── productiestap: geen horizontaal schuivende chips meer ──
+   Tien stappen naast elkaar betekende naar rechts vegen om te zien wat er
+   stond. De app leidt hem nu zelf af uit de soort; je ziet alleen het
+   resultaat en kunt hem in een verticale lijst omzetten als het een keer
+   anders is. */
+.stapregel{display:flex;align-items:center;gap:10px;margin:18px 0 0;padding:12px 14px;
+  background:var(--bg);border-radius:14px}
+.stapregel .sl{flex:1;min-width:0;font-size:13.5px;color:var(--grijs);line-height:1.4}
+.stapregel .sl b{display:block;font-size:15px;font-weight:600;color:var(--ink);
+  letter-spacing:-.02em;margin-top:1px}
+.stapregel .sa{flex:none;height:34px;padding:0 13px;border-radius:10px;
+  background:var(--card);border:1px solid var(--lijn);font-size:13px;font-weight:600;
+  color:var(--ink2)}
+.stapregel .sa:active{background:var(--choco-wash);color:var(--choco)}
+.stapkeuze{display:none;margin-top:8px;background:var(--card);border:1px solid var(--lijn);
+  border-radius:14px;overflow:hidden}
+.stapkeuze.open{display:block}
+.stapkeuze button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:12px 14px;border-bottom:1px solid var(--lijn);font-size:14.5px;color:var(--ink)}
+.stapkeuze button:last-child{border-bottom:none}
+.stapkeuze button:active{background:var(--choco-wash)}
+.stapkeuze button .sv{flex:none;width:18px;height:18px;color:var(--choco);opacity:0}
+.stapkeuze button.aan .sv{opacity:1}
+.stapkeuze button.aan{color:var(--choco);font-weight:600}
+
+/* ── werkwijze: losse handelingen in plaats van één tekstvak ──
+   In een blok van zeven regels zie je niet waar je bent en kun je niets
+   verschuiven. Nu is elke handeling een kaartje: tik erop om hem aan te
+   passen, pijl omhoog om hem eerder te doen. */
+.wwin{display:flex;gap:8px;align-items:center}
+.wwin input{flex:1;min-width:0}
+.wwin{align-items:stretch}
+.wwin .wwadd{flex:none;width:52px;min-height:52px;border-radius:14px;background:var(--ink);
+  color:#fff;display:grid;place-items:center}
+.wwin .wwadd:active{background:var(--choco)}
+.wwin .wwadd svg{width:19px;height:19px;stroke-width:2.2}
+.wwin .wwadd[disabled]{background:var(--lijn);color:var(--grijs3)}
+.wwlijst{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+.wwkaart{display:flex;align-items:center;gap:9px;background:var(--card);
+  border:1px solid var(--lijn);border-radius:14px;padding:9px 9px 9px 12px}
+.wwkaart .wwn{flex:none;width:22px;height:22px;border-radius:8px;background:var(--bg);
+  color:var(--grijs2);font-size:11.5px;font-weight:700;display:grid;place-items:center;
+  font-variant-numeric:tabular-nums}
+.wwkaart .wwt{flex:1;min-width:0;text-align:left;font-size:14.5px;line-height:1.35;
+  color:var(--ink);letter-spacing:-.01em}
+.wwkaart .wwt em{display:inline-flex;align-items:center;gap:3px;font-style:normal;
+  margin-left:7px;padding:2px 7px;border-radius:99px;background:var(--choco-wash);
+  color:var(--choco);font-size:11.5px;font-weight:600;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.wwkaart .wwk{flex:none;width:32px;height:32px;border-radius:10px;display:grid;
+  place-items:center;color:var(--grijs2)}
+.wwkaart .wwk:active{background:var(--bg);color:var(--ink)}
+.wwkaart .wwk svg{width:15px;height:15px;stroke-width:2}
+.wwkaart .wwk.op svg{transform:rotate(-90deg)}
+.wwkaart .wwk[disabled]{opacity:.22}
+.wwkaart.bezig{border-color:var(--choco-licht);background:var(--choco-wash)}
+.wwvoor{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.wwvoor button{display:inline-flex;align-items:center;gap:5px;padding:8px 12px;
+  border-radius:99px;background:var(--bg);border:1px solid transparent;
+  font-size:13px;color:var(--ink2);letter-spacing:-.01em;text-align:left}
+.wwvoor button:active{background:var(--choco-wash);border-color:var(--choco-licht);
+  color:var(--choco)}
+.wwvoor button svg{width:13px;height:13px;stroke-width:2.2;flex:none;color:var(--grijs2)}
+.wwvoorkop{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--grijs2);
+  margin:20px 0 0}
+
+/* Overslaan links, hoofdactie rechts — één donkere knop per scherm. */
+.wzknoppen{display:flex;gap:10px;align-items:center}
+.wzknoppen .prim{margin-top:0;flex:1}
+.wzknoppen .sec.plat{margin-top:0;flex:none;width:auto;padding:0 16px;border:none;
+  background:transparent;color:var(--grijs);font-size:14.5px}
+.wzknoppen .sec.plat:active{color:var(--ink);background:transparent}
+
 /* plakvak in een stap */
 .wzplak{margin:0 0 20px}
 .wzplak textarea{min-height:78px;font-size:15px;line-height:1.45}
@@ -2983,7 +3079,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v444 · 18 aug 2026';
+const APPVERSIE='v445 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16826,6 +16922,56 @@ function smaakStap2(){
 
 const ONDERDEELVOORSTEL=['Schelp','Ganache','Gelei','Praliné','Karamel','Crunch'];
 
+/* ═══════════ de vier lagen van een bonbon ═══════════
+   Een laag is in de praktijk altijd een schelp, een gelei, een ganache of een
+   praliné. Dat vastleggen scheelt niet alleen typen: de app weet daardoor
+   meteen bij welke productiestap het onderdeel hoort, hoeveel gram er
+   ongeveer in gaat en welke handelingen erbij horen. "Anders" blijft bestaan
+   voor de karamel of het krokantje dat je over een jaar bedenkt. */
+const ONDERDEELSOORTEN=[
+  {k:'schelp', n:'Schelp', ico:'bonbon', uit:'de chocolade buitenkant', gram:4,
+   stap:'Schelpen gieten',
+   ww:['Chocolade tempereren tot 31 °C','Mallen vullen en afkloppen',
+       'Omkeren en laten uitlopen','Laten uitharden 20 min']},
+  {k:'ganache', n:'Ganache', ico:'pot', uit:'romige vulling van room en chocolade', gram:6,
+   stap:'Ganache maken',
+   ww:['Room verwarmen tot 80 °C','Van het vuur halen','Chocolade erdoor roeren',
+       'Laten afkoelen 20 min','Boter erdoor mixen']},
+  {k:'gelei', n:'Gelei', ico:'glas', uit:'fruitige laag met pectine', gram:2,
+   stap:'Gelei maken',
+   ww:['Puree verwarmen tot 40 °C','Suiker en pectine mengen','Koken tot 104 °C',
+       'Zuur toevoegen','Direct uitgieten']},
+  {k:'praline', n:'Praliné', ico:'boon', uit:'notenpasta met karamel', gram:5,
+   stap:'Ganache maken',
+   ww:['Noten roosteren 12 min','Suiker karamelliseren','Noten erdoor en laten afkoelen',
+       'Fijnmalen tot pasta']},
+  {k:'anders', n:'Anders', ico:'plus', uit:'karamel, crunch of iets eigens', gram:'',
+   stap:'', ww:[]}
+];
+const ANDERSVOORSTEL=['Karamel','Crunch','Croustillant','Marsepein'];
+
+/* Welke soort is dit onderdeel? Bestaande onderdelen hebben alleen een naam,
+   dus die herkennen we daaraan — anders zou alles wat je eerder invoerde
+   ineens als "anders" gelden. */
+function ondSoort(naam){
+  const n=(naam||'').trim().toLowerCase();
+  if(!n) return null;
+  return ONDERDEELSOORTEN.find(s=>s.k!=='anders' &&
+    (n===s.n.toLowerCase() || n.indexOf(s.k)>=0 ||
+     n.indexOf(s.n.toLowerCase())>=0 ||
+     (s.k==='praline' && /pralin/.test(n)))) || null;
+}
+
+/* De productiestap hoeft je niet meer zelf te kiezen. Hij volgt uit de soort,
+   en alleen als die stap ook echt in jouw werkplan staat — je kunt dat
+   werkplan namelijk zelf aanpassen. */
+function ondStapVoor(naam){
+  const s=ondSoort(naam);
+  const plan=S.werkplan||[];
+  if(s&&s.stap&&plan.indexOf(s.stap)>=0) return s.stap;
+  return raadStap(naam)||'';
+}
+
 function smaakStap3(){
   const totaal=gramPerBonbon(R);
   sheet('Waar bestaat het uit?',
@@ -17236,22 +17382,117 @@ function sheetIngKiezen(huidig, klaar){
 
 let ONDERDEELBUF=null;
 
-function sheetOnderdeel(idx){
+/* ═══════════ onderdeel toevoegen, stap voor stap ═══════════
+   Dit was één scherm met vijf blokken onder elkaar: naam, gewicht, recept,
+   werkwijze en een rij productiestappen waar je naar rechts voor moest vegen.
+   Je zag nooit waar je was en de knop stond zes schermlengtes naar beneden.
+
+   Nu vier vragen, één per scherm, net als bij een nieuw ingrediënt. De
+   productiestap is helemaal verdwenen als vraag: die leidt de app af uit de
+   soort die je in stap 1 kiest. */
+const ONDSTAPPEN=[
+  {k:'soort', n:'Soort'},
+  {k:'gram',  n:'Gewicht'},
+  {k:'ing',   n:'Recept'},
+  {k:'werk',  n:'Werkwijze'}
+];
+
+function sheetOnderdeel(idx,stap){
   const nieuw = idx===null;
+  stap=Math.max(0,Math.min(ONDSTAPPEN.length-1,stap||0));
+  const st=ONDSTAPPEN[stap];
+  const laatste=stap===ONDSTAPPEN.length-1;
+
   /* alle onderdelen die je eerder al hebt uitgewerkt, uit elke smaak */
   const anderen=[];
-  (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>{
-    if((o.ing||[]).filter(i=>i.naam).length) anderen.push({smaak:r.naam||'Naamloos', o});
+  (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o2=>{
+    if((o2.ing||[]).filter(i=>i.naam).length) anderen.push({smaak:r.naam||'Naamloos', o:o2});
   }));
+
   /* Ga je een ingrediënt kiezen, dan wordt dit scherm even vervangen. Wat je
      al had ingevuld staat dan in de buffer, zodat je niets kwijtraakt. */
   const o = ONDERDEELBUF ? ONDERDEELBUF
-          : nieuw ? {naam:R.voorstel||'',gram:'',ing:[{naam:'',deel:''}],werkwijze:[''],stap:''}
+          : nieuw ? {naam:R.voorstel||'',gram:'',ing:[{naam:'',deel:''}],werkwijze:[],stap:''}
                   : JSON.parse(JSON.stringify(R.onderdelen[idx]));
   ONDERDEELBUF=null;
   if(nieuw) R.voorstel='';
   if(!o.ing||!o.ing.length) o.ing=[{naam:'',deel:''}];
-  if(!o.werkwijze||!o.werkwijze.length) o.werkwijze=[''];
+  if(!Array.isArray(o.werkwijze)) o.werkwijze=o.werkwijze?[o.werkwijze]:[];
+  o.werkwijze=o.werkwijze.filter(x=>x&&String(x).trim());
+
+  const balk=`<div class="wzbalk">${ONDSTAPPEN.map((x,i)=>
+    `<i class="${i<=stap?'aan':''}"></i>`).join('')}
+    <span class="wztel">${stap+1} / ${ONDSTAPPEN.length}</span></div>`;
+
+  /* alles wat op dit scherm staat terug in de buffer */
+  const lees=()=>{
+    if($('#oN')) o.naam=$('#oN').value.trim()||o.naam;
+    if($('#oG')) o.gram=$('#oG').value;
+    if($('#oI')) o.ing=$$('#oI .ingrij').map(el=>{
+      const k=el.querySelector('[data-inkies]');
+      return {naam:k?(k.dataset.naam||''):'',
+              deel:el.querySelector('[data-id2]').value};
+    });
+    return o;
+  };
+  const ga=n=>{ lees(); ONDERDEELBUF=o; sheetOnderdeel(idx,n) };
+
+  let body='', hoofd=laatste?(nieuw?'Toevoegen':'Opslaan'):'Volgende',
+      over='';
+
+  /* ── stap 1: welke soort ─────────────────────────────────────────── */
+  if(st.k==='soort'){
+    const huidig=ondSoort(o.naam);
+    const isAnders=!!o.naam&&!huidig;
+    body=`${balk}
+      <h3 class="wzvraag">Wat voor laag is dit?</h3>
+      <p class="wzuit">Kies de soort. Daarmee weet de app meteen bij welke
+        productiestap dit hoort en hoeveel gram er ongeveer in gaat.</p>
+      <div class="ondtegels">
+        ${ONDERDEELSOORTEN.filter(s=>s.k!=='anders').map(s=>
+          `<button class="ondtegel${huidig&&huidig.k===s.k?' aan':''}" data-soort="${s.k}">
+            <span class="ovak">${svg(I[s.ico]||I.doos)}</span>
+            <span class="on">${esc(s.n)}</span>
+            <span class="os">${esc(s.uit)}</span>
+          </button>`).join('')}
+        <button class="ondtegel breed${isAnders?' aan':''}" data-soort="anders">
+          <span class="ovak">${svg(I.plus)}</span>
+          <span class="on">Iets anders</span>
+        </button>
+      </div>
+      <div class="inlineform${isAnders?' open':''}" id="oAndersF">
+        <div class="veld" style="margin-top:16px"><label>Hoe heet deze laag?</label>
+          <input class="inp" id="oN" value="${esc(isAnders?o.naam:'')}"
+            placeholder="Bijv. karamel of crunch" autocapitalize="sentences"></div>
+        <div class="wwvoor">${ANDERSVOORSTEL.map(x=>
+          `<button data-anders="${esc(x)}">${svg(I.plus)}${esc(x)}</button>`).join('')}</div>
+      </div>`;
+  }
+
+  /* ── stap 2: hoeveel gram ────────────────────────────────────────── */
+  if(st.k==='gram'){
+    const s=ondSoort(o.naam);
+    const voorstel=s&&s.gram?s.gram:'';
+    const stapNaam=o.stap||ondStapVoor(o.naam);
+    body=`${balk}
+      <h3 class="wzvraag">Hoeveel ${esc((o.naam||'hiervan').toLowerCase())} gaat er in één bonbon?</h3>
+      <p class="wzuit">${voorstel
+        ? 'Een '+esc((o.naam||'').toLowerCase())+' is meestal rond de '+getal(voorstel)+' gram. Klopt dat, dan hoef je niets te doen.'
+        : 'Een hele bonbon weegt meestal 8 tot 15 gram samen.'}</p>
+      <div class="stepper"><button class="stepbtn" id="oMin">${svg(I.min)}</button>
+        <div class="stepval"><input id="oG" type="text" inputmode="decimal"
+          value="${esc(o.gram||voorstel||'')}" placeholder="0" min="0" max="24"><span class="eenh">g</span></div>
+        <button class="stepbtn" id="oPlus">${svg(I.plus)}</button></div>
+      <div class="geen" id="oGuit" style="padding-top:10px"></div>
+      <div class="stapregel">
+        <span class="sl">Wordt gemaakt bij<b id="oStapN">${esc(stapNaam||'nog niet bekend')}</b></span>
+        <button class="sa" id="oStapAan">aanpassen</button></div>
+      <div class="stapkeuze" id="oStapK">${(S.werkplan||[]).map(x=>
+        `<button data-wp="${esc(x)}" class="${x===stapNaam?'aan':''}">
+          <span class="sv">${svg(I.vink,'2.4')}</span>${esc(x)}</button>`).join('')}</div>`;
+  }
+
+  /* ── stap 3: waar bestaat het uit ────────────────────────────────── */
   const ingRij=(i,n)=>{
     const pr=i.naam?ingPrijs(i.naam):null;
     return `<div class="ingrij">
@@ -17259,18 +17500,14 @@ function sheetOnderdeel(idx){
       <span>${i.naam?esc(i.naam):'Kies een ingrediënt'}</span>
       ${i.naam&&pr===null?`<i class="geenprijs">geen prijs</i>`:''}
     </button>
-    <input class="hv" data-id2 type="text" inputmode="decimal" value="${esc(i.deel)}" placeholder="gram">
+    <input class="hv" data-id2 type="text" inputmode="decimal" value="${esc(i.deel||'')}" placeholder="gram">
     <button class="wisbtn" data-wis-i>${svg(I.kruis,'2')}</button></div>`;};
-  sheet(nieuw?'Onderdeel toevoegen':'Onderdeel',
-    `<div class="veld"><label>Wat is dit onderdeel?</label>
-      <input class="inp" id="oN" value="${esc(o.naam)}" placeholder="Bijv. schelp, gelei of ganache"></div>
-     <div class="veld"><label>Hoeveel gaat er in één bonbon?</label>
-      <div class="stepper"><button class="stepbtn" id="oMin">${svg(I.min)}</button>
-       <div class="stepval"><input id="oG" type="text" inputmode="decimal" value="${esc(o.gram)}" placeholder="0" min="0" max="24"><span class="eenh">g</span></div>
-       <button class="stepbtn" id="oPlus">${svg(I.plus)}</button></div></div>
-     <div class="veld"><label>Jouw recept voor dit onderdeel</label>
-      <p class="hint" style="margin-bottom:12px">Vul je recept in zoals je het écht maakt — één hele bak, in grammen.
-        De app rekent zelf uit hoeveel daarvan in één bonbon gaat.</p>
+
+  if(st.k==='ing'){
+    body=`${balk}
+      <h3 class="wzvraag">Waar bestaat je ${esc((o.naam||'laag').toLowerCase())} uit?</h3>
+      <p class="wzuit">Vul je recept in zoals je het écht maakt — één hele bak,
+        in grammen. De app rekent zelf uit hoeveel daarvan in één bonbon gaat.</p>
       ${anderen.length?`<button class="sec" id="oNeem" style="margin:0 0 12px">${
         svg(I.doc)}&nbsp; Overnemen uit een andere smaak</button>
         <div class="neemlijst" id="oNeemL">${anderen.map((a,n)=>
@@ -17280,196 +17517,288 @@ function sheetOnderdeel(idx){
           </button>`).join('')}</div>`:''}
       <div id="oI">${o.ing.map((x,n)=>ingRij(x,n)).join('')}</div>
       <button class="sec" id="oP" style="margin-top:2px">${svg(I.plus)}&nbsp; Ingrediënt toevoegen</button>
-      <div id="oSam"></div></div>
-     <div class="veld"><label>Werkwijze voor dit onderdeel</label>
-       <p class="hint" style="margin-bottom:10px">Elke regel is één handeling. Typ, druk op enter, typ door.
-         Straks krijg je ze één voor één te zien tijdens het maken.</p>
-       <textarea class="inp wzvak" id="oW" rows="7"
-         placeholder="Room verwarmen tot 80 °C&#10;Van het vuur halen&#10;Chocolade erdoor roeren&#10;Laten afkoelen 20 min&#10;Boter erdoor mixen">${esc((o.werkwijze||[]).join('\n'))}</textarea>
-       <div class="geen" id="oWuit" style="padding-top:9px"></div></div>
-     <div class="veld"><label>Hoort bij welke productiestap?</label>
-       <div class="chips" id="oStap">${S.werkplan.map(x=>`<button class="chip klein ${x===(o.stap||raadStap(o.naam))?'aan':''}"
-         data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>
-       <div class="geen" style="padding-top:8px">Zo weet de app wanneer hij dit recept moet tonen.</div></div>`,
-    `<button class="prim" style="margin-top:0" id="oOk">${nieuw?'Onderdeel toevoegen':'Wijzigingen opslaan'}</button>
-     ${nieuw?'':`<button class="sec" id="oWis">Onderdeel verwijderen</button>`}
-     <button class="sec" id="oTerug">Terug naar smaak</button>`);
-
-  /* de naam staat sinds v367 op een knop in plaats van in een invoerveld */
-  const rijenLezen=()=>$$('#oI .ingrij').map(el=>{
-    const k=el.querySelector('[data-inkies]');
-    return {naam:k?(k.dataset.naam||'').trim():'',
-            deel:el.querySelector('[data-id2]').value.trim()};
-  }).filter(x=>x.naam);
-
-  const ververs=()=>{
-    const rijen=$$('#oI .ingrij');
-    const enkel=rijen.length===1;
-    /* bij één ingrediënt is het gewicht van het onderdeel automatisch dat ingrediënt */
-    rijen.forEach(el=>{
-      const inp=el.querySelector('[data-id2]');
-      inp.disabled=enkel;
-      inp.placeholder=enkel?'alles':'gram';
-      inp.style.opacity=enkel?'.45':'1';
-    });
-    const r=rijenLezen(), g=getalIn0($('#oG').value);
-    const waarschuwing = g>50
-      ? `<div class="norm fout" style="margin-bottom:10px">${svg(I.alarm)}${getal(g)} g per bonbon — klopt dat?
-           Een hele bonbon weegt meestal 8 tot 15 gram.</div>` : '';
-    if(!r.length){ $('#oSam').innerHTML=waarschuwing; return; }
-    if(r.length===1){
-      $('#oSam').innerHTML=waarschuwing+`<div class="verhouding">Eén ingrediënt: het hele gewicht van dit onderdeel is ${esc(r[0].naam)}.</div>`;
-      return;
-    }
-    const som=r.reduce((s2,x)=>s2+getalIn0(x.deel),0);
-    if(!som){ $('#oSam').innerHTML=waarschuwing+`<div class="verhouding">Vul bij elk ingrediënt in hoeveel gram er in jouw bak gaat.</div>`; return; }
-    const bonbons = g>0 ? Math.floor(som/g) : 0;
-    $('#oSam').innerHTML=waarschuwing+`
-      <div class="totaalregel"><span class="l">Jouw bak</span><span class="w">${getal(som)} g</span></div>
-      ${bonbons?`<div class="totaalregel" style="margin-top:8px"><span class="l">Goed voor</span><span class="w">${bonbons} bonbons</span></div>`:''}
-      <div class="verhouding">Verhouding: ${r.map(x=>esc(x.naam)+' '+getal((getalIn0(x.deel)/som)*100)+'%').join(' · ')}</div>`;
-  };
-  /* Suggesties komen ónder de rij te staan in plaats van er overheen: op een
-     telefoon in een scrollend paneel raak je een zwevend lijstje kwijt zodra
-     het toetsenbord opengaat. */
-  const sugWeg=()=>$$('#oI .ingsug').forEach(x=>x.remove());
-  const sugToon=inp=>{
-    sugWeg();
-    const rij=inp.closest('.ingrij');
-    const treffers=ingZoek(inp.value);
-    if(!rij||!treffers.length) return;
-    /* wat al in dit onderdeel staat hoeft niet nog een keer */
-    const staat=$$('#oI .ingrij').map(el=>el.querySelector('[data-in]').value.trim().toLowerCase())
-      .filter(x=>x&&x!==inp.value.trim().toLowerCase());
-    const lijst=treffers.filter(t=>staat.indexOf(t.naam.toLowerCase())<0);
-    if(!lijst.length) return;
-    rij.insertAdjacentHTML('afterend',
-      `<div class="ingsug">${lijst.map(t=>
-        `<button class="ingsugrij" data-sn="${esc(t.naam)}" data-sd="${esc(t.deel)}">
-          <span>${esc(t.naam)}</span>${t.deel?`<em>${esc(t.deel)} g</em>`:''}</button>`
-      ).join('')}</div>`);
-    $$('#oI .ingsugrij').forEach(b=>b.onpointerdown=ev=>{
-      ev.preventDefault();
-      const nm=rij.querySelector('[data-in]'), hv=rij.querySelector('[data-id2]');
-      nm.value=b.dataset.sn;
-      sugWeg();
-      /* Eerst een lege rij erbij als dit de laatste was: bij één ingrediënt
-         staat het gramveld op slot, en dan zou de hoeveelheid niet landen. */
-      const rijen=$$('#oI .ingrij');
-      const laatste=rijen[rijen.length-1]===rij;
-      if(laatste){
-        $('#oI').insertAdjacentHTML('beforeend',ingRij({naam:'',deel:''}));
-        bindRijen();
-      }
-      ververs();
-      if(b.dataset.sd&&!hv.value&&!hv.disabled) hv.value=b.dataset.sd;
-      ververs();
-      if(laatste){
-        const nu=$$('#oI .ingrij');
-        nu[nu.length-1].querySelector('[data-in]').focus();
-      }
-    });
-  };
-
-  const bindRijen=()=>{
-    $$('[data-wis-i]').forEach(b=>b.onclick=()=>{if($$('#oI .ingrij').length>1){b.parentElement.remove();bindRijen();ververs()}});
-    $$('#oI input').forEach(i=>i.oninput=ververs);
-    $$('#oI [data-inkies]').forEach(b=>b.onclick=()=>{
-      const n=parseInt(b.dataset.inkies);
-      /* alles wat op het scherm staat vasthouden, ook de velden buiten de rijen */
-      const buf={
-        naam:$('#oN')?$('#oN').value:o.naam,
-        gram:$('#oG')?$('#oG').value:o.gram,
-        /* Stond hier o.stap: dat is de stap van vóór dit scherm, dus je keuze
-           in de chips ging verloren zodra je een ingrediënt koos. */
-        stap:chipV('#oStap')||o.stap||'',
-        ing:$$('#oI .ingrij').map(el=>{
-          const k=el.querySelector('[data-inkies]');
-          return {naam:k?(k.dataset.naam||''):'',
-                  deel:el.querySelector('[data-id2]').value};
-        }),
-        /* De werkwijze werd hier uit "#oW .ingrij input" gelezen. Dat waren
-           losse regelvelden uit een oudere opzet; sinds het één textarea is
-           vond die zoekopdracht niets en viel hij terug op de oude waarde.
-           Gevolg: alles wat je net had ingetypt was weg zodra je een
-           ingrediënt ging kiezen. */
-        werkwijze:$('#oW')
-          ? $('#oW').value.split('\n').map(x=>x.trim()).filter(Boolean)
-          : (o.werkwijze||[''])
-      };
-      while(buf.ing.length<=n) buf.ing.push({naam:'',deel:''});
-      sheetIngKiezen(buf.ing[n].naam, gekozen=>{
-        if(gekozen) buf.ing[n].naam=gekozen;
-        /* staat de laatste rij vol, dan meteen een lege erbij */
-        if(gekozen&&n===buf.ing.length-1) buf.ing.push({naam:'',deel:''});
-        ONDERDEELBUF=buf;
-        sheetOnderdeel(idx);
-      });
-    });
-    /* Hier stond nog een handler voor "[data-wis-w]": knopjes om losse
-       werkwijzeregels te verwijderen. Die knopjes bestaan nergens meer sinds
-       de werkwijze één textarea werd, dus deze regel deed niets. */
-  };
-  if($('#oNeem')){
-    $('#oNeem').onclick=()=>$('#oNeemL').classList.toggle('open');
-    $$('#oNeemL [data-neem]').forEach(b=>b.onclick=()=>{
-      const bron=anderen[+b.dataset.neem].o;
-      /* de naam van dit onderdeel laten staan als je hem al hebt ingevuld:
-         je neemt het recept over, niet per se de benaming */
-      if(!$('#oN').value.trim()) $('#oN').value=bron.naam||'';
-      if(!$('#oG').value) $('#oG').value=bron.gram||'';
-      const rijen=(bron.ing||[]).filter(i=>i.naam);
-      $('#oI').innerHTML=(rijen.length?rijen:[{naam:'',deel:''}]).map(ingRij).join('');
-      if(!$('#oW').value.trim()) $('#oW').value=(bron.werkwijze||[]).join('\n');
-      if(bron.stap) $$('#oStap .chip').forEach(c=>c.classList.toggle('aan',c.dataset.v===bron.stap));
-      $('#oNeemL').classList.remove('open');
-      bindRijen(); ververs();
-      toast('Overgenomen. Pas aan wat anders is.');
-    });
+      <div id="oSam"></div>`;
   }
-  chips('#oStap');
-  bindRijen(); ververs();
-  $('#oG').oninput=ververs;
-  $('#oP').onclick=()=>{$('#oI').insertAdjacentHTML('beforeend',ingRij({naam:'',deel:''}));bindRijen();ververs()};
-  const wzUit=()=>{
-    const rg=$('#oW').value.split('\n').map(x=>x.trim()).filter(Boolean);
-    if(!rg.length) return $('#oWuit').textContent='Nog geen stappen. Zonder werkwijze kan de app je niet begeleiden.';
-    const mt=rg.filter(x=>leesTijd(x)).length, mg=rg.filter(x=>leesGraden(x)!==null).length;
-    let t=`${rg.length} ${rg.length===1?'handeling':'handelingen'}`;
-    if(mt) t+=` · ${mt}× een tijd herkend`;
-    if(mg) t+=` · ${mg}× een temperatuur herkend`;
-    $('#oWuit').textContent=t+'.';
-  };
-  $('#oW').oninput=wzUit; wzUit();
-  const stapG=n=>{
-    const nu=Math.max(0,getalIn0($('#oG').value)+n);
-    $('#oG').value=nu.toFixed(2).replace(/\.?0+$/,'');
-    ververs();
-  };
-  $('#oMin').onclick=()=>stapG(-0.25);
-  $('#oPlus').onclick=()=>stapG(0.25);
-  const terug=()=>{bewaarSmaak();bewaarNu();R.wizard?smaakStap3():tekenRecept()};
-  $('#oTerug').onclick=terug;
-  if($('#oWis')) $('#oWis').onclick=()=>{R.onderdelen.splice(idx,1);bewaarSmaak();render();
-    R.wizard?smaakStap3():tekenRecept();toast('Onderdeel verwijderd.')};
-  $('#oOk').onclick=()=>{
-    const naam=$('#oN').value.trim();
-    const ing=rijenLezen();
-    if(!naam) return toast('Geef het onderdeel een naam.');
-    /* Hier stond een vraag om bevestiging: die kon je wegklikken en dan stond
-       er alsnog een onmogelijk getal in je receptuur. Nu weigert hij gewoon. */
-    const gg=leesVeld('#oG','Gewicht');
-    if(gg.fout) return toast(gg.fout);
-    const gram=gg.waarde;
-    if(!(gram>0)) return toast('Vul in hoeveel gram hiervan in één bonbon gaat.');
-    if(gram>50&&!confirm(getal(gram)+' g per bonbon is ongebruikelijk veel. Weet je het zeker?')) return;
-    if(!ing.length) return toast('Vul in waar dit onderdeel uit bestaat.');
-    if(ing.length>1&&ing.some(x=>!x.deel)) return toast('Vul bij elk ingrediënt in hoeveel gram er in jouw bak gaat.');
-    const werkwijze=$('#oW').value.split('\n').map(x=>x.trim()).filter(Boolean);
-    const d={naam,gram,ing,werkwijze,stap:chipV('#oStap')||raadStap(naam)};
+
+  /* ── stap 4: hoe maak je het ─────────────────────────────────────── */
+  if(st.k==='werk'){
+    const s=ondSoort(o.naam);
+    body=`${balk}
+      <h3 class="wzvraag">Hoe maak je het?</h3>
+      <p class="wzuit">Eén handeling per regel. Straks krijg je ze één voor één
+        te zien tijdens het maken, met de tijden en temperaturen erbij.</p>
+      <div class="wwin">
+        <input class="inp" id="wwIn" placeholder="Bijv. room verwarmen tot 80 °C"
+          autocapitalize="sentences" enterkeyhint="done">
+        <button class="wwadd" id="wwAdd" disabled>${svg(I.plus)}</button></div>
+      <div class="wwlijst" id="wwL"></div>
+      <div class="geen" id="wwUit" style="padding-top:10px"></div>
+      ${s&&s.ww.length?`<div class="wwvoorkop" id="wwVK">VOORSTELLEN VOOR EEN ${s.n.toUpperCase()}</div>
+        <div class="wwvoor" id="wwV"></div>`:''}`;
+    over='Later invullen';
+  }
+
+  /* De titel was "Onderdeel toevoegen": naast "Stap 4 van 4" brak dat over
+     twee regels en duwde het de hele kop uit elkaar. Dat je iets toevoegt
+     staat al op de knop. */
+  sheet('Onderdeel',
+    body,
+    `<div class="wzknoppen">
+       ${over?`<button class="sec plat" id="oOver">${over}</button>`:''}
+       <button class="prim" id="oOk">${hoofd}</button></div>
+     ${stap>0?`<button class="sec terug" id="oTerug">${svg(I.terug,'2')}Vorige</button>`
+              :`<button class="sec terug" id="oTerug">${svg(I.terug,'2')}Terug naar smaak</button>`}
+     ${nieuw||stap>0?'':`<button class="sec" id="oWis">Onderdeel verwijderen</button>`}`,
+    'Stap '+(stap+1)+' van '+ONDSTAPPEN.length);
+
+  /* ═══════════ stap 1: soort kiezen ═══════════ */
+  if(st.k==='soort'){
+    const kiesSoort=k=>{
+      const s=ONDERDEELSOORTEN.find(x=>x.k===k);
+      if(k==='anders'){
+        $$('.ondtegel').forEach(t=>t.classList.toggle('aan',t.dataset.soort==='anders'));
+        $('#oAndersF').classList.add('open');
+        setTimeout(()=>{const v=$('#oN'); if(v) v.focus()},80);
+        return;
+      }
+      $('#oAndersF').classList.remove('open');
+      o.naam=s.n;
+      /* nog geen gewicht ingevuld? dan het gebruikelijke alvast klaarzetten */
+      if(!o.gram) o.gram=s.gram;
+      o.stap='';
+      ga(1);
+    };
+    $$('[data-soort]').forEach(b=>b.onclick=veilig('soort kiezen',
+      ()=>kiesSoort(b.dataset.soort)));
+    $$('[data-anders]').forEach(b=>b.onclick=veilig('andere laag',()=>{
+      $('#oN').value=b.dataset.anders;
+      $('#oN').focus();
+    }));
+  }
+
+  /* ═══════════ stap 2: gewicht en productiestap ═══════════ */
+  if(st.k==='gram'){
+    const gUit=()=>{
+      const g=getalIn0($('#oG').value);
+      const u=$('#oGuit');
+      if(!u) return;
+      if(g>50) u.innerHTML=`<span style="color:var(--rood);font-weight:600">${getal(g)} g per bonbon — klopt dat? Een hele bonbon weegt meestal 8 tot 15 gram.</span>`;
+      else if(g>0) u.textContent='Bij 100 bonbons heb je hier '+getal(g*100)+' gram van nodig.';
+      else u.textContent='Vul in hoeveel gram hiervan in één bonbon gaat.';
+    };
+    const stapG=n=>{
+      const nu=Math.max(0,getalIn0($('#oG').value)+n);
+      $('#oG').value=nu.toFixed(2).replace(/\.?0+$/,'');
+      gUit();
+    };
+    $('#oMin').onclick=()=>stapG(-0.25);
+    $('#oPlus').onclick=()=>stapG(0.25);
+    $('#oG').oninput=gUit; gUit();
+    $('#oStapAan').onclick=veilig('productiestap openen',
+      ()=>$('#oStapK').classList.toggle('open'));
+    $$('#oStapK [data-wp]').forEach(b=>b.onclick=veilig('productiestap kiezen',()=>{
+      o.stap=b.dataset.wp;
+      $$('#oStapK [data-wp]').forEach(x=>x.classList.toggle('aan',x===b));
+      $('#oStapN').textContent=o.stap;
+      $('#oStapK').classList.remove('open');
+    }));
+  }
+
+  /* ═══════════ stap 3: ingrediënten ═══════════ */
+  if(st.k==='ing'){
+    const rijenLezen=()=>$$('#oI .ingrij').map(el=>{
+      const k=el.querySelector('[data-inkies]');
+      return {naam:k?(k.dataset.naam||'').trim():'',
+              deel:el.querySelector('[data-id2]').value.trim()};
+    }).filter(x=>x.naam);
+
+    const ververs=()=>{
+      const rijen=$$('#oI .ingrij');
+      const enkel=rijen.length===1;
+      /* bij één ingrediënt is het gewicht van het onderdeel automatisch dat ingrediënt */
+      rijen.forEach(el=>{
+        const inp=el.querySelector('[data-id2]');
+        inp.disabled=enkel;
+        inp.placeholder=enkel?'alles':'gram';
+        inp.style.opacity=enkel?'.45':'1';
+      });
+      const r=rijenLezen(), g=getalIn0(o.gram);
+      if(!r.length){ $('#oSam').innerHTML=''; return; }
+      if(r.length===1){
+        $('#oSam').innerHTML=`<div class="verhouding">Eén ingrediënt: het hele gewicht van dit onderdeel is ${esc(r[0].naam)}.</div>`;
+        return;
+      }
+      const som=r.reduce((s2,x)=>s2+getalIn0(x.deel),0);
+      if(!som){ $('#oSam').innerHTML=`<div class="verhouding">Vul bij elk ingrediënt in hoeveel gram er in jouw bak gaat.</div>`; return; }
+      const bonbons = g>0 ? Math.floor(som/g) : 0;
+      $('#oSam').innerHTML=`
+        <div class="totaalregel"><span class="l">Jouw bak</span><span class="w">${getal(som)} g</span></div>
+        ${bonbons?`<div class="totaalregel" style="margin-top:8px"><span class="l">Goed voor</span><span class="w">${bonbons} bonbons</span></div>`:''}
+        <div class="verhouding">Verhouding: ${r.map(x=>esc(x.naam)+' '+getal((getalIn0(x.deel)/som)*100)+'%').join(' · ')}</div>`;
+    };
+
+    const bindRijen=()=>{
+      $$('[data-wis-i]').forEach(b=>b.onclick=()=>{if($$('#oI .ingrij').length>1){b.parentElement.remove();bindRijen();ververs()}});
+      $$('#oI input').forEach(i=>i.oninput=ververs);
+      $$('#oI [data-inkies]').forEach(b=>b.onclick=()=>{
+        const n=parseInt(b.dataset.inkies);
+        lees();
+        while(o.ing.length<=n) o.ing.push({naam:'',deel:''});
+        sheetIngKiezen(o.ing[n].naam, gekozen=>{
+          if(gekozen) o.ing[n].naam=gekozen;
+          /* staat de laatste rij vol, dan meteen een lege erbij */
+          if(gekozen&&n===o.ing.length-1) o.ing.push({naam:'',deel:''});
+          ONDERDEELBUF=o;
+          sheetOnderdeel(idx,stap);
+        });
+      });
+    };
+
+    if($('#oNeem')){
+      $('#oNeem').onclick=()=>$('#oNeemL').classList.toggle('open');
+      $$('#oNeemL [data-neem]').forEach(b=>b.onclick=()=>{
+        const bron=anderen[+b.dataset.neem].o;
+        const rijen=(bron.ing||[]).filter(i=>i.naam);
+        $('#oI').innerHTML=(rijen.length?rijen:[{naam:'',deel:''}]).map(ingRij).join('');
+        /* de werkwijze nemen we mee als je er zelf nog geen hebt */
+        if(!o.werkwijze.length) o.werkwijze=(bron.werkwijze||[]).slice();
+        $('#oNeemL').classList.remove('open');
+        bindRijen(); ververs();
+        toast('Overgenomen. Pas aan wat anders is.');
+      });
+    }
+    $('#oP').onclick=()=>{$('#oI').insertAdjacentHTML('beforeend',ingRij({naam:'',deel:''},$$('#oI .ingrij').length));bindRijen();ververs()};
+    bindRijen(); ververs();
+  }
+
+  /* ═══════════ stap 4: werkwijze ═══════════ */
+  if(st.k==='werk'){
+    let bewerkt=-1;   /* welke handeling je nu aan het aanpassen bent */
+
+    const wwTeken=()=>{
+      const L=$('#wwL');
+      if(!L) return;
+      L.innerHTML=o.werkwijze.map((t,i)=>{
+        const sec=leesTijd(t), gr=leesGraden(t);
+        const lab=[
+          sec?`<em>${svg(I.klok)}${sec>=3600?getal(sec/3600)+' u':sec>=60?Math.round(sec/60)+' min':sec+' s'}</em>`:'',
+          gr!==null?`<em>${svg(I.temp)}${getal(gr)}°</em>`:''
+        ].join('');
+        return `<div class="wwkaart${bewerkt===i?' bezig':''}">
+          <span class="wwn">${i+1}</span>
+          <button class="wwt" data-wwb="${i}">${esc(t)}${lab}</button>
+          <button class="wwk op" data-wwop="${i}"${i===0?' disabled':''}>${svg(I.pijl,'2')}</button>
+          <button class="wwk" data-wwweg="${i}">${svg(I.kruis,'2')}</button>
+        </div>`;
+      }).join('');
+
+      const u=$('#wwUit');
+      if(u){
+        if(!o.werkwijze.length) u.textContent='Nog geen handelingen. Je kunt dit ook later invullen.';
+        else{
+          const mt=o.werkwijze.filter(x=>leesTijd(x)).length,
+                mg=o.werkwijze.filter(x=>leesGraden(x)!==null).length;
+          let t=o.werkwijze.length+' '+(o.werkwijze.length===1?'handeling':'handelingen');
+          if(mt) t+=' · '+mt+'× een tijd herkend';
+          if(mg) t+=' · '+mg+'× een temperatuur herkend';
+          u.textContent=t+'. Tik op een handeling om hem aan te passen.';
+        }
+      }
+
+      $$('[data-wwweg]').forEach(b=>b.onclick=veilig('handeling verwijderen',()=>{
+        o.werkwijze.splice(+b.dataset.wwweg,1);
+        if(bewerkt>=0) bewerkt=-1;
+        wwTeken(); wwVoor();
+      }));
+      $$('[data-wwop]').forEach(b=>b.onclick=veilig('handeling omhoog',()=>{
+        const i=+b.dataset.wwop;
+        if(i<=0) return;
+        const x=o.werkwijze[i]; o.werkwijze[i]=o.werkwijze[i-1]; o.werkwijze[i-1]=x;
+        wwTeken();
+      }));
+      /* Aanpassen zonder aparte bewerkmodus: de regel gaat terug het
+         invoerveld in en verdwijnt uit de lijst zodra je hem opnieuw
+         toevoegt, op dezelfde plek. */
+      $$('[data-wwb]').forEach(b=>b.onclick=veilig('handeling aanpassen',()=>{
+        const i=+b.dataset.wwb;
+        $('#wwIn').value=o.werkwijze[i];
+        bewerkt=i;
+        wwTeken();
+        $('#wwIn').focus();
+        wwKnop();
+      }));
+    };
+
+    const wwVoor=()=>{
+      const V=$('#wwV'); if(!V) return;
+      const s=ondSoort(o.naam);
+      const staat=o.werkwijze.map(x=>x.trim().toLowerCase());
+      const lijst=((s&&s.ww)||[]).filter(x=>staat.indexOf(x.toLowerCase())<0);
+      const kop=$('#wwVK');
+      if(kop) kop.style.display=lijst.length?'':'none';
+      V.innerHTML=lijst.map(x=>`<button data-wwv="${esc(x)}">${svg(I.plus)}${esc(x)}</button>`).join('');
+      $$('[data-wwv]').forEach(b=>b.onclick=veilig('voorstel toevoegen',()=>{
+        o.werkwijze.push(b.dataset.wwv);
+        wwTeken(); wwVoor();
+      }));
+    };
+
+    const wwKnop=()=>{
+      const k=$('#wwAdd'); if(k) k.disabled=!$('#wwIn').value.trim();
+    };
+    const wwToevoegen=()=>{
+      const t=$('#wwIn').value.trim();
+      if(!t) return;
+      if(bewerkt>=0){ o.werkwijze[bewerkt]=t; bewerkt=-1 }
+      else o.werkwijze.push(t);
+      $('#wwIn').value='';
+      wwKnop(); wwTeken(); wwVoor();
+      $('#wwIn').focus();
+    };
+    $('#wwIn').oninput=wwKnop;
+    $('#wwIn').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); wwToevoegen() } };
+    $('#wwAdd').onclick=veilig('handeling toevoegen',wwToevoegen);
+    wwTeken(); wwVoor(); wwKnop();
+  }
+
+  /* ═══════════ voetknoppen ═══════════ */
+  const wegschrijven=()=>{
+    const naam=(o.naam||'').trim();
+    if(!naam){ toast('Kies eerst wat voor laag dit is.'); sheetOnderdeel(idx,0); return false }
+    const gram=getalIn0(o.gram);
+    if(!(gram>0)){ toast('Vul in hoeveel gram hiervan in één bonbon gaat.'); ONDERDEELBUF=o; sheetOnderdeel(idx,1); return false }
+    if(gram>50&&!confirm(getal(gram)+' g per bonbon is ongebruikelijk veel. Weet je het zeker?')) return false;
+    const ing=(o.ing||[]).map(i=>({naam:(i.naam||'').trim(),deel:String(i.deel||'').trim()}))
+      .filter(i=>i.naam);
+    if(!ing.length){ toast('Vul in waar dit onderdeel uit bestaat.'); ONDERDEELBUF=o; sheetOnderdeel(idx,2); return false }
+    if(ing.length>1&&ing.some(x=>!x.deel)){ toast('Vul bij elk ingrediënt in hoeveel gram er in jouw bak gaat.'); ONDERDEELBUF=o; sheetOnderdeel(idx,2); return false }
+    const d={naam,gram,ing,werkwijze:(o.werkwijze||[]).filter(Boolean),
+             stap:o.stap||ondStapVoor(naam)};
     if(nieuw) R.onderdelen.push(d); else R.onderdelen[idx]=d;
-    bewaarSmaak(); bewaarNu(); render(); R.wizard?smaakStap3():tekenRecept();
+    bewaarSmaak(); bewaarNu(); render();
+    R.wizard?smaakStap3():tekenRecept();
     toast(nieuw?'Onderdeel toegevoegd en smaak opgeslagen.':'Onderdeel bijgewerkt.');
+    return true;
+  };
+
+  $('#oOk').onclick=veilig('volgende stap',()=>{
+    lees();
+    if(st.k==='soort'&&!(o.naam||'').trim()) return toast('Kies eerst wat voor laag dit is.');
+    if(st.k==='gram'&&!(getalIn0(o.gram)>0)) return toast('Vul in hoeveel gram hiervan in één bonbon gaat.');
+    if(laatste) return wegschrijven();
+    ga(stap+1);
+  });
+  if($('#oOver')) $('#oOver').onclick=veilig('overslaan',()=>{ lees(); wegschrijven() });
+  $('#oTerug').onclick=veilig('vorige stap',()=>{
+    if(stap>0) return ga(stap-1);
+    ONDERDEELBUF=null;
+    bewaarSmaak(); bewaarNu();
+    R.wizard?smaakStap3():tekenRecept();
+  });
+  if($('#oWis')) $('#oWis').onclick=()=>{
+    if(!confirm('Dit onderdeel verwijderen?')) return;
+    R.onderdelen.splice(idx,1); bewaarSmaak(); render();
+    R.wizard?smaakStap3():tekenRecept(); toast('Onderdeel verwijderd.');
   };
 }
 
