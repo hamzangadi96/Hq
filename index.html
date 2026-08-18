@@ -2632,7 +2632,28 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   border-radius:99px}
 .pinuit:active{background:var(--choco-wash);color:var(--choco)}
 
-/* ═══ 17. ZACHTERE OVERGANGEN ═══════════════════════════════════════
+/* ═══ 17. ZWEVENDE VERNIEUWKNOP ════════════════════════════════════
+   Ligt boven alles behalve het pinslot, want tijdens het testen wil je hem
+   ook over een open sheet heen kunnen indrukken. */
+
+.zweefknop{position:fixed;z-index:9990;display:flex;align-items:center;gap:7px;
+  height:42px;padding:0 15px 0 13px;border-radius:99px;
+  background:var(--choco);color:#fff;font-size:12.5px;font-weight:600;
+  letter-spacing:-.01em;font-variant-numeric:tabular-nums;
+  box-shadow:0 2px 6px rgba(74,43,24,.30),0 10px 28px rgba(24,24,27,.22);
+  touch-action:none;user-select:none;-webkit-user-select:none;
+  transition:transform .14s cubic-bezier(.2,0,0,1),box-shadow .14s ease}
+.zweefknop svg{width:16px;height:16px;stroke-width:2.2}
+.zweefknop:active{transform:scale(.94)}
+/* tijdens het slepen iets groter en hoger, zodat je voelt dat je hem vast hebt */
+.zweefknop.pak{transform:scale(1.06);
+  box-shadow:0 4px 10px rgba(74,43,24,.34),0 16px 40px rgba(24,24,27,.30)}
+
+@media (prefers-reduced-motion:reduce){
+  .zweefknop,.zweefknop.pak{transition:none;transform:none}
+}
+
+/* ═══ 18. ZACHTERE OVERGANGEN ═══════════════════════════════════════
    De sheet deed 320ms, de overlay 250ms. Dat verschil van 70ms zie je: het
    scherm is al donker voordat de sheet er is, en licht op voordat hij weg is.
    Beide even lang en dezelfde curve, dan bewegen ze als één ding. */
@@ -2790,7 +2811,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v426 · 18 aug 2026';
+const APPVERSIE='v427 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17200,6 +17221,104 @@ function sheetWachtwoord(adres){
   };
 }
 
+/* ═══════════════════ zwevende vernieuwknop ═══════════════════
+   Tijdens het bouwen ververs je tientallen keren per uur, en dat kostte vier
+   tikken: drie puntjes, App, De app, Versie. Dit knopje staat er altijd, en je
+   sleept hem naar de hoek die jou het beste uitkomt.
+
+   Alleen zichtbaar als je hem aanzet — hij hoort niet in de app van een klant.
+   Aanzetten doe je bij De app; de stand onthouden we per toestel, want waar
+   jij hem hebt neergelegd zegt niets over je andere apparaten. */
+
+const ZWEEFSLEUTEL='hq-zweef';
+
+function zweefStand(){
+  try{ const v=localStorage.getItem(ZWEEFSLEUTEL); return v?JSON.parse(v):null }
+  catch(e){ return null }
+}
+function zweefBewaar(o){
+  try{ localStorage.setItem(ZWEEFSLEUTEL,JSON.stringify(o)) }catch(e){}
+}
+const zweefAan=()=>!!(zweefStand()||{}).aan;
+
+function zweefZet(aan){
+  const st=zweefStand()||{};
+  st.aan=!!aan; zweefBewaar(st); zweefTeken();
+}
+
+function zweefVernieuw(){
+  /* Hetzelfde als de knop in De app: een nieuw adres afdwingen zodat de
+     service worker niet alsnog de oude versie serveert. */
+  location.replace(location.pathname+'?v='+Date.now());
+}
+
+function zweefTeken(){
+  let el=document.getElementById('zweefknop');
+  if(!zweefAan()){ if(el) el.remove(); return }
+  if(el) return;
+  el=document.createElement('button');
+  el.id='zweefknop'; el.className='zweefknop';
+  el.setAttribute('aria-label','App vernieuwen');
+  el.innerHTML=svg(I.ververs)+'<span>'+APPVERSIE.split(' ')[0]+'</span>';
+  document.body.appendChild(el);
+
+  const st=zweefStand()||{};
+  const zet=(x,y)=>{
+    /* Binnen het scherm houden, met een marge zodat hij nooit half
+       buiten beeld belandt na het draaien of na een toetsenbord. */
+    const b=el.getBoundingClientRect();
+    const mx=Math.max(8,Math.min(window.innerWidth-b.width-8,x));
+    const my=Math.max(8,Math.min(window.innerHeight-b.height-8,y));
+    el.style.left=mx+'px'; el.style.top=my+'px';
+    return {x:mx,y:my};
+  };
+  requestAnimationFrame(()=>{
+    zet(st.x!==undefined?st.x:window.innerWidth-96,
+        st.y!==undefined?st.y:window.innerHeight-190);
+  });
+
+  let sleep=false, verschoven=false, dx=0, dy=0;
+  const pak=e=>{
+    const t=e.touches?e.touches[0]:e;
+    const b=el.getBoundingClientRect();
+    dx=t.clientX-b.left; dy=t.clientY-b.top;
+    sleep=true; verschoven=false;
+    el.classList.add('pak');
+  };
+  const beweeg=e=>{
+    if(!sleep) return;
+    const t=e.touches?e.touches[0]:e;
+    /* Pas vanaf een paar pixels als slepen tellen: anders wordt elke tik
+       met een trillende vinger een verplaatsing en vuurt de klik niet. */
+    const p=zet(t.clientX-dx,t.clientY-dy);
+    if(Math.abs(t.clientX-dx-p.x)>0||true) verschoven=true;
+    e.preventDefault();
+  };
+  const los=()=>{
+    if(!sleep) return;
+    sleep=false; el.classList.remove('pak');
+    const b=el.getBoundingClientRect();
+    const st2=zweefStand()||{};
+    st2.x=Math.round(b.left); st2.y=Math.round(b.top);
+    zweefBewaar(st2);
+  };
+  el.addEventListener('touchstart',pak,{passive:true});
+  el.addEventListener('touchmove',beweeg,{passive:false});
+  el.addEventListener('touchend',los);
+  el.addEventListener('mousedown',pak);
+  window.addEventListener('mousemove',beweeg);
+  window.addEventListener('mouseup',los);
+
+  /* Slepen mag geen vernieuwing veroorzaken: alleen een echte tik telt. */
+  let start=0;
+  el.addEventListener('pointerdown',()=>{ start=Date.now(); verschoven=false });
+  el.addEventListener('click',e=>{
+    e.preventDefault();
+    if(verschoven&&Date.now()-start>200) return;
+    zweefVernieuw();
+  });
+}
+
 /* ═══════════════════ eerste start ═══════════════════
    Tot nu toe opende de app zonder meer. Dat werkte zolang alles op één toestel
    stond, maar zodra je gegevens ook in de cloud staan hoort er een account
@@ -21582,6 +21701,8 @@ function sheetApp(){
        (S.fouten||[]).length?(S.fouten||[]).length+' fouten':'alles rustig'}</span></button>`:''}
      <button class="menurij" id="mVers2" style="color:var(--grijs2)">${svg(I.ververs)}
        Versie ${APPVERSIE}<span class="tel">vernieuwen</span></button>
+     <button class="menurij" id="mZweef">${svg(I.ververs)}Vernieuwknop in beeld<span class="tel${
+       zweefAan()?'':' '}">${zweefAan()?'aan':'uit'}</span></button>
 
      <div class="mkop">Je bedrijf</div>
      <button class="menurij" data-appnaar="bedrijf">${svg(I.doc)}${
@@ -21595,7 +21716,15 @@ function sheetApp(){
     if(k==='beheer')    return sheetBeheer();
   });
   const vv=$('#mVers2');
-  if(vv) vv.onclick=()=>location.replace(location.pathname+'?v='+Date.now());
+  if(vv) vv.onclick=zweefVernieuw;
+  const zw=$('#mZweef');
+  if(zw) zw.onclick=()=>{
+    const aan=!zweefAan();
+    zweefZet(aan);
+    sheetApp();
+    toast(aan?'De vernieuwknop zweeft nu over je scherm. Sleep hem waar je wilt.'
+             :'Vernieuwknop verborgen.');
+  };
 }
 
 /* Deze rijen staan sinds v362 ook op je tabbladen — daar gebruik je ze.
@@ -22209,6 +22338,7 @@ let startKlaar=false;
   /* Het slot komt vóór alles wat daarna nog een scherm kan openen, anders
      staat er een half ingevulde bon achter het pinscherm te wachten. */
   if(slotNodig()) slotTonen();
+  zweefTeken();
   /* Firebase heeft even nodig om te weten of je nog ingelogd bent. Meteen
      vragen zou het welkomstscherm laten opflitsen bij wie gewoon ingelogd is. */
   setTimeout(()=>{ if(welkomNodig()) welkomTonen() },1200);
