@@ -2116,6 +2116,21 @@ main .paneel>.groep>.uit{overflow:hidden;border-radius:0 0 15px 15px}
 main .paneel>.groep>.arij{border-bottom:none;padding:14px 16px;background:none}
 main .paneel>.groep.open{border-color:rgba(74,43,24,.18)}
 
+/* Subregels stonden in HOOFDLETTERS met extra letterafstand. Op het dashboard
+   staan diezelfde regels gewoon in kleine letters, en dat leest rustiger —
+   zeker bij een batchcode of een ingrediëntnaam. Gelijkgetrokken. */
+main .arij .naam small{text-transform:none;letter-spacing:-.005em;
+  font-weight:500;font-size:12.5px;color:var(--grijs2)}
+
+/* De "meer"-knop onder een lijst was een gestippelde balk over de volle
+   breedte. Die vroeg meer aandacht dan de lijst erboven. Nu dezelfde rustige
+   pil als het knopje naast een sectiekop. */
+main .paneel>.meer{border:1px solid var(--lijn);border-radius:99px;
+  background:var(--card);padding:11px 18px;width:auto;align-self:center;
+  font-size:13px;font-weight:600;color:var(--grijs);letter-spacing:-.01em}
+main .paneel>.meer:active{background:var(--choco-wash);
+  border-color:var(--choco-licht);color:var(--choco)}
+
 /* De stip stond ín de kaart, terwijl hij op het dashboard náást de kaart op
    de lijn staat. Twee lijsten die hetzelfde bedoelen hoorden dat op dezelfde
    manier te doen. Het paneel schuift naar rechts, de lijn komt in de vrije
@@ -2163,6 +2178,14 @@ main .paneel>.beheerrij:active{background:var(--choco-wash);
 main .paneel>.beheerrij:active>svg{background:#fff;color:var(--choco)}
 main .paneel>.beheerrij .l{font-size:14.5px;font-weight:600;letter-spacing:-.02em}
 main .paneel>.beheerrij .w{font-size:12.5px;color:var(--grijs2)}
+
+/* Rijen die je kunt wegvegen zitten in een .veeg-wikkel, en die viel net als
+   de .groep buiten de kaartregel. De kaartvorm hoort op de wikkel, want die
+   heeft de rode wisknop eronder verstopt. */
+main .paneel>.veeg{border-radius:16px;overflow:hidden;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+main .paneel>.veeg>.arij{background:var(--card);border:1px solid var(--lijn);
+  border-radius:16px;padding:14px 16px}
 
 main .paneel>.arij,main .paneel>.rij{
   background:var(--card);border:1px solid var(--lijn);border-radius:16px;
@@ -2733,7 +2756,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v422 · 18 aug 2026';
+const APPVERSIE='v423 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4672,6 +4695,51 @@ function kpiHTML(){
 /* De zes kernstappen als tijdlijn: de lijn loopt links langs de kaarten,
    de stip staat óp de lijn. Gedaan is groen, de eerstvolgende is bezig, de
    rest wacht. Zo zie je in één blik waar je bent. */
+/* De donkere kaart die je bovenaan het dashboard ziet. Staat hier als eigen
+   functie zodat Productie letterlijk hetzelfde onderdeel toont — één plek om
+   te wijzigen, en de twee schermen kunnen niet meer uit elkaar lopen. */
+function heroBatchHTML(b){
+  const v=bVolgende(b), w=lopendWerk(b);
+  const gedaan=bGedaan(b), totaal=KERN.length;
+  const pct=totaal?Math.min(100,Math.round(gedaan/totaal*100)):0;
+  const omtrek=2*Math.PI*30;
+  return `<button class="hoofdkaart hk2" data-batch="${b.id}">
+      <div class="hk2kop">
+        <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
+        <span class="hk2badge">Batch ${esc(b.code)}</span>
+        <span class="hk2pijl">${svg(I.pijl,'2')}</span>
+      </div>
+      <div class="hk2lijf">
+        <span class="hk2ring ${b.status==='pauze'?'amber':''}">
+          <svg viewBox="0 0 68 68" aria-hidden="true">
+            <circle class="baan" cx="34" cy="34" r="30"></circle>
+            ${pct>0?`<circle class="vul" cx="34" cy="34" r="30"
+              stroke-dasharray="${(omtrek*pct/100).toFixed(1)} ${omtrek.toFixed(1)}"></circle>`:''}
+          </svg>
+          <span class="binnen"><b>${pct}%</b><em>gereed</em></span>
+        </span>
+        <span class="hk2tekst">
+          <h2>${esc(bNamen(b))}</h2>
+          <div class="sub">${(()=>{
+            /* "pure chocolade · dag 1" liet de regel afbreken, en een tweede
+               regel kost hier meer dan hij oplevert. De soort zegt genoeg
+               zonder het woord chocolade erachter, en dag 1 is geen nieuws. */
+            const soort=chocNaam(b.chocolade||'').toLowerCase()
+              .replace(/\s*chocolade\s*$/,'');
+            const dn=dagNummer(b);
+            return [bTotaal(b)+' bonbons',soort,dn>1?'dag '+dn:''
+              ].filter(Boolean).join(' · ');
+          })()}</div>
+          <div class="hk2stap">
+            <i class="${b.status==='pauze'?'amber':''}"></i>
+            <span>${v?esc(v.label)+' — volgende stap':'Alle stappen gedaan — afronden'}${
+              w?' · '+esc(w.act)+' loopt':''}</span>
+          </div>
+        </span>
+      </div>
+    </button>`;
+}
+
 function stappenlijnHTML(b){
   const f=S.stapFilter||'alles';
   const plan=bPlan(b), gedaanVan=planVan(b);
@@ -4833,41 +4901,7 @@ function dashboardHTML(){
     /* De knop "Verder met deze batch" stond helemaal onderaan, achter tien
        stapkaarten. Nu is de kaart zelf de knop: hij gaat al over deze batch,
        dus een aparte knop eronder was een omweg. */
-    h+=`<button class="hoofdkaart hk2" data-batch="${b.id}">
-      <div class="hk2kop">
-        <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
-        <span class="hk2badge">Batch ${esc(b.code)}</span>
-        <span class="hk2pijl">${svg(I.pijl,'2')}</span>
-      </div>
-      <div class="hk2lijf">
-        <span class="hk2ring ${b.status==='pauze'?'amber':''}">
-          <svg viewBox="0 0 68 68" aria-hidden="true">
-            <circle class="baan" cx="34" cy="34" r="30"></circle>
-            ${pct>0?`<circle class="vul" cx="34" cy="34" r="30"
-              stroke-dasharray="${(omtrek*pct/100).toFixed(1)} ${omtrek.toFixed(1)}"></circle>`:''}
-          </svg>
-          <span class="binnen"><b>${pct}%</b><em>gereed</em></span>
-        </span>
-        <span class="hk2tekst">
-          <h2>${esc(bNamen(b))}</h2>
-          <div class="sub">${(()=>{
-            /* "pure chocolade · dag 1" liet de regel afbreken, en een tweede
-               regel kost hier meer dan hij oplevert. De soort zegt genoeg
-               zonder het woord chocolade erachter, en dag 1 is geen nieuws. */
-            const soort=chocNaam(b.chocolade||'').toLowerCase()
-              .replace(/\s*chocolade\s*$/,'');
-            const dn=dagNummer(b);
-            return [bTotaal(b)+' bonbons',soort,dn>1?'dag '+dn:''
-              ].filter(Boolean).join(' · ');
-          })()}</div>
-          <div class="hk2stap">
-            <i class="${b.status==='pauze'?'amber':''}"></i>
-            <span>${v?esc(v.label)+' — volgende stap':'Alle stappen gedaan — afronden'}${
-              w?' · '+esc(w.act)+' loopt':''}</span>
-          </div>
-        </span>
-      </div>
-    </button>`;
+    h+=heroBatchHTML(b);
 
     /* ── productiestappen als tijdlijn ── */
     h+=`<div class="blokkop">
@@ -5144,17 +5178,26 @@ function productieHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`,'data-verwijder="'+b.id+'"')};
 
   /* ── Nu: wat er op dit moment onder handen is ── */
+  /* Dit scherm opende met een witte lijstrij, terwijl het dashboard begint met
+     een donkere kaart. Twee schermen over hetzelfde werk hoorden op dezelfde
+     manier te openen, dus staat hier nu letterlijk dezelfde kaart. De rest van
+     de lopende batches blijft eronder als rij. */
   h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Nu</span>
-      <span class="tel">${loopt.length||''}</span></div>`;
-  h+= loopt.length
-    ? `<div class="paneel">${loopt.map(bRij).join('')}
-       <button class="meer" data-sheet="nieuwbatch">Nog een batch genereren</button></div>`
-    : `<div class="paneel"><button class="arij" data-sheet="${S.recepten.length?'nieuwbatch':'receptnieuw'}">
+      <button class="kopknop" data-sheet="${S.recepten.length?'nieuwbatch':'receptnieuw'}">${
+        svg(I.plus)}Nieuwe batch</button></div>`;
+  if(loopt.length){
+    h+=heroBatchHTML(loopt[0]);
+    if(loopt.length>1) h+=`<div class="paneel" style="margin-top:12px">${
+      loopt.slice(1).map(bRij).join('')}</div>`;
+  } else {
+    h+=`<div class="paneel"><button class="arij" data-sheet="${
+        S.recepten.length?'nieuwbatch':'receptnieuw'}">
         <span class="ivak">${svg(I.plus)}</span>
         <span class="naam">${S.recepten.length?'Niets onderweg':'Nog geen smaak'}
           <small>${S.recepten.length?'genereer een batch, dan gebeurt alles daarbinnen'
             :'voeg eerst een smaak toe'}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
+  }
 
   /* ── Te maken: je planning en je orders staan hier door elkaar, op datum.
      Voor je handen maakt het niet uit waar het werk vandaan komt. ── */
