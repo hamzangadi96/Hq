@@ -2152,7 +2152,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v391 · 18 aug 2026';
+const APPVERSIE='v392 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -2442,7 +2442,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen',
+  'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -11663,9 +11663,14 @@ function sheetVerpKiezen(huidig, klaar){
 
 function sheetInkoop(id){
   const nieuw=!id;
+  /* Een bon vul je niet in één keer in: je zoekt een onderdeel op, je maakt er
+     eentje aan, je legt je telefoon weg. Alles wat je typt wordt daarom
+     bewaard, ook als het scherm ertussenuit gaat of de app opnieuw laadt. */
   const b=nieuw
-    ? {id:uid(),datum:vandaag(),lev:'',valuta:'USD',vracht:'',betaald:'',
-       regels:[{artikel:'',aantal:'',prijs:''}]}
+    ? (S.inkoopConcept
+        ? JSON.parse(JSON.stringify(S.inkoopConcept))
+        : {id:uid(),datum:vandaag(),lev:'',valuta:'USD',vracht:'',betaald:'',
+           regels:[{artikel:'',aantal:'',prijs:''}]})
     : JSON.parse(JSON.stringify(inkopen().find(x=>x.id===id)||{}));
   const arts=verpakkingsArtikelen();
 
@@ -11679,6 +11684,7 @@ function sheetInkoop(id){
       aantal:el.querySelector('[data-ikn]').value.trim(),
       prijs:el.querySelector('[data-ikp]').value.trim()
     }));
+    if(nieuw){ S.inkoopConcept=JSON.parse(JSON.stringify(b)); bewaarNu() }
   };
 
   const teken=()=>{
@@ -11763,7 +11769,9 @@ function sheetInkoop(id){
              euro(r.euro)} totaal</small></span></div>`).join('')}</div>`:''}`,
       `<button class="prim" style="margin-top:0" id="ikOk"${k.compleet?'':' disabled'}>${
          k.compleet?'Opslaan en prijzen bijwerken':'Vul de bon eerst in'}</button>
-       ${nieuw?'':`<button class="sec" id="ikWis">Bestelling verwijderen</button>`}
+       ${nieuw
+         ? `<button class="sec" id="ikLeeg">Opnieuw beginnen</button>`
+         : `<button class="sec" id="ikWis">Bestelling verwijderen</button>`}
        <button class="sec" id="ikT">Terug</button>`);
 
     const hert=()=>{lezen();teken()};
@@ -11816,6 +11824,7 @@ function sheetInkoop(id){
         });
         b.voorraadGeboekt=true;
       }
+      delete S.inkoopConcept;
       bewaarNu(); sheetInkopen();
       toast(kk.regels.length+' '+(kk.regels.length===1?'prijs':'prijzen')+' bijgewerkt'+
         (geboekt?' \u00b7 voorraad bijgeboekt':'')+'.',herstel);
@@ -11824,6 +11833,11 @@ function sheetInkoop(id){
       const herstel=terugpunt(['inkopen']);
       S.inkopen=(S.inkopen||[]).filter(x=>x.id!==b.id);
       bewaarNu(); sheetInkopen(); toast('Bestelling verwijderd.',herstel);
+    };
+    if($('#ikLeeg')) $('#ikLeeg').onclick=()=>{
+      const herstel=terugpunt(['inkoopConcept']);
+      delete S.inkoopConcept; bewaarNu();
+      sheetInkoop(null); toast('Leeggemaakt.',herstel);
     };
     $('#ikT').onclick=sheetInkopen;
   };
@@ -11851,7 +11865,8 @@ function sheetInkopen(){
         <p><b>Nog geen bestellingen.</b><br>Neem een factuur over en de app rekent
           uit wat elk onderdeel je per stuk kost — vracht en koers inbegrepen.</p>
        </div></div>`,
-    `<button class="prim" style="margin-top:0" id="ikN">${svg(I.plus)}&nbsp;Bestelling registreren</button>
+    `<button class="prim" style="margin-top:0" id="ikN">${svg(I.plus)}&nbsp;${
+       S.inkoopConcept?'Verder met je bon':'Bestelling registreren'}</button>
      <button class="sec" id="ikOk2">Klaar</button>`);
   $$('#sheetBody [data-ikb]').forEach(b=>b.onclick=()=>sheetInkoop(b.dataset.ikb));
   $('#ikN').onclick=()=>sheetInkoop(null);
