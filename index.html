@@ -2983,7 +2983,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v442 · 18 aug 2026';
+const APPVERSIE='v443 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3641,12 +3641,22 @@ function fbGeweigerd(pad,fout){
 S.storingen=S.storingen||[];
 function storingLog(waar,fout){
   const t=String((fout&&(fout.message||fout))||'onbekend');
+  /* Eén regel van de stapel was te weinig om iets te vinden: bij een fout in
+     een aanroep binnen een aanroep wijst die naar de verkeerde plek. Vier
+     regels laten zien welke functie het echt is. */
   const regel={tijd:new Date().toISOString().slice(11,19), waar, fout:t,
-    versie:APPVERSIE, stapel:String((fout&&fout.stack)||'').split('\n')[1]||''};
+    versie:APPVERSIE,
+    stapel:String((fout&&fout.stack)||'').split('\n').slice(1,5)
+      .map(r=>r.trim().replace(/^at\s+/,'').replace(/\(?https?:[^)]*\//,''))
+      .filter(Boolean).join(' ← ')};
   S.storingen=(S.storingen||[]).concat([regel]).slice(-40);
   try{ bewaarNu() }catch(e){}
   console.error('['+waar+']',fout);
-  toast('Er ging iets mis bij "'+waar+'". Instellingen → Storingen.');
+  /* "Er ging iets mis, kijk bij Storingen" laat je zoeken terwijl de melding
+     de informatie al heeft. Nu staat de functie waar het misging meteen in de
+     melding, zodat je hem kunt doorgeven zonder drie schermen diep te gaan. */
+  const waar2=(regel.stapel||'').split(' ← ')[0].split(' ')[0];
+  toast('Fout bij "'+waar+'"'+(waar2?' in '+waar2:'')+': '+t.slice(0,70));
 }
 
 /* Elke klik loopt hierlangs; crasht er iets, dan zie je het. */
@@ -19962,10 +19972,12 @@ function ingNieuwBinden(na){
     const naam=ingToevoegen(n);
     veld.value='';
     if(bestond){
-      /* niet hertekenen: de lijst verandert niet, en de melding zou meteen
-         weer weg zijn */
-      $('#inUit').textContent=naam+' stond er al — je vindt hem in de lijst.';
-      return;
+      /* "Stond er al" was een doodlopende weg: je wilde naar dat ingrediënt,
+         en kreeg te horen dat je het zelf moest opzoeken tussen twintig rijen.
+         Nu gaan we er gewoon heen. Is hij nog leeg, dan opent de wizard; is
+         hij al ingevuld, dan zie je zijn scherm. */
+      toast(naam+' stond er al — hier is hij.');
+      return sheetIngredient(naam,false);
     }
     /* meteen door naar de eerste vraag: dat is waarom je hem toevoegt */
     sheetIngWizard(naam,0);
@@ -20625,9 +20637,18 @@ function sheetIngWizard(naam,stap){
     voedingZet(naam,d);
   };
   wzPlakvakBinden(naam,stap);
+  /* Ging er iets mis in het bewaren, dan bleef je op dezelfde stap staan met
+     een melding — en bij de laatste stap kwam je er helemaal niet meer uit.
+     Doorlopen is belangrijker dan één veld dat niet wegschrijft: wat je hebt
+     ingevuld staat al in het scherm, en de fout wordt gelogd. */
   const door=()=>{
-    bewaarVoeding();
-    if(laatste){ sheetIngredient(naam,false,true); toast(naam+' staat erin.'); return }
+    try{ bewaarVoeding() }catch(e){ storingLog('voedingswaarde bewaren',e) }
+    if(laatste){
+      try{ sheetIngredient(naam,false,true) }
+      catch(e){ storingLog('ingrediënt openen',e); dicht() }
+      toast(naam+' staat erin.');
+      return;
+    }
     sheetIngWizard(naam,stap+1);
   };
   $('#wzOk').onclick=veilig('volgende stap',door);
@@ -22002,7 +22023,11 @@ function sheetStoringen(){
       ? `<p class="hint">Wat er misging terwijl je aan het werk was. Stuur deze
           lijst door als iets niet werkt zoals het hoort.</p>
          <div class="paneel">${lijst.map(x=>`<div class="arij" style="cursor:default">
-           <span class="naam">${esc(x.waar)}<small>${esc(x.tijd)} · ${esc(x.fout)}</small></span>
+           <span class="naam">${esc(x.fout)}<small>${esc(x.waar)} · ${esc(x.tijd)}${
+             /* De stapel stond wel in de kopieertekst maar niet op het scherm,
+                dus je moest hem eerst kopiëren en ergens plakken om te zien
+                wáár het misging. */
+             x.stapel?'<br>'+esc(x.stapel):''}</small></span>
            <span class="waarde">${esc(x.versie.split(' ')[0])}</span></div>`).join('')}</div>`
       : `<div class="paneel"><div class="rustig">
           <div class="ico">${svg(I.vink,'2.2')}</div>
