@@ -2197,8 +2197,8 @@ main .paneel>.beheerrij .w{font-size:12.5px;color:var(--grijs2)}
   0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
 
 .toevoeg{display:inline-flex;width:auto;align-self:flex-start;
-  padding:11px 18px;margin:12px 0 4px;border-radius:99px;background:var(--card);
-  border:1px solid var(--lijn);font-size:13px;font-weight:600;color:var(--grijs)}
+  padding:10px 15px;margin:12px 6px 4px 0;border-radius:99px;background:var(--card);
+  border:1px solid var(--lijn);font-size:12.5px;font-weight:600;color:var(--grijs)}
 .toevoeg:active{background:var(--choco-wash);border-color:var(--choco-licht);
   color:var(--choco)}
 
@@ -2678,6 +2678,26 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .sheetbody .knoppaar>*,.sheetbody .wzplakknoppen>*{flex:1 1 45%;margin-top:0;
   min-width:120px}
 
+/* ── 1c. losse knoppen die op elkaar volgen ──
+   Overal in de app staan twee of drie van deze pilknoppen onder elkaar:
+   "Ingrediënt toevoegen" boven "Meerdere archiveren", "Laag toevoegen" boven
+   "Instructie toevoegen". Elk zo'n knop kost 46 pixels plus marge, terwijl er
+   twee naast elkaar passen.
+
+   Ze staan los in de opmaak, niet in een rij. Daarom laten we ze zweven: een
+   knop neemt de ruimte die zijn tekst nodig heeft, en de volgende schuift
+   ernaast zolang er plek is. Past het niet, dan valt hij vanzelf op een
+   nieuwe regel. */
+/* display:flex maakte ze blokken over de volle breedte; inline-flex laat ze
+   naast elkaar staan als de regel het toelaat. */
+.sheetbody .toevoeg,.sheetbody .meer{display:inline-flex;width:auto;
+  vertical-align:top;margin:12px 6px 4px 0}
+/* Tussen twee van die knoppen staat vaak een dichtgeklapt invulvak. Dat is
+   een blok, en een blok breekt de regel — ook als het onzichtbaar is. Zolang
+   het dicht is telt het dus niet mee. */
+.sheetbody .inlineform:not(.open){display:contents}
+.sheetbody .inlineform:not(.open)>*{display:none}
+
 /* ── 2. toevoegknoppen zijn geen hoofdacties ──
    "Onderdeel toevoegen", "Instructie toevoegen", "Productetiket instellen":
    stuk voor stuk brede balken die net zo hard riepen als Klaar. */
@@ -2927,7 +2947,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v438 · 18 aug 2026';
+const APPVERSIE='v439 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20021,10 +20041,10 @@ function sheetIngredientenLijst(alleenMissend){
        <button class="chip klein${alleenMissend?' aan':''}" id="ilF">Alleen wat nog mist</button>
      </div>`:''}
      <div class="paneel" id="ilL">${lijst.map(rij).join('')}</div>
-     <button class="toevoeg" id="ilN">${svg(I.plus)}Ingrediënt toevoegen</button>
+     <button class="toevoeg" id="ilN">${svg(I.plus)}Toevoegen</button>
      ${ingNieuwHtml()}
-     ${alles.length>1?`<button class="toevoeg" id="ilKies" style="margin-top:8px">${
-       svg(I.doos)}Meerdere archiveren</button>`:''}
+     ${alles.length>1?`<button class="toevoeg" id="ilKies">${
+       svg(I.doos)}Archiveren</button>`:''}
      ${archief.length?`<button class="klapkop" id="ilArK">${svg(I.pijl,'2')}
        Archief (${archief.length})</button>
        <div class="klapin" id="ilAr"><div class="paneel">${archief.map(n=>
