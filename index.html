@@ -2895,7 +2895,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v431 · 18 aug 2026';
+const APPVERSIE='v432 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16739,7 +16739,151 @@ function smaakStap4(){
   };
 }
 
+/* Het wijzigscherm was één rol van zeven secties: naam, chocolade, mal,
+   houdbaarheid, opbouw, werkinstructies en etiket. Alles tegelijk in beeld,
+   met vier knoppen die even hard riepen. Wilde je één ding aanpassen, dan
+   moest je erlangs scrollen.
+
+   Nu een overzicht met zeven rijen die tonen wat er staat. Tik je er een aan,
+   dan open je dat ene onderwerp. Dezelfde opzet als "De route" bij een batch
+   en als het ingrediëntscherm — zo werkt de app overal hetzelfde.
+
+   Nieuw aanmaken houdt zijn wizard: dan wil je juist wél langs alles. */
+function smaakHub(){
+  const totaal=gramPerBonbon(R);
+  const rij=(id,ico,naam,waarde,mist)=>`<button class="arij" data-sh="${id}">
+    <span class="ivak${mist?' amber':''}">${svg(ico)}</span>
+    <span class="naam">${esc(naam)}</span>
+    <span class="waarde ${mist?'let':'gevuld'}">${esc(waarde)}</span>
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+
+  const mal=mallen().find(m=>m.id===R.malId);
+  const ins=(R.stappen||[]).filter(x=>(typeof x==='string'?x:(x&&x.t)||'').trim()).length;
+
+  sheet(R.naam||'Smaak',
+    `<div class="blokkop" style="margin-top:2px">
+       <span class="eyebrow">De bonbon</span></div>
+     <div class="paneel">
+       ${rij('naam',I.doc,'Naam',R.naam||'invullen',!R.naam)}
+       ${rij('choc',I.bonbon,'Chocolade',chocNaam(R.chocolade)||'kiezen',!R.chocolade)}
+       ${rij('mal',I.vorm,vakHoofd('Mal'),mal?mal.naam+' · '+mal.holtes:'kiezen',!mal)}
+       ${rij('tht',I.klok,'Houdbaarheid',R.tht?R.tht+' dagen':'invullen',!R.tht)}
+     </div>
+
+     <div class="blokkop"><span class="eyebrow">Receptuur</span></div>
+     <div class="paneel">
+       ${rij('opbouw',I.doos,'Opbouw',
+         R.onderdelen.length?R.onderdelen.length+(R.onderdelen.length===1?' laag · ':' lagen · ')+getal(totaal)+' g'
+                            :'nog geen lagen', !R.onderdelen.length)}
+       ${rij('werk',I.lijst,'Werkinstructies',ins?ins+(ins===1?' instructie':' instructies'):'geen',false)}
+     </div>
+
+     ${R.id?`<div class="blokkop"><span class="eyebrow">Voor de klant</span></div>
+     <div class="paneel">
+       ${rij('etiket',I.doc,'Productetiket','instellen',false)}
+     </div>`:''}`,
+    `<button class="prim" style="margin-top:0" id="shOk">Klaar</button>`,
+    'Opgeslagen');
+
+  bijSluiten=null;
+  $('#shOk').onclick=()=>{ bewaarSmaak(); render(); sheetRecepten() };
+  $$('#sheetBody [data-sh]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.sh;
+    if(k==='etiket'){ leesRecept(); bewaarSmaak(); return sheetProductEtiket(R.id) }
+    smaakDeel(k);
+  });
+}
+
+/* Eén onderwerp per keer. Wat je hier invult gaat terug naar het overzicht. */
+function smaakDeel(deel){
+  const stapTekst=x=>typeof x==='string'?x:(x&&x.t)||'';
+  const stapBij=x=>(x&&typeof x!=='string'&&x.stap)||'';
+  const stapRij=(s2,i)=>`<div class="insblok">
+    <div class="ingrij">
+      <input class="nm" data-stap value="${esc(stapTekst(s2))}" placeholder="Bijv. tempereren tot 31,5 °C">
+      <button class="wisbtn" data-wis-s>${svg(I.kruis,'2')}</button></div>
+    <div class="inschips">
+      <button type="button" class="chip klein ${!stapBij(s2)?'aan':''}" data-bij="${i}" data-w="">Los</button>
+      ${(S.werkplan||[]).map(w=>`<button type="button" class="chip klein ${stapBij(s2)===w?'aan':''}"
+        data-bij="${i}" data-w="${esc(w)}">${esc(w)}</button>`).join('')}
+    </div>
+    <input type="hidden" data-stapbij value="${esc(stapBij(s2))}"></div>`;
+
+  const totaal=gramPerBonbon(R);
+  const D={
+    naam:{t:'Naam van de smaak',h:`<div class="veld">
+      <input class="inp" id="rNaam" value="${esc(R.naam)}"
+        placeholder="Bijv. pistache & rode vruchten"></div>`},
+    choc:{t:'Welke chocolade?',h:`<div class="veld"><div class="chips keuzeraster" id="rC">
+      ${soorten().map(c=>`<button class="chip ${c.key===R.chocolade?'aan':''}" data-v="${c.key}">${c.naam}</button>`).join('')}</div></div>`},
+    mal:{t:'In welke '+vak('mal')+'?',h:`<div class="veld">
+      <div class="chips keuzeraster" id="rMal">
+        ${mallen().map(m=>`<button class="chip ${m.id===R.malId?'aan':''}" data-v="${m.id}">${
+          esc(m.naam)} · ${m.holtes}</button>`).join('')}
+        <button class="chip nieuw" id="rMalNieuw">${svg(I.plus)}${vakHoofd('mal')}</button></div>
+      <p class="hint" style="margin:10px 0 0">Hiermee rekent de app om hoeveel ${vak('mallen')}
+        je nodig hebt voor deze smaak.</p></div>`},
+    tht:{t:'Houdbaar na productie',h:`<div class="veld">
+      <div class="rijtje"><input class="mini" id="rT" type="number" inputmode="numeric"
+        value="${R.tht}" style="max-width:96px">
+        <span class="hint" style="margin:0;align-self:center">dagen na productie</span></div></div>`},
+    opbouw:{t:'Opbouw van één bonbon',h:`
+      ${R.onderdelen.length?`<div class="paneel">${
+        R.onderdelen.map((o,i)=>`<button class="arij" data-ond="${i}">
+          <span class="ivak">${svg(I.vorm)}</span>
+          <span class="naam">${esc(o.naam||'Naamloos onderdeel')}<small>${
+            (o.ing||[]).length?((o.ing.length===1)?esc(o.ing[0].naam||'1 ingrediënt'):o.ing.length+' ingrediënten'):'nog geen ingrediënten'}${
+            (o.werkwijze||[]).length?' · '+o.werkwijze.length+' stappen':''}</small></span>
+          <span class="waarde gevuld">${getal(o.gram||0)} g</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
+        :`<p class="hint" style="margin:0 0 12px">Denk aan de schelp, een gelei-laag
+          en een ganache-laag.</p>`}
+      <button class="knop2" id="rOnd" style="margin-top:12px">${svg(I.plus)}Laag toevoegen</button>
+      ${totaal?`<div class="totaalregel" style="margin-top:14px"><span class="l">Eén bonbon weegt</span>
+        <span class="w">${getal(totaal)} g</span></div>`:''}`},
+    werk:{t:'Werkinstructies',h:`
+      <p class="hint" style="margin:0 0 14px">Kies bij welke stap een instructie hoort, dan
+        krijg je hem tijdens het maken vanzelf te zien. Noem je een tijd of temperatuur,
+        dan leest de app die eruit.</p>
+      <div id="rS">${(R.stappen.length?R.stappen:['']).map((x,i)=>stapRij(x,i)).join('')}</div>
+      <button class="knop2" id="rPS" style="margin-top:12px">${svg(I.plus)}Instructie toevoegen</button>`}
+  }[deel];
+  if(!D) return smaakHub();
+
+  sheet(D.t,D.h,`<button class="prim" style="margin-top:0" id="rKlaar">Klaar</button>`);
+  bijSluiten=()=>{leesRecept();bewaarSmaak()};
+
+  if($('#rC')) chips('#rC');
+  if($('#rMal')) chips('#rMal');
+  if($('#rMalNieuw')) $('#rMalNieuw').onclick=()=>{ leesRecept(); bewaarSmaak(); sheetMallen() };
+  if($('#rOnd')) $('#rOnd').onclick=()=>{ leesRecept(); bewaarSmaak(); sheetOnderdeel(null) };
+  $$('#sheetBody [data-ond]').forEach(b=>b.onclick=()=>{
+    leesRecept(); bewaarSmaak(); sheetOnderdeel(parseInt(b.dataset.ond)) });
+  if($('#rPS')) $('#rPS').onclick=()=>{
+    leesRecept(); R.stappen.push(''); smaakDeel('werk');
+  };
+  $$('#rS [data-wis-s]').forEach(b=>b.onclick=()=>{
+    if($$('#rS .insblok').length>1) b.closest('.insblok').remove();
+    else b.closest('.insblok').querySelector('[data-stap]').value='';
+  });
+  $$('#rS [data-bij]').forEach(b=>b.onclick=()=>{
+    const blok=b.closest('.insblok');
+    blok.querySelectorAll('[data-bij]').forEach(x=>x.classList.remove('aan'));
+    b.classList.add('aan');
+    blok.querySelector('[data-stapbij]').value=b.dataset.w||'';
+  });
+  $('#rKlaar').onclick=()=>{ leesRecept(); bewaarSmaak(); render(); smaakHub() };
+}
+
+/* Het oude formulier blijft bestaan voor de wizard bij een nieuwe smaak; daar
+   wil je juist wél langs alles. Bewerk je een bestaande smaak, dan kom je op
+   het overzicht uit. */
 function tekenRecept(){
+  if(R.id&&!R.wizard) return smaakHub();
+  return tekenReceptForm();
+}
+
+function tekenReceptForm(){
   const totaal=gramPerBonbon(R);
   const stapTekst=x=>typeof x==='string'?x:(x&&x.t)||'';
   const stapBij=x=>(x&&typeof x!=='string'&&x.stap)||'';
