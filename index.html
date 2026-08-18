@@ -1310,6 +1310,10 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
    passen, pijl omhoog om hem eerder te doen. */
 .wwin{display:flex;gap:8px;align-items:center}
 .wwin input{flex:1;min-width:0}
+/* de knop draagt zijn eigen aantal, zodat je weet wat je binnenhaalt */
+.wwheeln{font-style:normal;margin-left:8px;padding:2px 8px;border-radius:99px;
+  background:var(--bg);color:var(--grijs2);font-size:11.5px;font-weight:700;
+  font-variant-numeric:tabular-nums}
 .wwin{align-items:stretch}
 .wwin .wwadd{flex:none;width:52px;min-height:52px;border-radius:14px;background:var(--ink);
   color:#fff;display:grid;place-items:center}
@@ -3094,7 +3098,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v446 · 18 aug 2026';
+const APPVERSIE='v447 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16983,16 +16987,18 @@ const WERKWIJZEBIB={
       'Laten uitharden 20 min op 16 °C']}
   ],
   ganache:[
-    {k:'Verwarmen', v:['Room verwarmen tot 80 °C','Room in twee delen splitsen',
-      'Glucosestroop toevoegen','Invertsuiker toevoegen','Roomboter toevoegen',
+    {k:'Verwarmen', v:['Room verwarmen tot 80 °C','Room afwegen en splitsen — 80% en 20%',
+      'Room 40 sec in de magnetron','Roeren en nogmaals 30 sec — herhalen tot 80 °C',
+      'Glucosestroop toevoegen','Invertsuiker toevoegen','Roomboter erdoor laten smelten',
       'Van het vuur halen']},
-    {k:'Smaak erin', v:['Poeder zeven','Poeder met een deel room tot een papje mengen',
+    {k:'Smaak erin', v:['Smaakpoeder zeven','Poeder met de 20% room tot een glad papje mengen',
       'Laten trekken 10 min','Puree toevoegen','Door een zeef halen en terugwegen']},
-    {k:'Mengen', v:['Over de chocoladedruppels gieten','Een paar minuten laten staan',
-      'Vanuit het midden roeren','Kort mixen met de staafmixer',
-      'Niet te lang mixen — anders slaat hij op']},
+    {k:'Mengen', v:['Witte chocoladedruppels afwegen in een hoge beker',
+      'Beide delen over de chocoladedruppels gieten','3 min laten staan',
+      'Vanuit het midden roeren tot de druppels weg zijn',
+      'Kort mixen met de staafmixer — niet te lang']},
     {k:'Afwerken', v:['Roomboter erdoor op 35 °C','Afkoelen tot 30 °C',
-      'In een spuitzak overdoen','Laten kristalliseren 12 uur']}
+      'In een spuitzak overdoen','In de schelpen spuiten']}
   ],
   gelei:[
     {k:'Verwarmen', v:['Puree verwarmen tot 40 °C','Glucosestroop toevoegen']},
@@ -17013,6 +17019,53 @@ const WERKWIJZEBIB={
       'Door een zeef halen','Laten afkoelen','In een spuitzak overdoen',
       'Laten opstijven 1 uur']}
   ]
+};
+
+/* ═══════════ de hele werkwijze in één tik ═══════════
+   Losse handelingen aantikken is prima als je iets aanvult, maar bij een
+   nieuwe smaak typ je elke keer dezelfde vijftien regels. Dit is de volledige
+   volgorde, van afwegen tot spuiten. Aantikken, aanpassen wat anders is.
+
+   Let op waar een route ophoudt: de ganache eindigt bij het spuiten in de
+   schelp. Het uitkristalliseren daarna hoort bij "Schelpen vullen", niet bij
+   het ganacherecept — anders staat dezelfde wachttijd straks twee keer in je
+   dagoverzicht. */
+const WERKWIJZEROUTE={
+  ganache:['Witte chocoladedruppels afwegen in een hoge beker',
+    'Room afwegen en splitsen — 80% en 20%',
+    'Smaakpoeder zeven',
+    'Poeder met de 20% room tot een glad papje mengen',
+    'Glucosestroop en invertsuiker bij de 80% room',
+    'Room 40 sec in de magnetron',
+    'Roeren en nogmaals 30 sec — herhalen tot 80 °C',
+    'Roomboter erdoor laten smelten',
+    'Beide delen over de chocoladedruppels gieten',
+    '3 min laten staan',
+    'Vanuit het midden roeren tot de druppels weg zijn',
+    'Kort mixen met de staafmixer — niet te lang',
+    'Afkoelen tot 30 °C',
+    'In een spuitzak overdoen',
+    'In de schelpen spuiten'],
+  schelp:['Mallen poetsen met watten',
+    'Mal verven met cacaoboter',
+    'Verf laten uitharden 10 min',
+    'Chocolade smelten tot 45 °C',
+    'Afkoelen tot 27 °C',
+    'Opwarmen tot 31 °C',
+    'Tempertest doen op een mesje',
+    'Mallen volgieten',
+    'Afkloppen tegen de rand',
+    'Omkeren en laten uitlopen',
+    'Afschrapen met een paletmes',
+    'Laten uitharden 20 min op 16 °C'],
+  gelei:['Puree afwegen','Suiker en pectine droog mengen',
+    'Puree verwarmen tot 40 °C','Al kloppend toevoegen',
+    'Aan de kook brengen','Glucosestroop toevoegen','Koken tot 104 °C',
+    'Citroenzuur toevoegen','Direct uitgieten','Laten opstijven 1 uur'],
+  praline:['Noten roosteren 12 min op 160 °C','Laten afkoelen',
+    'Suiker karamelliseren tot amber','Noten door de karamel scheppen',
+    'Uitstorten op een siliconenmat','Laten afkoelen','Grof breken',
+    'Fijnmalen tot een pasta','Cacaoboter toevoegen','Snufje zout toevoegen']
 };
 
 /* Wat je bij eerdere lagen van dezelfde soort al hebt opgeschreven. Na één
@@ -17624,6 +17677,9 @@ function sheetOnderdeel(idx,stap){
       <h3 class="wzvraag">Hoe maak je het?</h3>
       <p class="wzuit">Eén handeling per regel. Straks krijg je ze één voor één
         te zien tijdens het maken, met de tijden en temperaturen erbij.</p>
+      ${(WERKWIJZEROUTE[(s&&s.k)]||[]).length?`<button class="sec" id="wwHeel"
+        style="margin:0 0 14px">${svg(I.lijst)}&nbsp; Hele werkwijze overnemen
+        <em class="wwheeln">${WERKWIJZEROUTE[s.k].length} stappen</em></button>`:''}
       <div class="wwin">
         <input class="inp" id="wwIn" placeholder="Bijv. room verwarmen tot 80 °C"
           autocapitalize="sentences" enterkeyhint="done">
@@ -17877,6 +17933,18 @@ function sheetOnderdeel(idx,stap){
       wwKnop(); wwTeken(); wwVoor();
       $('#wwIn').focus();
     };
+    /* Staat er al iets, dan overschrijven we dat niet zonder te vragen —
+       je bent net vijf regels aan het typen geweest. */
+    if($('#wwHeel')) $('#wwHeel').onclick=veilig('hele werkwijze overnemen',()=>{
+      const route=WERKWIJZEROUTE[ondSoort(o.naam).k]||[];
+      if(o.werkwijze.length &&
+         !confirm('Je hebt al '+o.werkwijze.length+' '+
+           (o.werkwijze.length===1?'handeling':'handelingen')+
+           '. Die worden vervangen door de volledige werkwijze. Doorgaan?')) return;
+      o.werkwijze=route.slice();
+      wwTeken(); wwVoor();
+      toast('Overgenomen. Pas aan wat jij anders doet.');
+    });
     $('#wwIn').oninput=wwKnop;
     $('#wwIn').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); wwToevoegen() } };
     $('#wwAdd').onclick=veilig('handeling toevoegen',wwToevoegen);
