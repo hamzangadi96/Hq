@@ -2900,7 +2900,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v436 · 18 aug 2026';
+const APPVERSIE='v437 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18507,6 +18507,9 @@ function leesIngredientenTekst(tekst){
     let pct='';
     const pm=stuk.match(/([\d]+(?:[.,][\d]+)?)\s*%/);
     if(pm){ pct=pm[1].replace('.',','); stuk=stuk.replace(pm[0],'').trim() }
+    /* Staat het percentage tussen haakjes — "cacaoboter (28%)" — dan bleef er
+       na het weghalen "cacaoboter ()" over, en dat kwam zo op je etiket. */
+    stuk=stuk.replace(/\(\s*\)/g,'').replace(/\[\s*\]/g,'').trim();
     stuk=stuk.replace(/[,;:]+$/,'').trim();
     if(!stuk||stuk.length<2) return null;
     /* HOOFDLETTERS betekenen op een verpakking een allergeen; die opmaak is
@@ -19727,9 +19730,17 @@ function sheetIngDelen(naam){
   const D=(S.samenstelling[naam]||[]).map(x=>Object.assign({},x));
   const teken=()=>{
     sheet('Bestaat uit',
+      /* Handmatig één voor één intikken duurde lang, terwijl de app dit al kan
+         lezen — bij de allergenen plak je de verpakkingstekst gewoon. Nu ook
+         hier: percentages en allergenen worden meteen herkend. */
       `<p class="hint">Neem de ingrediëntenlijst over van de verpakking van
          <b>${esc(naam)}</b>, in dezelfde volgorde. Vink per onderdeel aan of het
          een van de veertien allergenen is.</p>
+       <div class="wzplak" style="margin-bottom:16px">
+         <textarea class="inp" id="idPlak" rows="3"
+           placeholder="Plak hier de ingrediëntenlijst van de verpakking"></textarea>
+         <div class="geen" id="idPlakUit" style="padding-top:8px"></div>
+       </div>
        ${D.length?`<div id="idL">${D.map((d,i)=>`
          <div class="alblok">
            <div class="alkop">
@@ -19782,6 +19793,43 @@ function sheetIngDelen(naam){
     });
     $$('[data-dw]').forEach(b=>b.onclick=()=>{lees();D.splice(+b.dataset.dw,1);teken()});
     $('#idN').onclick=()=>{lees();D.push({naam:'',pct:'',al:[]});teken()};
+
+    /* Dezelfde lezer als bij de allergenen; die haalt naam, percentage en
+       allergeen uit een regel als "cacaoboter (28%), volle MELKpoeder". */
+    const plak=$('#idPlak');
+    if(plak){
+      const verwerk=()=>{
+        const t=plak.value;
+        if(!t||!t.trim()) return;
+        const gevonden=leesIngredientenTekst(t);
+        const u=$('#idPlakUit');
+        if(!gevonden.length){
+          if(u) u.textContent='Hier haal ik geen ingrediëntenlijst uit. '
+            +'Staat het woord "Ingrediënten:" erbij?';
+          return;
+        }
+        lees();
+        /* Wat er al staat blijft staan; nieuwe namen komen erbij. */
+        const bestaand=new Set(D.map(d=>(d.naam||'').trim().toLowerCase()));
+        let bij=0;
+        gevonden.forEach(g=>{
+          const k=(g.naam||'').trim().toLowerCase();
+          if(!k||bestaand.has(k)) return;
+          bestaand.add(k); bij++;
+          D.push({naam:g.naam,pct:g.pct||'',al:g.al||[]});
+        });
+        /* Een leeg eerste vak dat je nog niet had ingevuld hoeft niet te blijven. */
+        for(let i=D.length-1;i>=0;i--) if(!(D[i].naam||'').trim()) D.splice(i,1);
+        teken();
+        const p2=$('#idPlak'), u2=$('#idPlakUit');
+        if(p2) p2.value=t;
+        if(u2) u2.textContent=bij
+          ? bij+(bij===1?' ingrediënt':' ingrediënten')+' overgenomen. Controleer de percentages.'
+          : 'Deze stonden er al in.';
+      };
+      plak.oninput=verwerk;
+      plak.onpaste=()=>setTimeout(verwerk,0);
+    }
     $('#idOk').onclick=()=>{
       lees();
       const schoon=D.filter(d=>d.naam);
