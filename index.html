@@ -2134,34 +2134,67 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;
 /* ═══ 6. BEGROETING ═════════════════════════════════════════════════
    Het grootste op het scherm, en meteen weg zodra je scrollt. */
 
-.groet{margin:2px 2px 16px}
-.groet h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.035em;
-  line-height:1.1;color:var(--ink)}
-.groetsub{margin-top:6px;font-size:14px;color:var(--grijs);letter-spacing:-.01em}
+/* Op het dashboard verdwijnt de vaste kopbalk: het logo-rondje, zoeken en het
+   tandwiel staan allemaal ook in het drie-puntjes-menu onderin. Wat overblijft
+   is de begroeting zelf, en die scrollt gewoon mee. */
+header.weg{display:none}
+
+.groet{margin:6px 2px 18px}
+.groetrij{display:flex;align-items:center;gap:14px}
+/* 30px past op een 440-scherm, maar op een iPhone van 390 breekt
+   "Goedemorgen, Hamza" dan over twee regels — met de bel ernaast houdt de
+   titel maar zo'n 290px over. Schaalt nu mee met de breedte en blijft
+   op één regel. */
+.groet h1{flex:1;min-width:0;margin:0;font-size:clamp(22px,6.6vw,30px);
+  font-weight:700;letter-spacing:-.035em;line-height:1.1;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.groetsub{margin-top:7px;font-size:14.5px;color:var(--grijs);letter-spacing:-.01em}
 .groetsub .let{color:var(--let-op);font-weight:600}
+
+/* de bel: wit rondje, geen rand, alleen een zachte schaduw */
+.belknop{flex:none;width:46px;height:46px;border-radius:99px;background:var(--card);
+  display:grid;place-items:center;color:var(--ink);position:relative;
+  box-shadow:0 1px 2px rgba(24,24,27,.05),0 6px 18px -12px rgba(24,24,27,.30)}
+.belknop svg{width:20px;height:20px;stroke-width:1.8}
+.belknop:active{background:var(--choco-wash);color:var(--choco)}
+/* staat er iets open, dan een stipje rechtsboven op de bel */
+.belknop.aan::after{content:'';position:absolute;top:11px;right:12px;
+  width:8px;height:8px;border-radius:99px;background:var(--rood);
+  border:2px solid var(--card);box-sizing:content-box}
 
 /* ═══ 7. WEEKSTRIP ══════════════════════════════════════════════════
    Zeven dagen die de volle breedte delen. Vaste hoogte, want anders rekt
    het blokje mee met zijn inhoud en wordt het een hoge ovaal. */
 
-.weekstrip{gap:6px;padding:2px 20px 14px}
-.weekstrip .wdag{width:auto;flex:1 1 0;min-width:0;max-width:56px;
-  height:58px;padding:0;border-radius:13px;justify-content:center;gap:2px}
-.weekstrip .wdag .wd{font-size:10px;font-weight:700;letter-spacing:.05em;
-  line-height:1;color:var(--grijs3)}
-.weekstrip .wdag .wn{font-size:18px;font-weight:700;letter-spacing:-.035em;
-  line-height:1.05}
-.weekstrip .wdag.leeg{background:var(--card);border-color:var(--lijn)}
-.weekstrip .wdag.leeg .wn{color:var(--grijs2)}
+/* Zeven blokjes die samen de breedte vullen. Vaste hoogte, want anders rekt
+   het blokje mee met zijn inhoud en wordt het een hoge ovaal. Geen randen:
+   alleen een zachte schaduw tilt ze van de achtergrond. */
+.weekstrip{gap:9px;padding:2px 20px 16px;overflow:visible}
+.weekstrip .wdag{width:auto;flex:1 1 0;min-width:0;height:60px;padding:0;
+  border:none;border-radius:16px;justify-content:center;gap:3px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 6px 16px -12px rgba(24,24,27,.26)}
+.weekstrip .wdag .wd{font-size:11px;font-weight:600;letter-spacing:.06em;
+  line-height:1;color:var(--grijs2)}
+.weekstrip .wdag .wn{font-size:20px;font-weight:700;letter-spacing:-.035em;
+  line-height:1.05;color:var(--ink)}
+/* Een dag zonder werk zag er eerst grijzer uit dan de rest. Dat gaf ruis:
+   je leest de strook aan de stippen, niet aan de achtergrond. */
+.weekstrip .wdag.leeg{background:var(--card)}
+.weekstrip .wdag.leeg .wn{color:var(--ink)}
+.weekstrip .wdag.vol{box-shadow:0 1px 2px rgba(24,24,27,.04),
+  0 6px 16px -12px rgba(24,24,27,.26)}
+/* de dag waar je staat */
 .weekstrip .wdag.nu,.weekstrip .wdag.nu.leeg,.weekstrip .wdag.nu.vol{
-  background:var(--choco);border-color:var(--choco);
-  box-shadow:0 2px 10px rgba(74,43,24,.30)}
-.weekstrip .wdag.nu .wd{color:rgba(255,255,255,.60)}
+  background:var(--choco);box-shadow:0 2px 12px rgba(74,43,24,.32)}
+.weekstrip .wdag.nu .wd{color:rgba(255,255,255,.58)}
 .weekstrip .wdag.nu .wn{color:#fff}
-.weekstrip .wstippen{height:4px;margin-top:2px}
-.weekstrip .wstippen i{width:4px;height:4px}
-.weekstrip .wdag.nu .wstippen i{background:rgba(255,255,255,.85)}
-.weekstrip .wkleuren{flex:none}
+/* Eén stip per dag. Er stond een rijtje van één per soort werk; bij een drukke
+   dag werden dat er vier en dan werd het blokje een streepjescode. */
+.weekstrip .wstippen{height:5px;margin-top:3px;gap:0;justify-content:center}
+.weekstrip .wstippen i{width:5px;height:5px}
+.weekstrip .wstippen i~i{display:none}
+.weekstrip .wdag.nu .wstippen i{background:rgba(255,255,255,.9)}
+.weekstrip .wkleuren{display:none}
 
 /* ═══ 8. KPI-CHIPS ══════════════════════════════════════════════════
    Drie even brede kaartjes, zodat ze als één rij lezen. Labels op één
@@ -2425,6 +2458,8 @@ const I={
   ververs:'<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/>',
   boek:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   alarm:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+  bel:'<path d="M18 8.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z"/>'
+    +'<path d="M13.7 19a2 2 0 0 1-3.4 0"/>',
   cirkel:'<circle cx="12" cy="12" r="9"/>',
   spark:'<path d="M12 3l1.7 4.6L18.3 9.3 13.7 11l-1.7 4.6L10.3 11 5.7 9.3l4.6-1.7z"/><path d="M18 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
   vracht:'<path d="M3 6h11v9H3z"/><path d="M14 9h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/>',
@@ -2434,7 +2469,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v398 · 18 aug 2026';
+const APPVERSIE='v399 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3934,6 +3969,7 @@ function renderNu(){
   const kopEl=document.querySelector('header');
   const opDash=S.tab==='dashboard'&&!inBatch;
   kopEl.classList.toggle('gecentreerd',opDash);
+  kopEl.classList.toggle('weg',opDash);
   kopEl.classList.remove('donker');
   $('#scherm').classList.remove('opdonker');
   $('#kopKpi').innerHTML='';
@@ -3947,7 +3983,7 @@ function renderNu(){
   } else if(S.tab==='dashboard'){
     /* Zonder titel hoeft de balk maar zo hoog te zijn als de knoppen.
        main rekent met dezelfde variabele, dus alles schuift vanzelf mee. */
-    document.documentElement.style.setProperty('--kopRij','48px');
+    document.documentElement.style.setProperty('--kopRij','0px');
     /* Eerst het woordmerk, toen een begroeting met de datum. Allebei eruit:
        de datum staat al in je weekstrook met vandaag zwart gemarkeerd, en een
        begroeting is geen informatie. Wat overblijft zijn twee knoppen — en
@@ -4280,8 +4316,13 @@ function begroetingHTML(){
   if(gepland) delen.push(`<span>${gepland} ${gepland===1?'batch':'batches'} gepland</span>`);
   if(open) delen.push(`<span class="let">${open} ${open===1?'order':'orders'} open</span>`);
   if(!delen.length) delen.push('<span>niets dringends vandaag</span>');
+  const meld=signalen().length;
   return `<div class="groet">
-    <h1>${groet}, ${esc(bedrijfVoornaam())}</h1>
+    <div class="groetrij">
+      <h1>${groet}, ${esc(bedrijfVoornaam())}</h1>
+      <button class="belknop${meld?' aan':''}" data-meldingen aria-label="${
+        meld?meld+' meldingen':'Geen meldingen'}">${svg(I.bel)}</button>
+    </div>
     <div class="groetsub">${delen.join(' · ')}</div>
   </div>`;
 }
@@ -4357,6 +4398,21 @@ function stappenlijnHTML(b){
         <small>${esc(r.st.knop)}</small>
       </span>
     </button>`).join('')}</div>`;
+}
+
+/* Alles wat je aandacht vraagt maar geen stap in een batch is: houdbaarheid
+   die verloopt, een thermometer die geijkt moet worden, controles die te lang
+   geleden zijn. Stond verspreid over het dashboard, staat nu achter de bel. */
+function sheetMeldingen(){
+  const lijst=signalen();
+  const h=lijst.length
+    ? `<div class="actielijst">${lijst.map(x=>`<div class="actiekaart">
+        <span class="abadge">${svg(x.ernst==='rood'?I.alarm:I.klok)}</span>
+        <span class="atekst"><b>${esc(x.tekst)}</b><small>${esc(x.extra||'')}</small></span>
+        <span class="amerk ${x.ernst==='rood'?'fout':'let'}">${
+          x.ernst==='rood'?'Nu':'Let op'}</span></div>`).join('')}</div>`
+    : `<div class="stapleeg">Niets dat je aandacht vraagt.</div>`;
+  return sheet('Meldingen',h);
 }
 
 function dashboardHTML(){
@@ -13080,6 +13136,7 @@ function bind(){
   $$('[data-stapfilter]').forEach(b=>b.onclick=()=>{
     S.stapFilter=b.dataset.stapfilter; render();
   });
+  $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
   $$('[data-batch]').forEach(b=>b.onclick=()=>{
     S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
     const v=vergetenTimer();
