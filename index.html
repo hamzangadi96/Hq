@@ -2182,6 +2182,16 @@ main .paneel>.beheerrij .w{font-size:12.5px;color:var(--grijs2)}
 /* Rijen die je kunt wegvegen zitten in een .veeg-wikkel, en die viel net als
    de .groep buiten de kaartregel. De kaartvorm hoort op de wikkel, want die
    heeft de rode wisknop eronder verstopt. */
+/* Terug naar de lijst. Klein en links, want het is een uitweg — geen actie.
+   Vervangt de terugpijl die in de vaste kopbalk zat. */
+.terugrij{display:inline-flex;align-items:center;gap:6px;margin:2px 0 14px;
+  padding:8px 14px 8px 10px;border-radius:99px;background:var(--card);
+  border:1px solid var(--lijn);font-size:13px;font-weight:600;
+  color:var(--grijs);letter-spacing:-.01em}
+.terugrij svg{width:15px;height:15px;stroke-width:2.2}
+.terugrij:active{background:var(--choco-wash);border-color:var(--choco-licht);
+  color:var(--choco)}
+
 main .paneel>.veeg{border-radius:16px;overflow:hidden;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
 main .paneel>.veeg>.arij{background:var(--card);border:1px solid var(--lijn);
@@ -2230,9 +2240,10 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;
    is de begroeting zelf, en die scrollt gewoon mee. */
 header.weg{display:none}
 
-.groet{margin:6px 2px 18px}
-/* Twee knoppen die elk aan hun eigen kant blijven staan. */
-.groetrij{display:flex;align-items:center;justify-content:space-between;gap:14px}
+/* Twee knoppen die elk aan hun eigen kant blijven staan, op elk scherm. */
+.kopknoppen{display:flex;align-items:center;justify-content:space-between;
+  gap:14px;margin:6px 2px 16px}
+.groet{margin:0 2px 18px}
 .belknop.links{margin-right:auto}
 /* Nog geen account? Dan hoort daar een teken bij, anders vindt niemand die
    knop ooit. Amber, want het is geen fout maar wel iets om te doen. */
@@ -2756,7 +2767,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v423 · 18 aug 2026';
+const APPVERSIE='v425 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4265,13 +4276,17 @@ function renderNu(){
   const kopEl=document.querySelector('header');
   const opDash=S.tab==='dashboard'&&!inBatch;
   kopEl.classList.toggle('gecentreerd',opDash);
-  kopEl.classList.toggle('weg',opDash);
+  /* De balk is overal weg. Op het dashboard stonden account en bel al inline;
+     op de andere schermen zei de titel wat de tabbalk onderin ook al zegt, en
+     botste hij met lange smaaknamen. Zoeken, instellingen en je account zijn
+     bereikbaar via het drie-puntjes-menu. */
+  kopEl.classList.add('weg');
   kopEl.classList.remove('donker');
   $('#scherm').classList.remove('opdonker');
   $('#kopKpi').innerHTML='';
   if(!(S.tab==='dashboard'&&!inBatch)||$('#scherm').scrollTop<14) kopEl.classList.remove('klein');
   if(inBatch){
-    document.documentElement.style.setProperty('--kopRij','60px');
+    document.documentElement.style.setProperty('--kopRij','0px');
     const b=batch();
     $('#kopTitel').textContent=bNamen(b);
     const dn=dagNummer(b);
@@ -4291,7 +4306,7 @@ function renderNu(){
        een lege app niets, en met inhoud herhaalde hij wat er onder stond.
        Alleen de titel is rustiger. In een batch blijft de regel wel staan:
        daar zegt hij welke batch je open hebt. */
-    document.documentElement.style.setProperty('--kopRij','60px');
+    document.documentElement.style.setProperty('--kopRij','0px');
     const t=TABS.find(x=>x.key===S.tab)||{};
     $('#kopTitel').textContent=t.label||'';
     $('#kopOnder').textContent='';
@@ -4305,7 +4320,7 @@ function renderNu(){
   const gewisseld=vorigScherm!==null&&schermKenmerk!==vorigScherm;
   vorigScherm=schermKenmerk;
 
-  $('#scherm').innerHTML = klokbalkHTML() + (inBatch?batchHTML():
+  $('#scherm').innerHTML = kopknoppenHTML() + klokbalkHTML() + (inBatch?batchHTML():
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
     S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():straksHTML(S.tab));
@@ -4607,6 +4622,21 @@ function dashboardToestand(){
    dag hetzelfde en nam de breedte van een kop in beslag; de plek waar je je
    account beheert was nergens te zien. Nu staat links je account en rechts je
    meldingen, en daaronder alleen de regel die er echt toe doet. */
+/* Je account links, je meldingen rechts. Stond alleen op het dashboard,
+   terwijl de andere tabbladen nog de oude kopbalk hadden met een logo-rondje,
+   een titel en een tandwiel. Drie verschillende koppen in één app. Nu staat
+   op elk scherm dezelfde rij. */
+function kopknoppenHTML(){
+  const meld=meldingen().length;
+  return `<div class="kopknoppen">
+    <button class="belknop links" data-account aria-label="${
+      fbUser?'Je account':'Account aanmaken of inloggen'}">${svg(I.persoon)}${
+      fbUser?'':'<i class="stipje"></i>'}</button>
+    <button class="belknop${meld?' aan':''}" data-meldingen aria-label="${
+      meld?meld+' meldingen':'Geen meldingen'}">${svg(I.bel)}</button>
+  </div>`;
+}
+
 function begroetingHTML(){
   const gepland=planLijst().filter(p=>dagenTussen(vandaag(),p.datum)<=0).length;
   const bezig=lopende().length;
@@ -4631,15 +4661,7 @@ function begroetingHTML(){
       return {t:`${r} ${r===1?'order':'orders'} open`,k:'let'}})()
   ].filter(Boolean);
   const delen=kans.slice(0,2).map(x=>`<span class="${x.k}">${x.t}</span>`);
-  const meld=meldingen().length;
   return `<div class="groet">
-    <div class="groetrij">
-      <button class="belknop links" data-account aria-label="${
-        fbUser?'Je account':'Account aanmaken of inloggen'}">${svg(I.persoon)}${
-        fbUser?'':'<i class="stipje"></i>'}</button>
-      <button class="belknop${meld?' aan':''}" data-meldingen aria-label="${
-        meld?meld+' meldingen':'Geen meldingen'}">${svg(I.bel)}</button>
-    </div>
     <div class="groetsub">${delen.join(' · ')}</div>
   </div>`;
 }
@@ -5349,19 +5371,22 @@ function batchHTML(){
              <small>sinds ${pad(new Date(w.start).getHours())}:${pad(new Date(w.start).getMinutes())}</small></span>
            <span class="tt tikker">${duurTekst(Date.now()-w.start)}</span></button>`
       : '');
-  let h=`<div class="balk top">${KERN.map(s=>`<div class="seg ${s.klaar(b)?'vol':''}"></div>`).join('')}</div>
-    <div class="stap" style="margin:0 2px 14px">${b.status==='klaar'?`Afgerond om ${b.eind}`:`Stap ${bGedaan(b)+1} van ${KERN.length} · ${v?v.label:'Afronden'}`}</div>`;
-
+  /* Hier stonden drie koppen boven elkaar: de vaste balk met de smaaknaam, een
+     voortgangsbalkje zonder label, en een donkere kaart met nóg een titel. Op
+     het dashboard is er één kop — de donkere kaart, met de batchnaam erin.
+     Dat is nu ook hier het geval, met dezelfde kaart. */
+  let h=`<button class="terugrij" data-naar="productie">${svg(I.terug,'2')}Alle batches</button>`;
   h+=tijdbalk;
   if(b.status==='klaar'){
     h+=`<div class="hoofdkaart klaar"><div class="vinkje">${svg(I.vink,'2.2')}</div>
       <h2>Batch afgerond</h2>
       <div class="sub">${b.resultaat.goed} goed${b.resultaat.afkeur?` · ${b.resultaat.afkeur} afkeur`:''}</div></div>`;
   } else {
-    h+=`<div class="hoofdkaart"><div class="eyebrow">Nu</div>
-      <h2>${esc(v.label)}</h2>
-      <div class="sub">${esc(stapUitleg(v.key,b))}</div>
-      <button class="prim" data-sheet="${v.sheet}">${esc(v.knop)}</button></div>`;
+    h+=heroBatchHTML(b);
+    /* De knop van de eerstvolgende stap: los onder de kaart, want de kaart
+       zelf brengt je naar de batch en dit brengt je naar het werk. */
+    h+=`<button class="prim los" style="margin-top:12px" data-sheet="${v.sheet}">${
+      esc(v.knop)}</button>`;
   }
 
   /* uitwerking bovenaan als vaste referentie */
