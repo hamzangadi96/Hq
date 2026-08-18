@@ -2029,6 +2029,86 @@ nav{padding:0 10px}
 /* ruimte onderin: de laatste rij bleef onder de capsule hangen */
 main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 </style>
+<style id="chocostijl">
+/* ══ chocostijl v1 ══ kleur waar het iets betekent.
+   Eén blok, los te verwijderen als je terug wilt naar grijs.
+   Regel: 90% zwart/wit. Chocolade = indrukken of gekozen.
+   Groen/amber/rood = status. Niks anders krijgt kleur. */
+:root{
+  --choco:#4A2B18;
+  --choco-licht:#6E4630;
+  --choco-wash:#F6F0EA;
+}
+
+/* ── 1. indrukken voelt naar chocolade ──
+   Elke knop die je aanraakt kleurt tijdens de druk. Loslaten = terug.
+   Dit is het enige moment dat bruin het hele vlak vult. */
+.prim:active{background:var(--choco);color:#fff}
+.sec:active,.knop2:active,.miniknop:active,.kiesvak:active,
+.chip:active,.aanpasknop:active,.hulpknop:active{
+  background:var(--choco-wash);border-color:var(--choco-licht);color:var(--choco)}
+button.arij:active,.menurij:active,.orij:active,.rrij:active,.crij:active,
+.item:active{background:var(--choco-wash)}
+.duo button:active,.duo3 button:active{background:var(--choco-wash);color:var(--choco)}
+.hoofdkaart .prim:active{background:var(--choco-wash);color:var(--choco)}
+.hoofdkaart .knop2:active,.hoofdkaart .miniknop:active{
+  background:rgba(110,70,48,.55);border-color:rgba(110,70,48,.7);color:#fff}
+.ksact:active>span{background:rgba(110,70,48,.55)}
+
+/* ── 2. gekozen blijft chocolade ──
+   Segmented control en selectievakjes: de actieve stand is bruin,
+   niet wit-met-schaduw. Zo zie je in één oogopslag waar je staat. */
+.duo button.aan,.duo3 button.aan{
+  background:var(--choco);color:#fff;box-shadow:0 1px 3px rgba(74,43,24,.30)}
+.kiesvak.aan,.kiesvink.aan,.ingrij2.kies.aan .vink{
+  background:var(--choco);border-color:var(--choco)}
+
+/* ── 3. tabbalk ──
+   Actieve tab bruin i.p.v. zwart, zodat hij losstaat van gewone tekst.
+   Tikken licht de pil kort op. */
+.tab.actief{color:var(--choco)}
+.tab:active{background:var(--choco-wash)}
+.tabpil{box-shadow:0 1px 2px rgba(24,24,27,.05),0 4px 24px rgba(24,24,27,.12)}
+
+/* ── 4. timeline-stippen krijgen betekenis ──
+   Afgerond groen, nu-bezig een bruine ring met halo, later grijs.
+   Was alles zwart; nu lees je de status aan de kleur. */
+.arij.rgedaan .rmark{background:var(--groen);border-color:var(--groen)}
+.arij.rnu .rmark{border-color:var(--choco);box-shadow:0 0 0 4px rgba(74,43,24,.13)}
+.arij.rnu .rmark::after{background:var(--choco)}
+.arij.rnu{background:var(--choco-wash);box-shadow:inset 3px 0 0 var(--choco)}
+.arij.rnu .naam{color:var(--choco)}
+
+/* ── 5. statusrand i.p.v. losse badge ──
+   Een rij met een rood/amber/groen icoonvak krijgt links een streep.
+   Scant sneller dan een badge helemaal rechts. */
+.arij:has(.ivak.rood){box-shadow:inset 3px 0 0 var(--rood)}
+.arij:has(.ivak.amber){box-shadow:inset 3px 0 0 var(--amber)}
+.arij:has(.ivak.groen){box-shadow:inset 3px 0 0 var(--groen)}
+
+/* ── 6. voortgangsbalk per batch in chocolade ──
+   Was zwart en dus niet te onderscheiden van tekst. */
+.arij .ksbalk i{background:var(--choco)}
+.hoofdkaart .groteRing .vul{stroke:#fff}
+
+/* ── 7. getallen kleuren mee ──
+   Plus groen, min rood, met tabular-nums zodat kolommen uitlijnen.
+   Werkt zodra een getal class "pos" of "neg" krijgt. */
+.pos{color:var(--groen);font-variant-numeric:tabular-nums}
+.neg{color:var(--rood);font-variant-numeric:tabular-nums}
+.letop{color:var(--amber)}
+.getal,.wggetal,.waarde,.bedrag{font-variant-numeric:tabular-nums}
+
+/* ── 8. gemarkeerd item ──
+   Vastgezette of belangrijke rijen: wash + bruine streep i.p.v. wit. */
+.arij.gemarkeerd,.orij.gemarkeerd,.paneel .rij.gemarkeerd{
+  background:var(--choco-wash);box-shadow:inset 3px 0 0 var(--choco)}
+.arij.gemarkeerd .ivak{background:rgba(74,43,24,.10);color:var(--choco)}
+
+@media (prefers-reduced-motion:reduce){
+  .tab:active,.prim:active{transition:none}
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -2152,7 +2232,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v392 · 18 aug 2026';
+const APPVERSIE='v393 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
