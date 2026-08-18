@@ -2354,34 +2354,69 @@ header.weg{display:none}
    Het eerste wat een nieuwe gebruiker ziet. Ondoorzichtig en over alles
    heen: er is nog geen app om doorheen te kijken. */
 
-.welkom{position:fixed;inset:0;z-index:9998;display:none;background:var(--bg);
-  padding:calc(env(safe-area-inset-top) + 28px) 24px
-  calc(env(safe-area-inset-bottom) + 28px);overflow:auto}
-.welkom.open{display:flex;align-items:center;justify-content:center}
-.welkomvak{width:100%;max-width:380px;display:flex;flex-direction:column;gap:32px}
+/* Het welkomscherm lag op 9998 en het inlogscherm op 50: je knop werkte
+   wel, maar het scherm dat opende viel erachter. Nu ligt welkom onder de
+   sheets en boven de app. */
+.welkom{position:fixed;inset:0;z-index:30;display:none;background:var(--card);
+  padding:calc(env(safe-area-inset-top) + 26px) 24px
+  calc(env(safe-area-inset-bottom) + 22px);overflow:auto}
+/* Een raster van stipjes: je ziet het nauwelijks, maar het vlak voelt
+   minder als een leeg blad. */
+.welkom.open{display:block;
+  background-image:radial-gradient(rgba(24,24,27,.055) 1px,transparent 1px);
+  background-size:22px 22px}
+.welkomvak{width:100%;max-width:380px;min-height:100%;margin:0 auto;
+  display:flex;flex-direction:column}
 
-.welkommerk{text-align:center}
-.wmlogo{width:66px;height:66px;border-radius:22px;background:var(--choco);
-  color:#fff;display:grid;place-items:center;margin:0 auto 20px;
-  box-shadow:0 4px 18px rgba(74,43,24,.30)}
-.wmlogo svg{width:32px;height:32px;stroke-width:1.6}
-.welkommerk h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.035em;
-  color:var(--ink)}
-.welkommerk p{margin:10px 0 0;font-size:14.5px;line-height:1.5;color:var(--grijs)}
+/* boven: merk, links uitgelijnd. Daaronder mag het gewoon leeg blijven. */
+.welkomboven{flex:1}
+.wmlogo{width:52px;height:52px;border-radius:17px;background:var(--choco);
+  color:#fff;display:grid;place-items:center;margin:8px 0 26px;
+  box-shadow:0 3px 14px rgba(74,43,24,.28)}
+.wmlogo svg{width:26px;height:26px;stroke-width:1.7}
+.welkomboven h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.04em;
+  line-height:1.08;color:var(--ink)}
+.welkomboven p{margin:14px 0 0;font-size:16px;line-height:1.45;color:var(--grijs);
+  max-width:19em}
 
-.welkompunten{display:flex;flex-direction:column;gap:12px}
-.welkompunten div{display:flex;align-items:center;gap:12px;font-size:14px;
-  color:var(--ink2);letter-spacing:-.01em}
-.welkompunten span{width:26px;height:26px;border-radius:99px;flex:none;
-  display:grid;place-items:center;background:rgba(21,128,61,.10);color:var(--groen)}
-.welkompunten svg{width:14px;height:14px;stroke-width:2.4}
+/* onder: de knoppen, vastgeplakt aan de onderkant */
+.welkomonder{flex:none;display:flex;flex-direction:column;gap:10px;padding-top:32px}
+.wkkaart{display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  justify-content:flex-start;
+  background:var(--card);border:1px solid var(--lijn);border-radius:18px;
+  padding:16px 18px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+.wkkaart:active{background:var(--choco-wash);border-color:rgba(74,43,24,.25)}
+.wkkaart.hoofd{background:var(--choco);border-color:var(--choco);
+  box-shadow:0 2px 12px rgba(74,43,24,.28)}
+.wkkaart.hoofd:active{background:var(--choco-licht)}
+/* De knopklassen erven text-align:center van .knop2-achtige stijlen; in een
+   kaartknop hoort de tekst links te staan, naast het pijltje. */
+.wktekst{flex:1;min-width:0;text-align:left}
+.wktekst b{display:block;font-size:16px;font-weight:600;letter-spacing:-.02em;
+  color:var(--ink);line-height:1.25}
+.wktekst small{display:block;margin-top:3px;font-size:13px;color:var(--grijs2)}
+.wkkaart.hoofd .wktekst b{color:#fff}
+.wkkaart.hoofd .wktekst small{color:rgba(255,255,255,.62)}
+.wkpijl{flex:none;width:16px;height:16px;color:var(--grijs3)}
+.wkkaart.hoofd .wkpijl{color:rgba(255,255,255,.62)}
+.wkpijl svg{width:16px;height:16px}
 
-.welkomknoppen{display:flex;flex-direction:column;gap:10px}
-.welkomknoppen .prim,.welkomknoppen .knop2{margin-top:0;height:52px;
-  border-radius:16px;font-size:15.5px}
-.wkover{font-size:13.5px;font-weight:600;color:var(--grijs2);padding:12px;
-  border-radius:99px}
+.wkover{margin-top:4px;font-size:13.5px;font-weight:600;color:var(--grijs2);
+  padding:12px;border-radius:99px}
 .wkover:active{background:var(--choco-wash);color:var(--choco)}
+.wkklein{margin:12px 2px 0;font-size:12px;line-height:1.45;color:var(--grijs3);
+  text-align:center}
+
+/* het inlogscherm zelf */
+.acvergeten{display:block;width:100%;text-align:center;margin-top:14px;
+  font-size:13.5px;font-weight:600;color:var(--grijs);padding:10px;
+  border-radius:99px}
+.acvergeten:active{background:var(--choco-wash);color:var(--choco)}
+.acof{display:flex;align-items:center;gap:12px;margin:20px 0 14px;
+  font-size:12px;color:var(--grijs3)}
+.acof::before,.acof::after{content:'';flex:1;height:1px;background:var(--lijn)}
+.acsoc{margin-top:8px}
 
 /* ═══ 16. PINSLOT ═══════════════════════════════════════════════════
    Ligt over alles heen, ook over open bottom-sheets. Ondoorzichtig: wat
@@ -2559,7 +2594,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v405 · 18 aug 2026';
+const APPVERSIE='v406 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16740,8 +16775,13 @@ function sheetAccount(stand){
      <div class="veld"><label>E-mailadres</label>
        <input class="inp" id="acM" type="email" inputmode="email" autocomplete="username" placeholder="jij@jouwbedrijf.nl"></div>
      <div class="veld"><label>Wachtwoord</label>
-       <input class="inp" id="acW" type="password" autocomplete="current-password" placeholder="minimaal 6 tekens"></div>
-     <div class="geen" id="acFout"></div>`,
+       <input class="inp" id="acW" type="password" autocomplete="${
+         stand==='nieuw'?'new-password':'current-password'}" placeholder="minimaal 6 tekens"></div>
+     <div class="geen" id="acFout"></div>
+     ${stand==='nieuw'?'':'<button class="acvergeten" id="acVergeten">Wachtwoord vergeten?</button>'}
+     ${aanbiederAan().length?`<div class="acof"><span>of</span></div>
+       ${aanbiederAan().map(k=>`<button class="knop2 acsoc" data-aanbieder="${k}">
+         Doorgaan met ${AANBIEDERS[k].naam}</button>`).join('')}`:''}`,
     stand==='nieuw'
     ? `<button class="prim" style="margin-top:0" id="acNieuw">Account aanmaken</button>
        <button class="sec" id="acIn">Ik heb al een account</button>
@@ -16754,11 +16794,16 @@ function sheetAccount(stand){
     'auth/missing-password':'Vul je wachtwoord in.',
     'auth/weak-password':'Kies een wachtwoord van minimaal 6 tekens.',
     'auth/email-already-in-use':'Dit adres bestaat al — kies Inloggen.',
-    'auth/invalid-credential':'E-mailadres of wachtwoord klopt niet.',
+    'auth/invalid-credential':'E-mailadres of wachtwoord klopt niet. Kies "Wachtwoord vergeten?" als je er niet uitkomt.',
+    'auth/too-many-requests':'Te vaak geprobeerd. Wacht even voor je het opnieuw doet.',
+    'auth/user-not-found':'Geen account met dit adres. Kies Account aanmaken.',
     'auth/network-request-failed':'Geen verbinding. Je kunt gewoon doorwerken; synchroniseren lukt later.'
   })[e.code]||e.message};
   const velden=()=>[$('#acM').value.trim(),$('#acW').value];
-  $('#acK').onclick=dicht;
+  $('#acK').onclick=()=>{ dicht(); if(welkomNodig()) welkomTonen() };
+  const vg=$('#acVergeten');
+  if(vg) vg.onclick=()=>sheetWachtwoord($('#acM').value.trim());
+  $$('[data-aanbieder]').forEach(b=>b.onclick=()=>metAanbieder(b.dataset.aanbieder));
   $('#acIn').onclick=()=>{const[m,w]=velden();
     firebase.auth().signInWithEmailAndPassword(m,w)
       .then(()=>{dicht();welkomWeg();render();
@@ -16772,6 +16817,85 @@ function sheetAccount(stand){
         setTimeout(()=>{ if(!sheetOpen&&!pinAan()) sheetPin() },900);
       }).catch(melden)};
 
+}
+
+/* ═══════════════════ inloggen via Google of Apple ═══════════════════
+   De code staat klaar maar de knoppen zijn uit. Reden: allebei moeten ze
+   eerst in de Firebase-console worden aangezet, en de terugkeer-URL is
+   vastgeklonken aan het domein. Zetten we ze nu aan, dan tik je op een knop
+   waar niets gebeurt — en dat is precies het stille falen dat deze app
+   nergens hoort te hebben.
+
+   Aanzetten doe je hieronder, nadat je in Firebase de aanbieder hebt
+   ingeschakeld en het domein hebt toegevoegd bij "Authorized domains".
+
+   Let op bij Apple: dat kan alleen met een betaald Apple Developer Program.
+   Google is gratis, maar de terugkeer uit Safari naar een app op je
+   beginscherm is op iOS wisselvallig — eerst uitproberen. */
+
+const AANBIEDERS={
+  google:{aan:false,naam:'Google',id:'google.com'},
+  apple :{aan:false,naam:'Apple', id:'apple.com'}
+};
+
+function aanbiederAan(){ return Object.keys(AANBIEDERS).filter(k=>AANBIEDERS[k].aan) }
+
+function metAanbieder(k){
+  const a=AANBIEDERS[k];
+  if(!a||!a.aan) return;
+  if(!fbKlaar) return toast('Synchronisatie is nog niet ingesteld.');
+  const pr=k==='google'
+    ? new firebase.auth.GoogleAuthProvider()
+    : new firebase.auth.OAuthProvider('apple.com');
+  if(k==='apple'){ pr.addScope('email'); pr.addScope('name') }
+  /* In een app op je beginscherm is er geen tweede venster om te openen;
+     dan moet het via een omleiding. In een gewoon tabblad is een venster
+     prettiger, want dan blijf je waar je was. */
+  const inApp=window.matchMedia('(display-mode: standalone)').matches
+    ||window.navigator.standalone;
+  const na=()=>{ dicht(); welkomWeg(); render(); toast('Ingelogd.') };
+  const mis=e=>toast(e&&e.code==='auth/popup-blocked'
+    ? 'Je browser blokkeerde het inlogvenster.'
+    : 'Inloggen via '+a.naam+' lukte niet.');
+  if(inApp) firebase.auth().signInWithRedirect(pr).catch(mis);
+  else firebase.auth().signInWithPopup(pr).then(na).catch(mis);
+}
+
+/* ═══════════════════ wachtwoord vergeten ═══════════════════
+   Dit ontbrak. Zonder herstel is een vergeten wachtwoord het einde van je
+   toegang tot alles wat in de database staat — je toestel heeft nog een
+   kopie, maar synchroniseren kan nooit meer. Firebase stuurt de mail, wij
+   hoeven alleen te vragen naar welk adres. */
+
+function sheetWachtwoord(adres){
+  sheet('Wachtwoord vergeten',
+    `<p class="hint">We sturen een herstelmail naar je adres. Daarin staat een link
+       waarmee je een nieuw wachtwoord kiest. Je gegevens blijven ondertussen
+       gewoon staan.</p>
+     <div class="veld"><label>E-mailadres</label>
+       <input class="inp" id="wwM" type="email" inputmode="email"
+         autocomplete="username" value="${esc(adres||'')}"
+         placeholder="jij@jouwbedrijf.nl"></div>
+     <div class="geen" id="wwFout"></div>`,
+    `<button class="prim" style="margin-top:0" id="wwGo">Herstelmail sturen</button>
+     <button class="sec" id="wwK">Terug</button>`);
+  $('#wwK').onclick=()=>sheetAccount('in');
+  $('#wwGo').onclick=()=>{
+    const m=$('#wwM').value.trim();
+    if(!m) return $('#wwFout').textContent='Vul je e-mailadres in.';
+    firebase.auth().sendPasswordResetEmail(m)
+      .then(()=>{
+        dicht();
+        /* Bewust niet zeggen of dit adres bestaat: dat zou verklappen wie er
+           wel en niet een account heeft. */
+        toast('Als dit adres bekend is, staat de herstelmail onderweg. Kijk ook in je spam.');
+      })
+      .catch(e=>{ $('#wwFout').textContent=({
+        'auth/invalid-email':'Dat lijkt geen geldig e-mailadres.',
+        'auth/network-request-failed':'Geen verbinding. Probeer het zo nog eens.',
+        'auth/too-many-requests':'Te vaak geprobeerd. Wacht even.'
+      })[e.code]||'Versturen lukte niet.' });
+  };
 }
 
 /* ═══════════════════ eerste start ═══════════════════
@@ -16811,27 +16935,32 @@ function welkomTonen(){
   }
   const bestaand=heeftWerk();
   el.innerHTML=`<div class="welkomvak">
-    <div class="welkommerk">
+    <div class="welkomboven">
       <span class="wmlogo">${svg(I.bonbon)}</span>
       <h1>Cacaoboetiek HQ</h1>
       <p>${bestaand
-        ? 'Je werk staat op dit toestel. Maak een account aan, dan staat het ook veilig in je eigen database en zie je het op elk apparaat.'
-        : 'Productie, orders, voorraad, facturen en administratie op \u00e9\u00e9n plek. Maak een account aan om te beginnen.'}</p>
+        ? 'Je werk staat op dit toestel. Met een account staat het ook in je eigen database, en zie je het op elk apparaat.'
+        : 'Productie, orders, voorraad en administratie op \u00e9\u00e9n plek.'}</p>
     </div>
-    <div class="welkompunten">
-      <div><span>${svg(I.vink)}</span>Je gegevens staan in je eigen database</div>
-      <div><span>${svg(I.vink)}</span>Werkt door zonder verbinding</div>
-      <div><span>${svg(I.vink)}</span>Op je telefoon en je laptop tegelijk</div>
-    </div>
-    <div class="welkomknoppen">
-      <button class="prim" id="wkNieuw">Account aanmaken</button>
-      <button class="knop2" id="wkIn">Ik heb al een account</button>
+    <div class="welkomonder">
+      ${aanbiederAan().map(k=>`<button class="wkkaart" data-aanbieder="${k}">
+        <span class="wktekst"><b>Doorgaan met ${AANBIEDERS[k].naam}</b></span>
+        <span class="wkpijl">${svg(I.pijl,'2')}</span></button>`).join('')}
+      <button class="wkkaart hoofd" id="wkNieuw">
+        <span class="wktekst"><b>Nieuw account</b><small>Begin met een lege administratie</small></span>
+        <span class="wkpijl">${svg(I.pijl,'2')}</span></button>
+      <button class="wkkaart" id="wkIn">
+        <span class="wktekst"><b>Bestaand account</b><small>Log in met je e-mailadres</small></span>
+        <span class="wkpijl">${svg(I.pijl,'2')}</span></button>
       ${bestaand?'<button class="wkover" id="wkOver">Doorgaan zonder account</button>':''}
+      <p class="wkklein">Je gegevens staan in je eigen database en worden niet
+        gedeeld. Je kunt ze op elk moment meenemen of wissen.</p>
     </div>
   </div>`;
   el.classList.add('open');
   $('#wkNieuw').onclick=()=>sheetAccount('nieuw');
   $('#wkIn').onclick=()=>sheetAccount('in');
+  $$('#welkom [data-aanbieder]').forEach(b=>b.onclick=()=>metAanbieder(b.dataset.aanbieder));
   const o=$('#wkOver');
   if(o) o.onclick=()=>{
     if(!confirm('Zonder account blijven je gegevens alleen op dit toestel staan. Raakt de telefoon kwijt, dan is je werk weg. Doorgaan?')) return;
