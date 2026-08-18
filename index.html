@@ -2628,7 +2628,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v413 · 18 aug 2026';
+const APPVERSIE='v414 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15430,7 +15430,11 @@ function sheetGeleid(naam,i){
     if(S.kook&&S.kook.k===h.k) S.kook=null;
     if(laatste){
       stapKlaar(b,naam); stopWerk(b);
-      const nv=planVolgende(b); render(); sheetProductie();
+      const nv=planVolgende(b);
+      /* Hier ging de stappenlijst weer open. Die lijst staat sinds de tijdlijn
+         ook op het dashboard, dus je kreeg twee keer hetzelfde te zien en moest
+         alsnog wegklikken. Nu sluit hij en zie je waar je vandaan kwam. */
+      dicht(); render();
       return toast(nv?'Klaar. Volgende: '+nv.toLowerCase():'Alle productiestappen gedaan.');
     }
     sheetGeleid(naam,i+1);
@@ -15524,7 +15528,7 @@ function sheetStapDoen(naam){
     if(gedaan){ delete planVan(b)[naam]; bewaarNu(); sheetStapDoen(naam); return toast('Weer open gezet.') }
     stapKlaar(b,naam); stopWerk(b);
     const nv=planVolgende(b);
-    render(); sheetProductie();
+    dicht(); render();
     toast(nv?'Klaar. Volgende: '+nv.toLowerCase():'Alle productiestappen gedaan.');
   };
 }
