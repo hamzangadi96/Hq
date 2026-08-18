@@ -2242,6 +2242,24 @@ header.weg{display:none}
 
 .hoofdkaart.hk2{padding:20px;border-radius:22px;
   display:flex;flex-direction:column;gap:18px}
+/* De hele kaart is een knop, dus hij moet ook als knop reageren. */
+button.hoofdkaart.hk2{width:100%;text-align:left;border:none;
+  -webkit-appearance:none;appearance:none;font:inherit}
+button.hoofdkaart.hk2:active{transform:scale(.985);
+  background:linear-gradient(160deg,#332f2b,#1a1618)}
+.hk2pijl{flex:none;width:15px;height:15px;color:#6b6b74}
+.hk2pijl svg{width:15px;height:15px;display:block}
+
+/* Klein en rustig: het is een uitweg, geen hoofdactie. Staat naast de
+   sectiekop zodat je er bent zonder te scrollen. */
+.kopknop{display:inline-flex;align-items:center;gap:5px;flex:none;
+  padding:6px 12px;border-radius:99px;background:var(--card);
+  border:1px solid var(--lijn);font-size:12.5px;font-weight:600;
+  color:var(--grijs);letter-spacing:-.01em}
+.kopknop svg{width:13px;height:13px;stroke-width:2.2}
+.kopknop:active{background:var(--choco-wash);border-color:var(--choco-licht);
+  color:var(--choco)}
+
 .hk2kop{display:flex;align-items:center;gap:10px}
 .hk2kop .eyebrow{flex:1;font-size:11px;font-weight:600;letter-spacing:.09em;
   color:#8f8f98}
@@ -2628,7 +2646,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v415 · 18 aug 2026';
+const APPVERSIE='v416 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4662,10 +4680,14 @@ function dashboardHTML(){
        scherm en het getal in de ring was het aantal bonbons, niet je
        voortgang. Nu staat naast elkaar wat bij elkaar hoort. */
     const omtrek=2*Math.PI*30;
-    h+=`<div class="hoofdkaart hk2">
+    /* De knop "Verder met deze batch" stond helemaal onderaan, achter tien
+       stapkaarten. Nu is de kaart zelf de knop: hij gaat al over deze batch,
+       dus een aparte knop eronder was een omweg. */
+    h+=`<button class="hoofdkaart hk2" data-batch="${b.id}">
       <div class="hk2kop">
         <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
         <span class="hk2badge">Batch ${esc(b.code)}</span>
+        <span class="hk2pijl">${svg(I.pijl,'2')}</span>
       </div>
       <div class="hk2lijf">
         <span class="hk2ring ${b.status==='pauze'?'amber':''}">
@@ -4695,14 +4717,13 @@ function dashboardHTML(){
           </div>
         </span>
       </div>
-    </div>`;
+    </button>`;
 
     /* ── productiestappen als tijdlijn ── */
     h+=`<div class="blokkop">
       <span class="eyebrow">Productiestappen</span>
-      <span class="tel">${(()=>{const d=new Date(vandaag());
-        return DAG[d.getDay()].slice(0,2)+' '+d.getDate()+' '+MND[d.getMonth()].slice(0,3);
-      })()}</span></div>`;
+      <button class="kopknop" data-sheet="nieuwbatch">${svg(I.plus)}Nieuwe batch</button>
+      </div>`;
     h+=`<div class="segrij" id="stapFilter">
       ${['alles','open','gedaan'].map(k=>`<button class="segknop${
         (S.stapFilter||'alles')===k?' aan':''}" data-stapfilter="${k}">${
@@ -4747,12 +4768,9 @@ function dashboardHTML(){
           <span class="amerk ${x.ernst||''}">${esc(x.r)}</span></button>`).join('')}</div>`;
     }
 
-    /* ── twee knoppen onderaan ── */
-    h+=`<div class="knoppaar">
-      <button class="prim los" data-batch="${b.id}">${
-        b.status==='pauze'?'Batch hervatten':'Verder met deze batch'}</button>
-      <button class="knop2" data-sheet="nieuwbatch">${svg(I.plus)}Batch toevoegen</button>
-    </div>`;
+    /* Hier stonden twee volle knoppen. "Verder met deze batch" zit nu in de
+       kaart bovenaan en "Nieuwe batch" als klein knopje naast de sectiekop —
+       allebei zonder te scrollen bereikbaar. */
   }
 
   else if(t.soort==='vandaag'){
