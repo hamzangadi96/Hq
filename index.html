@@ -2895,7 +2895,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v432 · 18 aug 2026';
+const APPVERSIE='v433 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19843,14 +19843,18 @@ function sheetIngredientenLijst(alleenMissend){
           ${onder?`<small>${esc(onder)}</small>`:''}
         </span></button>`;
     }
-    return `<button class="ingrij2${x.mist?' mist':''}" data-ing="${esc(x.naam)}">
+    /* Verwijderen kon alleen door het ingrediënt te openen en helemaal naar
+       beneden te scrollen. Vegen is hoe je in deze app ook een batch of een
+       order weghaalt; hier hoort dat net zo te werken. */
+    return veegRij(`<button class="ingrij2${x.mist?' mist':''}" data-ing="${esc(x.naam)}">
     <span class="in">
       <span class="nm">${esc(x.naam)}</span>
       ${onder?`<small>${esc(onder)}</small>`:''}
     </span>
     <span class="pr${x.mist?' let':''}">${x.mist?'geen prijs'
       :euro(x.prijs)+'<em>/kg</em>'+(prijsVerouderd(x.naam)?'<i class="poud">oud</i>':'')}</span>
-    <span class="p">${svg(I.pijl,'2')}</span></button>`;
+    <span class="p">${svg(I.pijl,'2')}</span></button>`,
+      'data-ingweg="'+esc(x.naam)+'"');
   };
 
   if(ingKeuze){
@@ -19916,6 +19920,22 @@ function sheetIngredientenLijst(alleenMissend){
        hier vanzelf te staan. Wat je hier invult gebruiken je kostprijs, je
        etiketten en je batches.</p>`,
     `<button class="prim" style="margin-top:0" id="ilOk">Klaar</button>`);
+
+  bindVeeg();
+  /* Dezelfde vraag en hetzelfde ongedaan maken als op het detailscherm. */
+  $$('#sheetBody [data-ingweg]').forEach(x=>x.onclick=()=>{
+    const n2=x.dataset.ingweg, g=ingGebruikt(n2);
+    const vraag=g.length
+      ? n2+' zit in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.join(', ')+
+        '.\n\nVerwijderen haalt hem daar ook uit. Je afgeronde batches blijven zoals ze waren.'
+      : n2+' verwijderen? Prijs, link, allergenen en voedingswaarde gaan mee weg.';
+    if(!confirm(vraag)) return;
+    const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron',
+      'ingLink','allerg','samenstelling','voeding','prijsHist','ingArchief']);
+    ingWeg(n2);
+    sheetIngredientenLijst(alleenMissend);
+    toast(n2+' verwijderd.',herstel);
+  });
 
   const bindRijen=()=>$$('#ilL [data-ing]').forEach(b=>
     b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend));
