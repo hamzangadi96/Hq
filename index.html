@@ -2306,8 +2306,10 @@ header.weg{display:none}
   border-radius:99px;background:var(--card);border:2px solid var(--grijs3);
   box-sizing:border-box}
 .staptop{display:flex;align-items:center;gap:10px;margin-bottom:5px}
-.staptop em:empty{display:none}
-.staptop em{flex:1;font-style:normal;font-size:12.5px;color:var(--grijs2);
+/* Een lege tijd mag niet uit de opmaak verdwijnen: hij vult met flex:1 de
+   ruimte, en zonder hem schuift de statusbadge naar links. Die hoort altijd
+   rechtsboven in de kaart te staan. */
+.staptop em{flex:1;font-style:normal;font-size:13px;color:var(--grijs2);
   font-variant-numeric:tabular-nums;letter-spacing:-.01em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stapmerk{flex:none;padding:3px 9px;border-radius:99px;font-size:10.5px;
@@ -2319,7 +2321,7 @@ header.weg{display:none}
 .stapkaart.gedaan .stapstip{background:var(--groen);border-color:var(--groen)}
 .stapkaart.gedaan b{color:var(--grijs2);text-decoration:line-through}
 .stapkaart.gedaan .stapmerk{background:rgba(21,128,61,.10);color:var(--groen)}
-.stapkaart.bezig{background:var(--choco-wash);border-color:rgba(74,43,24,.18);
+.stapkaart.bezig{background:#f5f1f0;border-color:rgba(74,43,24,.16);
   box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
 .stapkaart.bezig .stapstip{border-color:var(--choco);background:var(--card);
   box-shadow:0 0 0 4px rgba(74,43,24,.12)}
@@ -2327,8 +2329,18 @@ header.weg{display:none}
   border-radius:99px;background:var(--choco)}
 .stapkaart.bezig .stapmerk{background:rgba(74,43,24,.12);color:var(--choco)}
 .stapkaart.bezig b{color:var(--choco)}
+/* wachtend: op de achtergrond, maar wel leesbaar */
 .stapkaart.wacht{background:#fafafa;box-shadow:none}
 .stapkaart.wacht b{color:var(--grijs)}
+
+/* te laat: er wordt al geproduceerd terwijl deze stap nog open staat.
+   Rode stip, rode streep links, en de kaart blijft wit — juist door dat
+   contrast valt de streep op. */
+.stapkaart.telaat{background:var(--card);border-color:rgba(192,57,43,.16);
+  box-shadow:inset 3px 0 0 var(--rood),0 1px 2px rgba(24,24,27,.04)}
+.stapkaart.telaat .stapstip{background:var(--rood);border-color:var(--rood)}
+.stapkaart.telaat .stapmerk{background:rgba(192,57,43,.10);color:var(--rood)}
+.stapkaart.telaat b{color:var(--ink)}
 .stapkaart:active{transform:scale(.985)}
 .stapleeg{padding:22px;text-align:center;font-size:14px;color:var(--grijs2);
   background:#fafafa;border:1px solid var(--lijn);border-radius:16px}
@@ -2615,7 +2627,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v409 · 18 aug 2026';
+const APPVERSIE='v410 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4547,24 +4559,34 @@ function kpiHTML(){
 function stappenlijnHTML(b){
   const f=S.stapFilter||'alles';
   const volgende=bVolgende(b);
+  /* Ben je al aan het werk zonder dat de openingscheck gedaan is, dan is die
+     check niet "nog aan de beurt" maar te laat: er wordt geproduceerd zonder.
+     Alleen dit geval, want een batch die net begint is nergens te laat mee. */
+  const alBezig=KERN.some(x=>x.key!=='opening'&&x.klaar(b));
   const rijen=KERN.map(st=>{
     const klaar=st.klaar(b);
-    const stand=klaar?'gedaan':(volgende&&volgende.key===st.key?'bezig':'wacht');
+    let stand=klaar?'gedaan':(volgende&&volgende.key===st.key?'bezig':'wacht');
+    if(!klaar&&st.key==='opening'&&alBezig) stand='telaat';
+    /* Wanneer is deze stap vastgelegd? De logregels dragen een tijd, dus die
+       kunnen we echt tonen in plaats van hem te verzinnen. */
+    const log=(b.logs||[]).filter(l=>l.datum===vandaag()
+      &&(l.type===st.key||(st.key==='temperatuur'&&l.type==='temperatuur')))
+      .slice(-1)[0];
     let w=(st.waarde?st.waarde(b):'')||'';
     if(w==='—') w='';
-    return {st,stand,waarde:w};
+    return {st,stand,tijd:(log&&log.tijd)||'',waarde:w};
   }).filter(r=> f==='open'?r.stand!=='gedaan' : f==='gedaan'?r.stand==='gedaan' : true);
 
   if(!rijen.length) return `<div class="stapleeg">Geen stappen in deze weergave.</div>`;
 
+  const merk={gedaan:'afgerond',bezig:'bezig',telaat:'te laat',wacht:'wachtend'};
   return `<div class="stappenlijn">${rijen.map(r=>`
     <button class="stapkaart ${r.stand}" data-sheet="${r.st.sheet}">
       <i class="stapstip"></i>
       <span class="stapvak">
         <span class="staptop">
-          <em>${r.waarde?esc(r.waarde):''}</em>
-          <span class="stapmerk">${r.stand==='gedaan'?'afgerond'
-            :r.stand==='bezig'?'nu aan de beurt':'wachtend'}</span>
+          <em>${esc(r.tijd||r.waarde||'')}</em>
+          <span class="stapmerk">${merk[r.stand]}</span>
         </span>
         <b>${esc(r.st.label)}</b>
         <small>${esc(r.st.knop)}</small>
@@ -4641,7 +4663,9 @@ function dashboardHTML(){
     /* ── productiestappen als tijdlijn ── */
     h+=`<div class="blokkop">
       <span class="eyebrow">Productiestappen</span>
-      <span class="tel">${kort(new Date(vandaag()))}</span></div>`;
+      <span class="tel">${(()=>{const d=new Date(vandaag());
+        return DAG[d.getDay()].slice(0,2)+' '+d.getDate()+' '+MND[d.getMonth()].slice(0,3);
+      })()}</span></div>`;
     h+=`<div class="segrij" id="stapFilter">
       ${['alles','open','gedaan'].map(k=>`<button class="segknop${
         (S.stapFilter||'alles')===k?' aan':''}" data-stapfilter="${k}">${
@@ -4896,10 +4920,10 @@ function dashboardHTML(){
       <button class="knop2" data-planning style="margin-top:8px">${svg(I.klok)}Batch inplannen</button></div>`;
   }
 
-  /* ── tegels: één ding per tegel, formaat naar belang ──
-     Staan direct onder de hoofdkaart: eerst waar je mee bezig bent, dan de
-     stand van je zaak, en pas daarna wat er nog open staat. */
-  h+=tegelsHTML();
+  /* Hier stonden vier tegels: voorraad, orders, openstaand en vandaag. Ze
+     herhaalden wat je in de tabbalk met één tik bereikt, en duwden de
+     productiestappen — het enige waar je op dit scherm iets mee doet — onder
+     de vouw. De functie zelf blijft staan: andere schermen gebruiken hem. */
 
   /* ── wat er echt mis gaat: alleen rood en de dingen met een datum ── */
   const dringend=sig.filter(x=>x.ernst==='rood');
