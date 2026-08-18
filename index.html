@@ -2030,19 +2030,31 @@ nav{padding:0 10px}
 main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 </style>
 <style id="chocostijl">
-/* ══ chocostijl v1 ══ kleur waar het iets betekent.
-   Eén blok, los te verwijderen als je terug wilt naar grijs.
-   Regel: 90% zwart/wit. Chocolade = indrukken of gekozen.
-   Groen/amber/rood = status. Niks anders krijgt kleur. */
+/* ══════════════════════════════════════════════════════════════════
+   chocostijl v2 — één laag, één keer per selector.
+
+   v1 was in vijf ronden opgebouwd en schreef zeventien selectors twee
+   keer. Welke regel won hing af van de volgorde, niet van de bedoeling.
+   Dit blok is samengevoegd: elke selector staat er precies één keer.
+
+   Uitgangspunt blijft: 90% zwart/wit/grijs. Chocolade betekent
+   "ingedrukt" of "gekozen". Groen, amber en rood betekenen status.
+   Verder krijgt niets kleur.
+
+   Dit blok is los te verwijderen. Haal je het weg, dan valt de app
+   terug op de vorige look zonder dat er iets stukgaat.
+   ══════════════════════════════════════════════════════════════════ */
+
 :root{
   --choco:#4A2B18;
   --choco-licht:#6E4630;
   --choco-wash:#F6F0EA;
 }
 
-/* ── 1. indrukken voelt naar chocolade ──
-   Elke knop die je aanraakt kleurt tijdens de druk. Loslaten = terug.
-   Dit is het enige moment dat bruin het hele vlak vult. */
+/* ═══ 1. AANRAKEN ═══════════════════════════════════════════════════
+   Elke knop kleurt tijdens de druk naar chocolade en veert terug.
+   Dit is het enige moment dat bruin een heel vlak vult. */
+
 .prim:active{background:var(--choco);color:#fff}
 .sec:active,.knop2:active,.miniknop:active,.kiesvak:active,
 .chip:active,.aanpasknop:active,.hulpknop:active{
@@ -2050,200 +2062,144 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 button.arij:active,.menurij:active,.orij:active,.rrij:active,.crij:active,
 .item:active{background:var(--choco-wash)}
 .duo button:active,.duo3 button:active{background:var(--choco-wash);color:var(--choco)}
+
+/* binnen de donkere hoofdkaart moet de druk juist oplichten, niet verdonkeren */
 .hoofdkaart .prim:active{background:var(--choco-wash);color:var(--choco)}
 .hoofdkaart .knop2:active,.hoofdkaart .miniknop:active{
   background:rgba(110,70,48,.55);border-color:rgba(110,70,48,.7);color:#fff}
 .ksact:active>span{background:rgba(110,70,48,.55)}
 
-/* ── 2. gekozen blijft chocolade ──
-   Segmented control en selectievakjes: de actieve stand is bruin,
-   niet wit-met-schaduw. Zo zie je in één oogopslag waar je staat. */
+/* ═══ 2. GEKOZEN ════════════════════════════════════════════════════
+   Wat je hebt aangetikt blijft chocolade, zodat je ziet waar je staat. */
+
 .duo button.aan,.duo3 button.aan{
   background:var(--choco);color:#fff;box-shadow:0 1px 3px rgba(74,43,24,.30)}
 .kiesvak.aan,.kiesvink.aan,.ingrij2.kies.aan .vink{
   background:var(--choco);border-color:var(--choco)}
 
-/* ── 3. tabbalk ──
-   Actieve tab bruin i.p.v. zwart, zodat hij losstaat van gewone tekst.
-   Tikken licht de pil kort op. */
-.tab.actief{color:var(--choco)}
-.tab:active{background:var(--choco-wash)}
-.tabpil{box-shadow:0 1px 2px rgba(24,24,27,.05),0 4px 24px rgba(24,24,27,.12)}
+/* ═══ 3. TABBALK ════════════════════════════════════════════════════
+   Was een zwarte capsule. Naast de donkere hoofdkaart erboven waren dat
+   twee zwarte vlakken die om aandacht vochten. Wit laat de hoofdkaart
+   weer het enige donkere op het scherm zijn. */
 
-/* ── 4. timeline-stippen krijgen betekenis ──
-   Afgerond groen, nu-bezig een bruine ring met halo, later grijs.
-   Was alles zwart; nu lees je de status aan de kleur. */
-.arij.rgedaan .rmark{background:var(--groen);border-color:var(--groen)}
-.arij.rnu .rmark{border-color:var(--choco);box-shadow:0 0 0 4px rgba(74,43,24,.13)}
-.arij.rnu .rmark::after{background:var(--choco)}
-.arij.rnu{background:var(--choco-wash);box-shadow:inset 3px 0 0 var(--choco)}
-.arij.rnu .naam{color:var(--choco)}
+.tabpil{background:rgba(255,255,255,.94);border:1px solid var(--lijn);
+  box-shadow:0 1px 2px rgba(24,24,27,.05),0 8px 28px rgba(24,24,27,.14)}
+.tab{color:var(--grijs2)}
+.tab.actief{color:var(--choco);background:var(--choco-wash)}
+.tab:active{color:var(--choco);background:var(--choco-wash)}
 
-/* ── 5. statusrand i.p.v. losse badge ──
-   Een rij met een rood/amber/groen icoonvak krijgt links een streep.
-   Scant sneller dan een badge helemaal rechts. */
+/* ═══ 4. LOSSE KAARTEN ══════════════════════════════════════════════
+   Een dicht paneel met scheidingslijnen leest als een formulier. Losse
+   kaarten met lucht ertussen lezen als een product. Het paneel wordt een
+   onzichtbare houder, elke rij een eigen kaart.
+   Alleen in main: bottom-sheets houden hun compacte lijstjes. */
+
+main .paneel{background:none;border:none;box-shadow:none;overflow:visible;
+  display:flex;flex-direction:column;gap:10px}
+main .paneel>.arij,main .paneel>.rij{
+  background:var(--card);border:1px solid var(--lijn);border-radius:16px;
+  padding:14px 16px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+main .paneel>.meer{
+  border:1px dashed var(--grijs3);border-radius:16px;
+  background:none;padding:13px 16px}
+main .paneel>.meer:active{
+  background:var(--choco-wash);border-color:var(--choco-licht);color:var(--choco)}
+
+/* een rij met een gekleurd icoonvak krijgt links een streep;
+   scant sneller dan een badge helemaal rechts */
 .arij:has(.ivak.rood){box-shadow:inset 3px 0 0 var(--rood)}
 .arij:has(.ivak.amber){box-shadow:inset 3px 0 0 var(--amber)}
 .arij:has(.ivak.groen){box-shadow:inset 3px 0 0 var(--groen)}
 
-/* ── 6. voortgangsbalk per batch in chocolade ──
-   Was zwart en dus niet te onderscheiden van tekst. */
-.arij .ksbalk i{background:var(--choco)}
-.hoofdkaart .groteRing .vul{stroke:#fff}
-
-/* ── 7. getallen kleuren mee ──
-   Plus groen, min rood, met tabular-nums zodat kolommen uitlijnen.
-   Werkt zodra een getal class "pos" of "neg" krijgt. */
-.pos{color:var(--groen);font-variant-numeric:tabular-nums}
-.neg{color:var(--rood);font-variant-numeric:tabular-nums}
-.letop{color:var(--amber)}
-.getal,.wggetal,.waarde,.bedrag{font-variant-numeric:tabular-nums}
-
-/* ── 8. gemarkeerd item ──
-   Vastgezette of belangrijke rijen: wash + bruine streep i.p.v. wit. */
+/* gemarkeerde of vastgezette rijen */
 .arij.gemarkeerd,.orij.gemarkeerd,.paneel .rij.gemarkeerd{
   background:var(--choco-wash);box-shadow:inset 3px 0 0 var(--choco)}
 .arij.gemarkeerd .ivak{background:rgba(74,43,24,.10);color:var(--choco)}
 
-@media (prefers-reduced-motion:reduce){
-  .tab:active,.prim:active{transition:none}
-}
-
-/* ══ losse-kaarten ══ het paneel gaat open.
-   Een dicht blok met scheidingslijnen leest als een formulier. Losse kaarten
-   met lucht ertussen lezen als een product. Dit is de grootste verandering:
-   het paneel wordt een onzichtbare houder, elke rij wordt een eigen kaart.
-   Alleen in main — bottom-sheets houden hun compacte lijstjes. */
-main .paneel{
-  background:none;border:none;box-shadow:none;overflow:visible;
-  display:flex;flex-direction:column;gap:10px}
-
-main .paneel>.arij,
-main .paneel>.rij{
-  background:var(--card);border:1px solid var(--lijn);border-bottom:1px solid var(--lijn);
-  border-radius:16px;padding:14px 16px;
-  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
-main .paneel>.rij:last-child{border-bottom:1px solid var(--lijn)}
-
-/* de knop onderaan een lijst was een strook binnen het paneel;
-   nu een eigen kaart die eruitziet als iets wat je kunt indrukken */
-main .paneel>.meer{
-  border-top:none;border:1px dashed var(--grijs3);border-radius:16px;
-  background:none;padding:13px 16px}
-main .paneel>.meer:active{background:var(--choco-wash);border-color:var(--choco-licht);color:var(--choco)}
-
-/* ── verticale lijn door de stappen ──
-   Alleen waar stipjes staan. De lijn loopt precies door het midden van de
-   stip: 16px padding + halve stip van 20px = 26px vanaf de linkerkant. */
-main .paneel:has(>.arij .rmark){position:relative}
-main .paneel:has(>.arij .rmark)::before{
-  content:'';position:absolute;left:26px;top:22px;bottom:22px;width:1px;
-  background:var(--lijn);z-index:0}
-main .paneel>.arij:has(.rmark){position:relative;z-index:1}
-.arij .rmark{background:var(--card)}
-.arij.rgedaan .rmark{background:var(--groen)}
-
-/* ── statusbadges rechts ──
-   "bezig" en "klaar" stonden als losse gekleurde tekst. Als pil met een
-   lichte tint erachter zie je ze sneller staan. */
+/* statuswoorden rechts als pil in plaats van losse gekleurde tekst */
 main .rij .rechts.bezig,main .rij .rechts.klaar{
-  padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:600;
-  letter-spacing:.01em}
+  padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:600}
 main .rij .rechts.bezig{background:rgba(180,83,9,.10)}
 main .rij .rechts.klaar{background:rgba(21,128,61,.10)}
 
-/* ── sectiekoppen rustiger ──
-   14 procent letterspacing maakte van elk label een sperrsatz-banner.
-   Kleiner en dichter: het label wijst aan, het schreeuwt niet. */
+/* ═══ 5. RITME ══════════════════════════════════════════════════════ */
+
 main .blokkop{margin:28px 2px 10px}
-main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;color:var(--grijs2)}
-
-/* ── tegels iets meer lucht ── */
+main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;
+  color:var(--grijs2)}
 .tegels{gap:12px}
+.arij .ksbalk i{background:var(--choco)}
 
-/* ── begroeting ──
+/* ═══ 6. BEGROETING ═════════════════════════════════════════════════
    Het grootste op het scherm, en meteen weg zodra je scrollt. */
+
 .groet{margin:2px 2px 16px}
 .groet h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.035em;
   line-height:1.1;color:var(--ink)}
 .groetsub{margin-top:6px;font-size:14px;color:var(--grijs);letter-spacing:-.01em}
 .groetsub .let{color:var(--let-op);font-weight:600}
 
-/* ── drie cijfers naast elkaar ──
-   Even breed, zodat ze als één rij lezen en niet als drie losse kaartjes. */
-.kpirij{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 18px}
-.kpichip{background:var(--card);border:1px solid var(--lijn);border-radius:16px;
-  padding:13px 12px;display:flex;flex-direction:column;gap:2px;
-  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
-.kpichip b{font-size:24px;font-weight:700;letter-spacing:-.04em;line-height:1.05;
-  font-variant-numeric:tabular-nums;color:var(--ink)}
-.kpichip>span{font-size:11.5px;color:var(--grijs);line-height:1.3;letter-spacing:-.005em}
-.kpid{margin-top:5px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
-.kpid.pos{color:var(--groen)} .kpid.neg{color:var(--rood)} .kpid.vlak{color:var(--grijs3)}
+/* ═══ 7. WEEKSTRIP ══════════════════════════════════════════════════
+   Zeven dagen die de volle breedte delen. Vaste hoogte, want anders rekt
+   het blokje mee met zijn inhoud en wordt het een hoge ovaal. */
 
-/* ── weekstrip-v2 ──
-   Was 48 breed en laag; dat leest als een rijtje knoopjes. Breder en hoger,
-   met de dagletter klein bovenaan en het cijfer groot eronder, wordt het een
-   strook waar je op mikt. Zeven dagen passen precies binnen 440px. */
-.weekstrip{gap:8px;padding:2px 20px 14px}
-.weekstrip .wdag{width:auto;flex:1 1 0;min-width:0;padding:11px 0 10px;
-  border-radius:16px;gap:3px}
-.weekstrip .wdag .wd{font-size:10.5px;font-weight:700;letter-spacing:.07em;
-  color:var(--grijs3)}
-.weekstrip .wdag .wn{font-size:19px;font-weight:700;letter-spacing:-.035em}
-/* een lege dag was bijna onzichtbaar; hij mag rustig zijn, niet weg */
+.weekstrip{gap:6px;padding:2px 20px 14px}
+.weekstrip .wdag{width:auto;flex:1 1 0;min-width:0;max-width:56px;
+  height:58px;padding:0;border-radius:13px;justify-content:center;gap:2px}
+.weekstrip .wdag .wd{font-size:10px;font-weight:700;letter-spacing:.05em;
+  line-height:1;color:var(--grijs3)}
+.weekstrip .wdag .wn{font-size:18px;font-weight:700;letter-spacing:-.035em;
+  line-height:1.05}
 .weekstrip .wdag.leeg{background:var(--card);border-color:var(--lijn)}
 .weekstrip .wdag.leeg .wn{color:var(--grijs2)}
-/* de dag waar je staat: vol chocoladevierkant, niet te missen */
 .weekstrip .wdag.nu,.weekstrip .wdag.nu.leeg,.weekstrip .wdag.nu.vol{
   background:var(--choco);border-color:var(--choco);
   box-shadow:0 2px 10px rgba(74,43,24,.30)}
 .weekstrip .wdag.nu .wd{color:rgba(255,255,255,.60)}
 .weekstrip .wdag.nu .wn{color:#fff}
-/* de stipjes onder het cijfer: kleiner, en op de gekozen dag wit */
-.weekstrip .wstippen{height:5px;margin-top:4px}
+.weekstrip .wstippen{height:4px;margin-top:2px}
 .weekstrip .wstippen i{width:4px;height:4px}
 .weekstrip .wdag.nu .wstippen i{background:rgba(255,255,255,.85)}
-/* het palet-knopje mocht niet meeschalen met de dagen */
 .weekstrip .wkleuren{flex:none}
 
-/* ── correcties na de eerste proef op de telefoon ──
-   De dagen werden hoge ovalen: het blokje rekte mee met zijn inhoud en de
-   ronding van 16 maakte er bij die breedte een pil van. Vaste hoogte, kleinere
-   ronding, inhoud gecentreerd. */
-.weekstrip{gap:6px}
-.weekstrip .wdag{height:58px;padding:0;border-radius:13px;
-  justify-content:center;gap:2px;max-width:56px}
-.weekstrip .wdag .wd{font-size:10px;letter-spacing:.05em;line-height:1}
-.weekstrip .wdag .wn{font-size:18px;line-height:1.05}
-.weekstrip .wstippen{height:4px;margin-top:2px}
+/* ═══ 8. KPI-CHIPS ══════════════════════════════════════════════════
+   Drie even brede kaartjes, zodat ze als één rij lezen. Labels op één
+   regel: braken ze af, dan werd de chip twee keer zo hoog als het cijfer. */
 
-/* De labels braken over drie regels en maakten de chips twee keer zo hoog
-   als het cijfer erboven. Eén regel, en wat niet past wordt afgekapt. */
-.kpirij{gap:8px}
-.kpichip{padding:12px 11px;min-height:0}
-.kpichip b{font-size:23px}
-.kpichip>span{font-size:11px;line-height:1.25;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
-.kpid{margin-top:4px;font-size:11px;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
+.kpirij{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 18px}
+.kpichip{background:var(--card);border:1px solid var(--lijn);border-radius:16px;
+  padding:12px 11px;display:flex;flex-direction:column;gap:2px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+.kpichip b{font-size:23px;font-weight:700;letter-spacing:-.04em;line-height:1.05;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+.kpichip>span{font-size:11px;color:var(--grijs);line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpid{margin-top:4px;font-size:11px;font-weight:600;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpid.pos{color:var(--groen)}
+.kpid.neg{color:var(--rood)}
+.kpid.vlak{color:var(--grijs3)}
 
-/* ══ hero v2 ══ ring links, tekst rechts.
-   Alles op één horizontale lijn: je leest in één beweging hoe ver je bent
-   en waarmee. De oude opzet stapelde ring, titel en regels onder elkaar en
-   was daardoor bijna een heel scherm hoog. */
+/* ═══ 9. HERO ═══════════════════════════════════════════════════════
+   Ring links, tekst rechts. De oude opzet stapelde ring, titel en regels
+   onder elkaar en was daardoor bijna een heel scherm hoog. */
+
 .hoofdkaart.hk2{padding:18px 18px 16px;border-radius:22px;
   display:flex;flex-direction:column;gap:14px}
 .hk2kop{display:flex;align-items:center;gap:10px}
 .hk2kop .eyebrow{flex:1;font-size:11px;letter-spacing:.09em;color:#8f8f98}
 .hk2badge{flex:none;padding:5px 11px;border-radius:99px;font-size:11.5px;
-  font-weight:600;letter-spacing:.01em;background:rgba(110,70,48,.55);color:#fff}
+  font-weight:600;background:rgba(110,70,48,.55);color:#fff}
 .hk2lijf{display:flex;align-items:center;gap:16px}
-.hk2ring{position:relative;width:78px;height:78px;flex:none;display:grid;place-items:center}
-.hk2ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.hk2ring{position:relative;width:78px;height:78px;flex:none;display:grid;
+  place-items:center}
+.hk2ring svg{position:absolute;inset:0;width:100%;height:100%;
+  transform:rotate(-90deg)}
 .hk2ring .baan{fill:none;stroke:rgba(255,255,255,.12);stroke-width:6}
-.hk2ring .vul{fill:none;stroke:var(--choco-licht);stroke-width:6;stroke-linecap:round;
-  transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
+.hk2ring .vul{fill:none;stroke:var(--choco-licht);stroke-width:6;
+  stroke-linecap:round;transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
 .hk2ring.amber .vul{stroke:#fbbf24}
 .hk2ring .binnen{display:flex;flex-direction:column;align-items:center;line-height:1}
 .hk2ring .binnen b{font-size:19px;font-weight:700;letter-spacing:-.04em;color:#fff;
@@ -2252,8 +2208,8 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;color
 .hk2tekst{flex:1;min-width:0}
 .hoofdkaart.hk2 .hk2tekst h2{margin:0;font-size:21px;font-weight:700;
   letter-spacing:-.03em;line-height:1.15;color:#fff}
-.hoofdkaart.hk2 .hk2tekst .sub{margin-top:5px;font-size:13px;color:#a1a1aa;line-height:1.4}
-/* de statusregel onderin: wat er nú gebeurt */
+.hoofdkaart.hk2 .hk2tekst .sub{margin-top:5px;font-size:13px;color:#a1a1aa;
+  line-height:1.4}
 .hk2stap{display:flex;align-items:flex-start;gap:9px;padding-top:13px;
   border-top:1px solid rgba(255,255,255,.10)}
 .hk2stap i{width:7px;height:7px;border-radius:99px;background:var(--choco-licht);
@@ -2261,28 +2217,30 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;color
 .hk2stap i.amber{background:#fbbf24}
 .hk2stap span{font-size:13.5px;color:#fff;line-height:1.4;letter-spacing:-.01em}
 
-/* ══ segmented control ══ */
+/* ═══ 10. SEGMENTED CONTROL ═════════════════════════════════════════ */
+
 .segrij{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
   background:var(--card);border:1px solid var(--lijn);padding:4px;
-  border-radius:14px;margin-bottom:14px;
-  box-shadow:0 1px 2px rgba(24,24,27,.04)}
+  border-radius:14px;margin-bottom:14px;box-shadow:0 1px 2px rgba(24,24,27,.04)}
 .segknop{height:40px;border-radius:10px;font-size:14px;font-weight:600;
-  color:var(--grijs);letter-spacing:-.01em;text-align:center;
+  color:var(--grijs);letter-spacing:-.01em;
   display:flex;align-items:center;justify-content:center}
 .segknop.aan{background:var(--choco);color:#fff;
   box-shadow:0 1px 4px rgba(74,43,24,.28)}
 .segknop:active:not(.aan){background:var(--choco-wash);color:var(--choco)}
 
-/* ══ tijdlijn ══
-   De lijn loopt links buiten de kaarten, de stip staat erop. Een lijn dóór
-   de kaarten heen leest als één blok; ernaast leest het als stappen. */
+/* ═══ 11. TIJDLIJN ══════════════════════════════════════════════════
+   De lijn loopt links buiten de kaarten, de stip staat erop. Een lijn
+   dóór de kaarten heen leest als één blok; ernaast leest het als stappen. */
+
 .stappenlijn{position:relative;display:flex;flex-direction:column;gap:10px;
   padding-left:30px}
 .stappenlijn::before{content:'';position:absolute;left:6px;top:16px;bottom:16px;
   width:1px;background:var(--lijn)}
 .stapkaart{position:relative;display:block;width:100%;text-align:left;
   background:var(--card);border:1px solid var(--lijn);border-radius:14px;
-  padding:13px 15px;box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+  padding:13px 15px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
 .stapstip{position:absolute;left:-30px;top:19px;width:13px;height:13px;
   border-radius:99px;background:var(--card);border:2px solid var(--grijs3);
   box-sizing:border-box}
@@ -2296,12 +2254,9 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;color
   color:var(--ink);line-height:1.25}
 .stapkaart small{display:block;margin-top:3px;font-size:12.5px;color:var(--grijs2);
   line-height:1.35}
-
-/* afgerond: groene stip, titel doorgestreept en gedempt */
 .stapkaart.gedaan .stapstip{background:var(--groen);border-color:var(--groen)}
 .stapkaart.gedaan b{color:var(--grijs2);text-decoration:line-through}
 .stapkaart.gedaan .stapmerk{background:rgba(21,128,61,.10);color:var(--groen)}
-/* nu aan de beurt: bruine ring met kern, wash-achtergrond, streep links */
 .stapkaart.bezig{background:var(--choco-wash);border-color:rgba(74,43,24,.18);
   box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
 .stapkaart.bezig .stapstip{border-color:var(--choco);background:var(--card);
@@ -2310,55 +2265,51 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;color
   border-radius:99px;background:var(--choco)}
 .stapkaart.bezig .stapmerk{background:rgba(74,43,24,.12);color:var(--choco)}
 .stapkaart.bezig b{color:var(--choco)}
-/* wachtend: rustig op de achtergrond */
 .stapkaart.wacht{background:#fafafa;box-shadow:none}
 .stapkaart.wacht b{color:var(--grijs)}
 .stapkaart:active{transform:scale(.985)}
 .stapleeg{padding:22px;text-align:center;font-size:14px;color:var(--grijs2);
   background:#fafafa;border:1px solid var(--lijn);border-radius:16px}
 
-/* ══ vraagt om actie ══ ronde icoon-badge links */
+/* ═══ 12. VRAAGT OM ACTIE ═══════════════════════════════════════════ */
+
 .actielijst{display:flex;flex-direction:column;gap:10px}
 .actiekaart{display:flex;align-items:center;gap:13px;width:100%;text-align:left;
-  background:var(--card);border:1px solid var(--lijn);border-radius:16px;padding:13px 15px;
+  background:var(--card);border:1px solid var(--lijn);border-radius:16px;
+  padding:13px 15px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
 .actiekaart.eerste{background:var(--choco-wash);border-color:rgba(74,43,24,.18);
   box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
+.actiekaart:active{background:var(--choco-wash);border-color:rgba(74,43,24,.25)}
 .abadge{width:40px;height:40px;border-radius:99px;flex:none;display:grid;
   place-items:center;background:var(--bg);color:var(--ink)}
-.actiekaart.eerste .abadge{background:#fff;color:var(--choco)}
 .abadge svg{width:18px;height:18px;stroke-width:1.9}
+.actiekaart.eerste .abadge{background:#fff;color:var(--choco)}
 .atekst{flex:1;min-width:0}
 .atekst b{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.02em;
   color:var(--ink);line-height:1.3}
 .atekst small{display:block;margin-top:3px;font-size:12.5px;color:var(--grijs2)}
-.amerk{flex:none;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;
-  background:var(--bg);color:var(--grijs)}
+.amerk{flex:none;padding:4px 10px;border-radius:99px;font-size:11px;
+  font-weight:600;background:var(--bg);color:var(--grijs)}
 .amerk.let{background:rgba(180,83,9,.12);color:var(--let-op)}
-.actiekaart:active{background:var(--choco-wash);border-color:rgba(74,43,24,.25)}
 
-/* ══ twee knoppen onderaan ══ */
+/* ═══ 13. KNOPPEN ONDERAAN ══════════════════════════════════════════ */
+
 .knoppaar{margin-top:22px;display:flex;flex-direction:column;gap:10px}
-.knoppaar .prim{margin-top:0;height:52px;border-radius:16px;font-size:15.5px}
-.knoppaar .knop2{margin-top:0;height:52px;border-radius:16px;font-size:15.5px}
+.knoppaar .prim,.knoppaar .knop2{margin-top:0;height:52px;border-radius:16px;
+  font-size:15.5px}
 
-/* ══ tabbalk wit ══
-   Was een zwarte capsule. Naast een donkere hoofdkaart erboven waren dat twee
-   zwarte vlakken die om je aandacht vochten. Wit met een chocolade-actief
-   item laat de hoofdkaart weer het enige donkere zijn op het scherm. */
-.tabpil{background:rgba(255,255,255,.94);border:1px solid var(--lijn);
-  box-shadow:0 1px 2px rgba(24,24,27,.05),0 8px 28px rgba(24,24,27,.14)}
-.tab{color:var(--grijs2)}
-.tab.actief{color:var(--choco);background:var(--choco-wash)}
-.tab:active{color:var(--choco)}
+/* ═══ 14. GETALLEN ══════════════════════════════════════════════════
+   Cijfers in kolommen moeten uitlijnen, en plus of min hoort kleur te hebben. */
 
-/* ── weekstrip: gekozen dag als volle pil ──
-   Was een subtiel randje. Nu is de dag waar je staat niet te missen. */
-.weekstrip .wdag.nu,.weekstrip .wdag.nu.leeg,.weekstrip .wdag.nu.vol{
-  background:var(--choco);border-color:var(--choco);
-  box-shadow:0 2px 8px rgba(74,43,24,.28)}
-.weekstrip .wdag.nu .wd{color:rgba(255,255,255,.62)}
-.weekstrip .wdag.nu .wn{color:#fff}
+.getal,.wggetal,.waarde,.bedrag{font-variant-numeric:tabular-nums}
+.pos{color:var(--groen);font-variant-numeric:tabular-nums}
+.neg{color:var(--rood);font-variant-numeric:tabular-nums}
+.letop{color:var(--let-op)}
+
+@media (prefers-reduced-motion:reduce){
+  .stapkaart:active{transform:none}
+}
 </style>
 </head>
 <body>
@@ -2483,7 +2434,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v397 · 18 aug 2026';
+const APPVERSIE='v398 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
