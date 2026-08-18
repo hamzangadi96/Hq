@@ -3172,7 +3172,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v457 · 18 aug 2026';
+const APPVERSIE='v458 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5302,6 +5302,37 @@ const NUSUB={
   schoonmaak:'leg vast wat je hebt schoongemaakt',
   afronden:'aantallen goed en afkeur invullen'
 };
+/* Waar sta je in een stap? De app wist het al — b.afvink onthoudt elke
+   afgeronde handeling — maar je moest er drie schermen voor lopen om er weer
+   in te komen. Tijdens productie word je constant onderbroken; dan is drie
+   tikken drie te veel. */
+function geleidStand(b,naam){
+  if(!naam) return null;
+  const l=geleideLijst(b,naam);
+  if(!l.length) return null;
+  b.afvink=b.afvink||{};
+  const i=l.findIndex(x=>!b.afvink[x.k]);
+  const gedaan=l.filter(x=>b.afvink[x.k]).length;
+  const idx=i<0?l.length-1:i;
+  return {lijst:l, index:idx, huidig:l[idx], gedaan, totaal:l.length, klaar:i<0};
+}
+
+/* De kaart om verder te gaan: hij noemt de handeling zelf, zodat je al weet
+   wat je gaat doen voordat je hem aantikt. */
+function hervatKaartHTML(b,naam){
+  const g=geleidStand(b,naam);
+  if(!g||!g.gedaan||g.klaar) return null;
+  const hd=g.huidig;
+  const wat=hd.soort==='weeg'
+    ? hd.tekst+' — '+getal(hd.gram)+' gram'
+    : hd.tekst;
+  return `<div class="nukaart bezig">
+    <span class="eyebrow">Verder waar je gebleven was</span>
+    <h3>${esc(wat)}</h3>
+    <div class="nusub">${esc(naam)} · handeling ${g.index+1} van ${g.totaal}</div>
+    <button class="nuknop" data-nugeleid="${esc(naam)}">Verder</button></div>`;
+}
+
 function nuKaartHTML(b){
   const w=lopendWerk(b), plan=bPlan(b);
   /* Loopt er een timer op een productiestap, dan is dát waar je mee bezig
@@ -5311,6 +5342,9 @@ function nuKaartHTML(b){
      zou de kaart je terugsturen naar werk dat al klaar is. */
   const lopStand=w?(planVan(b)[w.act]||{}):{};
   if(w && plan.indexOf(w.act)>=0 && !lopStand.gedaan){
+    /* Ben je al halverwege deze stap, dan sla je het overzicht over. */
+    const hervat=hervatKaartHTML(b,w.act);
+    if(hervat) return hervat;
     const i=plan.indexOf(w.act)+1;
     const sub=[bNamen(b), bTotaal(b)+' stuks',
                'stap '+i+' van '+plan.length].filter(Boolean).join(' · ');
@@ -5333,6 +5367,10 @@ function nuKaartHTML(b){
 
   if(v.key==='productie'){
     const volg=planVolgende(b);
+    /* Ook zonder lopende timer: zette je hem uit en kom je later terug, dan
+       wil je nog steeds op de plek verder waar je gebleven was. */
+    const hervat=hervatKaartHTML(b,volg);
+    if(hervat) return hervat;
     if(volg){
       titel=volg;
       const i=plan.indexOf(volg)+1;
@@ -14113,6 +14151,14 @@ function bind(){
   $$('[data-nustap]').forEach(b=>b.onclick=()=>{
     sluitToetsenbord(); sheetStapDoen(b.dataset.nustap);
   });
+  /* Rechtstreeks de geleide modus in, op de handeling waar je gebleven was.
+     Eén tik van vergrendeld scherm naar wat je moet doen. */
+  $$('[data-nugeleid]').forEach(x=>x.onclick=veilig('verder waar je was',()=>{
+    sluitToetsenbord();
+    const naam=x.dataset.nugeleid;
+    const g=geleidStand(batch(),naam);
+    sheetGeleid(naam, g?g.index:0);
+  }));
   $$('[data-stapfilter]').forEach(b=>b.onclick=()=>{
     S.stapFilter=b.dataset.stapfilter; render();
   });
