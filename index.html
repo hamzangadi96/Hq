@@ -2146,6 +2146,24 @@ main .arij.rnu .rmark{border-color:var(--choco);background:var(--card);
 main .arij.rnu .rmark::after{background:var(--choco)}
 main .arij.rnu .naam{color:var(--choco)}
 
+/* De beheerlijsten (Voedselveiligheid, Waar je mee werkt, Deze batch) waren
+   nog de enige dichte opsommingen met scheidingslijnen. Zelfde kaartvorm als
+   overal, en het losse icoontje krijgt de ronde badge die je op het dashboard
+   ook bij "Vraagt om actie" ziet. */
+main .paneel>.beheerrij{background:var(--card);border:1px solid var(--lijn);
+  border-bottom:1px solid var(--lijn);border-radius:16px;padding:13px 15px;
+  align-items:center;gap:13px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+main .paneel>.beheerrij:last-child{border-bottom:1px solid var(--lijn)}
+main .paneel>.beheerrij>svg{width:18px;height:18px;margin:0;padding:11px;
+  box-sizing:content-box;border-radius:99px;background:var(--bg);
+  color:var(--ink)}
+main .paneel>.beheerrij:active{background:var(--choco-wash);
+  border-color:rgba(74,43,24,.25)}
+main .paneel>.beheerrij:active>svg{background:#fff;color:var(--choco)}
+main .paneel>.beheerrij .l{font-size:14.5px;font-weight:600;letter-spacing:-.02em}
+main .paneel>.beheerrij .w{font-size:12.5px;color:var(--grijs2)}
+
 main .paneel>.arij,main .paneel>.rij{
   background:var(--card);border:1px solid var(--lijn);border-radius:16px;
   padding:14px 16px;
@@ -2690,7 +2708,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v420 · 18 aug 2026';
+const APPVERSIE='v421 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
