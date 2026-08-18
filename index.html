@@ -2683,8 +2683,13 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .chip{border-radius:99px;padding:10px 15px}
 .chip.aan{background:var(--choco)}
 .chip:active:not(.aan){background:var(--choco-wash);color:var(--choco)}
-/* een keuzeraster hoort juist wél af te breken: daar kies je uit alles */
-.sheetbody .keuzeraster{flex-wrap:wrap;overflow:visible;margin:0;padding:0;
+/* Schuiven is goed voor een rij waar je één ding uit kiest. Maar bij een
+   meerkeuzelijst — allergenen, zones, middelen — moet je alles zien én zien
+   wat je hebt aangevinkt. Die breken gewoon af over meerdere regels.
+   Dit ging mis bij de allergenen: veertien chips op één schuifrij, dus tikte
+   je iets aan en verdween het uit beeld. */
+.sheetbody .keuzeraster,.sheetbody #wzAl,.sheetbody #ipAl,
+.sheetbody .chips.meer{flex-wrap:wrap;overflow:visible;margin:0;padding:0;
   -webkit-mask-image:none;mask-image:none}
 
 /* ── 5. subregels in gewone letters ──
@@ -2895,7 +2900,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v433 · 18 aug 2026';
+const APPVERSIE='v434 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20424,7 +20429,8 @@ function sheetIngWizard(naam,stap){
 
   sheet(naam,body,
     `<button class="prim" style="margin-top:0" id="wzOk">${verder}</button>
-     <button class="sec" id="wzOver">${over}</button>`,
+     <button class="sec" id="wzOver">${over}</button>
+     ${stap>0?`<button class="sec" id="wzTerug">${svg(I.terug,'2')}Vorige stap</button>`:''}`,
     'Stap '+(stap+1)+' van '+INGSTAPPEN.length);
 
   if(st.k==='prijs'||st.k==='link') ingVeldenBinden();
@@ -20451,6 +20457,10 @@ function sheetIngWizard(naam,stap){
   };
   $('#wzOk').onclick=veilig('volgende stap',door);
   $('#wzOver').onclick=veilig('overslaan',door);
+  /* Je kon alleen vooruit of afsluiten. Vergat je iets bij stap 2, dan moest
+     je de hele wizard opnieuw. */
+  if($('#wzTerug')) $('#wzTerug').onclick=veilig('vorige stap',
+    ()=>sheetIngWizard(naam,stap-1));
 }
 
 /* Eén ingrediënt, alles bij elkaar. */
