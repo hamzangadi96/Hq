@@ -2811,7 +2811,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v428 · 18 aug 2026';
+const APPVERSIE='v429 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13621,7 +13621,7 @@ function bind(){
     sheetStapDoen(x.dataset.stapdoe);
   });
   $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
-  $$('[data-account]').forEach(b=>b.onclick=()=>sheetAccount(fbUser?'':'in'));
+  $$('[data-account]').forEach(b=>b.onclick=()=>sheetJij());
   $$('[data-batch]').forEach(b=>b.onclick=()=>{
     S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
     const v=vergetenTimer();
@@ -20974,28 +20974,19 @@ function sheetMeer(){
          <span class="naam">De app<small>versie ${APPVERSIE.split(' ')[0]} \u00b7 vernieuwen, back-up, accentkleur</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerApp"><span class="ivak">${svg(I.instel)}</span>
-         <span class="naam">Instellingen<small>waardes die je een keer bepaalt</small></span>
+         <span class="naam">Tarieven en regels<small>uurtarief, verzending, kilometers</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
-       <button class="arij" id="meerPin"><span class="ivak">${svg(I.vink)}</span>
-         <span class="naam">Pincode<small>${pinAan()
-           ?'aan \u00b7 ontgrendelt de app op dit toestel'
-           :'uit \u00b7 de app opent nu zonder code'}</small></span>
+       <button class="arij" id="meerJij"><span class="ivak">${svg(I.persoon)}</span>
+         <span class="naam">Jij<small>${fbUser?esc(fbUser.email||'ingelogd')
+           :'account, pincode en je gegevens'}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerKop"><span class="ivak">${svg(I.vracht)}</span>
          <span class="naam">Koppelingen<small>${(()=>{
            const k=(S.werk||{}).koppeling||{};const n=[k.shopify,k.myparcel].filter(Boolean).length;
            return n?n+' van 2 gekoppeld':'webshop en verzendlabels'})()}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
-       <button class="arij" id="meerAcc"><span class="ivak">${svg(fbUser?I.vink:I.alarm)}</span>
-         <span class="naam">${fbUser?esc(fbUser.email||'Ingelogd')
-             :'Account aanmaken of inloggen'}<small>${
-           !fbKlaar?'synchronisatie niet ingesteld'
-           :(fbUser?(fbOnline?'online \u00b7 je gegevens staan veilig':'offline')
-                   :'zodat je gegevens ook op je laptop staan')}</small></span>
-         <span class="pijl">${svg(I.pijl,'2')}</span></button>
-       <button class="arij" id="meerData"><span class="ivak">${svg(I.doc)}</span>
-         <span class="naam">Gegevens meenemen<small>naar een ander toestel</small></span>
-         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       ${''/* Inloggen en Gegevens meenemen stonden hier én achter het
+              accountknopje. Ze horen bij jou, dus daar staan ze nu. */}
        <button class="arij" id="meerNieuw"><span class="ivak">${svg(I.ververs)}</span>
          <span class="naam">Nieuwe dag beginnen<small>wist de batches van vandaag</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
@@ -21013,7 +21004,7 @@ function sheetMeer(){
   $('#meerKies').onclick=sheetBalkKiezen;
   $('#meerDeApp').onclick=sheetApp;
   $('#meerApp').onclick=sheetInstellingen;
-  $('#meerPin').onclick=sheetPin;
+  $('#meerJij').onclick=sheetJij;
   /* Twee keer bevestigen, en de tweede keer moet je het woord intikken. Dit
      wist je hele administratie; één misklik mag dat nooit doen. */
   $('#meerLeeg').onclick=()=>{
@@ -21030,8 +21021,6 @@ function sheetMeer(){
     else klaar();
   };
   if($('#meerKop')) $('#meerKop').onclick=sheetKoppelingen;
-  $('#meerAcc').onclick=sheetAccount;
-  $('#meerData').onclick=sheetData;
   $('#meerNieuw').onclick=()=>{
     if(S.batches.length&&!confirm('De batches van vandaag worden gewist. Je smaken en instellingen blijven staan. Doorgaan?')) return;
     S.batches=[];S.dagOpening=null;S.batchId=null;S.open=null;
@@ -21789,11 +21778,66 @@ function insBinden(){
   });
 }
 
+/* Achter het accountknopje stond alleen je e-mailadres en Uitloggen. Dat is
+   mager voor een knop die op elk scherm staat. Alles wat over jou en jouw
+   gegevens gaat staat nu hier bij elkaar: wie je bent, hoe je binnenkomt,
+   waar je gegevens staan en hoe je ze meeneemt.
+
+   Wat er niet in hoort: accentkleur, storingen, het versienummer. Dat gaat
+   over de app, niet over jou — die blijven bij De app. */
+function sheetJij(){
+  const b=bedrijf();
+  const rij=(id,ico,naam,waarde,let2)=>`<button class="arij" data-jij="${id}">
+    <span class="ivak">${svg(ico)}</span>
+    <span class="naam">${esc(naam)}</span>
+    ${waarde?`<span class="waarde ${let2?'let':'gevuld'}">${esc(waarde)}</span>`:''}
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+
+  const bu=S.laatsteBackup;
+  const buOud=bu?dagenTussen(bu,vandaag()):null;
+  const buTekst=!bu?'nog nooit'
+    :buOud===0?'vandaag':buOud===1?'gisteren':buOud+' dagen geleden';
+
+  sheet('Jij',
+    `${bedrijfKaartHtml()}
+
+     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Aanmelden</span></div>
+     <div class="paneel">
+       ${rij('account',I.persoon,fbUser?esc(fbUser.email||'Ingelogd'):'Inloggen of account aanmaken',
+         fbKlaar?(fbUser?(fbOnline?'online':'offline'):'niet ingelogd')
+                :'niet ingesteld', !fbUser)}
+       ${rij('pin',I.vink,'Pincode',pinAan()?'aan':'uit',!pinAan())}
+     </div>
+
+     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Je gegevens</span></div>
+     <div class="paneel">
+       ${rij('backup',I.doos,'Back-up',buTekst,!bu||buOud>=60)}
+       ${rij('meenemen',I.doc,'Meenemen naar een ander toestel','')}
+     </div>
+
+     <p class="hint" style="margin-top:18px">Je gegevens staan in je eigen
+       database en worden niet gedeeld. Je kunt ze op elk moment meenemen of
+       wissen.</p>`,'');
+
+  $$('#sheetBody [data-jij]').forEach(x=>x.onclick=()=>{
+    const k=x.dataset.jij;
+    if(k==='account')  return sheetAccount(fbUser?'':'in');
+    if(k==='pin')      return sheetPin();
+    if(k==='backup')   return sheetBackup();
+    if(k==='meenemen') return sheetData();
+  });
+  const bk=$('#sheetBody [data-ins="bedrijf"]');
+  if(bk) bk.onclick=()=>sheetBedrijf();
+}
+
 function sheetInstellingen(){
   /* Tik je op je eigen profiel, dan hoor je op jouw scherm te komen. "Instellingen"
      als titel zette dat op zijn kop: dan valt je bedrijf onder een technische
      categorie in plaats van andersom. */
-  sheet(bedrijf().naam||'Je bedrijf',
+  /* Heette naar je bedrijf toen je bedrijfsgegevens hier nog stonden. Die
+     zitten nu achter het accountknopje; wat hier overblijft zijn de waardes
+     waarmee de app rekent. */
+  sheet('Tarieven en regels',
     /* Alleen waardes die je invult en laat staan. Wat je dóét hoort in het
        scherm waar dat werk plaatsvindt, niet hier.
 
@@ -21815,9 +21859,10 @@ function sheetInstellingen(){
        kleuren) zijn opgegaan in Je bedrijf en Productie. Weergave, Beheer en
        Zelden gingen alledrie over de app in plaats van over je bedrijf; die
        staan nu samen onderaan. */
-    `${bedrijfKaartHtml()}
-
-     <div class="mkop">Tarieven en regels</div>
+    /* Het bedrijfskaartje stond hier bovenaan, maar je naam, KvK, btw en IBAN
+       gaan over jou en niet over je bedrijfsvoering. Dat staat nu achter het
+       accountknopje. Wat hier blijft zijn de waardes waarmee de app rekent. */
+    `<div class="mkop" style="margin-top:2px">Tarieven en regels</div>
      <button class="menurij" data-ins="uurtarief">${svg(I.klok)}Uurtarief<span class="tel">${
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
      <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
