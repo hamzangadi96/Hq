@@ -2811,7 +2811,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v427 · 18 aug 2026';
+const APPVERSIE='v428 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3493,11 +3493,27 @@ function firebaseStart(){
       fbShop.on('value',s3=>{ S.werk=s3.val()||{}; if(S.tab==='orders') render() },
         fout=>fbGeweigerd('werkvloer',fout));
       fbRef=firebase.database().ref('cacaoboetiek/'+u.uid);
+      /* Tot de server één keer heeft geantwoord weten we niet wat daar staat,
+         en mogen we er dus niets overheen zetten. Zonder deze rem overschreef
+         een verse installatie de database met een lege app: het opstarten zet
+         standaardchecks en een werkplan klaar, roept bewaarNu() aan, en dan
+         staat er een splinternieuw tijdstempel op nul gegevens. De app vond
+         zichzelf nieuwer dan de server en duwde die leegte door. */
+      let serverGesproken=false;
       fbRef.on('value',snap=>{
         const d=snap.val();
-        if(!d||negeerRemote) return;
-        /* alleen overnemen als de server nieuwer is dan wat hier staat */
-        if((d.bijgewerkt||0)>(S.bijgewerkt||0)){
+        if(negeerRemote) return;
+        if(!d){
+          /* Er staat nog niets in de database. Dan is dit toestel de bron. */
+          serverGesproken=true;
+          if(S.bijgewerkt) fbRef.set(pakData()).catch(()=>{});
+          return;
+        }
+        const eersteKeer=!serverGesproken;
+        serverGesproken=true;
+        /* Bij het eerste antwoord wint de server altijd, ongeacht tijdstempels.
+           Daarna geldt gewoon: de nieuwste versie wint. */
+        if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
           lokaalSchrijf(d); render();
@@ -3520,8 +3536,20 @@ async function laden(){
    ['planning',migreerPlanning],['orders',migreerOrders]].forEach(([n,fn])=>{
     try{ fn() }catch(e){ console.error('migratie '+n+':',e) }
   });
-  if(!S.checksGezet){ standaardChecks(); S.checksGezet=true; bewaarNu(); }
-  if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; bewaarNu(); }
+  /* Deze twee zetten standaardwaarden klaar bij een lege app. Ze riepen
+     bewaarNu() aan, en dat stempelt S.bijgewerkt op nu — waardoor een verse
+     installatie zich nieuwer waande dan de database. Alleen lokaal wegschrijven
+     is genoeg; het echte opslaan gebeurt zodra je iets invult. */
+  const alleenLokaal=()=>{
+    /* pakData() zet zelf een tijdstempel, en daar zit nu net het gevaar. We
+       schrijven met het tijdstempel dat er al stond — bij een lege app is dat
+       nul, en dan wint de database altijd. */
+    try{
+      const d=pakData(); d.bijgewerkt=S.bijgewerkt||0; lokaalSchrijf(d);
+    }catch(e){}
+  };
+  if(!S.checksGezet){ standaardChecks(); S.checksGezet=true; alleenLokaal(); }
+  if(!S.planGezet){ S.werkplan=WERKPLAN.slice(); S.planGezet=true; alleenLokaal(); }
   /* De app hield bij wanneer je naast Cacaoboetiek werkte. Die functie is eruit,
      dus horen de gegevens er ook niet meer te staan — ook niet in Firebase. */
   /* namen aanvullen bij artikelen die er nog geen hadden */
