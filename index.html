@@ -2474,7 +2474,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v401 · 18 aug 2026';
+const APPVERSIE='v402 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19970,6 +19970,9 @@ function sheetMeer(){
      ${groep('Snelkoppelingen',losse)}
      <div class="blokkop"><span class="eyebrow">App</span></div>
      <div class="paneel">
+       <button class="arij" id="meerDeApp"><span class="ivak">${svg(I.ververs)}</span>
+         <span class="naam">De app<small>versie ${APPVERSIE.split(' ')[0]} \u00b7 vernieuwen, back-up, accentkleur</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerApp"><span class="ivak">${svg(I.instel)}</span>
          <span class="naam">Instellingen<small>waardes die je een keer bepaalt</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
@@ -19998,6 +20001,7 @@ function sheetMeer(){
     if(it.doe) it.doe();
   });
   $('#meerKies').onclick=sheetBalkKiezen;
+  $('#meerDeApp').onclick=sheetApp;
   $('#meerApp').onclick=sheetInstellingen;
   if($('#meerKop')) $('#meerKop').onclick=sheetKoppelingen;
   $('#meerAcc').onclick=sheetAccount;
