@@ -2678,6 +2678,19 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .sheetbody .knoppaar>*,.sheetbody .wzplakknoppen>*{flex:1 1 45%;margin-top:0;
   min-width:120px}
 
+/* Zoeken en toevoegen delen één regel bovenaan: daar begin je, en het scheelt
+   een hele regel ten opzichte van een knop onderaan de lijst. */
+/* stretch in plaats van center: het zoekveld heeft een rand en de knop niet,
+   waardoor ze anders vier pixels verspringen. */
+.zoekrij{display:flex;gap:8px;align-items:stretch;margin:0 0 14px}
+.zoekrij .mveld{flex:1 1 auto;margin:0;min-width:0}
+/* Het zoekveld is 48 hoog; de knop moet dezelfde hoogte krijgen, anders
+   zweeft hij ernaast in plaats van ernaast te staan. */
+.zoekrij .toevoeg{flex:none;margin:0 !important;height:48px;padding:0 16px;
+  align-self:flex-start}
+.ingtop{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin:0 2px 12px;font-size:12.5px}
+
 /* ── 1c. losse knoppen die op elkaar volgen ──
    Overal in de app staan twee of drie van deze pilknoppen onder elkaar:
    "Ingrediënt toevoegen" boven "Meerdere archiveren", "Laag toevoegen" boven
@@ -2947,7 +2960,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v439 · 18 aug 2026';
+const APPVERSIE='v440 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20024,26 +20037,31 @@ function sheetIngredientenLijst(alleenMissend){
     return;
   }
 
-  sheet('Ingrediënten',
-    `<div class="ingtop">
-       <b>${alles.length} ${alles.length===1?'ingrediënt':'ingrediënten'}</b>
+  /* De kop zei twee keer hetzelfde: de titel "Ingrediënten" en daaronder
+     "16 ingrediënten". Het aantal staat nu in de titel zelf. Toevoegen stond
+     helemaal onderaan, achter zestien rijen — die hoort bovenaan, naast het
+     zoekveld, want daar begin je. */
+  sheet(alles.length+' '+(alles.length===1?'ingrediënt':'ingrediënten'),
+    `<div class="zoekrij">
+       ${alles.length>5?`<div class="mveld">
+         ${svg(I.loep)}<input id="ilZ" placeholder="Zoeken"
+           autocapitalize="none" spellcheck="false"></div>`:'<span></span>'}
+       <button class="toevoeg" id="ilN">${svg(I.plus)}Nieuw</button>
+     </div>
+     ${ingNieuwHtml()}
+     <div class="ingtop">
        ${missend.length
          ? `<span class="let">${missend.length} zonder prijs${
              oud.length?' \u00b7 '+oud.length+' verouderd':''}</span>`
          : oud.length
            ? `<span class="let">${oud.length} ${oud.length===1?'prijs is':'prijzen zijn'} ouder dan een half jaar</span>`
            : `<span class="goed">${svg(I.vink,'2.4')} allemaal een prijs</span>`}
+       ${missend.length&&missend.length<alles.length
+         ? `<button class="chip klein${alleenMissend?' aan':''}" id="ilF">Alleen wat mist</button>`
+         : ''}
      </div>
-     ${alles.length>8?`<div class="mveld" style="margin-bottom:12px">
-       ${svg(I.loep)}<input id="ilZ" placeholder="Zoek een ingrediënt"
-         autocapitalize="none" spellcheck="false"></div>`:''}
-     ${missend.length&&missend.length<alles.length?`<div class="chips" style="margin-bottom:14px">
-       <button class="chip klein${alleenMissend?' aan':''}" id="ilF">Alleen wat nog mist</button>
-     </div>`:''}
      <div class="paneel" id="ilL">${lijst.map(rij).join('')}</div>
-     <button class="toevoeg" id="ilN">${svg(I.plus)}Toevoegen</button>
-     ${ingNieuwHtml()}
-     ${alles.length>1?`<button class="toevoeg" id="ilKies">${
+     ${alles.length>1?`<button class="toevoeg" id="ilKies" style="margin-top:14px">${
        svg(I.doos)}Archiveren</button>`:''}
      ${archief.length?`<button class="klapkop" id="ilArK">${svg(I.pijl,'2')}
        Archief (${archief.length})</button>
