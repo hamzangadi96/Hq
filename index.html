@@ -1320,6 +1320,13 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .wwin .wwadd:active{background:var(--choco)}
 .wwin .wwadd svg{width:19px;height:19px;stroke-width:2.2}
 .wwin .wwadd[disabled]{background:var(--lijn);color:var(--grijs3)}
+.wwmode{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;
+  border-radius:14px;background:var(--choco-wash);border:1px solid var(--choco-licht)}
+.wwmode[hidden]{display:none}
+.wwmodet{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--choco);
+  letter-spacing:-.01em}
+.wwmodex{flex:none;height:30px;padding:0 12px;border-radius:9px;background:#fff;
+  border:1px solid var(--choco-licht);font-size:13px;font-weight:600;color:var(--choco)}
 .wwlijst{margin-top:12px;display:flex;flex-direction:column;gap:7px}
 .wwkaart{display:flex;align-items:center;gap:9px;background:var(--card);
   border:1px solid var(--lijn);border-radius:14px;padding:9px 9px 9px 12px}
@@ -3111,7 +3118,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v451 · 18 aug 2026';
+const APPVERSIE='v452 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17737,6 +17744,9 @@ function sheetOnderdeel(idx,stap){
       <p class="wzuit">Eén handeling per regel. Tik op een voorstel om hem toe
         te voegen, tik op de regel zelf om hem in jouw woorden te zetten — die
         versie onthoud ik.</p>
+      <div class="wwmode" id="wwMode" hidden>
+        <span class="wwmodet">Je herschrijft een voorstel</span>
+        <button class="wwmodex" id="wwModeUit" type="button">annuleren</button></div>
       ${(WERKWIJZEROUTE[(s&&s.k)]||[]).length?`<button class="sec" id="wwHeel"
         style="margin:0 0 14px">${svg(I.lijst)}&nbsp; Hele werkwijze overnemen
         <em class="wwheeln">${WERKWIJZEROUTE[s.k].length} stappen</em></button>`:''}
@@ -17896,6 +17906,24 @@ function sheetOnderdeel(idx,stap){
        kopie: hier staat welk voorstel dat is zolang je aan het typen bent. */
     let voorstelBron=null;
 
+    /* Zonder zichtbaar teken wist je niet dat je een voorstel aan het
+       herschrijven was — en of het nog aan stond. Nu staat het er gewoon. */
+    const modeToon=()=>{
+      const m=$('#wwMode'); if(m) m.hidden = voorstelBron===null;
+    };
+    /* Moet in de aanraking zelf gebeuren: focus() in een losse timer wordt
+       door iOS genegeerd, en dan gaat het toetsenbord niet open. */
+    const voorstelOpenen=b=>{
+      const toon=b.dataset.wwv;
+      voorstelBron=b.dataset.wwbron||toon;
+      bewerkt=-1;
+      const v=$('#wwIn');
+      v.value=toon;
+      wwKnop(); wwTeken(); modeToon();
+      v.focus();
+      try{ v.setSelectionRange(toon.length,toon.length) }catch(err){}
+    };
+
     const wwTeken=()=>{
       const L=$('#wwL');
       if(!L) return;
@@ -17997,29 +18025,28 @@ function sheetOnderdeel(idx,stap){
       /* Kort tikken voegt toe, ingedrukt houden zet hem in het invoerveld om
          hem te herschrijven. Bewegen betekent scrollen, dan telt het niet. */
       $$('[data-wwv]').forEach(b=>{
-        let klok=null, lang=false, x0=0, y0=0;
-        const los=()=>{ clearTimeout(klok); b.classList.remove('vast') };
+        let t0=0, klok=null, lang=false, af=false, x0=0, y0=0;
+        const los=()=>{ clearTimeout(klok); klok=null; b.classList.remove('vast') };
         b.onpointerdown=e=>{
-          lang=false; x0=e.clientX; y0=e.clientY;
+          lang=false; af=false; t0=Date.now(); x0=e.clientX; y0=e.clientY;
           clearTimeout(klok);
-          klok=setTimeout(()=>{
-            lang=true; b.classList.remove('vast');
-            const toon=b.dataset.wwv;
-            voorstelBron=b.dataset.wwbron||toon;
-            bewerkt=-1;
-            $('#wwIn').value=toon;
-            wwKnop(); wwTeken();
-            $('#wwIn').focus();
-            toast('Schrijf het in jouw woorden en tik op plus.');
-          },480);
-          setTimeout(()=>{ if(klok) b.classList.add('vast') },120);
+          klok=setTimeout(()=>b.classList.add('vast'),140);
         };
         b.onpointermove=e=>{
-          if(Math.abs(e.clientX-x0)>10||Math.abs(e.clientY-y0)>10) los();
+          if(Math.abs(e.clientX-x0)>10||Math.abs(e.clientY-y0)>10){ af=true; los() }
         };
-        b.onpointerup=los;
-        b.onpointercancel=los;
-        b.onpointerleave=los;
+        /* Het openen gebeurt bij het loslaten en niet in een timer: alleen
+           binnen de aanraking zelf mag een pagina het toetsenbord openen. */
+        b.onpointerup=veilig('voorstel herschrijven',()=>{
+          const langGenoeg = !af && t0 && (Date.now()-t0)>=450;
+          los();
+          if(!langGenoeg) return;
+          lang=true;
+          voorstelOpenen(b);
+        });
+        b.onpointercancel=()=>{ af=true; los() };
+        /* pointerleave brak het gebaar af zodra het toetsenbord de knop
+           verschoof; daarom staat hij er niet meer op. */
         b.oncontextmenu=e=>e.preventDefault();
         b.onclick=veilig('voorstel toevoegen',()=>{
           los();
@@ -18033,8 +18060,6 @@ function sheetOnderdeel(idx,stap){
 
     const wwKnop=()=>{
       const k=$('#wwAdd'); if(k) k.disabled=!$('#wwIn').value.trim();
-      /* veld leeggemaakt? dan ben je van gedachten veranderd */
-      if($('#wwIn')&&!$('#wwIn').value.trim()) voorstelBron=null;
     };
     const wwToevoegen=()=>{
       const t=$('#wwIn').value.trim();
@@ -18065,7 +18090,7 @@ function sheetOnderdeel(idx,stap){
       }
       else o.werkwijze.push(t);
       $('#wwIn').value='';
-      wwKnop(); wwTeken(); wwVoor();
+      wwKnop(); modeToon(); wwTeken(); wwVoor();
       $('#wwIn').focus();
     };
     /* Staat er al iets, dan overschrijven we dat niet zonder te vragen —
@@ -18080,10 +18105,13 @@ function sheetOnderdeel(idx,stap){
       wwTeken(); wwVoor();
       toast('Overgenomen. Pas aan wat jij anders doet — dat onthoud ik.');
     });
+    if($('#wwModeUit')) $('#wwModeUit').onclick=veilig('herschrijven annuleren',()=>{
+      voorstelBron=null; $('#wwIn').value=''; wwKnop(); modeToon();
+    });
     $('#wwIn').oninput=wwKnop;
     $('#wwIn').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); wwToevoegen() } };
     $('#wwAdd').onclick=veilig('handeling toevoegen',wwToevoegen);
-    wwTeken(); wwVoor(); wwKnop();
+    wwTeken(); wwVoor(); wwKnop(); modeToon();
   }
 
   /* ═══════════ voetknoppen ═══════════ */
