@@ -1225,10 +1225,19 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .inforij:last-child{border-bottom:none}
 .inforij .k{color:var(--grijs);font-weight:450}
 .inforij .v{font-weight:600;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.lotrij{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lotrij{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.lotrij:last-child{margin-bottom:0}
 .lotrij .inp{flex:1;min-width:0}
 .lotplus{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--grijs);padding:2px 0}
 .lotplus svg{width:14px;height:14px}
+/* Was een eigen regel met tekst onder elk veld; nu een knopje ernaast. */
+.lotmeer{flex:none;width:46px;height:46px;border-radius:14px;background:var(--bg);
+  color:var(--grijs2);display:grid;place-items:center}
+.lotmeer:active{background:var(--choco-wash);color:var(--choco)}
+.lotmeer svg{width:17px;height:17px;stroke-width:2.2}
+.hinttel{display:block;font-style:normal;font-weight:700;font-size:12px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--grijs2);margin-top:8px;
+  font-variant-numeric:tabular-nums}
 .alblok{padding:16px 0;border-bottom:1px solid var(--lijn)}
 .alblok:last-child{border-bottom:none}
 .alkop{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
@@ -1694,7 +1703,7 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .pveld{display:flex;align-items:center;gap:4px;background:var(--bg);border-radius:10px;padding:0 12px}
 .pveld span{font-size:14px;color:var(--grijs);font-weight:600}
 .pveld .inp{width:82px;background:none;height:40px;text-align:right;padding:0}
-.lotblok{padding:12px 0;border-bottom:1px solid var(--lijn)}
+.lotblok{padding:10px 0;border-bottom:1px solid var(--lijn)}
 .lotblok:last-of-type{border-bottom:none}
 .lotkop{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
 .lotkop .n{flex:1;font-size:15px;font-weight:500;letter-spacing:-.01em}
@@ -3145,7 +3154,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v454 · 18 aug 2026';
+const APPVERSIE='v455 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15210,29 +15219,47 @@ function sheetIngredienten(){
       `<button class="prim" style="margin-top:0" id="iR">Smaken openen</button>`);
     $('#iR').onclick=sheetRecepten; return;
   }
+  /* Onder élk ingrediënt stond dezelfde regel van twee zinnen: "Nog geen
+     partijen vastgelegd — vul het lotnummer met de hand in, of leg de
+     ontvangst vast." Plus een eigen knopregel "Uit meer dan één partij".
+     Bij negen ingrediënten is dat achttien regels uitleg en negen knopregels,
+     allemaal identiek. Je zag er nog maar drie tegelijk.
+
+     De uitleg staat nu één keer bovenaan, en "meer dan één partij" is een
+     plusknopje naast het invoerveld geworden. */
   const blok=i=>{
     const huidig=lotLijst(b,i.naam), opties=lotsVoor(i.naam).slice(0,6);
+    const gevuld=huidig.filter(Boolean).length>0;
     const chips=opties.length?`<div class="lotchips">${opties.map(l=>`
       <button type="button" class="lotchip ${huidig.includes(l.lot)?'aan':''} ${lotOver(l)?'over':''}"
         data-kies="${esc(i.naam)}" data-lot="${esc(l.lot)}">${esc(l.lot)}
-        <em>${esc(l.product)}${lotOver(l)?' · over THT':''}</em></button>`).join('')}</div>`
-      :`<div class="geen" style="padding:0 0 8px">Nog geen partijen vastgelegd — vul het lotnummer met de hand in, of leg de ontvangst vast.</div>`;
+        <em>${esc(l.product)}${lotOver(l)?' · over THT':''}</em></button>`).join('')}</div>`:'';
     const velden=(huidig.length?huidig:['']).map((v,n)=>`
       <div class="lotrij"><input class="inp" data-lot="${esc(i.naam)}" value="${esc(v)}"
         placeholder="${n?'Nog een lotnummer':'Lotnummer'}">
-        ${n?`<button type="button" class="wisbtn" data-wislot>${svg(I.kruis,'2')}</button>`:''}</div>`).join('');
+        ${n?`<button type="button" class="wisbtn" data-wislot>${svg(I.kruis,'2')}</button>`
+           :`<button type="button" class="lotmeer" data-meer="${esc(i.naam)}"
+              aria-label="Uit meer dan één partij">${svg(I.plus)}</button>`}</div>`).join('');
     return `<div class="lotblok" data-ing="${esc(i.naam)}">
-      <div class="lotkop"><span class="n">${esc(i.naam)}</span><span class="g">${getal(i.hoeveel)} g nodig</span></div>
+      <div class="lotkop"><span class="n">${esc(i.naam)}</span>
+        <span class="g ${gevuld?'goed':''}">${getal(i.hoeveel)} g</span></div>
       ${chips}
       <div class="lotvelden">${velden}</div>
-      <button type="button" class="lotplus" data-meer="${esc(i.naam)}">${svg(I.plus)}Uit meer dan één partij</button>
     </div>`;
   };
+  const alGevuld=lijst.filter(i=>heeftLot(b,i.naam)).length;
+  const kentPartijen=lijst.some(i=>lotsVoor(i.naam).length);
   sheet('Ingrediënten',
-    `<p class="hint">Kies per ingrediënt de partij die je gebruikt. Zo is deze batch één stap terug traceerbaar.</p>
+    `<p class="hint">Kies per ingrediënt de partij die je gebruikt — zo is deze
+       batch één stap terug traceerbaar.${kentPartijen?'':' Je hebt nog geen partijen\
+       vastgelegd, dus vul de lotnummers met de hand in.'}
+       </p>
      <div id="iL">${lijst.map(blok).join('')}</div>
      <div class="voet" style="margin-top:10px"><button id="iOnt">Nieuwe partij vastleggen</button></div>`,
-    `<button class="prim" style="margin-top:0" id="iOk">Lotnummers opslaan</button>`);
+    `<button class="prim" style="margin-top:0" id="iOk">Lotnummers opslaan</button>`,
+    /* De eerste .hint verdwijnt achter het vraagteken, dus de teller stond
+       nergens. Naast de titel is hij altijd zichtbaar en kost hij niets. */
+    alGevuld+' van '+lijst.length+' ingevuld');
   $('#iOnt').onclick=sheetOntvangst;
   const velden=naam=>$$(`.lotblok[data-ing="${naam}"] input[data-lot]`);
   const nieuwVeld=(naam,waarde)=>{
