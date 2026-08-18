@@ -801,11 +801,30 @@ header .hbtn.zoek{display:none}
 .nukaart{display:block}
 .nukaart.af h3{font-size:21px}
 
+/* ── fasekoppen ──
+   Klein en rustig als je er niet bent, met de toelichting erbij zodra je er
+   wel bent. Zo weet je bij "Voorbereiden" dat het gisteren had gekund. */
+.fasekop{display:flex;align-items:baseline;gap:10px;margin:20px 2px 8px}
+.fasekop:first-of-type{margin-top:12px}
+.fasekop .fn{font-size:12px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--grijs2);flex:none}
+.fasekop .fu{flex:1;min-width:0;font-size:12.5px;color:var(--grijs3);
+  letter-spacing:-.005em}
+.fasekop .ft{flex:none;font-size:12px;font-weight:700;color:var(--grijs3);
+  font-variant-numeric:tabular-nums;display:flex;align-items:center}
+.fasekop .ft svg{width:13px;height:13px;color:var(--groen)}
+.fasekop.nu .fn{color:var(--ink)}
+.fasekop.af .fn{color:var(--grijs3)}
+.fasepaneel{opacity:.62;transition:opacity .25s}
+.fasepaneel.nu{opacity:1}
+
 /* de route: stappen zijn verbonden, je ziet waar je bent */
 .groep.inroute{position:relative}
 .groep.inroute::before{content:'';position:absolute;left:29px;top:0;bottom:0;width:2px;background:#e9e9ec}
-.groep.inroute:first-child::before{top:24px}
-.groep.inroute:last-of-type::before{bottom:calc(100% - 26px)}
+/* De verbindingslijn liep door de hele route; nu loopt hij per fase, anders
+   hangt hij in de lucht tussen twee koppen. */
+.fasepaneel .groep.inroute:first-child::before{top:24px}
+.fasepaneel .groep.inroute:last-child::before{bottom:calc(100% - 26px)}
 .arij .rmark{width:20px;height:20px;border-radius:99px;flex:none;display:grid;place-items:center;
   position:relative;z-index:1;background:#fff;border:2px solid #e0e0e4;color:transparent}
 .arij.rgedaan .rmark{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -3174,7 +3193,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v459 · 18 aug 2026';
+const APPVERSIE='v460 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4474,6 +4493,25 @@ const BSTAPPEN=[
   {key:'afwijking',label:'Afwijkingen',kern:false,klaar:()=>true,sheet:'afwijking',knop:'Afwijking melden',
    waarde:b=>bTel(b,'afwijking')||'geen'}
 ];
+/* ═══════════ drie soorten werk op één dag ═══════════
+   De route was één lijst van zes gelijkwaardige stappen. Maar lotnummers
+   vastleggen doe je rustig aan de keukentafel, de dag ervoor. Ganache maken
+   doe je met chocolade aan je handen terwijl de room afkoelt. Schoonmaken en
+   tellen doe je als alles al klaar is.
+
+   Dat zijn drie verschillende momenten met verschillende eisen, en ze zagen
+   er precies hetzelfde uit. Nu zie je in één blik waar je bent — en welk deel
+   je gisteren al had kunnen doen. */
+const BFASEN=[
+  {k:'voor',  n:'Voorbereiden', uit:'kan de dag ervoor',
+   stappen:['ingredienten','opening','temperatuur']},
+  {k:'maken', n:'Maken',        uit:'hier sta je aan de machine',
+   stappen:['productie']},
+  {k:'na',    n:'Afsluiten',    uit:'als alles klaar is',
+   stappen:['schoonmaak','afronden']}
+];
+const faseVan=key=>(BFASEN.find(f=>f.stappen.includes(key))||{}).k||'los';
+
 const KERN=BSTAPPEN.filter(s=>s.kern);
 const bGedaan=b=>KERN.filter(s=>s.klaar(b)).length;
 const bVolgende=b=>KERN.find(s=>!s.klaar(b));
@@ -6071,12 +6109,31 @@ function batchHTML(){
         <span class="waarde ${w!=='—'?'gevuld':''}">${esc(w)}</span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
   };
-  groepen=BSTAPPEN.map(bstapRij).join('');
+  /* De fase waar je nu in zit is die van de eerstvolgende openstaande stap. */
+  const nuFase=nu?faseVan(nu.key):'na';
+  const faseHtml=BFASEN.map(f=>{
+    const stappen=BSTAPPEN.filter(s=>f.stappen.includes(s.key));
+    if(!stappen.length) return '';
+    const af=stappen.filter(s=>s.klaar(b)).length;
+    const bezigF=f.k===nuFase;
+    return `<div class="fasekop ${bezigF?'nu':''} ${af===stappen.length?'af':''}">
+        <span class="fn">${esc(f.n)}</span>
+        <span class="fu">${bezigF?esc(f.uit):''}</span>
+        <span class="ft">${af===stappen.length?svg(I.vink,'2.6'):af+' / '+stappen.length}</span>
+      </div>
+      <div class="paneel fasepaneel ${bezigF?'nu':''}">${stappen.map(bstapRij).join('')}</div>`;
+  }).join('');
+  /* Ontvangst en afwijkingen horen bij geen enkele fase: die doe je als het
+     nodig is, en anders nooit. */
+  const losse=BSTAPPEN.filter(s=>faseVan(s.key)==='los');
 
   const verw=verwachteDuur(b), bezig=werkTotaal(b);
   h+=`<div class="blokkop"><span class="eyebrow">De route</span>
       <span class="tel">${bGedaan(b)} van ${KERN.length}</span></div>
-    <div class="paneel">${groepen}</div>
+    ${faseHtml}
+    ${losse.length?`<div class="fasekop"><span class="fn">Als het nodig is</span>
+        <span class="fu"></span><span class="ft"></span></div>
+      <div class="paneel fasepaneel">${losse.map(bstapRij).join('')}</div>`:''}
     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Naslag</span></div>
     <div class="paneel">${naslag}</div>
     ${(()=>{
