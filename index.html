@@ -1327,7 +1327,8 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   color:var(--grijs2);font-size:11.5px;font-weight:700;display:grid;place-items:center;
   font-variant-numeric:tabular-nums}
 .wwkaart .wwt{flex:1;min-width:0;text-align:left;font-size:14.5px;line-height:1.35;
-  color:var(--ink);letter-spacing:-.01em}
+  color:var(--ink);letter-spacing:-.01em;-webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none}
 .wwkaart .wwt em{display:inline-flex;align-items:center;gap:3px;font-style:normal;
   margin-left:7px;padding:2px 7px;border-radius:99px;background:var(--choco-wash);
   color:var(--choco);font-size:11.5px;font-weight:600;white-space:nowrap;
@@ -1343,10 +1344,19 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .wwkaart .wwk[disabled]{opacity:.22}
 .wwkaart.bezig{border-color:var(--choco-licht);background:var(--choco-wash)}
 .wwvoor{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+/* Ingedrukt houden gaf op de iPhone een vergrootglas met blauwe
+   selectiegrepen: iOS dacht dat je tekst wilde kopiëren. Dat gedrag hoort
+   niet bij een knop, en het lag boven op het gebaar waarmee je nu een
+   voorstel herschrijft. */
 .wwvoor button{display:inline-flex;align-items:center;gap:5px;padding:7px 11px;
   border-radius:99px;background:var(--bg);border:1px solid transparent;
   font-size:12.5px;color:var(--ink2);letter-spacing:-.01em;text-align:left;
-  line-height:1.3}
+  line-height:1.3;-webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none}
+/* zolang je hem vasthoudt zie je dat er iets staat te gebeuren */
+.wwvoor button.vast{background:var(--choco-wash);border-color:var(--choco-licht);
+  color:var(--choco)}
+.wwtip{padding-top:14px;line-height:1.45}
 .wwvoor button:active{background:var(--choco-wash);border-color:var(--choco-licht);
   color:var(--choco)}
 .wwvoor button svg{width:13px;height:13px;stroke-width:2.2;flex:none;color:var(--grijs2)}
@@ -3101,7 +3111,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v449 · 18 aug 2026';
+const APPVERSIE='v450 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17883,6 +17893,9 @@ function sheetOnderdeel(idx,stap){
        we welk voorstel we moeten bijwerken. */
     const bron=new Map();
     const bronZet=(getoond,origineel)=>{ if(getoond&&origineel) bron.set(getoond,origineel) };
+    /* Houd je een voorstel ingedrukt, dan schrijf je hém om in plaats van een
+       kopie: hier staat welk voorstel dat is zolang je aan het typen bent. */
+    let voorstelBron=null;
 
     const wwTeken=()=>{
       const L=$('#wwL');
@@ -17978,22 +17991,66 @@ function sheetOnderdeel(idx,stap){
         uit+=groep(g.k.toUpperCase(),paren.map(p=>p.toon),eersteOpen,paren.map(p=>p.van));
         eersteOpen=false;
       });
+      if(uit) uit+=`<div class="geen wwtip">Houd een voorstel ingedrukt om hem in
+        jouw eigen woorden te zetten — die versie blijft staan.</div>`;
       V.innerHTML=uit;
 
-      $$('[data-wwv]').forEach(b=>b.onclick=veilig('voorstel toevoegen',()=>{
-        o.werkwijze.push(b.dataset.wwv);
-        bronZet(b.dataset.wwv, b.dataset.wwbron||b.dataset.wwv);
-        wwTeken(); wwVoor();
-      }));
+      /* Kort tikken voegt toe, ingedrukt houden zet hem in het invoerveld om
+         hem te herschrijven. Bewegen betekent scrollen, dan telt het niet. */
+      $$('[data-wwv]').forEach(b=>{
+        let klok=null, lang=false, x0=0, y0=0;
+        const los=()=>{ clearTimeout(klok); b.classList.remove('vast') };
+        b.onpointerdown=e=>{
+          lang=false; x0=e.clientX; y0=e.clientY;
+          clearTimeout(klok);
+          klok=setTimeout(()=>{
+            lang=true; b.classList.remove('vast');
+            const toon=b.dataset.wwv;
+            voorstelBron=b.dataset.wwbron||toon;
+            bewerkt=-1;
+            $('#wwIn').value=toon;
+            wwKnop(); wwTeken();
+            $('#wwIn').focus();
+            toast('Schrijf het in jouw woorden en tik op plus.');
+          },480);
+          setTimeout(()=>{ if(klok) b.classList.add('vast') },120);
+        };
+        b.onpointermove=e=>{
+          if(Math.abs(e.clientX-x0)>10||Math.abs(e.clientY-y0)>10) los();
+        };
+        b.onpointerup=los;
+        b.onpointercancel=los;
+        b.onpointerleave=los;
+        b.oncontextmenu=e=>e.preventDefault();
+        b.onclick=veilig('voorstel toevoegen',()=>{
+          los();
+          if(lang){ lang=false; return }   /* al afgehandeld door het indrukken */
+          o.werkwijze.push(b.dataset.wwv);
+          bronZet(b.dataset.wwv, b.dataset.wwbron||b.dataset.wwv);
+          wwTeken(); wwVoor();
+        });
+      });
     };
 
     const wwKnop=()=>{
       const k=$('#wwAdd'); if(k) k.disabled=!$('#wwIn').value.trim();
+      /* veld leeggemaakt? dan ben je van gedachten veranderd */
+      if($('#wwIn')&&!$('#wwIn').value.trim()) voorstelBron=null;
     };
     const wwToevoegen=()=>{
       const t=$('#wwIn').value.trim();
       if(!t) return;
-      if(bewerkt>=0){
+      /* Kwam je hier via het indrukken van een voorstel, dan verandert het
+         voorstel zelf mee en komt jouw versie ook meteen in de lijst. */
+      if(voorstelBron!==null){
+        const van=voorstelBron; voorstelBron=null;
+        o.werkwijze.push(t); bronZet(t,van);
+        if(t!==van){
+          wwCorrectieZet(van,t);
+          toast('Onthouden — dit voorstel is nu jouw versie.');
+        }
+      }
+      else if(bewerkt>=0){
         const oud=o.werkwijze[bewerkt];
         o.werkwijze[bewerkt]=t;
         bewerkt=-1;
