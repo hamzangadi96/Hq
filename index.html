@@ -1875,10 +1875,34 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .tijdbalk .tt{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;flex:none}
 /* de globale klokbalk staat bovenaan elk scherm, boven de eerste kaart */
 .klokbalk{margin-bottom:16px}
-.werkrij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-bottom:1px solid var(--lijn);text-align:left}
-.vinkknop{width:36px;height:36px;border-radius:10px;background:var(--bg);flex:none;display:grid;place-items:center;color:transparent}
+/* Zeventien rijen van 69 hoog is vier schermen. Op 52 zie je je hele dag
+   in twee. */
+.werkrij{display:flex;align-items:center;gap:12px;width:100%;padding:9px 0;border-bottom:1px solid var(--lijn);text-align:left}
+.werkrij.af .wn{color:var(--grijs2)}
+.werkrij.straks .wn,.werkrij.bezig .wn{font-weight:600}
+.werkrij .wn em{display:block;font-style:normal;font-size:12px;font-weight:600;
+  color:var(--choco);margin-top:2px;letter-spacing:-.005em}
+.werkrij.af .wn em{color:var(--grijs2)}
+/* Een leeg vakje met randje leest als "nog te doen"; een grijs blok las als
+   uitgezet, net als bij de openingscheck. */
+.vinkknop{width:30px;height:30px;border-radius:9px;background:transparent;
+  border:1.7px solid #d8d8dc;flex:none;display:grid;place-items:center;color:transparent}
 .vinkknop svg{width:15px;height:15px}
-.vinkknop.aan{background:var(--groen);color:#fff}
+.vinkknop.aan{background:var(--groen);border-color:var(--groen);color:#fff}
+/* Zeven tussendoor-activiteiten stonden altijd open en kostten het halve
+   scherm, terwijl je ze zelden gebruikt. */
+.tussen{border-top:1px solid var(--lijn);margin-top:14px}
+.tussen summary{display:flex;align-items:center;gap:10px;padding:14px 0;
+  cursor:pointer;list-style:none}
+.tussen summary::-webkit-details-marker{display:none}
+.tussen summary .ts{flex:1;font-size:12px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--grijs2)}
+.tussen summary .tt{flex:none;font-style:normal;font-size:11px;font-weight:700;
+  color:var(--grijs2);background:var(--bg);border-radius:99px;padding:2px 8px}
+.tussen summary svg{width:14px;height:14px;color:var(--grijs3);
+  transform:rotate(90deg);transition:transform .18s}
+.tussen[open] summary svg{transform:rotate(-90deg)}
+.tussen[open] summary .ts{color:var(--ink2)}
 .startknop{flex:1;display:flex;align-items:center;gap:12px;text-align:left;min-width:0}
 /* geleide modus */
 .klokvak{position:relative;width:100%;max-width:280px;margin:8px auto 0;aspect-ratio:1}
@@ -3193,7 +3217,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v460 · 18 aug 2026';
+const APPVERSIE='v461 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16287,32 +16311,50 @@ function sheetProductie(){
   const b=batch(); if(!b) return;
   const w=lopendWerk(b), st=planVan(b);
   const perAct={}; werkPerActiviteit(b).forEach(x=>perAct[x.act]=x.sec);
+  const plan=bPlan(b);
+  const volgende=planVolgende(b);
   const rij=n=>{
     const gedaan=st[n]&&st[n].gedaan, bezig=w&&w.act===n;
-    return `<div class="werkrij ${bezig?'bezig':''}">
-      <button type="button" class="vinkknop ${gedaan?'aan':''}" data-vink="${esc(n)}">${svg(I.vink,'2.4')}</button>
+    /* Zeventien identieke rijen zeiden nergens waar je heen moest. De
+       eerstvolgende openstaande stap is nu herkenbaar, ook als je er nog
+       niet mee begonnen bent. */
+    const nu=!gedaan&&!bezig&&n===volgende;
+    /* Hoeveel handelingen staan er nog open in deze stap? Alleen tonen waar
+       het telt: bij wat je nu doet of zo gaat doen. */
+    const g=(bezig||nu)?geleidStand(b,n):null;
+    const rest=g&&!g.klaar?` · nog ${g.totaal-g.gedaan} van ${g.totaal}`:'';
+    return `<div class="werkrij ${bezig?'bezig':''} ${nu?'straks':''} ${gedaan?'af':''}">
+      <button type="button" class="vinkknop ${gedaan?'aan':''}" data-vink="${esc(n)}"
+        aria-label="${gedaan?'Weer openzetten':'Afvinken'}">${svg(I.vink,'2.4')}</button>
       <button type="button" class="startknop" data-stap="${esc(n)}">
-        <span class="wn" style="${gedaan&&!bezig?'color:var(--grijs2)':''}">${esc(n)}</span>
-        <span class="wt">${bezig?'bezig':(perAct[n]?duurKort(perAct[n]):'')}</span></button></div>`;
+        <span class="wn">${esc(n)}${bezig||nu?`<em>${bezig?'bezig':'nu aan de beurt'}${rest}</em>`:''}</span>
+        <span class="wt">${perAct[n]?duurKort(perAct[n]):''}</span></button></div>`;
   };
   /* alles wat niet in het plan staat: tussendoor */
-  const plan=bPlan(b);
   const tussen=S.activiteiten.filter(a=>!plan.includes(a));
-  const volgende=planVolgende(b);
+  /* De teller stond helemaal onderaan, ná de zeven tussendoor-activiteiten.
+     Naast de titel zie je hem meteen. */
   sheet('Productiestappen',
     `<p class="hint">Tik een stap aan om eraan te beginnen of ‘m te hervatten — de timer schakelt mee.
        Vink links af als een stap écht klaar is.</p>
      <div class="veld">${plan.map(rij).join('')||'<div class="geen">Nog geen stappen ingesteld.</div>'}</div>
-     ${tussen.length?`<div class="subkop">Tussendoor</div>
+     ${tussen.length?`<details class="tussen"${w&&tussen.includes(w.act)?' open':''}>
+       <summary><span class="ts">Tussendoor</span>
+         <i class="tt">${tussen.length}</i>${svg(I.pijl,'2')}</summary>
        <div class="veld">${tussen.map(a=>`<div class="werkrij ${w&&w.act===a?'bezig':''}">
          <button type="button" class="startknop" data-tussen="${esc(a)}">
-           <span class="wn">${esc(a)}</span>
-           <span class="wt">${w&&w.act===a?'bezig':(perAct[a]?duurKort(perAct[a]):'')}</span></button></div>`).join('')}</div>`:''}
-     <div class="totaalregel"><span class="l">Stappen gedaan</span>
-       <span class="w">${planGedaan(b)} van ${plan.length}</span></div>
+           <span class="wn">${esc(a)}${w&&w.act===a?'<em>bezig</em>':''}</span>
+           <span class="wt">${perAct[a]?duurKort(perAct[a]):''}</span></button></div>`).join('')}</div>
+       </details>`:''}
      <div class="voet" style="margin-top:14px"><button id="pStappenIns">Stappen aanpassen</button></div>`,
-    w ? `<button class="prim" style="margin-top:0" id="pStop">${svg(I.vink)}Timer stoppen</button>`
-      : (volgende?`<button class="prim" style="margin-top:0" id="pStart">Beginnen met ${esc(volgende.toLowerCase())}</button>`:''));
+    /* "Timer stoppen" was de hoofdknop terwijl je juist door wilde werken.
+       Doorgaan is de hoofdactie; stoppen staat er plat naast. */
+    (w
+      ? `<div class="wzknoppen">
+           <button class="sec plat" id="pStop">Timer stoppen</button>
+           <button class="prim" id="pVerder">Verder met ${esc(w.act.toLowerCase())}</button></div>`
+      : (volgende?`<button class="prim" style="margin-top:0" id="pStart">Beginnen met ${esc(volgende.toLowerCase())}</button>`:'')),
+    planGedaan(b)+' van '+plan.length+' gedaan');
 
   $('#pStappenIns').onclick=()=>sheetLijst('werkplan');
   const ga=naam=>{sluitToetsenbord();startWerk(b,naam);stapTimer=null;sheetProductie();render();
@@ -16328,6 +16370,13 @@ function sheetProductie(){
     toast(huidig?'Weer open gezet.':n+' afgevinkt.');
   });
   if($('#pStart')) $('#pStart').onclick=()=>sheetStapDoen(volgende);
+  if($('#pVerder')) $('#pVerder').onclick=veilig('verder met de stap',()=>{
+    sluitToetsenbord();
+    /* Ben je al halverwege, dan meteen de geleide modus in op jouw plek. */
+    const g=geleidStand(b,w.act);
+    if(g&&g.gedaan&&!g.klaar) return sheetGeleid(w.act,g.index);
+    sheetStapDoen(w.act);
+  });
   if($('#pStop')) $('#pStop').onclick=()=>{stopWerk(b);sheetProductie();render();toast('Timer gestopt.')};
 }
 
