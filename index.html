@@ -2207,6 +2207,151 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;color
 /* het palet-knopje mocht niet meeschalen met de dagen */
 .weekstrip .wkleuren{flex:none}
 
+/* ── correcties na de eerste proef op de telefoon ──
+   De dagen werden hoge ovalen: het blokje rekte mee met zijn inhoud en de
+   ronding van 16 maakte er bij die breedte een pil van. Vaste hoogte, kleinere
+   ronding, inhoud gecentreerd. */
+.weekstrip{gap:6px}
+.weekstrip .wdag{height:58px;padding:0;border-radius:13px;
+  justify-content:center;gap:2px;max-width:56px}
+.weekstrip .wdag .wd{font-size:10px;letter-spacing:.05em;line-height:1}
+.weekstrip .wdag .wn{font-size:18px;line-height:1.05}
+.weekstrip .wstippen{height:4px;margin-top:2px}
+
+/* De labels braken over drie regels en maakten de chips twee keer zo hoog
+   als het cijfer erboven. Eén regel, en wat niet past wordt afgekapt. */
+.kpirij{gap:8px}
+.kpichip{padding:12px 11px;min-height:0}
+.kpichip b{font-size:23px}
+.kpichip>span{font-size:11px;line-height:1.25;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.kpid{margin-top:4px;font-size:11px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+
+/* ══ hero v2 ══ ring links, tekst rechts.
+   Alles op één horizontale lijn: je leest in één beweging hoe ver je bent
+   en waarmee. De oude opzet stapelde ring, titel en regels onder elkaar en
+   was daardoor bijna een heel scherm hoog. */
+.hoofdkaart.hk2{padding:18px 18px 16px;border-radius:22px;
+  display:flex;flex-direction:column;gap:14px}
+.hk2kop{display:flex;align-items:center;gap:10px}
+.hk2kop .eyebrow{flex:1;font-size:11px;letter-spacing:.09em;color:#8f8f98}
+.hk2badge{flex:none;padding:5px 11px;border-radius:99px;font-size:11.5px;
+  font-weight:600;letter-spacing:.01em;background:rgba(110,70,48,.55);color:#fff}
+.hk2lijf{display:flex;align-items:center;gap:16px}
+.hk2ring{position:relative;width:78px;height:78px;flex:none;display:grid;place-items:center}
+.hk2ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.hk2ring .baan{fill:none;stroke:rgba(255,255,255,.12);stroke-width:6}
+.hk2ring .vul{fill:none;stroke:var(--choco-licht);stroke-width:6;stroke-linecap:round;
+  transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
+.hk2ring.amber .vul{stroke:#fbbf24}
+.hk2ring .binnen{display:flex;flex-direction:column;align-items:center;line-height:1}
+.hk2ring .binnen b{font-size:19px;font-weight:700;letter-spacing:-.04em;color:#fff;
+  font-variant-numeric:tabular-nums}
+.hk2ring .binnen em{font-size:9.5px;font-style:normal;color:#8f8f98;margin-top:3px}
+.hk2tekst{flex:1;min-width:0}
+.hoofdkaart.hk2 .hk2tekst h2{margin:0;font-size:21px;font-weight:700;
+  letter-spacing:-.03em;line-height:1.15;color:#fff}
+.hoofdkaart.hk2 .hk2tekst .sub{margin-top:5px;font-size:13px;color:#a1a1aa;line-height:1.4}
+/* de statusregel onderin: wat er nú gebeurt */
+.hk2stap{display:flex;align-items:flex-start;gap:9px;padding-top:13px;
+  border-top:1px solid rgba(255,255,255,.10)}
+.hk2stap i{width:7px;height:7px;border-radius:99px;background:var(--choco-licht);
+  flex:none;margin-top:5px;animation:pols 2s infinite}
+.hk2stap i.amber{background:#fbbf24}
+.hk2stap span{font-size:13.5px;color:#fff;line-height:1.4;letter-spacing:-.01em}
+
+/* ══ segmented control ══ */
+.segrij{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+  background:var(--card);border:1px solid var(--lijn);padding:4px;
+  border-radius:14px;margin-bottom:14px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04)}
+.segknop{height:40px;border-radius:10px;font-size:14px;font-weight:600;
+  color:var(--grijs);letter-spacing:-.01em;text-align:center;
+  display:flex;align-items:center;justify-content:center}
+.segknop.aan{background:var(--choco);color:#fff;
+  box-shadow:0 1px 4px rgba(74,43,24,.28)}
+.segknop:active:not(.aan){background:var(--choco-wash);color:var(--choco)}
+
+/* ══ tijdlijn ══
+   De lijn loopt links buiten de kaarten, de stip staat erop. Een lijn dóór
+   de kaarten heen leest als één blok; ernaast leest het als stappen. */
+.stappenlijn{position:relative;display:flex;flex-direction:column;gap:10px;
+  padding-left:30px}
+.stappenlijn::before{content:'';position:absolute;left:6px;top:16px;bottom:16px;
+  width:1px;background:var(--lijn)}
+.stapkaart{position:relative;display:block;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--lijn);border-radius:14px;
+  padding:13px 15px;box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+.stapstip{position:absolute;left:-30px;top:19px;width:13px;height:13px;
+  border-radius:99px;background:var(--card);border:2px solid var(--grijs3);
+  box-sizing:border-box}
+.staptop{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+.staptop em{flex:1;font-style:normal;font-size:12.5px;color:var(--grijs2);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stapmerk{flex:none;padding:3px 9px;border-radius:99px;font-size:10.5px;
+  font-weight:600;background:var(--bg);color:var(--grijs2)}
+.stapkaart b{display:block;font-size:15.5px;font-weight:600;letter-spacing:-.02em;
+  color:var(--ink);line-height:1.25}
+.stapkaart small{display:block;margin-top:3px;font-size:12.5px;color:var(--grijs2);
+  line-height:1.35}
+
+/* afgerond: groene stip, titel doorgestreept en gedempt */
+.stapkaart.gedaan .stapstip{background:var(--groen);border-color:var(--groen)}
+.stapkaart.gedaan b{color:var(--grijs2);text-decoration:line-through}
+.stapkaart.gedaan .stapmerk{background:rgba(21,128,61,.10);color:var(--groen)}
+/* nu aan de beurt: bruine ring met kern, wash-achtergrond, streep links */
+.stapkaart.bezig{background:var(--choco-wash);border-color:rgba(74,43,24,.18);
+  box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
+.stapkaart.bezig .stapstip{border-color:var(--choco);background:var(--card);
+  box-shadow:0 0 0 4px rgba(74,43,24,.12)}
+.stapkaart.bezig .stapstip::after{content:'';position:absolute;inset:2px;
+  border-radius:99px;background:var(--choco)}
+.stapkaart.bezig .stapmerk{background:rgba(74,43,24,.12);color:var(--choco)}
+.stapkaart.bezig b{color:var(--choco)}
+/* wachtend: rustig op de achtergrond */
+.stapkaart.wacht{background:#fafafa;box-shadow:none}
+.stapkaart.wacht b{color:var(--grijs)}
+.stapkaart:active{transform:scale(.985)}
+.stapleeg{padding:22px;text-align:center;font-size:14px;color:var(--grijs2);
+  background:#fafafa;border:1px solid var(--lijn);border-radius:16px}
+
+/* ══ vraagt om actie ══ ronde icoon-badge links */
+.actielijst{display:flex;flex-direction:column;gap:10px}
+.actiekaart{display:flex;align-items:center;gap:13px;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--lijn);border-radius:16px;padding:13px 15px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+.actiekaart.eerste{background:var(--choco-wash);border-color:rgba(74,43,24,.18);
+  box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
+.abadge{width:40px;height:40px;border-radius:99px;flex:none;display:grid;
+  place-items:center;background:var(--bg);color:var(--ink)}
+.actiekaart.eerste .abadge{background:#fff;color:var(--choco)}
+.abadge svg{width:18px;height:18px;stroke-width:1.9}
+.atekst{flex:1;min-width:0}
+.atekst b{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.02em;
+  color:var(--ink);line-height:1.3}
+.atekst small{display:block;margin-top:3px;font-size:12.5px;color:var(--grijs2)}
+.amerk{flex:none;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;
+  background:var(--bg);color:var(--grijs)}
+.amerk.let{background:rgba(180,83,9,.12);color:var(--let-op)}
+.actiekaart:active{background:var(--choco-wash);border-color:rgba(74,43,24,.25)}
+
+/* ══ twee knoppen onderaan ══ */
+.knoppaar{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.knoppaar .prim{margin-top:0;height:52px;border-radius:16px;font-size:15.5px}
+.knoppaar .knop2{margin-top:0;height:52px;border-radius:16px;font-size:15.5px}
+
+/* ══ tabbalk wit ══
+   Was een zwarte capsule. Naast een donkere hoofdkaart erboven waren dat twee
+   zwarte vlakken die om je aandacht vochten. Wit met een chocolade-actief
+   item laat de hoofdkaart weer het enige donkere zijn op het scherm. */
+.tabpil{background:rgba(255,255,255,.94);border:1px solid var(--lijn);
+  box-shadow:0 1px 2px rgba(24,24,27,.05),0 8px 28px rgba(24,24,27,.14)}
+.tab{color:var(--grijs2)}
+.tab.actief{color:var(--choco);background:var(--choco-wash)}
+.tab:active{color:var(--choco)}
+
 /* ── weekstrip: gekozen dag als volle pil ──
    Was een subtiel randje. Nu is de dag waar je staat niet te missen. */
 .weekstrip .wdag.nu,.weekstrip .wdag.nu.leeg,.weekstrip .wdag.nu.vol{
@@ -2338,7 +2483,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v395 · 18 aug 2026';
+const APPVERSIE='v397 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3974,8 +4119,8 @@ function weekstripHTML(dagenVooruit){
       :(DAGSOORT[k]||{}).n).join(' · ');
     const nieuweMaand=i>0&&dt.getDate()===1;
     /* vandaag toont de maand in plaats van de dagletter — dat scheelt een regel */
-    const bovenaan = i===0 ? MND[dt.getMonth()].slice(0,3)
-      : nieuweMaand ? MND[dt.getMonth()].slice(0,3) : DAG[dt.getDay()].slice(0,2);
+    const bovenaan = nieuweMaand ? MND[dt.getMonth()].slice(0,3)
+      : DAG[dt.getDay()].slice(0,2);
     uit+=`<button class="wdag ${i===0?'nu':''} ${taken.length?'vol':'leeg'} ${nieuweMaand?'maand':''}"
       data-weekdag="${d}" title="${esc(titel||'niets gepland')}">
       <span class="wd">${bovenaan}</span>
@@ -4194,9 +4339,14 @@ function begroetingHTML(){
    pakt de voornaam als die er is, anders de eerste woord van de bedrijfsnaam. */
 function bedrijfVoornaam(){
   const b=bedrijf()||{};
-  const n=(b.contact||b.naam||'').trim();
-  if(!n) return 'daar';
-  return n.split(/[\s,]+/)[0];
+  const schoon=w=>{
+    w=(w||'').trim();
+    if(!w||w.includes('@')||w.includes('.')||/^\d/.test(w)) return '';
+    return w.split(/[\s,]+/)[0];
+  };
+  return S.roepnaam&&String(S.roepnaam).trim()
+    ? String(S.roepnaam).trim().split(/[\s,]+/)[0]
+    : (schoon(b.contact)||schoon(b.naam)||'daar');
 }
 
 /* Drie cijfers met het verschil ten opzichte van gisteren. Zonder dat verschil
@@ -4212,21 +4362,50 @@ function kpiHTML(){
 
   const delta=(nu,eerder,eenheid)=>{
     const d=nu-eerder;
-    if(!eerder&&!nu) return '<span class="kpid vlak">nog niets vandaag</span>';
-    if(d===0) return '<span class="kpid vlak">gelijk aan gisteren</span>';
+    if(!eerder&&!nu) return '<span class="kpid vlak">nog niets</span>';
+    if(d===0) return '<span class="kpid vlak">als gisteren</span>';
     const op=d>0;
     return `<span class="kpid ${op?'pos':'neg'}">${op?'\u25B2':'\u25BC'} ${
       op?'+':'\u2212'}${Math.abs(d)}${eenheid||''}</span>`;
   };
   return `<div class="kpirij">
-    <div class="kpichip"><b>${bN}</b><span>${bN===1?'batch':'batches'} vandaag</span>
-      ${delta(bN,bG)}</div>
-    <div class="kpichip"><b>${sN}</b><span>bonbons gepland</span>
-      ${delta(sN,sG)}</div>
-    <div class="kpichip"><b>${open.length}</b><span>open ${open.length===1?'order':'orders'}</span>
+    <div class="kpichip"><b>${bN}</b><span>vandaag</span>${delta(bN,bG)}</div>
+    <div class="kpichip"><b>${sN}</b><span>bonbons</span>${delta(sN,sG)}</div>
+    <div class="kpichip"><b>${open.length}</b><span>orders</span>
       ${laat?`<span class="kpid neg">${laat} moet weg</span>`
             :'<span class="kpid vlak">niets dringend</span>'}</div>
   </div>`;
+}
+
+/* De zes kernstappen als tijdlijn: de lijn loopt links langs de kaarten,
+   de stip staat óp de lijn. Gedaan is groen, de eerstvolgende is bezig, de
+   rest wacht. Zo zie je in één blik waar je bent. */
+function stappenlijnHTML(b){
+  const f=S.stapFilter||'alles';
+  const volgende=bVolgende(b);
+  const rijen=KERN.map(st=>{
+    const klaar=st.klaar(b);
+    const stand=klaar?'gedaan':(volgende&&volgende.key===st.key?'bezig':'wacht');
+    let w=(st.waarde?st.waarde(b):'')||'';
+    if(w==='—') w='';
+    return {st,stand,waarde:w};
+  }).filter(r=> f==='open'?r.stand!=='gedaan' : f==='gedaan'?r.stand==='gedaan' : true);
+
+  if(!rijen.length) return `<div class="stapleeg">Niets in deze weergave.</div>`;
+
+  return `<div class="stappenlijn">${rijen.map(r=>`
+    <button class="stapkaart ${r.stand}" data-sheet="${r.st.sheet}">
+      <i class="stapstip"></i>
+      <span class="stapvak">
+        <span class="staptop">
+          <em>${r.waarde?esc(r.waarde):'nog niets vastgelegd'}</em>
+          <span class="stapmerk">${r.stand==='gedaan'?'afgerond'
+            :r.stand==='bezig'?'nu aan de beurt':'wachtend'}</span>
+        </span>
+        <b>${esc(r.st.label)}</b>
+        <small>${esc(r.st.knop)}</small>
+      </span>
+    </button>`).join('')}</div>`;
 }
 
 function dashboardHTML(){
@@ -4239,63 +4418,93 @@ function dashboardHTML(){
     const b=t.b, v=bVolgende(b), w=lopendWerk(b);
     const gedaan=bGedaan(b), totaal=KERN.length;
     const pct=totaal?Math.min(100,Math.round(gedaan/totaal*100)):0;
-    const omtrek=2*Math.PI*57;
-    h+=`<div class="hoofdkaart">
-      <div class="stap" style="text-align:center">Dag ${dagNummer(b)} · ${b.code}</div>
-      <div class="hkmidden">
-        <span class="groteRing ${b.status==='pauze'?'amber':''}">
-          <svg viewBox="0 0 132 132" aria-hidden="true">
-            <circle class="baan" cx="66" cy="66" r="57"></circle>
-            ${pct>0?`<circle class="vul" cx="66" cy="66" r="57"
+
+    /* ── hero: ring links, tekst rechts ──
+       De ring stond gecentreerd met de tekst eronder; dat kostte een half
+       scherm en het getal in de ring was het aantal bonbons, niet je
+       voortgang. Nu staat naast elkaar wat bij elkaar hoort. */
+    const omtrek=2*Math.PI*30;
+    h+=`<div class="hoofdkaart hk2">
+      <div class="hk2kop">
+        <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
+        <span class="hk2badge">${esc(b.code)}</span>
+      </div>
+      <div class="hk2lijf">
+        <span class="hk2ring ${b.status==='pauze'?'amber':''}">
+          <svg viewBox="0 0 68 68" aria-hidden="true">
+            <circle class="baan" cx="34" cy="34" r="30"></circle>
+            ${pct>0?`<circle class="vul" cx="34" cy="34" r="30"
               stroke-dasharray="${(omtrek*pct/100).toFixed(1)} ${omtrek.toFixed(1)}"></circle>`:''}
           </svg>
-          <span class="binnen"><span class="getal">${bTotaal(b)}</span>
-            <span class="onder">bonbons</span></span>
+          <span class="binnen"><b>${pct}%</b><em>gereed</em></span>
+        </span>
+        <span class="hk2tekst">
+          <h2>${esc(bNamen(b))}</h2>
+          <div class="sub">${bTotaal(b)} bonbons · ${chocNaam(b.chocolade||'').toLowerCase()
+            } · dag ${dagNummer(b)}</div>
         </span>
       </div>
-      <h2 style="text-align:center;margin:0">${esc(bNamen(b))}</h2>
-      <div class="hkstappen"><b>${gedaan} van ${totaal} stappen</b>${
-        b.status==='pauze'?' · stilgelegd':''}</div>
-      <div class="sub" style="text-align:center;margin-top:-4px">volgende stap: ${
-        v?v.label.toLowerCase():'afronden'}</div>
-      ${w?`<div class="loopt"><span class="tp"></span><span class="ln">${esc(w.act)}</span>
-        <span class="lt tikker">${duurTekst(Date.now()-w.start)}</span></div>`:''}
-      <button class="prim" data-batch="${b.id}">${b.status==='pauze'?'Batch hervatten':'Verder met deze batch'}</button>`;
-    if(b.regels.length){
-      const rg=b.regels[0], per=malHoltes(rg.receptId), aant=Math.max(1,Math.ceil(rg.aantal/per));
-      const qt=b.regels.length>1?`${b.code}/1`:b.code;
-      h+=`<button class="stickerblok" data-stickers="${b.id}">
-        <span class="qrmini">${qrSvg(qt,20)}</span>
-        <span class="sbnaam">Voorraadstickers</span>
-        <span class="sbaant">${aant}</span>${svg(I.pijl,'2')}</button>`;
-    }
-    h+=`<div class="ksacties">
-      <button class="ksact" data-sheet="temp"><span>${svg(I.temp)}</span>Temperatuur</button>
-      <button class="ksact" data-sheet="opening"><span>${svg(I.vink)}</span>Opening</button>
-      <button class="ksact" data-sheet="ingredienten"><span>${svg(I.doos)}</span>Lotnummers</button>
-      <button class="ksact" data-sheet="haccp"><span>${svg(I.klembord)}</span>HACCP</button>
+      <div class="hk2stap">
+        <i class="${b.status==='pauze'?'amber':''}"></i>
+        <span>${v?esc(v.label)+' — volgende stap':'Alle stappen gedaan — afronden'}${
+          w?' · '+esc(w.act)+' loopt':''}</span>
+      </div>
     </div>`;
-    h+=`</div>`;
 
-    /* wat er bij déze batch nog open staat */
+    /* ── productiestappen als tijdlijn ── */
+    h+=`<div class="blokkop">
+      <span class="eyebrow">Productiestappen</span>
+      <span class="tel">${kort(new Date(vandaag()))}</span></div>`;
+    h+=`<div class="segrij" id="stapFilter">
+      ${['alles','open','gedaan'].map(k=>`<button class="segknop${
+        (S.stapFilter||'alles')===k?' aan':''}" data-stapfilter="${k}">${
+        k==='alles'?'Alles':k==='open'?'Open':'Gedaan'}</button>`).join('')}</div>`;
+    h+=stappenlijnHTML(b);
+
+    /* ── vraagt om actie ── */
     const ing=bIngredienten(b).filter(i=>!heeftLot(b,i.naam));
     const d=dagVan(b,vandaag());
     const geenTemp=!b.logs.some(l=>l.type==='temperatuur'&&l.datum===vandaag());
+    const orders=(S.orders||[]).filter(o=>o.status==='nieuw'
+      &&o.leverdatum&&o.leverdatum<=vandaag());
     const open2=[];
-    if(ing.length) open2.push({ico:I.doos,t:ing.length+(ing.length===1?' ingrediënt zonder lotnummer':' ingrediënten zonder lotnummer'),
-      s:'nodig voor je traceerbaarheid',a:'data-sheet="ingredienten"',let:true});
-    if(!(d&&d.opening)) open2.push({ico:I.vink,t:'Openingscheck nog niet gedaan',
-      s:'vandaag, voor deze batch',a:'data-sheet="opening"',let:true});
+    if(ing.length) open2.push({ico:I.doos,ernst:'let',
+      t:ing.length+(ing.length===1?' ingrediënt zonder lotnummer':' ingrediënten zonder lotnummer'),
+      s:'nodig voor je traceerbaarheid',a:'data-sheet="ingredienten"',r:'Nu'});
+    if(!(d&&d.opening)) open2.push({ico:I.vink,ernst:'let',
+      t:'Openingscheck nog niet gedaan',s:'vandaag, voor deze batch',
+      a:'data-sheet="opening"',r:'Vandaag'});
     if(geenTemp) open2.push({ico:I.temp,t:'Nog geen temperatuur gemeten',
-      s:'vandaag nog niets vastgelegd',a:'data-sheet="temp"'});
-    if(open2.length){
-      h+=`<div class="blokkop"><span class="eyebrow">Bij deze batch</span>
-          <span class="tel let">${open2.length}</span></div>
-        <div class="paneel">${open2.map(x=>`<button class="arij" ${x.a}>
-          <span class="ivak ${x.let?'amber':''}">${svg(x.ico)}</span>
-          <span class="naam">${esc(x.t)}<small>${esc(x.s)}</small></span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
+      s:'vandaag nog niets vastgelegd',a:'data-sheet="temp"',r:'Vandaag'});
+    orders.slice(0,2).forEach(o=>open2.push({ico:I.doos,
+      t:'Order '+esc(o.nummer||o.id)+' — '+esc(klantNaam(o.klantId)),
+      s:kort(new Date(o.leverdatum))+' leveren',a:'data-naar="orders"',r:'Order'}));
+    /* Deze twee zaten eerst als snelknop in de donkere kaart. Die knoppenrij is
+       weg, maar de functies niet: ze staan nu gewoon tussen je acties. */
+    if(b.regels.length){
+      const rg=b.regels[0], per=malHoltes(rg.receptId);
+      open2.push({ico:I.doos,t:'Voorraadstickers afdrukken',
+        s:Math.max(1,Math.ceil(rg.aantal/per))+' stickers voor deze batch',
+        a:`data-stickers="${b.id}"`,r:'Print'});
     }
+    open2.push({ico:I.klembord,t:'HACCP-registratie',
+      s:'controles en metingen van deze batch',a:'data-sheet="haccp"',r:'Open'});
+    if(open2.length){
+      h+=`<div class="blokkop"><span class="eyebrow">Vraagt om actie</span>
+          <span class="tel let">${open2.length}</span></div>
+        <div class="actielijst">${open2.map((x,i)=>`<button class="actiekaart${
+          i===0?' eerste':''}" ${x.a}>
+          <span class="abadge">${svg(x.ico)}</span>
+          <span class="atekst"><b>${x.t}</b><small>${esc(x.s)}</small></span>
+          <span class="amerk ${x.ernst||''}">${esc(x.r)}</span></button>`).join('')}</div>`;
+    }
+
+    /* ── twee knoppen onderaan ── */
+    h+=`<div class="knoppaar">
+      <button class="prim los" data-batch="${b.id}">${
+        b.status==='pauze'?'Batch hervatten':'Verder met deze batch'}</button>
+      <button class="knop2" data-sheet="nieuwbatch">${svg(I.plus)}Batch toevoegen</button>
+    </div>`;
   }
 
   else if(t.soort==='vandaag'){
@@ -12917,6 +13126,9 @@ function bind(){
   $$('[data-toast]').forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
+  $$('[data-stapfilter]').forEach(b=>b.onclick=()=>{
+    S.stapFilter=b.dataset.stapfilter; render();
+  });
   $$('[data-batch]').forEach(b=>b.onclick=()=>{
     S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
     const v=vergetenTimer();
