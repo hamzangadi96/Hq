@@ -2647,16 +2647,32 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
    staat ernaast. Bij drie of meer knoppen breken ze wel af, want dan wordt
    het te smal om te lezen. */
 .sheetvoet{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  justify-content:center;
   padding:10px 20px calc(12px + env(safe-area-inset-bottom))}
 .sheetvoet>*{margin-top:0}
-.sheetvoet .prim{flex:2 1 55%;height:46px;min-width:150px}
-.sheetvoet .sec,.sheetvoet .knop2{flex:1 1 30%;height:46px;margin-top:0;
-  min-width:110px;font-size:14px}
+
+/* De volgorde in de opmaak is: hoofdactie, dan de uitweg. Op het scherm hoort
+   het andersom — vooruit gaat rechts, terug gaat links. Dat is hoe elke
+   telefoon het doet, en je duim zit rechts. Met order draaien we dat om
+   zonder de opmaak overhoop te halen. */
+.sheetvoet .sec,.sheetvoet .knop2{order:2;flex:1 1 30%;height:46px;
+  margin-top:0;min-width:104px;font-size:14px}
+.sheetvoet .prim{order:3;flex:2 1 52%;height:46px;min-width:150px}
+
 /* Eén knop mag gewoon de volle breedte houden. */
 .sheetvoet>:only-child{flex:1 1 100%}
-/* Een knop met een lange tekst zoals "Terug naar overzicht" moet kunnen
-   afbreken naar een eigen regel in plaats van te worden platgedrukt. */
+/* Een lange tekst zoals "Terug naar overzicht" krijgt een eigen regel in
+   plaats van platgedrukt te worden. */
 .sheetvoet .sec.breed{flex:1 1 100%}
+/* De terugknop is een uitweg, geen actie. Hij paste er niet naast zonder de
+   andere twee plat te drukken, dus krijgt hij een eigen regel eronder — niet
+   erboven, want dan lees je hem eerder dan de knop die je nodig hebt.
+   Deze regel staat bewust ná die van .sec, anders wint order:2 alsnog. */
+.sheetvoet .sec.terug,.sheetvoet .terug{order:4;flex:0 0 auto;
+  background:none;color:var(--grijs);padding:0 10px;min-width:0;font-size:13px;
+  height:34px;margin:2px auto 0}
+.sheetvoet .sec.terug:active,.sheetvoet .terug:active{
+  background:var(--choco-wash);color:var(--choco)}
 
 /* ── 1. één donkere knop per scherm ──
    In de voet stonden vaak twee of drie knoppen met hetzelfde gewicht.
@@ -2960,7 +2976,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v440 · 18 aug 2026';
+const APPVERSIE='v441 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20582,7 +20598,7 @@ function sheetIngWizard(naam,stap){
   sheet(naam,body,
     `<button class="prim" style="margin-top:0" id="wzOk">${verder}</button>
      <button class="sec" id="wzOver">${over}</button>
-     ${stap>0?`<button class="sec" id="wzTerug">${svg(I.terug,'2')}Vorige stap</button>`:''}`,
+     ${stap>0?`<button class="sec terug" id="wzTerug">${svg(I.terug,'2')}Vorige</button>`:''}`,
     'Stap '+(stap+1)+' van '+INGSTAPPEN.length);
 
   if(st.k==='prijs'||st.k==='link') ingVeldenBinden();
