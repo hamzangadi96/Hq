@@ -1,6 +1,6 @@
 /* Cacaoboetiek HQ — service worker
    Verhoog VERSIE bij elke nieuwe upload. */
-const VERSIE = 'hq-v430';
+const VERSIE = 'hq-v431';
 
 /* alleen plaatjes en manifest cachen; de app zelf halen we altijd vers op */
 const SCHIL = [
@@ -51,15 +51,44 @@ self.addEventListener('fetch', e => {
                 url.pathname.endsWith('config.js');
 
   if (isApp) {
-    /* altijd vers ophalen, buiten elke cache om; alleen als noodgreep uit de cache */
+    /* Hier stond: altijd vers ophalen met cache no-store. Dat gaf je gegarandeerd
+       de nieuwste versie, maar index.html is inmiddels ruim een megabyte. Elke
+       start en elke verversing haalde dat opnieuw over je mobiele verbinding op,
+       en je keek net zo lang naar een leeg scherm.
+
+       Nu: meteen tonen wat er in de cache staat en ondertussen op de achtergrond
+       de nieuwe ophalen. De app opent direct; bij de volgende start draai je
+       vanzelf de nieuwe. Tik je bewust op vernieuwen, dan staat er ?v= achter
+       het adres en slaan we de cache over — dan krijg je hem meteen. */
+    const sleutel = new Request(url.origin + url.pathname);
+
+    if (url.search.includes('v=')) {
+      e.respondWith(
+        fetch(req, { cache: 'no-store' })
+          .then(r => {
+            const kopie = r.clone();
+            caches.open(VERSIE).then(c => c.put(sleutel, kopie));
+            return r;
+          })
+          .catch(() => caches.match(sleutel).then(r => r || caches.match('./index.html')))
+      );
+      return;
+    }
+
     e.respondWith(
-      fetch(req, { cache: 'no-store' })
-        .then(r => {
-          const kopie = r.clone();
-          caches.open(VERSIE).then(c => c.put(req, kopie));
-          return r;
-        })
-        .catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
+      caches.match(sleutel).then(uitCache => {
+        const vers = fetch(req)
+          .then(r => {
+            if (r && r.ok) {
+              const kopie = r.clone();
+              caches.open(VERSIE).then(c => c.put(sleutel, kopie));
+            }
+            return r;
+          })
+          .catch(() => null);
+        /* Staat er niets in de cache — eerste bezoek — dan wachten we wel. */
+        return uitCache || vers.then(r => r || caches.match('./index.html'));
+      })
     );
     return;
   }
