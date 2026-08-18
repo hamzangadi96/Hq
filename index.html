@@ -2049,6 +2049,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
   --choco:#4A2B18;
   --choco-licht:#6E4630;
   --choco-wash:#F6F0EA;
+  /* Deze naam kwam uit de ontwerpschetsen; de app zelf noemt hem --amber.
+     Vier regels hieronder gebruikten --let-op en kregen dus helemaal geen
+     kleur: het amber in de subregel, op statusbadges en op het accountstipje
+     bleef onzichtbaar. Als alias in plaats van overal hernoemen, zodat beide
+     namen blijven werken. */
+  --let-op:var(--amber);
 }
 
 /* ═══ 1. AANRAKEN ═══════════════════════════════════════════════════
@@ -2140,15 +2146,18 @@ main .blokkop .eyebrow{font-size:11px;letter-spacing:.06em;font-weight:600;
 header.weg{display:none}
 
 .groet{margin:6px 2px 18px}
-.groetrij{display:flex;align-items:center;gap:14px}
-/* 30px past op een 440-scherm, maar op een iPhone van 390 breekt
-   "Goedemorgen, Hamza" dan over twee regels — met de bel ernaast houdt de
-   titel maar zo'n 290px over. Schaalt nu mee met de breedte en blijft
-   op één regel. */
-.groet h1{flex:1;min-width:0;margin:0;font-size:clamp(22px,6.6vw,30px);
-  font-weight:700;letter-spacing:-.035em;line-height:1.1;color:var(--ink);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.groetsub{margin-top:7px;font-size:14.5px;color:var(--grijs);letter-spacing:-.01em}
+/* Twee knoppen die elk aan hun eigen kant blijven staan. */
+.groetrij{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.belknop.links{margin-right:auto}
+/* Nog geen account? Dan hoort daar een teken bij, anders vindt niemand die
+   knop ooit. Amber, want het is geen fout maar wel iets om te doen. */
+.belknop .stipje{position:absolute;top:11px;right:12px;width:8px;height:8px;
+  border-radius:99px;background:var(--let-op);border:2px solid var(--card);
+  box-sizing:content-box}
+/* Was een onderschrift bij een kop; nu is dit de enige tekst bovenaan het
+   scherm en mag hij wat meer gewicht hebben. */
+.groetsub{margin-top:14px;font-size:15px;font-weight:500;color:var(--grijs);
+  letter-spacing:-.01em}
 .groetsub:empty{display:none}
 .groetsub .let{color:var(--let-op);font-weight:600}
 .groetsub .fout{color:var(--rood);font-weight:600}
@@ -2588,6 +2597,8 @@ const I={
   alarm:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
   bel:'<path d="M18 8.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z"/>'
     +'<path d="M13.7 19a2 2 0 0 1-3.4 0"/>',
+  persoon:'<circle cx="12" cy="8" r="3.6"/>'
+    +'<path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/>',
   cirkel:'<circle cx="12" cy="12" r="9"/>',
   spark:'<path d="M12 3l1.7 4.6L18.3 9.3 13.7 11l-1.7 4.6L10.3 11 5.7 9.3l4.6-1.7z"/><path d="M18 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
   vracht:'<path d="M3 6h11v9H3z"/><path d="M14 9h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/>',
@@ -2597,7 +2608,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v407 · 18 aug 2026';
+const APPVERSIE='v408 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4434,9 +4445,11 @@ function dashboardToestand(){
 /* Begroeting op het dashboard. Stond er ooit, is eruit gehaald omdat hij
    niets zei. Nu zegt hij wel iets: de subregel vat je dag samen en kleurt
    amber zodra er iets open staat. */
+/* Boven het scherm stonden een begroeting en een bel. De begroeting zei elke
+   dag hetzelfde en nam de breedte van een kop in beslag; de plek waar je je
+   account beheert was nergens te zien. Nu staat links je account en rechts je
+   meldingen, en daaronder alleen de regel die er echt toe doet. */
 function begroetingHTML(){
-  const u=new Date().getHours();
-  const groet=u<6?'Goedenacht':u<12?'Goedemorgen':u<18?'Goedemiddag':'Goedenavond';
   const gepland=planLijst().filter(p=>dagenTussen(vandaag(),p.datum)<=0).length;
   const bezig=lopende().length;
   const ord=(S.orders||[]).filter(o=>o.status==='nieuw');
@@ -4461,10 +4474,11 @@ function begroetingHTML(){
   ].filter(Boolean);
   const delen=kans.slice(0,2).map(x=>`<span class="${x.k}">${x.t}</span>`);
   const meld=signalen().length;
-  const naam=bedrijfVoornaam();
   return `<div class="groet">
     <div class="groetrij">
-      <h1>${groet}${naam?', '+esc(naam):''}</h1>
+      <button class="belknop links" data-account aria-label="${
+        fbUser?'Je account':'Account aanmaken of inloggen'}">${svg(I.persoon)}${
+        fbUser?'':'<i class="stipje"></i>'}</button>
       <button class="belknop${meld?' aan':''}" data-meldingen aria-label="${
         meld?meld+' meldingen':'Geen meldingen'}">${svg(I.bel)}</button>
     </div>
@@ -13288,6 +13302,7 @@ function bind(){
     S.stapFilter=b.dataset.stapfilter; render();
   });
   $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
+  $$('[data-account]').forEach(b=>b.onclick=()=>sheetAccount(fbUser?'':'in'));
   $$('[data-batch]').forEach(b=>b.onclick=()=>{
     S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
     const v=vergetenTimer();
