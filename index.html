@@ -1875,14 +1875,49 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .tijdbalk .tt{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;flex:none}
 /* de globale klokbalk staat bovenaan elk scherm, boven de eerste kaart */
 .klokbalk{margin-bottom:16px}
+/* ── de kaart van wat je nu doet ──
+   De stap waar je aan werkt hoort niet als zoveelste rij in een lijst; dat is
+   het enige waar je op dit moment iets mee moet. */
+.stapnu{background:var(--choco-wash);border:1px solid var(--choco-licht);
+  border-radius:18px;padding:15px 17px 15px;margin:0 0 18px}
+.snkop{display:flex;align-items:baseline;gap:12px}
+.snkop .eyebrow{flex:1;color:var(--choco)}
+.sntijd{flex:none;font-size:15px;font-weight:700;color:var(--choco);
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stapnu h3{font-size:22px;font-weight:600;letter-spacing:-.03em;color:var(--ink);
+  margin:7px 0 0;line-height:1.15}
+.stapnu .snsub{font-size:13px;color:var(--grijs2);margin-top:4px}
+.snknoppen{display:flex;gap:9px;margin-top:14px}
+.snvink{flex:none;display:flex;align-items:center;gap:7px;height:46px;padding:0 15px;
+  border-radius:13px;background:#fff;border:1px solid var(--choco-licht);
+  font-size:14px;font-weight:600;color:var(--choco)}
+.snvink svg{width:15px;height:15px}
+.snvink:active{background:var(--choco);border-color:var(--choco);color:#fff}
+.snprim{flex:1;height:46px;border-radius:13px;background:var(--ink);color:#fff;
+  font-size:15.5px;font-weight:600;letter-spacing:-.015em;display:grid;place-items:center}
+.snprim:active{background:var(--choco)}
+
+/* kopjes boven de twee lijsten */
+.stapkop{display:flex;align-items:baseline;gap:10px;margin:0 2px 4px}
+.stapkop .sk,.klaargroep .sk{font-size:12px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--grijs2)}
+.stapkop .sn2,.klaargroep .sn2{font-size:11px;font-weight:700;color:var(--grijs2);
+  background:var(--bg);border-radius:99px;padding:2px 8px;font-style:normal;
+  font-variant-numeric:tabular-nums}
+.klaargroep{margin-top:16px;border-top:1px solid var(--lijn)}
+.klaargroep summary{display:flex;align-items:center;gap:10px;padding:14px 0;
+  cursor:pointer;list-style:none}
+.klaargroep summary::-webkit-details-marker{display:none}
+.klaargroep summary .sk{flex:1}
+.klaargroep summary svg{width:14px;height:14px;color:var(--grijs3);
+  transform:rotate(90deg);transition:transform .18s}
+.klaargroep[open] summary svg{transform:rotate(-90deg)}
+.klaargroep[open] summary .sk{color:var(--ink2)}
+
 /* Zeventien rijen van 69 hoog is vier schermen. Op 52 zie je je hele dag
    in twee. */
 .werkrij{display:flex;align-items:center;gap:12px;width:100%;padding:9px 0;border-bottom:1px solid var(--lijn);text-align:left}
 .werkrij.af .wn{color:var(--grijs2)}
-.werkrij.straks .wn,.werkrij.bezig .wn{font-weight:600}
-.werkrij .wn em{display:block;font-style:normal;font-size:12px;font-weight:600;
-  color:var(--choco);margin-top:2px;letter-spacing:-.005em}
-.werkrij.af .wn em{color:var(--grijs2)}
 /* Een leeg vakje met randje leest als "nog te doen"; een grijs blok las als
    uitgezet, net als bij de openingscheck. */
 .vinkknop{width:30px;height:30px;border-radius:9px;background:transparent;
@@ -3217,7 +3252,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v461 · 18 aug 2026';
+const APPVERSIE='v462 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16313,22 +16348,45 @@ function sheetProductie(){
   const perAct={}; werkPerActiviteit(b).forEach(x=>perAct[x.act]=x.sec);
   const plan=bPlan(b);
   const volgende=planVolgende(b);
+  /* ═══════════ toestand in plaats van volgorde ═══════════
+     Dit was een checklist van tien stappen op volgorde, met de eerste
+     openstaande gemerkt als "nu aan de beurt". Maar zo werkt een
+     chocoladedag niet: ganache moet rusten dus die maak je vroeg, de
+     tempereermachine gaat aan wanneer het uitkomt, en mallen wassen kan
+     tussendoor. In de praktijk stond "nu aan de beurt" bij Mallen wassen
+     terwijl er aan Mallen verven gewerkt werd — de app beweerde een volgorde
+     die er niet is.
+
+     Dus geen volgorde meer, maar drie toestanden: wat je nu doet, wat er nog
+     open staat, en wat klaar is. Jij kiest wat je pakt; de app houdt bij. */
   const rij=n=>{
     const gedaan=st[n]&&st[n].gedaan, bezig=w&&w.act===n;
-    /* Zeventien identieke rijen zeiden nergens waar je heen moest. De
-       eerstvolgende openstaande stap is nu herkenbaar, ook als je er nog
-       niet mee begonnen bent. */
-    const nu=!gedaan&&!bezig&&n===volgende;
-    /* Hoeveel handelingen staan er nog open in deze stap? Alleen tonen waar
-       het telt: bij wat je nu doet of zo gaat doen. */
-    const g=(bezig||nu)?geleidStand(b,n):null;
-    const rest=g&&!g.klaar?` · nog ${g.totaal-g.gedaan} van ${g.totaal}`:'';
-    return `<div class="werkrij ${bezig?'bezig':''} ${nu?'straks':''} ${gedaan?'af':''}">
+    return `<div class="werkrij ${bezig?'bezig':''} ${gedaan?'af':''}">
       <button type="button" class="vinkknop ${gedaan?'aan':''}" data-vink="${esc(n)}"
         aria-label="${gedaan?'Weer openzetten':'Afvinken'}">${svg(I.vink,'2.4')}</button>
       <button type="button" class="startknop" data-stap="${esc(n)}">
-        <span class="wn">${esc(n)}${bezig||nu?`<em>${bezig?'bezig':'nu aan de beurt'}${rest}</em>`:''}</span>
+        <span class="wn">${esc(n)}</span>
         <span class="wt">${perAct[n]?duurKort(perAct[n]):''}</span></button></div>`;
+  };
+
+  /* de kaart van wat je nu onder handen hebt */
+  const bezigKaart=()=>{
+    if(!w||plan.indexOf(w.act)<0||(st[w.act]&&st[w.act].gedaan)) return '';
+    const g=geleidStand(b,w.act);
+    /* Heeft deze stap geen losse handelingen, dan zeggen we dat niet — een
+       regel die "geen" meldt is ruis. */
+    const rest=g&&!g.klaar
+      ? 'nog '+(g.totaal-g.gedaan)+' van '+g.totaal+' handelingen'
+      : '';
+    return `<div class="stapnu">
+      <div class="snkop"><span class="eyebrow">Waar je mee bezig bent</span>
+        <span class="sntijd tikker">${duurTekst(Date.now()-w.start)}</span></div>
+      <h3>${esc(w.act)}</h3>
+      ${rest?`<div class="snsub">${esc(rest)}</div>`:''}
+      <div class="snknoppen">
+        <button type="button" class="snvink" data-vink="${esc(w.act)}">${svg(I.vink,'2.4')}Afronden</button>
+        <button type="button" class="snprim" data-stap="${esc(w.act)}">Verder</button>
+      </div></div>`;
   };
   /* alles wat niet in het plan staat: tussendoor */
   const tussen=S.activiteiten.filter(a=>!plan.includes(a));
@@ -16337,7 +16395,23 @@ function sheetProductie(){
   sheet('Productiestappen',
     `<p class="hint">Tik een stap aan om eraan te beginnen of ‘m te hervatten — de timer schakelt mee.
        Vink links af als een stap écht klaar is.</p>
-     <div class="veld">${plan.map(rij).join('')||'<div class="geen">Nog geen stappen ingesteld.</div>'}</div>
+     ${bezigKaart()}
+     ${(()=>{
+       const open=plan.filter(n=>!(st[n]&&st[n].gedaan)&&!(w&&w.act===n));
+       const klaar=plan.filter(n=>st[n]&&st[n].gedaan);
+       if(!plan.length) return '<div class="geen">Nog geen stappen ingesteld.</div>';
+       let uit='';
+       if(open.length) uit+=`<div class="stapkop"><span class="sk">Nog te doen</span>
+           <span class="sn2">${open.length}</span></div>
+         <div class="veld">${open.map(rij).join('')}</div>`;
+       /* Afgerond werk is naslag, geen werk. Vier afgevinkte stappen die je
+          scherm vullen terwijl je staat te produceren is precies verkeerd om. */
+       if(klaar.length) uit+=`<details class="klaargroep">
+           <summary><span class="sk">Klaar</span><i class="sn2">${klaar.length}</i>
+             ${svg(I.pijl,'2')}</summary>
+           <div class="veld">${klaar.map(rij).join('')}</div></details>`;
+       return uit;
+     })()}
      ${tussen.length?`<details class="tussen"${w&&tussen.includes(w.act)?' open':''}>
        <summary><span class="ts">Tussendoor</span>
          <i class="tt">${tussen.length}</i>${svg(I.pijl,'2')}</summary>
@@ -16349,10 +16423,11 @@ function sheetProductie(){
      <div class="voet" style="margin-top:14px"><button id="pStappenIns">Stappen aanpassen</button></div>`,
     /* "Timer stoppen" was de hoofdknop terwijl je juist door wilde werken.
        Doorgaan is de hoofdactie; stoppen staat er plat naast. */
+    /* Loopt er een stap, dan staat "Verder" al op de kaart bovenaan; hem hier
+       herhalen levert twee identieke knoppen op. De voet houdt dan alleen wat
+       de kaart níét doet. */
     (w
-      ? `<div class="wzknoppen">
-           <button class="sec plat" id="pStop">Timer stoppen</button>
-           <button class="prim" id="pVerder">Verder met ${esc(w.act.toLowerCase())}</button></div>`
+      ? `<button class="sec" style="margin-top:0" id="pStop">Timer stoppen</button>`
       : (volgende?`<button class="prim" style="margin-top:0" id="pStart">Beginnen met ${esc(volgende.toLowerCase())}</button>`:'')),
     planGedaan(b)+' van '+plan.length+' gedaan');
 
