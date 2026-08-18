@@ -2169,9 +2169,13 @@ header.weg{display:none}
 /* Zeven blokjes die samen de breedte vullen. Vaste hoogte, want anders rekt
    het blokje mee met zijn inhoud en wordt het een hoge ovaal. Geen randen:
    alleen een zachte schaduw tilt ze van de achtergrond. */
-.weekstrip{gap:9px;padding:2px 20px 16px;overflow:visible}
-.weekstrip .wdag{width:auto;flex:1 1 0;min-width:0;height:60px;padding:0;
-  border:none;border-radius:16px;justify-content:center;gap:3px;
+/* Zeven blokjes van 60 hoog werden op een 393-scherm maar 44 breed, en met
+   een ronding van 16 is dat een pil in plaats van een vierkantje. Lager,
+   minder tussenruimte en een kleinere ronding brengt de verhouding terug
+   op ongeveer die van het ontwerp. */
+.weekstrip{gap:6px;padding:2px 20px 16px;overflow:visible}
+.weekstrip .wdag{width:auto;flex:1 1 0;min-width:0;height:52px;padding:0;
+  border:none;border-radius:14px;justify-content:center;gap:2px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 6px 16px -12px rgba(24,24,27,.26)}
 .weekstrip .wdag .wd{font-size:11px;font-weight:600;letter-spacing:.06em;
   line-height:1;color:var(--grijs2)}
@@ -2190,7 +2194,7 @@ header.weg{display:none}
 .weekstrip .wdag.nu .wn{color:#fff}
 /* Eén stip per dag. Er stond een rijtje van één per soort werk; bij een drukke
    dag werden dat er vier en dan werd het blokje een streepjescode. */
-.weekstrip .wstippen{height:5px;margin-top:3px;gap:0;justify-content:center}
+.weekstrip .wstippen{height:5px;margin-top:2px;gap:0;justify-content:center}
 .weekstrip .wstippen i{width:5px;height:5px}
 .weekstrip .wstippen i~i{display:none}
 .weekstrip .wdag.nu .wstippen i{background:rgba(255,255,255,.9)}
@@ -2469,7 +2473,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v399 · 18 aug 2026';
+const APPVERSIE='v400 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4317,9 +4321,10 @@ function begroetingHTML(){
   if(open) delen.push(`<span class="let">${open} ${open===1?'order':'orders'} open</span>`);
   if(!delen.length) delen.push('<span>niets dringends vandaag</span>');
   const meld=signalen().length;
+  const naam=bedrijfVoornaam();
   return `<div class="groet">
     <div class="groetrij">
-      <h1>${groet}, ${esc(bedrijfVoornaam())}</h1>
+      <h1>${groet}${naam?', '+esc(naam):''}</h1>
       <button class="belknop${meld?' aan':''}" data-meldingen aria-label="${
         meld?meld+' meldingen':'Geen meldingen'}">${svg(I.bel)}</button>
     </div>
@@ -4336,9 +4341,14 @@ function bedrijfVoornaam(){
     if(!w||w.includes('@')||w.includes('.')||/^\d/.test(w)) return '';
     return w.split(/[\s,]+/)[0];
   };
-  return S.roepnaam&&String(S.roepnaam).trim()
-    ? String(S.roepnaam).trim().split(/[\s,]+/)[0]
-    : (schoon(b.contact)||schoon(b.naam)||'daar');
+  const kies=(String(S.roepnaam||'').trim().split(/[\s,]+/)[0])
+    ||schoon(b.contact)||schoon(b.naam)||'';
+  /* Een naam die niet past wordt "Goedemorgen, Cacao…" en dat leest als een
+     fout. Past hij niet, dan laten we hem gewoon weg: "Goedemorgen" alleen
+     is een prima begroeting. Op een 393-scherm houdt de titel naast de bel
+     zo'n 290px over; met "Goedemorgen, " ervoor blijft er ruimte voor
+     ongeveer negen tekens. */
+  return kies.length>9?'':kies;
 }
 
 /* Drie cijfers met het verschil ten opzichte van gisteren. Zonder dat verschil
