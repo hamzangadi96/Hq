@@ -2900,7 +2900,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v434 · 18 aug 2026';
+const APPVERSIE='v435 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18354,6 +18354,18 @@ function leesVoedingTekst(tekst){
   if(kj){ const n=voedingGetal(kj[1]); if(n!==null) uit.kj=n }
   const kc=t.match(/(\d[\d\s.]*(?:[.,]\d+)?)\s*kcal/i);
   if(kc){ const n=voedingGetal(kc[1]); if(n!==null) uit.kcal=n }
+  /* Veel verpakkingen en webshops zetten de tabel andersom: "Energie (kJ) 2380"
+     in plaats van "2380 kJ". Dan staat de eenheid vóór het getal en vond de
+     zoekopdracht hierboven niets — je energievelden bleven leeg terwijl de
+     rest wel werd overgenomen. */
+  if(uit.kj===undefined){
+    const m=t.match(/kj\s*\)?\s*[:\t ]\s*(\d[\d\s.]*(?:[.,]\d+)?)/i);
+    if(m){ const n=voedingGetal(m[1]); if(n!==null) uit.kj=n }
+  }
+  if(uit.kcal===undefined){
+    const m=t.match(/kcal\s*\)?\s*[:\t ]\s*(\d[\d\s.]*(?:[.,]\d+)?)/i);
+    if(m){ const n=voedingGetal(m[1]); if(n!==null) uit.kcal=n }
+  }
 
   t.split(/\r?\n/).forEach(regel=>{
     const laag=regel.toLowerCase();
