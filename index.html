@@ -2628,7 +2628,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v412 · 18 aug 2026';
+const APPVERSIE='v413 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16732,14 +16732,22 @@ function sheetOnderdeel(idx){
       const buf={
         naam:$('#oN')?$('#oN').value:o.naam,
         gram:$('#oG')?$('#oG').value:o.gram,
-        stap:o.stap||'',
+        /* Stond hier o.stap: dat is de stap van vóór dit scherm, dus je keuze
+           in de chips ging verloren zodra je een ingrediënt koos. */
+        stap:chipV('#oStap')||o.stap||'',
         ing:$$('#oI .ingrij').map(el=>{
           const k=el.querySelector('[data-inkies]');
           return {naam:k?(k.dataset.naam||''):'',
                   deel:el.querySelector('[data-id2]').value};
         }),
-        werkwijze:$$('#oW .ingrij input').length
-          ? $$('#oW .ingrij input').map(i=>i.value) : (o.werkwijze||[''])
+        /* De werkwijze werd hier uit "#oW .ingrij input" gelezen. Dat waren
+           losse regelvelden uit een oudere opzet; sinds het één textarea is
+           vond die zoekopdracht niets en viel hij terug op de oude waarde.
+           Gevolg: alles wat je net had ingetypt was weg zodra je een
+           ingrediënt ging kiezen. */
+        werkwijze:$('#oW')
+          ? $('#oW').value.split('\n').map(x=>x.trim()).filter(Boolean)
+          : (o.werkwijze||[''])
       };
       while(buf.ing.length<=n) buf.ing.push({naam:'',deel:''});
       sheetIngKiezen(buf.ing[n].naam, gekozen=>{
@@ -16750,7 +16758,9 @@ function sheetOnderdeel(idx){
         sheetOnderdeel(idx);
       });
     });
-    $$('[data-wis-w]').forEach(b=>b.onclick=()=>{if($$('#oW .ingrij').length>1)b.parentElement.remove()});
+    /* Hier stond nog een handler voor "[data-wis-w]": knopjes om losse
+       werkwijzeregels te verwijderen. Die knopjes bestaan nergens meer sinds
+       de werkwijze één textarea werd, dus deze regel deed niets. */
   };
   if($('#oNeem')){
     $('#oNeem').onclick=()=>$('#oNeemL').classList.toggle('open');
