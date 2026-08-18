@@ -2627,7 +2627,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v410 · 18 aug 2026';
+const APPVERSIE='v411 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21709,14 +21709,19 @@ function sheetMeetpunten(){
      dan blijft er een grijze strook boven het woordmerk staan. Hier zetten we
      hem terug. Staat alles al goed, dan doet dit niets. */
   const rechtzetten=()=>{
-    /* Niet doen terwijl je typt. iOS schuift het venster dan expres omhoog om
-       je invoerveld boven het toetsenbord te krijgen; duw je dat terug, dan
-       verdwijnt het scherm waar je in typt uit beeld. */
-    /* Niet rechtzetten terwijl je in een sheet typt: iOS schuift daar expres
-       omhoog om je veld boven het toetsenbord te krijgen. Het zoekveld in de
-       kop staat altijd al in beeld, dus dat is de uitzondering. */
-    const a=document.activeElement;
-    if(isInvoer(a)&&!(a&&a.id==='zbQ')) return;
+    /* Hier stond: tijdens typen niets doen, want iOS schuift het venster
+       omhoog om je veld boven het toetsenbord te krijgen. Dat werkte, maar het
+       hele scherm ging mee — je begroeting, je weekstrook en je hoofdkaart
+       schoven weg achter de sheet. Dat is precies wat je niet wilt zien.
+
+       Nu duwen we het venster altijd terug. Dat mag, want de sheet regelt het
+       zelf: --sheetOnder tilt hem boven het toetsenbord en --sheetMax knijpt
+       hem tot wat zichtbaar is. Wat daarna nog onder het toetsenbord valt
+       wordt binnen de sheet gescrold, niet door het venster te verschuiven.
+
+       Eén uitzondering: een kleurkiezer opent een venster van iOS zonder
+       toetsenbord. Duwen we daar, dan klapt de kiezer meteen dicht. */
+    if(kleurVeld(document.activeElement)) return;
     if(window.scrollY||window.scrollX) window.scrollTo(0,0);
     if(document.documentElement.scrollTop) document.documentElement.scrollTop=0;
     if(document.body.scrollTop) document.body.scrollTop=0;
@@ -21741,9 +21746,25 @@ function sheetMeetpunten(){
   const alles=()=>{pas();rechtzetten();sheetPas()};
   vv.addEventListener('resize',alles);
   vv.addEventListener('scroll',alles);
+  /* Het venster hoort nooit te scrollen: de app staat vast en alleen de
+     inhoud en de sheets schuiven. Scrollt hij tóch, dan is dat iOS die iets
+     in beeld wil duwen — meestal een invoerveld. Hier vangen we dat af,
+     ongeacht waardoor het komt. Via requestAnimationFrame, anders vechten we
+     met iOS om dezelfde pixel en gaat het schokken. */
+  let herstelBezig=false;
+  window.addEventListener('scroll',()=>{
+    if(herstelBezig) return;
+    if(!window.scrollY&&!window.scrollX) return;
+    herstelBezig=true;
+    requestAnimationFrame(()=>{ herstelBezig=false; rechtzetten() });
+  },{passive:true});
   document.addEventListener('focusin',e=>{
     if(kleurVeld(e.target)) return;      /* laat de kleurkiezer met rust */
     setTimeout(sheetPas,120);
+    /* iOS verschuift het venster niet in één keer maar in stapjes, verspreid
+       over een halve seconde na het focussen. Eén keer terugduwen is dus niet
+       genoeg; we houden het even vast tot het toetsenbord staat. */
+    [0,50,120,200,300,450,650].forEach(ms=>setTimeout(rechtzetten,ms));
     /* Krimpt de sheet door het toetsenbord, dan kan het veld waar je in typt
        eronder vallen. We schuiven dan precies zoveel als nodig is.
        Eerder gebruikte ik hiervoor block:'center'. Dat zet het veld midden in
