@@ -2323,10 +2323,11 @@ header.weg{display:none}
 .stapkaart.gedaan .stapmerk{background:rgba(21,128,61,.10);color:var(--groen)}
 .stapkaart.bezig{background:#f5f1f0;border-color:rgba(74,43,24,.16);
   box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
+/* De stip bij "bezig" was gevuld bruin en daarmee niet te onderscheiden van
+   een afgeronde stap. Een open ring leest als "hier ben je nu", een gevulde
+   bol als "dit is klaar". */
 .stapkaart.bezig .stapstip{border-color:var(--choco);background:var(--card);
-  box-shadow:0 0 0 4px rgba(74,43,24,.12)}
-.stapkaart.bezig .stapstip::after{content:'';position:absolute;inset:2px;
-  border-radius:99px;background:var(--choco)}
+  border-width:2.5px}
 .stapkaart.bezig .stapmerk{background:rgba(74,43,24,.12);color:var(--choco)}
 .stapkaart.bezig b{color:var(--choco)}
 /* wachtend: op de achtergrond, maar wel leesbaar */
@@ -2627,7 +2628,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v411 · 18 aug 2026';
+const APPVERSIE='v412 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4558,45 +4559,57 @@ function kpiHTML(){
    rest wacht. Zo zie je in één blik waar je bent. */
 function stappenlijnHTML(b){
   const f=S.stapFilter||'alles';
-  const volgende=bVolgende(b);
-  /* Ben je al aan het werk zonder dat de openingscheck gedaan is, dan is die
-     check niet "nog aan de beurt" maar te laat: er wordt geproduceerd zonder.
-     Alleen dit geval, want een batch die net begint is nergens te laat mee. */
-  const alBezig=KERN.some(x=>x.key!=='opening'&&x.klaar(b));
-  const rijen=KERN.map(st=>{
-    const klaar=st.klaar(b);
-    let stand=klaar?'gedaan':(volgende&&volgende.key===st.key?'bezig':'wacht');
-    if(!klaar&&st.key==='opening'&&alBezig) stand='telaat';
-    /* Wanneer is deze stap vastgelegd? De logregels dragen een tijd, dus die
-       kunnen we echt tonen in plaats van hem te verzinnen. */
-    const log=(b.logs||[]).filter(l=>l.datum===vandaag()
-      &&(l.type===st.key||(st.key==='temperatuur'&&l.type==='temperatuur')))
-      .slice(-1)[0];
-    let w=(st.waarde?st.waarde(b):'')||'';
-    if(w==='—') w='';
-    return {st,stand,tijd:(log&&log.tijd)||'',waarde:w};
+  const plan=bPlan(b), gedaanVan=planVan(b);
+  const volgende=planVolgende(b);
+
+  /* Hier stonden de zes vaste controlestappen — ingrediënten, openingscheck,
+     temperaturen, en zo verder. Die zijn voor elke batch gelijk en zeggen dus
+     niets over wát je vandaag maakt. Nu staat hier het werkplan van déze
+     batch: precies de handelingen die jij bij Productie hebt ingesteld, in
+     jouw volgorde. Heeft een batch een eigen plan, dan wint dat plan. */
+  const rijen=plan.map((naam,i)=>{
+    const st=gedaanVan[naam]||{};
+    const klaar=!!st.gedaan;
+    let stand=klaar?'gedaan':(volgende===naam?'bezig':'wacht');
+    /* Te laat: deze stap is overgeslagen. Een latere stap is al afgerond
+       terwijl deze nog openstaat, dus er is aan de batch doorgewerkt zonder
+       hem. Dat is echt te laat, niet "komt nog". */
+    if(!klaar&&plan.slice(i+1).some(n=>(gedaanVan[n]||{}).gedaan)) stand='telaat';
+    return {naam,stand,tijd:klaar?(st.tijd||''):''};
   }).filter(r=> f==='open'?r.stand!=='gedaan' : f==='gedaan'?r.stand==='gedaan' : true);
 
+  if(!plan.length) return `<div class="stapleeg">Nog geen werkplan.
+    Stel je stappen in bij Productie.</div>`;
   if(!rijen.length) return `<div class="stapleeg">Geen stappen in deze weergave.</div>`;
+
+  /* De onderregel zegt waar deze stap over gaat: bij de eerste smaak van de
+     batch, met de chocoladesoort erbij. Meer smaken, dan noemen we ze samen. */
+  const waarover=(()=>{
+    const namen=b.regels.map(r=>smaakNaam(r.receptId));
+    const soort=chocNaam(b.chocolade||'').toLowerCase().replace(/\s*chocolade\s*$/,'');
+    const kop=namen.length>1?namen.length+' smaken':namen[0]||'';
+    return [kop,soort].filter(Boolean).join(' · ');
+  })();
 
   const merk={gedaan:'afgerond',bezig:'bezig',telaat:'te laat',wacht:'wachtend'};
   return `<div class="stappenlijn">${rijen.map(r=>`
-    <button class="stapkaart ${r.stand}" data-sheet="${r.st.sheet}">
+    <button class="stapkaart ${r.stand}" data-stapdoe="${esc(r.naam)}">
       <i class="stapstip"></i>
       <span class="stapvak">
         <span class="staptop">
-          <em>${esc(r.tijd||r.waarde||'')}</em>
+          <em>${esc(r.tijd)}</em>
           <span class="stapmerk">${merk[r.stand]}</span>
         </span>
-        <b>${esc(r.st.label)}</b>
-        <small>${esc(r.st.knop)}</small>
+        <b>${esc(r.naam)}</b>
+        <small>${esc(waarover)}</small>
       </span>
     </button>`).join('')}</div>`;
 }
 
+
 /* Alles wat je aandacht vraagt maar geen stap in een batch is: houdbaarheid
    die verloopt, een thermometer die geijkt moet worden, controles die te lang
-   geleden zijn. Stond verspreid over het dashboard, staat nu achter de bel. */
+   geleden zijn. Staat bij elkaar achter de bel. */
 function sheetMeldingen(){
   const lijst=signalen();
   const h=lijst.length
@@ -13339,6 +13352,14 @@ function bind(){
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
   $$('[data-stapfilter]').forEach(b=>b.onclick=()=>{
     S.stapFilter=b.dataset.stapfilter; render();
+  });
+  /* Een kaart in de tijdlijn opent dezelfde stap als in Productie: daar staat
+     wat je moet doen en met welke hoeveelheden. Niet meteen afvinken — dan
+     zou één misklik je registratie vervuilen. */
+  $$('[data-stapdoe]').forEach(x=>x.onclick=()=>{
+    if(!batch()&&!lopende().length) return;
+    if(!S.batchId){ const l=lopende()[0]; if(l) S.batchId=l.id }
+    sheetStapDoen(x.dataset.stapdoe);
   });
   $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
   $$('[data-account]').forEach(b=>b.onclick=()=>sheetAccount(fbUser?'':'in'));
