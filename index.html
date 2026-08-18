@@ -2632,7 +2632,91 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   border-radius:99px}
 .pinuit:active{background:var(--choco-wash);color:var(--choco)}
 
-/* ═══ 17. ZWEVENDE VERNIEUWKNOP ════════════════════════════════════
+/* ═══ 17. RUST IN ELK SCHERM ═══════════════════════════════════════
+   Deze regels gelden voor de hele app, niet voor één scherm. Vijf dingen
+   maakten elk vol scherm onoverzichtelijk, en ze kwamen overal terug:
+   te veel even zware knoppen, drie soorten sectiekoppen, dichte lijsten,
+   chips die buiten beeld liepen, en subregels in hoofdletters. */
+
+/* ── 1. één donkere knop per scherm ──
+   In de voet stonden vaak twee of drie knoppen met hetzelfde gewicht.
+   Alleen de eerste is de hoofdactie; de rest mag rustig zijn. */
+.sheetvoet .prim ~ .prim,
+.sheetvoet .prim ~ .knop2{background:var(--card);color:var(--ink);
+  border:1px solid var(--lijn)}
+.sheetvoet .prim ~ .prim:active,
+.sheetvoet .prim ~ .knop2:active{background:var(--choco-wash);
+  border-color:var(--choco-licht);color:var(--choco)}
+.sheetvoet .sec{background:none;border:none;color:var(--grijs);
+  font-size:14px;height:44px}
+.sheetvoet .sec:active{background:var(--choco-wash);color:var(--choco)}
+
+/* ── 2. toevoegknoppen zijn geen hoofdacties ──
+   "Onderdeel toevoegen", "Instructie toevoegen", "Productetiket instellen":
+   stuk voor stuk brede balken die net zo hard riepen als Klaar. */
+.sheetbody .knop2,.sheetbody .sec{height:46px;border-radius:14px;
+  background:var(--card);border:1px solid var(--lijn);
+  font-size:14px;font-weight:600;color:var(--grijs)}
+.sheetbody .knop2:active,.sheetbody .sec:active{background:var(--choco-wash);
+  border-color:var(--choco-licht);color:var(--choco)}
+.sheetbody .knop2 svg,.sheetbody .sec svg{width:14px;height:14px;
+  stroke-width:2.2;color:inherit}
+
+/* ── 3. één soort sectiekop ──
+   .mkop schreeuwde in hoofdletters met 10% letterafstand, .veld label
+   fluisterde. Nu allebei hetzelfde rustige label. */
+.mkop{font-size:11px;font-weight:600;letter-spacing:.06em;
+  color:var(--grijs2);padding:24px 2px 8px}
+.sheetbody .veld>label{font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--grijs2);margin-bottom:9px}
+
+/* ── 4. chips blijven binnen beeld ──
+   Ze braken wel af, maar in een rij die kon schuiven zag je niet dat er
+   meer stond. Nu schuift de rij met een fade aan de rand als er meer is. */
+.sheetbody .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+  margin:0 -20px;padding:2px 20px 4px;
+  -webkit-overflow-scrolling:touch;
+  -webkit-mask-image:linear-gradient(to right,#000 0,#000 calc(100% - 28px),transparent 100%);
+  mask-image:linear-gradient(to right,#000 0,#000 calc(100% - 28px),transparent 100%)}
+.sheetbody .chips::-webkit-scrollbar{display:none}
+.sheetbody .chip{flex:none}
+.chip{border-radius:99px;padding:10px 15px}
+.chip.aan{background:var(--choco)}
+.chip:active:not(.aan){background:var(--choco-wash);color:var(--choco)}
+/* een keuzeraster hoort juist wél af te breken: daar kies je uit alles */
+.sheetbody .keuzeraster{flex-wrap:wrap;overflow:visible;margin:0;padding:0;
+  -webkit-mask-image:none;mask-image:none}
+
+/* ── 5. subregels in gewone letters ──
+   Stond op drie plekken in hoofdletters met extra letterafstand; dat leest
+   als geschreeuw bij een batchcode of een ingrediëntnaam. */
+.sheetbody .arij .naam small,.sheetbody .ingrij2 small,
+.sheetbody .menurij small,.sheetbody .rij .t2{
+  text-transform:none;letter-spacing:-.005em;font-weight:500;
+  font-size:12.5px;color:var(--grijs2)}
+
+/* ── 6. lijsten in een sheet zijn kaarten ──
+   Zelfde taal als je dashboard en Productie. */
+.sheetbody .paneel{background:none;border:none;box-shadow:none;
+  overflow:visible;display:flex;flex-direction:column;gap:10px}
+.sheetbody .paneel>.arij,.sheetbody .paneel>.rij,
+.sheetbody .paneel>.menurij{
+  background:var(--card);border:1px solid var(--lijn);border-radius:16px;
+  padding:14px 16px;border-bottom:1px solid var(--lijn);
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+.sheetbody .paneel>.arij:active,.sheetbody .paneel>.rij:active,
+.sheetbody .paneel>.menurij:active{background:var(--choco-wash);
+  border-color:rgba(74,43,24,.25)}
+
+/* ── 7. de zwevende knop lag over de Klaar-knop ──
+   Hij mag overal staan behalve op de voetbalk van een open sheet, want daar
+   zit altijd de hoofdactie. Staat er een sheet open, dan schuift hij mee
+   omhoog. */
+.app:has(>.sheet.open) ~ .zweefknop,
+body:has(.sheet.open) .zweefknop{transform:translateY(-92px)}
+body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
+
+/* ═══ 18. ZWEVENDE VERNIEUWKNOP ════════════════════════════════════
    Ligt boven alles behalve het pinslot, want tijdens het testen wil je hem
    ook over een open sheet heen kunnen indrukken. */
 
@@ -2653,7 +2737,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   .zweefknop,.zweefknop.pak{transition:none;transform:none}
 }
 
-/* ═══ 18. ZACHTERE OVERGANGEN ═══════════════════════════════════════
+/* ═══ 19. ZACHTERE OVERGANGEN ═══════════════════════════════════════
    De sheet deed 320ms, de overlay 250ms. Dat verschil van 70ms zie je: het
    scherm is al donker voordat de sheet er is, en licht op voordat hij weg is.
    Beide even lang en dezelfde curve, dan bewegen ze als één ding. */
@@ -2811,7 +2895,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v429 · 18 aug 2026';
+const APPVERSIE='v430 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
