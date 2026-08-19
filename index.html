@@ -785,6 +785,25 @@ header .hbtn.zoek{display:none}
 .fasepaneel{opacity:.62;transition:opacity .25s}
 .fasepaneel.nu{opacity:1}
 
+/* ── tegels ──
+   Een tegel lees je op vorm en plek: icoon boven, naam eronder, klaar. Twee
+   naast elkaar, grote tap-targets, geen zin die je moet lezen om te weten
+   wat er staat. */
+.iktegels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
+.iktegel{position:relative;background:var(--card);border:1px solid var(--lijn);
+  border-radius:18px;padding:14px 14px 15px;text-align:left;display:flex;
+  flex-direction:column;gap:10px;min-height:104px;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.2)}
+.iktegel .itico{width:36px;height:36px;border-radius:12px;background:var(--bg);
+  display:grid;place-items:center;color:var(--grijs2)}
+.iktegel .itico svg{width:17px;height:17px;stroke-width:1.9}
+.iktegel .itn{font-size:15.5px;font-weight:600;letter-spacing:-.025em;
+  color:var(--ink);line-height:1.25;margin-top:auto}
+.iktegel .itt{position:absolute;top:16px;right:14px;font-style:normal;
+  font-size:12px;color:var(--grijs2);font-variant-numeric:tabular-nums}
+.iktegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
+.iktegel.aan{background:var(--choco-wash);border-color:var(--choco-licht)}
+
 /* ── keuzes als losse kaarten ──
    Rijen in één blok met streepjes lezen als een lijst; kaarten met lucht
    ertussen lezen als dingen waar je iets mee doet. Het icoon links geeft de
@@ -848,8 +867,11 @@ header .hbtn.zoek{display:none}
   letter-spacing:-.035em;color:var(--ink);margin-top:4px;
   font-variant-numeric:tabular-nums}
 .ikstand b{color:var(--choco)}
-.ikstand .iknu{display:block;font-size:13.5px;color:var(--grijs2);margin-top:3px;
+.ikstand .iknu{display:block;font-size:13px;color:var(--grijs2);margin-top:2px;
   font-variant-numeric:tabular-nums}
+.ikstand{margin-bottom:16px}
+/* de volledige lijsten komen ná de tegels, dus met wat lucht ertussen */
+.iktegels + .ikgroep{margin-top:18px}
 .ikgroep summary{cursor:pointer;list-style:none}
 .ikgroep summary::-webkit-details-marker{display:none}
 .ikgroep summary svg{transform:rotate(90deg);transition:transform .18s}
@@ -3296,7 +3318,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v477 · 18 aug 2026';
+const APPVERSIE='v478 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16416,105 +16438,78 @@ function sheetInklok(){
   const b=(S.batches||[]).find(x=>x.status==='bezig'||x.status==='loopt');
   const plan=b?bPlan(b):[];
 
-  /* ═══════════ twee handelingen, niet één ═══════════
-     Dit scherm heette Inklokken maar had geen knop om in te klokken: je moest
-     meteen uit vierentwintig regels kiezen wát je ging doen. Terwijl de dienst
-     de buitenste laag is en de activiteit daaronder hangt — in de data hield
-     ik dat uit elkaar, in de bediening niet.
+  /* ═══════════ minder woorden ═══════════
+     Dit scherm groeide met elke verbetering: een ondertitel bij elke keuze,
+     een kopje boven elke groep, een aantal achter elke rij, een tijd erbij.
+     Stuk voor stuk verdedigbaar, samen ruim zestig woorden op één scherm.
 
-     Niet ingeklokt? Dan is er één ding te doen. Ben je ingeklokt, dan gaat het
-     scherm over wisselen, en dat is een andere vraag. */
-  /* Was een rij in een blok met streepjes: alles even zwaar, allemaal grijze
-     tekst. Nu een kaart met lucht eromheen, een icoon links en rechts hoeveel
-     tijd er vandaag al in zit. */
-  const rij=(label,sub,attr,nu2,ico,kleur,sec)=>{
-    const t=sec?duurKort(sec):'';
-    return `<button type="button" class="ikkaart ${nu2?'aan':''}" ${attr}>
-      <span class="ikico" ${kleur?`style="color:${kleur}"`:''}>${svg(I[ico]||I.klembord)}</span>
-      <span class="irl">${esc(label)}${sub?`<em>${esc(sub)}</em>`:''}</span>
-      ${nu2?'<i class="irnu">bezig</i>':(t?`<i class="irtijd">${t}</i>`:'')}
-      ${svg(I.pijl,'2')}</button>`;
-  };
+     Wat je hier moet doen is één ding aanwijzen. Daar heb je een naam voor
+     nodig en verder niets — geen uitleg waaróm die keuze er staat, geen
+     kopjes die de indeling benoemen die je toch al ziet. Tegels met een
+     icoon lees je op vorm en plek, niet woord voor woord. */
+  const tegel=(label,attr,ico,kleur,sec,nu2)=>`<button type="button"
+    class="iktegel ${nu2?'aan':''}" ${attr}>
+    <span class="itico" ${kleur?`style="color:${kleur}"`:''}>${svg(I[ico]||I.klembord)}</span>
+    <span class="itn">${esc(label)}</span>
+    ${sec?`<i class="itt">${duurKort(sec)}</i>`:''}</button>`;
 
-  /* de twee of drie dingen die je waarschijnlijk kiest */
-  const snel=[];
   const alGekozen=x=>n&&n.naam===x;
+  const snel=[];
   if(b){
     const volg=planVolgende(b);
-    if(volg&&!alGekozen(volg)) snel.push({l:volg,s:'volgende productiestap',
-      a:`data-inkstap="${esc(volg)}"`, i:'vorm', sec:vandaagPer(volg)});
+    if(volg&&!alGekozen(volg)) snel.push({l:volg,a:`data-inkstap="${esc(volg)}"`,
+      i:'vorm',sec:vandaagPer(volg)});
   }
   (S.activiteiten||[]).filter(a=>/pauze/i.test(a)).forEach(a=>{
-    if(!alGekozen(a)) snel.push({l:a,s:'',a:`data-inkact="${esc(a)}"`,
-      i:'klok', sec:vandaagPer(a)});
+    if(!alGekozen(a)) snel.push({l:a,a:`data-inkact="${esc(a)}"`,i:'klok',sec:vandaagPer(a)});
   });
   recenteKlokkeuzes(6).forEach(r=>{
     if(snel.length>=3||alGekozen(r.n)||snel.some(x=>x.l===r.n)) return;
     const attr=r.k?`data-inkklus="${esc(r.k)}"`
       :(plan.indexOf(r.n)>=0?`data-inkstap="${esc(r.n)}"`:`data-inkact="${esc(r.n)}"`);
     const so=r.k?klusSoort(r.k):null;
-    snel.push({l:r.n,s:'laatst gebruikt',a:attr,
-      i:so?so.ico:(plan.indexOf(r.n)>=0?'vorm':'klembord'),
-      kleur:so?so.kleur:'', sec:vandaagPer(r.n,r.k)});
+    snel.push({l:r.n,a:attr,i:so?so.ico:(plan.indexOf(r.n)>=0?'vorm':'klembord'),
+      kleur:so?so.kleur:'',sec:vandaagPer(r.n,r.k)});
   });
 
-  /* Deze stonden als grijze kopjes met een pijltje: dat leest als een label
-     boven een lijst, niet als iets waar je op kunt tikken. Nu dezelfde vorm
-     als de rijen erboven, met het aantal erachter zodat je weet wat je
-     opendoet. */
-  const groep=(kop,extra,inh,aantal)=>`<details class="ikgroep">
-    <summary class="ikrij"><span class="irl">${esc(kop)}${
-      extra?`<em>${esc(extra)}</em>`:''}</span>
-      <i class="irtel">${aantal}</i>${svg(I.pijl,'2')}</summary>
+  /* de volledige lijsten: naam en niets meer */
+  const rij=(label,attr,ico,kleur,sec,nu2)=>`<button type="button"
+    class="ikkaart ${nu2?'aan':''}" ${attr}>
+    <span class="ikico" ${kleur?`style="color:${kleur}"`:''}>${svg(I[ico]||I.klembord)}</span>
+    <span class="irl">${esc(label)}</span>
+    ${nu2?'<i class="irnu">bezig</i>':(sec?`<i class="irtijd">${duurKort(sec)}</i>`:'')}
+    ${svg(I.pijl,'2')}</button>`;
+  const groep=(kop,inh)=>`<details class="ikgroep">
+    <summary class="ikkaart"><span class="irl">${esc(kop)}</span>${svg(I.pijl,'2')}</summary>
     <div class="ikuit">${inh}</div></details>`;
-
-  const alles=
-    `<div class="paneel">
-     ${b&&plan.length?groep('Productiestappen',bNamen(b),
-        plan.map(p=>rij(p,'',`data-inkstap="${esc(p)}"`,
-          n&&n.soort==='batch'&&n.naam===p,'vorm','',vandaagPer(p))).join(''),plan.length):''}
-     ${(S.activiteiten||[]).length?groep('Werkzaamheden','',
-        S.activiteiten.map(a=>rij(a,'',`data-inkact="${esc(a)}"`,
-          n&&n.soort==='batch'&&n.naam===a,'klembord','',vandaagPer(a))).join(''),
-        S.activiteiten.length):''}
-     ${groep('Buiten de productie','',
-        klusSoorten().map(s=>rij(s.n,'',`data-inkklus="${esc(s.k)}"`,
-          n&&n.soort==='klus'&&S.klus.soort===s.k,s.ico,s.kleur,
-          vandaagPer(s.n,s.k))).join(''),klusSoorten().length)}
-     </div>`;
+  const alles=`${b&&plan.length?groep('Productiestappen',
+      plan.map(p=>rij(p,`data-inkstap="${esc(p)}"`,'vorm','',vandaagPer(p),
+        n&&n.soort==='batch'&&n.naam===p)).join('')):''}
+    ${(S.activiteiten||[]).length?groep('Werkzaamheden',
+      S.activiteiten.map(a=>rij(a,`data-inkact="${esc(a)}"`,'klembord','',vandaagPer(a),
+        n&&n.soort==='batch'&&n.naam===a)).join('')):''}
+    ${groep('Buiten de productie',
+      klusSoorten().map(s=>rij(s.n,`data-inkklus="${esc(s.k)}"`,s.ico,s.kleur,
+        vandaagPer(s.n,s.k),n&&n.soort==='klus'&&S.klus.soort===s.k)).join(''))}`;
 
   if(!S.dienst){
-    /* ── nog niet aan het werk ── */
-    const vandaag2=urenVandaag();
     sheet('Inklokken',
-      `<p class="hint">Inklokken start je werkdag. Waar je aan werkt kies je
-         daarna, en dat mag je zo vaak wisselen als je wil.</p>
-       <div class="ikstart">
-         <span class="eyebrow">Vandaag gewerkt</span>
-         <b>${vandaag2?urenTekst(vandaag2):'0u 00'}</b></div>
-       ${snel.length?`<div class="stapkop" style="margin-top:20px">
-           <span class="sk">Of begin meteen met</span></div>
-         ${snel.map(x=>rij(x.l,x.s,x.a,false,x.i,x.kleur,x.sec)).join('')}`:''}`,
+      `${snel.length?`<div class="iktegels">${snel.map(x=>
+         tegel(x.l,x.a,x.i,x.kleur,x.sec,false)).join('')}</div>`:''}`,
       `<button class="prim" style="margin-top:0" id="ikAan">Inklokken</button>`);
     if($('#ikAan')) $('#ikAan').onclick=veilig('inklokken',()=>{
       dienstStart(); bewaarNu(); dicht(); render();
-      toast('Ingeklokt om '+nu()+'. Kies wanneer je wil waar je aan werkt.');
+      toast('Ingeklokt om '+nu()+'.');
     });
   } else {
-    /* ── al aan het werk ── */
     const d=new Date(S.dienst.start);
-    sheet('Waar ben je mee bezig?',
-      `<p class="hint">De klok voor je werkdag loopt door; hier kies je alleen
-         waar die tijd aan opgaat.</p>
-       <div class="ikstand">
-         <span class="eyebrow">Ingeklokt sinds ${pad(d.getHours())}:${pad(d.getMinutes())}</span>
+    sheet(n?esc(n.naam):'Nog niets gekozen',
+      `<div class="ikstand">
          <b class="dienstikker">${duurTekst(Date.now()-S.dienst.start)}</b>
-         <span class="iknu">${n?esc(n.naam)+' · <span class="acttikker">'+
-           duurTekst(Date.now()-n.start)+'</span>':'nog niets gekozen'}</span></div>
-       ${snel.length?`<div class="stapkop" style="margin-top:20px">
-           <span class="sk">${n?'Wisselen naar':'Waar ga je aan werken'}</span></div>
-         ${snel.map(x=>rij(x.l,x.s,x.a,false,x.i,x.kleur,x.sec)).join('')}`:''}
-       <div class="stapkop" style="margin-top:18px"><span class="sk">Alles</span></div>
+         <span class="iknu">sinds ${pad(d.getHours())}:${pad(d.getMinutes())}${
+           n?' · hier al <span class="acttikker">'+duurTekst(Date.now()-n.start)+'</span>':''}</span></div>
+       ${snel.length?`<div class="iktegels">${snel.map(x=>
+         tegel(x.l,x.a,x.i,x.kleur,x.sec,false)).join('')}</div>`:''}
        ${alles}`,
       `<div class="wzknoppen">
          <button class="sec plat" id="ikWeg">Weggooien</button>
@@ -16532,7 +16527,6 @@ function sheetInklok(){
   if($('#ikUit')) $('#ikUit').onclick=veilig('uitklokken',()=>{
     const n2=nuAanHetWerk();
     if(n2&&n2.soort==='klus') klusStop(); else if(n2) stopWerk(n2.batch);
-    /* pas hierna de dienst, anders mist de laatste activiteit zijn eindtijd */
     dienstStop();
     bewaarNu(); dicht(); render(); toast('Uitgeklokt — '+urenTekst(urenVandaag())+' vandaag.');
   });
