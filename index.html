@@ -768,6 +768,29 @@ header .hbtn.zoek{display:none}
 .hoofdkaart.stil:active{transform:none;filter:none}
 .nukaart.af h3{font-size:21px}
 
+/* ── de route als tegels ──
+   Vier tegels naast elkaar in plaats van negen rijen onder elkaar met kopjes
+   ertussen. Je ziet in één blik waar je staat; de stappen zitten erachter. */
+.fasetegels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 0}
+.fasetegel{position:relative;background:var(--card);border:1px solid var(--lijn);
+  border-radius:18px;padding:14px 14px 15px;text-align:left;display:flex;
+  flex-direction:column;gap:10px;min-height:100px;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.2)}
+.fasetegel .ftico{width:36px;height:36px;border-radius:12px;background:var(--bg);
+  display:grid;place-items:center;color:var(--grijs2)}
+.fasetegel .ftico svg{width:17px;height:17px;stroke-width:1.9}
+.fasetegel .ftn{font-size:15.5px;font-weight:600;letter-spacing:-.025em;
+  color:var(--ink);line-height:1.25;margin-top:auto}
+.fasetegel .ftt{position:absolute;top:16px;right:14px;font-style:normal;
+  font-size:12.5px;font-weight:600;color:var(--grijs2);
+  font-variant-numeric:tabular-nums}
+.fasetegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
+.fasetegel.nu{background:var(--choco-wash);border-color:var(--choco-licht)}
+.fasetegel.nu .ftico{background:var(--choco);color:#fff}
+.fasetegel.nu .ftt{color:var(--choco)}
+.fasetegel.af .ftico{background:var(--groen);color:#fff}
+.fasetegel.af .ftn{color:var(--grijs2)}
+
 /* ── fasekoppen ──
    Klein en rustig als je er niet bent, met de toelichting erbij zodra je er
    wel bent. Zo weet je bij "Voorbereiden" dat het gisteren had gekund. */
@@ -3318,7 +3341,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v478 · 18 aug 2026';
+const APPVERSIE='v479 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4747,12 +4770,14 @@ const BSTAPPEN=[
    er precies hetzelfde uit. Nu zie je in één blik waar je bent — en welk deel
    je gisteren al had kunnen doen. */
 const BFASEN=[
-  {k:'voor',  n:'Voorbereiden', uit:'kan de dag ervoor',
+  {k:'voor',  n:'Voorbereiden', ico:'klembord', uit:'kan de dag ervoor',
    stappen:['ingredienten','opening']},
-  {k:'maken', n:'Maken',        uit:'hier sta je aan de machine',
+  {k:'maken', n:'Maken',        ico:'vorm',     uit:'hier sta je aan de machine',
    stappen:['productie']},
-  {k:'na',    n:'Afsluiten',    uit:'als alles klaar is',
-   stappen:['schoonmaak','afronden']}
+  {k:'na',    n:'Afsluiten',    ico:'vink',     uit:'als alles klaar is',
+   stappen:['schoonmaak','afronden']},
+  {k:'los',   n:'Als het nodig is', ico:'meer', uit:'',
+   stappen:['temperatuur','ontvangst','afwijking']}
 ];
 const faseVan=key=>(BFASEN.find(f=>f.stappen.includes(key))||{}).k||'los';
 
@@ -5523,6 +5548,28 @@ function hervatKaartHTML(b,naam){
     <button class="nuknop" data-nugeleid="${esc(naam)}">Verder</button></div>`;
 }
 
+/* Achter een tegel: de stappen van die ene fase, en niets anders. */
+function sheetFase(k){
+  const b=batch(); if(!b) return;
+  const f=BFASEN.find(x=>x.k===k); if(!f) return;
+  const stappen=BSTAPPEN.filter(s=>f.stappen.includes(s.key));
+  const af=stappen.filter(s=>s.klaar(b)).length;
+  sheet(f.n,
+    `<div class="paneel">${stappen.map(s=>{
+      const klaar2=s.klaar(b), w=String(s.waarde(b));
+      return `<button class="ikkaart ${klaar2?'af':''}" data-sheet="${s.sheet}">
+        <span class="ikico">${klaar2?svg(I.vink,'2.6'):svg(I.cirkel)}</span>
+        <span class="irl">${s.label}</span>
+        ${w!=='—'?`<i class="irtijd">${esc(w)}</i>`:''}
+        ${svg(I.pijl,'2')}</button>`;
+    }).join('')}</div>`,
+    '',
+    f.k==='los'?'':af+' van '+stappen.length);
+  $$('#sheetBody [data-sheet]').forEach(x=>x.onclick=()=>{
+    const fn=SHEETS[x.dataset.sheet]; if(fn){ dicht(); setTimeout(fn,220) }
+  });
+}
+
 function nuKaartHTML(b){
   const w=lopendWerk(b), plan=bPlan(b);
   /* Loopt er een timer op een productiestap, dan is dát waar je mee bezig
@@ -6263,29 +6310,32 @@ function batchHTML(){
   };
   /* De fase waar je nu in zit is die van de eerstvolgende openstaande stap. */
   const nuFase=nu?faseVan(nu.key):'na';
-  const faseHtml=BFASEN.map(f=>{
+  /* ═══════════ eerst de fase, dan pas de stappen ═══════════
+     Alle negen stappen stonden onder elkaar op één scherm, met vier kopjes
+     ertussen en de naslag eronder: vijf schermlengtes scrollen om te zien
+     waar je bent. Nu vier tegels met hun voortgang, en de stappen zitten
+     erachter. Je kiest eerst een fase en ziet dan pas de details. */
+  const faseHtml=`<div class="fasetegels">${BFASEN.map(f=>{
     const stappen=BSTAPPEN.filter(s=>f.stappen.includes(s.key));
     if(!stappen.length) return '';
     const af=stappen.filter(s=>s.klaar(b)).length;
+    const klaar2=af===stappen.length;
     const bezigF=f.k===nuFase;
-    return `<div class="fasekop ${bezigF?'nu':''} ${af===stappen.length?'af':''}">
-        <span class="fn">${esc(f.n)}</span>
-        <span class="fu">${bezigF?esc(f.uit):''}</span>
-        <span class="ft">${af===stappen.length?svg(I.vink,'2.6'):af+' / '+stappen.length}</span>
-      </div>
-      <div class="paneel fasepaneel ${bezigF?'nu':''}">${stappen.map(bstapRij).join('')}</div>`;
-  }).join('');
-  /* Ontvangst en afwijkingen horen bij geen enkele fase: die doe je als het
-     nodig is, en anders nooit. */
-  const losse=BSTAPPEN.filter(s=>faseVan(s.key)==='los');
+    /* bij Maken zegt het aantal stappen meer dan het aantal route-onderdelen */
+    const tel=f.k==='maken'
+      ? planGedaan(b)+' / '+bPlan(b).length
+      : (f.k==='los'?'':af+' / '+stappen.length);
+    return `<button class="fasetegel ${bezigF?'nu':''} ${klaar2&&f.k!=='los'?'af':''}"
+        data-fase="${f.k}">
+      <span class="ftico">${klaar2&&f.k!=='los'?svg(I.vink,'2.6'):svg(I[f.ico]||I.doos)}</span>
+      <span class="ftn">${esc(f.n)}</span>
+      ${tel?`<i class="ftt">${tel}</i>`:''}</button>`;
+  }).join('')}</div>`;
 
   const verw=verwachteDuur(b), bezig=werkTotaal(b);
   h+=`<div class="blokkop"><span class="eyebrow">De route</span>
       <span class="tel">${bGedaan(b)} van ${KERN.length}</span></div>
     ${faseHtml}
-    ${losse.length?`<div class="fasekop"><span class="fn">Als het nodig is</span>
-        <span class="fu"></span><span class="ft"></span></div>
-      <div class="paneel fasepaneel">${losse.map(bstapRij).join('')}</div>`:''}
     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Naslag</span></div>
     <div class="paneel">${naslag}</div>
     ${(()=>{
@@ -14314,6 +14364,7 @@ function bind(){
   });
   /* Rechtstreeks de geleide modus in, op de handeling waar je gebleven was.
      Eén tik van vergrendeld scherm naar wat je moet doen. */
+  $$('[data-fase]').forEach(x=>x.onclick=()=>{ sluitToetsenbord(); sheetFase(x.dataset.fase) });
   $$('[data-nugeleid]').forEach(x=>x.onclick=veilig('verder waar je was',()=>{
     sluitToetsenbord();
     const naam=x.dataset.nugeleid;
