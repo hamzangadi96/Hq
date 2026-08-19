@@ -786,6 +786,9 @@ header .hbtn.zoek{display:none}
   font-variant-numeric:tabular-nums}
 /* een tegel zonder icoonvulling houdt hem rustig als er veel naast elkaar staan */
 .fasetegels .fasetegel .ftt{font-weight:500;color:var(--grijs2)}
+.fasetegel .ftt.amber{color:var(--amber);font-weight:700}
+/* twee rasters onder elkaar hebben lucht nodig, geen streep */
+.blokkop + .fasetegels{margin-top:0}
 .fasetegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
 .fasetegel.nu{background:var(--choco-wash);border-color:var(--choco-licht)}
 .fasetegel.nu .ftico{background:var(--choco);color:#fff}
@@ -3346,7 +3349,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v481 · 18 aug 2026';
+const APPVERSIE='v482 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5559,6 +5562,12 @@ function hervatKaartHTML(b,naam){
     <button class="nuknop" data-nugeleid="${esc(naam)}">Verder</button></div>`;
 }
 
+/* Achter een naslagtegel: alleen dat ene onderwerp. */
+function sheetNaslag(k, titel, inhoud){
+  sheet(titel, inhoud || '<div class="geen">Nog niets te zien.</div>', '');
+  if($('[data-werk]')) $('[data-werk]').onclick=()=>{ dicht(); setTimeout(sheetInklok,220) };
+}
+
 /* Achter een tegel: de stappen van die ene fase, en niets anders. */
 function sheetFase(k){
   const b=batch(); if(!b) return;
@@ -6292,7 +6301,34 @@ function batchHTML(){
       ${A.verschil?'<span class="stip amber"></span>':''}
       <span class="waarde ${A.alle.length?'gevuld':''}">${A.alle.length?A.alle.map(alNaam).join(', '):'geen'}</span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
-  const naslag=groepen+werkGroep+alGroep;
+  /* ═══════════ naslag als tegels ═══════════
+     Drie uitklaprijen over de volle breedte, elk met een ondertitel en een
+     waarde erachter. Als tegel zeg je hetzelfde in de helft van de ruimte:
+     icoon, naam, getal. Wat erin zit lees je pas als je hem opent. */
+  const A2=batchAllergenen(b);
+  const naslag=`<div class="fasetegels">
+    <button class="fasetegel" data-naslag="uitwerking">
+      <span class="ftico">${svg(I.doc)}</span>
+      <span class="ftn">Receptuitwerking</span>
+      <i class="ftt">${b.regels.length} ${b.regels.length===1?'smaak':'smaken'}</i></button>
+    <button class="fasetegel" data-naslag="werk">
+      <span class="ftico">${svg(I.klok)}</span>
+      <span class="ftn">Tijdsbesteding</span>
+      <i class="ftt">${tot?duurKort(tot):'—'}</i></button>
+    <button class="fasetegel" data-allerg>
+      <span class="ftico">${svg(I.alarm)}</span>
+      <span class="ftn">Allergenen</span>
+      ${A2.verschil?'<i class="ftt amber">let op</i>'
+        :`<i class="ftt">${A2.alle.length||'geen'}</i>`}</button>
+  </div>`;
+  /* de uitklapinhoud verhuist naar een eigen scherm achter de tegel */
+  const naslagInhoud={uitwerking:uitwerkingHTML(b),
+    werk:(perAct.length?`<div class="paneel">${perAct.map(x=>
+      `<div class="ikkaart"><span class="irl">${esc(x.act)}</span>
+        <i class="irtijd">${duurKort(x.sec)}</i></div>`).join('')}</div>`
+      :'<div class="geen">Nog geen tijd geregistreerd.</div>')
+      +(b.status==='klaar'?'':`<div class="voet" style="margin-top:14px">
+        <button data-werk>Timer omschakelen</button></div>`)};
   const nu=bVolgende(b);
   /* De route klapte per stap uit tot een lijst met alle onderliggende items.
      Bij Productiestappen waren dat tien grijze regels met een streepje, goed
@@ -6353,22 +6389,25 @@ function batchHTML(){
     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Naslag</span></div>
     <div class="paneel">${naslag}</div>
     ${(()=>{
-      const brij=(attr,icoon,label,waarde)=>`<button class="beheerrij" ${attr}>
-        ${svg(icoon)}<span class="l">${label}</span>
-        ${waarde?`<span class="w">${waarde}</span>`:''}
-        <span class="p">${svg(I.pijl,'2')}</span></button>`;
+      /* Acht rijen over de volle breedte was vier schermlengtes scrollen voor
+         dingen die je zelden nodig hebt. Als tegels passen ze in vier rijen
+         van twee, en je vindt ze op vorm in plaats van door te lezen. */
+      const btegel=(attr,icoon,label,waarde)=>`<button class="fasetegel" ${attr}>
+        <span class="ftico">${svg(icoon)}</span>
+        <span class="ftn">${label}</span>
+        ${waarde?`<i class="ftt">${waarde}</i>`:''}</button>`;
       const loopt=b.status!=='klaar';
       return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Deze batch</span></div>
-      <div class="paneel">
-        ${loopt?brij('data-bcorrectie',I.vorm,'Batch bijstellen',bTotaal(b)+' st'):''}
-        ${loopt?brij('data-bnotitie',I.doc,'Notitie toevoegen',''):''}
-        ${loopt?brij('data-bstatus',I.klok,b.status==='pauze'?'Batch hervatten':'Onderbreken of afbreken',
-          b.status==='pauze'?'stilgelegd':''):''}
-        ${loopt&&dagNummer(b)>=1?brij('data-bdag',I.vink,'Werkdag afsluiten','dag '+dagNummer(b)):''}
-        ${brij('data-rapport="batch"',I.klembord,'Batchrapport','')}
-        ${brij('data-rapport="dag"',I.doc,'Dagrapport van vandaag','')}
-        ${brij('data-dossier',I.klembord,'HACCP-dossier','voor de inspectie')}
-        ${brij('data-bkopie="'+b.id+'"',I.plus,'Nieuwe batch met deze opzet','')}
+      <div class="fasetegels">
+        ${loopt?btegel('data-bcorrectie',I.vorm,'Bijstellen',bTotaal(b)+' st'):''}
+        ${loopt?btegel('data-bnotitie',I.doc,'Notitie',''):''}
+        ${loopt?btegel('data-bstatus',I.klok,b.status==='pauze'?'Hervatten':'Onderbreken',
+          b.status==='pauze'?'stil':''):''}
+        ${loopt&&dagNummer(b)>=1?btegel('data-bdag',I.vink,'Werkdag afsluiten','dag '+dagNummer(b)):''}
+        ${btegel('data-rapport="batch"',I.klembord,'Batchrapport','')}
+        ${btegel('data-rapport="dag"',I.doc,'Dagrapport','vandaag')}
+        ${btegel('data-dossier',I.klembord,'HACCP-dossier','inspectie')}
+        ${btegel('data-bkopie="'+b.id+'"',I.plus,'Nieuwe batch','deze opzet')}
       </div>
       <div class="voet"><button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`})()}`;
   if(verw&&b.status!=='klaar'){
@@ -14382,6 +14421,22 @@ function bind(){
     e.stopPropagation(); S.batchId=null; render(); $('#scherm').scrollTop=0;
   });
   $$('[data-fase]').forEach(x=>x.onclick=()=>{ sluitToetsenbord(); sheetFase(x.dataset.fase) });
+  $$('[data-naslag]').forEach(x=>x.onclick=()=>{
+    sluitToetsenbord();
+    const b2=batch(); if(!b2) return;
+    const k=x.dataset.naslag;
+    if(k==='uitwerking') sheetNaslag(k,'Receptuitwerking',uitwerkingHTML(b2));
+    else {
+      const per=werkPerActiviteit(b2);
+      sheetNaslag(k,'Tijdsbesteding',
+        (per.length?`<div class="paneel">${per.map(y=>
+          `<div class="ikkaart"><span class="irl">${esc(y.act)}</span>
+            <i class="irtijd">${duurKort(y.sec)}</i></div>`).join('')}</div>`
+          :'<div class="geen">Nog geen tijd geregistreerd.</div>')
+        +(b2.status==='klaar'?'':`<div class="voet" style="margin-top:14px">
+          <button data-werk>Timer omschakelen</button></div>`));
+    }
+  });
   $$('[data-nugeleid]').forEach(x=>x.onclick=veilig('verder waar je was',()=>{
     sluitToetsenbord();
     const naam=x.dataset.nugeleid;
