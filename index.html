@@ -779,6 +779,10 @@ header .hbtn.zoek{display:none}
 .fasetegel .ftico{width:36px;height:36px;border-radius:12px;background:var(--bg);
   display:grid;place-items:center;color:var(--grijs2)}
 .fasetegel .ftico svg{width:17px;height:17px;stroke-width:1.9}
+/* een nummer in plaats van een icoon: even groot, zelfde plek */
+.fasetegel .ftico{font-size:14px;font-weight:700;color:var(--grijs2);
+  font-variant-numeric:tabular-nums}
+.fasetegel .ftico.groen{background:var(--groen);color:#fff}
 .fasetegel .ftn{font-size:15.5px;font-weight:600;letter-spacing:-.025em;
   color:var(--ink);line-height:1.25;margin-top:auto}
 .fasetegel .ftt{position:absolute;top:16px;right:14px;font-style:normal;
@@ -3349,7 +3353,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v482 · 18 aug 2026';
+const APPVERSIE='v483 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16749,18 +16753,25 @@ function sheetProductie(){
            duurKort(perAct[a])}</i>`:'')}${svg(I.pijl,'2')}</button>`).join('');
        /* Dezelfde tegels als bij de route: wat je nog kunt doen staat naast
           elkaar in plaats van onder elkaar, en het bijwerk zit erachter. */
+       /* Het nummer laat de volgorde zien zonder dat je hem hoeft af te leiden
+          uit de plek in het raster; de laatste tegel brengt je naar het scherm
+          waar je stappen kunt verschuiven. */
        const stegel=n2=>`<button type="button" class="fasetegel" data-stap="${esc(n2)}">
-         <span class="ftico">${svg(I.vorm)}</span>
+         <span class="ftico">${plan.indexOf(n2)+1}</span>
          <span class="ftn">${esc(n2)}</span>
          ${perAct[n2]?`<i class="ftt">${duurKort(perAct[n2])}</i>`:''}</button>`;
-       return `${open.length?`<div class="fasetegels">${open.map(stegel).join('')}</div>`:''}
-         <div class="paneel" style="margin-top:${open.length?'16px':'0'}">
-           ${klaar.length?groeprij('Klaar',klaar.map(rij).join(''),klaar.length,false):''}
-           ${tussen.length?groeprij('Tussendoor',tussenInh,tussen.length,
-              w&&tussen.includes(w.act)):''}
-           <button type="button" class="ikkaart" id="pStappenIns">
-             <span class="ikico">${svg(I.instel)}</span>
-             <span class="irl">Stappen aanpassen</span>${svg(I.pijl,'2')}</button>
+       return `<div class="fasetegels">
+           ${open.map(stegel).join('')}
+           ${klaar.length?`<button type="button" class="fasetegel" data-stapgroep="klaar">
+             <span class="ftico groen">${svg(I.vink,'2.6')}</span>
+             <span class="ftn">Klaar</span><i class="ftt">${klaar.length}</i></button>`:''}
+           ${tussen.length?`<button type="button" class="fasetegel ${
+             w&&tussen.includes(w.act)?'nu':''}" data-stapgroep="tussen">
+             <span class="ftico">${svg(I.klembord)}</span>
+             <span class="ftn">Tussendoor</span><i class="ftt">${tussen.length}</i></button>`:''}
+           <button type="button" class="fasetegel" id="pStappenIns">
+             <span class="ftico">${svg(I.instel)}</span>
+             <span class="ftn">Volgorde aanpassen</span></button>
          </div>`;
      })()}`,
     /* "Timer stoppen" was de hoofdknop terwijl je juist door wilde werken.
@@ -16774,6 +16785,38 @@ function sheetProductie(){
     planGedaan(b)+' van '+plan.length+' gedaan');
 
   $('#pStappenIns').onclick=()=>sheetLijst('werkplan');
+  $$('[data-stapgroep]').forEach(x=>x.onclick=veilig('stappen bekijken',()=>{
+    const soort=x.dataset.stapgroep;
+    const b2=batch(); if(!b2) return;
+    const st2=planVan(b2), w2=lopendWerk(b2), plan2=bPlan(b2);
+    const per={}; werkPerActiviteit(b2).forEach(y=>per[y.act]=y.sec);
+    const lijst = soort==='klaar'
+      ? plan2.filter(n=>st2[n]&&st2[n].gedaan)
+      : (S.activiteiten||[]).filter(a=>!plan2.includes(a));
+    sheet(soort==='klaar'?'Klaar':'Tussendoor',
+      `<div class="paneel">${lijst.map(n=>{
+        const bezig2=w2&&w2.act===n;
+        return `<div class="ikkaart ${bezig2?'aan':''}">
+          ${soort==='klaar'?`<button type="button" class="vinkknop aan" data-vink="${esc(n)}"
+              aria-label="Weer openzetten">${svg(I.vink,'2.4')}</button>`
+            :`<span class="ikico">${svg(I.klembord)}</span>`}
+          <button type="button" class="irl kaal" ${soort==='klaar'
+            ?`data-stap="${esc(n)}"`:`data-tussen="${esc(n)}"`}>${esc(n)}</button>
+          ${bezig2?'<i class="irnu">bezig</i>':(per[n]?`<i class="irtijd">${duurKort(per[n])}</i>`:'')}
+        </div>`;
+      }).join('')}</div>`,
+      '', lijst.length+(lijst.length===1?' stap':' stappen'));
+    $$('#sheetBody [data-vink]').forEach(y=>y.onclick=()=>{
+      const n=y.dataset.vink;
+      if(w2&&w2.act===n) stopWerk(b2);
+      stapKlaar(b2,n,!(planVan(b2)[n]||{}).gedaan);
+      bewaarNu(); dicht(); render(); sheetProductie();
+    });
+    $$('#sheetBody [data-stap],#sheetBody [data-tussen]').forEach(y=>y.onclick=()=>{
+      const n=y.dataset.stap||y.dataset.tussen;
+      dicht(); setTimeout(()=>{ startWerk(b2,n); render(); sheetProductie() },200);
+    });
+  }));
   const ga=naam=>{sluitToetsenbord();startWerk(b,naam);stapTimer=null;sheetProductie();render();
     toast('Bezig met '+naam.toLowerCase()+'.')};
   $$('[data-stap]').forEach(x=>x.onclick=()=>{sluitToetsenbord();sheetStapDoen(x.dataset.stap)});
