@@ -822,18 +822,34 @@ header .hbtn.zoek{display:none}
 .fasepaneel{opacity:.62;transition:opacity .25s}
 .fasepaneel.nu{opacity:1}
 
-/* ── snelkeuzes in het inklokscherm ── */
-.ikSnel{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}
-.iksnelknop{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  background:var(--card);border:1px solid var(--lijn);border-radius:15px;
-  padding:12px 14px;
-  box-shadow:0 1px 2px rgba(24,24,27,.03),0 10px 22px -20px rgba(24,24,27,.2)}
-.iksnelknop .il{flex:1;min-width:0;font-size:16px;font-weight:600;
-  letter-spacing:-.025em;color:var(--ink)}
-.iksnelknop .il em{display:block;font-style:normal;font-size:12.5px;font-weight:500;
-  color:var(--grijs2);margin-top:2px;letter-spacing:-.005em}
-.iksnelknop svg{width:15px;height:15px;flex:none;color:var(--grijs3)}
-.iksnelknop:active{background:var(--choco-wash);border-color:var(--choco-licht)}
+/* ── het inklokscherm ──
+   Vier kaarten van 130 hoog die er identiek uitzagen; nu rijen van 54 in één
+   paneel, zodat je in één blik ziet dat het een lijstje is en geen keuze
+   tussen vier gelijkwaardige dingen. */
+.ikrij{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:11px 15px;border-bottom:1px solid var(--lijn);background:none}
+.ikrij:last-child{border-bottom:none}
+.ikrij .irl{flex:1;min-width:0;font-size:15.5px;font-weight:500;
+  letter-spacing:-.02em;color:var(--ink)}
+.ikrij .irl em{display:block;font-style:normal;font-size:12.5px;font-weight:500;
+  color:var(--grijs2);margin-top:1px;letter-spacing:-.005em}
+.ikrij svg{width:14px;height:14px;flex:none;color:var(--grijs3)}
+.ikrij .irnu{flex:none;font-style:normal;font-size:11.5px;font-weight:700;
+  color:var(--choco);background:var(--choco-wash);border-radius:99px;padding:3px 9px}
+.ikrij:active{background:var(--choco-wash)}
+.ikrij.aan .irl{color:var(--choco);font-weight:600}
+
+/* de stand van zaken bovenaan */
+.ikstart,.ikstand{background:var(--bg);border-radius:16px;padding:14px 16px}
+.ikstand{background:var(--choco-wash);border:1px solid var(--choco-licht)}
+.ikstart .eyebrow,.ikstand .eyebrow{display:block}
+.ikstand .eyebrow{color:var(--choco)}
+.ikstart b,.ikstand b{display:block;font-size:30px;font-weight:700;
+  letter-spacing:-.035em;color:var(--ink);margin-top:4px;
+  font-variant-numeric:tabular-nums}
+.ikstand b{color:var(--choco)}
+.ikstand .iknu{display:block;font-size:13.5px;color:var(--grijs2);margin-top:3px;
+  font-variant-numeric:tabular-nums}
 .ikgroep{border-top:1px solid var(--lijn)}
 .ikgroep summary{display:flex;align-items:center;gap:10px;padding:13px 0;
   cursor:pointer;list-style:none}
@@ -3324,7 +3340,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v471 · 18 aug 2026';
+const APPVERSIE='v472 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16569,17 +16585,20 @@ function sheetInklok(){
   const n=nuAanHetWerk();
   const b=(S.batches||[]).find(x=>x.status==='bezig'||x.status==='loopt');
   const plan=b?bPlan(b):[];
-  const rij=(label,attr,nu2)=>`<button type="button" class="werkrij ${nu2?'bezig':''}" ${attr}>
-    <span class="wn">${esc(label)}</span>
-    <span class="wt">${nu2?'bezig':''}</span></button>`;
 
-  /* ═══════════ eerst wat je waarschijnlijk kiest ═══════════
-     Dit scherm was een platte lijst van vierentwintig regels over drie
-     groepen: twee schermen scrollen om de klok te verzetten, iets wat je
-     vijftien keer per dag doet. Terwijl de app meestal al weet wat je gaat
-     kiezen — de volgende productiestap, pauze, of wat je net nog deed.
-     Die staan nu bovenaan als grote knoppen; de volledige lijsten zitten
-     eronder ingeklapt voor de uitzondering. */
+  /* ═══════════ twee handelingen, niet één ═══════════
+     Dit scherm heette Inklokken maar had geen knop om in te klokken: je moest
+     meteen uit vierentwintig regels kiezen wát je ging doen. Terwijl de dienst
+     de buitenste laag is en de activiteit daaronder hangt — in de data hield
+     ik dat uit elkaar, in de bediening niet.
+
+     Niet ingeklokt? Dan is er één ding te doen. Ben je ingeklokt, dan gaat het
+     scherm over wisselen, en dat is een andere vraag. */
+  const rij=(label,sub,attr,nu2)=>`<button type="button" class="ikrij ${nu2?'aan':''}" ${attr}>
+    <span class="irl">${esc(label)}${sub?`<em>${esc(sub)}</em>`:''}</span>
+    ${nu2?'<i class="irnu">bezig</i>':svg(I.pijl,'2')}</button>`;
+
+  /* de twee of drie dingen die je waarschijnlijk kiest */
   const snel=[];
   const alGekozen=x=>n&&n.naam===x;
   if(b){
@@ -16588,50 +16607,73 @@ function sheetInklok(){
       a:`data-inkstap="${esc(volg)}"`});
   }
   (S.activiteiten||[]).filter(a=>/pauze/i.test(a)).forEach(a=>{
-    if(!alGekozen(a)) snel.push({l:a,s:'de klok loopt door, maar apart',
-      a:`data-inkact="${esc(a)}"`});
+    if(!alGekozen(a)) snel.push({l:a,s:'',a:`data-inkact="${esc(a)}"`});
   });
   recenteKlokkeuzes(6).forEach(r=>{
-    if(snel.length>=4||alGekozen(r.n)||snel.some(x=>x.l===r.n)) return;
-    /* een losse klus krijgt data-inkklus, batchwerk data-inkstap of -inkact */
+    if(snel.length>=3||alGekozen(r.n)||snel.some(x=>x.l===r.n)) return;
     const attr=r.k?`data-inkklus="${esc(r.k)}"`
       :(plan.indexOf(r.n)>=0?`data-inkstap="${esc(r.n)}"`:`data-inkact="${esc(r.n)}"`);
     snel.push({l:r.n,s:'laatst gebruikt',a:attr});
   });
 
-  const groep=(kop,extra,inh,open)=>`<details class="ikgroep"${open?' open':''}>
+  const groep=(kop,extra,inh)=>`<details class="ikgroep">
     <summary><span class="sk">${esc(kop)}</span>
       ${extra?`<i class="sn2">${esc(extra)}</i>`:''}${svg(I.pijl,'2')}</summary>
-    <div class="veld">${inh}</div></details>`;
+    <div class="paneel">${inh}</div></details>`;
 
-  sheet(n?'Waar ben je mee bezig?':'Inklokken',
-    `<p class="hint">Kies waar je aan werkt. De vorige stopt vanzelf — er loopt
-       er altijd maar één, zodat je uren nooit dubbel tellen.</p>
-     ${snel.length?`<div class="ikSnel">${snel.map(x=>
-       `<button type="button" class="iksnelknop" ${x.a}>
-          <span class="il">${esc(x.l)}<em>${esc(x.s)}</em></span>
-          ${svg(I.pijl,'2')}</button>`).join('')}</div>`:''}
-     ${b&&plan.length?groep('Productiestappen',bNamen(b),
-        plan.map(p=>rij(p,`data-inkstap="${esc(p)}"`,
-          n&&n.soort==='batch'&&n.naam===p)).join(''),!snel.length):''}
+  const alles=
+    `${b&&plan.length?groep('Productiestappen',bNamen(b),
+        plan.map(p=>rij(p,'',`data-inkstap="${esc(p)}"`,
+          n&&n.soort==='batch'&&n.naam===p)).join('')):''}
      ${(S.activiteiten||[]).length?groep('Werkzaamheden','',
-        S.activiteiten.map(a=>rij(a,`data-inkact="${esc(a)}"`,
-          n&&n.soort==='batch'&&n.naam===a)).join(''),false):''}
+        S.activiteiten.map(a=>rij(a,'',`data-inkact="${esc(a)}"`,
+          n&&n.soort==='batch'&&n.naam===a)).join('')):''}
      ${groep('Buiten de productie','',
-        klusSoorten().map(s=>rij(s.n,`data-inkklus="${esc(s.k)}"`,
-          n&&n.soort==='klus'&&S.klus.soort===s.k)).join(''),false)}`,
-    n?`<div class="wzknoppen">
+        klusSoorten().map(s=>rij(s.n,'',`data-inkklus="${esc(s.k)}"`,
+          n&&n.soort==='klus'&&S.klus.soort===s.k)).join(''))}`;
+
+  if(!S.dienst){
+    /* ── nog niet aan het werk ── */
+    const vandaag2=urenVandaag();
+    sheet('Inklokken',
+      `<p class="hint">Inklokken start je werkdag. Waar je aan werkt kies je
+         daarna, en dat mag je zo vaak wisselen als je wil.</p>
+       <div class="ikstart">
+         <span class="eyebrow">Vandaag gewerkt</span>
+         <b>${vandaag2?urenTekst(vandaag2):'0u 00'}</b></div>
+       ${snel.length?`<div class="stapkop" style="margin-top:20px">
+           <span class="sk">Of begin meteen met</span></div>
+         <div class="paneel">${snel.map(x=>rij(x.l,x.s,x.a,false)).join('')}</div>`:''}`,
+      `<button class="prim" style="margin-top:0" id="ikAan">Inklokken</button>`);
+    if($('#ikAan')) $('#ikAan').onclick=veilig('inklokken',()=>{
+      dienstStart(); bewaarNu(); dicht(); render();
+      toast('Ingeklokt om '+nu()+'. Kies wanneer je wil waar je aan werkt.');
+    });
+  } else {
+    /* ── al aan het werk ── */
+    const d=new Date(S.dienst.start);
+    sheet('Waar ben je mee bezig?',
+      `<p class="hint">De klok voor je werkdag loopt door; hier kies je alleen
+         waar die tijd aan opgaat.</p>
+       <div class="ikstand">
+         <span class="eyebrow">Ingeklokt sinds ${pad(d.getHours())}:${pad(d.getMinutes())}</span>
+         <b class="dienstikker">${duurTekst(Date.now()-S.dienst.start)}</b>
+         <span class="iknu">${n?esc(n.naam)+' · <span class="acttikker">'+
+           duurTekst(Date.now()-n.start)+'</span>':'nog niets gekozen'}</span></div>
+       ${snel.length?`<div class="stapkop" style="margin-top:20px">
+           <span class="sk">${n?'Wisselen naar':'Waar ga je aan werken'}</span></div>
+         <div class="paneel">${snel.map(x=>rij(x.l,x.s,x.a,false)).join('')}</div>`:''}
+       ${alles}`,
+      `<div class="wzknoppen">
          <button class="sec plat" id="ikWeg">Weggooien</button>
-         <button class="prim" id="ikUit">Uitklokken</button></div>`
-     :'');
+         <button class="prim" id="ikUit">Uitklokken</button></div>`);
+  }
 
   const kies=fn=>veilig('inklokken',()=>{ fn(); bewaarNu(); dicht(); render() });
   $$('[data-inkstap]').forEach(x=>x.onclick=kies(()=>{
     if(b) startWerk(b,x.dataset.inkstap);
   }));
   $$('[data-inkact]').forEach(x=>x.onclick=kies(()=>{
-    /* werkzaamheden horen bij de batch waar je mee bezig bent; is die er niet,
-       dan is het gewoon los werk */
     if(b) startWerk(b,x.dataset.inkact); else klusStart('overig',x.dataset.inkact);
   }));
   $$('[data-inkklus]').forEach(x=>x.onclick=kies(()=>klusStart(x.dataset.inkklus,'')));
@@ -16647,10 +16689,10 @@ function sheetInklok(){
     const n2=nuAanHetWerk();
     if(n2&&n2.soort==='klus'){ S.klus=null; badgeBij() }
     else if(n2){ const w=stopWerk(n2.batch); if(w) n2.batch.werk=n2.batch.werk.filter(x=>x!==w) }
+    S.dienst=null;
     bewaarNu(); dicht(); render(); toast('Weggegooid.');
   };
 }
-
 
 /* ================= productiestappen ================= */
 function sheetProductie(){
