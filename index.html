@@ -2002,7 +2002,9 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .weegrij:last-of-type{border-bottom:none}
 .weegrij .wgn{flex:1;font-size:15px;font-weight:450;letter-spacing:-.01em}
 .weegrij .wgg{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.weegrij.af .wgn,.weegrij.af .wgg{color:var(--grijs3);text-decoration:line-through}
+/* Deze rij heeft links al een groen vinkje; de streep erbovenop zei twee keer
+   hetzelfde en de tweede keer verkeerd. */
+.weegrij.af .wgn,.weegrij.af .wgg{color:var(--grijs3)}
 .wzt .wzbij{display:block;font-style:normal;font-size:12px;font-weight:600;color:var(--grijs2);margin-top:3px}
 .wzrij{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid var(--lijn);align-items:flex-start}
 .wzrij:last-of-type{border-bottom:none}
@@ -2728,8 +2730,15 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   color:var(--ink);line-height:1.25}
 .stapkaart small{display:block;margin-top:3px;font-size:12.5px;color:var(--grijs2);
   line-height:1.35}
-.stapkaart.gedaan .stapstip{background:var(--groen);border-color:var(--groen)}
-.stapkaart.gedaan b{color:var(--grijs2);text-decoration:line-through}
+/* Was een gevulde groene stip met een streep door de naam. Maar een streep
+   door tekst betekent overal "vervallen" of "geschrapt" — precies het
+   tegenovergestelde van wat je bedoelt. Nu een groen vinkje op de tijdlijn,
+   op de plek waar je toch al kijkt om te zien hoe ver je bent. */
+.stapkaart.gedaan .stapstip{background:var(--groen);border-color:var(--groen);
+  width:20px;height:20px;left:-33.5px;top:16px;color:#fff;
+  display:grid;place-items:center}
+.stapkaart.gedaan .stapstip svg{width:11px;height:11px}
+.stapkaart.gedaan b{color:var(--grijs2)}
 .stapkaart.gedaan .stapmerk{background:rgba(21,128,61,.10);color:var(--groen)}
 .stapkaart.bezig{background:#f5f1f0;border-color:rgba(74,43,24,.16);
   box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
@@ -3256,7 +3265,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v464 · 18 aug 2026';
+const APPVERSIE='v465 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5543,7 +5552,7 @@ function stappenlijnHTML(b){
   const merk={gedaan:'afgerond',bezig:'bezig',telaat:'te laat',wacht:'wachtend'};
   return `<div class="stappenlijn">${rijen.map(r=>`
     <button class="stapkaart ${r.stand}" data-stapdoe="${esc(r.naam)}">
-      <i class="stapstip"></i>
+      <i class="stapstip">${r.stand==='gedaan'?svg(I.vink,'3'):''}</i>
       <span class="stapvak">
         <span class="staptop">
           <em>${esc(r.tijd)}</em>
