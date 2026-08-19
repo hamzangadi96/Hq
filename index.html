@@ -3346,7 +3346,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v480 · 18 aug 2026';
+const APPVERSIE='v481 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5464,8 +5464,13 @@ function heroBatchHTML(b, metStap){
       knopbaar?` data-batch="${b.id}"`:''}>
       <div class="hk2kop">
         <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
-        <button class="hk2badge terug" data-allebatches
-          aria-label="Terug naar alle batches">${svg(I.terug,'2.4')}Batch ${esc(b.code)}</button>
+        ${knopbaar
+          /* Op het dashboard is de hele kaart al een knop, en een knop in een
+             knop mag niet: de browser sluit de buitenste en alles daarna valt
+             buiten de kaart. Daar blijft de badge dus gewoon een label. */
+          ? `<span class="hk2badge">Batch ${esc(b.code)}</span>`
+          : `<button class="hk2badge terug" data-allebatches
+              aria-label="Terug naar alle batches">${svg(I.terug,'2.4')}Batch ${esc(b.code)}</button>`}
         ${knopbaar?`<span class="hk2pijl">${svg(I.pijl,'2')}</span>`:''}
       </div>
       <div class="hk2lijf">
