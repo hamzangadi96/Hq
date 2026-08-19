@@ -1763,7 +1763,18 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .lotnaam em{font-style:normal;display:block;font-size:12.5px;color:var(--grijs2);margin-top:2px;font-variant-numeric:tabular-nums}
 .lotinp{width:104px;height:48px;border-radius:14px;border:none;background:var(--bg);padding:0 12px;font-size:16px;font-weight:600;outline:none;flex:none}
 .lotinp:focus{box-shadow:inset 0 0 0 1.5px var(--ink);background:#fff}
-.rrij{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--lijn)}
+/* Was padding 16 met een verwijderblok van 48: rijen van bijna 80 pixels,
+   waardoor je van tien stappen er zes zag. */
+.rrij{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--lijn)}
+.rrij .rnr{flex:none;width:22px;height:22px;border-radius:8px;background:var(--bg);
+  color:var(--grijs2);font-size:11.5px;font-weight:700;display:grid;place-items:center;
+  font-variant-numeric:tabular-nums}
+.rrij .rknop{flex:none;width:32px;height:32px;border-radius:10px;display:grid;
+  place-items:center;color:var(--grijs2)}
+.rrij .rknop:active{background:var(--bg);color:var(--ink)}
+.rrij .rknop svg{width:15px;height:15px;stroke-width:2}
+.rrij .rknop.op svg{transform:rotate(-90deg)}
+.rrij .rknop[disabled]{opacity:.22}
 .rrij:last-child{border-bottom:none}
 .rinfo{flex:1;min-width:0}
 .rnaam{font-size:15px;font-weight:500;letter-spacing:-.015em}
@@ -3265,7 +3276,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v465 · 18 aug 2026';
+const APPVERSIE='v466 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -23592,7 +23603,10 @@ function sheetInstellingen(){
   insBinden();
 }
 const LIJSTEN={
-  werkplan:{titel:'Productiestappen',hint:'De volgorde waarin je een batch maakt. De app loopt deze met je door.',ph:'Bijv. decoreren'},
+  /* volgorde:true betekent dat de rijen genummerd zijn en je ze kunt
+     verschuiven. Bij schoonmaakzones of leveranciers zegt een nummer niets. */
+  werkplan:{titel:'Productiestappen',volgorde:true,
+    hint:'De volgorde waarin je een batch maakt. De app loopt deze met je door — pijl omhoog om een stap eerder te doen.',ph:'Bijv. decoreren'},
   activiteiten:{titel:'Werkzaamheden',hint:'De activiteiten die je met de timer kunt bijhouden tijdens een batch.',ph:'Bijv. decoreren'},
   zones:{titel:'Schoonmaakzones',hint:'Alles wat jij schoonmaakt, van werkbank tot vloer.',ph:'Bijv. bonbonvormen'},
   middelen:{titel:'Schoonmaakmiddelen',hint:'Waarmee je reinigt. Dit komt in je logboek te staan.',ph:'Bijv. alcohol 70%'},
@@ -23600,21 +23614,45 @@ const LIJSTEN={
 };
 function sheetLijst(key){
   const c=LIJSTEN[key], arr=S[key];
+  /* Dit scherm liep uit de pas met de rest van de app: rijen van bijna tachtig
+     pixels, een grijs blok als verwijderknop, geen nummers terwijl de tekst
+     over volgorde sprak, en twee zwarte knoppen op één scherm — "Toevoegen"
+     én "Klaar". Nu dezelfde opzet als de werkwijzelijst bij een onderdeel:
+     genummerd, verschuifbaar, met een plusknop naast het invoerveld. */
   sheet(c.titel,
     `<p class="hint">${c.hint}</p>
-     <div>${arr.length?arr.map((v,i)=>`<div class="rrij"><div class="rinfo"><div class="rnaam">${esc(v)}</div></div>
-        <button class="wisbtn" data-wis="${i}">${svg(I.kruis,'2')}</button></div>`).join('')
+     <div class="wwin" style="margin-bottom:14px">
+       <input class="inp" id="lN" placeholder="${esc(c.ph)}" enterkeyhint="done">
+       <button class="wwadd" id="lOk" disabled>${svg(I.plus)}</button></div>
+     <div>${arr.length?arr.map((v,i)=>`<div class="rrij">
+        ${c.volgorde?`<span class="rnr">${i+1}</span>`:''}
+        <div class="rinfo"><div class="rnaam">${esc(v)}</div></div>
+        ${c.volgorde?`<button class="rknop op" data-op="${i}"${i===0?' disabled':''}
+          aria-label="Eerder doen">${svg(I.pijl,'2')}</button>`:''}
+        <button class="rknop" data-wis="${i}" aria-label="Verwijderen">${svg(I.kruis,'2')}</button>
+      </div>`).join('')
       :'<div class="geen">Nog niets toegevoegd.</div>'}</div>
-     <div class="inlineform open" style="margin:16px 0 20px"><div class="rijtje">
-       <input class="mini" id="lN" placeholder="${esc(c.ph)}">
-       <button class="miniknop" id="lOk">Toevoegen</button></div></div>
 `,
-    `<button class="prim" style="margin-top:0" id="lTerug">Klaar</button>`);
-  $('#lOk').onclick=()=>{
-    const v=$('#lN').value.trim(); if(!v) return toast('Vul iets in.');
-    arr.push(v); sheetLijst(key); toast('Toegevoegd.');
+    `<button class="prim" style="margin-top:0" id="lTerug">Klaar</button>`,
+    arr.length+(arr.length===1?' stap':(c.volgorde?' stappen':' items')));
+  const knop=()=>{ const k=$('#lOk'); if(k) k.disabled=!$('#lN').value.trim() };
+  const toevoegen=()=>{
+    const v=$('#lN').value.trim(); if(!v) return;
+    if(arr.some(x=>gKey(x)===gKey(v))) return toast('Die staat er al in.');
+    arr.push(v); bewaarNu(); sheetLijst(key); toast('Toegevoegd.');
   };
-  $$('[data-wis]').forEach(b=>b.onclick=()=>{arr.splice(parseInt(b.dataset.wis),1);sheetLijst(key);toast('Verwijderd.')});
+  $('#lN').oninput=knop;
+  $('#lN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); toevoegen() } };
+  $('#lOk').onclick=veilig('toevoegen aan de lijst',toevoegen);
+  knop();
+  $$('[data-op]').forEach(b=>b.onclick=veilig('eerder doen',()=>{
+    const i=parseInt(b.dataset.op); if(i<=0) return;
+    const x=arr[i]; arr[i]=arr[i-1]; arr[i-1]=x;
+    bewaarNu(); sheetLijst(key);
+  }));
+  $$('[data-wis]').forEach(b=>b.onclick=()=>{
+    arr.splice(parseInt(b.dataset.wis),1); bewaarNu(); sheetLijst(key); toast('Verwijderd.');
+  });
   $('#lTerug').onclick=sheetInstellingen;
 }
 /* ================= bedrijfsprofiel =================
