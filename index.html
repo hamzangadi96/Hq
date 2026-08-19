@@ -822,6 +822,27 @@ header .hbtn.zoek{display:none}
 .fasepaneel{opacity:.62;transition:opacity .25s}
 .fasepaneel.nu{opacity:1}
 
+/* ── de inklokwidget ──
+   Rustig als je niet ingeklokt bent, met een groene stip en je lopende tijd
+   zodra de klok draait. */
+.klokw{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--lijn);border-radius:16px;
+  padding:13px 16px;margin:0 0 14px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 10px 24px -20px rgba(24,24,27,.22)}
+.klokw .kwp{flex:none;width:9px;height:9px;border-radius:99px;background:var(--groen);
+  box-shadow:0 0 0 4px rgba(21,128,61,.14)}
+.klokw .kwl{flex:1;min-width:0}
+.klokw .kwl .eyebrow{display:block;margin-bottom:2px}
+.klokw .kwl b{display:block;font-size:16px;font-weight:600;letter-spacing:-.025em;
+  color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.klokw .kwr{flex:none;text-align:right}
+.klokw .kwr em{display:block;font-style:normal;font-size:16px;font-weight:700;
+  color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.klokw .kwr small{display:block;font-size:11.5px;color:var(--grijs2);margin-top:1px}
+.klokw.aan{border-color:var(--choco-licht);background:var(--choco-wash)}
+.klokw.aan .kwl b,.klokw.aan .kwr em{color:var(--choco)}
+.klokw:active{transform:scale(.99)}
+
 /* de route: stappen zijn verbonden, je ziet waar je bent */
 .groep.inroute{position:relative}
 .groep.inroute::before{content:'';position:absolute;left:29px;top:0;bottom:0;width:2px;background:#e9e9ec}
@@ -3276,7 +3297,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v467 · 18 aug 2026';
+const APPVERSIE='v468 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4385,7 +4406,24 @@ function duurKort(sec){
   return u+'u '+pad(m);
 }
 function stopWerk(b){ schermWakker(false);const w=lopendWerk(b); if(w){w.eind=Date.now(); bewaarNu();} return w}
-function startWerk(b,act){ stopWerk(b); werkLijst(b).push({id:uid(),act,start:Date.now(),eind:null}); bewaarNu(); schermWakker(true)}
+/* Deze twee klokken wisten niets van elkaar: klokte je in op Administratie en
+   startte je daarna een productiestap, dan liepen ze allebei door. En omdat
+   urenPeriode losSec én prodSec optelt, telde die tijd dubbel mee voor je
+   urencriterium. Er kan er maar één lopen — welke dat is bepaalt alleen het
+   etiket op je uren, niet of de klok loopt. */
+function startWerk(b,act){
+  if(typeof klusStop==='function'&&S.klus) klusStop();
+  stopWerk(b); werkLijst(b).push({id:uid(),act,start:Date.now(),eind:null});
+  bewaarNu(); schermWakker(true);
+}
+/* de batchklok die op dít moment loopt, in welke batch dan ook */
+function lopendBatchWerk(){
+  for(const b of (S.batches||[])){
+    const w=lopendWerk(b);
+    if(w) return {b,w};
+  }
+  return null;
+}
 function werkPerActiviteit(b){
   const m={}; werkLijst(b).forEach(w=>{m[w.act]=(m[w.act]||0)+seconden(w)});
   return Object.keys(m).map(a=>({act:a,sec:m[a]})).sort((x,y)=>y.sec-x.sec);
@@ -4423,6 +4461,8 @@ const klusLijst=()=>(S.klussen||[]).slice().sort((a,b)=>
    met tijdstempels werken en niet met een teller */
 function klusStart(soort,tekst){
   if(S.klus) klusStop();
+  /* andersom net zo goed: een losse klus stopt je batchtimer */
+  const lb=lopendBatchWerk(); if(lb) stopWerk(lb.b);
   S.klus={id:uid(),soort:soort,tekst:tekst||'',start:Date.now(),datum:vandaag(),tijd:nu()};
   bewaarNu(); schermWakker(true); badgeVraag().then(badgeBij);
 }
@@ -4458,6 +4498,48 @@ const jaarBegin=()=>new Date().getFullYear()+'-01-01';
 const jaarEind=()=>new Date().getFullYear()+'-12-31';
 
 /* de balk die op elk tabblad laat zien dat de klok loopt */
+/* ═══════════ de inklok ═══════════
+   Dit is de buitenste laag: je werkdag. Wat je binnen die tijd doet — een
+   losse klus of een productiestap — bepaalt alleen het etiket. Zo blijft je
+   urenstaat kloppen terwijl je per stap toch ziet hoelang je erover deed. */
+function nuAanHetWerk(){
+  if(S.klus){
+    const so=klusSoort(S.klus.soort);
+    return {soort:'klus', naam:so.n+(S.klus.tekst?' · '+S.klus.tekst:''),
+            start:S.klus.start, kleur:so.kleur};
+  }
+  const lb=lopendBatchWerk();
+  if(lb) return {soort:'batch', naam:lb.w.act, start:lb.w.start,
+                 batch:lb.b, kleur:'var(--choco)'};
+  return null;
+}
+/* wat je vandaag al hebt staan, los werk plus batchwerk */
+function urenVandaag(){
+  const p=urenPeriode(vandaag(),vandaag());
+  const n=nuAanHetWerk();
+  return p.totaalSec + (n?Math.round((Date.now()-n.start)/1000):0);
+}
+
+function klokWidgetHTML(){
+  const n=nuAanHetWerk();
+  const sec=urenVandaag();
+  if(!n){
+    return `<button class="klokw" id="klokWidget">
+      <span class="kwl"><span class="eyebrow">Niet ingeklokt</span>
+        <b>Inklokken</b></span>
+      <span class="kwr"><em>${sec?urenTekst(sec):'0u 00'}</em><small>vandaag</small></span>
+    </button>`;
+  }
+  return `<button class="klokw aan" id="klokWidget">
+    <span class="kwp"></span>
+    <span class="kwl"><span class="eyebrow">Ingeklokt sinds ${
+      pad(new Date(n.start).getHours())}:${pad(new Date(n.start).getMinutes())}</span>
+      <b>${esc(n.naam)}</b></span>
+    <span class="kwr"><em class="klustikker2">${duurTekst(Date.now()-n.start)}</em>
+      <small>${urenTekst(sec)} vandaag</small></span>
+  </button>`;
+}
+
 function klokbalkHTML(){
   const k=S.klus; if(!k) return '';
   const so=klusSoort(k.soort);
@@ -5671,7 +5753,10 @@ function sheetMeldingen(){
 function dashboardHTML(){
   const t=dashboardToestand();
   const sig=signalen();
-  let h=begroetingHTML()+weekstripHTML(7)+kpiHTML();
+  /* Boven de weekstrip: het eerste wat je 's ochtends doet is inklokken, en
+     het laatste wat je 's avonds doet is uitklokken. Dan hoort het ook
+     bovenaan te staan en niet weggestopt achter een tabblad. */
+  let h=begroetingHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML();
 
   /* ── de hoofdkaart ── */
   if(t.soort==='bezig'){
@@ -14330,6 +14415,7 @@ function bind(){
   });
   $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
   $$('[data-account]').forEach(b=>b.onclick=()=>sheetJij());
+  if($('#klokWidget')) $('#klokWidget').onclick=()=>{ sluitToetsenbord(); sheetInklok() };
   $$('[data-batch]').forEach(b=>b.onclick=()=>{
     S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
     const v=vergetenTimer();
@@ -16348,6 +16434,59 @@ function sheetKlok(){
   $('#kStop').onclick=()=>{stopWerk(b);if(ringTik){clearInterval(ringTik);ringTik=null}
     klaarSheet('Tijd vastgelegd: '+duurKort(sec)+'.')};
   $('#kAnder').onclick=sheetWerk;
+}
+
+/* Eén scherm om te kiezen wat je doet: je productiestappen als je aan een
+   batch werkt, je werkzaamheden, en je losse klussen. Plus uitklokken. */
+function sheetInklok(){
+  const n=nuAanHetWerk();
+  const b=(S.batches||[]).find(x=>x.status==='bezig'||x.status==='loopt');
+  const plan=b?bPlan(b):[];
+  const rij=(label,attr,nu2)=>`<button type="button" class="werkrij ${nu2?'bezig':''}" ${attr}>
+    <span class="wn">${esc(label)}</span>
+    <span class="wt">${nu2?'bezig':''}</span></button>`;
+
+  sheet(n?'Waar ben je mee bezig?':'Inklokken',
+    `<p class="hint">Kies waar je aan werkt. De vorige stopt vanzelf — er loopt
+       er altijd maar één, zodat je uren nooit dubbel tellen.</p>
+     ${b&&plan.length?`<div class="stapkop"><span class="sk">Productiestappen</span>
+        <span class="sn2">${esc(bNamen(b))}</span></div>
+       <div class="veld">${plan.map(p=>rij(p,`data-inkstap="${esc(p)}"`,
+         n&&n.soort==='batch'&&n.naam===p)).join('')}</div>`:''}
+     ${(S.activiteiten||[]).length?`<div class="stapkop" style="margin-top:16px">
+        <span class="sk">Werkzaamheden</span></div>
+       <div class="veld">${S.activiteiten.map(a=>rij(a,`data-inkact="${esc(a)}"`,
+         n&&n.soort==='batch'&&n.naam===a)).join('')}</div>`:''}
+     <div class="stapkop" style="margin-top:16px"><span class="sk">Buiten de productie</span></div>
+     <div class="veld">${klusSoorten().map(s=>rij(s.n,`data-inkklus="${esc(s.k)}"`,
+       n&&n.soort==='klus'&&S.klus.soort===s.k)).join('')}</div>`,
+    n?`<div class="wzknoppen">
+         <button class="sec plat" id="ikWeg">Weggooien</button>
+         <button class="prim" id="ikUit">Uitklokken</button></div>`
+     :'');
+
+  const kies=fn=>veilig('inklokken',()=>{ fn(); bewaarNu(); dicht(); render() });
+  $$('[data-inkstap]').forEach(x=>x.onclick=kies(()=>{
+    if(b) startWerk(b,x.dataset.inkstap);
+  }));
+  $$('[data-inkact]').forEach(x=>x.onclick=kies(()=>{
+    /* werkzaamheden horen bij de batch waar je mee bezig bent; is die er niet,
+       dan is het gewoon los werk */
+    if(b) startWerk(b,x.dataset.inkact); else klusStart('overig',x.dataset.inkact);
+  }));
+  $$('[data-inkklus]').forEach(x=>x.onclick=kies(()=>klusStart(x.dataset.inkklus,'')));
+  if($('#ikUit')) $('#ikUit').onclick=veilig('uitklokken',()=>{
+    const n2=nuAanHetWerk();
+    if(n2&&n2.soort==='klus') klusStop(); else if(n2) stopWerk(n2.batch);
+    bewaarNu(); dicht(); render(); toast('Uitgeklokt — '+urenTekst(urenVandaag())+' vandaag.');
+  });
+  if($('#ikWeg')) $('#ikWeg').onclick=()=>{
+    if(!confirm('Deze tijd niet meetellen?')) return;
+    const n2=nuAanHetWerk();
+    if(n2&&n2.soort==='klus'){ S.klus=null; badgeBij() }
+    else if(n2){ const w=stopWerk(n2.batch); if(w) n2.batch.werk=n2.batch.werk.filter(x=>x!==w) }
+    bewaarNu(); dicht(); render(); toast('Weggegooid.');
+  };
 }
 
 function sheetWerk(){
@@ -24097,6 +24236,14 @@ setInterval(()=>{
     const c=2*Math.PI*92, sec=Math.floor((Date.now()-w.start)/1000);
     ring.setAttribute('stroke-dashoffset',(c*(1-((sec%60)/60))).toFixed(1));
   }
+},1000);
+
+/* de widget op het dashboard tikt mee, welke klok er ook loopt */
+setInterval(()=>{
+  const el=document.querySelector('.klustikker2'); if(!el) return;
+  const n=nuAanHetWerk(); if(!n) return;
+  const t=duurTekst(Date.now()-n.start);
+  if(el.textContent!==t) el.textContent=t;
 },1000);
 
 /* de urenklok tikt onafhankelijk van de batchtimer door */
