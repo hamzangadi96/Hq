@@ -772,17 +772,24 @@ header .hbtn.zoek{display:none}
    Vier tegels naast elkaar in plaats van negen rijen onder elkaar met kopjes
    ertussen. Je ziet in één blik waar je staat; de stappen zitten erachter. */
 .fasetegels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 0}
-.fasetegel{position:relative;background:var(--card);border:1px solid var(--lijn);
+/* Elke tegel had een randje én een schaduw én wit-op-grijs: drie signalen
+   voor hetzelfde. Zonder rand is de kaart nog steeds duidelijk, en wordt een
+   rand iets wat betekenis draagt in plaats van decoratie. */
+.fasetegel{position:relative;background:var(--card);border:1px solid transparent;
   border-radius:18px;padding:14px 14px 15px;text-align:left;display:flex;
   flex-direction:column;gap:10px;min-height:100px;
-  box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.2)}
-.fasetegel .ftico{width:36px;height:36px;border-radius:12px;background:var(--bg);
-  display:grid;place-items:center;color:var(--grijs2)}
-.fasetegel .ftico svg{width:17px;height:17px;stroke-width:1.9}
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -22px rgba(24,24,27,.28)}
+/* Het vakje had background var(--bg) — precies je paginakleur, dus op een
+   witte tegel een vierkantje dat je nauwelijks ziet en niets zegt. Nu alleen
+   een vlak waar het kleur draagt: bij wat je nu doet en bij wat klaar is. */
+.fasetegel .ftico{width:36px;height:36px;border-radius:12px;background:transparent;
+  display:grid;place-items:center;color:var(--grijs2);margin-left:-2px}
+.fasetegel .ftico svg{width:21px;height:21px;stroke-width:1.8}
 /* een nummer in plaats van een icoon: even groot, zelfde plek */
 .fasetegel .ftico{font-size:14px;font-weight:700;color:var(--grijs2);
   font-variant-numeric:tabular-nums}
-.fasetegel .ftico.groen{background:var(--groen);color:#fff}
+.fasetegel .ftico.groen{background:var(--groen);color:#fff;margin-left:0}
+.fasetegel .ftico.groen svg{width:17px;height:17px}
 .fasetegel .ftn{font-size:15.5px;font-weight:600;letter-spacing:-.025em;
   color:var(--ink);line-height:1.25;margin-top:auto}
 .fasetegel .ftt{position:absolute;top:16px;right:14px;font-style:normal;
@@ -794,10 +801,13 @@ header .hbtn.zoek{display:none}
 /* twee rasters onder elkaar hebben lucht nodig, geen streep */
 .blokkop + .fasetegels{margin-top:0}
 .fasetegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
-.fasetegel.nu{background:var(--choco-wash);border-color:var(--choco-licht)}
-.fasetegel.nu .ftico{background:var(--choco);color:#fff}
+/* De enige rand op het scherm: hier ben je. */
+.fasetegel.nu{background:var(--choco-wash);border-color:var(--choco)}
+.fasetegel.nu .ftico{background:var(--choco);color:#fff;margin-left:0}
+.fasetegel.nu .ftico svg{width:17px;height:17px}
 .fasetegel.nu .ftt{color:var(--choco)}
-.fasetegel.af .ftico{background:var(--groen);color:#fff}
+.fasetegel.af .ftico{background:var(--groen);color:#fff;margin-left:0}
+.fasetegel.af .ftico svg{width:17px;height:17px}
 .fasetegel.af .ftn{color:var(--grijs2)}
 
 /* ── fasekoppen ──
@@ -822,13 +832,13 @@ header .hbtn.zoek{display:none}
    naast elkaar, grote tap-targets, geen zin die je moet lezen om te weten
    wat er staat. */
 .iktegels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
-.iktegel{position:relative;background:var(--card);border:1px solid var(--lijn);
+.iktegel{position:relative;background:var(--card);border:1px solid transparent;
   border-radius:18px;padding:14px 14px 15px;text-align:left;display:flex;
   flex-direction:column;gap:10px;min-height:104px;
-  box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.2)}
-.iktegel .itico{width:36px;height:36px;border-radius:12px;background:var(--bg);
-  display:grid;place-items:center;color:var(--grijs2)}
-.iktegel .itico svg{width:17px;height:17px;stroke-width:1.9}
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -22px rgba(24,24,27,.28)}
+.iktegel .itico{width:36px;height:36px;border-radius:12px;background:transparent;
+  display:grid;place-items:center;color:var(--grijs2);margin-left:-2px}
+.iktegel .itico svg{width:21px;height:21px;stroke-width:1.8}
 .iktegel .itn{font-size:15.5px;font-weight:600;letter-spacing:-.025em;
   color:var(--ink);line-height:1.25;margin-top:auto}
 .iktegel .itt{position:absolute;top:16px;right:14px;font-style:normal;
@@ -842,13 +852,13 @@ header .hbtn.zoek{display:none}
    kaart een ankerpunt, zodat je niet vier regels grijze tekst ziet maar vier
    herkenbare objecten. */
 .ikkaart{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  background:var(--card);border:1px solid var(--lijn);border-radius:15px;
+  background:var(--card);border:1px solid transparent;border-radius:15px;
   padding:11px 14px;margin-bottom:8px;
-  box-shadow:0 1px 2px rgba(24,24,27,.03),0 10px 22px -20px rgba(24,24,27,.18)}
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 12px 26px -22px rgba(24,24,27,.24)}
 .ikkaart:last-child{margin-bottom:0}
-.ikkaart .ikico{flex:none;width:34px;height:34px;border-radius:11px;background:var(--bg);
+.ikkaart .ikico{flex:none;width:26px;height:26px;border-radius:9px;background:transparent;
   display:grid;place-items:center;color:var(--grijs2)}
-.ikkaart .ikico svg{width:16px;height:16px;stroke-width:1.9}
+.ikkaart .ikico svg{width:19px;height:19px;stroke-width:1.8}
 .ikkaart .irl{flex:1;min-width:0;font-size:15.5px;font-weight:500;
   letter-spacing:-.02em;color:var(--ink)}
 .ikkaart .irl em{display:block;font-style:normal;font-size:12.5px;font-weight:500;
@@ -920,9 +930,9 @@ header .hbtn.zoek{display:none}
    Rustig als je niet ingeklokt bent, met een groene stip en je lopende tijd
    zodra de klok draait. */
 .klokw{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  background:var(--card);border:1px solid var(--lijn);border-radius:16px;
+  background:var(--card);border:1px solid transparent;border-radius:16px;
   padding:13px 16px;margin:0 0 14px;
-  box-shadow:0 1px 2px rgba(24,24,27,.04),0 10px 24px -20px rgba(24,24,27,.22)}
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 12px 28px -22px rgba(24,24,27,.26)}
 /* de ring in het klein: 54px, met de tijd erin */
 .klokw .kwring{position:relative;flex:none;width:54px;height:54px;display:block}
 .klokw .kwring .ring .rbaan{stroke-width:9}
@@ -3353,7 +3363,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v483 · 18 aug 2026';
+const APPVERSIE='v484 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
