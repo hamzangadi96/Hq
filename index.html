@@ -799,6 +799,10 @@ header .hbtn.zoek{display:none}
 .nukaart.bezig .eyebrow{color:var(--choco)}
 /* En voor de zekerheid: deze kaart is altijd een kolom, wat er ook meekomt */
 .nukaart{display:block}
+/* Op het batchscherm is de hoofdkaart een kop en geen knop: geen indruk-effect,
+   geen pijl, en de cursor doet niet alsof er iets gebeurt. */
+.hoofdkaart.stil{cursor:default}
+.hoofdkaart.stil:active{transform:none;filter:none}
 .nukaart.af h3{font-size:21px}
 
 /* ── fasekoppen ──
@@ -3252,7 +3256,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v463 · 18 aug 2026';
+const APPVERSIE='v464 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5348,11 +5352,18 @@ function heroBatchHTML(b, metStap){
   const gedaan=bGedaan(b), totaal=KERN.length;
   const pct=totaal?Math.min(100,Math.round(gedaan/totaal*100)):0;
   const omtrek=2*Math.PI*30;
-  return `<button class="hoofdkaart hk2" data-batch="${b.id}">
+  /* Vanaf het dashboard is deze kaart een knop: spring naar die batch en open
+     meteen de eerstvolgende stap. Maar op het batchscherm zelf ben je daar al,
+     en dan deed hij precies hetzelfde als de Nu-kaart eronder én als de rij in
+     de route — drie dingen onder elkaar die je naar hetzelfde scherm brachten.
+     Hier is het gewoon een kop: welke batch, welke smaak, hoe ver. */
+  const knopbaar=metStap!==false;
+  return `<${knopbaar?'button':'div'} class="hoofdkaart hk2${knopbaar?'':' stil'}"${
+      knopbaar?` data-batch="${b.id}"`:''}>
       <div class="hk2kop">
         <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
         <span class="hk2badge">Batch ${esc(b.code)}</span>
-        <span class="hk2pijl">${svg(I.pijl,'2')}</span>
+        ${knopbaar?`<span class="hk2pijl">${svg(I.pijl,'2')}</span>`:''}
       </div>
       <div class="hk2lijf">
         <span class="hk2ring ${b.status==='pauze'?'amber':''}">
@@ -5391,7 +5402,7 @@ function heroBatchHTML(b, metStap){
           </div>`}
         </span>
       </div>
-    </button>`;
+    </${knopbaar?'button':'div'}>`;
 }
 
 /* ═══════════ wat doe je nú ═══════════
