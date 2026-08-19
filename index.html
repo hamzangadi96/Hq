@@ -785,6 +785,36 @@ header .hbtn.zoek{display:none}
 .fasepaneel{opacity:.62;transition:opacity .25s}
 .fasepaneel.nu{opacity:1}
 
+/* ── keuzes als losse kaarten ──
+   Rijen in één blok met streepjes lezen als een lijst; kaarten met lucht
+   ertussen lezen als dingen waar je iets mee doet. Het icoon links geeft de
+   kaart een ankerpunt, zodat je niet vier regels grijze tekst ziet maar vier
+   herkenbare objecten. */
+.ikkaart{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--lijn);border-radius:15px;
+  padding:11px 14px;margin-bottom:8px;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 10px 22px -20px rgba(24,24,27,.18)}
+.ikkaart:last-child{margin-bottom:0}
+.ikkaart .ikico{flex:none;width:34px;height:34px;border-radius:11px;background:var(--bg);
+  display:grid;place-items:center;color:var(--grijs2)}
+.ikkaart .ikico svg{width:16px;height:16px;stroke-width:1.9}
+.ikkaart .irl{flex:1;min-width:0;font-size:15.5px;font-weight:500;
+  letter-spacing:-.02em;color:var(--ink)}
+.ikkaart .irl em{display:block;font-style:normal;font-size:12.5px;font-weight:500;
+  color:var(--grijs2);margin-top:1px;letter-spacing:-.005em}
+.ikkaart .irtijd{flex:none;font-style:normal;font-size:12.5px;color:var(--grijs2);
+  font-variant-numeric:tabular-nums}
+.ikkaart .irnu{flex:none;font-style:normal;font-size:11.5px;font-weight:700;
+  color:var(--choco);background:var(--choco-wash);border-radius:99px;padding:3px 9px}
+.ikkaart>svg{width:14px;height:14px;flex:none;color:var(--grijs3)}
+.ikkaart:active{background:var(--choco-wash);border-color:var(--choco-licht)}
+.ikkaart.aan{background:var(--choco-wash);border-color:var(--choco-licht)}
+.ikkaart.aan .irl{color:var(--choco);font-weight:600}
+/* binnen een uitgeklapte groep zijn het weer rijen, geen losse kaarten */
+.ikuit .ikkaart{border:none;border-radius:0;margin:0;box-shadow:none;
+  background:none;padding-left:24px;border-bottom:1px solid rgba(0,0,0,.045)}
+.ikuit .ikkaart:last-child{border-bottom:none}
+
 /* ── het inklokscherm ──
    Vier kaarten van 130 hoog die er identiek uitzagen; nu rijen van 54 in één
    paneel, zodat je in één blik ziet dat het een lijstje is en geen keuze
@@ -3266,7 +3296,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v476 · 18 aug 2026';
+const APPVERSIE='v477 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16363,6 +16393,24 @@ function recenteKlokkeuzes(max){
   return uit.slice(0,max).map(n=>kaart[n]);
 }
 
+/* Deze cijfers lagen er al — in b.werk en S.klussen — maar stonden nergens
+   waar je ze nodig had. Zie je bij elke keuze hoeveel tijd er vandaag al in
+   zit, dan weet je meteen of je nog moet doorpakken of al ver genoeg bent. */
+function vandaagPer(naam, klusKey){
+  const d=vandaag();
+  let sec=0;
+  if(klusKey){
+    (S.klussen||[]).forEach(x=>{ if(x.datum===d&&x.soort===klusKey) sec+=klusSec(x) });
+    if(S.klus&&S.klus.soort===klusKey&&S.klus.datum===d)
+      sec+=Math.round((Date.now()-S.klus.start)/1000);
+    return sec;
+  }
+  (S.batches||[]).forEach(b=>(werkLijst(b)||[]).forEach(w=>{
+    if(w.act===naam&&iso(new Date(w.start))===d) sec+=seconden(w);
+  }));
+  return sec;
+}
+
 function sheetInklok(){
   const n=nuAanHetWerk();
   const b=(S.batches||[]).find(x=>x.status==='bezig'||x.status==='loopt');
@@ -16376,9 +16424,17 @@ function sheetInklok(){
 
      Niet ingeklokt? Dan is er één ding te doen. Ben je ingeklokt, dan gaat het
      scherm over wisselen, en dat is een andere vraag. */
-  const rij=(label,sub,attr,nu2)=>`<button type="button" class="ikrij ${nu2?'aan':''}" ${attr}>
-    <span class="irl">${esc(label)}${sub?`<em>${esc(sub)}</em>`:''}</span>
-    ${nu2?'<i class="irnu">bezig</i>':svg(I.pijl,'2')}</button>`;
+  /* Was een rij in een blok met streepjes: alles even zwaar, allemaal grijze
+     tekst. Nu een kaart met lucht eromheen, een icoon links en rechts hoeveel
+     tijd er vandaag al in zit. */
+  const rij=(label,sub,attr,nu2,ico,kleur,sec)=>{
+    const t=sec?duurKort(sec):'';
+    return `<button type="button" class="ikkaart ${nu2?'aan':''}" ${attr}>
+      <span class="ikico" ${kleur?`style="color:${kleur}"`:''}>${svg(I[ico]||I.klembord)}</span>
+      <span class="irl">${esc(label)}${sub?`<em>${esc(sub)}</em>`:''}</span>
+      ${nu2?'<i class="irnu">bezig</i>':(t?`<i class="irtijd">${t}</i>`:'')}
+      ${svg(I.pijl,'2')}</button>`;
+  };
 
   /* de twee of drie dingen die je waarschijnlijk kiest */
   const snel=[];
@@ -16386,16 +16442,20 @@ function sheetInklok(){
   if(b){
     const volg=planVolgende(b);
     if(volg&&!alGekozen(volg)) snel.push({l:volg,s:'volgende productiestap',
-      a:`data-inkstap="${esc(volg)}"`});
+      a:`data-inkstap="${esc(volg)}"`, i:'vorm', sec:vandaagPer(volg)});
   }
   (S.activiteiten||[]).filter(a=>/pauze/i.test(a)).forEach(a=>{
-    if(!alGekozen(a)) snel.push({l:a,s:'',a:`data-inkact="${esc(a)}"`});
+    if(!alGekozen(a)) snel.push({l:a,s:'',a:`data-inkact="${esc(a)}"`,
+      i:'klok', sec:vandaagPer(a)});
   });
   recenteKlokkeuzes(6).forEach(r=>{
     if(snel.length>=3||alGekozen(r.n)||snel.some(x=>x.l===r.n)) return;
     const attr=r.k?`data-inkklus="${esc(r.k)}"`
       :(plan.indexOf(r.n)>=0?`data-inkstap="${esc(r.n)}"`:`data-inkact="${esc(r.n)}"`);
-    snel.push({l:r.n,s:'laatst gebruikt',a:attr});
+    const so=r.k?klusSoort(r.k):null;
+    snel.push({l:r.n,s:'laatst gebruikt',a:attr,
+      i:so?so.ico:(plan.indexOf(r.n)>=0?'vorm':'klembord'),
+      kleur:so?so.kleur:'', sec:vandaagPer(r.n,r.k)});
   });
 
   /* Deze stonden als grijze kopjes met een pijltje: dat leest als een label
@@ -16412,13 +16472,15 @@ function sheetInklok(){
     `<div class="paneel">
      ${b&&plan.length?groep('Productiestappen',bNamen(b),
         plan.map(p=>rij(p,'',`data-inkstap="${esc(p)}"`,
-          n&&n.soort==='batch'&&n.naam===p)).join(''),plan.length):''}
+          n&&n.soort==='batch'&&n.naam===p,'vorm','',vandaagPer(p))).join(''),plan.length):''}
      ${(S.activiteiten||[]).length?groep('Werkzaamheden','',
         S.activiteiten.map(a=>rij(a,'',`data-inkact="${esc(a)}"`,
-          n&&n.soort==='batch'&&n.naam===a)).join(''),S.activiteiten.length):''}
+          n&&n.soort==='batch'&&n.naam===a,'klembord','',vandaagPer(a))).join(''),
+        S.activiteiten.length):''}
      ${groep('Buiten de productie','',
         klusSoorten().map(s=>rij(s.n,'',`data-inkklus="${esc(s.k)}"`,
-          n&&n.soort==='klus'&&S.klus.soort===s.k)).join(''),klusSoorten().length)}
+          n&&n.soort==='klus'&&S.klus.soort===s.k,s.ico,s.kleur,
+          vandaagPer(s.n,s.k))).join(''),klusSoorten().length)}
      </div>`;
 
   if(!S.dienst){
@@ -16432,7 +16494,7 @@ function sheetInklok(){
          <b>${vandaag2?urenTekst(vandaag2):'0u 00'}</b></div>
        ${snel.length?`<div class="stapkop" style="margin-top:20px">
            <span class="sk">Of begin meteen met</span></div>
-         <div class="paneel">${snel.map(x=>rij(x.l,x.s,x.a,false)).join('')}</div>`:''}`,
+         ${snel.map(x=>rij(x.l,x.s,x.a,false,x.i,x.kleur,x.sec)).join('')}`:''}`,
       `<button class="prim" style="margin-top:0" id="ikAan">Inklokken</button>`);
     if($('#ikAan')) $('#ikAan').onclick=veilig('inklokken',()=>{
       dienstStart(); bewaarNu(); dicht(); render();
@@ -16451,7 +16513,7 @@ function sheetInklok(){
            duurTekst(Date.now()-n.start)+'</span>':'nog niets gekozen'}</span></div>
        ${snel.length?`<div class="stapkop" style="margin-top:20px">
            <span class="sk">${n?'Wisselen naar':'Waar ga je aan werken'}</span></div>
-         <div class="paneel">${snel.map(x=>rij(x.l,x.s,x.a,false)).join('')}</div>`:''}
+         ${snel.map(x=>rij(x.l,x.s,x.a,false,x.i,x.kleur,x.sec)).join('')}`:''}
        <div class="stapkop" style="margin-top:18px"><span class="sk">Alles</span></div>
        ${alles}`,
       `<div class="wzknoppen">
