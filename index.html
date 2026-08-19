@@ -784,6 +784,8 @@ header .hbtn.zoek{display:none}
 .fasetegel .ftt{position:absolute;top:16px;right:14px;font-style:normal;
   font-size:12.5px;font-weight:600;color:var(--grijs2);
   font-variant-numeric:tabular-nums}
+/* een tegel zonder icoonvulling houdt hem rustig als er veel naast elkaar staan */
+.fasetegels .fasetegel .ftt{font-weight:500;color:var(--grijs2)}
 .fasetegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
 .fasetegel.nu{background:var(--choco-wash);border-color:var(--choco-licht)}
 .fasetegel.nu .ftico{background:var(--choco);color:#fff}
@@ -2736,6 +2738,9 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   color:#8f8f98}
 /* Was doorschijnend bruin en daardoor nauwelijks te onderscheiden van de
    kaart. Een massief vlak leest als een label, niet als een vlek. */
+/* de badge is nu ook de weg terug */
+.hk2badge.terug{display:inline-flex;align-items:center;gap:5px}
+.hk2badge.terug svg{width:13px;height:13px;opacity:.75}
 .hk2badge{flex:none;padding:6px 14px;border-radius:99px;font-size:12px;
   font-weight:600;letter-spacing:-.01em;background:#372A22;color:#efe6e0}
 /* De ring staat tegenover de hele rechterkolom, niet alleen tegenover de
@@ -3341,7 +3346,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v479 · 18 aug 2026';
+const APPVERSIE='v480 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5459,7 +5464,8 @@ function heroBatchHTML(b, metStap){
       knopbaar?` data-batch="${b.id}"`:''}>
       <div class="hk2kop">
         <span class="eyebrow">${b.status==='pauze'?'Stilgelegd':'Nu in productie'}</span>
-        <span class="hk2badge">Batch ${esc(b.code)}</span>
+        <button class="hk2badge terug" data-allebatches
+          aria-label="Terug naar alle batches">${svg(I.terug,'2.4')}Batch ${esc(b.code)}</button>
         ${knopbaar?`<span class="hk2pijl">${svg(I.pijl,'2')}</span>`:''}
       </div>
       <div class="hk2lijf">
@@ -6239,7 +6245,10 @@ function batchHTML(){
      voortgangsbalkje zonder label, en een donkere kaart met nóg een titel. Op
      het dashboard is er één kop — de donkere kaart, met de batchnaam erin.
      Dat is nu ook hier het geval, met dezelfde kaart. */
-  let h=`<button class="terugrij" data-naar="productie">${svg(I.terug,'2')}Alle batches</button>`;
+  /* De pil "Alle batches" zweefde los boven de kaart. De badge ín de kaart
+     zegt al welke batch je open hebt; die is nu ook de weg terug. Eén
+     zwevend element minder op je scherm. */
+  let h='';
   h+=tijdbalk;
   if(b.status==='klaar'){
     h+=`<div class="hoofdkaart klaar"><div class="vinkje">${svg(I.vink,'2.2')}</div>
@@ -14364,6 +14373,9 @@ function bind(){
   });
   /* Rechtstreeks de geleide modus in, op de handeling waar je gebleven was.
      Eén tik van vergrendeld scherm naar wat je moet doen. */
+  $$('[data-allebatches]').forEach(x=>x.onclick=e=>{
+    e.stopPropagation(); S.batchId=null; render(); $('#scherm').scrollTop=0;
+  });
   $$('[data-fase]').forEach(x=>x.onclick=()=>{ sluitToetsenbord(); sheetFase(x.dataset.fase) });
   $$('[data-nugeleid]').forEach(x=>x.onclick=veilig('verder waar je was',()=>{
     sluitToetsenbord();
@@ -16618,19 +16630,20 @@ function sheetProductie(){
   const rij=n=>{
     const gedaan=st[n]&&st[n].gedaan, bezig=w&&w.act===n;
     const tijd=perAct[n]?duurKort(perAct[n]):'';
-    if(gedaan) return `<div class="ikrij af">
+    if(gedaan) return `<div class="ikkaart af">
       <button type="button" class="vinkknop aan" data-vink="${esc(n)}"
         aria-label="Weer openzetten">${svg(I.vink,'2.4')}</button>
       <button type="button" class="irl kaal" data-stap="${esc(n)}">${esc(n)}</button>
       ${tijd?`<i class="irtijd">${tijd}</i>`:''}</div>`;
-    return `<button type="button" class="ikrij ${bezig?'aan':''}" data-stap="${esc(n)}">
+    return `<button type="button" class="ikkaart ${bezig?'aan':''}" data-stap="${esc(n)}">
+      <span class="ikico">${svg(I.vorm)}</span>
       <span class="irl">${esc(n)}</span>
       ${bezig?'<i class="irnu">bezig</i>':(tijd?`<i class="irtijd">${tijd}</i>`:'')}
       ${svg(I.pijl,'2')}</button>`;
   };
   /* dezelfde vorm als op het inklokscherm: een rij die uitklapt */
   const groeprij=(kop,inh,aantal,open)=>`<details class="ikgroep"${open?' open':''}>
-    <summary class="ikrij"><span class="irl">${esc(kop)}</span>
+    <summary class="ikkaart"><span class="irl">${esc(kop)}</span>
       <i class="irtel">${aantal}</i>${svg(I.pijl,'2')}</summary>
     <div class="ikuit">${inh}</div></details>`;
 
@@ -16668,19 +16681,25 @@ function sheetProductie(){
        /* Klaar, Tussendoor en "Stappen aanpassen" hingen als losse fragmenten
           in de witruimte onderaan. Nu zit alles in één paneel, in dezelfde
           vorm als het inklokscherm: rijen, en groepen die uitklappen. */
-       const tussenInh=tussen.map(a=>`<button type="button" class="ikrij ${
+       const tussenInh=tussen.map(a=>`<button type="button" class="ikkaart ${
          w&&w.act===a?'aan':''}" data-tussen="${esc(a)}">
+         <span class="ikico">${svg(I.klembord)}</span>
          <span class="irl">${esc(a)}</span>
          ${w&&w.act===a?'<i class="irnu">bezig</i>':(perAct[a]?`<i class="irtijd">${
            duurKort(perAct[a])}</i>`:'')}${svg(I.pijl,'2')}</button>`).join('');
-       return `${open.length?`<div class="stapkop"><span class="sk">Nog te doen</span>
-           <span class="sn2">${open.length}</span></div>`:''}
-         <div class="paneel">
-           ${open.map(rij).join('')}
+       /* Dezelfde tegels als bij de route: wat je nog kunt doen staat naast
+          elkaar in plaats van onder elkaar, en het bijwerk zit erachter. */
+       const stegel=n2=>`<button type="button" class="fasetegel" data-stap="${esc(n2)}">
+         <span class="ftico">${svg(I.vorm)}</span>
+         <span class="ftn">${esc(n2)}</span>
+         ${perAct[n2]?`<i class="ftt">${duurKort(perAct[n2])}</i>`:''}</button>`;
+       return `${open.length?`<div class="fasetegels">${open.map(stegel).join('')}</div>`:''}
+         <div class="paneel" style="margin-top:${open.length?'16px':'0'}">
            ${klaar.length?groeprij('Klaar',klaar.map(rij).join(''),klaar.length,false):''}
            ${tussen.length?groeprij('Tussendoor',tussenInh,tussen.length,
               w&&tussen.includes(w.act)):''}
-           <button type="button" class="ikrij" id="pStappenIns">
+           <button type="button" class="ikkaart" id="pStappenIns">
+             <span class="ikico">${svg(I.instel)}</span>
              <span class="irl">Stappen aanpassen</span>${svg(I.pijl,'2')}</button>
          </div>`;
      })()}`,
