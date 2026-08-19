@@ -3276,7 +3276,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v466 · 18 aug 2026';
+const APPVERSIE='v467 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16355,7 +16355,8 @@ function sheetWerk(){
   const w=lopendWerk(b), perAct=werkPerActiviteit(b);
   const gedaan={}; perAct.forEach(x=>gedaan[x.act]=x.sec);
   sheet('Waar ben je mee bezig?',
-    `<p class="hint">Tik een activiteit aan. De vorige stopt vanzelf — je hoeft nooit iets te stoppen.</p>
+    `<p class="hint">Tik een activiteit aan. De vorige stopt vanzelf — je hoeft nooit iets te stoppen.
+       Dit is werk naast de route van je batch; de stappen zelf staan bij Productiestappen.</p>
      ${w?`<div class="overnemen"><p>Nu bezig met <b>${esc(w.act)}</b>, gestart om
        ${pad(new Date(w.start).getHours())}:${pad(new Date(w.start).getMinutes())}.</p>
        <button id="wStop">${svg(I.vink,'2.4')}Timer stoppen</button></div>`:''}
@@ -16364,7 +16365,7 @@ function sheetWerk(){
        <span class="wt">${w&&w.act===a?'bezig':(gedaan[a]?duurKort(gedaan[a]):'')}</span></button>`).join('')}</div>
      ${nieuwChip('wNieuw')}
      <div class="inlineform" id="wForm"><div class="rijtje">
-       <input class="mini" id="wN" placeholder="Bijv. decoreren">
+       <input class="mini" id="wN" placeholder="Bijv. etiketten plakken">
        <button class="miniknop" id="wFormOk">Toevoegen</button></div></div>
      <div class="totaalregel" style="margin-top:18px"><span class="l">Totaal deze batch</span>
        <span class="w">${duurKort(werkTotaal(b))}</span></div>`,'');
@@ -23605,12 +23606,20 @@ function sheetInstellingen(){
 const LIJSTEN={
   /* volgorde:true betekent dat de rijen genummerd zijn en je ze kunt
      verschuiven. Bij schoonmaakzones of leveranciers zegt een nummer niets. */
-  werkplan:{titel:'Productiestappen',volgorde:true,
-    hint:'De volgorde waarin je een batch maakt. De app loopt deze met je door — pijl omhoog om een stap eerder te doen.',ph:'Bijv. decoreren'},
-  activiteiten:{titel:'Werkzaamheden',hint:'De activiteiten die je met de timer kunt bijhouden tijdens een batch.',ph:'Bijv. decoreren'},
-  zones:{titel:'Schoonmaakzones',hint:'Alles wat jij schoonmaakt, van werkbank tot vloer.',ph:'Bijv. bonbonvormen'},
-  middelen:{titel:'Schoonmaakmiddelen',hint:'Waarmee je reinigt. Dit komt in je logboek te staan.',ph:'Bijv. alcohol 70%'},
-  leveranciers:{titel:'Leveranciers',hint:'Bij wie je inkoopt. Handig bij het loggen van ontvangsten.',ph:'Bijv. Callebaut'}
+  /* Beide lijsten hadden "Bijv. decoreren" als voorbeeld staan, terwijl
+     decoreren een productiestap is en geen werkzaamheid. Dat suggereerde dat
+     het om hetzelfde ging. Het verschil: een productiestap hoort bij de route
+     van één batch en krijgt een vinkje; een werkzaamheid is tijd die je
+     ernaast schrijft en heeft alleen een timer. */
+  werkplan:{titel:'Productiestappen',volgorde:true,eenh:['stap','stappen'],
+    hint:'De volgorde waarin je een batch maakt. Elke stap krijgt een vinkje en een timer — pijl omhoog om er een eerder te doen.',
+    ph:'Bijv. decoreren'},
+  activiteiten:{titel:'Werkzaamheden',eenh:['werkzaamheid','werkzaamheden'],
+    hint:'Werk dat niet in de route van een batch zit: pauze, verpakken, administratie. Hier zet je alleen de klok op, je vinkt niets af.',
+    ph:'Bijv. etiketten plakken'},
+  zones:{titel:'Schoonmaakzones',eenh:['zone','zones'],hint:'Alles wat jij schoonmaakt, van werkbank tot vloer.',ph:'Bijv. bonbonvormen'},
+  middelen:{titel:'Schoonmaakmiddelen',eenh:['middel','middelen'],hint:'Waarmee je reinigt. Dit komt in je logboek te staan.',ph:'Bijv. alcohol 70%'},
+  leveranciers:{titel:'Leveranciers',eenh:['leverancier','leveranciers'],hint:'Bij wie je inkoopt. Handig bij het loggen van ontvangsten.',ph:'Bijv. Callebaut'}
 };
 function sheetLijst(key){
   const c=LIJSTEN[key], arr=S[key];
@@ -23634,7 +23643,9 @@ function sheetLijst(key){
       :'<div class="geen">Nog niets toegevoegd.</div>'}</div>
 `,
     `<button class="prim" style="margin-top:0" id="lTerug">Klaar</button>`,
-    arr.length+(arr.length===1?' stap':(c.volgorde?' stappen':' items')));
+    /* Meervoud terugrekenen naar enkelvoud met een regel als "haal -en weg"
+       geeft "stapp" en "werkzaamhed". Gewoon allebei opschrijven dus. */
+    arr.length+' '+((c.eenh||['item','items'])[arr.length===1?0:1]));
   const knop=()=>{ const k=$('#lOk'); if(k) k.disabled=!$('#lN').value.trim() };
   const toevoegen=()=>{
     const v=$('#lN').value.trim(); if(!v) return;
