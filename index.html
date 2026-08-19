@@ -3252,7 +3252,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v462 · 18 aug 2026';
+const APPVERSIE='v463 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4534,10 +4534,18 @@ const BSTAPPEN=[
   {key:'opening',label:'Openingscheck',kern:true,
    klaar:b=>{const d=dagVan(b,vandaag());return !!(d&&d.opening)},sheet:'opening',knop:'Check doen',
    waarde:b=>{const d=dagVan(b,vandaag());return d&&d.opening?(d.opening.overgenomen?'overgenomen':'akkoord'):'—'}},
-  {key:'temperatuur',label:'Temperaturen',kern:true,
+  /* Stond als eigen kernstap in de route, maar je koeling en klimaatkast zijn
+     al meetpunten ín de openingscheck — en die schrijft precies dezelfde
+     temperatuur-logs weg. Je mat dus niet dubbel, maar de route liet twee
+     verplichte stappen zien voor één handeling, en dan ga je zoeken wat je
+     nog moet doen.
+
+     Wat overblijft is wat het écht is: een plek om tussendoor extra te meten,
+     of opnieuw na een aandachtspunt. Dat hoort bij "als het nodig is". */
+  {key:'temperatuur',label:'Extra meting',kern:false,
    klaar:b=>b.logs.some(l=>l.type==='temperatuur'&&l.datum===vandaag()),sheet:'temp',knop:'Meting toevoegen',
    waarde:b=>{const n=b.logs.filter(l=>l.type==='temperatuur'&&l.datum===vandaag()).length;
-     return n?n+(n===1?' vandaag':' vandaag'):'—'}},
+     return n?n+' vandaag':'—'}},
   {key:'productie',label:'Productiestappen',kern:true,
    klaar:b=>bPlan(b).length>0&&planGedaan(b)===bPlan(b).length,sheet:'productie',knop:'Stappen openen',
    waarde:b=>bPlan(b).length?planGedaan(b)+' van '+bPlan(b).length:'—'},
@@ -4563,7 +4571,7 @@ const BSTAPPEN=[
    je gisteren al had kunnen doen. */
 const BFASEN=[
   {k:'voor',  n:'Voorbereiden', uit:'kan de dag ervoor',
-   stappen:['ingredienten','opening','temperatuur']},
+   stappen:['ingredienten','opening']},
   {k:'maken', n:'Maken',        uit:'hier sta je aan de machine',
    stappen:['productie']},
   {k:'na',    n:'Afsluiten',    uit:'als alles klaar is',
@@ -5396,8 +5404,8 @@ function heroBatchHTML(b, metStap){
    en het aantal erbij — niet het woord "productiestappen". */
 const NUSUB={
   ingredienten:'lotnummers vastleggen — mag de dag ervoor',
-  opening:'je eigen checkpunten langs voordat je begint',
-  temperatuur:'meet je koelpunten voordat je met de batch start',
+  opening:'checkpunten en je koel- en kastmetingen in één keer',
+  temperatuur:'tussendoor of opnieuw meten',
   schoonmaak:'leg vast wat je hebt schoongemaakt',
   afronden:'aantallen goed en afkeur invullen'
 };
@@ -6158,6 +6166,7 @@ function batchHTML(){
       const volg=planVolgende(b);
       if(volg) onder='nu '+volg.toLowerCase();
     }
+    else if(s.key==='temperatuur') onder='naast de openingscheck';
     else if(!s.kern) onder='optioneel';
     return `<div class="groep ${s.kern?'inroute':''}">
       <button class="arij ${s.kern?('r'+stand):''}" data-sheet="${s.sheet}">
