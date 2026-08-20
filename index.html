@@ -806,6 +806,16 @@ header .hbtn.zoek{display:none}
 /* een tegel die iets van je wil: alleen de kleur van het getal, geen vlak */
 .fasetegel.let .ftico{color:var(--amber)}
 .fasetegel.rood .ftico{color:var(--rood)}
+/* een jaar in twaalf regels: dikke balk is dit jaar, dunne lijn vorig jaar */
+.szrij{display:flex;align-items:center;gap:10px;padding:3px 0;font-size:12.5px}
+.szrij .szm{flex:none;width:26px;color:var(--grijs2);text-transform:lowercase}
+.szrij .szbaan{flex:1;position:relative;height:16px;display:block}
+.szrij .szbaan i{position:absolute;left:0;top:3px;height:10px;border-radius:99px;
+  background:var(--choco);min-width:2px}
+.szrij .szbaan u{position:absolute;left:0;bottom:0;height:2px;border-radius:99px;
+  background:var(--grijs3);min-width:2px}
+.szrij .szb{flex:none;width:64px;text-align:right;color:var(--grijs2);
+  font-variant-numeric:tabular-nums}
 .fasetegel .ftt.rood{color:var(--rood);font-weight:700}
 .fasetegel .ftt.bezig{color:var(--choco);font-weight:700}
 /* twee rasters onder elkaar hebben lucht nodig, geen streep */
@@ -3409,7 +3419,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v498 · 18 aug 2026';
+const APPVERSIE='v499 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9933,6 +9943,140 @@ function sheetFactuur(id){
   };
 }
 
+
+/* ═══════════ drie cijfers die je nog niet zag ═══════════
+   Alle drie rekenen met gegevens die er al zijn. Er komt geen invoer bij. */
+
+/* ── 1. wat houd je over per gewerkt uur ──
+   Je omzet stond in de ene hoek van de app en je uren in de andere. Sinds de
+   klok betrouwbaar is, is die deling het eerlijkste cijfer in je bedrijf. */
+function perUur(jaar,kwartaal){
+  const om=omzetVan(jaar,kwartaal||0);
+  const van=kwartaal?jaar+'-'+pad((kwartaal-1)*3+1)+'-01':jaar+'-01-01';
+  const tot=kwartaal?iso(new Date(jaar,kwartaal*3,0)):jaar+'-12-31';
+  const u=urenPeriode(van,tot);
+  const uren=u.totaalSec/3600;
+  if(uren<1) return null;
+  return {uren, omzet:om.bruto, perUur:om.bruto/uren, mist:om.mist,
+          productie:u.prodSec/3600};
+}
+
+/* ── 2. wat kost wat je weggooit ──
+   Je boekt af wat over de datum is of mislukt, maar nergens stond wat dat in
+   euro's is. Bij premium grondstoffen loopt dat hard op. */
+function dervingKosten(jaar){
+  const j=String(jaar||new Date().getFullYear());
+  const per={}; let totaal=0, zonderPrijs=0;
+  (S.gmut||[]).forEach(m=>{
+    if(!m.datum||m.datum.slice(0,4)!==j) return;
+    if(m.aantal>=0) return;
+    /* alleen wat je weggooit, niet wat je verwerkt */
+    if(!/weg|verlies|derving|tht|verlopen|afkeur|kapot/i.test(m.reden||'')) return;
+    const gram=Math.abs(m.aantal);
+    const kilo=ingPrijs(m.product);
+    if(typeof kilo!=='number'){ zonderPrijs+=gram; return }
+    const geld=gram/1000*kilo;
+    per[m.product]=(per[m.product]||0)+geld;
+    totaal+=geld;
+  });
+  const lijst=Object.keys(per).map(p=>({product:p,geld:per[p]}))
+    .sort((a,b)=>b.geld-a.geld);
+  return {totaal, lijst, zonderPrijs};
+}
+
+/* ── 3. hoe ziet je jaar eruit ──
+   Je jaar is niet vlak: feestdagen tellen dubbel. De app kent je orders per
+   datum, dus hij kan je vertellen wanneer het vorig jaar druk was — ruim
+   voordat het weer zover is. */
+function seizoenPerMaand(jaar){
+  const j=String(jaar);
+  const m=new Array(12).fill(0), aantal=new Array(12).fill(0);
+  (S.orders||[]).forEach(o=>{
+    const d=o.datum||o.besteld||'';
+    if(!d||d.slice(0,4)!==j) return;
+    const i=parseInt(d.slice(5,7),10)-1;
+    if(i<0||i>11) return;
+    m[i]+=orderBedrag(o).bedrag; aantal[i]++;
+  });
+  return {omzet:m, aantal, totaal:m.reduce((a,b)=>a+b,0)};
+}
+function seizoenTip(){
+  const nu=new Date(), jaar=nu.getFullYear();
+  const vorig=seizoenPerMaand(jaar-1);
+  if(!vorig.totaal) return null;
+  const gem=vorig.totaal/12;
+  if(gem<=0) return null;
+  /* welke maand komt eraan, en was die vorig jaar bovengemiddeld? */
+  const volgende=(nu.getMonth()+1)%12;
+  const factor=vorig.omzet[volgende]/gem;
+  if(factor<1.3) return null;
+  return {maand:MNDV?MNDV[volgende]:String(volgende+1),
+          factor:Math.round(factor*10)/10,
+          omzet:vorig.omzet[volgende], jaar:jaar-1};
+}
+
+
+/* ── wat verdien je per uur ── */
+function sheetPerUur(){
+  const jr=new Date().getFullYear();
+  const kw=kwartaalVan(new Date());
+  const j=perUur(jr,0), k=perUur(jr,kw);
+  const rij=(t,v)=>!v?'':`<div class="ikkaart">
+    <span class="irl">${t}<em>${komma(Math.round(v.uren))} uur · ${
+      euro(v.omzet)} omzet</em></span>
+    <i class="irtijd"><b style="font-size:16px">${euro(v.perUur)}</b></i></div>`;
+  sheet('Per gewerkt uur',
+    (j||k)
+      ? `<div class="paneel">${rij('Dit kwartaal',k)}${rij('Dit jaar',j)}</div>
+         ${j&&j.mist?`<p class="hint" style="margin-top:12px">${j.mist} ${
+           j.mist===1?'order heeft':'orders hebben'} nog geen bedrag, dus dit is een ondergrens.</p>`:''}
+         ${j?`<p class="hint" style="margin-top:12px">Hiervan ging ${
+           komma(Math.round(j.productie))} uur naar productie.</p>`:''}`
+      : '<div class="geen">Nog te weinig uren of omzet om te delen.</div>', '');
+}
+
+/* ── wat gooi je weg ── */
+function sheetDerving(){
+  const jr=new Date().getFullYear();
+  const d=dervingKosten(jr);
+  sheet('Weggegooid',
+    d.lijst.length
+      ? `<div class="ikstart" style="margin-bottom:14px">
+           <span class="eyebrow">Dit jaar weggegooid</span><b>${euro(d.totaal)}</b></div>
+         <div class="paneel">${d.lijst.map(x=>`<div class="ikkaart">
+           <span class="irl">${esc(x.product)}</span>
+           <i class="irtijd">${euro(x.geld)}</i></div>`).join('')}</div>
+         ${d.zonderPrijs?`<p class="hint" style="margin-top:12px">${
+           komma(d.zonderPrijs)} g had geen prijs en telt hier niet mee.</p>`:''}`
+      : '<div class="geen">Niets weggegooid dit jaar. Zo hoort het.</div>',
+    '', d.lijst.length?d.lijst.length+(d.lijst.length===1?' product':' producten'):'');
+}
+
+/* ── hoe ziet je jaar eruit ── */
+function sheetSeizoen(){
+  const jr=new Date().getFullYear();
+  const nu2=seizoenPerMaand(jr), vor=seizoenPerMaand(jr-1);
+  const max=Math.max(1,...nu2.omzet,...vor.omzet);
+  const mnd=(typeof MNDV!=='undefined'&&MNDV)?MNDV
+    :['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  const tip=seizoenTip();
+  sheet('Je jaar',
+    (nu2.totaal||vor.totaal)
+      ? `${tip?`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}
+           <span>In ${esc(tip.maand)} deed je vorig jaar ${tip.factor}× je gemiddelde
+           (${euro(tip.omzet)}). Denk aan je inkoop.</span></div>`:''}
+         <div class="paneel" style="padding:14px 16px">
+           ${nu2.omzet.map((v,i)=>`<div class="szrij">
+             <span class="szm">${mnd[i]}</span>
+             <span class="szbaan"><i style="width:${Math.round(v/max*100)}%"></i>
+               ${vor.omzet[i]?`<u style="width:${Math.round(vor.omzet[i]/max*100)}%"></u>`:''}</span>
+             <span class="szb">${v?euro(v):''}</span></div>`).join('')}
+         </div>
+         <p class="hint" style="margin-top:12px">De dunne lijn is ${jr-1}.</p>`
+      : '<div class="geen">Nog geen orders om een patroon uit te halen.</div>',
+    '', nu2.totaal?euro(nu2.totaal):'');
+}
+
 function geldHTML(){
   const r=S.rit, lijst=ritten();
   const zak=kmDitJaar(true), pri=kmDitJaar(false);
@@ -9941,8 +10085,23 @@ function geldHTML(){
   const voorK=bonnenPeriode(jr0,kw0).reduce((n,b)=>n+(b.btw||0),0);
   const openst=openstaand(), openTot=openst.reduce((n,x)=>n+x.bedrag,0);
   const wv=winstVan(jr0,kw0);
+  const pu=perUur(jr0,0);
+  const dv=dervingKosten(jr0);
 
   let h='';
+
+  /* Drie cijfers die de app al kon weten maar nooit uitrekende. Ze staan
+     bovenaan omdat ze over je hele bedrijf gaan, niet over één order. */
+  const gt=(attr,ico,label,waarde,let2)=>`<button class="fasetegel ${let2?'let':''}" ${attr}>
+      <span class="ftico">${svg(ico)}</span>
+      <span class="ftn">${label}</span>
+      ${waarde?`<i class="ftt${let2?' amber':''}">${waarde}</i>`:''}</button>`;
+  const inzicht=`<div class="blokkop"><span class="eyebrow">Inzicht</span></div>
+    <div class="fasetegels">
+      ${gt('data-peruur',I.klok,'Per gewerkt uur',pu?euro(pu.perUur):'')}
+      ${gt('data-derving',I.doos,'Weggegooid',dv.totaal?euro(dv.totaal):'',dv.totaal>0)}
+      ${gt('data-seizoen',I.spark,'Je jaar','')}
+    </div>`;
 
   /* een rit die loopt hoort bovenaan — anders staat geld voorop */
   if(r){
@@ -9972,6 +10131,8 @@ function geldHTML(){
 
   const margeGem=(()=>{const l=(S.recepten||[]).map(margeVan).filter(m=>m&&m.pct!==null);
     return l.length?Math.round(l.reduce((n,m)=>n+m.pct,0)/l.length):null})();
+
+  h+=inzicht;
 
   h+=`<div class="blokkop" style="margin-top:${r?'24px':'8px'}"><span class="eyebrow">Kwartaal ${kw0}</span>
       <span class="tel">${jr0}</span></div>
@@ -14808,6 +14969,9 @@ function bind(){
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-ingr]').forEach(x=>x.onclick=()=>sheetIngredientenLijst(false));
   $$('[data-partijen]').forEach(x=>x.onclick=sheetLots);
+  $$('[data-peruur]').forEach(x=>x.onclick=sheetPerUur);
+  $$('[data-derving]').forEach(x=>x.onclick=sheetDerving);
+  $$('[data-seizoen]').forEach(x=>x.onclick=sheetSeizoen);
   $$('[data-tempo]').forEach(x=>x.onclick=sheetTempo);
   $$('[data-nogmaken]').forEach(x=>x.onclick=sheetNogTeMaken);
   $$('[data-prijsverloop]').forEach(x=>x.onclick=sheetPrijsVerloop);
