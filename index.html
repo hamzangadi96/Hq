@@ -3461,7 +3461,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v510 · 18 aug 2026';
+const APPVERSIE='v511 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7540,9 +7540,18 @@ function doosjeKosten(d){
   const aantal=parseInt(d.aantal,10)||0;
   const bonbons=perBonbon===null?null:perBonbon*aantal;
   const kost=bonbons===null?null:verp+bonbons;
-  const vk=typeof d.prijs==='number'?d.prijs:null;
+  /* De verkoopprijs van een doosje volgt uit je smaken: het gemiddelde van
+     wat je per bonbon vraagt, maal het aantal erin. Vul je zelf een prijs in,
+     dan wint die — een cadeauverpakking mag duurder zijn dan de som. */
+  const metPrijs=(S.recepten||[]).filter(smaakActief)
+    .map(r=>verkoopPrijs(r.id)).filter(x=>typeof x==='number');
+  const gemVk=metPrijs.length?metPrijs.reduce((a,b2)=>a+b2,0)/metPrijs.length:null;
+  const vkAuto=(gemVk===null||!aantal)?null:gemVk*aantal;
+  const eigen=typeof d.prijs==='number'?d.prijs:null;
+  const vk=eigen!==null?eigen:vkAuto;
   const excl=vk===null?null:vk/(1+BTW_ETEN);
   return {verp, zonder, perBonbon, bonbons, kost, vk, excl,
+          vkAuto, gemVk, eigen, smaken:metPrijs.length,
           marge:(excl===null||kost===null)?null:excl-kost,
           pct:(excl===null||kost===null||excl<=0)?null
              :Math.round((excl-kost)/excl*100)};
@@ -7606,7 +7615,14 @@ function sheetDoosje(id){
        :'<div class="geen">Leg eerst je verpakking vast bij Voorraad.</div>'}</div>
      <div class="veld"><label>Verkoopprijs incl. btw</label>
        <input class="inp" id="djP" inputmode="decimal"
-         value="${d.prijs!==null&&d.prijs!==undefined?getal(d.prijs):''}" placeholder="€"></div>
+         value="${typeof d.prijs==='number'?getal(d.prijs):''}"
+         placeholder="${k.vkAuto!==null?euro(k.vkAuto)+' (uit je smaken)':'€'}">
+       ${k.vkAuto!==null
+         ? `<div class="hint" style="margin-top:6px">Leeg laten betekent ${
+             euro(k.gemVk)} gemiddeld per bonbon × ${parseInt(d.aantal,10)||0}.</div>`
+         : (k.smaken===0
+            ? '<div class="hint" style="margin-top:6px">Zodra je smaken een verkoopprijs hebben, rekent hij dit zelf uit.</div>'
+            : '')}</div>
      <div class="paneel" id="djSom">${doosjeSom(d)}</div>`,
     `<div class="wzknoppen">
        ${id?'<button class="sec plat" id="djWeg">Verwijderen</button>':''}
