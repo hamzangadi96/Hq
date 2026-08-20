@@ -3446,7 +3446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v506 · 18 aug 2026';
+const APPVERSIE='v507 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7510,7 +7510,23 @@ function sheetBreakEven(){
         : `<div class="ikstart" style="margin-bottom:14px">
              <span class="eyebrow">Elke maand kwijt</span><b>${euro(b.maand)}</b></div>
            ${b.gem===null
-             ? '<div class="geen">Nog geen smaak met een verkoopprijs én een volledige kostprijs.</div>'
+             /* "Nog geen smaak met een verkoopprijs én een volledige kostprijs"
+                zei niet wélke smaak wat mist, en bood geen weg vooruit. Nu per
+                smaak wat eraan ontbreekt, aantikbaar. */
+             ? `<div class="stapkop"><span class="sk">Eerst dit invullen</span></div>
+                <div class="paneel">${(S.recepten||[]).filter(smaakActief).map(r=>{
+                  const vk=verkoopPrijs(r.id), kv=kostprijsVol(r);
+                  const mist=[];
+                  if(vk===null) mist.push('verkoopprijs');
+                  if(kv.totaal===null) mist.push((kv.mist&&kv.mist.length)
+                    ? kv.mist.length+' ingrediënt'+(kv.mist.length===1?'':'en')+' zonder prijs'
+                    : 'kostprijs');
+                  if(!mist.length) return '';
+                  return `<button type="button" class="ikkaart" data-bemist="${esc(r.id)}">
+                    <span class="ikico">${svg(I.euro)}</span>
+                    <span class="irl">${esc(r.naam)}<em>${mist.join(' · ')}</em></span>
+                    ${svg(I.pijl,'2')}</button>`;
+                }).join('')}</div>`
              : `<div class="paneel" style="margin-bottom:14px">
                   <div class="pwr"><span class="pwl">Elke bonbon draagt bij</span>
                     <span class="pwv">${euro(b.gem)}</span></div>
@@ -7530,13 +7546,32 @@ function sheetBreakEven(){
                    getal(Math.ceil(b.maand/d.bijdrage))}×</i>`:''}</div>`).join('')}</div>
                 <p class="hint" style="margin-top:12px">Vul in wat een doosje kost bij de klant.
                   Rechts zie je hoeveel doosjes je er per maand van moet verkopen.</p>`
-             : `<div class="geen">Nog geen verpakking met een aantal bonbons erin.
-                  Zet dat bij Voorraad → Verpakking.</div>`}`,
+             /* Ook hier: niet melden dat er iets mist, maar laten zien wát —
+                en er meteen heen kunnen. */
+             : (()=>{
+                 const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
+                 return vp.length
+                   ? `<div class="paneel">${vp.map(x=>`<button type="button"
+                       class="ikkaart" data-bedoos="${esc(x.product)}">
+                       <span class="ikico">${svg(I.doos)}</span>
+                       <span class="irl">${esc(x.product)}<em>aantal bonbons nog niet ingevuld</em></span>
+                       ${svg(I.pijl,'2')}</button>`).join('')}</div>
+                      <p class="hint" style="margin-top:12px">Vul per doosje in hoeveel
+                        bonbons erin gaan, dan rekent hij het uit.</p>`
+                   : `<div class="geen">Je hebt nog geen verpakking vastgelegd.</div>`;
+               })()}`,
       '');
     $$('#sheetBody [data-doos]').forEach(i=>i.onchange=()=>{
       const v=getalIn(i.value);
       zetDoosPrijs(i.dataset.doos, (v===null||isNaN(v)||v<=0)?null:v);
       dicht(); setTimeout(sheetBreakEven,180);
+    });
+    $$('#sheetBody [data-bemist]').forEach(x=>x.onclick=()=>{
+      dicht(); setTimeout(sheetVerkoopprijzen,200);
+    });
+    $$('#sheetBody [data-bedoos]').forEach(x=>x.onclick=()=>{
+      const p=x.dataset.bedoos; dicht();
+      setTimeout(()=>sheetGrondstof(p,'inst'),200);
     });
     if($('[data-naarvast]')) $('[data-naarvast]').onclick=()=>{
       dicht(); setTimeout(()=>sheetKostenbasis&&sheetKostenbasis(),200);
