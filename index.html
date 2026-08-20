@@ -3461,7 +3461,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v515 · 20 aug 2026';
+const APPVERSIE='v517 · 20 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3755,7 +3755,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -8342,8 +8342,21 @@ function sheetB2B(){
        <span>Geen prijs bekend voor: ${b.mist.slice(0,4).map(esc).join(', ')}${
          b.mist.length>4?' en '+(b.mist.length-4)+' meer':''}. De uitkomst klopt nog niet.</span></div>`:''}
 
+     ${(()=>{
+       /* Rekenen met een kostprijs waar arbeid of vaste lasten nog in ontbreken
+          geeft een prijs die klopt op de cent en nergens op slaat. Dat hoort de
+          app te zeggen vóór je hem naar een klant stuurt, niet erna. */
+       const wat=[];
+       if(!b.kv.arbeid) wat.push('arbeid');
+       if(!b.kv.vast) wat.push('vaste lasten');
+       return wat.length?`<button type="button" class="melding rood" data-cijfers
+         style="margin-bottom:14px;width:100%;text-align:left;font:inherit;font-size:13.5px;
+         border:0;cursor:pointer">${svg(I.alarm,'2')}
+         <span>Je kostprijs mist ${wat.join(' en ')}. Elke prijs hieronder is te laag.
+           Tik om aan te vullen.</span></button>`:''})()}
+
      <div class="blokkop"><span class="eyebrow">Kostprijs per bonbon</span>
-       <span class="tel">${b.kostBonbon!==null?euro(b.kostBonbon):'—'}</span></div>
+       <span class="tel">${b.kostBonbon!==null?euro(b.kostBonbon):'\u2014'}</span></div>
      <div class="paneel">
        ${rij('Grondstoffen',b.kv.grondNa!==null?euro(b.kv.grondNa):'—',
              b.kv.dervingPct?'inclusief '+komma(b.kv.dervingPct)+'% derving':'')}
@@ -8360,9 +8373,19 @@ function sheetB2B(){
        ${v&&v.regels.length?rij('Per eenheid van '+b.inh,b.perDoos!==null?euro(b.perDoos):'—',''):''}
        ${b.zending?rij('Verzendmateriaal',euro(b.zending),'eenmalig per levering'):''}
        ${rij('Totaal '+b.stuks+' stuks',b.totaal!==null?euro(b.totaal):'—','excl. btw')}
-       ${rij('Jij houdt over',b.winst!==null?euro(b.winst):'—',
+       ${rij('Jij houdt over',b.winst!==null?euro(b.winst):'\u2014',
              b.margePct!==null?b.margePct+'% op deze order':'')}
      </div>
+
+     <div class="veld" style="margin-top:14px"><label>Marge waarmee je rekent</label>
+       <div class="rijtje">
+         <input class="mini" id="bqM" type="text" inputmode="decimal" value="${b.marge}"
+           style="max-width:96px" min="0" max="99">
+         <button class="miniknop" id="bqMOk">Instellen</button></div>
+       ${margeMelding(b.marge,'zakelijk')}
+       ${b.marge!==MARGEBAND.zakelijk.advies?`<button class="miniknop" id="bqMAdv"
+         style="margin-top:10px">Zet op ${MARGEBAND.zakelijk.advies}% \u2014 advies voor wederverkoop</button>`:''}
+       </div>
 
      ${b.onderKost?`<div class="melding rood" style="margin-top:14px">${svg(I.alarm,'2')}
        <span>Deze prijs ligt onder je kostprijs. Elke bonbon kost je geld.</span></div>`:''}
@@ -8376,8 +8399,8 @@ function sheetB2B(){
       :`<div class="hint" style="margin-top:14px">Vul een consumentenprijs in bij Verkoopprijzen,
          dan zie je ook wat je afnemer overhoudt.</div>`}
 
-     <p class="hint" style="margin-top:20px">Marge, leveringsvormen en staffel stel je in
-       bij <b>Kostenbasis</b> onder Financiën. Hier reken je alleen.</p>`,
+     <p class="hint" style="margin-top:20px">Leveringsvormen en staffel stel je in bij
+       <b>Kostenbasis</b> onder Financiën.</p>`,
     `<button class="prim" style="margin-top:0" id="bqKlant">${svg(I.doc)}Vastleggen bij een klant</button>
      <button class="sec" id="bqOfferte">${svg(I.doc)}Offerte maken</button>`);
 
@@ -8386,6 +8409,17 @@ function sheetB2B(){
   });
   chips('#bqS',false,()=>{B2B.smaak=chipV('#bqS');sheetB2B()});
   chips('#bqV',false,()=>{B2B.vorm=chipV('#bqV');sheetB2B()});
+  const zetMarge=n=>{
+    if(isNaN(n)||n<0||n>=100) return toast('Vul een marge tussen 0 en 99 in.');
+    const oud=S.b2bMarge;
+    S.b2bMarge=n; bewaarNu(); sheetB2B();
+    toast('Marge op '+komma(n)+'% gezet.',()=>{ S.b2bMarge=oud; bewaarNu(); sheetB2B() });
+  };
+  $('#bqMOk').onclick=()=>zetMarge(getalIn($('#bqM').value));
+  $('#bqM').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sluitToetsenbord();
+    zetMarge(getalIn($('#bqM').value))}};
+  if($('#bqMAdv')) $('#bqMAdv').onclick=()=>zetMarge(MARGEBAND.zakelijk.advies);
+  $$('#sheetBody [data-cijfers]').forEach(x=>x.onclick=sheetCijfers);
   const lees=()=>{const n=parseInt($('#bqN').value,10); B2B.stuks=n>0?n:1; sheetB2B()};
   $('#bqOk').onclick=lees;
   $('#bqN').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sluitToetsenbord();lees()}};
@@ -10119,14 +10153,25 @@ function sheetKostenbasis(){
    Je timet je batches al. Met een uurtarief weet je wat een bonbon echt kost. */
 const uurtarief=()=>typeof S.uurtarief==='number'?S.uurtarief:0;
 /* gemiddelde arbeidskosten per bonbon, uit je afgeronde batches */
+const bonbonsPerUur=()=>typeof S.bonbonsPerUur==='number'&&S.bonbonsPerUur>0?S.bonbonsPerUur:0;
+
+/* Dit rekende alleen met afgeronde batches. Klopt — gemeten tijd is beter dan
+   geschatte tijd. Maar zolang je nog geen batch hebt afgerond staat arbeid op
+   nul, en dan is je kostprijs een fractie van wat een bonbon werkelijk kost.
+   Je gaat dan met een verkeerd getal naar een klant, en dat is erger dan een
+   schatting. Dus: meten zodra het kan, en tot die tijd rekenen met hoeveel
+   bonbons je per uur zegt te maken. De meting wint altijd. */
 function arbeidPerBonbon(){
   const t=uurtarief(); if(!t) return null;
   const af=(S.batches||[]).filter(b=>b.status==='klaar'&&werkTotaal(b)>60&&b.resultaat&&b.resultaat.goed>0);
-  if(!af.length) return null;
-  const uren=af.reduce((n,b)=>n+werkTotaal(b)/3600,0);
-  const stuks=af.reduce((n,b)=>n+b.resultaat.goed,0);
-  if(!stuks) return null;
-  return {perStuk:(uren*t)/stuks,uren,stuks,batches:af.length};
+  if(af.length){
+    const uren=af.reduce((n,b)=>n+werkTotaal(b)/3600,0);
+    const stuks=af.reduce((n,b)=>n+b.resultaat.goed,0);
+    if(stuks) return {perStuk:(uren*t)/stuks,uren,stuks,batches:af.length,geschat:false};
+  }
+  const pu=bonbonsPerUur();
+  if(pu>0) return {perStuk:t/pu, perUur:pu, uren:0, stuks:0, batches:0, geschat:true};
+  return null;
 }
 
 /* ---------- verzending en kado-opties: 21% ---------- */
@@ -10240,23 +10285,50 @@ function sheetWinst(){
 
 function sheetUurtarief(){
   const ap=arbeidPerBonbon();
+  const pu=bonbonsPerUur();
+  const t=uurtarief();
   sheet('Uurtarief',
     `<p class="hint">Wat is een uur van jou waard? Daarmee rekent de app arbeid mee in je
-      kostprijs en je resultaat, op basis van de tijd die je per batch registreert.</p>
+      kostprijs en je resultaat.</p>
      <div class="veld"><label>Bedrag per uur</label>
        <input class="inp" id="utT" type="text" inputmode="decimal" step="0.5"
-         value="${uurtarief()||''}" placeholder="Bijv. 35"></div>
-     ${ap?`<div class="paneel"><div class="arij" style="cursor:default">
-       <span class="naam">Arbeid per bonbon<small>${getal(ap.uren)} uur over ${ap.stuks} bonbons
-         in ${ap.batches} ${ap.batches===1?'batch':'batches'}</small></span>
-       <span class="waarde gevuld">${euro(ap.perStuk)}</span></div></div>`
-      :`<div class="geen">Zodra je batches hebt afgerond met tijdregistratie, zie je hier je arbeidskosten per bonbon.</div>`}`,
+         value="${t||''}" placeholder="Bijv. 35"></div>
+
+     <div class="veld"><label>Hoeveel bonbons maak je in een uur?</label>
+       <input class="inp" id="utP" type="number" inputmode="numeric"
+         value="${pu||''}" placeholder="Bijv. 60">
+       <div class="hint" style="margin-top:6px">Reken de hele gang mee: tempereren, mallen,
+         vullen, sluiten, uithalen en afwerken. Liever te laag schatten dan te hoog \u2014
+         een te hoog getal maakt je bonbon op papier goedkoper dan hij is.</div></div>
+
+     ${ap&&!ap.geschat
+       ? `<div class="melding groen">${svg(I.vink,'2')}<span>Je hebt ${ap.batches}
+           ${ap.batches===1?'batch':'batches'} afgerond; de app rekent met je gemeten tijd
+           en negeert de schatting hierboven.</span></div>
+          <div class="paneel"><div class="arij" style="cursor:default">
+            <span class="naam">Arbeid per bonbon<small>${getal(ap.uren)} uur over ${ap.stuks}
+              bonbons</small></span>
+            <span class="waarde gevuld">${euro(ap.perStuk)}</span></div></div>`
+       : (ap&&ap.geschat
+         ? `<div class="paneel"><div class="arij" style="cursor:default">
+              <span class="naam">Arbeid per bonbon<small>geschat: ${euro(t)} \u00f7 ${ap.perUur}
+                per uur</small></span>
+              <span class="waarde gevuld">${euro(ap.perStuk)}</span></div></div>
+            <p class="hint" style="margin-top:10px">Zodra je een batch afrondt met een aantal,
+              rekent de app met je werkelijke tijd en vervangt hij dit vanzelf.</p>`
+         : '')}`,
     `<button class="prim" style="margin-top:0" id="utOk">Opslaan</button>`);
+
   $('#utOk').onclick=()=>{
     const g=leesGetal($('#utT').value,{min:0,max:500,leegMag:true});
     if(g.fout) return toast(g.fout);
+    const p=parseInt(($('#utP').value||'').trim(),10);
+    if(($('#utP').value||'').trim()&&(isNaN(p)||p<=0||p>5000))
+      return toast('Vul een aantal tussen 1 en 5000 in.');
     S.uurtarief=!g.waarde||g.waarde<=0?null:g.waarde;
-    bewaarNu(); dicht(); render(); toast(S.uurtarief?'Uurtarief opgeslagen.':'Uurtarief gewist.');
+    S.bonbonsPerUur=(isNaN(p)||p<=0)?null:p;
+    bewaarNu(); dicht(); render();
+    toast(S.uurtarief?'Uurtarief opgeslagen.':'Uurtarief gewist.');
   };
 }
 
@@ -10594,8 +10666,9 @@ function cijferStand(){
   const best=inkopen().filter(b=>getalIn0(b.betaald)>0).length;
 
   return [
-    {naam:'Uurtarief', ok:!!tarief,
-     sub:tarief?'':'je arbeid telt nu voor niets mee',
+    {naam:'Uurtarief', ok:!!tarief&&!!arbeidPerBonbon(),
+     sub:!tarief?'je arbeid telt nu voor niets mee'
+        :(!arbeidPerBonbon()?'vul erbij hoeveel bonbons je per uur maakt':''),
      waarde:tarief?euro(tarief)+' per uur':'',
      doe:sheetUurtarief},
 
