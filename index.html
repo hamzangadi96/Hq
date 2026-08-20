@@ -3419,7 +3419,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v499 · 18 aug 2026';
+const APPVERSIE='v500 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10231,36 +10231,33 @@ function geldHTML(){
   const zonderPrijs=(S.recepten||[]).filter(x=>verkoopPrijs(x.id)===null).length;
   /* Hier stond een </div> te veel, waardoor de rij Bonnen buiten de witte kaart
      viel. Beide rijen horen in hetzelfde paneel. */
+  /* Zes rijen werden zes tegels, in dezelfde vorm als de rest van de app.
+     De ondertitels waren zinnen; als tegel past er één waarde in de hoek. */
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Kosten</span></div>
-    <div class="paneel">
+    <div class="fasetegels">
       ${(()=>{const k=kostenRapport();
-        return rij('data-kostprijzen',I.euro,'Wat kost een bonbon',
-          k.gem!==null? euro(k.gem)+' gemiddeld'
-          : (k.totaal?'nog geen volledige prijs':'nog geen smaken'), k.gem===null)})()}
+        return gt('data-kostprijzen',I.euro,'Kostprijs',
+          k.gem!==null?euro(k.gem):'onbekend', k.gem===null)})()}
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
         /* Stond even achter het tandwiel, maar je vaste lasten en derving
            veranderen elke maand. Dat is bijhouden, geen instellen. */
-        return rij('data-kostenbasis',I.doos,'Kostenbasis',
-          m? euro(m)+' per maand'+(vb.per!==null?' · '+euro(vb.per)+' per bonbon':' · verdeling onbekend')
-           : 'vaste lasten, derving en prijsbeleid', !m||vb.per===null)})()}
+        return gt('data-kostenbasis',I.doos,'Kostenbasis',
+          m?euro(m)+' p/m':'niet ingesteld', !m||vb.per===null)})()}
       ${(()=>{const g=grondstofJaar(new Date().getFullYear());
-        return rij('data-grondjaar',I.doos,'Grondstoffen dit jaar',
-          g.batches? euro(g.grond)+' \u00b7 '+g.bonbons+' bonbons'+
-            (g.perStuk!==null?' \u00b7 '+euro(g.perStuk)+' per stuk':'')
-          : 'nog geen afgeronde batches', !g.batches)})()}
-      ${rij('data-bonnen',I.doos,'Bonnen',(()=>{
-        const n=(S.bonnen||[]).length;
+        return gt('data-grondjaar',I.doos,'Grondstoffen',
+          g.batches?euro(g.grond):'', !g.batches)})()}
+      ${(()=>{const n=(S.bonnen||[]).length;
         const z=(S.bonnen||[]).filter(x=>!x.foto).length;
-        return n?(z?z+' van '+n+' zonder foto':n+' vastgelegd'):'nog niets';
-      })(),(S.bonnen||[]).some(x=>!x.foto))}
+        return gt('data-bonnen',I.doos,'Bonnen',
+          n?(z?z+' zonder foto':String(n)):'', z>0)})()}
     </div>
 
     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Belasting</span></div>
-    <div class="paneel">
-      ${rij('data-btw',I.doc,'Btw-aangifte','')}
-      ${rij('data-uren',I.klok,'Urenregistratie',(()=>{
+    <div class="fasetegels">
+      ${gt('data-btw',I.doc,'Btw-aangifte','')}
+      ${gt('data-uren',I.klok,'Urenregistratie',(()=>{
         const j=urenPeriode(jaarBegin(),jaarEind());
-        return j.totaalSec?komma(urenGetal(j.totaalSec))+' uur dit jaar':'nog niets';
+        return j.totaalSec?komma(urenGetal(j.totaalSec))+' uur':'';
       })())}
     </div>
 `;
@@ -14557,12 +14554,16 @@ function agendaHTML(){
     ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
 
+  /* Dezelfde toets als de andere tabs: tegels, en lange labels korter met het
+     detail in de hoek. */
+  const at=(attr,ico,label,waarde)=>`<button class="fasetegel" ${attr}>
+      <span class="ftico">${svg(ico)}</span><span class="ftn">${label}</span>
+      ${waarde?`<i class="ftt">${waarde}</i>`:''}</button>`;
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Inplannen</span></div>
-    <div class="paneel">
-      ${brij('data-planning',I.vorm,'Productie plannen','')}
-      ${brij('data-taaknieuw',I.plus,'Losse afspraak of klus','')}
-      ${brij('data-agendaexport',I.doc,'Zet in mijn agenda',
-        agendaItems(8).length+' afspraken')}
+    <div class="fasetegels">
+      ${at('data-planning',I.vorm,'Productie plannen','')}
+      ${at('data-taaknieuw',I.plus,'Afspraak of klus','los')}
+      ${at('data-agendaexport',I.doc,'Naar je agenda',agendaItems(8).length+' items')}
     </div>`;
   return h;
 }
