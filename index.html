@@ -831,6 +831,21 @@ header .hbtn.zoek{display:none}
 .pwr.laag{border-top:1px solid var(--lijn);margin-top:4px;padding:11px 16px 14px}
 .pwr.laag .pwl,.pwr.laag .pwv{color:var(--rood);font-weight:700}
 .pwmist{padding:0 16px 14px;font-size:12.5px;color:var(--amber)}
+/* een onderdeelrij: kiezen, aantal, weghalen — zoals een ingrediëntrij */
+.doosrij{display:grid;grid-template-columns:minmax(0,1fr) 64px 34px;gap:8px;
+  align-items:center;margin-bottom:8px}
+.doosrij .doossel{height:44px;padding:0 10px;font-size:14.5px;
+  -webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.4'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 10px center;background-size:15px;
+  padding-right:30px}
+.doosrij .doosaan{height:44px;text-align:center;font-weight:700;
+  font-variant-numeric:tabular-nums}
+/* de plus stond zonder maat en vulde het halve scherm */
+#djPlus svg{width:16px;height:16px;flex:none}
+.doosrij .doosweg{width:34px;height:34px;border-radius:11px;color:var(--grijs3);
+  display:grid;place-items:center}
+.doosrij .doosweg:active{background:var(--bg);color:var(--rood)}
 .dpin{flex:none;width:76px}
 .dpin .inp{height:36px;text-align:right;font-size:14.5px;font-weight:600;
   font-variant-numeric:tabular-nums;padding:0 10px}
@@ -3446,7 +3461,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v509 · 18 aug 2026';
+const APPVERSIE='v510 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7504,9 +7519,19 @@ function gemVariabel(sm){
    kleur, een sleeve, een inlegvel en zoveel bonbons. Wat het kost is de som
    van die onderdelen plus de bonbons erin; wat het opbrengt vul je zelf in. */
 const doosjes=()=>alsLijst(S.doosjes);
+/* Een onderdeel was een kale naam; nu is het een naam met een aantal, want
+   in een doosje gaan soms twee stickers of drie inlegvellen. Oude doosjes
+   staan nog als losse namen opgeslagen — die lezen we als aantal 1. */
+const doosOnderdelen=d=>(d.onderdelen||[]).map(x=>
+  typeof x==='string' ? {naam:x, aantal:1}
+                      : {naam:x.naam||'', aantal:parseFloat(x.aantal)||1});
 function doosjeKosten(d){
-  const onder=(d.onderdelen||[]).map(p=>({product:p, prijs:verpPrijs(p)}));
-  const verp=onder.reduce((n,x)=>n+(x.prijs||0),0);
+  const onder=doosOnderdelen(d).filter(x=>x.naam).map(x=>{
+    const pr=verpPrijs(x.naam);
+    return {product:x.naam, aantal:x.aantal, prijs:pr,
+            totaal:pr===null?null:pr*x.aantal};
+  });
+  const verp=onder.reduce((n,x)=>n+(x.totaal||0),0);
   const zonder=onder.filter(x=>x.prijs===null).map(x=>x.product);
   /* wat een bonbon gemiddeld kost aan grondstof en arbeid */
   const sm=(S.recepten||[]).filter(smaakActief)
@@ -7542,6 +7567,25 @@ function sheetDoosjes(){
   $$('#sheetBody [data-doosje]').forEach(x=>x.onclick=()=>sheetDoosje(x.dataset.doosje));
 }
 
+/* Eén rij per onderdeel: kiezen uit wat je al hebt vastgelegd, met een
+   aantal ernaast — net zoals je een smaak uit ingrediënten opbouwt. */
+function doosRijenHTML(d,verp){
+  const rijen=doosOnderdelen(d);
+  if(!rijen.length) rijen.push({naam:'',aantal:1});
+  return rijen.map((r,i)=>`<div class="doosrij">
+    <select class="inp doossel" data-dr="${i}">
+      <option value="">Kies een onderdeel…</option>
+      ${verp.map(x=>{const pr=verpPrijs(x.product);
+        return `<option value="${esc(x.product)}" ${r.naam===x.product?'selected':''}>${
+          esc(x.product)}${pr!==null?' · '+euro(pr):' · geen prijs'}</option>`}).join('')}
+    </select>
+    <input class="inp doosaan" data-dra="${i}" inputmode="decimal"
+      value="${getal(r.aantal)}" aria-label="Aantal">
+    <button type="button" class="doosweg" data-drw="${i}"
+      aria-label="Onderdeel weghalen">${svg(I.kruis,'2.2')}</button>
+  </div>`).join('');
+}
+
 function sheetDoosje(id){
   const lijst=doosjes();
   const d = id ? (lijst.find(x=>x.id===id)||{}) 
@@ -7556,12 +7600,9 @@ function sheetDoosje(id){
        <input class="inp" id="djA" inputmode="numeric" value="${esc(String(d.aantal||''))}"
          placeholder="16"></div>
      <div class="veld"><label>Waar bestaat het uit?</label>
-       ${verp.length?`<div class="chips" id="djO">${verp.map(x=>{
-         const aan=(d.onderdelen||[]).includes(x.product);
-         const pr=verpPrijs(x.product);
-         return `<button type="button" class="chip ${aan?'aan':''}" data-v="${esc(x.product)}">${
-           esc(x.product)}${pr!==null?' · '+euro(pr):' · geen prijs'}</button>`;
-       }).join('')}</div>`
+       ${verp.length?`<div id="djO">${doosRijenHTML(d,verp)}</div>
+         <button type="button" class="wzadd" id="djPlus">${svg(I.plus,'2.2')}
+           Onderdeel toevoegen</button>`
        :'<div class="geen">Leg eerst je verpakking vast bij Voorraad.</div>'}</div>
      <div class="veld"><label>Verkoopprijs incl. btw</label>
        <input class="inp" id="djP" inputmode="decimal"
@@ -7576,11 +7617,30 @@ function sheetDoosje(id){
     d.aantal=$('#djA').value.trim();
     const p=getalIn($('#djP').value);
     d.prijs=(p===null||isNaN(p)||p<=0)?null:p;
-    d.onderdelen=[...document.querySelectorAll('#djO .chip.aan')].map(c=>c.dataset.v);
+    d.onderdelen=[...document.querySelectorAll('#djO .doosrij')].map(rij=>({
+      naam:(rij.querySelector('.doossel')||{}).value||'',
+      aantal:getalIn0((rij.querySelector('.doosaan')||{}).value)||1
+    })).filter(x=>x.naam);
     return d;
   };
   const ververs=()=>{ $('#djSom').innerHTML=doosjeSom(lees()) };
-  chips('#djO',true,ververs);
+  const hertekenRijen=()=>{
+    $('#djO').innerHTML=doosRijenHTML(d,verp);
+    koppelRijen(); ververs();
+  };
+  const koppelRijen=()=>{
+    $$('#djO .doossel, #djO .doosaan').forEach(x=>x.onchange=ververs);
+    $$('#djO [data-drw]').forEach(b=>b.onclick=()=>{
+      lees();
+      d.onderdelen=doosOnderdelen(d).filter((_,i)=>i!==parseInt(b.dataset.drw,10));
+      hertekenRijen();
+    });
+  };
+  koppelRijen();
+  if($('#djPlus')) $('#djPlus').onclick=()=>{
+    lees(); d.onderdelen=doosOnderdelen(d).concat([{naam:'',aantal:1}]);
+    hertekenRijen();
+  };
   ['#djN','#djA','#djP'].forEach(s=>{ if($(s)) $(s).oninput=ververs });
 
   $('#djOk').onclick=veilig('doosje bewaren',()=>{
