@@ -3446,7 +3446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v507 · 18 aug 2026';
+const APPVERSIE='v509 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3697,7 +3697,7 @@ const S={
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
-  klanten:[], orders:[], verkoop:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
+  klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
   gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
@@ -3732,7 +3732,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount',
 'samenstelling',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
@@ -7477,25 +7477,145 @@ function breakEven(){
   const sm=(S.recepten||[]).filter(smaakActief).map(r=>({r,d:dekkingBonbon(r)}))
     .filter(x=>x.d&&x.d.bijdrage>0);
   const gem=sm.length?sm.reduce((n,x)=>n+x.d.bijdrage,0)/sm.length:null;
-  /* dozen: verkoopprijs min de bonbons erin en de doos zelf */
-  const dozen=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking')
-    .map(x=>{
-      const inh=art(x.product).inhoud||null;
-      const vk=doosPrijs(x.product);
-      const doosKost=verpPrijs(x.product);
-      if(!inh||vk===null||gem===null) return {product:x.product,inh,vk,bijdrage:null};
-      const excl=vk/(1+BTW_ETEN);
-      /* wat een doosje bijdraagt: prijs na btw, min de bonbons erin en min
-         het doosje zelf */
-      const bij=excl-(doosKost||0)-inh*gemVariabel(sm);
-      return {product:x.product,inh,vk,doosKost,bijdrage:bij};
-    });
+  /* Een doosje is bij jou geen artikel maar een samenstelling: een doos, een
+     sleeve, een inlegvel en zoveel bonbons. Die staan al in S.dozen met hun
+     onderdelen; doosKosten() rekent verpakking en inhoud uit. */
+  /* Er bestonden twee doosjessystemen naast elkaar: S.dozen (ouder, met
+     regels) en S.doosjes — dat laatste is het scherm waar jij ze samenstelt.
+     Break-even las de verkeerde, en zag dus nooit wat je invulde. */
+  const dozen=doosjes().map(d=>{
+    const k=doosjeKosten(d);
+    const inh=parseInt(d.aantal,10)||0;
+    return {id:d.id, product:d.naam||'Doosje', inh, vk:k.vk, verp:k.verp,
+            regels:(d.onderdelen||[]).length, mist:k.zonder,
+            kost:k.kost, marge:k.marge, pct:k.pct,
+            bijdrage:(k.excl===null||k.bonbons===null)?null:k.excl-k.verp-k.bonbons};
+  });
   return {maand, gem, sm, dozen,
           bonbons: (maand&&gem)?Math.ceil(maand/gem):null};
 }
 function gemVariabel(sm){
   if(!sm.length) return 0;
   return sm.reduce((n,x)=>n+x.d.variabel,0)/sm.length;
+}
+
+/* ═══════════ doosjes als samenstelling ═══════════
+   Een doosje is bij jou geen artikel maar een combinatie: een doos in een
+   kleur, een sleeve, een inlegvel en zoveel bonbons. Wat het kost is de som
+   van die onderdelen plus de bonbons erin; wat het opbrengt vul je zelf in. */
+const doosjes=()=>alsLijst(S.doosjes);
+function doosjeKosten(d){
+  const onder=(d.onderdelen||[]).map(p=>({product:p, prijs:verpPrijs(p)}));
+  const verp=onder.reduce((n,x)=>n+(x.prijs||0),0);
+  const zonder=onder.filter(x=>x.prijs===null).map(x=>x.product);
+  /* wat een bonbon gemiddeld kost aan grondstof en arbeid */
+  const sm=(S.recepten||[]).filter(smaakActief)
+    .map(r=>dekkingBonbon(r)).filter(Boolean);
+  const perBonbon=sm.length?sm.reduce((n,x)=>n+x.variabel,0)/sm.length:null;
+  const aantal=parseInt(d.aantal,10)||0;
+  const bonbons=perBonbon===null?null:perBonbon*aantal;
+  const kost=bonbons===null?null:verp+bonbons;
+  const vk=typeof d.prijs==='number'?d.prijs:null;
+  const excl=vk===null?null:vk/(1+BTW_ETEN);
+  return {verp, zonder, perBonbon, bonbons, kost, vk, excl,
+          marge:(excl===null||kost===null)?null:excl-kost,
+          pct:(excl===null||kost===null||excl<=0)?null
+             :Math.round((excl-kost)/excl*100)};
+}
+
+function sheetDoosjes(){
+  const lijst=doosjes();
+  sheet('Je doosjes',
+    `${lijst.length?`<div class="paneel">${lijst.map(d=>{
+        const k=doosjeKosten(d);
+        return `<button type="button" class="ikkaart" data-doosje="${esc(d.id)}">
+          <span class="ikico">${svg(I.doos)}</span>
+          <span class="irl">${esc(d.naam||'naamloos')}<em>${d.aantal||0} bonbons${
+            (d.onderdelen||[]).length?' · '+d.onderdelen.length+' onderdelen':''}${
+            k.kost!==null?' · kost '+euro(k.kost):''}</em></span>
+          ${k.vk!==null?`<i class="irtijd">${euro(k.vk)}</i>`:''}
+          ${svg(I.pijl,'2')}</button>`;
+      }).join('')}</div>`:'<div class="geen">Nog geen doosjes samengesteld.</div>'}`,
+    `<button class="prim" style="margin-top:0" id="djNieuw">Doosje toevoegen</button>`,
+    lijst.length?lijst.length+(lijst.length===1?' doosje':' doosjes'):'');
+  $('#djNieuw').onclick=()=>sheetDoosje(null);
+  $$('#sheetBody [data-doosje]').forEach(x=>x.onclick=()=>sheetDoosje(x.dataset.doosje));
+}
+
+function sheetDoosje(id){
+  const lijst=doosjes();
+  const d = id ? (lijst.find(x=>x.id===id)||{}) 
+              : {id:uid(), naam:'', aantal:'', onderdelen:[], prijs:null};
+  const verp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
+  const k=doosjeKosten(d);
+
+  sheet(id?'Doosje':'Nieuw doosje',
+    `<div class="veld"><label>Naam</label>
+       <input class="inp" id="djN" value="${esc(d.naam||'')}" placeholder="Bijv. Bordeaux 16"></div>
+     <div class="veld"><label>Hoeveel bonbons</label>
+       <input class="inp" id="djA" inputmode="numeric" value="${esc(String(d.aantal||''))}"
+         placeholder="16"></div>
+     <div class="veld"><label>Waar bestaat het uit?</label>
+       ${verp.length?`<div class="chips" id="djO">${verp.map(x=>{
+         const aan=(d.onderdelen||[]).includes(x.product);
+         const pr=verpPrijs(x.product);
+         return `<button type="button" class="chip ${aan?'aan':''}" data-v="${esc(x.product)}">${
+           esc(x.product)}${pr!==null?' · '+euro(pr):' · geen prijs'}</button>`;
+       }).join('')}</div>`
+       :'<div class="geen">Leg eerst je verpakking vast bij Voorraad.</div>'}</div>
+     <div class="veld"><label>Verkoopprijs incl. btw</label>
+       <input class="inp" id="djP" inputmode="decimal"
+         value="${d.prijs!==null&&d.prijs!==undefined?getal(d.prijs):''}" placeholder="€"></div>
+     <div class="paneel" id="djSom">${doosjeSom(d)}</div>`,
+    `<div class="wzknoppen">
+       ${id?'<button class="sec plat" id="djWeg">Verwijderen</button>':''}
+       <button class="prim" id="djOk">Bewaren</button></div>`);
+
+  const lees=()=>{
+    d.naam=$('#djN').value.trim();
+    d.aantal=$('#djA').value.trim();
+    const p=getalIn($('#djP').value);
+    d.prijs=(p===null||isNaN(p)||p<=0)?null:p;
+    d.onderdelen=[...document.querySelectorAll('#djO .chip.aan')].map(c=>c.dataset.v);
+    return d;
+  };
+  const ververs=()=>{ $('#djSom').innerHTML=doosjeSom(lees()) };
+  chips('#djO',true,ververs);
+  ['#djN','#djA','#djP'].forEach(s=>{ if($(s)) $(s).oninput=ververs });
+
+  $('#djOk').onclick=veilig('doosje bewaren',()=>{
+    lees();
+    if(!d.naam){ return toast('Geef het doosje een naam.') }
+    S.doosjes=alsLijst(S.doosjes);
+    const i=S.doosjes.findIndex(x=>x.id===d.id);
+    if(i>=0) S.doosjes[i]=d; else S.doosjes.push(d);
+    bewaarNu(); dicht(); render(); setTimeout(sheetDoosjes,200);
+    toast(d.naam+' bewaard.');
+  });
+  if($('#djWeg')) $('#djWeg').onclick=()=>{
+    S.doosjes=alsLijst(S.doosjes).filter(x=>x.id!==d.id);
+    bewaarNu(); dicht(); render(); setTimeout(sheetDoosjes,200);
+    toast('Doosje verwijderd.');
+  };
+}
+
+function doosjeSom(d){
+  const k=doosjeKosten(d);
+  const r=(l,v,kl)=>`<div class="pwr ${kl||''}"><span class="pwl">${l}</span>
+    <span class="pwv">${v}</span></div>`;
+  const maand=vasteLastenPerMaand()||0;
+  return `${r('Verpakking',euro(k.verp))}
+    ${k.bonbons===null?r('Bonbons','geen kostprijs bekend')
+      :r((d.aantal||0)+' bonbons',euro(k.bonbons))}
+    ${r('Kostprijs',k.kost===null?'onvolledig':euro(k.kost),'kost')}
+    ${k.vk!==null?r('Verkoopprijs incl. btw',euro(k.vk),'vk'):''}
+    ${k.marge===null?'':r('Je houdt over',euro(k.marge)+' · '+k.pct+'%',
+      k.pct<20?'laag':'marge')}
+    ${(k.marge&&k.marge>0&&maand)
+      ? r('Voor je vaste lasten',getal(Math.ceil(maand/k.marge))+' doosjes per maand')
+      : ''}
+    ${k.zonder.length?`<div class="pwmist">Zonder prijs: ${
+      k.zonder.map(esc).join(', ')}</div>`:''}`;
 }
 
 function sheetBreakEven(){
@@ -7513,20 +7633,22 @@ function sheetBreakEven(){
              /* "Nog geen smaak met een verkoopprijs én een volledige kostprijs"
                 zei niet wélke smaak wat mist, en bood geen weg vooruit. Nu per
                 smaak wat eraan ontbreekt, aantikbaar. */
-             ? `<div class="stapkop"><span class="sk">Eerst dit invullen</span></div>
-                <div class="paneel">${(S.recepten||[]).filter(smaakActief).map(r=>{
-                  const vk=verkoopPrijs(r.id), kv=kostprijsVol(r);
-                  const mist=[];
-                  if(vk===null) mist.push('verkoopprijs');
-                  if(kv.totaal===null) mist.push((kv.mist&&kv.mist.length)
-                    ? kv.mist.length+' ingrediënt'+(kv.mist.length===1?'':'en')+' zonder prijs'
-                    : 'kostprijs');
-                  if(!mist.length) return '';
-                  return `<button type="button" class="ikkaart" data-bemist="${esc(r.id)}">
-                    <span class="ikico">${svg(I.euro)}</span>
-                    <span class="irl">${esc(r.naam)}<em>${mist.join(' · ')}</em></span>
-                    ${svg(I.pijl,'2')}</button>`;
-                }).join('')}</div>`
+             /* Dertien rijen die alle dertien "verkoopprijs" zeiden is geen
+                lijst maar ruis. Eén regel met het aantal zegt hetzelfde. */
+             ? (()=>{
+                 const sm=(S.recepten||[]).filter(smaakActief);
+                 const gp=sm.filter(r=>verkoopPrijs(r.id)===null).length;
+                 const gk=sm.filter(r=>kostprijsVol(r).totaal===null).length;
+                 const wat=[];
+                 if(gp) wat.push(gp+' zonder verkoopprijs');
+                 if(gk) wat.push(gk+' zonder volledige kostprijs');
+                 return `<div class="paneel">
+                   <button type="button" class="ikkaart" data-bemist>
+                     <span class="ikico">${svg(I.euro)}</span>
+                     <span class="irl">Je ${sm.length} smaken<em>${
+                       wat.join(' · ')||'nog niets ingevuld'}</em></span>
+                     ${svg(I.pijl,'2')}</button></div>`;
+               })()
              : `<div class="paneel" style="margin-bottom:14px">
                   <div class="pwr"><span class="pwl">Elke bonbon draagt bij</span>
                     <span class="pwv">${euro(b.gem)}</span></div>
@@ -7537,29 +7659,25 @@ function sheetBreakEven(){
                 </div>`}
            <div class="stapkop"><span class="sk">Per doosje</span></div>
            ${dz.length
-             ? `<div class="paneel">${dz.map(d=>`<div class="ikkaart">
-                 <span class="irl">${esc(d.product)}<em>${d.inh} bonbons${
-                   d.bijdrage!==null?' · draagt bij '+euro(d.bijdrage):''}</em></span>
-                 <span class="dpin"><input class="inp" data-doos="${esc(d.product)}"
-                   inputmode="decimal" placeholder="€" value="${d.vk!==null?getal(d.vk):''}"></span>
-                 ${d.bijdrage>0?`<i class="irtijd">${
-                   getal(Math.ceil(b.maand/d.bijdrage))}×</i>`:''}</div>`).join('')}</div>
-                <p class="hint" style="margin-top:12px">Vul in wat een doosje kost bij de klant.
-                  Rechts zie je hoeveel doosjes je er per maand van moet verkopen.</p>`
+             ? `<div class="paneel">${dz.map(d=>`<button type="button" class="ikkaart"
+                 data-naardoosje="${esc(d.id)}">
+                 <span class="ikico">${svg(I.doos)}</span>
+                 <span class="irl">${esc(d.product)}<em>${d.inh} bonbons · ${
+                   d.regels} ${d.regels===1?'onderdeel':'onderdelen'}${
+                   d.verp?' · verpakking '+euro(d.verp):''}${
+                   d.bijdrage!==null?' · draagt bij '+euro(d.bijdrage)
+                     :(d.vk===null?' · nog geen verkoopprijs':'')}</em></span>
+                 ${d.bijdrage>0?`<i class="irtijd"><b>${
+                   getal(Math.ceil(b.maand/d.bijdrage))}×</b></i>`:svg(I.pijl,'2')}</button>`).join('')}</div>
+                <p class="hint" style="margin-top:12px">Rechts staat hoeveel doosjes je er per
+                  maand van moet verkopen. Tik er een aan om de onderdelen of de prijs
+                  aan te passen.</p>`
              /* Ook hier: niet melden dat er iets mist, maar laten zien wát —
                 en er meteen heen kunnen. */
-             : (()=>{
-                 const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
-                 return vp.length
-                   ? `<div class="paneel">${vp.map(x=>`<button type="button"
-                       class="ikkaart" data-bedoos="${esc(x.product)}">
-                       <span class="ikico">${svg(I.doos)}</span>
-                       <span class="irl">${esc(x.product)}<em>aantal bonbons nog niet ingevuld</em></span>
-                       ${svg(I.pijl,'2')}</button>`).join('')}</div>
-                      <p class="hint" style="margin-top:12px">Vul per doosje in hoeveel
-                        bonbons erin gaan, dan rekent hij het uit.</p>`
-                   : `<div class="geen">Je hebt nog geen verpakking vastgelegd.</div>`;
-               })()}`,
+             : `<div class="geen">Je hebt nog geen doosjes samengesteld. Een doosje is
+                  een doos met een sleeve, een inlegvel en zoveel bonbons.</div>
+                <div class="voet" style="margin-top:12px">
+                  <button data-nieuwdoosje>Doosje samenstellen</button></div>`}`,
       '');
     $$('#sheetBody [data-doos]').forEach(i=>i.onchange=()=>{
       const v=getalIn(i.value);
@@ -7569,10 +7687,12 @@ function sheetBreakEven(){
     $$('#sheetBody [data-bemist]').forEach(x=>x.onclick=()=>{
       dicht(); setTimeout(sheetVerkoopprijzen,200);
     });
-    $$('#sheetBody [data-bedoos]').forEach(x=>x.onclick=()=>{
-      const p=x.dataset.bedoos; dicht();
-      setTimeout(()=>sheetGrondstof(p,'inst'),200);
+    $$('#sheetBody [data-naardoosje]').forEach(x=>x.onclick=()=>{
+      const id=x.dataset.naardoosje; dicht(); setTimeout(()=>sheetDoosje(id),200);
     });
+    if($('[data-nieuwdoosje]')) $('[data-nieuwdoosje]').onclick=()=>{
+      dicht(); setTimeout(()=>sheetDoosje(null),200);
+    };
     if($('[data-naarvast]')) $('[data-naarvast]').onclick=()=>{
       dicht(); setTimeout(()=>sheetKostenbasis&&sheetKostenbasis(),200);
     };
@@ -10325,6 +10445,11 @@ function geldHTML(){
       ${gt('data-seizoen',I.spark,'Je jaar','')}
       ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','kost tot verkoop')}
       ${gt('data-breakeven',I.spark,'Wat moet je verkopen','om quitte te spelen')}
+      ${/* Een tegel "Je doosjes" bestond al verderop; er hoeft er geen tweede
+           bij. Ik was hem alleen niet tegengekomen omdat break-even het
+           verkeerde systeem las. */''}
+      ${gt('data-doosjes',I.doos,'Je doosjes',(()=>{const n=alsLijst(S.doosjes).length;
+        return n?String(n):''})())}
     </div>`;
 
   /* een rit die loopt hoort bovenaan — anders staat geld voorop */
@@ -15185,6 +15310,7 @@ function bind(){
   $$('[data-seizoen]').forEach(x=>x.onclick=sheetSeizoen);
   $$('[data-prijsopbouw]').forEach(x=>x.onclick=sheetPrijsopbouw);
   $$('[data-breakeven]').forEach(x=>x.onclick=sheetBreakEven);
+  $$('[data-doosjes]').forEach(x=>x.onclick=sheetDoosjes);
   $$('[data-tempo]').forEach(x=>x.onclick=sheetTempo);
   $$('[data-nogmaken]').forEach(x=>x.onclick=sheetNogTeMaken);
   $$('[data-prijsverloop]').forEach(x=>x.onclick=sheetPrijsVerloop);
