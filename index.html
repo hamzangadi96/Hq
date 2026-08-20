@@ -807,6 +807,30 @@ header .hbtn.zoek{display:none}
 .fasetegel.let .ftico{color:var(--amber)}
 .fasetegel.rood .ftico{color:var(--rood)}
 /* een jaar in twaalf regels: dikke balk is dit jaar, dunne lijn vorig jaar */
+/* de ladder: elke regel een stap, de kostprijs en de verkoopprijs eruit */
+/* het laaggewicht: aantikken in plaats van typen, want je handen zijn vies */
+.laaggew{display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;
+  background:var(--bg);border-radius:14px}
+.laaggew .l{flex:1;font-size:13.5px;color:var(--grijs2)}
+.laaggew .lgknop{flex:none;width:34px;height:34px;border-radius:11px;background:var(--card);
+  font-size:18px;font-weight:600;color:var(--ink);display:grid;place-items:center}
+.laaggew .lgknop:active{background:var(--ink);color:#fff}
+.laaggew .lgin{flex:none;width:58px;text-align:center;background:var(--card);
+  border-radius:11px;height:34px;font-size:15.5px;font-weight:700;
+  font-variant-numeric:tabular-nums;border:none}
+.laaggew .e{flex:none;font-size:13px;color:var(--grijs2)}
+.pwkop{padding:13px 16px 8px;font-size:16px;font-weight:600;letter-spacing:-.025em}
+.pwr{display:flex;align-items:baseline;gap:10px;padding:7px 16px;font-size:13.5px}
+.pwr .pwl{flex:1;color:var(--grijs2)}
+.pwr .pwv{flex:none;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.pwr.kost{border-top:1px solid var(--lijn);margin-top:4px;padding-top:11px}
+.pwr.kost .pwl,.pwr.kost .pwv{color:var(--ink);font-weight:700}
+.pwr.vk .pwl,.pwr.vk .pwv{color:var(--ink);font-weight:700}
+.pwr.marge{border-top:1px solid var(--lijn);margin-top:4px;padding:11px 16px 14px}
+.pwr.marge .pwl,.pwr.marge .pwv{color:var(--groen);font-weight:700}
+.pwr.laag{border-top:1px solid var(--lijn);margin-top:4px;padding:11px 16px 14px}
+.pwr.laag .pwl,.pwr.laag .pwv{color:var(--rood);font-weight:700}
+.pwmist{padding:0 16px 14px;font-size:12.5px;color:var(--amber)}
 .szrij{display:flex;align-items:center;gap:10px;padding:3px 0;font-size:12.5px}
 .szrij .szm{flex:none;width:26px;color:var(--grijs2);text-transform:lowercase}
 .szrij .szbaan{flex:1;position:relative;height:16px;display:block}
@@ -3419,7 +3443,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v501 · 18 aug 2026';
+const APPVERSIE='v503 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7422,6 +7446,53 @@ function margeVan(r){
     mist:kv.mist};
 }
 
+/* ═══════════ de hele ladder van kostprijs naar verkoopprijs ═══════════
+   Deze getallen bestonden allemaal al, maar stonden op drie plekken: je
+   kostprijs bij Financiën, je verkoopprijs bij Orders, je marge weer ergens
+   anders. Aan een onderhandelingstafel heb je ze tegelijk nodig — je moet
+   weten waar je bodem ligt voordat je een korting geeft. */
+function sheetPrijsopbouw(){
+  const lijst=(S.recepten||[]).filter(smaakActief);
+  const b2b=typeof b2bMarge==='function'?b2bMarge():null;
+
+  const kaart=r=>{
+    const m=margeVan(r);
+    const kv=kostprijsVol(r);
+    const regel=(l,v,sterk)=>`<div class="pwr ${sterk||''}">
+      <span class="pwl">${l}</span><span class="pwv">${v}</span></div>`;
+    if(!m){
+      return `<div class="paneel" style="margin-bottom:12px">
+        <div class="pwkop">${esc(r.naam)}</div>
+        <div class="geen">Nog geen verkoopprijs${
+          kv.totaal===null?' en geen volledige kostprijs':''}.</div></div>`;
+    }
+    /* wat een zakelijke klant betaalt bij je ingestelde marge */
+    const zak=(b2b&&m.kost!==null&&b2b<100)?m.kost/(1-b2b/100):null;
+    return `<div class="paneel" style="margin-bottom:12px">
+      <div class="pwkop">${esc(r.naam)}</div>
+      ${regel('Grondstof',euro(m.grond))}
+      ${m.verlies?regel('Derving '+komma(m.derving)+'%',euro(m.verlies)):''}
+      ${m.arbeid?regel('Arbeid',euro(m.arbeid)):''}
+      ${m.vast?regel('Vaste lasten',euro(m.vast)):''}
+      ${regel('Kostprijs',m.kost===null?'onvolledig':euro(m.kost),'kost')}
+      ${zak!==null?regel('Zakelijk · '+b2b+'% marge',euro(zak)):''}
+      ${regel('Consument excl. btw',euro(m.excl))}
+      ${regel('Consument incl. btw',euro(m.vk),'vk')}
+      ${m.marge===null?'':regel('Je houdt over',
+        euro(m.marge)+' · '+m.pct+'%', m.pct<20?'laag':'marge')}
+      ${m.mist&&m.mist.length?`<div class="pwmist">Zonder prijs: ${
+        m.mist.map(esc).join(', ')}</div>`:''}</div>`;
+  };
+
+  sheet('Prijsopbouw',
+    lijst.length
+      ? `<p class="hint">Van grondstof tot wat je overhoudt. Onder je kostprijs
+           lever je in op je eigen loon.</p>
+         ${lijst.map(kaart).join('')}`
+      : '<div class="geen">Nog geen smaken om door te rekenen.</div>',
+    '', lijst.length?lijst.length+(lijst.length===1?' smaak':' smaken'):'');
+}
+
 function sheetVerkoopprijzen(){
   const lijst=(S.recepten||[]).slice().sort((a,b2)=>a.naam.localeCompare(b2.naam));
   sheet('Verkoopprijzen',
@@ -10101,6 +10172,7 @@ function geldHTML(){
       ${gt('data-peruur',I.klok,'Per gewerkt uur',pu?euro(pu.perUur):'')}
       ${gt('data-derving',I.doos,'Weggegooid',dv.totaal?euro(dv.totaal):'',dv.totaal>0)}
       ${gt('data-seizoen',I.spark,'Je jaar','')}
+      ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','kost tot verkoop')}
     </div>`;
 
   /* een rit die loopt hoort bovenaan — anders staat geld voorop */
@@ -14959,6 +15031,7 @@ function bind(){
   $$('[data-peruur]').forEach(x=>x.onclick=sheetPerUur);
   $$('[data-derving]').forEach(x=>x.onclick=sheetDerving);
   $$('[data-seizoen]').forEach(x=>x.onclick=sheetSeizoen);
+  $$('[data-prijsopbouw]').forEach(x=>x.onclick=sheetPrijsopbouw);
   $$('[data-tempo]').forEach(x=>x.onclick=sheetTempo);
   $$('[data-nogmaken]').forEach(x=>x.onclick=sheetNogTeMaken);
   $$('[data-prijsverloop]').forEach(x=>x.onclick=sheetPrijsVerloop);
@@ -19135,10 +19208,49 @@ function sheetOnderdeel(idx,stap){
       const som=r.reduce((s2,x)=>s2+getalIn0(x.deel),0);
       if(!som){ $('#oSam').innerHTML=`<div class="verhouding">Vul bij elk ingrediënt in hoeveel gram er in jouw bak gaat.</div>`; return; }
       const bonbons = g>0 ? Math.floor(som/g) : 0;
+      /* Neem je een laag over uit een eerdere smaak, dan staan de grammen
+         nog op het gewicht van die smaak. Hier kun je het laaggewicht
+         bijstellen en schalen alle ingrediënten mee — de verhouding blijft
+         precies gelijk, alleen de hoeveelheid verandert. */
       $('#oSam').innerHTML=`
+        <div class="laaggew">
+          <span class="l">Per bonbon</span>
+          <button type="button" class="lgknop" data-lg="-">−</button>
+          <input class="lgin" id="oLg" inputmode="decimal" value="${g?getal(g):''}"
+            placeholder="gram" aria-label="Gewicht van deze laag per bonbon">
+          <button type="button" class="lgknop" data-lg="+">+</button>
+          <span class="e">g</span>
+        </div>
         <div class="totaalregel"><span class="l">Jouw bak</span><span class="w">${getal(som)} g</span></div>
         ${bonbons?`<div class="totaalregel" style="margin-top:8px"><span class="l">Goed voor</span><span class="w">${bonbons} bonbons</span></div>`:''}
         <div class="verhouding">Verhouding: ${r.map(x=>esc(x.naam)+' '+getal((getalIn0(x.deel)/som)*100)+'%').join(' · ')}</div>`;
+      koppelLaaggewicht();
+    };
+
+    /* Het laaggewicht bijstellen schaalt de ingrediënten mee, zodat je uit
+       dezelfde bak evenveel bonbons haalt. Alleen de verhouding blijft; de
+       hoeveelheden bewegen. */
+    const schaalNaar=nieuwG=>{
+      const oudG=getalIn0(o.gram);
+      if(!nieuwG||nieuwG<=0) return;
+      o.gram=String(getal(nieuwG));
+      if(!oudG||oudG<=0){ ververs(); return }
+      const f=nieuwG/oudG;
+      $$('#oI .ingrij').forEach(el=>{
+        const inp=el.querySelector('[data-id2]');
+        const v=getalIn0(inp.value);
+        if(v>0) inp.value=getal(Math.round(v*f*1000)/1000);
+      });
+      lees(); ververs();
+    };
+    const koppelLaaggewicht=()=>{
+      const inp=$('#oLg'); if(!inp) return;
+      inp.onchange=()=>schaalNaar(getalIn0(inp.value));
+      $$('[data-lg]').forEach(b=>b.onclick=()=>{
+        const nu2=getalIn0($('#oLg').value)||getalIn0(o.gram)||0;
+        const stap=nu2<2?0.5:1;
+        schaalNaar(Math.max(0.5, Math.round((nu2+(b.dataset.lg==='+'?stap:-stap))*10)/10));
+      });
     };
 
     const bindRijen=()=>{
