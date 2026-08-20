@@ -3395,7 +3395,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v491 · 18 aug 2026';
+const APPVERSIE='v492 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11068,7 +11068,10 @@ function voorraadTegels(){
       <span class="ftico">${svg(ico)}</span>
       <span class="ftn">${label}</span>
       ${waarde?`<i class="ftt${let2?' amber':''}">${waarde}</i>`:''}</button>`;
-  const leeg=n=>n?String(n):'geen';
+  /* Zes van de acht tegels zeiden "geen". Een waarde die niets is, is geen
+     informatie — hij verdringt alleen de ene 25 die er wél toe doet. Leeg
+     laat je gewoon leeg. */
+  const leeg=n=>n?String(n):'';
 
   const ingA=alleIngredienten().filter(n=>!ingGearchiveerd(n));
   const ingZonder=ingA.filter(n=>ingPrijs(n)===null).length;
@@ -11077,8 +11080,8 @@ function voorraadTegels(){
   const lt=(S.levertijden&&Object.keys(S.levertijden).length)||0;
   h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Vastleggen</span></div>
     <div class="fasetegels">
-      ${vt('data-sheet="ontvangst"',I.plus,'Ontvangst','nieuwe levering')}
-      ${vt('data-telronde',I.vink,'Telronde','wat ligt er echt')}
+      ${vt('data-sheet="ontvangst"',I.plus,'Ontvangst','')}
+      ${vt('data-telronde',I.vink,'Telronde','')}
     </div>
     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Nakijken</span></div>
     <div class="fasetegels">
@@ -11155,16 +11158,13 @@ function voorraadHTML(){
 
   if(kaal){
     const zonder=alleIngredienten().filter(n=>!ingGearchiveerd(n)&&ingPrijs(n)===null).length;
-    h+=`<div class="paneel"><div class="rustig">
-      <div class="ico">${svg(I.doos,'2.2')}</div>
-      <p><b>Nog niets binnengeboekt.</b><br>
-        Boek een levering en de app houdt vanaf dat moment bij wat er ligt,
-        welk lot waar in zit en wanneer het afloopt.</p>
-      <button class="prim" style="max-width:280px" data-sheet="ontvangst">${svg(I.plus)}
-        Eerste levering vastleggen</button>
-    </div></div>`;
-    /* Alleen de lege herhalingen weg — niet de knoppen. Deze rijen doen iets,
-       ook als er nog niets ligt. */
+    /* De grote knop "Eerste levering vastleggen" bracht je naar precies
+       hetzelfde scherm als de tegel Ontvangst die er vlak onder staat: twee
+       wegen naar één plek, en drie regels uitleg erboven. Eén regel volstaat;
+       de tegels doen de rest. */
+    h+=`<p class="hint" style="margin:0 2px 4px">Nog niets binnengeboekt —
+      begin met een ontvangst, dan houdt de app bij wat er ligt en wanneer het
+      afloopt.</p>`;
     /* Dezelfde indeling als wanneer je wél voorraad hebt, zodat het scherm
        niet van vorm verandert zodra je eerste levering binnen is. */
     h+=voorraadTegels();
