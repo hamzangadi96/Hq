@@ -831,6 +831,9 @@ header .hbtn.zoek{display:none}
 .pwr.laag{border-top:1px solid var(--lijn);margin-top:4px;padding:11px 16px 14px}
 .pwr.laag .pwl,.pwr.laag .pwv{color:var(--rood);font-weight:700}
 .pwmist{padding:0 16px 14px;font-size:12.5px;color:var(--amber)}
+.dpin{flex:none;width:76px}
+.dpin .inp{height:36px;text-align:right;font-size:14.5px;font-weight:600;
+  font-variant-numeric:tabular-nums;padding:0 10px}
 .szrij{display:flex;align-items:center;gap:10px;padding:3px 0;font-size:12.5px}
 .szrij .szm{flex:none;width:26px;color:var(--grijs2);text-transform:lowercase}
 .szrij .szbaan{flex:1;position:relative;height:16px;display:block}
@@ -3443,7 +3446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v505 · 18 aug 2026';
+const APPVERSIE='v506 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3729,7 +3732,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
-  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
+  'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount',
 'samenstelling',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
@@ -7451,6 +7454,97 @@ function margeVan(r){
    kostprijs bij Financiën, je verkoopprijs bij Orders, je marge weer ergens
    anders. Aan een onderhandelingstafel heb je ze tegelijk nodig — je moet
    weten waar je bodem ligt voordat je een korting geeft. */
+/* ═══════════ hoeveel moet je verkopen ═══════════
+   Je vaste lasten lopen door of je nu produceert of niet. Deze som zegt
+   hoeveel je moet verkopen voordat die betaald zijn — en pas daarna verdien
+   je. Elke bonbon draagt bij met zijn verkoopprijs min zijn eigen kosten;
+   dat verschil heet de dekkingsbijdrage. */
+const doosPrijs=id=>{const v=(S.doosPrijzen||{})[id];return typeof v==='number'?v:null};
+function zetDoosPrijs(id,bedrag){
+  S.doosPrijzen=S.doosPrijzen||{};
+  if(bedrag===null) delete S.doosPrijzen[id]; else S.doosPrijzen[id]=bedrag;
+  bewaarNu();
+}
+/* wat één bonbon bijdraagt: prijs na btw min alles wat hij zelf kost,
+   zonder de vaste lasten — die wil je juist terugverdienen */
+function dekkingBonbon(r){
+  const m=margeVan(r); if(!m||m.kost===null) return null;
+  const variabel=(m.grondNa!==null?m.grondNa:m.grond)+(m.arbeid||0);
+  return {prijs:m.excl, variabel, bijdrage:m.excl-variabel};
+}
+function breakEven(){
+  const maand=vasteLastenPerMaand()||0;
+  const sm=(S.recepten||[]).filter(smaakActief).map(r=>({r,d:dekkingBonbon(r)}))
+    .filter(x=>x.d&&x.d.bijdrage>0);
+  const gem=sm.length?sm.reduce((n,x)=>n+x.d.bijdrage,0)/sm.length:null;
+  /* dozen: verkoopprijs min de bonbons erin en de doos zelf */
+  const dozen=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking')
+    .map(x=>{
+      const inh=art(x.product).inhoud||null;
+      const vk=doosPrijs(x.product);
+      const doosKost=verpPrijs(x.product);
+      if(!inh||vk===null||gem===null) return {product:x.product,inh,vk,bijdrage:null};
+      const excl=vk/(1+BTW_ETEN);
+      /* wat een doosje bijdraagt: prijs na btw, min de bonbons erin en min
+         het doosje zelf */
+      const bij=excl-(doosKost||0)-inh*gemVariabel(sm);
+      return {product:x.product,inh,vk,doosKost,bijdrage:bij};
+    });
+  return {maand, gem, sm, dozen,
+          bonbons: (maand&&gem)?Math.ceil(maand/gem):null};
+}
+function gemVariabel(sm){
+  if(!sm.length) return 0;
+  return sm.reduce((n,x)=>n+x.d.variabel,0)/sm.length;
+}
+
+function sheetBreakEven(){
+  const b=breakEven();
+  const teken=()=>{
+    const dz=b.dozen.filter(d=>d.inh);
+    sheet('Wat moet je verkopen?',
+      !b.maand
+        ? `<div class="geen">Vul eerst je vaste lasten in, anders valt er niets
+             terug te verdienen.</div>
+           <div class="voet" style="margin-top:14px"><button data-naarvast>Vaste lasten instellen</button></div>`
+        : `<div class="ikstart" style="margin-bottom:14px">
+             <span class="eyebrow">Elke maand kwijt</span><b>${euro(b.maand)}</b></div>
+           ${b.gem===null
+             ? '<div class="geen">Nog geen smaak met een verkoopprijs én een volledige kostprijs.</div>'
+             : `<div class="paneel" style="margin-bottom:14px">
+                  <div class="pwr"><span class="pwl">Elke bonbon draagt bij</span>
+                    <span class="pwv">${euro(b.gem)}</span></div>
+                  <div class="pwr kost"><span class="pwl">Dus je moet verkopen</span>
+                    <span class="pwv">${getal(b.bonbons)} bonbons per maand</span></div>
+                  <div class="pwr"><span class="pwl">Dat is per werkdag</span>
+                    <span class="pwv">${getal(Math.ceil(b.bonbons/21))} stuks</span></div>
+                </div>`}
+           <div class="stapkop"><span class="sk">Per doosje</span></div>
+           ${dz.length
+             ? `<div class="paneel">${dz.map(d=>`<div class="ikkaart">
+                 <span class="irl">${esc(d.product)}<em>${d.inh} bonbons${
+                   d.bijdrage!==null?' · draagt bij '+euro(d.bijdrage):''}</em></span>
+                 <span class="dpin"><input class="inp" data-doos="${esc(d.product)}"
+                   inputmode="decimal" placeholder="€" value="${d.vk!==null?getal(d.vk):''}"></span>
+                 ${d.bijdrage>0?`<i class="irtijd">${
+                   getal(Math.ceil(b.maand/d.bijdrage))}×</i>`:''}</div>`).join('')}</div>
+                <p class="hint" style="margin-top:12px">Vul in wat een doosje kost bij de klant.
+                  Rechts zie je hoeveel doosjes je er per maand van moet verkopen.</p>`
+             : `<div class="geen">Nog geen verpakking met een aantal bonbons erin.
+                  Zet dat bij Voorraad → Verpakking.</div>`}`,
+      '');
+    $$('#sheetBody [data-doos]').forEach(i=>i.onchange=()=>{
+      const v=getalIn(i.value);
+      zetDoosPrijs(i.dataset.doos, (v===null||isNaN(v)||v<=0)?null:v);
+      dicht(); setTimeout(sheetBreakEven,180);
+    });
+    if($('[data-naarvast]')) $('[data-naarvast]').onclick=()=>{
+      dicht(); setTimeout(()=>sheetKostenbasis&&sheetKostenbasis(),200);
+    };
+  };
+  teken();
+}
+
 function sheetPrijsopbouw(){
   const lijst=(S.recepten||[]).filter(smaakActief);
   const b2b=typeof b2bMarge==='function'?b2bMarge():null;
@@ -10195,6 +10289,7 @@ function geldHTML(){
       ${gt('data-derving',I.doos,'Weggegooid',dv.totaal?euro(dv.totaal):'',dv.totaal>0)}
       ${gt('data-seizoen',I.spark,'Je jaar','')}
       ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','kost tot verkoop')}
+      ${gt('data-breakeven',I.spark,'Wat moet je verkopen','om quitte te spelen')}
     </div>`;
 
   /* een rit die loopt hoort bovenaan — anders staat geld voorop */
@@ -15054,6 +15149,7 @@ function bind(){
   $$('[data-derving]').forEach(x=>x.onclick=sheetDerving);
   $$('[data-seizoen]').forEach(x=>x.onclick=sheetSeizoen);
   $$('[data-prijsopbouw]').forEach(x=>x.onclick=sheetPrijsopbouw);
+  $$('[data-breakeven]').forEach(x=>x.onclick=sheetBreakEven);
   $$('[data-tempo]').forEach(x=>x.onclick=sheetTempo);
   $$('[data-nogmaken]').forEach(x=>x.onclick=sheetNogTeMaken);
   $$('[data-prijsverloop]').forEach(x=>x.onclick=sheetPrijsVerloop);
