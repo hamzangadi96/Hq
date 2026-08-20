@@ -797,8 +797,14 @@ header .hbtn.zoek{display:none}
   /* Terugval als een naam toch te lang is; de labels zelf houden we kort
      genoeg om dit niet nodig te hebben. */
   overflow-wrap:anywhere}
-.fasetegel .ftt{position:absolute;top:16px;right:14px;font-style:normal;
-  font-size:12.5px;font-weight:600;color:var(--grijs2);
+/* Dit stond absoluut geplaatst met alleen top en right. Het icoon staat in de
+   gewone stroom, dus een lange waarde groeide er dwars overheen \u2014 "consument
+   en zakelijk" liep pontificaal door het euroteken. Met een linkergrens naast
+   het icoon kan dat niet meer gebeuren, wat er ook in staat: past het niet,
+   dan kapt hij af in plaats van over iets anders heen te lopen. */
+.fasetegel .ftt{position:absolute;top:16px;right:14px;left:56px;font-style:normal;
+  font-size:12.5px;font-weight:600;color:var(--grijs2);text-align:right;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   font-variant-numeric:tabular-nums}
 /* een tegel zonder icoonvulling houdt hem rustig als er veel naast elkaar staan */
 .fasetegels .fasetegel .ftt{font-weight:500;color:var(--grijs2)}
@@ -3461,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v519 · 20 aug 2026';
+const APPVERSIE='v520 · 20 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10788,11 +10794,18 @@ function geldHTML(){
       ${gt('data-peruur',I.klok,'Per gewerkt uur',pu?euro(pu.perUur):'')}
       ${gt('data-derving',I.doos,'Weggegooid',dv.totaal?euro(dv.totaal):'',dv.totaal>0)}
       ${gt('data-seizoen',I.spark,'Je jaar','')}
-      ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','kost tot verkoop')}
-      ${gt('data-breakeven',I.spark,'Wat moet je verkopen','om quitte te spelen')}
+      ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','')}
+      ${gt('data-breakeven',I.spark,'Wat moet je verkopen','')}
       ${/* De calculator zat alleen achter een tabje binnen Prijzen, dat weer
            onder Orders hing. Wie een winkel aan de lijn heeft zoekt hem hier. */''}
-      ${gt('data-prijsvoor',I.euro,'Je prijzen','consument en zakelijk')}
+      ${(()=>{
+        /* Een omschrijving in de hoek waar een getal hoort leest niemand, en
+           lang is het ook nog. Hoeveel smaken al een prijs hebben zegt in één
+           blik of hier nog werk ligt. */
+        const sm=(S.recepten||[]).filter(smaakActief);
+        const mp=sm.filter(r=>verkoopPrijs(r.id)!==null).length;
+        return gt('data-prijsvoor',I.euro,'Je prijzen',
+          sm.length?mp+'/'+sm.length:'', sm.length>0&&mp===0)})()}
       ${/* Een tegel "Je doosjes" bestond al verderop; er hoeft er geen tweede
            bij. Ik was hem alleen niet tegengekomen omdat break-even het
            verkeerde systeem las. */''}
