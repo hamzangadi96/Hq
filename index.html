@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v520 · 20 aug 2026';
+const APPVERSIE='v521 · 20 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8215,6 +8215,23 @@ function sheetPrijzenConsument(){
      kostprijs en je marge; dan hoort zij het voorstel te doen en jij alleen
      te corrigeren waar je het er niet mee eens bent. */
   const met=lijst.map(r=>({r, a:prijsAdvies(r), eigen:verkoopPrijs(r.id)}));
+
+  /* Twee richtingen op dezelfde regel. Staat er niets in het veld, dan zegt de
+     app wat zij zou vragen. Vul je zelf iets in, dan zegt ze wat dat betekent:
+     hoeveel marge je daarmee pakt en of dat gezond is. Dezelfde functie, zodat
+     het bij tekenen en bij typen niet uit elkaar kan lopen. */
+  const subVoor=(a,prijs)=>{
+    if(a.kost===null) return {tekst:'kostprijs onvolledig',kleur:''};
+    const kop='kost '+euro(a.kost);
+    if(prijs===null||isNaN(prijs)||prijs<=0)
+      return {tekst:kop+(a.incl!==null?' \u00b7 advies '+euro(a.incl):''),kleur:''};
+    const excl=prijs/(1+BTW_ETEN);
+    if(excl<=a.kost) return {tekst:kop+' \u00b7 hier verlies je op',kleur:'rood'};
+    const pct=Math.round((excl-a.kost)/excl*100);
+    const o=margeOordeel(pct,'consument');
+    return {tekst:kop+' \u00b7 '+pct+'% marge'+(o?' \u00b7 '+o.kort:''),
+            kleur:o?(o.klas==='groen'?'groen':o.klas):''};
+  };
   const kanAdvies=met.filter(x=>x.a.incl!==null);
   const nogNiet=met.filter(x=>x.eigen===null&&x.a.incl!==null).length;
   const kosten=met.map(x=>x.a.kost).filter(x=>typeof x==='number');
@@ -8227,6 +8244,17 @@ function sheetPrijzenConsument(){
        <button class="aan" data-v="consument">Consument</button>
        <button data-v="zakelijk">Zakelijk</button></div>
 
+     ${(()=>{
+       /* Zelfde eerlijkheid als aan de zakelijke kant: adviseren met een
+          kostprijs zonder arbeid of vaste lasten levert bedragen op waar je
+          niet van kunt bestaan, en dat moet erbij staan. */
+       const wat=[];
+       if(!arbeidPerBonbon()) wat.push('arbeid');
+       if(vastPerBonbon().per===null) wat.push('vaste lasten');
+       return wat.length?`<div class="melding rood">${svg(I.alarm,'2')}
+         <span>Je kostprijs mist ${wat.join(' en ')}, dus deze adviezen zijn te laag.
+           Vul dat eerst aan bij <b>Kloppen je cijfers</b>.</span></div>`:''})()}
+
      ${gemAdv!==null?`<div class="ikstart" style="margin-bottom:14px">
        <span class="eyebrow">Gemiddeld per bonbon</span>
        <b>${euro(gemKost)} kost \u2192 ${euro(gemAdv)}</b>
@@ -8237,17 +8265,13 @@ function sheetPrijzenConsument(){
        ${nogNiet===1?'smaak':'smaken'} op advies</button>`:''}
 
      ${lijst.length?`<div class="paneel">${met.map(x=>{
-       const a=x.a, eigen=x.eigen;
-       const onder=a.kost!==null&&eigen!==null&&(eigen/(1+BTW_ETEN))<a.kost;
-       const sub=a.kost===null
-         ? 'kostprijs onvolledig'
-         : 'kost '+euro(a.kost)+(a.incl!==null?' \u00b7 advies '+euro(a.incl):'');
+       const st=subVoor(x.a,x.eigen);
        return `<div class="arij" style="cursor:default">
-         <span class="naam">${esc(x.r.naam)}<small${onder?' style="color:var(--rood)"':''}>${
-           onder?'onder je kostprijs':sub}</small></span>
+         <span class="naam">${esc(x.r.naam)}<small data-vksub="${x.r.id}"${
+           st.kleur?` style="color:var(--${st.kleur})"`:''}>${st.tekst}</small></span>
          <span class="qty"><input class="lotinp" style="width:92px" data-vk="${x.r.id}" type="number"
-           inputmode="decimal" step="0.05" placeholder="${a.incl!==null?komma(a.incl.toFixed(2)):'\u20ac'}"
-           value="${eigen!==null?eigen:''}"></span>
+           inputmode="decimal" step="0.05" placeholder="${x.a.incl!==null?komma(x.a.incl.toFixed(2)):'\u20ac'}"
+           value="${x.eigen!==null?x.eigen:''}"></span>
        </div>`}).join('')}</div>`
       :'<div class="geen">Nog geen smaken. Voeg er eerst een toe.</div>'}
 
@@ -8269,6 +8293,19 @@ function sheetPrijzenConsument(){
     lijst.length?`<button class="prim" style="margin-top:0" id="pcOk">Opslaan</button>`:'',
     'Consument'+(lijst.length?' \u00b7 '+met.filter(x=>x.eigen!==null).length+'/'+
       lijst.length:''));
+
+  /* Meteen terugkoppelen, niet pas na opslaan: anders typ je dertien bedragen
+     in en hoor je daarna pas dat er drie niet uit kunnen. */
+  $$('#sheetBody [data-vk]').forEach(inp=>{
+    inp.oninput=()=>{
+      const x=met.find(y=>y.r.id===inp.dataset.vk); if(!x) return;
+      const rauw=(inp.value||'').trim().replace(',','.');
+      const st=subVoor(x.a, rauw===''?null:parseFloat(rauw));
+      const sub=$('#sheetBody [data-vksub="'+inp.dataset.vk+'"]');
+      if(sub){ sub.textContent=st.tekst;
+        sub.style.color=st.kleur?'var(--'+st.kleur+')':'' }
+    };
+  });
 
   /* Eén tik zet ze allemaal én bewaart. Vergissing? De toast draait hem terug. */
   if($('#pcAlles')) $('#pcAlles').onclick=()=>{
