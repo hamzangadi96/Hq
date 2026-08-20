@@ -3443,7 +3443,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v503 · 18 aug 2026';
+const APPVERSIE='v505 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7455,17 +7455,18 @@ function sheetPrijsopbouw(){
   const lijst=(S.recepten||[]).filter(smaakActief);
   const b2b=typeof b2bMarge==='function'?b2bMarge():null;
 
+  /* Zonder verkoopprijzen kreeg je dertien kaarten die alle dertien
+     "Nog geen verkoopprijs" zeiden, en nergens een knop om er iets aan te
+     doen. Een scherm dat een probleem meldt hoort de uitweg erbij te geven.
+
+     Smaken mét prijs krijgen de hele ladder; smaken zonder prijs worden één
+     rij die je aantikt om hem in te vullen. */
   const kaart=r=>{
     const m=margeVan(r);
     const kv=kostprijsVol(r);
     const regel=(l,v,sterk)=>`<div class="pwr ${sterk||''}">
       <span class="pwl">${l}</span><span class="pwv">${v}</span></div>`;
-    if(!m){
-      return `<div class="paneel" style="margin-bottom:12px">
-        <div class="pwkop">${esc(r.naam)}</div>
-        <div class="geen">Nog geen verkoopprijs${
-          kv.totaal===null?' en geen volledige kostprijs':''}.</div></div>`;
-    }
+    if(!m) return '';
     /* wat een zakelijke klant betaalt bij je ingestelde marge */
     const zak=(b2b&&m.kost!==null&&b2b<100)?m.kost/(1-b2b/100):null;
     return `<div class="paneel" style="margin-bottom:12px">
@@ -7484,13 +7485,34 @@ function sheetPrijsopbouw(){
         m.mist.map(esc).join(', ')}</div>`:''}</div>`;
   };
 
+  const metPrijs=lijst.filter(r=>margeVan(r));
+  const zonder=lijst.filter(r=>!margeVan(r));
+
   sheet('Prijsopbouw',
-    lijst.length
-      ? `<p class="hint">Van grondstof tot wat je overhoudt. Onder je kostprijs
-           lever je in op je eigen loon.</p>
-         ${lijst.map(kaart).join('')}`
-      : '<div class="geen">Nog geen smaken om door te rekenen.</div>',
-    '', lijst.length?lijst.length+(lijst.length===1?' smaak':' smaken'):'');
+    !lijst.length
+      ? '<div class="geen">Nog geen smaken om door te rekenen.</div>'
+      : `${metPrijs.length?`<p class="hint">Van grondstof tot wat je overhoudt.
+             Onder je kostprijs lever je in op je eigen loon.</p>
+           ${metPrijs.map(kaart).join('')}`:''}
+         ${zonder.length?`<div class="stapkop"${metPrijs.length?' style="margin-top:18px"':''}>
+             <span class="sk">Nog geen prijs</span><span class="sn2">${zonder.length}</span></div>
+           <div class="paneel">${zonder.map(r=>{
+             const kv=kostprijsVol(r);
+             return `<button type="button" class="ikkaart" data-prijsvoor="${esc(r.id)}">
+               <span class="ikico">${svg(I.euro)}</span>
+               <span class="irl">${esc(r.naam)}${kv.totaal!==null
+                 ? `<em>kost ${euro(kv.totaal)}</em>`
+                 : '<em>kostprijs nog onvolledig</em>'}</span>
+               ${svg(I.pijl,'2')}</button>`;
+           }).join('')}</div>`:''}`,
+    metPrijs.length<lijst.length
+      ? `<button class="prim" style="margin-top:0" id="pwAlle">Prijzen invullen</button>`:'',
+    lijst.length?metPrijs.length+' van '+lijst.length+' met prijs':'');
+
+  /* elke rij en de knop brengen je naar het prijzenscherm */
+  const naarPrijzen=()=>{ dicht(); setTimeout(sheetVerkoopprijzen,220) };
+  if($('#pwAlle')) $('#pwAlle').onclick=naarPrijzen;
+  $$('#sheetBody [data-prijsvoor]').forEach(x=>x.onclick=naarPrijzen);
 }
 
 function sheetVerkoopprijzen(){
@@ -15420,10 +15442,24 @@ function ruimBatchOp(b){
   return sp;
 }
 
-function chips(sel,multi,cb){$$(sel+' .chip:not(.nieuw)').forEach(c=>c.onclick=()=>{
-  sluitToetsenbord();
-  if(multi)c.classList.toggle('aan');else{$$(sel+' .chip').forEach(x=>x.classList.remove('aan'));c.classList.add('aan')}
-  if(cb)cb()})}
+/* Bond alleen op .chip, maar de knoppen in een duo of duo3 hebben die klasse
+   niet — alleen data-v. Die kregen dus nooit een klikafhandeling: bij het
+   boeken van voorraad kon je niet op Afboeken of Tellen tikken, en bleef hij
+   altijd op Bijboeken staan. chipV() was hier al voor gerepareerd, chips()
+   niet, dus het lezen klopte terwijl het aanklikken niet werkte. */
+function chips(sel,multi,cb){
+  const alle=()=>[...document.querySelectorAll(sel+' .chip'),
+                  ...document.querySelectorAll(sel+' [data-v]')];
+  const kies=[...document.querySelectorAll(sel+' .chip:not(.nieuw)'),
+              ...document.querySelectorAll(sel+' [data-v]')]
+    .filter((c,i,l)=>l.indexOf(c)===i);
+  kies.forEach(c=>c.onclick=()=>{
+    sluitToetsenbord();
+    if(multi) c.classList.toggle('aan');
+    else { alle().forEach(x=>x.classList.remove('aan')); c.classList.add('aan') }
+    if(cb) cb();
+  });
+}
 /* Zocht alleen naar ".chip.aan", maar de knoppen in een duo of duo3 hebben
    geen chip-klasse — alleen "aan". Die kwamen dus leeg terug. Bij het boeken
    van voorraad betekende dat: geen keuze herkend, dus afboeken. Elke
