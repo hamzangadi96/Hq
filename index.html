@@ -3461,7 +3461,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v513 · 20 aug 2026';
+const APPVERSIE='v514 · 20 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7567,9 +7567,19 @@ function doosjeKosten(d){
   const pctVol=(excl===null||kostVol===null||excl<=0)?null
     :Math.round((excl-kostVol)/excl*100);
 
+  /* Wat een winkel ervoor betaalt is een andere som: geen btw, en een lagere
+     marge omdat zij er zelf nog eens tachtig tot honderd procent op legt.
+     Blijft er voor haar niets over, dan komt het doosje nooit in het schap. */
+  const bm=b2bMarge();
+  const b2bExcl=(kostVol===null||bm>=100)?null:mooiePrijs(kostVol/(1-bm/100),0.25);
+  const winkelExcl=(advies===null)?null:advies/(1+BTW_ETEN);
+  const b2bAfnemer=(b2bExcl===null||winkelExcl===null||winkelExcl<=0)?null
+    :Math.round((winkelExcl-b2bExcl)/winkelExcl*100);
+
   return {verp, zonder, perBonbon, bonbons, kost, vk, excl,
           vkAuto, gemVk, eigen, smaken:metPrijs.length,
           kostVol, advies, margeVol, pctVol, adviesMarge:mrg,
+          b2bExcl, b2bMarge:bm, b2bAfnemer, winkelExcl,
           marge:(excl===null||kost===null)?null:excl-kost,
           pct:(excl===null||kost===null||excl<=0)?null
              :Math.round((excl-kost)/excl*100)};
@@ -7719,6 +7729,12 @@ function doosjeSom(d){
       ? (k.marge===null?'':r('Je houdt over',euro(k.marge)+' · '+k.pct+'%',k.pct<20?'laag':'marge'))
       : r('Je houdt over',euro(k.margeVol)+' · '+k.pctVol+'%',k.pctVol<45?'laag':'marge')}
     ${k.pctVol===null?'':margeMelding(k.pctVol,'consument')}
+    ${k.b2bExcl!==null?r('Zakelijk excl. btw',euro(k.b2bExcl),
+      'bij '+k.b2bMarge+'% marge'):''}
+    ${k.b2bAfnemer===null?'':`<div class="pwmist" style="color:${
+      k.b2bAfnemer<40?'var(--amber)':'var(--grijs)'}">De winkel houdt ${
+      k.b2bAfnemer}% over als zij doorverkoopt voor ${euro(k.advies)}.${
+      k.b2bAfnemer<40?' Dat is krap; winkels rekenen op 40 à 50%.':''}</div>`}
     ${(k.marge&&k.marge>0&&maand)
       ? r('Voor je vaste lasten',getal(Math.ceil(maand/k.marge))+' doosjes per maand')
       : ''}
@@ -8051,13 +8067,28 @@ function offerteHTML(klantId){
         ${kort(vandaagD)}<br>geldig tot ${kort(geldig)}</div>
     </div>
 
-    <div class="ftitel">Groothandelsprijzen</div>
+    <div class="ftitel">Losse bonbons</div>
     <table>
       <tr><th>Smaak</th><th class="n">Per bonbon</th><th class="n">Per ${inh}</th></tr>
       ${regels.map(r=>`<tr><td>${esc(r.naam)}</td>
         <td class="n">${euro(a.prijzen[r.id])}</td>
         <td class="n">${euro(a.prijzen[r.id]*inh)}</td></tr>`).join('')}
     </table>
+    ${(()=>{
+      const dz=Object.keys(a.dozen||{}).map(id=>a.dozen[id])
+        .filter(d=>typeof d.prijs==='number')
+        .sort((x,y)=>(x.aantal||0)-(y.aantal||0));
+      if(!dz.length) return '';
+      return `<div class="ftitel" style="margin-top:14px">Doosjes, gevuld en gesloten</div>
+        <table>
+          <tr><th>Doosje</th><th class="n">Bonbons</th><th class="n">Per doosje</th></tr>
+          ${dz.map(d=>`<tr><td>${esc(d.naam)}</td>
+            <td class="n">${d.aantal||''}</td>
+            <td class="n">${euro(d.prijs)}</td></tr>`).join('')}
+        </table>
+        <p style="font-size:8.5pt;margin:6px 0 0">Doosjesprijzen zijn vast; de staffel
+          hieronder geldt voor losse bonbons.</p>`;
+    })()}
     <p style="font-size:8.5pt;margin:6px 0 0">Alle bedragen exclusief btw.${
       v?' Levering '+esc(v.naam.toLowerCase())+', '+inh+' bonbons per eenheid.':''}</p>
 
@@ -8139,6 +8170,18 @@ function sheetAfspraak(klantId){
         <div class="paneel">${lijst.map(r=>`<div class="arij" style="cursor:default">
           <span class="naam">${esc(r.naam)}<small>${euro(a.prijzen[r.id]*inh)} per ${inh}</small></span>
           <span class="waarde gevuld">${euro(a.prijzen[r.id])}</span></div>`).join('')}</div>
+
+        ${(()=>{
+          const dz=Object.keys(a.dozen||{}).map(id=>a.dozen[id])
+            .filter(d=>typeof d.prijs==='number')
+            .sort((x,y)=>(x.aantal||0)-(y.aantal||0));
+          if(!dz.length) return '';
+          return `<div class="blokkop" style="margin-top:24px">
+              <span class="eyebrow">Doosjes excl. btw</span><span class="tel">${dz.length}</span></div>
+            <div class="paneel">${dz.map(d=>`<div class="arij" style="cursor:default">
+              <span class="naam">${esc(d.naam)}${d.aantal?`<small>${d.aantal} bonbons</small>`:''}</span>
+              <span class="waarde gevuld">${euro(d.prijs)}</span></div>`).join('')}</div>`;
+        })()}
 
         <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Staffel</span></div>
         <div class="paneel">${staffel().map(t=>`<div class="arij" style="cursor:default">
@@ -21962,9 +22005,18 @@ function zetAfspraak(klantId,vormId,marge){
     const b=b2bBereken(r,v,1);            /* trede 1 = lijstprijs, zonder korting */
     if(b.lijst!==null) prijzen[r.id]=b.lijst;
   });
+  /* Een klant die doosjes afneemt om zelf uit te delen koopt geen losse
+     bonbons per stuk maar een compleet doosje. Die prijs staat los van de
+     staffel: de verpakking wordt niet goedkoper als je er meer bestelt. */
+  const dozen={};
+  doosjes().forEach(d=>{
+    const k=doosjeKosten(d);
+    if(k.b2bExcl!==null) dozen[d.id]={prijs:k.b2bExcl, naam:d.naam||'Doosje',
+      aantal:parseInt(d.aantal,10)||0};
+  });
   S.afspraken=Object.assign({},afspraken());
   S.afspraken=S.afspraken||{};
-  S.afspraken[klantId]={vormId,marge:marge,prijzen,datum:iso(new Date())};
+  S.afspraken[klantId]={vormId,marge:marge,prijzen,dozen,datum:iso(new Date())};
   bewaarNu();
   return S.afspraken[klantId];
 }
