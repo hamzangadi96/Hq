@@ -2365,11 +2365,16 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 <style id="kaartstijl">
 /* ══ kaartstijl v1 ══ donkere hoofdkaart, snelacties, kaartrijen met balk.
    Eén blok, los te verwijderen als je terug wilt naar de vorige look. */
-.hoofdkaart{background:linear-gradient(160deg,#2a2a2e,#141416);color:#fff;border-radius:26px;
-  padding:22px 20px;box-shadow:0 16px 34px rgba(24,24,27,.24)}
+/* Chocoladebruin in plaats van antraciet: dit is de enige kaart in de app
+   die de huisstijlkleur draagt, en juist daardoor blijft hij het anker van
+   het scherm zonder dat er een rand of extra vlak bij hoeft. */
+.hoofdkaart{background:linear-gradient(160deg,#5C3A22,#33200F);color:#fff;border-radius:26px;
+  padding:22px 20px;box-shadow:0 16px 34px rgba(51,32,15,.30)}
 .hoofdkaart h2,.hoofdkaart b,.hoofdkaart .getal,.hoofdkaart .ln,.hoofdkaart .lt{color:#fff}
-.hoofdkaart .stap,.hoofdkaart .sub,.hoofdkaart .onder,.hoofdkaart .hkstappen{color:#a1a1aa}
-.hoofdkaart .eyebrow{color:#8f8f98}
+/* De grijstinten kregen een warme ondertoon mee, anders vloekt het koude
+   grijs met het bruin eronder. */
+.hoofdkaart .stap,.hoofdkaart .sub,.hoofdkaart .onder,.hoofdkaart .hkstappen{color:#cbb8a8}
+.hoofdkaart .eyebrow{color:#b09c8c}
 .hoofdkaart .dagenbadge{background:rgba(255,255,255,.10);color:#d4d4d8}
 .hoofdkaart .dagenbadge.let{background:rgba(180,83,9,.22);color:#fbbf24}
 .hoofdkaart .groteRing .baan{stroke:rgba(255,255,255,.12)}
@@ -2798,7 +2803,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .hk2badge.terug{display:inline-flex;align-items:center;gap:5px}
 .hk2badge.terug svg{width:13px;height:13px;opacity:.75}
 .hk2badge{flex:none;padding:6px 14px;border-radius:99px;font-size:12px;
-  font-weight:600;letter-spacing:-.01em;background:#372A22;color:#efe6e0}
+  font-weight:600;letter-spacing:-.01em;background:rgba(255,255,255,.14);color:#f5ece5}
 /* De ring staat tegenover de hele rechterkolom, niet alleen tegenover de
    titel. Vandaar center op dit niveau en niet op de tekst zelf. */
 .hk2lijf{display:flex;align-items:center;gap:18px}
@@ -2806,7 +2811,9 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   place-items:center}
 .hk2ring svg{position:absolute;inset:0;width:100%;height:100%;
   transform:rotate(-90deg)}
-.hk2ring .baan{fill:none;stroke:#353439;stroke-width:7}
+/* De baan was koel grijs op een antracieten kaart; op bruin vloekt dat.
+   Een lichte laag van de kaartkleur zelf blijft rustig. */
+.hk2ring .baan{fill:none;stroke:rgba(255,255,255,.13);stroke-width:7}
 .hk2ring .vul{fill:none;stroke:var(--choco-licht);stroke-width:7;
   stroke-linecap:round;transition:stroke-dasharray .5s cubic-bezier(.32,.72,0,1)}
 .hk2ring.amber .vul{stroke:#fbbf24}
@@ -3402,7 +3409,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v497 · 18 aug 2026';
+const APPVERSIE='v498 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
