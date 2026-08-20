@@ -790,8 +790,13 @@ header .hbtn.zoek{display:none}
   font-variant-numeric:tabular-nums}
 .fasetegel .ftico.groen{background:var(--groen);color:#fff;margin-left:0}
 .fasetegel .ftico.groen svg{width:17px;height:17px}
+/* Een woord als "Schoonmaakmiddelen" past niet in een halve kolom. Zonder
+   afbreekpunt rekt het de kolom op; nu breekt het gewoon af. */
 .fasetegel .ftn{font-size:15.5px;font-weight:600;letter-spacing:-.025em;
-  color:var(--ink);line-height:1.25;margin-top:auto}
+  color:var(--ink);line-height:1.25;margin-top:auto;
+  /* Terugval als een naam toch te lang is; de labels zelf houden we kort
+     genoeg om dit niet nodig te hebben. */
+  overflow-wrap:anywhere}
 .fasetegel .ftt{position:absolute;top:16px;right:14px;font-style:normal;
   font-size:12.5px;font-weight:600;color:var(--grijs2);
   font-variant-numeric:tabular-nums}
@@ -3397,7 +3402,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v496 · 18 aug 2026';
+const APPVERSIE='v497 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6285,8 +6290,11 @@ function productieHTML(){
     <div class="fasetegels">
       ${pt('data-ins2="checks"',I.vink,'Openingscheck',pl(S.checks.length))}
       ${pt('data-ins="meetpunten"',I.temp,'Meetpunten',pl((S.meetpunten||[]).length))}
-      ${pt('data-ins="zones"',I.huis,'Schoonmaakzones',pl((S.zones||[]).length))}
-      ${pt('data-ins="middelen"',I.fles,'Schoonmaakmiddelen',pl((S.middelen||[]).length))}
+      ${/* "Schoonmaakmiddelen" past niet in een halve kolom en brak middenin
+           een lettergreep af. Het kopje eronder staat toch al bij elkaar, dus
+           het woord "schoonmaak" hoeft niet twee keer. */
+        pt('data-ins="zones"',I.huis,'Zones','schoonmaak')}
+      ${pt('data-ins="middelen"',I.fles,'Middelen','schoonmaak')}
       ${pt('data-ins="mallen"',I.bonbon,vakHoofd('mallen'),pl(mallen().length))}
       ${pt('data-ins="werkplan"',I.lijst,'Productiestappen',pl((S.werkplan||[]).length))}
       ${pt('data-ins="activiteiten"',I.ververs,'Werkzaamheden',pl((S.activiteiten||[]).length))}
