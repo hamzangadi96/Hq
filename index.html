@@ -798,6 +798,8 @@ header .hbtn.zoek{display:none}
 /* een tegel zonder icoonvulling houdt hem rustig als er veel naast elkaar staan */
 .fasetegels .fasetegel .ftt{font-weight:500;color:var(--grijs2)}
 .fasetegel .ftt.amber{color:var(--amber);font-weight:700}
+/* een tegel die iets van je wil: alleen de kleur van het getal, geen vlak */
+.fasetegel.let .ftico{color:var(--amber)}
 .fasetegel .ftt.bezig{color:var(--choco);font-weight:700}
 /* twee rasters onder elkaar hebben lucht nodig, geen streep */
 .blokkop + .fasetegels{margin-top:0}
@@ -3393,7 +3395,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v490 · 18 aug 2026';
+const APPVERSIE='v491 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11058,6 +11060,45 @@ function sheetOrder(id){
   };
 }
 
+/* De drie blokken van de voorraadtab, gebruikt of je nu wel of geen voorraad
+   hebt — anders verandert het scherm van vorm zodra je eerste doos binnen is. */
+function voorraadTegels(){
+  let h='';
+  const vt=(attr,ico,label,waarde,let2)=>`<button class="fasetegel ${let2?'let':''}" ${attr}>
+      <span class="ftico">${svg(ico)}</span>
+      <span class="ftn">${label}</span>
+      ${waarde?`<i class="ftt${let2?' amber':''}">${waarde}</i>`:''}</button>`;
+  const leeg=n=>n?String(n):'geen';
+
+  const ingA=alleIngredienten().filter(n=>!ingGearchiveerd(n));
+  const ingZonder=ingA.filter(n=>ingPrijs(n)===null).length;
+  const vpA=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
+  const vpZonder=vpA.filter(x=>verpPrijs(x.product)===null).length;
+  const lt=(S.levertijden&&Object.keys(S.levertijden).length)||0;
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Vastleggen</span></div>
+    <div class="fasetegels">
+      ${vt('data-sheet="ontvangst"',I.plus,'Ontvangst','nieuwe levering')}
+      ${vt('data-telronde',I.vink,'Telronde','wat ligt er echt')}
+    </div>
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Nakijken</span></div>
+    <div class="fasetegels">
+      ${vt('data-ingr',I.pot,'Ingrediënten',
+        ingZonder?ingZonder+' zonder prijs':leeg(ingA.length),!!ingZonder)}
+      ${vt('data-verplijst',I.doos,'Verpakking',
+        vpZonder?vpZonder+' zonder prijs':leeg(vpA.length),!!vpZonder)}
+      ${vt('data-partijen',I.doos,'Partijen in huis',leeg((S.lots||[]).length))}
+      ${vt('data-vmut',I.ververs,'Alle mutaties',leeg((S.mutaties||[]).length))}
+    </div>
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Instellen</span></div>
+    <div class="fasetegels">
+      ${vt('data-ins="leveranciers"',I.vracht,'Leveranciers',leeg((S.leveranciers||[]).length))}
+      ${vt('data-ins="levertijd"',I.klok,'Levertijden',leeg(lt))}
+    </div>
+`;
+
+  return h;
+}
+
 function voorraadHTML(){
   const gereed=voorraadGereed();
   const totaal=gereed.reduce((n,v)=>n+v.aantal,0);
@@ -11116,7 +11157,7 @@ function voorraadHTML(){
     const zonder=alleIngredienten().filter(n=>!ingGearchiveerd(n)&&ingPrijs(n)===null).length;
     h+=`<div class="paneel"><div class="rustig">
       <div class="ico">${svg(I.doos,'2.2')}</div>
-      <p><b>Je voorraad is nog leeg.</b><br>
+      <p><b>Nog niets binnengeboekt.</b><br>
         Boek een levering en de app houdt vanaf dat moment bij wat er ligt,
         welk lot waar in zit en wanneer het afloopt.</p>
       <button class="prim" style="max-width:280px" data-sheet="ontvangst">${svg(I.plus)}
@@ -11124,24 +11165,9 @@ function voorraadHTML(){
     </div></div>`;
     /* Alleen de lege herhalingen weg — niet de knoppen. Deze rijen doen iets,
        ook als er nog niets ligt. */
-    h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bijhouden</span></div>
-      <div class="paneel">
-        ${(()=>{const alleI=alleIngredienten().filter(n=>!ingGearchiveerd(n));
-          return brij('data-ingr',I.pot,'Ingrediënten',
-            alleI.length? alleI.length+(zonder?' \u00b7 '+zonder+' zonder prijs':'')
-                        : 'nog geen', !!zonder)})()}
-        ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
-        ${brij('data-partijen',I.doos,'Partijen in huis','geen')}
-        ${(()=>{const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
-          const z=vp.filter(x=>verpPrijs(x.product)===null).length;
-          return brij('data-verplijst',I.doos,'Verpakking',
-            vp.length? vp.length+(z?' \u00b7 '+z+' zonder prijs':'') : 'nog geen', !!z)})()}
-        ${brij('data-ins="leveranciers"',I.vracht,'Leveranciers',(S.leveranciers||[]).length||'geen')}
-        ${brij('data-ins="levertijd"',I.klok,'Levertijden',
-          Object.keys(S.levertijden||{}).length?Object.keys(S.levertijden).length+' ingevuld':'niet ingevuld')}
-        ${brij('data-telronde',I.vink,'Telronde','')}
-        ${brij('data-vmut',I.ververs,'Alle mutaties','geen')}
-      </div>`;
+    /* Dezelfde indeling als wanneer je wél voorraad hebt, zodat het scherm
+       niet van vorm verandert zodra je eerste levering binnen is. */
+    h+=voorraadTegels();
     return h;
   }
 
@@ -11201,26 +11227,20 @@ function voorraadHTML(){
   /* ── beheer ── */
   const teBestellen=alles.filter(v=>grondOnder(v)||v.saldo<=0).length;
   const vl=verlopenPartijen(), vlOver=vl.filter(x=>x.dagen<0).length;
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Bijhouden</span></div>
-    <div class="paneel">
-      ${(()=>{const alle=alleIngredienten().filter(n=>!ingGearchiveerd(n));
-        const zonder=alle.filter(n=>ingPrijs(n)===null).length;
-        return brij('data-ingr',I.pot,'Ingrediënten',
-          alle.length? alle.length+(zonder?' \u00b7 '+zonder+' zonder prijs':'')
-                     : 'nog geen', !!zonder)})()}
-      ${brij('data-sheet="ontvangst"',I.plus,'Ontvangst vastleggen','')}
-      ${brij('data-partijen',I.doos,'Partijen in huis',(S.lots||[]).length||'geen')}
-      ${(()=>{const vp=grondVoorraad().filter(x=>artSoort(x.product)==='verpakking');
-        const z=vp.filter(x=>verpPrijs(x.product)===null).length;
-        return brij('data-verplijst',I.doos,'Verpakking',
-          vp.length? vp.length+(z?' \u00b7 '+z+' zonder prijs':'') : 'nog geen', !!z)})()}
-      ${brij('data-ins="leveranciers"',I.vracht,'Leveranciers',(S.leveranciers||[]).length||'geen')}
-      ${brij('data-ins="levertijd"',I.klok,'Levertijden',
-        (S.levertijden&&Object.keys(S.levertijden).length)?Object.keys(S.levertijden).length:'niet ingevuld')}
-      ${brij('data-telronde',I.vink,'Telronde','')}
-      ${brij('data-vmut',I.ververs,'Alle mutaties',(S.mutaties||[]).length||'geen')}
-    </div>
-`;
+  /* ═══════════ de vaste toets toegepast ═══════════
+     Acht rijen die acht verschillende soorten dingen waren: een handeling
+     (ontvangst vastleggen), drie catalogi, een toestand, een instelling, een
+     taak en een logboek — allemaal even zwaar, allemaal grijze tekst.
+
+     1) Eén doel per blok: wat je vastlegt, wat je nakijkt, wat je instelt.
+     2) Tel de tikken: ontvangst vastleggen doe je bij elke levering en stond
+        als tweede rij tussen zeven andere; dat is nu de eerste tegel.
+     3) Cognitieve belasting: tegels met een icoon in plaats van acht
+        identieke regels.
+     5) Onthoudbaarheid: "geen", "nog geen" en "niet ingevuld" stonden door
+        elkaar voor precies hetzelfde. Nu overal hetzelfde woord. */
+
+  h+=voorraadTegels();
   /* Het blok "Bewaken" stond hier met drie rijen die alle drie al als tegel
      bovenaan het scherm staan: houdbaarheid, waardering en wat je moet halen.
      De tegels tonen er ook nog een getal bij, dus die winnen. */
