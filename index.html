@@ -189,7 +189,7 @@ main>.blokkop:first-child{margin-top:8px}
 .blokkop .eyebrow{flex:1}
 .blokkop .tel{font-size:12.5px;font-weight:600;color:var(--grijs2);letter-spacing:-.01em}
 .blokkop .tel.let{color:var(--amber);font-weight:700}
-.paneel{background:var(--card);border-radius:18px;border:1px solid var(--lijn);overflow:hidden;
+.paneel{background:var(--card);border-radius:18px;border:1px solid transparent;overflow:hidden;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
 
 .balk{display:flex;gap:4px;margin:16px 0 12px}
@@ -247,7 +247,7 @@ main>.blokkop:first-child{margin-top:8px}
 
 /* ── tegels: elk cijfer eigen ruimte, en meteen een knop ── */
 .tegels{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.tegel{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:16px;
+.tegel{background:var(--card);border:1px solid transparent;border-radius:18px;padding:16px;
   text-align:left;display:flex;flex-direction:column;gap:2px;min-height:92px;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
 .tegel:active{background:var(--bg)}
@@ -537,7 +537,7 @@ body.rlbezig.rlboven .sheetvoet{padding-bottom:calc(16px + env(safe-area-inset-b
 .stapbol{flex:1;height:4px;border-radius:99px;background:var(--bg)}
 .stapbol.af{background:var(--grijs3)}
 .stapbol.nu{background:var(--accent)}
-.brkaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
+.brkaart{background:var(--card);border:1px solid transparent;border-radius:18px;
   padding:18px 14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
   position:relative;text-align:left;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 10px 22px -18px rgba(24,24,27,.2)}
@@ -744,7 +744,7 @@ header .hbtn.zoek{display:none}
 /* ── de Nu-kaart ──
    Wit met een donkere knop: de hoofdkaart erboven is al zwart en er hoort
    één donkere knop per scherm te staan. */
-.nukaart{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
+.nukaart{background:var(--card);border:1px solid transparent;border-radius:18px;
   padding:16px 18px 16px;margin-top:12px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 18px 34px -26px rgba(24,24,27,.26)}
 .nukaart .eyebrow{display:block}
@@ -758,7 +758,7 @@ header .hbtn.zoek{display:none}
 /* Heette .loopt, maar die klasse bestond al elders in de app met
    display:flex. De kaart erfde dat en legde kop, titel, uitleg en knop naast
    elkaar op één regel — met de knop half buiten de kaart. */
-.nukaart.bezig{border-color:var(--choco-licht);background:var(--choco-wash)}
+.nukaart.bezig{border-color:var(--choco)}
 .nukaart.bezig .eyebrow{color:var(--choco)}
 /* En voor de zekerheid: deze kaart is altijd een kolom, wat er ook meekomt */
 .nukaart{display:block}
@@ -800,9 +800,11 @@ header .hbtn.zoek{display:none}
 .fasetegel .ftt.amber{color:var(--amber);font-weight:700}
 /* twee rasters onder elkaar hebben lucht nodig, geen streep */
 .blokkop + .fasetegels{margin-top:0}
-.fasetegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
+.fasetegel:active{background:var(--markeer);border-color:var(--choco-licht)}
 /* De enige rand op het scherm: hier ben je. */
-.fasetegel.nu{background:var(--choco-wash);border-color:var(--choco)}
+/* Wat je nu doet herken je aan het gevulde icoon en de rand, niet aan een
+   gekleurd vlak: de tegel blijft gewoon wit. */
+.fasetegel.nu{background:var(--card);border-color:var(--choco)}
 .fasetegel.nu .ftico{background:var(--choco);color:#fff;margin-left:0}
 .fasetegel.nu .ftico svg{width:17px;height:17px}
 .fasetegel.nu .ftt{color:var(--choco)}
@@ -843,8 +845,8 @@ header .hbtn.zoek{display:none}
   color:var(--ink);line-height:1.25;margin-top:auto}
 .iktegel .itt{position:absolute;top:16px;right:14px;font-style:normal;
   font-size:12px;color:var(--grijs2);font-variant-numeric:tabular-nums}
-.iktegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
-.iktegel.aan{background:var(--choco-wash);border-color:var(--choco-licht)}
+.iktegel:active{background:var(--markeer);border-color:var(--choco-licht)}
+.iktegel.aan{background:var(--markeer);border-color:var(--choco-licht)}
 
 /* ── keuzes als losse kaarten ──
    Rijen in één blok met streepjes lezen als een lijst; kaarten met lucht
@@ -866,10 +868,10 @@ header .hbtn.zoek{display:none}
 .ikkaart .irtijd{flex:none;font-style:normal;font-size:12.5px;color:var(--grijs2);
   font-variant-numeric:tabular-nums}
 .ikkaart .irnu{flex:none;font-style:normal;font-size:11.5px;font-weight:700;
-  color:var(--choco);background:var(--choco-wash);border-radius:99px;padding:3px 9px}
+  color:var(--choco);background:var(--markeer);border-radius:99px;padding:3px 9px}
 .ikkaart>svg{width:14px;height:14px;flex:none;color:var(--grijs3)}
-.ikkaart:active{background:var(--choco-wash);border-color:var(--choco-licht)}
-.ikkaart.aan{background:var(--choco-wash);border-color:var(--choco-licht)}
+.ikkaart:active{background:var(--markeer);border-color:var(--choco-licht)}
+.ikkaart.aan{background:var(--markeer);border-color:var(--choco-licht)}
 .ikkaart.aan .irl{color:var(--choco);font-weight:600}
 /* binnen een uitgeklapte groep zijn het weer rijen, geen losse kaarten */
 .ikuit .ikkaart{border:none;border-radius:0;margin:0;box-shadow:none;
@@ -889,8 +891,8 @@ header .hbtn.zoek{display:none}
   color:var(--grijs2);margin-top:1px;letter-spacing:-.005em}
 .ikrij svg{width:14px;height:14px;flex:none;color:var(--grijs3)}
 .ikrij .irnu{flex:none;font-style:normal;font-size:11.5px;font-weight:700;
-  color:var(--choco);background:var(--choco-wash);border-radius:99px;padding:3px 9px}
-.ikrij:active{background:var(--choco-wash)}
+  color:var(--choco);background:var(--markeer);border-radius:99px;padding:3px 9px}
+.ikrij:active{background:var(--markeer)}
 .ikrij.aan .irl{color:var(--choco);font-weight:600}
 .ikrij .irtijd{flex:none;font-style:normal;font-size:12.5px;color:var(--grijs2);
   font-variant-numeric:tabular-nums}
@@ -902,7 +904,15 @@ header .hbtn.zoek{display:none}
 
 /* de stand van zaken bovenaan */
 .ikstart,.ikstand{background:var(--bg);border-radius:16px;padding:14px 16px}
-.ikstand{background:var(--choco-wash);border:1px solid var(--choco-licht)}
+/* De stand als twee regels tekst, geen kaart: de klok staat al groot op je
+   dashboard, hier is het alleen context bij je keuze. */
+.ikregel{padding:0 2px 14px;font-size:13.5px;line-height:1.45}
+.ikregel .ikrt{display:block;color:var(--ink2)}
+.ikregel .ikrt b{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.ikregel i{display:block;font-style:normal;color:var(--grijs2);
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.ikstand{background:var(--bg);border:1px solid transparent}
 .ikstart .eyebrow,.ikstand .eyebrow{display:block}
 .ikstand .eyebrow{color:var(--choco)}
 .ikstart b,.ikstand b{display:block;font-size:30px;font-weight:700;
@@ -952,7 +962,7 @@ header .hbtn.zoek{display:none}
   margin-top:1px;font-variant-numeric:tabular-nums}
 /* de losse pijl rechts, zodat je ziet dat de hele kaart een knop is */
 .klokw>svg{width:15px;height:15px;flex:none;color:var(--grijs3)}
-.klokw.aan{border-color:var(--choco-licht);background:var(--choco-wash)}
+.klokw.aan{border-color:var(--choco)}
 .klokw.aan .kwl b,.klokw.aan .kwr em{color:var(--choco)}
 .klokw:active{transform:scale(.99)}
 
@@ -1009,7 +1019,7 @@ header .hbtn.zoek{display:none}
 .uwtot .kop{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--grijs2);margin-bottom:8px}
 
 .snel{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.cijfers{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid var(--lijn);border-radius:18px;overflow:hidden}
+.cijfers{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid transparent;border-radius:18px;overflow:hidden}
 .ccel{padding:16px 8px;text-align:center;border-right:1px solid var(--lijn)}
 .ccel:last-child{border-right:none}
 .ccel .w{font-size:17px;font-weight:600;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
@@ -1200,8 +1210,8 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   height:46px;margin:0 0 6px;border-radius:14px;background:var(--bg);
   font-size:14.5px;font-weight:600;color:var(--ink2)}
 .allesok svg{width:16px;height:16px}
-.allesok:active{background:var(--choco-wash);color:var(--choco)}
-.allesok.aan{background:var(--choco-wash);color:var(--choco)}
+.allesok:active{background:var(--markeer);color:var(--choco)}
+.allesok.aan{background:var(--markeer);color:var(--choco)}
 .ovtel{font-style:normal;padding:2px 8px;border-radius:99px;background:var(--card);
   color:var(--grijs2);font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums}
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);padding:4px;border-radius:14px}
@@ -1267,7 +1277,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   border-radius:14px;background:var(--bg)}
 .mveld input{flex:1;min-width:0;background:none;border:0;font-size:16px;font-weight:600;
   color:var(--ink);padding:0;height:100%}
-.kaartje{background:var(--card);border:1px solid var(--lijn);border-radius:18px;padding:20px 16px 12px;
+.kaartje{background:var(--card);border:1px solid transparent;border-radius:18px;padding:20px 16px 12px;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
 .balken{display:flex;align-items:flex-end;gap:4px;height:88px}
 .balk2{flex:1;background:var(--ink);border-radius:4px 4px 0 0;min-height:3px}
@@ -1384,7 +1394,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 /* Was een eigen regel met tekst onder elk veld; nu een knopje ernaast. */
 .lotmeer{flex:none;width:46px;height:46px;border-radius:14px;background:var(--bg);
   color:var(--grijs2);display:grid;place-items:center}
-.lotmeer:active{background:var(--choco-wash);color:var(--choco)}
+.lotmeer:active{background:var(--markeer);color:var(--choco)}
 .lotmeer svg{width:17px;height:17px;stroke-width:2.2}
 .alblok{padding:16px 0;border-bottom:1px solid var(--lijn)}
 .alblok:last-child{border-bottom:none}
@@ -1444,12 +1454,12 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
    schelp, een gelei, een ganache of een praliné. Kiezen is sneller dan typen
    en de app weet daardoor meteen bij welke productiestap het hoort. */
 .ondtegels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 4px}
-.ondtegel{background:var(--card);border:1px solid var(--lijn);border-radius:18px;
+.ondtegel{background:var(--card);border:1px solid transparent;border-radius:18px;
   padding:15px 14px 14px;text-align:left;display:flex;flex-direction:column;gap:9px;
   min-height:104px;
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
-.ondtegel:active{background:var(--choco-wash);border-color:var(--choco-licht)}
-.ondtegel.aan{background:var(--choco-wash);border-color:var(--choco-licht)}
+.ondtegel:active{background:var(--markeer);border-color:var(--choco-licht)}
+.ondtegel.aan{background:var(--markeer);border-color:var(--choco-licht)}
 .ondtegel .ovak{width:34px;height:34px;border-radius:11px;flex:none;display:grid;
   place-items:center;background:var(--bg);color:var(--grijs)}
 .ondtegel.aan .ovak{background:var(--choco);color:#fff}
@@ -1475,14 +1485,14 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .stapregel .sa{flex:none;height:34px;padding:0 13px;border-radius:10px;
   background:var(--card);border:1px solid var(--lijn);font-size:13px;font-weight:600;
   color:var(--ink2)}
-.stapregel .sa:active{background:var(--choco-wash);color:var(--choco)}
+.stapregel .sa:active{background:var(--markeer);color:var(--choco)}
 .stapkeuze{display:none;margin-top:8px;background:var(--card);border:1px solid var(--lijn);
   border-radius:14px;overflow:hidden}
 .stapkeuze.open{display:block}
 .stapkeuze button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
   padding:12px 14px;border-bottom:1px solid var(--lijn);font-size:14.5px;color:var(--ink)}
 .stapkeuze button:last-child{border-bottom:none}
-.stapkeuze button:active{background:var(--choco-wash)}
+.stapkeuze button:active{background:var(--markeer)}
 .stapkeuze button .sv{flex:none;width:18px;height:18px;color:var(--choco);opacity:0}
 .stapkeuze button.aan .sv{opacity:1}
 .stapkeuze button.aan{color:var(--choco);font-weight:600}
@@ -1504,7 +1514,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .wwin .wwadd svg{width:19px;height:19px;stroke-width:2.2}
 .wwin .wwadd[disabled]{background:var(--lijn);color:var(--grijs3)}
 .wwmode{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;
-  border-radius:14px;background:var(--choco-wash);border:1px solid var(--choco-licht)}
+  border-radius:14px;background:var(--markeer);border:1px solid var(--choco-licht)}
 .wwmode[hidden]{display:none}
 .wwmodet{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--choco);
   letter-spacing:-.01em}
@@ -1520,7 +1530,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   color:var(--ink);letter-spacing:-.01em;-webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none}
 .wwkaart .wwt em{display:inline-flex;align-items:center;gap:3px;font-style:normal;
-  margin-left:7px;padding:2px 7px;border-radius:99px;background:var(--choco-wash);
+  margin-left:7px;padding:2px 7px;border-radius:99px;background:var(--markeer);
   color:var(--choco);font-size:11.5px;font-weight:600;white-space:nowrap;
   font-variant-numeric:tabular-nums}
 /* Het deel krijgt een eigen, zwaardere pil dan een tijd of temperatuur: dat
@@ -1532,7 +1542,7 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .wwkaart .wwk svg{width:15px;height:15px;stroke-width:2}
 .wwkaart .wwk.op svg{transform:rotate(-90deg)}
 .wwkaart .wwk[disabled]{opacity:.22}
-.wwkaart.bezig{border-color:var(--choco-licht);background:var(--choco-wash)}
+.wwkaart.bezig{border-color:var(--choco-licht);background:var(--markeer)}
 .wwvoor{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
 /* Ingedrukt houden gaf op de iPhone een vergrootglas met blauwe
    selectiegrepen: iOS dacht dat je tekst wilde kopiëren. Dat gedrag hoort
@@ -1544,10 +1554,10 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
   line-height:1.3;-webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none}
 /* zolang je hem vasthoudt zie je dat er iets staat te gebeuren */
-.wwvoor button.vast{background:var(--choco-wash);border-color:var(--choco-licht);
+.wwvoor button.vast{background:var(--markeer);border-color:var(--choco-licht);
   color:var(--choco)}
 .wwtip{padding-top:14px;line-height:1.45}
-.wwvoor button:active{background:var(--choco-wash);border-color:var(--choco-licht);
+.wwvoor button:active{background:var(--markeer);border-color:var(--choco-licht);
   color:var(--choco)}
 .wwvoor button svg{width:13px;height:13px;stroke-width:2.2;flex:none;color:var(--grijs2)}
 .wwvoorkop{font-size:11px;font-weight:700;letter-spacing:.07em;color:var(--grijs3)}
@@ -1992,7 +2002,7 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 /* ── de kaart van wat je nu doet ──
    De stap waar je aan werkt hoort niet als zoveelste rij in een lijst; dat is
    het enige waar je op dit moment iets mee moet. */
-.stapnu{background:var(--choco-wash);border:1px solid var(--choco-licht);
+.stapnu{background:var(--card);border:1px solid var(--choco);
   border-radius:18px;padding:15px 17px 15px;margin:0 0 18px}
 .snkop{display:flex;align-items:baseline;gap:12px}
 .snkop .eyebrow{flex:1;color:var(--choco)}
@@ -2419,6 +2429,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 :root{
   --choco:#4A2B18;
   --choco-licht:#6E4630;
+  /* Beige als vlak paste niet bij een strak wit scherm — en het botst met de
+     eigen regel dat bruin en crème alleen in het factuurdocument horen. Waar
+     een vlak nodig is om iets te markeren gebruiken we nu de neutrale grijze
+     achtergrond die de app toch al heeft; de betekenis zit in de kleur van
+     het icoon en de tekst, niet in een gekleurd vlak. */
+  --markeer:#f1f1f3;
   --choco-wash:#F6F0EA;
   /* Deze naam kwam uit de ontwerpschetsen; de app zelf noemt hem --amber.
      Vier regels hieronder gebruikten --let-op en kregen dus helemaal geen
@@ -2435,13 +2451,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
 .prim:active{background:var(--choco);color:#fff}
 .sec:active,.knop2:active,.miniknop:active,.kiesvak:active,
 .chip:active,.aanpasknop:active,.hulpknop:active{
-  background:var(--choco-wash);border-color:var(--choco-licht);color:var(--choco)}
+  background:var(--markeer);border-color:var(--choco-licht);color:var(--choco)}
 button.arij:active,.menurij:active,.orij:active,.rrij:active,.crij:active,
-.item:active{background:var(--choco-wash)}
-.duo button:active,.duo3 button:active{background:var(--choco-wash);color:var(--choco)}
+.item:active{background:var(--markeer)}
+.duo button:active,.duo3 button:active{background:var(--markeer);color:var(--choco)}
 
 /* binnen de donkere hoofdkaart moet de druk juist oplichten, niet verdonkeren */
-.hoofdkaart .prim:active{background:var(--choco-wash);color:var(--choco)}
+.hoofdkaart .prim:active{background:var(--markeer);color:var(--choco)}
 .hoofdkaart .knop2:active,.hoofdkaart .miniknop:active{
   background:rgba(110,70,48,.55);border-color:rgba(110,70,48,.7);color:#fff}
 .ksact:active>span{background:rgba(110,70,48,.55)}
@@ -2462,8 +2478,8 @@ button.arij:active,.menurij:active,.orij:active,.rrij:active,.crij:active,
 .tabpil{background:rgba(255,255,255,.94);border:1px solid var(--lijn);
   box-shadow:0 1px 2px rgba(24,24,27,.05),0 8px 28px rgba(24,24,27,.14)}
 .tab{color:var(--grijs2)}
-.tab.actief{color:var(--choco);background:var(--choco-wash)}
-.tab:active{color:var(--choco);background:var(--choco-wash)}
+.tab.actief{color:var(--choco);background:var(--markeer)}
+.tab:active{color:var(--choco);background:var(--markeer)}
 
 /* ═══ 4. LOSSE KAARTEN ══════════════════════════════════════════════
    Een dicht paneel met scheidingslijnen leest als een formulier. Losse
@@ -2499,7 +2515,7 @@ main .arij .naam small{text-transform:none;letter-spacing:-.005em;
 main .paneel>.meer{border:1px solid var(--lijn);border-radius:99px;
   background:var(--card);padding:11px 18px;width:auto;align-self:center;
   font-size:13px;font-weight:600;color:var(--grijs);letter-spacing:-.01em}
-main .paneel>.meer:active{background:var(--choco-wash);
+main .paneel>.meer:active{background:var(--markeer);
   border-color:var(--choco-licht);color:var(--choco)}
 
 /* De stip stond ín de kaart, terwijl hij op het dashboard náást de kaart op
@@ -2544,7 +2560,7 @@ main .paneel>.beheerrij:last-child{border-bottom:1px solid var(--lijn)}
 main .paneel>.beheerrij>svg{width:18px;height:18px;margin:0;padding:11px;
   box-sizing:content-box;border-radius:99px;background:var(--bg);
   color:var(--ink)}
-main .paneel>.beheerrij:active{background:var(--choco-wash);
+main .paneel>.beheerrij:active{background:var(--markeer);
   border-color:rgba(74,43,24,.25)}
 main .paneel>.beheerrij:active>svg{background:#fff;color:var(--choco)}
 main .paneel>.beheerrij .l{font-size:14.5px;font-weight:600;letter-spacing:-.02em}
@@ -2562,7 +2578,7 @@ main .paneel>.beheerrij .w{font-size:12.5px;color:var(--grijs2)}
 .sheetbody .paneel,main .paneel:has(>.ingrij2){
   background:none;border:none;box-shadow:none;overflow:visible;
   display:flex;flex-direction:column;gap:10px}
-.ingrij2:active{background:var(--choco-wash);border-color:rgba(74,43,24,.25)}
+.ingrij2:active{background:var(--markeer);border-color:rgba(74,43,24,.25)}
 /* zonder prijs: amber streep links, zoals de statuskaarten elders */
 .ingrij2.mist{box-shadow:inset 3px 0 0 var(--amber),
   0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
@@ -2570,7 +2586,7 @@ main .paneel>.beheerrij .w{font-size:12.5px;color:var(--grijs2)}
 .toevoeg{display:inline-flex;width:auto;align-self:flex-start;
   padding:10px 15px;margin:12px 6px 4px 0;border-radius:99px;background:var(--card);
   border:1px solid var(--lijn);font-size:12.5px;font-weight:600;color:var(--grijs)}
-.toevoeg:active{background:var(--choco-wash);border-color:var(--choco-licht);
+.toevoeg:active{background:var(--markeer);border-color:var(--choco-licht);
   color:var(--choco)}
 
 /* Rijen die je kunt wegvegen zitten in een .veeg-wikkel, en die viel net als
@@ -2583,7 +2599,7 @@ main .paneel>.beheerrij .w{font-size:12.5px;color:var(--grijs2)}
   border:1px solid var(--lijn);font-size:13px;font-weight:600;
   color:var(--grijs);letter-spacing:-.01em}
 .terugrij svg{width:15px;height:15px;stroke-width:2.2}
-.terugrij:active{background:var(--choco-wash);border-color:var(--choco-licht);
+.terugrij:active{background:var(--markeer);border-color:var(--choco-licht);
   color:var(--choco)}
 
 main .paneel>.veeg{border-radius:16px;overflow:hidden;
@@ -2599,7 +2615,7 @@ main .paneel>.meer{
   border:1px dashed var(--grijs3);border-radius:16px;
   background:none;padding:13px 16px}
 main .paneel>.meer:active{
-  background:var(--choco-wash);border-color:var(--choco-licht);color:var(--choco)}
+  background:var(--markeer);border-color:var(--choco-licht);color:var(--choco)}
 
 /* een rij met een gekleurd icoonvak krijgt links een streep;
    scant sneller dan een badge helemaal rechts */
@@ -2609,7 +2625,7 @@ main .paneel>.meer:active{
 
 /* gemarkeerde of vastgezette rijen */
 .arij.gemarkeerd,.orij.gemarkeerd,.paneel .rij.gemarkeerd{
-  background:var(--choco-wash);box-shadow:inset 3px 0 0 var(--choco)}
+  background:var(--markeer);box-shadow:inset 3px 0 0 var(--choco)}
 .arij.gemarkeerd .ivak{background:rgba(74,43,24,.10);color:var(--choco)}
 
 /* statuswoorden rechts als pil in plaats van losse gekleurde tekst */
@@ -2657,7 +2673,7 @@ header.weg{display:none}
   display:grid;place-items:center;color:var(--ink);position:relative;
   box-shadow:0 1px 2px rgba(24,24,27,.05),0 6px 18px -12px rgba(24,24,27,.30)}
 .belknop svg{width:20px;height:20px;stroke-width:1.8}
-.belknop:active{background:var(--choco-wash);color:var(--choco)}
+.belknop:active{background:var(--markeer);color:var(--choco)}
 /* staat er iets open, dan een stipje rechtsboven op de bel */
 .belknop.aan::after{content:'';position:absolute;top:11px;right:12px;
   width:8px;height:8px;border-radius:99px;background:var(--rood);
@@ -2747,7 +2763,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   border:1px solid var(--lijn);font-size:12.5px;font-weight:600;
   color:var(--grijs);letter-spacing:-.01em}
 .kopknop svg{width:13px;height:13px;stroke-width:2.2}
-.kopknop:active{background:var(--choco-wash);border-color:var(--choco-licht);
+.kopknop:active{background:var(--markeer);border-color:var(--choco-licht);
   color:var(--choco)}
 
 .hk2kop{display:flex;align-items:center;gap:10px}
@@ -2799,7 +2815,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   display:flex;align-items:center;justify-content:center}
 .segknop.aan{background:var(--choco);color:#fff;
   box-shadow:0 1px 4px rgba(74,43,24,.28)}
-.segknop:active:not(.aan){background:var(--choco-wash);color:var(--choco)}
+.segknop:active:not(.aan){background:var(--markeer);color:var(--choco)}
 
 /* ═══ 11. TIJDLIJN ══════════════════════════════════════════════════
    De lijn loopt links buiten de kaarten, de stip staat erop. Een lijn
@@ -2871,9 +2887,9 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   background:var(--card);border:1px solid var(--lijn);border-radius:16px;
   padding:13px 15px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
-.actiekaart.eerste{background:var(--choco-wash);border-color:rgba(74,43,24,.18);
+.actiekaart.eerste{background:var(--markeer);border-color:rgba(74,43,24,.18);
   box-shadow:inset 3px 0 0 var(--choco),0 1px 2px rgba(24,24,27,.04)}
-.actiekaart:active{background:var(--choco-wash);border-color:rgba(74,43,24,.25)}
+.actiekaart:active{background:var(--markeer);border-color:rgba(74,43,24,.25)}
 .abadge{width:40px;height:40px;border-radius:99px;flex:none;display:grid;
   place-items:center;background:var(--bg);color:var(--ink)}
 .abadge svg{width:18px;height:18px;stroke-width:1.9}
@@ -2935,7 +2951,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   background:var(--card);border:1px solid var(--lijn);border-radius:18px;
   padding:16px 18px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
-.wkkaart:active{background:var(--choco-wash);border-color:rgba(74,43,24,.25)}
+.wkkaart:active{background:var(--markeer);border-color:rgba(74,43,24,.25)}
 .wkkaart.hoofd{background:var(--choco);border-color:var(--choco);
   box-shadow:0 2px 12px rgba(74,43,24,.28)}
 .wkkaart.hoofd:active{background:var(--choco-licht)}
@@ -2953,7 +2969,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 
 .wkover{margin-top:4px;font-size:13.5px;font-weight:600;color:var(--grijs2);
   padding:12px;border-radius:99px}
-.wkover:active{background:var(--choco-wash);color:var(--choco)}
+.wkover:active{background:var(--markeer);color:var(--choco)}
 .wkklein{margin:12px 2px 0;font-size:12px;line-height:1.45;color:var(--grijs3);
   text-align:center}
 
@@ -2961,7 +2977,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .acvergeten{display:block;width:100%;text-align:center;margin-top:14px;
   font-size:13.5px;font-weight:600;color:var(--grijs);padding:10px;
   border-radius:99px}
-.acvergeten:active{background:var(--choco-wash);color:var(--choco)}
+.acvergeten:active{background:var(--markeer);color:var(--choco)}
 .acof{display:flex;align-items:center;gap:12px;margin:20px 0 14px;
   font-size:12px;color:var(--grijs3)}
 .acof::before,.acof::after{content:'';flex:1;height:1px;background:var(--lijn)}
@@ -3004,13 +3020,13 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .pintoets button:active{background:var(--choco);color:#fff;transform:scale(.96)}
 .pintoets button.leeg{background:none;box-shadow:none;pointer-events:none}
 .pintoets button[data-pinwis]{background:none;box-shadow:none;color:var(--grijs)}
-.pintoets button[data-pinwis]:active{background:var(--choco-wash);
+.pintoets button[data-pinwis]:active{background:var(--markeer);
   color:var(--choco)}
 .pintoets svg{width:22px;height:22px;stroke-width:1.9}
 
 .pinuit{font-size:13.5px;font-weight:600;color:var(--grijs2);padding:10px 16px;
   border-radius:99px}
-.pinuit:active{background:var(--choco-wash);color:var(--choco)}
+.pinuit:active{background:var(--markeer);color:var(--choco)}
 
 /* ═══ 17. RUST IN ELK SCHERM ═══════════════════════════════════════
    Deze regels gelden voor de hele app, niet voor één scherm. Vijf dingen
@@ -3059,7 +3075,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   background:none;color:var(--grijs);padding:0 10px;min-width:0;font-size:13px;
   height:34px;margin:2px auto 0}
 .sheetvoet .sec.terug:active,.sheetvoet .terug:active{
-  background:var(--choco-wash);color:var(--choco)}
+  background:var(--markeer);color:var(--choco)}
 
 /* ── 1. één donkere knop per scherm ──
    In de voet stonden vaak twee of drie knoppen met hetzelfde gewicht.
@@ -3068,11 +3084,11 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .sheetvoet .prim ~ .knop2{background:var(--card);color:var(--ink);
   border:1px solid var(--lijn)}
 .sheetvoet .prim ~ .prim:active,
-.sheetvoet .prim ~ .knop2:active{background:var(--choco-wash);
+.sheetvoet .prim ~ .knop2:active{background:var(--markeer);
   border-color:var(--choco-licht);color:var(--choco)}
 .sheetvoet .sec{background:none;border:none;color:var(--grijs);
   font-size:14px;height:44px}
-.sheetvoet .sec:active{background:var(--choco-wash);color:var(--choco)}
+.sheetvoet .sec:active{background:var(--markeer);color:var(--choco)}
 
 /* ── 1b. ook in het scherm zelf: knoppen naast elkaar ──
    Twee losse knoppen onder elkaar in de inhoud kostten evenveel ruimte als in
@@ -3120,7 +3136,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .sheetbody .knop2,.sheetbody .sec{height:46px;border-radius:14px;
   background:var(--card);border:1px solid var(--lijn);
   font-size:14px;font-weight:600;color:var(--grijs)}
-.sheetbody .knop2:active,.sheetbody .sec:active{background:var(--choco-wash);
+.sheetbody .knop2:active,.sheetbody .sec:active{background:var(--markeer);
   border-color:var(--choco-licht);color:var(--choco)}
 .sheetbody .knop2 svg,.sheetbody .sec svg{width:14px;height:14px;
   stroke-width:2.2;color:inherit}
@@ -3145,7 +3161,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .sheetbody .chip{flex:none}
 .chip{border-radius:99px;padding:10px 15px}
 .chip.aan{background:var(--choco)}
-.chip:active:not(.aan){background:var(--choco-wash);color:var(--choco)}
+.chip:active:not(.aan){background:var(--markeer);color:var(--choco)}
 /* Schuiven is goed voor een rij waar je één ding uit kiest. Maar bij een
    meerkeuzelijst — allergenen, zones, middelen — moet je alles zien én zien
    wat je hebt aangevinkt. Die breken gewoon af over meerdere regels.
@@ -3173,7 +3189,7 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
   padding:14px 16px;border-bottom:1px solid var(--lijn);
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
 .sheetbody .paneel>.arij:active,.sheetbody .paneel>.rij:active,
-.sheetbody .paneel>.menurij:active{background:var(--choco-wash);
+.sheetbody .paneel>.menurij:active{background:var(--markeer);
   border-color:rgba(74,43,24,.25)}
 
 /* ── 7. de zwevende knop lag over de Klaar-knop ──
@@ -3363,7 +3379,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v484 · 18 aug 2026';
+const APPVERSIE='v486 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4648,12 +4664,12 @@ function klokWidgetHTML(){
       <i class="kwrt ringtikker">${klokKort(gewerkt)}</i></span>
     <span class="kwl"><span class="eyebrow">Ingeklokt sinds ${
       pad(d.getHours())}:${pad(d.getMinutes())}</span>
-      <b>${n?esc(n.naam):'Nog niets gekozen'}</b>
+      <b>${n?esc(n.naam):'Kies waar je aan werkt'}</b>
       ${n?`<i class="kwsub"><span class="dienstikker">${
         duurTekst(Date.now()-S.dienst.start)}</span> aan het werk · hier al <span
         class="acttikker">${duurTekst(Date.now()-n.start)}</span></i>`
         :`<i class="kwsub"><span class="dienstikker">${
-        duurTekst(Date.now()-S.dienst.start)}</span> aan het werk · kies waar je aan werkt</i>`}</span>
+        duurTekst(Date.now()-S.dienst.start)}</span> loopt zonder categorie</i>`}</span>
     ${svg(I.pijl,'2')}
   </button>`;
 }
@@ -16629,29 +16645,33 @@ function sheetInklok(){
       klusSoorten().map(s=>rij(s.n,`data-inkklus="${esc(s.k)}"`,s.ico,s.kleur,
         vandaagPer(s.n,s.k),n&&n.soort==='klus'&&S.klus.soort===s.k)).join(''))}`;
 
-  if(!S.dienst){
-    sheet('Inklokken',
-      `${snel.length?`<div class="iktegels">${snel.map(x=>
-         tegel(x.l,x.a,x.i,x.kleur,x.sec,false)).join('')}</div>`:''}`,
-      `<button class="prim" style="margin-top:0" id="ikAan">Inklokken</button>`);
-    if($('#ikAan')) $('#ikAan').onclick=veilig('inklokken',()=>{
-      dienstStart(); bewaarNu(); dicht(); render();
-      toast('Ingeklokt om '+nu()+'.');
-    });
-  } else {
-    const d=new Date(S.dienst.start);
-    sheet(n?esc(n.naam):'Nog niets gekozen',
-      `<div class="ikstand">
-         <b class="dienstikker">${duurTekst(Date.now()-S.dienst.start)}</b>
-         <span class="iknu">sinds ${pad(d.getHours())}:${pad(d.getMinutes())}${
-           n?' · hier al <span class="acttikker">'+duurTekst(Date.now()-n.start)+'</span>':''}</span></div>
-       ${snel.length?`<div class="iktegels">${snel.map(x=>
-         tegel(x.l,x.a,x.i,x.kleur,x.sec,false)).join('')}</div>`:''}
-       ${alles}`,
-      `<div class="wzknoppen">
-         <button class="sec plat" id="ikWeg">Weggooien</button>
-         <button class="prim" id="ikUit">Uitklokken</button></div>`);
-  }
+  /* ═══════════ één scherm, één vraag ═══════════
+     Hier stonden twee bijna identieke schermen naast elkaar: één voor als je
+     nog niets had gekozen en één voor als je bezig was. De titel veranderde
+     mee in de naam van je stap, en de stand stond in een blok dat even groot
+     was als de keuzes eronder. Zo lijkt elk bezoek een ander scherm.
+
+     Nu: altijd dezelfde vraag, altijd dezelfde volgorde. Waar je mee bezig
+     bent staat op één regel bovenaan — geen blok dat om aandacht vraagt, want
+     dat staat al op je dashboard. Kiezen is inklokken; uitklokken is de enige
+     andere knop. */
+  const d=S.dienst?new Date(S.dienst.start):null;
+  const stand = !S.dienst ? ''
+    : `<div class="ikregel">
+         <span class="ikpunt"></span>
+         <span class="ikrt"><b class="dienstikker">${duurTekst(Date.now()-S.dienst.start)}</b>
+           aan het werk, sinds ${pad(d.getHours())}:${pad(d.getMinutes())}</span>
+         ${n?`<i>${esc(n.naam)} · <span class="acttikker">${
+           duurTekst(Date.now()-n.start)}</span></i>`:'<i>nog niets gekozen</i>'}</div>`;
+
+  sheet('Waar werk je aan?',
+    `${stand}
+     ${snel.length?`<div class="iktegels">${snel.map(x=>
+       tegel(x.l,x.a,x.i,x.kleur,x.sec,false)).join('')}</div>`:''}
+     ${alles}`,
+    S.dienst?`<div class="wzknoppen">
+       <button class="sec plat" id="ikWeg">Weggooien</button>
+       <button class="prim" id="ikUit">Uitklokken</button></div>`:'');
 
   const kies=fn=>veilig('inklokken',()=>{ fn(); bewaarNu(); dicht(); render() });
   $$('[data-inkstap]').forEach(x=>x.onclick=kies(()=>{
