@@ -3397,7 +3397,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v495 · 18 aug 2026';
+const APPVERSIE='v496 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6259,29 +6259,38 @@ function productieHTML(){
     ${waarde?`<span class="w ${let2?'let':''}">${waarde}</span>`:''}
     <span class="p">${svg(I.pijl,'2')}</span></button>`;
 
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Voedselveiligheid</span></div>
-    <div class="paneel">
-      ${brij('data-haccp',I.klembord,'HACCP-registraties','')}
-      ${brij('data-ins2="ijking"',I.temp,'Thermometer ijken',
-        laatsteIjking()?kort(new Date(laatsteIjking().datum)):'nooit',!laatsteIjking())}
-      ${brij('data-ins2="checks"',I.vink,'Openingscheck instellen',S.checks.length||'geen')}
-      ${brij('data-doosetiket',I.doc,'Doosetiket voor een gemengde doos','')}
-      ${brij('data-dossier',I.doc,'Dossier voor de inspectie','')}
-      ${brij('data-trace',I.loep,'Lot terugzoeken','')}
-      ${brij('data-ins="meetpunten"',I.temp,'Meetpunten',(S.meetpunten||[]).length||'geen')}
-      ${brij('data-ins="zones"',I.huis,'Schoonmaakzones',(S.zones||[]).length||'geen')}
-      ${brij('data-ins="middelen"',I.fles,'Schoonmaakmiddelen',(S.middelen||[]).length||'geen')}
-    </div>`;
+  /* ═══════════ dezelfde toets als bij Voorraad ═══════════
+     Dertien rijen onder elkaar, allemaal even zwaar, met "geen" en "nooit"
+     door elkaar als lege waarde. Nu tegels, en de dertien zijn opgesplitst
+     naar wat je ermee doet: iets vastleggen of opzoeken, tegenover lijsten
+     die je één keer inricht. Lege waardes laten we weg — die zeggen niets. */
+  const pt=(attr,ico,label,waarde,let2)=>`<button class="fasetegel ${let2?'let':''}" ${attr}>
+      <span class="ftico">${svg(ico)}</span>
+      <span class="ftn">${label}</span>
+      ${waarde?`<i class="ftt${let2?' amber':''}">${waarde}</i>`:''}</button>`;
+  const pl=n=>n?String(n):'';
+  const ij=laatsteIjking();
 
-  /* Deze lijsten stonden bij je bedrijfsprofiel, maar het zijn de bouwstenen
-     van je werk: je gebruikt ze hier, dus horen ze hier. */
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Waar je mee werkt</span></div>
-    <div class="paneel">
-      ${brij('data-ins="mallen"',I.bonbon,vakHoofd('mallen'),
-        mallen().length?mallen().length+' '+(mallen().length===1?vak('mal'):vak('mallen')):'geen')}
-      ${brij('data-ins="werkplan"',I.lijst,'Productiestappen',(S.werkplan||[]).length||'geen')}
-      ${brij('data-ins="activiteiten"',I.ververs,'Werkzaamheden',(S.activiteiten||[]).length||'geen')}
-      ${brij('data-ins="kleuren"',I.palet,'Kleuren',(S.kleuren||[]).length||'geen')}
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Voedselveiligheid</span></div>
+    <div class="fasetegels">
+      ${pt('data-haccp',I.klembord,'HACCP-registraties','')}
+      ${pt('data-trace',I.loep,'Lot terugzoeken','')}
+      ${pt('data-dossier',I.doc,'Dossier','voor de inspectie')}
+      ${pt('data-doosetiket',I.doc,'Doosetiket','gemengde doos')}
+      ${pt('data-ins2="ijking"',I.temp,'Thermometer ijken',
+        ij?kort(new Date(ij.datum)):'nooit gedaan',!ij)}
+    </div>
+
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Je eigen lijsten</span></div>
+    <div class="fasetegels">
+      ${pt('data-ins2="checks"',I.vink,'Openingscheck',pl(S.checks.length))}
+      ${pt('data-ins="meetpunten"',I.temp,'Meetpunten',pl((S.meetpunten||[]).length))}
+      ${pt('data-ins="zones"',I.huis,'Schoonmaakzones',pl((S.zones||[]).length))}
+      ${pt('data-ins="middelen"',I.fles,'Schoonmaakmiddelen',pl((S.middelen||[]).length))}
+      ${pt('data-ins="mallen"',I.bonbon,vakHoofd('mallen'),pl(mallen().length))}
+      ${pt('data-ins="werkplan"',I.lijst,'Productiestappen',pl((S.werkplan||[]).length))}
+      ${pt('data-ins="activiteiten"',I.ververs,'Werkzaamheden',pl((S.activiteiten||[]).length))}
+      ${pt('data-ins="kleuren"',I.palet,'Kleuren',pl((S.kleuren||[]).length))}
     </div>`;
   return h;
 }
@@ -11065,51 +11074,6 @@ function sheetOrder(id){
 /* De drie blokken van de voorraadtab, gebruikt of je nu wel of geen voorraad
    hebt — anders verandert het scherm van vorm zodra je eerste doos binnen is. */
 
-/* ── het lot terugzoeken ── */
-function sheetLotZoek(vooraf){
-  const toon=r=>{
-    if(!r) return '<div class="geen">Vul een lotnummer in.</div>';
-    if(!r.partij&&!r.batches.length)
-      return `<div class="geen">Lot ${esc(r.code)} komt nergens voor.</div>`;
-    let u='';
-    if(r.partij) u+=`<div class="paneel"><div class="ikkaart">
-      <span class="ikico">${svg(I.doos)}</span>
-      <span class="irl">${esc(r.partij.product||'')}</span>
-      <i class="irtijd">${esc(r.partij.leverancier||r.partij.tht||'')}</i></div></div>`;
-    u+=`<div class="stapkop" style="margin-top:16px"><span class="sk">Gebruikt in</span>
-        <span class="sn2">${r.batches.length}</span></div>`;
-    u+= r.batches.length
-      ? `<div class="paneel">${r.batches.map(x=>`<button class="ikkaart" data-lotbatch="${x.b.id}">
-          <span class="ikico">${svg(I.vorm)}</span>
-          <span class="irl">${esc(x.b.code||'')} · ${esc(bNamen(x.b))}</span>
-          <i class="irtijd">${esc(x.ingredienten.join(', '))}</i>
-          ${svg(I.pijl,'2')}</button>`).join('')}</div>`
-      : '<div class="geen">Nog in geen enkele batch verwerkt.</div>';
-    if(r.orders.length) u+=`<div class="stapkop" style="margin-top:16px">
-        <span class="sk">Geleverd aan</span><span class="sn2">${r.orders.length}</span></div>
-      <div class="paneel">${r.orders.map(o=>`<div class="ikkaart">
-        <span class="ikico">${svg(I.lijst)}</span>
-        <span class="irl">${esc(o.klant||o.naam||'klant onbekend')}</span>
-        <i class="irtijd">${esc(o.datum||'')}</i></div>`).join('')}</div>`;
-    return u;
-  };
-  const teken=r=>{
-    sheet('Lot terugzoeken',
-      `<div class="wwin" style="margin-bottom:14px">
-         <input class="inp" id="lzIn" placeholder="Lotnummer" value="${esc((r&&r.code)||vooraf||'')}"
-           enterkeyhint="search" autocapitalize="characters">
-         <button class="wwadd" id="lzOk">${svg(I.zoek)}</button></div>
-       <div id="lzUit">${toon(r)}</div>`, '');
-    const doe=()=>teken(lotHerkomst($('#lzIn').value));
-    $('#lzOk').onclick=veilig('lot zoeken',doe);
-    $('#lzIn').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); doe() } };
-    $$('#sheetBody [data-lotbatch]').forEach(x=>x.onclick=()=>{
-      S.tab='productie'; S.batchId=x.dataset.lotbatch; dicht(); render();
-    });
-  };
-  teken(vooraf?lotHerkomst(vooraf):null);
-}
-
 /* ── wanneer is het op, en wanneer bestel je ── */
 function sheetTempo(){
   const rijen=grondVoorraad().map(v=>({v, a:bestelAdvies(v)}))
@@ -11202,7 +11166,7 @@ function voorraadTegels(){
     </div>
     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Inzicht</span></div>
     <div class="fasetegels">
-      ${vt('data-lotzoek',I.zoek,'Lot terugzoeken','')}
+      ${vt('data-trace',I.zoek,'Lot terugzoeken','')}
       ${vt('data-tempo',I.klok,'Wanneer is het op','')}
       ${vt('data-nogmaken',I.vorm,'Wat kun je nog maken','')}
       ${vt('data-prijsverloop',I.euro,'Prijsverloop','')}
@@ -14829,7 +14793,6 @@ function bind(){
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-ingr]').forEach(x=>x.onclick=()=>sheetIngredientenLijst(false));
   $$('[data-partijen]').forEach(x=>x.onclick=sheetLots);
-  $$('[data-lotzoek]').forEach(x=>x.onclick=()=>{ sluitToetsenbord(); sheetLotZoek() });
   $$('[data-tempo]').forEach(x=>x.onclick=sheetTempo);
   $$('[data-nogmaken]').forEach(x=>x.onclick=sheetNogTeMaken);
   $$('[data-prijsverloop]').forEach(x=>x.onclick=sheetPrijsVerloop);
@@ -20121,35 +20084,6 @@ const gKey=p=>String(p||'').trim().toLowerCase();
    Deze gegevens verzamelde je al bij elke ontvangst en elke batch, maar ze
    werden nergens omgekeerd. Alles hieronder rekent alleen — er komt geen
    nieuwe invoer bij. */
-
-/* ── 1. waar zat dit lot in ──
-   Je vult bij elke batch lotnummers in, maar je kon ze niet terugzoeken. Bij
-   een terugroepactie is dat precies de vraag, en het is de reden dat je die
-   registratie bijhoudt. */
-function lotHerkomst(code){
-  const zoek=String(code||'').trim().toLowerCase();
-  if(!zoek) return null;
-  const partij=(S.lots||[]).find(l=>String(l.lot||'').toLowerCase()===zoek)
-    ||(S.ontvangsten||[]).find(o=>String(o.lot||'').toLowerCase()===zoek);
-  const batches=[];
-  (S.batches||[]).forEach(b=>{
-    const raak=[];
-    Object.keys(b.lots||{}).forEach(naam=>{
-      (alsLijst(b.lots[naam])||[]).forEach(c=>{
-        if(String(c||'').toLowerCase()===zoek) raak.push(naam);
-      });
-    });
-    if(raak.length) batches.push({b, ingredienten:raak});
-  });
-  /* en aan wie is dat gegaan? */
-  const orders=[];
-  batches.forEach(x=>{
-    (S.orders||[]).forEach(o=>{
-      if(String(o.batchId||'')===x.b.id && !orders.some(y=>y.id===o.id)) orders.push(o);
-    });
-  });
-  return {code:String(code).trim(), partij, batches, orders};
-}
 
 /* ── 2. hoe snel gaat dit op ──
    Uit je mutaties haal je hoeveel je per week verbruikt; met je saldo geeft
