@@ -3461,7 +3461,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v514 · 20 aug 2026';
+const APPVERSIE='v515 · 20 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7888,37 +7888,10 @@ function sheetPrijsopbouw(){
   $$('#sheetBody [data-prijsvoor]').forEach(x=>x.onclick=naarPrijzen);
 }
 
-function sheetVerkoopprijzen(){
-  const lijst=(S.recepten||[]).slice().sort((a,b2)=>a.naam.localeCompare(b2.naam));
-  sheet('Verkoopprijzen',
-    `<p class="hint">De prijs per bonbon die je aan de klant rekent, inclusief 9% btw.
-      Hieruit rekent de app je omzet, je marge en je aangifte.</p>
-     ${lijst.length?lijst.map(r=>{
-       const m=margeVan(r);
-       return `<div class="rrij">
-         <div class="rinfo"><div class="rnaam">${esc(r.naam)}</div>
-           <div class="rsub">${m&&m.marge!==null
-             ? 'kostprijs '+euro(m.kost)+' · marge '+euro(m.marge)+' ('+m.pct+'%)'
-             : (m?'kostprijs onbekend — vul je inkoopprijzen aan':'nog geen prijs')}</div></div>
-         <div class="qty"><input class="lotinp" style="width:88px" data-vk="${r.id}" type="number"
-           inputmode="decimal" step="0.05" placeholder="€" value="${verkoopPrijs(r.id)!==null?verkoopPrijs(r.id):''}"></div>
-       </div>`}).join('')
-      :'<div class="geen">Nog geen smaken. Voeg er eerst een toe.</div>'}`,
-    lijst.length?`<button class="prim" style="margin-top:0" id="vkOk">Opslaan</button>`:'');
-  if($('#vkOk')) $('#vkOk').onclick=()=>{
-    S.verkoop=S.verkoop||{};
-    $$('[data-vk]').forEach(i=>{
-      const w=i.value.trim(), k=i.dataset.vk;
-      if(w===''){ delete S.verkoop[k]; }
-      else {
-        const g=leesGetal(w,{min:0,max:GRENS.prijs});
-        if(g.fout){ toast(g.fout); return }
-        S.verkoop[k]=g.waarde;
-      }
-    });
-    bewaarNu(); dicht(); render(); toast('Verkoopprijzen opgeslagen.');
-  };
-}
+/* Er stonden twee schermen voor dezelfde vraag: dit, met dertien lege velden
+   en dertien keer "nog geen prijs", en het prijzenscherm dat wél een advies
+   uitrekent. Je landde steeds op de domme. Nu is er nog één. */
+function sheetVerkoopprijzen(){ return sheetPrijzen('consument') }
 
 function sheetBtw(){
   const teken=(jaar,kw)=>{
@@ -8231,27 +8204,50 @@ function sheetPrijzen(voor){
 function sheetPrijzenConsument(){
   const lijst=(S.recepten||[]).filter(smaakActief).slice().sort((a,b2)=>a.naam.localeCompare(b2.naam));
   const m=consMarge();
+
+  /* Dertien lege velden vragen je dertien keer hetzelfde. De app weet je
+     kostprijs en je marge; dan hoort zij het voorstel te doen en jij alleen
+     te corrigeren waar je het er niet mee eens bent. */
+  const met=lijst.map(r=>({r, a:prijsAdvies(r), eigen:verkoopPrijs(r.id)}));
+  const kanAdvies=met.filter(x=>x.a.incl!==null);
+  const nogNiet=met.filter(x=>x.eigen===null&&x.a.incl!==null).length;
+  const kosten=met.map(x=>x.a.kost).filter(x=>typeof x==='number');
+  const gemKost=kosten.length?kosten.reduce((a,b2)=>a+b2,0)/kosten.length:null;
+  const gemAdv=kanAdvies.length
+    ?kanAdvies.reduce((n,x)=>n+x.a.incl,0)/kanAdvies.length:null;
+
   sheet('Prijzen',
     `<div class="duo" id="pvK" style="margin-bottom:16px">
        <button class="aan" data-v="consument">Consument</button>
        <button data-v="zakelijk">Zakelijk</button></div>
 
-     <p class="hint">De prijs per bonbon in je webshop, inclusief 9% btw.
-       De app rekent een advies uit je kostprijs; je mag er zelf van afwijken.</p>
+     ${gemAdv!==null?`<div class="ikstart" style="margin-bottom:14px">
+       <span class="eyebrow">Gemiddeld per bonbon</span>
+       <b>${euro(gemKost)} kost \u2192 ${euro(gemAdv)}</b>
+       <span class="eyebrow" style="margin-top:4px">bij ${m}% marge, incl. btw</span></div>`:''}
 
-     ${lijst.length?`<div class="paneel">${lijst.map(r=>{
-       const a=prijsAdvies(r), eigen=verkoopPrijs(r.id);
+     ${nogNiet?`<button class="prim" style="margin-top:0;margin-bottom:16px" id="pcAlles">
+       ${svg(I.vink)}&nbsp;Zet ${nogNiet===kanAdvies.length?'alle '+nogNiet:nogNiet}
+       ${nogNiet===1?'smaak':'smaken'} op advies</button>`:''}
+
+     ${lijst.length?`<div class="paneel">${met.map(x=>{
+       const a=x.a, eigen=x.eigen;
        const onder=a.kost!==null&&eigen!==null&&(eigen/(1+BTW_ETEN))<a.kost;
+       const sub=a.kost===null
+         ? 'kostprijs onvolledig'
+         : 'kost '+euro(a.kost)+(a.incl!==null?' \u00b7 advies '+euro(a.incl):'');
        return `<div class="arij" style="cursor:default">
-         <span class="naam">${esc(r.naam)}<small>${a.kost===null
-           ? 'kostprijs onbekend \u2014 vul je inkoopprijzen aan'
-           : 'kostprijs '+euro(a.kost)+(a.incl!==null?' \u00b7 advies '+euro(a.incl):'')}</small></span>
-         <span class="qty"><input class="lotinp" style="width:92px" data-vk="${r.id}" type="number"
+         <span class="naam">${esc(x.r.naam)}<small${onder?' style="color:var(--rood)"':''}>${
+           onder?'onder je kostprijs':sub}</small></span>
+         <span class="qty"><input class="lotinp" style="width:92px" data-vk="${x.r.id}" type="number"
            inputmode="decimal" step="0.05" placeholder="${a.incl!==null?komma(a.incl.toFixed(2)):'\u20ac'}"
            value="${eigen!==null?eigen:''}"></span>
-       </div>${onder?`<div class="melding rood" style="margin:0 0 8px">${svg(I.alarm,'2')}
-         <span>Onder je kostprijs \u2014 je legt geld toe op ${esc(r.naam)}.</span></div>`:''}`}).join('')}</div>`
+       </div>`}).join('')}</div>`
       :'<div class="geen">Nog geen smaken. Voeg er eerst een toe.</div>'}
+
+     ${kanAdvies.length===0&&lijst.length?`<div class="melding amber" style="margin-top:14px">
+       ${svg(I.alarm,'2')}<span>Nog geen advies mogelijk: je kostprijs is niet compleet.
+       Vul je inkoopprijzen en je uurtarief aan.</span></div>`:''}
 
      <div class="veld" style="margin-top:18px"><label>Marge waarmee de app adviseert</label>
        <div class="rijtje">
@@ -8262,10 +8258,20 @@ function sheetPrijzenConsument(){
          daarna verhoogd met 9% en afgerond op 5 cent.</div>
        ${margeMelding(m,'consument')}
        ${m!==MARGEBAND.consument.advies?`<button class="miniknop" id="pcMAdv"
-         style="margin-top:10px">Zet op ${MARGEBAND.consument.advies}% — wat past bij handwerk</button>`:''}
+         style="margin-top:10px">Zet op ${MARGEBAND.consument.advies}% \u2014 wat past bij handwerk</button>`:''}
        </div>`,
-    lijst.length?`<button class="prim" style="margin-top:0" id="pcOk">Opslaan</button>
-      <button class="sec" id="pcAdvies">Advies overnemen</button>`:'');
+    lijst.length?`<button class="prim" style="margin-top:0" id="pcOk">Opslaan</button>`:'',
+    lijst.length?met.filter(x=>x.eigen!==null).length+' van '+lijst.length+' met prijs':'');
+
+  /* Eén tik zet ze allemaal én bewaart. Vergissing? De toast draait hem terug. */
+  if($('#pcAlles')) $('#pcAlles').onclick=()=>{
+    const herstel=terugpunt(['verkoop']);
+    S.verkoop=S.verkoop||{};
+    let n=0;
+    met.forEach(x=>{ if(x.eigen===null&&x.a.incl!==null){ S.verkoop[x.r.id]=x.a.incl; n++ } });
+    bewaarNu(); render(); sheetPrijzenConsument();
+    toast(n+' '+(n===1?'prijs':'prijzen')+' op advies gezet.',herstel);
+  };
 
   $$('#pvK button').forEach(x=>x.onclick=()=>{
     if(x.dataset.v==='zakelijk'){ S.prijsVoor='zakelijk'; bewaar(); sheetB2B() }
@@ -8280,16 +8286,6 @@ function sheetPrijzenConsument(){
     const n=getalIn($('#pcM').value);
     if(isNaN(n)||n<0||n>=100) return toast('Vul een marge tussen 0 en 99 in.');
     S.consMarge=n; bewaarNu(); sheetPrijzenConsument(); toast('Marge op '+komma(n)+'% gezet.');
-  };
-  if($('#pcAdvies')) $('#pcAdvies').onclick=()=>{
-    let n=0;
-    $$('[data-vk]').forEach(i=>{
-      const r=(S.recepten||[]).find(x=>x.id===i.dataset.vk); if(!r) return;
-      const a=prijsAdvies(r);
-      if(a.incl!==null){ i.value=a.incl.toFixed(2); n++ }
-    });
-    toast(n?n+' '+(n===1?'prijs':'prijzen')+' op advies gezet \u2014 nog niet opgeslagen.'
-           :'Geen advies mogelijk; vul eerst je inkoopprijzen aan.');
   };
   if($('#pcOk')) $('#pcOk').onclick=()=>{
     S.verkoop=S.verkoop||{};
@@ -10693,6 +10689,9 @@ function geldHTML(){
       ${gt('data-seizoen',I.spark,'Je jaar','')}
       ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','kost tot verkoop')}
       ${gt('data-breakeven',I.spark,'Wat moet je verkopen','om quitte te spelen')}
+      ${/* De calculator zat alleen achter een tabje binnen Prijzen, dat weer
+           onder Orders hing. Wie een winkel aan de lijn heeft zoekt hem hier. */''}
+      ${gt('data-prijsvoor',I.euro,'Je prijzen','consument en zakelijk')}
       ${/* Een tegel "Je doosjes" bestond al verderop; er hoeft er geen tweede
            bij. Ik was hem alleen niet tegengekomen omdat break-even het
            verkeerde systeem las. */''}
@@ -15554,6 +15553,7 @@ function bind(){
   $$('[data-ingr]').forEach(x=>x.onclick=()=>sheetIngredientenLijst(false));
   $$('[data-partijen]').forEach(x=>x.onclick=sheetLots);
   $$('[data-cijfers]').forEach(x=>x.onclick=sheetCijfers);
+  $$('[data-prijsvoor]').forEach(x=>x.onclick=()=>sheetPrijzen());
   $$('[data-peruur]').forEach(x=>x.onclick=sheetPerUur);
   $$('[data-derving]').forEach(x=>x.onclick=sheetDerving);
   $$('[data-seizoen]').forEach(x=>x.onclick=sheetSeizoen);
