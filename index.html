@@ -962,10 +962,23 @@ header .hbtn.zoek{display:none}
 .klokw .kwsub{display:block;font-style:normal;font-size:12px;color:var(--grijs2);
   margin-top:1px;font-variant-numeric:tabular-nums}
 /* de losse pijl rechts, zodat je ziet dat de hele kaart een knop is */
-.klokw>svg{width:15px;height:15px;flex:none;color:var(--grijs3)}
+/* De pijl zit sinds de springknop een laag dieper, in .kwhoofd. Zonder deze
+   selector valt hij terug op zijn standaardformaat en vult hij de kaart. */
+.klokw .kwhoofd>svg{width:15px;height:15px;flex:none;color:var(--grijs3)}
 .klokw.aan{border-color:var(--choco)}
 .klokw.aan .kwl b,.klokw.aan .kwr em{color:var(--choco)}
-.klokw:active{transform:scale(.99)}
+.klokw{position:relative}
+.klokw .kwhoofd{display:flex;align-items:center;gap:12px;flex:1;min-width:0;
+  text-align:left;background:none;padding:0}
+.klokw.metnext{padding-right:12px}
+/* de volgende stap als knop naast de klok: één tik in plaats van drie */
+.kwnext{flex:none;display:flex;align-items:center;gap:5px;max-width:126px;
+  background:var(--ink);color:#fff;border-radius:12px;padding:9px 11px;
+  font-size:12.5px;font-weight:600;letter-spacing:-.015em}
+.kwnext svg{width:13px;height:13px;flex:none}
+.kwnext em{font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kwnext:active{background:var(--choco)}
+.klokw .kwhoofd:active{opacity:.6}
 
 /* de route: stappen zijn verbonden, je ziet waar je bent */
 .groep.inroute{position:relative}
@@ -3380,7 +3393,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v489 · 18 aug 2026';
+const APPVERSIE='v490 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4651,8 +4664,8 @@ function klokWidgetHTML(){
     return `<button class="klokw" id="klokWidget">
       <span class="kwring">${ringSvg(Math.min(1,sec/doel0))}
         <i class="kwrt">${klokKort(sec)}</i></span>
-      <span class="kwl"><span class="eyebrow">Niet ingeklokt</span>
-        <b>Inklokken</b>
+      <span class="kwl"><span class="eyebrow">Nog niet begonnen</span>
+        <b>Begin je werkdag</b>
         <i class="kwsub">${sec?urenTekst(sec)+' vandaag gewerkt':'nog niets vandaag'}</i></span>
       ${svg(I.pijl,'2')}
     </button>`;
@@ -4665,20 +4678,40 @@ function klokWidgetHTML(){
   const gewerkt=Math.round((Date.now()-S.dienst.start)/1000);
   const doel=(S.dagdoel||8)*3600;
   const deel=Math.min(1,gewerkt/doel);
-  return `<button class="klokw aan" id="klokWidget">
+  /* ═══════════ de volgende stap in één tik ═══════════
+     Wisselen kostte drie tikken — widget open, eventueel een groep open,
+     kiezen — voor iets wat je vijftien keer per dag doet. De eerstvolgende
+     stap van je batch staat nu als knop op de widget zelf.
+
+     De widget is daarom een div met twee knoppen erin en niet zelf een knop:
+     een knop in een knop is ongeldige HTML en breekt de kaart. */
+  const bb=(S.batches||[]).find(x=>x.status==='bezig'||x.status==='loopt');
+  const volg=bb?planVolgende(bb):null;
+  const springKnop=(volg&&(!n||n.naam!==volg))
+    ? `<button class="kwnext" data-kwstap="${esc(volg)}"
+        aria-label="Beginnen met ${esc(volg)}">${svg(I.pijl,'2.4')}
+        <em>${esc(volg)}</em></button>` : '';
+  return `<div class="klokw aan${springKnop?' metnext':''}">
+    <button class="kwhoofd" id="klokWidget">
     <span class="kwring ${gewerkt>=doel?'vol':''}">
       ${ringSvg(deel)}
       <i class="kwrt ringtikker">${klokKort(gewerkt)}</i></span>
     <span class="kwl"><span class="eyebrow">Ingeklokt sinds ${
       pad(d.getHours())}:${pad(d.getMinutes())}</span>
       <b>${n?esc(n.naam):'Kies waar je aan werkt'}</b>
-      ${n?`<i class="kwsub"><span class="dienstikker">${
-        duurTekst(Date.now()-S.dienst.start)}</span> aan het werk · hier al <span
-        class="acttikker">${duurTekst(Date.now()-n.start)}</span></i>`
-        :`<i class="kwsub"><span class="dienstikker">${
-        duurTekst(Date.now()-S.dienst.start)}</span> loopt zonder categorie</i>`}</span>
-    ${svg(I.pijl,'2')}
-  </button>`;
+      ${springKnop
+        /* Met de springknop ernaast is er geen ruimte voor een lange derde
+           regel; je totale werktijd staat al in de ring. */
+        ? `<i class="kwsub">al <span class="acttikker">${
+            n?duurTekst(Date.now()-n.start):'00:00'}</span> bezig</i>`
+        : (n?`<i class="kwsub"><span class="dienstikker">${
+            duurTekst(Date.now()-S.dienst.start)}</span> aan het werk · hier al <span
+            class="acttikker">${duurTekst(Date.now()-n.start)}</span></i>`
+          :`<i class="kwsub"><span class="dienstikker">${
+            duurTekst(Date.now()-S.dienst.start)}</span> loopt zonder categorie</i>`)}</span>
+    ${springKnop?'':svg(I.pijl,'2')}
+    </button>${springKnop}
+  </div>`;
 }
 
 function klokbalkHTML(){
@@ -14494,6 +14527,26 @@ function bind(){
   $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
   $$('[data-account]').forEach(b=>b.onclick=()=>sheetJij());
   if($('#klokWidget')) $('#klokWidget').onclick=()=>{ sluitToetsenbord(); sheetInklok() };
+  $$('[data-kwstap]').forEach(x=>x.onclick=veilig('volgende stap',()=>{
+    const b2=(S.batches||[]).find(y=>y.status==='bezig'||y.status==='loopt');
+    if(!b2) return;
+    const vorige=(()=>{ const n2=nuAanHetWerk(); if(!n2) return null;
+      return n2.soort==='klus'
+        ? {soort:'klus',soortK:S.klus.soort,tekst:S.klus.tekst,start:S.klus.start}
+        : {soort:'batch',bId:n2.batch.id,act:n2.naam,start:n2.start}; })();
+    startWerk(b2,x.dataset.kwstap); bewaarNu(); render();
+    toast(x.dataset.kwstap+' loopt.',()=>{
+      const n3=nuAanHetWerk();
+      if(n3&&n3.soort!=='klus'){ const w=stopWerk(n3.batch);
+        if(w) n3.batch.werk=n3.batch.werk.filter(y=>y!==w) }
+      if(vorige&&vorige.soort==='batch'){
+        const b3=(S.batches||[]).find(y=>y.id===vorige.bId);
+        const w2=b3&&werkLijst(b3).find(y=>y.act===vorige.act&&y.start===vorige.start);
+        if(w2) w2.eind=null;
+      }
+      bewaarNu(); render();
+    });
+  }));
   $$('[data-batch]').forEach(b=>b.onclick=()=>{
     S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
     if(vergetenTimer()) return setTimeout(sheetTimerCorrectie,350);
@@ -16465,7 +16518,12 @@ function vergetenTimer(){
   /* Zes uur is normaal voor een productiedag, maar een klok die over
      middernacht doorloopt is dat nooit. Dan slaan we eerder aan. */
   const overNacht=iso(new Date(n.start))!==vandaag();
-  if(uren < (overNacht?3:6)) return null;
+  /* Fouten voorkomen is beter dan ze herstellen: loopt je klok nog ná de tijd
+     waarop je normaal stopt, dan vragen we het meteen in plaats van pas na
+     zes uur. */
+  const nuU=new Date().getHours()+new Date().getMinutes()/60;
+  const naSluit=!overNacht && nuU >= (S.dagEind||18) + 0.5 && uren>=1;
+  if(!naSluit && uren < (overNacht?3:6)) return null;
   /* "nee, hij loopt nog" houdt hem een uur stil */
   const gezien=n.soort==='dienst'?S.dienst.gezien
     :n.soort==='klus'?(S.klus&&S.klus.gezien):(n.w&&n.w.gezien);
@@ -16704,8 +16762,47 @@ function sheetInklok(){
     koppelInklok();
   }));
 
+  /* ═══════════ ongedaan maken ═══════════
+     Tikte je de verkeerde tegel aan, dan was je vorige activiteit al gestopt
+     en weggeschreven — weg was weg. Het enige wat op een uitweg leek was
+     "Weggooien", en dat gooide je hele werkdag weg: een tweede fout in plaats
+     van een herstel. Nu onthouden we de vorige stand en kun je vijf seconden
+     lang terug. */
+  function standNu(){
+    const n2=nuAanHetWerk();
+    if(!n2) return null;
+    if(n2.soort==='klus') return {soort:'klus', soortK:S.klus.soort, tekst:S.klus.tekst,
+      start:S.klus.start};
+    return {soort:'batch', bId:n2.batch.id, act:n2.naam, start:n2.start};
+  }
+  function herstelStand(v){
+    /* eerst wat er nu loopt weghalen, zonder het te bewaren */
+    const nu2=nuAanHetWerk();
+    if(nu2&&nu2.soort==='klus'){ S.klus=null }
+    else if(nu2){ const w=stopWerk(nu2.batch);
+      if(w) nu2.batch.werk=nu2.batch.werk.filter(x=>x!==w) }
+    if(!v){ badgeBij(); return }
+    if(v.soort==='klus'){
+      /* de zojuist afgesloten klus weer oppakken op zijn oude starttijd */
+      const i=(S.klussen||[]).findIndex(k=>k.start===v.start&&k.soort===v.soortK);
+      if(i>=0) S.klussen.splice(i,1);
+      S.klus={id:uid(),soort:v.soortK,tekst:v.tekst,start:v.start,datum:iso(new Date(v.start))};
+      badgeBij();
+    } else {
+      const b2=(S.batches||[]).find(x=>x.id===v.bId);
+      if(b2){ const w=werkLijst(b2).find(x=>x.act===v.act&&x.start===v.start);
+        if(w) w.eind=null; else werkLijst(b2).push({id:uid(),act:v.act,start:v.start,eind:null}); }
+    }
+  }
+
   function koppelInklok(){
-    const kies=fn=>veilig('inklokken',()=>{ fn(); bewaarNu(); dicht(); render() });
+    const kies=fn=>veilig('inklokken',()=>{
+      const vorige=standNu();
+      fn(); bewaarNu(); dicht(); render();
+      const nu2=nuAanHetWerk();
+      toast(nu2?nu2.naam+' loopt.':'Gestart.',
+        ()=>{ herstelStand(vorige); bewaarNu(); render() });
+    });
     $$('[data-inkstap]').forEach(x=>x.onclick=kies(()=>{
       if(b) startWerk(b,x.dataset.inkstap);
     }));
@@ -16714,6 +16811,7 @@ function sheetInklok(){
     }));
     $$('[data-inkklus]').forEach(x=>x.onclick=kies(()=>klusStart(x.dataset.inkklus,'')));
   }
+  window.__inklokKies=koppelInklok;
   koppelInklok();
   if($('#ikUit')) $('#ikUit').onclick=veilig('uitklokken',()=>{
     const n2=nuAanHetWerk();
@@ -24507,10 +24605,13 @@ setInterval(klokVangnet,60000);   /* elke minuut, niet elke tien */
 
 /* de widget op het dashboard tikt mee, welke klok er ook loopt */
 setInterval(()=>{
+  /* De ring hing aan het bestaan van .dienstikker, en die regel verdwijnt
+     zodra er een springknop naast staat — dan liep de ring niet meer mee.
+     De ring hoort bij de dienst, niet bij die ene tekstregel. */
   const dt=document.querySelector('.dienstikker');
-  if(dt&&S.dienst){
+  if(S.dienst){
     const t=duurTekst(Date.now()-S.dienst.start);
-    if(dt.textContent!==t) dt.textContent=t;
+    if(dt&&dt.textContent!==t) dt.textContent=t;
     /* de ring vult mee, zonder het hele scherm opnieuw te tekenen */
     const sec2=Math.round((Date.now()-S.dienst.start)/1000);
     const rt=document.querySelector('.ringtikker');
