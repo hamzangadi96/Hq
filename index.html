@@ -3397,7 +3397,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v494 · 18 aug 2026';
+const APPVERSIE='v495 · 18 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11064,6 +11064,110 @@ function sheetOrder(id){
 
 /* De drie blokken van de voorraadtab, gebruikt of je nu wel of geen voorraad
    hebt — anders verandert het scherm van vorm zodra je eerste doos binnen is. */
+
+/* ── het lot terugzoeken ── */
+function sheetLotZoek(vooraf){
+  const toon=r=>{
+    if(!r) return '<div class="geen">Vul een lotnummer in.</div>';
+    if(!r.partij&&!r.batches.length)
+      return `<div class="geen">Lot ${esc(r.code)} komt nergens voor.</div>`;
+    let u='';
+    if(r.partij) u+=`<div class="paneel"><div class="ikkaart">
+      <span class="ikico">${svg(I.doos)}</span>
+      <span class="irl">${esc(r.partij.product||'')}</span>
+      <i class="irtijd">${esc(r.partij.leverancier||r.partij.tht||'')}</i></div></div>`;
+    u+=`<div class="stapkop" style="margin-top:16px"><span class="sk">Gebruikt in</span>
+        <span class="sn2">${r.batches.length}</span></div>`;
+    u+= r.batches.length
+      ? `<div class="paneel">${r.batches.map(x=>`<button class="ikkaart" data-lotbatch="${x.b.id}">
+          <span class="ikico">${svg(I.vorm)}</span>
+          <span class="irl">${esc(x.b.code||'')} · ${esc(bNamen(x.b))}</span>
+          <i class="irtijd">${esc(x.ingredienten.join(', '))}</i>
+          ${svg(I.pijl,'2')}</button>`).join('')}</div>`
+      : '<div class="geen">Nog in geen enkele batch verwerkt.</div>';
+    if(r.orders.length) u+=`<div class="stapkop" style="margin-top:16px">
+        <span class="sk">Geleverd aan</span><span class="sn2">${r.orders.length}</span></div>
+      <div class="paneel">${r.orders.map(o=>`<div class="ikkaart">
+        <span class="ikico">${svg(I.lijst)}</span>
+        <span class="irl">${esc(o.klant||o.naam||'klant onbekend')}</span>
+        <i class="irtijd">${esc(o.datum||'')}</i></div>`).join('')}</div>`;
+    return u;
+  };
+  const teken=r=>{
+    sheet('Lot terugzoeken',
+      `<div class="wwin" style="margin-bottom:14px">
+         <input class="inp" id="lzIn" placeholder="Lotnummer" value="${esc((r&&r.code)||vooraf||'')}"
+           enterkeyhint="search" autocapitalize="characters">
+         <button class="wwadd" id="lzOk">${svg(I.zoek)}</button></div>
+       <div id="lzUit">${toon(r)}</div>`, '');
+    const doe=()=>teken(lotHerkomst($('#lzIn').value));
+    $('#lzOk').onclick=veilig('lot zoeken',doe);
+    $('#lzIn').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); doe() } };
+    $$('#sheetBody [data-lotbatch]').forEach(x=>x.onclick=()=>{
+      S.tab='productie'; S.batchId=x.dataset.lotbatch; dicht(); render();
+    });
+  };
+  teken(vooraf?lotHerkomst(vooraf):null);
+}
+
+/* ── wanneer is het op, en wanneer bestel je ── */
+function sheetTempo(){
+  const rijen=grondVoorraad().map(v=>({v, a:bestelAdvies(v)}))
+    .filter(x=>x.a).sort((a,b)=>a.a.dagenOver-b.a.dagenOver);
+  sheet('Wanneer is het op?',
+    rijen.length
+      ? `<div class="paneel">${rijen.map(x=>{
+          const a=x.a, nu2=a.bestelOver<=0;
+          return `<div class="ikkaart ${nu2?'aan':''}">
+            <span class="ikico">${svg(I.doos)}</span>
+            <span class="irl">${esc(x.v.product)}<em>${
+              a.dagenOver} ${a.dagenOver===1?'dag':'dagen'} · ${komma(Math.round(a.perWeek))} per week${
+              a.levertijd?' · levertijd '+a.levertijd+' d':''}</em></span>
+            <i class="irtijd${nu2?' rood':''}">${nu2?'nu bestellen':'bestel '+kort(new Date(a.bestelDatum))}</i>
+          </div>`;
+        }).join('')}</div>`
+      : '<div class="geen">Nog te weinig verbruik om iets te voorspellen. Na een paar batches staat het hier.</div>',
+    '', rijen.length?rijen.length+' artikelen':'');
+}
+
+/* ── hoeveel kun je nog maken ── */
+function sheetNogTeMaken(){
+  const r=(S.recepten||[]).map(x=>({r:x, u:batchesUitVoorraad(x)}))
+    .filter(x=>x.u).sort((a,b)=>a.u.stuks-b.u.stuks);
+  sheet('Wat kun je nog maken?',
+    r.length
+      ? `<div class="paneel">${r.map(x=>`<div class="ikkaart ${x.u.stuks?'':'aan'}">
+          <span class="ikico">${svg(I.vorm)}</span>
+          <span class="irl">${esc(x.r.naam||'')}<em>${
+            x.u.stuks?'eerst op: '+esc(x.u.knelpunt):'te weinig '+esc(x.u.knelpunt)}</em></span>
+          <i class="irtijd${x.u.stuks?'':' rood'}">${x.u.stuks} ${
+            x.u.stuks===1?'stuk':'stuks'}</i></div>`).join('')}</div>`
+      : '<div class="geen">Nog geen recepten met voorraad om mee te rekenen.</div>',
+    '', r.length?r.length+' smaken':'');
+}
+
+/* ── wat betaalde je hier door de tijd voor ── */
+function sheetPrijsVerloop(){
+  const per={};
+  (S.ontvangsten||[]).forEach(o=>{
+    if(!o.datum||!o.product) return;
+    (per[o.product]=per[o.product]||[]).push(o);
+  });
+  const namen=Object.keys(per).filter(n=>per[n].length>=2);
+  sheet('Prijsverloop',
+    namen.length
+      ? `<div class="paneel">${namen.map(n=>{
+          const l=per[n].slice().sort((a,b)=>String(a.datum).localeCompare(String(b.datum)));
+          return `<div class="ikkaart">
+            <span class="ikico">${svg(I.euro)}</span>
+            <span class="irl">${esc(n)}<em>${l.length} leveringen · sinds ${
+              kort(new Date(l[0].datum))}</em></span>
+            <i class="irtijd">${esc(l[l.length-1].leverancier||'')}</i></div>`;
+        }).join('')}</div>`
+      : '<div class="geen">Vanaf je tweede levering van hetzelfde product zie je hier het verloop.</div>',
+    '', namen.length?namen.length+' producten':'');
+}
+
 function voorraadTegels(){
   let h='';
   const vt=(attr,ico,label,waarde,let2)=>`<button class="fasetegel ${let2?'let':''}" ${attr}>
@@ -11095,6 +11199,13 @@ function voorraadTegels(){
         vpZonder?vpZonder+' zonder prijs':leeg(vpA.length),!!vpZonder)}
       ${vt('data-partijen',I.doos,'Partijen in huis',leeg((S.lots||[]).length))}
       ${vt('data-vmut',I.ververs,'Alle mutaties',leeg((S.mutaties||[]).length))}
+    </div>
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Inzicht</span></div>
+    <div class="fasetegels">
+      ${vt('data-lotzoek',I.zoek,'Lot terugzoeken','')}
+      ${vt('data-tempo',I.klok,'Wanneer is het op','')}
+      ${vt('data-nogmaken',I.vorm,'Wat kun je nog maken','')}
+      ${vt('data-prijsverloop',I.euro,'Prijsverloop','')}
     </div>
     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Instellen</span></div>
     <div class="fasetegels">
@@ -14718,6 +14829,10 @@ function bind(){
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-ingr]').forEach(x=>x.onclick=()=>sheetIngredientenLijst(false));
   $$('[data-partijen]').forEach(x=>x.onclick=sheetLots);
+  $$('[data-lotzoek]').forEach(x=>x.onclick=()=>{ sluitToetsenbord(); sheetLotZoek() });
+  $$('[data-tempo]').forEach(x=>x.onclick=sheetTempo);
+  $$('[data-nogmaken]').forEach(x=>x.onclick=sheetNogTeMaken);
+  $$('[data-prijsverloop]').forEach(x=>x.onclick=sheetPrijsVerloop);
 
   $$('[data-tht]').forEach(x=>x.onclick=sheetTHT);
   $$('[data-waardering]').forEach(x=>x.onclick=sheetWaardering);
@@ -20000,6 +20115,104 @@ function toonHoeveel(n,basis){
 }
 /* naam netjes vergelijkbaar maken, zodat 'Melkchocolade' en 'melkchocolade ' samenvallen */
 const gKey=p=>String(p||'').trim().toLowerCase();
+
+
+/* ═══════════ vier inzichten uit wat je al vastlegt ═══════════
+   Deze gegevens verzamelde je al bij elke ontvangst en elke batch, maar ze
+   werden nergens omgekeerd. Alles hieronder rekent alleen — er komt geen
+   nieuwe invoer bij. */
+
+/* ── 1. waar zat dit lot in ──
+   Je vult bij elke batch lotnummers in, maar je kon ze niet terugzoeken. Bij
+   een terugroepactie is dat precies de vraag, en het is de reden dat je die
+   registratie bijhoudt. */
+function lotHerkomst(code){
+  const zoek=String(code||'').trim().toLowerCase();
+  if(!zoek) return null;
+  const partij=(S.lots||[]).find(l=>String(l.lot||'').toLowerCase()===zoek)
+    ||(S.ontvangsten||[]).find(o=>String(o.lot||'').toLowerCase()===zoek);
+  const batches=[];
+  (S.batches||[]).forEach(b=>{
+    const raak=[];
+    Object.keys(b.lots||{}).forEach(naam=>{
+      (alsLijst(b.lots[naam])||[]).forEach(c=>{
+        if(String(c||'').toLowerCase()===zoek) raak.push(naam);
+      });
+    });
+    if(raak.length) batches.push({b, ingredienten:raak});
+  });
+  /* en aan wie is dat gegaan? */
+  const orders=[];
+  batches.forEach(x=>{
+    (S.orders||[]).forEach(o=>{
+      if(String(o.batchId||'')===x.b.id && !orders.some(y=>y.id===o.id)) orders.push(o);
+    });
+  });
+  return {code:String(code).trim(), partij, batches, orders};
+}
+
+/* ── 2. hoe snel gaat dit op ──
+   Uit je mutaties haal je hoeveel je per week verbruikt; met je saldo geeft
+   dat een aantal dagen, en met de levertijd van je leverancier een datum
+   waarop je uiterlijk moet bestellen. */
+function verbruikTempo(product, weken){
+  weken=weken||8;
+  const grens=new Date(); grens.setDate(grens.getDate()-weken*7);
+  const g=iso(grens);
+  let uit=0, eersteDag=null;
+  (S.gmut||[]).forEach(m=>{
+    if(gKey(m.product)!==gKey(product)) return;
+    if(!m.datum||m.datum<g) return;
+    if(m.aantal>=0) return;
+    uit+=Math.abs(m.aantal);
+    if(!eersteDag||m.datum<eersteDag) eersteDag=m.datum;
+  });
+  if(!uit) return null;
+  /* over hoeveel dagen is dit verbruik verspreid? minimaal een week, anders
+     maakt één grote batch de voorspelling onzinnig */
+  const dagen=Math.max(7, Math.round((Date.now()-new Date(eersteDag).getTime())/86400000));
+  return {perDag:uit/dagen, perWeek:uit/dagen*7, dagen, totaal:uit};
+}
+function bestelAdvies(v){
+  const t=verbruikTempo(v.product);
+  if(!t||!t.perDag||v.saldo<=0) return null;
+  const dagenOver=Math.floor(v.saldo/t.perDag);
+  const lev=art(v.product).leverancier||'';
+  const lt=levertijdVan(lev);
+  const bestelOver=dagenOver-lt;
+  const d=new Date(); d.setDate(d.getDate()+Math.max(0,bestelOver));
+  return {dagenOver, levertijd:lt, leverancier:lev, bestelOver, bestelDatum:iso(d),
+          perWeek:t.perWeek};
+}
+
+/* ── 3. hoeveel batches kun je hier nog uit halen ── */
+function batchesUitVoorraad(recept){
+  const nodig={};
+  (recept.onderdelen||[]).forEach(o=>{
+    verdeel(o,parseFloat(o.gram)||0).forEach(x=>{
+      if(x.naam) nodig[x.naam]=(nodig[x.naam]||0)+x.gram;
+    });
+  });
+  const vrd=grondVoorraad();
+  let minst=null, knelpunt='';
+  Object.keys(nodig).forEach(naam=>{
+    const per=nodig[naam]; if(!per) return;
+    const v=vrd.find(x=>gKey(x.product)===gKey(naam));
+    const saldo=v?v.saldo:0;
+    const stuks=Math.floor(saldo/per);
+    if(minst===null||stuks<minst){ minst=stuks; knelpunt=naam }
+  });
+  return minst===null?null:{stuks:minst, knelpunt};
+}
+
+/* ── 4. wat betaalde je hier door de tijd voor ── */
+function prijsVerloop(product){
+  const r=(S.ontvangsten||[]).filter(o=>gKey(o.product)===gKey(product)&&o.datum)
+    .map(o=>({datum:o.datum, hoeveel:parseFloat(o.hoeveel)||0, eenheid:o.eenheid||'g',
+              leverancier:o.leverancier||''}))
+    .sort((a,b)=>a.datum.localeCompare(b.datum));
+  return r;
+}
 
 function grondVoorraad(){
   const map={};
