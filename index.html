@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v537 · 21 aug 2026';
+const APPVERSIE='v538 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3761,7 +3761,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -10569,11 +10569,26 @@ function tempoPerUur(){
    administratie, je webshop en je inkoop in, en die maak je niet per bonbon.
    Ligt dit ver boven je schatting, dan besteed je veel tijd aan alles behalve
    bonbons maken \u2014 en dat is precies wat je wilt weten. */
+/* Hoeveel van je tijd gaat er echt naar bonbons maken? Coderen aan deze app,
+   je webshop bijhouden en inkoop doen zijn allemaal werk, maar je maakt er geen
+   bonbon mee. Reken je al je uren door in de kostprijs, dan lijkt een bonbon je
+   het dubbele te kosten van wat er in productie omgaat. Heb je batches geklokt,
+   dan weet de app de verhouding; anders schat je hem zelf. */
+const prodAandeel=()=>{
+  if(typeof S.prodAandeel==='number'&&S.prodAandeel>0&&S.prodAandeel<=100)
+    return S.prodAandeel/100;
+  const j=urenPeriode(jaarBegin(),jaarEind());
+  if(j.totaalSec&&j.prodSec) return j.prodSec/j.totaalSec;
+  return null;
+};
+
 function arbeidUitRegistratie(){
   const t=uurtarief(); if(!t) return null;
   const j=urenPeriode(jaarBegin(),jaarEind());
   const uren=j.totaalSec/3600;
   if(uren<1) return null;
+  const aandeel=prodAandeel();
+  const prodUren=aandeel!==null?uren*aandeel:null;
 
   const hand=prodMaanden(), gemeten=productieGemetenPerMaand();
   const jaar=String(new Date().getFullYear());
@@ -10584,6 +10599,8 @@ function arbeidUitRegistratie(){
   if(!stuks) return null;
 
   return {uren, stuks, perStuk:(uren*t)/stuks, prodSec:j.prodSec,
+          aandeel, prodUren,
+          perStukProd:prodUren!==null?(prodUren*t)/stuks:null,
           prodDeel:j.totaalSec?j.prodSec/j.totaalSec:0};
 }
 
@@ -10738,8 +10755,10 @@ function sheetUurtarief(){
   /* De toets: klopt je schatting met wat je echt registreerde? */
   const uitReg=()=>{
     const r=arbeidUitRegistratie(); if(!r) return '';
-    const verschil=m?r.perStuk/m.perStuk:null;
+    const eerlijk=r.perStukProd!==null?r.perStukProd:r.perStuk;
+    const verschil=m?eerlijk/m.perStuk:null;
     const ver=verschil!==null&&(verschil>1.6||verschil<0.6);
+    const pct=r.aandeel!==null?Math.round(r.aandeel*100):null;
     return `<div class="blokkop" style="margin-top:24px">
         <span class="eyebrow">Wat je registratie zegt</span></div>
       <div class="paneel">
@@ -10751,20 +10770,36 @@ function sheetUurtarief(){
           <span class="naam">Bonbons dit jaar<small>ingevuld en gemeten samen</small></span>
           <span class="waarde gevuld">${r.stuks}</span>
           <span class="p">${svg(I.pijl,'2')}</span></button>
+        ${r.prodUren!==null?`<div class="arij" style="cursor:default">
+          <span class="naam">Daarvan produceren<small>${pct}% van je tijd</small></span>
+          <span class="waarde gevuld">${komma(Math.round(r.prodUren*10)/10)} uur</span></div>
         <div class="arij" style="cursor:default">
+          <span class="naam">Komt neer op<small>productie-uren \u00f7 je bonbons</small></span>
+          <span class="waarde gevuld" style="font-weight:700">${euro(r.perStukProd)}</span></div>`
+        :`<div class="arij" style="cursor:default">
           <span class="naam">Zou neerkomen op<small>al je uren \u00f7 al je bonbons</small></span>
-          <span class="waarde gevuld" style="font-weight:700">${euro(r.perStuk)}</span></div>
+          <span class="waarde gevuld" style="font-weight:700">${euro(r.perStuk)}</span></div>`}
       </div>
+
+      <div class="veld" style="margin-top:12px"><label>Hoeveel van je tijd gaat naar produceren</label>
+        <div class="rijtje">
+          <input class="mini" id="utA" type="text" inputmode="decimal" style="max-width:96px"
+            value="${typeof S.prodAandeel==='number'?komma(S.prodAandeel):''}"
+            placeholder="${pct!==null?pct:'40'}">
+          <button class="miniknop" id="utAOk">Instellen</button></div>
+        <div class="hint" style="margin:8px 0 0">In procenten. Coderen, webshop, inkoop en
+          administratie zijn ook werk, maar daar maak je geen bonbon mee \u2014 die horen in je
+          vaste lasten of je marge, niet in je kostprijs.</div></div>
+
       <div class="melding ${ver?'amber':'groen'}" style="margin-top:10px">
         ${svg(ver?I.alarm:I.vink,'2')}<span>${
-          !m?'Dit is inclusief administratie, webshop en inkoop \u2014 die maak je niet per bonbon.'
+          !m?'Vergelijk dit met een productiedag hierboven.'
           :verschil>1.6
-            ? 'Ruim boven je schatting van '+euro(m.perStuk)+'. Hier zitten ook je administratie, '+
-              'webshop en inkoop in; gaat daar veel tijd heen, dan klopt dat. Zo niet, dan maak '+
-              'je minder bonbons per dag dan je denkt.'
+            ? 'Ruim boven je schatting van '+euro(m.perStuk)+'. Of je maakt er minder per dag '+
+              'dan je denkt, of er gaat meer tijd naar productie dan dit percentage zegt.'
           :verschil<0.6
             ? 'Ruim onder je schatting van '+euro(m.perStuk)+'. Waarschijnlijk staan niet al je '+
-              'gewerkte uren geregistreerd.'
+              'productie-uren geregistreerd.'
             : 'Ligt dicht bij je schatting van '+euro(m.perStuk)+'; je productiedag klopt.'}</span></div>`;
   };
 
@@ -10844,6 +10879,16 @@ function sheetUurtarief(){
     return {waarde:v};
   };
 
+  if($('#utA')) $('#utAOk').onclick=()=>{
+    const rauw=($('#utA').value||'').trim().replace(',','.');
+    const v=rauw===''?null:parseFloat(rauw);
+    if(rauw!==''&&(isNaN(v)||v<=0||v>100)) return toast('Vul een percentage tussen 1 en 100 in.');
+    const oud=S.prodAandeel;
+    S.prodAandeel=v;
+    bewaarNu(); sheetUurtarief(); render();
+    toast(v?v+'% van je tijd is productie.':'Weer op meten gezet.',
+      ()=>{ S.prodAandeel=oud; bewaarNu(); sheetUurtarief(); render() });
+  };
   if($('#utUren')) $('#utUren').onclick=()=>sheetUren();
   if($('#utStuks')) $('#utStuks').onclick=()=>sheetProductieJaar();
   $('#utOk').onclick=()=>{
@@ -22617,7 +22662,18 @@ function sheetProductieJaar(){
      <div class="ikstand" style="margin-top:16px">
        <span class="eyebrow">Gemiddeld per maand</span>
        <b id="pjGem">\u2014</b>
-       <span class="eyebrow" id="pjUit" style="margin-top:4px"></span></div>`,
+       <span class="eyebrow" id="pjUit" style="margin-top:4px"></span></div>
+
+     <div class="veld" style="margin-top:16px"><label>Of reken met een vast aantal</label>
+       <div class="rijtje">
+         <input class="inp" id="pjNorm" type="number" inputmode="numeric"
+           value="${typeof S.prodPerMaand==='number'?S.prodPerMaand:''}"
+           placeholder="Gemiddelde gebruiken">
+         <button class="miniknop" id="pjNormOk">Instellen</button></div>
+       <div class="hint" style="margin:8px 0 0">Je huur verandert niet als je een slechte maand
+         hebt, maar je kostprijs wel \u2014 en dan lijkt een bonbon duurder dan hij is. Reken je met
+         een vast aantal dat je normaal haalt, dan blijven je prijzen het hele jaar stabiel.
+         Leeg laten gebruikt het gemiddelde hierboven.</div></div>`,
     `<button class="prim" style="margin-top:0" id="pjOk">Opslaan</button>`);
 
   const tel=()=>{
@@ -22639,6 +22695,16 @@ function sheetProductieJaar(){
   $$('#sheetBody [data-pm]').forEach(i=>i.oninput=tel);
   tel();
 
+  if($('#pjNormOk')) $('#pjNormOk').onclick=()=>{
+    const rauw=($('#pjNorm').value||'').trim();
+    const v=rauw===''?null:parseInt(rauw,10);
+    if(rauw!==''&&(isNaN(v)||v<=0||v>1000000)) return toast('Vul een aantal tussen 1 en 1000000 in.');
+    const oud=S.prodPerMaand;
+    S.prodPerMaand=v;
+    bewaarNu(); sheetProductieJaar(); render();
+    toast(v?'Rekent nu met '+v+' per maand.':'Rekent weer met je gemiddelde.',
+      ()=>{ S.prodPerMaand=oud; bewaarNu(); sheetProductieJaar(); render() });
+  };
   $('#pjOk').onclick=()=>{
     const herstel=terugpunt(['prodMaanden','prodPerMaand']);
     const nieuw={};
