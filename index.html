@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v524 · 21 aug 2026';
+const APPVERSIE='v527 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3761,7 +3761,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -8493,7 +8493,10 @@ function sheetB2B(){
     if(!uurtarief()) return 'uurtarief niet ingesteld';
     const ap=arbeidPerBonbon();
     if(!ap) return 'vul erbij hoeveel bonbons je per uur maakt';
-    if(ap.geschat) return euro(uurtarief())+' per uur \u00f7 '+ap.perUur+' bonbons, geschat';
+    if(ap.geschat) return ap.model
+      ? komma(Math.round(ap.model.dagUur*10)/10)+' uur \u00d7 '+euro(uurtarief())+
+        ' \u00f7 '+ap.model.stuks+' bonbons per dag'
+      : euro(uurtarief())+' per uur \u00f7 '+ap.perUur+' bonbons, geschat';
     return 'gemeten over '+ap.batches+(ap.batches===1?' batch':' batches')+
       ' \u00b7 '+komma(ap.uren)+' uur, '+ap.stuks+' bonbons';
   };
@@ -10231,13 +10234,30 @@ function sheetKostenbasis(){
          :p.bron==='ingesteld'?'zelf ingesteld'
          :'nog geen afgeronde batches — vul zelf iets in'}</small></span>
        <span class="waarde gevuld">${p.n?p.n:'—'}</span></div></div>
-     <div class="veld" style="margin-top:12px">
+     <div class="veld" style="margin-top:12px"><label>Per maand</label>
        <div class="rijtje">
          <input class="inp" id="pmN" type="number" inputmode="numeric" placeholder="${p.n||'Bijv. 800'}"
            value="${typeof S.prodPerMaand==='number'?S.prodPerMaand:''}">
          <button class="miniknop" id="pmOk">Instellen</button></div>
        <div class="hint" style="margin:8px 0 0">Leeg laten laat de app het zelf meten
          zodra je batches hebt afgerond.</div></div>
+
+     ${(()=>{
+       /* Eén getal per maand invullen is preciezer dan een jaartotaal delen door
+          acht: je maakt in december nu eenmaal meer dan in juli. En het is
+          dezelfde beweging als bij je uren, dus je hoeft niet twee manieren te
+          onthouden. */
+       const g=prodGemiddeld();
+       return `<button class="arij" id="pmNaarJaar" style="margin-top:12px">
+         <span class="naam">Per maand invullen${g
+           ? `<small>${g.som} over ${g.maanden} ${g.maanden===1?'maand':'maanden'}</small>`
+           : `<small>wat je dit jaar per maand hebt gemaakt</small>`}</span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>`})()}
+
+     <div class="melding" style="margin-top:14px;background:var(--bg);color:var(--ink)">
+       ${svg(I.alarm,'2')}<span>Meer maken drukt alleen dit stukje van je kostprijs.
+       Grondstof en arbeid lopen gewoon mee omhoog. Vul in wat je \u00e9cht maakt \u2014
+       een te hoog getal maakt je bonbon op papier goedkoper dan hij is.</span></div>
 
      ${maand?`<div class="melding ${vb.per===null?'amber':''}" style="margin-top:14px;${
         vb.per===null?'':'background:var(--bg);color:var(--ink)'}">${svg(I.alarm,'2')}
@@ -10332,6 +10352,8 @@ function sheetKostenbasis(){
     S.vasteLasten.splice(parseInt(b.dataset.vlwis,10),1);
     bewaarNu(); sheetKostenbasis(); render(); toast('Post verwijderd.',herstel);
   });
+  /* live laten zien wat de deling oplevert, nog voor je op omrekenen tikt */
+  if($('#pmNaarJaar')) $('#pmNaarJaar').onclick=()=>sheetProductieJaar();
   $('#pmOk').onclick=()=>{
     const w=$('#pmN').value.trim(), n=parseInt(w,10);
     S.prodPerMaand = w&&n>0 ? n : null;
@@ -10351,6 +10373,26 @@ function sheetKostenbasis(){
 const uurtarief=()=>typeof S.uurtarief==='number'?S.uurtarief:0;
 /* gemiddelde arbeidskosten per bonbon, uit je afgeronde batches */
 const bonbonsPerUur=()=>typeof S.bonbonsPerUur==='number'&&S.bonbonsPerUur>0?S.bonbonsPerUur:0;
+const opstartUur=()=>typeof S.opstartUur==='number'&&S.opstartUur>0?S.opstartUur:0;
+const perDag=()=>typeof S.perDag==='number'&&S.perDag>0?S.perDag:0;
+
+/* Een productiedag is niet één lange rij handelingen die per bonbon meeschaalt.
+   Opzetten, tempereren, schoonmaken en de afwas kosten hetzelfde of je er nu
+   vijfhonderd of vijftienhonderd maakt; alleen vullen, sluiten en uithalen
+   schalen mee. Reken je met één plat tempo, dan lijkt elke extra bonbon een
+   volle portie arbeid te kosten en zie je je schaalvoordeel nooit. Deze functie
+   splitst het: de vaste dagtijd deel je over de oogst van die dag, het tempo
+   telt per stuk. */
+function arbeidModel(stuks){
+  const t=uurtarief(); if(!t) return null;
+  const tempo=bonbonsPerUur(), vast=opstartUur();
+  const n=stuks||perDag();
+  if(!tempo||!n) return null;
+  const makenUur=n/tempo;
+  const dagUur=vast+makenUur;
+  return {perStuk:(dagUur*t)/n, dagUur, makenUur, vastUur:vast, stuks:n,
+          vastDeel:vast?(vast*t)/n:0, tempoDeel:t/tempo};
+}
 
 /* Dit rekende alleen met afgeronde batches. Klopt — gemeten tijd is beter dan
    geschatte tijd. Maar zolang je nog geen batch hebt afgerond staat arbeid op
@@ -10366,6 +10408,9 @@ function arbeidPerBonbon(){
     const stuks=af.reduce((n,b)=>n+b.resultaat.goed,0);
     if(stuks) return {perStuk:(uren*t)/stuks,uren,stuks,batches:af.length,geschat:false};
   }
+  const m=arbeidModel();
+  if(m) return {perStuk:m.perStuk, perUur:bonbonsPerUur(), uren:0, stuks:0, batches:0,
+                geschat:true, model:m};
   const pu=bonbonsPerUur();
   if(pu>0) return {perStuk:t/pu, perUur:pu, uren:0, stuks:0, batches:0, geschat:true};
   return null;
@@ -10481,51 +10526,96 @@ function sheetWinst(){
 }
 
 function sheetUurtarief(){
+  const t=uurtarief(), tempo=bonbonsPerUur(), vast=opstartUur(), dag=perDag();
   const ap=arbeidPerBonbon();
-  const pu=bonbonsPerUur();
-  const t=uurtarief();
-  sheet('Uurtarief',
-    `<p class="hint">Wat is een uur van jou waard? Daarmee rekent de app arbeid mee in je
-      kostprijs en je resultaat.</p>
+  const m=arbeidModel();
+
+  /* wat gebeurt er als je meer op één dag maakt */
+  const scenario=()=>{
+    if(!m) return '';
+    const rijen=[Math.round(m.stuks*0.5),m.stuks,Math.round(m.stuks*1.5),m.stuks*2]
+      .filter((v,i,a)=>v>0&&a.indexOf(v)===i);
+    return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Als je meer op een dag maakt</span></div>
+      <div class="paneel">${rijen.map(n=>{const x=arbeidModel(n);
+        return `<div class="arij" style="cursor:default">
+          <span class="naam">${n} bonbons<small>${komma(Math.round(x.dagUur*10)/10)} uur werk</small></span>
+          <span class="waarde gevuld"${n===m.stuks?' style="font-weight:700"':''}>${euro(x.perStuk)}</span>
+        </div>`}).join('')}</div>
+      <p class="hint" style="margin-top:8px">De vaste ${komma(vast)} uur blijft hetzelfde,
+        dus hoe meer je op één dag draait, hoe dunner die over je bonbons wordt uitgesmeerd.</p>`;
+  };
+
+  sheet('Arbeid',
+    `<p class="hint">Wat is een uur van jou waard, en hoe verloopt een productiedag? Daarmee
+      rekent de app arbeid mee in je kostprijs.</p>
+
      <div class="veld"><label>Bedrag per uur</label>
        <input class="inp" id="utT" type="text" inputmode="decimal" step="0.5"
          value="${t||''}" placeholder="Bijv. 35"></div>
 
-     <div class="veld"><label>Hoeveel bonbons maak je in een uur?</label>
+     <div class="veld"><label>Vaste tijd per productiedag</label>
+       <input class="inp" id="utV" type="text" inputmode="decimal"
+         value="${vast||''}" placeholder="Bijv. 4">
+       <div class="hint" style="margin-top:6px">Opzetten, tempereren, schoonmaken, afwas en
+         registratie. Deze uren kosten hetzelfde of je er nu vijfhonderd of vijftienhonderd maakt.</div></div>
+
+     <div class="veld"><label>Daarna: bonbons per uur</label>
        <input class="inp" id="utP" type="number" inputmode="numeric"
-         value="${pu||''}" placeholder="Bijv. 60">
-       <div class="hint" style="margin-top:6px">Reken de hele gang mee: tempereren, mallen,
-         vullen, sluiten, uithalen en afwerken. Liever te laag schatten dan te hoog \u2014
-         een te hoog getal maakt je bonbon op papier goedkoper dan hij is.</div></div>
+         value="${tempo||''}" placeholder="Bijv. 150">
+       <div class="hint" style="margin-top:6px">Alleen het werk dat per bonbon meeschaalt:
+         vullen, sluiten, uithalen, afwerken.</div></div>
+
+     <div class="veld"><label>Bonbons op een gewone productiedag</label>
+       <input class="inp" id="utD" type="number" inputmode="numeric"
+         value="${dag||''}" placeholder="Bijv. 1200"></div>
 
      ${ap&&!ap.geschat
        ? `<div class="melding groen">${svg(I.vink,'2')}<span>Je hebt ${ap.batches}
            ${ap.batches===1?'batch':'batches'} afgerond; de app rekent met je gemeten tijd
            en negeert de schatting hierboven.</span></div>
           <div class="paneel"><div class="arij" style="cursor:default">
-            <span class="naam">Arbeid per bonbon<small>${getal(ap.uren)} uur over ${ap.stuks}
+            <span class="naam">Arbeid per bonbon<small>${komma(ap.uren)} uur over ${ap.stuks}
               bonbons</small></span>
             <span class="waarde gevuld">${euro(ap.perStuk)}</span></div></div>`
-       : (ap&&ap.geschat
-         ? `<div class="paneel"><div class="arij" style="cursor:default">
-              <span class="naam">Arbeid per bonbon<small>geschat: ${euro(t)} \u00f7 ${ap.perUur}
-                per uur</small></span>
-              <span class="waarde gevuld">${euro(ap.perStuk)}</span></div></div>
-            <p class="hint" style="margin-top:10px">Zodra je een batch afrondt met een aantal,
+       : (m
+         ? `<div class="paneel">
+              <div class="arij" style="cursor:default">
+                <span class="naam">Vaste dagtijd<small>${komma(vast)} uur \u00f7 ${m.stuks} bonbons</small></span>
+                <span class="waarde gevuld">${euro(m.vastDeel)}</span></div>
+              <div class="arij" style="cursor:default">
+                <span class="naam">Maken<small>${euro(t)} \u00f7 ${tempo} per uur</small></span>
+                <span class="waarde gevuld">${euro(m.tempoDeel)}</span></div>
+              <div class="arij" style="cursor:default">
+                <span class="naam">Arbeid per bonbon<small>dag van ${komma(Math.round(m.dagUur*10)/10)} uur</small></span>
+                <span class="waarde gevuld" style="font-weight:700">${euro(m.perStuk)}</span></div>
+            </div>
+            ${scenario()}
+            <p class="hint" style="margin-top:14px">Zodra je een batch afrondt met een aantal,
               rekent de app met je werkelijke tijd en vervangt hij dit vanzelf.</p>`
          : '')}`,
     `<button class="prim" style="margin-top:0" id="utOk">Opslaan</button>`);
 
+  const leesGetalje=(sel,max)=>{
+    const rauw=($(sel).value||'').trim().replace(',','.');
+    if(rauw==='') return {leeg:true,waarde:null};
+    const v=parseFloat(rauw);
+    if(isNaN(v)||v<0||v>max) return {fout:true};
+    return {waarde:v};
+  };
+
   $('#utOk').onclick=()=>{
-    const g=leesGetal($('#utT').value,{min:0,max:500,leegMag:true});
-    if(g.fout) return toast(g.fout);
-    const p=parseInt(($('#utP').value||'').trim(),10);
-    if(($('#utP').value||'').trim()&&(isNaN(p)||p<=0||p>5000))
-      return toast('Vul een aantal tussen 1 en 5000 in.');
-    S.uurtarief=!g.waarde||g.waarde<=0?null:g.waarde;
-    S.bonbonsPerUur=(isNaN(p)||p<=0)?null:p;
+    const tt=leesGetalje('#utT',500), vv=leesGetalje('#utV',24),
+          pp=leesGetalje('#utP',5000), dd=leesGetalje('#utD',100000);
+    if(tt.fout) return toast('Vul een uurtarief tussen 0 en 500 in.');
+    if(vv.fout) return toast('Vaste dagtijd moet tussen 0 en 24 uur liggen.');
+    if(pp.fout) return toast('Vul een tempo tussen 1 en 5000 per uur in.');
+    if(dd.fout) return toast('Vul een aantal per dag tussen 1 en 100000 in.');
+    S.uurtarief=tt.waarde&&tt.waarde>0?tt.waarde:null;
+    S.opstartUur=vv.waarde&&vv.waarde>0?vv.waarde:null;
+    S.bonbonsPerUur=pp.waarde&&pp.waarde>0?pp.waarde:null;
+    S.perDag=dd.waarde&&dd.waarde>0?dd.waarde:null;
     bewaarNu(); dicht(); render();
-    toast(S.uurtarief?'Uurtarief opgeslagen.':'Uurtarief gewist.');
+    toast(S.uurtarief?'Arbeid opgeslagen.':'Uurtarief gewist.');
   };
 }
 
@@ -22102,6 +22192,96 @@ function productiePerMaand(){
   const d=af.map(b=>b.eindDatum).sort();
   const dagen=Math.max(30,dagenTussen(d[0],d[d.length-1])+1);
   return {n:Math.max(1,Math.round(stuks/(dagen/30.4))),bron:'gemeten',stuks,dagen};
+}
+
+/* ═══════════ hoeveel maakte je per maand ═══════════
+   Je vaste lasten moeten ergens over verdeeld worden, en dat getal weet de app
+   pas als je batches afrondt. Tot die tijd ken jij het wel: je weet per maand
+   ongeveer wat eruit kwam. Een maand die je leeg laat telt niet mee; vul je er
+   een nul in, dan telt hij wél mee als maand zonder productie — want je huur
+   liep die maand gewoon door. */
+const prodMaanden=()=>(S.prodMaanden&&typeof S.prodMaanden==='object')?S.prodMaanden:{};
+
+function prodGemiddeld(){
+  const pm=prodMaanden();
+  const sl=Object.keys(pm).filter(k=>typeof pm[k]==='number');
+  if(!sl.length) return null;
+  const som=sl.reduce((n,k)=>n+pm[k],0);
+  return {gem:Math.max(1,Math.round(som/sl.length)), som, maanden:sl.length};
+}
+
+function sheetProductieJaar(){
+  const nu=new Date(), jaar=nu.getFullYear(), tot=nu.getMonth();
+  const mnd=[]; for(let i=0;i<=tot;i++) mnd.push(jaar+'-'+String(i+1).padStart(2,'0'));
+  const pm=prodMaanden();
+
+  /* wat er al uit afgeronde batches komt, per maand */
+  const gemeten={};
+  (S.batches||[]).forEach(b=>{
+    if(b.status!=='klaar'||!b.resultaat||!b.eindDatum) return;
+    const m=String(b.eindDatum).slice(0,7);
+    if(mnd.indexOf(m)<0) return;
+    gemeten[m]=(gemeten[m]||0)+(b.resultaat.goed||0);
+  });
+
+  sheet('Bonbons '+jaar,
+    `<p class="hint">Vul per maand in hoeveel bonbons je hebt gemaakt. Hiermee verdeelt de app
+       je vaste lasten. Een maand leeg laten telt niet mee; een nul telt wél mee \u2014 je huur
+       liep die maand ook door.</p>
+
+     <div class="paneel">${mnd.map(m=>{
+       const d=new Date(m+'-01'), v=pm[m];
+       return `<div class="arij" style="cursor:default">
+         <span class="naam">${MND[d.getMonth()]}${gemeten[m]?`<small>${gemeten[m]} uit batches</small>`:''}</span>
+         <span class="qty"><input class="lotinp" style="width:92px" data-pm="${m}" type="number"
+           inputmode="numeric" placeholder="${gemeten[m]||''}"
+           value="${typeof v==='number'?v:''}"></span>
+       </div>`}).join('')}</div>
+
+     <div class="ikstand" style="margin-top:16px">
+       <span class="eyebrow">Gemiddeld per maand</span>
+       <b id="pjGem">\u2014</b>
+       <span class="eyebrow" id="pjUit" style="margin-top:4px"></span></div>`,
+    `<button class="prim" style="margin-top:0" id="pjOk">Opslaan</button>`);
+
+  const tel=()=>{
+    let som=0, n=0;
+    $$('#sheetBody [data-pm]').forEach(i=>{
+      const rauw=(i.value||'').trim();
+      if(rauw==='') return;
+      const v=parseInt(rauw,10);
+      if(!isNaN(v)&&v>=0){ som+=v; n++ }
+    });
+    const gem=n?Math.max(1,Math.round(som/n)):null;
+    const lasten=vasteLastenPerMaand();
+    if($('#pjGem')) $('#pjGem').textContent=gem?gem+' stuks':'\u2014';
+    if($('#pjUit')) $('#pjUit').textContent=gem
+      ? som+' over '+n+(n===1?' maand':' maanden')+
+        (lasten?' \u00b7 vaste lasten '+euro(lasten/gem)+' per bonbon':'')
+      : 'nog niets ingevuld';
+  };
+  $$('#sheetBody [data-pm]').forEach(i=>i.oninput=tel);
+  tel();
+
+  $('#pjOk').onclick=()=>{
+    const herstel=terugpunt(['prodMaanden','prodPerMaand']);
+    const nieuw={};
+    let fout=null;
+    $$('#sheetBody [data-pm]').forEach(i=>{
+      const rauw=(i.value||'').trim();
+      if(rauw==='') return;
+      const v=parseInt(rauw,10);
+      if(isNaN(v)||v<0||v>1000000) fout='Vul per maand een aantal tussen 0 en 1000000 in.';
+      else nieuw[i.dataset.pm]=v;
+    });
+    if(fout) return toast(fout);
+    S.prodMaanden=nieuw;
+    /* het gemiddelde is meteen ook het getal waar de rest mee rekent */
+    const g=prodGemiddeld();
+    S.prodPerMaand=g?g.gem:null;
+    bewaarNu(); dicht(); render();
+    toast(g?'Gemiddeld '+g.gem+' per maand.':'Maandcijfers gewist.',herstel);
+  };
 }
 
 function vastPerBonbon(){
