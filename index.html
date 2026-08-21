@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v546 · 21 aug 2026';
+const APPVERSIE='v547 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7886,10 +7886,16 @@ function doosjeKosten(d){
   });
   const verp=onder.reduce((n,x)=>n+(x.totaal||0),0);
   const zonder=onder.filter(x=>x.prijs===null).map(x=>x.product);
-  /* wat een bonbon gemiddeld kost aan grondstof en arbeid */
-  const sm=(S.recepten||[]).filter(smaakActief)
-    .map(r=>dekkingBonbon(r)).filter(Boolean);
-  const perBonbon=sm.length?sm.reduce((n,x)=>n+x.variabel,0)/sm.length:null;
+  /* Wat een bonbon kost aan grondstof en arbeid. Dit liep via dekkingBonbon,
+     en die geeft niets zolang een smaak geen verkoopprijs heeft \u2014 want het is
+     een dekkings\u00e1\u00e1nbijdrage en die kun je zonder prijs niet berekenen. Maar wat
+     een bonbon kóst hangt niet van je verkoopprijs af. Daardoor bleef de hele
+     doosjesberekening leeg terwijl alle kosten gewoon bekend waren. */
+  const sm=(S.recepten||[]).filter(r=>smaakActief(r)&&(r.onderdelen||[]).length)
+    .map(r=>kostprijsVol(r))
+    .filter(k=>k.grondNa!==null)
+    .map(k=>k.grondNa+(k.arbeid||0));
+  const perBonbon=sm.length?sm.reduce((n,x)=>n+x,0)/sm.length:null;
   const aantal=parseInt(d.aantal,10)||0;
   const bonbons=perBonbon===null?null:perBonbon*aantal;
   const kost=bonbons===null?null:verp+bonbons+extra;
