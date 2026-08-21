@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v544 · 21 aug 2026';
+const APPVERSIE='v545 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7678,7 +7678,7 @@ function sheetHoeveel(){
   const F=(vasteLastenPerMaand()||0)+(afschrijvingPerMaand()||0);
   const eerste=r?r.find(x=>x.haalbaar):null;
 
-  sheet('Hoeveel moet je maken',
+  sheet('Wat moet je verkopen',
     !r
     ? `<div class="geen">Hiervoor moet je kostprijs compleet zijn: grondstoffen, uurtarief
          en een productiedag.</div>
@@ -7734,12 +7734,17 @@ function sheetHoeveel(){
          return `<div class="paneel">${dz.map(d=>{
            const k=doosjeKosten(d);
            const inh=parseInt(d.aantal,10);
-           const bij=(k.excl===null||k.kost===null)?null:k.excl-k.kost;
+           /* Heb je nog geen prijs gezet, dan bleef deze regel leeg en zei het
+              scherm niets. Rekenen met je eigen adviesprijs geeft je wel een
+              antwoord \u2014 met erbij dat het het advies is. */
+           const prijs=k.vk!==null?k.vk:k.advies;
+           const excl=prijs===null?null:prijs/(1+BTW_ETEN);
+           const bij=(excl===null||k.kost===null)?null:excl-k.kost;
            const be=bij>0?Math.ceil(F/bij):null;
            const metDoel=bij>0?Math.ceil((F+doel)/bij):null;
            return `<button class="arij" data-hvdoos="${d.id}">
              <span class="naam">${esc(d.naam||'Doosje')} \u00b7 ${inh}
-               <small>${k.vk!==null?euro(k.vk):'geen prijs'}${
+               <small>${prijs!==null?euro(prijs)+(k.vk===null?' (advies)':''):'geen prijs'}${
                  k.kost!==null?' \u00b7 kost '+euro(k.kost):''}${
                  bij!==null?(bij>0?' \u00b7 houdt '+euro(bij)+' over':' \u00b7 verlies per doosje'):''}</small></span>
              ${bij!==null?`<span class="stip ${bij>0?'groen':'rood'}"></span>`:''}
@@ -11577,8 +11582,7 @@ function sheetGeldLoopt(){
   sheetKeuze('Hoe draait het',[
     {naam:'Per gewerkt uur', ico:I.klok, waarde:pu?euro(pu.perUur):'', doe:sheetPerUur},
     {naam:'Je jaar', ico:I.spark, waarde:'', doe:sheetSeizoen},
-    {naam:'Wat moet je verkopen', ico:I.spark, waarde:'', doe:sheetBreakEven},
-    {naam:'Hoeveel moet je maken', ico:I.doos, waarde:'', doe:sheetHoeveel}
+    {naam:'Wat moet je verkopen', ico:I.spark, waarde:'', doe:sheetHoeveel}
   ]);
 }
 
