@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v522 · 20 aug 2026';
+const APPVERSIE='v524 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7193,6 +7193,18 @@ function sheetUren(){
          geen belastingadvies — leg het naast je eigen administratie.</p>
      </div>
 
+     ${(()=>{
+       /* De klok telt vanaf de dag dat je hem in gebruik nam. Alles daarvóór
+          ontbreekt, en juist hier \u2014 onder een teller die op 2% staat \u2014 wil je
+          dat kunnen aanvullen. Als voetknop stond hij naast twee andere op
+          390 pixels; dan brak de tekst en zag je hem niet eens. */
+       const inge=(S.klussen||[]).filter(x=>x.bron==='maandtotaal').length;
+       return `<button class="arij" id="uNaarJaar" style="margin-top:10px">
+         <span class="naam">Uren van eerder dit jaar${
+           inge?`<small>${inge} ${inge===1?'maand':'maanden'} ingevuld</small>`
+              :`<small>per maand aanvullen wat je niet hebt geklokt</small>`}</span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>`})()}
+
      ${recent.length?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Laatst geregistreerd</span>
        <span class="tel">${(S.klussen||[]).length}</span></div>
        <div class="paneel">${recent.map(x=>{const so=klusSoort(x.soort);
@@ -7204,7 +7216,6 @@ function sheetUren(){
            'data-uwis="'+x.id+'"')}).join('')}</div>`:''}`,
 
     `<button class="prim" style="margin-top:0" id="uHand">${svg(I.plus)}Uren achteraf invoeren</button>
-     <button class="sec" id="uJaar">${svg(I.klok)}Dit jaar per maand</button>
      <button class="sec" id="uStaat">${svg(I.doc)}Urenstaat printen</button>`);
 
   $$('[data-ustart]').forEach(b=>b.onclick=()=>{
@@ -7224,7 +7235,7 @@ function sheetUren(){
     sluitVeeg(); bewaarNu(); sheetUren(); render(); toast('Registratie verwijderd.',herstel);
   });
   $('#uHand').onclick=()=>sheetUrenHand();
-  $('#uJaar').onclick=()=>sheetUrenJaar();
+  if($('#uNaarJaar')) $('#uNaarJaar').onclick=()=>sheetUrenJaar();
   $('#uStaat').onclick=()=>sheetUrenstaat();
   setTimeout(bindVeeg,20);
 }
@@ -8475,17 +8486,23 @@ function sheetB2B(){
      "nog niet ingevuld" onder vaste lasten terwijl er 612 euro per maand in
      staat is gewoon onwaar: het bedrag is er, alleen weet de app niet over
      hoeveel bonbons hij het moet verdelen. */
+  /* Een bedrag zonder herkomst kun je niet beoordelen. \u20ac 1,10 arbeid per bonbon
+     ziet er willekeurig uit tot er staat dat het \u20ac 35 gedeeld door 32 bonbons
+     per uur is \u2014 dan zie je meteen dat je te traag hebt geschat. */
   const waaromArbeid=()=>{
     if(!uurtarief()) return 'uurtarief niet ingesteld';
-    if(!arbeidPerBonbon()) return 'vul erbij hoeveel bonbons je per uur maakt';
-    return '';
+    const ap=arbeidPerBonbon();
+    if(!ap) return 'vul erbij hoeveel bonbons je per uur maakt';
+    if(ap.geschat) return euro(uurtarief())+' per uur \u00f7 '+ap.perUur+' bonbons, geschat';
+    return 'gemeten over '+ap.batches+(ap.batches===1?' batch':' batches')+
+      ' \u00b7 '+komma(ap.uren)+' uur, '+ap.stuks+' bonbons';
   };
   const vb2=vastPerBonbon();
   const waaromVast=()=>{
     if(!vb2.maand) return 'nog geen vaste lasten ingevuld';
     if(vb2.per===null) return euro(vb2.maand)+' per maand, maar de app weet niet over hoeveel '+
       'bonbons hij dat moet verdelen';
-    return '';
+    return euro(vb2.maand)+' per maand \u00f7 '+vb2.prod+' bonbons';
   };
 
   sheet('Prijzen',
@@ -8528,13 +8545,14 @@ function sheetB2B(){
      <div class="blokkop"><span class="eyebrow">Kostprijs per bonbon</span>
        <span class="tel">${b.kostBonbon!==null?euro(b.kostBonbon):'\u2014'}</span></div>
      <div class="paneel">
-       ${rij('Grondstoffen',b.kv.grondNa!==null?euro(b.kv.grondNa):'—',
-             b.kv.dervingPct?'inclusief '+komma(b.kv.dervingPct)+'% derving':'')}
-       ${rij('Arbeid',b.kv.arbeid?euro(b.kv.arbeid):'\u2014',waaromArbeid(),
-             b.kv.arbeid?'':'uur')}
-       ${rij('Vaste lasten',b.kv.vast?euro(b.kv.vast):'\u2014',waaromVast(),
-             b.kv.vast?'':'vast')}
-       ${rij('Verpakking',euro(b.vp.per),v&&v.regels&&v.regels.length?'over '+b.inh+' bonbons':'geen verpakking')}
+       ${rij('Grondstoffen',b.kv.grondNa!==null?euro(b.kv.grondNa):'\u2014',
+             b.kv.dervingPct?'inclusief '+komma(b.kv.dervingPct)+'% derving':'',
+             'grond')}
+       ${rij('Arbeid',b.kv.arbeid?euro(b.kv.arbeid):'\u2014',waaromArbeid(),'uur')}
+       ${rij('Vaste lasten',b.kv.vast?euro(b.kv.vast):'\u2014',waaromVast(),'vast')}
+       ${rij('Verpakking',euro(b.vp.per),
+             v&&v.regels&&v.regels.length?'over '+b.inh+' bonbons':'geen verpakking',
+             'verp')}
      </div>
 
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Jouw prijs</span>
@@ -8568,7 +8586,7 @@ function sheetB2B(){
          dan houdt hij <b>${af.pct}%</b> over.${af.pct<40
            ? ' Winkels rekenen meestal op 40 tot 50 procent — jouw prijs is voor hen aan de hoge kant.'
            : ''}</span></div>`
-      :`<div class="hint" style="margin-top:14px">Vul een consumentenprijs in bij Verkoopprijzen,
+      :`<div class="hint" style="margin-top:14px">Vul een consumentenprijs in bij <b>Consument</b> hierboven,
          dan zie je ook wat je afnemer overhoudt.</div>`}
 
      <p class="hint" style="margin-top:20px">Leveringsvormen en staffel stel je in bij
@@ -8593,7 +8611,11 @@ function sheetB2B(){
     zetMarge(getalIn($('#bqM').value))}};
   if($('#bqMAdv')) $('#bqMAdv').onclick=()=>zetMarge(MARGEBAND.zakelijk.advies);
   $$('#sheetBody [data-kv]').forEach(x=>x.onclick=()=>{
-    if(x.dataset.kv==='uur') sheetUurtarief(); else sheetKostenbasis();
+    const w=x.dataset.kv;
+    if(w==='uur') sheetUurtarief();
+    else if(w==='grond') sheetIngredientenLijst(false);
+    else if(w==='verp') sheetVerpakkingLijst();
+    else sheetKostenbasis();
   });
   const lees=()=>{const n=parseInt($('#bqN').value,10); B2B.stuks=n>0?n:1; sheetB2B()};
   $('#bqOk').onclick=lees;
