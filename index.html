@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v530 · 21 aug 2026';
+const APPVERSIE='v532 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8369,11 +8369,131 @@ let B2B={smaak:null,vorm:null,stuks:96};
 /* Eén scherm voor je prijzen; je kiest bovenin voor wie je rekent.
    Consument en zakelijk delen dezelfde kostprijs — alleen je marge,
    de btw en de staffel verschillen. */
+/* ═══════════ prijzen: één scherm, drie blokken ═══════════
+   Hiervoor was dit een schakelaar tussen consument en zakelijk, waarbij de
+   consumentkant dertien lege velden was en je doosjes \u2014 je eigenlijke
+   verkoopproduct \u2014 ergens anders stonden. Nu op volgorde van hoe je verkoopt:
+   wat kost een bonbon bij jou, wat kost een doosje, en wat betaalt een winkel.
+   De dertien smaken blijven bestaan, maar als lijst waar je naar kijkt in
+   plaats van een formulier dat je moet invullen. */
 function sheetPrijzen(voor){
-  if(voor) S.prijsVoor=voor;
-  if(S.prijsVoor!=='consument'&&S.prijsVoor!=='zakelijk') S.prijsVoor='consument';
-  if(S.prijsVoor==='zakelijk') return sheetB2B();
-  return sheetPrijzenConsument();
+  if(voor==='zakelijk') return sheetB2B();
+  if(voor==='consument') return sheetPrijzenConsument();
+  return sheetPrijsOverzicht();
+}
+
+function sheetPrijsOverzicht(){
+  const lijst=(S.recepten||[]).filter(smaakActief);
+  const met=lijst.map(r=>({r, a:prijsAdvies(r), eigen:verkoopPrijs(r.id)}));
+  const mp=met.filter(x=>x.eigen!==null).length;
+  const kosten=met.map(x=>x.a.kost).filter(x=>typeof x==='number');
+  const gemKost=kosten.length?kosten.reduce((a,b)=>a+b,0)/kosten.length:null;
+  const kanAdv=met.filter(x=>x.a.incl!==null);
+  const gemAdv=kanAdv.length?kanAdv.reduce((n,x)=>n+x.a.incl,0)/kanAdv.length:null;
+  const eigenPr=met.filter(x=>x.eigen!==null).map(x=>x.eigen);
+  const gemEigen=eigenPr.length?eigenPr.reduce((a,b)=>a+b,0)/eigenPr.length:null;
+  const dozen=alsLijst(S.doosjes);
+  const m=consMarge();
+
+  /* mist er iets in de kostprijs, dan deugt geen enkel advies hieronder */
+  const gat=[];
+  if(!arbeidPerBonbon()) gat.push('arbeid');
+  if(vastPerBonbon().per===null) gat.push('vaste lasten');
+
+  sheet('Prijzen',
+    `${gat.length?`<button class="melding rood" data-naarkost style="width:100%;text-align:left;
+       font:inherit;font-size:13.5px;border:0;cursor:pointer">${svg(I.alarm,'2')}
+       <span>Je kostprijs mist ${gat.join(' en ')}. Elk advies hieronder is te laag \u2014
+       tik om aan te vullen.</span></button>`:''}
+
+     <div class="blokkop"><span class="eyebrow">Per bonbon</span>
+       <span class="tel">${mp}/${lijst.length}</span></div>
+     ${gemAdv!==null?`<button class="ikstart" id="poKost" style="width:100%;text-align:left;
+        border:0;cursor:pointer;font:inherit">
+       <span class="eyebrow">Gemiddeld</span>
+       <b>${euro(gemKost)} kost \u2192 ${euro(gemAdv)}</b>
+       <span class="eyebrow" style="margin-top:4px">bij ${m}% marge \u00b7 tik voor de opbouw</span>
+       </button>`:''}
+     <div class="veld" style="margin-top:12px"><label>Eén prijs voor al je smaken</label>
+       <div class="rijtje">
+         <input class="inp" id="poBasis" type="text" inputmode="decimal"
+           placeholder="${gemAdv!==null?komma(gemAdv.toFixed(2)):'\u20ac'}"
+           value="${gemEigen!==null&&eigenPr.every(p=>p===eigenPr[0])?komma(gemEigen.toFixed(2)):''}">
+         <button class="miniknop" id="poBasisOk">Toepassen</button></div>
+       <div class="hint" style="margin:8px 0 0">Zet alle ${lijst.length} smaken op dit bedrag.
+         Een smaak die duurder moet, pas je daarna los aan.</div></div>
+     <div id="poMarkt">${marktBalk(gemEigen!==null?gemEigen:gemAdv,'bonbon')}</div>
+     <button class="arij" id="poSmaken" style="margin-top:10px">
+       <span class="naam">Alle ${lijst.length} smaken<small>kostprijs, marge en uitzonderingen</small></span>
+       <span class="p">${svg(I.pijl,'2')}</span></button>
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Doosjes</span>
+       <span class="tel">${dozen.length}</span></div>
+     ${dozen.length?`<div class="paneel">${dozen.map(d=>{
+       const k=doosjeKosten(d), aant=parseInt(d.aantal,10)||0;
+       const perB=k.vk!==null&&aant?k.vk/aant:null;
+       const o=marktOordeel(perB,'doosje');
+       return `<button class="arij" data-podoos="${d.id}">
+         <span class="naam">${esc(d.naam||'Doosje')}${aant?` \u00b7 ${aant}`:''}
+           <small>${k.kostVol!==null?'kost '+euro(k.kostVol):''}${
+             k.pctVol!==null?' \u00b7 '+k.pctVol+'% marge':''}${
+             perB!==null?' \u00b7 '+euro(perB)+' p/st':''}</small></span>
+         ${o?`<span class="stip ${o.klas}"></span>`:''}
+         <span class="waarde gevuld">${k.vk!==null?euro(k.vk):(k.advies!==null?euro(k.advies):'')}</span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>`}).join('')}</div>`
+      :`<button class="arij" data-podoos=""><span class="naam">Nog geen doosjes
+         <small>stel er een samen uit je verpakkingsonderdelen</small></span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>`}
+
+     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Zakelijk</span>
+       <span class="tel">${b2bMarge()}% marge</span></div>
+     <div class="paneel">
+       ${(()=>{
+         const kv=met.length?kostprijsVol(met[0].r):null;
+         const kost=gemKost;
+         const bx=(kost===null||b2bMarge()>=100)?null:mooiePrijs(kost/(1-b2bMarge()/100),0.05);
+         const o=marktOordeel(bx,'zakelijk');
+         return `<div class="arij" style="cursor:default">
+           <span class="naam">Per bonbon in bulk<small>${bx!==null
+             ?'excl. btw'+(o?' \u00b7 '+o.kort:''):'kostprijs onvolledig'}</small></span>
+           ${o?`<span class="stip ${o.klas}"></span>`:''}
+           <span class="waarde gevuld">${bx!==null?euro(bx):''}</span></div>`})()}
+       ${dozen.filter(d=>doosjeKosten(d).b2bExcl!==null).map(d=>{
+         const k=doosjeKosten(d);
+         return `<div class="arij" style="cursor:default">
+           <span class="naam">${esc(d.naam||'Doosje')}<small>${
+             k.b2bAfnemer!==null?'winkel houdt '+k.b2bAfnemer+'% over':'excl. btw'}</small></span>
+           ${k.b2bAfnemer!==null?`<span class="stip ${k.b2bAfnemer<40?'amber':'groen'}"></span>`:''}
+           <span class="waarde gevuld">${euro(k.b2bExcl)}</span></div>`}).join('')}
+     </div>
+     <button class="arij" id="poB2B" style="margin-top:10px">
+       <span class="naam">Doorrekenen voor een klant<small>aantal, staffel en offerte</small></span>
+       <span class="p">${svg(I.pijl,'2')}</span></button>`,
+    '');
+
+  if($('#poKost')) $('#poKost').onclick=()=>sheetKostprijzen();
+  if($('#poSmaken')) $('#poSmaken').onclick=()=>sheetPrijzenConsument();
+  if($('#poB2B')) $('#poB2B').onclick=()=>sheetB2B();
+  $$('#sheetBody [data-naarkost]').forEach(x=>x.onclick=sheetGeldKostprijs);
+  $$('#sheetBody [data-podoos]').forEach(b=>b.onclick=()=>
+    b.dataset.podoos?sheetDoosje(b.dataset.podoos):sheetDoosjes());
+
+  /* de marktbalk leest mee terwijl je typt */
+  if($('#poBasis')) $('#poBasis').oninput=()=>{
+    const v=parseFloat(($('#poBasis').value||'').trim().replace(',','.'));
+    const e=$('#poMarkt'); if(!e) return;
+    e.innerHTML=marktBalk(isNaN(v)||v<=0?(gemEigen!==null?gemEigen:gemAdv):v,'bonbon');
+  };
+  if($('#poBasisOk')) $('#poBasisOk').onclick=()=>{
+    const v=parseFloat(($('#poBasis').value||'').trim().replace(',','.'));
+    if(isNaN(v)||v<=0) return toast('Vul een bedrag in.');
+    if(v>1000) return toast('Dat lijkt me wat veel voor één bonbon.');
+    const herstel=terugpunt(['verkoop']);
+    S.verkoop=S.verkoop||{};
+    lijst.forEach(r=>{ S.verkoop[r.id]=v });
+    bewaarNu(); render(); sheetPrijsOverzicht();
+    toast('Alle '+lijst.length+' smaken op '+euro(v)+'.',herstel);
+  };
 }
 
 function sheetPrijzenConsument(){
@@ -8409,11 +8529,7 @@ function sheetPrijzenConsument(){
     ?kanAdvies.reduce((n,x)=>n+x.a.incl,0)/kanAdvies.length:null;
 
   sheet('Prijzen',
-    `<div class="duo" id="pvK" style="margin-bottom:16px">
-       <button class="aan" data-v="consument">Consument</button>
-       <button data-v="zakelijk">Zakelijk</button></div>
-
-     ${(()=>{
+    `     ${(()=>{
        /* Zelfde eerlijkheid als aan de zakelijke kant: adviseren met een
           kostprijs zonder arbeid of vaste lasten levert bedragen op waar je
           niet van kunt bestaan, en dat moet erbij staan. */
@@ -8462,7 +8578,7 @@ function sheetPrijzenConsument(){
          style="margin-top:10px">Zet op ${MARGEBAND.consument.advies}% \u2014 wat past bij handwerk</button>`:''}
        </div>`,
     lijst.length?`<button class="prim" style="margin-top:0" id="pcOk">Opslaan</button>`:'',
-    'Consument'+(lijst.length?' \u00b7 '+met.filter(x=>x.eigen!==null).length+'/'+
+    'Alle smaken'+(lijst.length?' \u00b7 '+met.filter(x=>x.eigen!==null).length+'/'+
       lijst.length:''));
 
   /* Meteen terugkoppelen, niet pas na opslaan: anders typ je dertien bedragen
@@ -8489,9 +8605,6 @@ function sheetPrijzenConsument(){
     toast(n+' '+(n===1?'prijs':'prijzen')+' op advies gezet.',herstel);
   };
 
-  $$('#pvK button').forEach(x=>x.onclick=()=>{
-    if(x.dataset.v==='zakelijk'){ S.prijsVoor='zakelijk'; bewaar(); sheetB2B() }
-  });
   if($('#pcMAdv')) $('#pcMAdv').onclick=()=>{
     const oud=S.consMarge;
     S.consMarge=MARGEBAND.consument.advies; bewaarNu(); sheetPrijzenConsument();
@@ -8566,11 +8679,7 @@ function sheetB2B(){
   };
 
   sheet('Prijzen',
-    `<div class="duo" id="pvK" style="margin-bottom:16px">
-       <button data-v="consument">Consument</button>
-       <button class="aan" data-v="zakelijk">Zakelijk</button></div>
-
-     <div class="veld"><label>Smaak</label>
+    `     <div class="veld"><label>Smaak</label>
        <div class="chips" id="bqS">${rec.map(x=>
          `<button class="chip ${x.id===B2B.smaak?'aan':''}" data-v="${x.id}">${esc(x.naam)}</button>`).join('')}</div></div>
 
@@ -8655,9 +8764,6 @@ function sheetB2B(){
      <button class="sec" id="bqOfferte">${svg(I.doc)}Offerte maken</button>`,
     'Zakelijk');
 
-  $$('#pvK button').forEach(x=>x.onclick=()=>{
-    if(x.dataset.v==='consument'){ S.prijsVoor='consument'; bewaar(); sheetPrijzenConsument() }
-  });
   chips('#bqS',false,()=>{B2B.smaak=chipV('#bqS');sheetB2B()});
   chips('#bqV',false,()=>{B2B.vorm=chipV('#bqV');sheetB2B()});
   const zetMarge=n=>{
@@ -10997,6 +11103,61 @@ function sheetSeizoen(){
     '', nu2.totaal?euro(nu2.totaal):'');
 }
 
+/* ═══════════ een scherm dat alleen doorverwijst ═══════════
+   Twaalf tegels naast elkaar dwingen je ze alle twaalf te lezen. Vier die
+   zeggen waar je heen wilt, met daarachter wat bij elkaar hoort, is één tik
+   meer maar veel minder zoeken. Dezelfde tegelvorm als op de tab, zodat je
+   niet twee patronen hoeft te leren. */
+function sheetKeuze(titel, items, onder){
+  const doe={};
+  sheet(titel,
+    `<div class="fasetegels" style="margin-top:4px">${items.map((x,i)=>{
+      doe[i]=x.doe;
+      return `<button class="fasetegel ${x.let?'let':''}" data-kz="${i}">
+        <span class="ftico">${svg(x.ico)}</span>
+        <span class="ftn">${esc(x.naam)}</span>
+        ${x.waarde?`<i class="ftt${x.let?' amber':''}">${esc(x.waarde)}</i>`:''}
+      </button>`}).join('')}</div>
+     ${onder?`<p class="hint" style="margin-top:16px">${onder}</p>`:''}`);
+  $$('#sheetBody [data-kz]').forEach(b=>b.onclick=()=>doe[b.dataset.kz]());
+}
+
+function sheetGeldKostprijs(){
+  const kv=kostenRapport(), ap=arbeidPerBonbon(), vb=vastPerBonbon(),
+        dv=dervingInfo(), p=productiePerMaand(), m=vasteLastenPerMaand();
+  const bn=(S.bonnen||[]).length;
+  sheetKeuze('Wat kost een bonbon',[
+    {naam:'Grondstoffen', ico:I.doos, waarde:kv.gem!==null?euro(kv.gem):'',
+     let:kv.gem===null, doe:()=>sheetIngredientenLijst(false)},
+    {naam:'Arbeid', ico:I.klok, waarde:ap?euro(ap.perStuk):'', let:!ap, doe:sheetUurtarief},
+    {naam:'Vaste lasten', ico:I.euro, waarde:vb.per!==null?euro(vb.per):(m?euro(m)+' p/m':''),
+     let:vb.per===null, doe:sheetKostenbasis},
+    {naam:'Weggegooid', ico:I.doos, waarde:dv.pct!==null?komma(dv.pct)+'%':'',
+     let:dv.pct===null, doe:sheetDerving},
+    {naam:'Bonbons per maand', ico:I.doos, waarde:p.n?String(p.n):'',
+     let:!p.n, doe:sheetProductieJaar},
+    {naam:'Grondstofjaar', ico:I.vracht, waarde:'', doe:()=>sheetGrondstofJaar()}
+  ], 'Deze lagen samen zijn wat \u00e9\u00e9n bonbon je kost. Ontbreekt er een, dan is elke prijs die je erop baseert te laag.');
+}
+
+function sheetGeldLoopt(){
+  const jr0=new Date().getFullYear(), pu=perUur(jr0,0);
+  sheetKeuze('Hoe draait het',[
+    {naam:'Per gewerkt uur', ico:I.klok, waarde:pu?euro(pu.perUur):'', doe:sheetPerUur},
+    {naam:'Je jaar', ico:I.spark, waarde:'', doe:sheetSeizoen},
+    {naam:'Wat moet je verkopen', ico:I.spark, waarde:'', doe:sheetBreakEven}
+  ]);
+}
+
+function sheetGeldBelasting(){
+  const j=urenPeriode(jaarBegin(),jaarEind());
+  sheetKeuze('Belasting',[
+    {naam:'Btw-aangifte', ico:I.doc, waarde:'', doe:sheetBtw},
+    {naam:'Urenregistratie', ico:I.klok,
+     waarde:j.totaalSec?komma(urenGetal(j.totaalSec))+' uur':'', doe:sheetUren}
+  ]);
+}
+
 /* ═══════════ kloppen je cijfers ═══════════
    Per gewerkt uur, marge, prijsopbouw en break-even rekenen alle vier met
    dezelfde handvol getallen. Ontbreekt er één, dan staat er ergens in de app
@@ -11098,11 +11259,10 @@ function geldHTML(){
       <span class="ftico">${svg(ico)}</span>
       <span class="ftn">${label}</span>
       ${waarde?`<i class="ftt${let2?' amber':''}">${waarde}</i>`:''}</button>`;
-  /* Acht tegels onder de kop "Inzicht" is geen groepering maar een stapel: je
-     leest ze allemaal om te vinden wat je zocht. Nu blokken waarvan de kop zegt
-     wat je er komt doen. En de melding dat er cijfers ontbreken is geen tegel
-     meer maar een balk: die hoort niet te concurreren met de rest, hij hoort in
-     de weg te zitten tot je hem oplost en te verdwijnen als het klopt. */
+  /* Van twaalf naar vijf. Wat bij elkaar hoort zit achter dezelfde tegel; de
+     melding dat er cijfers ontbreken is geen tegel maar een balk, want die
+     hoort in de weg te zitten tot je hem oplost. Bonnen blijft los: die pak je
+     bij elke inkoop erbij en dat mag geen tik dieper. */
   const cfMist=cijferStand().filter(x=>!x.ok).length;
   const inzicht=`
     ${cfMist?`<button class="melding rood" data-cijfers style="width:100%;text-align:left;
@@ -11111,24 +11271,20 @@ function geldHTML(){
        Zolang dat zo is rekenen je marge, je uurloon en je adviesprijzen met halve getallen.</span>
        </button>`:''}
 
-    <div class="blokkop" style="margin-top:${cfMist?18:12}px"><span class="eyebrow">Wat vraag je</span></div>
-    <div class="fasetegels">
-      ${(()=>{
-        const sm=(S.recepten||[]).filter(smaakActief);
+    <div class="fasetegels" style="margin-top:${cfMist?18:12}px">
+      ${(()=>{const sm=(S.recepten||[]).filter(smaakActief);
         const mp=sm.filter(r=>verkoopPrijs(r.id)!==null).length;
-        return gt('data-prijsvoor',I.euro,'Je prijzen',
+        return gt('data-gprijzen',I.euro,'Prijzen',
           sm.length?mp+'/'+sm.length:'', sm.length>0&&mp===0)})()}
-      ${gt('data-doosjes',I.doos,'Je doosjes',(()=>{const n=alsLijst(S.doosjes).length;
-        return n?String(n):''})())}
-      ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','')}
-    </div>
-
-    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Hoe loopt het</span></div>
-    <div class="fasetegels">
-      ${gt('data-peruur',I.klok,'Per gewerkt uur',pu?euro(pu.perUur):'')}
-      ${gt('data-seizoen',I.spark,'Je jaar','')}
-      ${gt('data-breakeven',I.spark,'Wat moet je verkopen','')}
-      ${gt('data-derving',I.doos,'Weggegooid',dv.totaal?euro(dv.totaal):'',dv.totaal>0)}
+      ${(()=>{const k=kostenRapport();
+        return gt('data-gkost',I.doos,'Wat kost een bonbon',
+          k.gem!==null?euro(k.gem):'', k.gem===null)})()}
+      ${gt('data-gloopt',I.spark,'Hoe draait het',pu?euro(pu.perUur):'')}
+      ${gt('data-gbelasting',I.doc,'Belasting','')}
+      ${(()=>{const n=(S.bonnen||[]).length;
+        const z=(S.bonnen||[]).filter(x=>!x.foto).length;
+        return gt('data-bonnen',I.vracht,'Bonnen',
+          n?(z?z+' zonder foto':String(n)):'', z>0)})()}
     </div>`;
 
   /* een rit die loopt hoort bovenaan — anders staat geld voorop */
@@ -11265,31 +11421,12 @@ function geldHTML(){
      datzelfde zien plus wat je erop legt. Twee ingangen naar hetzelfde antwoord.
      Het scherm blijft bestaan \u2014 het hangt onder de gemiddelde-kaart in
      Prijzen \u2014 maar hoeft hier niet ook nog te staan. */
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Wat vul je in</span></div>
-    <div class="fasetegels">
-      ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
-        /* Stond even achter het tandwiel, maar je vaste lasten en derving
-           veranderen elke maand. Dat is bijhouden, geen instellen. */
-        return gt('data-kostenbasis',I.doos,'Kostenbasis',
-          m?euro(m)+' p/m':'niet ingesteld', !m||vb.per===null)})()}
-      ${(()=>{const g=grondstofJaar(new Date().getFullYear());
-        return gt('data-grondjaar',I.doos,'Grondstoffen',
-          g.batches?euro(g.grond):'', !g.batches)})()}
-      ${(()=>{const n=(S.bonnen||[]).length;
-        const z=(S.bonnen||[]).filter(x=>!x.foto).length;
-        return gt('data-bonnen',I.doos,'Bonnen',
-          n?(z?z+' zonder foto':String(n)):'', z>0)})()}
-    </div>
-
-    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Belasting</span></div>
-    <div class="fasetegels">
-      ${gt('data-btw',I.doc,'Btw-aangifte','')}
-      ${gt('data-uren',I.klok,'Urenregistratie',(()=>{
-        const j=urenPeriode(jaarBegin(),jaarEind());
-        return j.totaalSec?komma(urenGetal(j.totaalSec))+' uur':'';
-      })())}
-    </div>
-`;
+  /* Kosten en Belasting stonden hier als losse blokken met vijf tegels. Ze
+     zitten nu achter hun hoofdtegel bovenaan; twee ingangen naar hetzelfde
+     scherm op één tab is precies waarom je dingen niet terugvond. Grondstoffen,
+     Kostenbasis en Bonnen zijn verhuisd naar "Wat kost een bonbon"; btw en uren
+     naar "Belasting". */
+  h+=``;
   /* Het blok "Auto" stond hier met kilometervergoeding, soort auto en vaste
      plekken: waardes die je één keer bepaalt, dus die horen achter het tandwiel.
      Rittenoverzicht printen is wel een actie en staat nu bij Kilometers. */
@@ -15987,6 +16124,10 @@ function bind(){
   $$('[data-partijen]').forEach(x=>x.onclick=sheetLots);
   $$('[data-cijfers]').forEach(x=>x.onclick=sheetCijfers);
   $$('[data-prijsvoor]').forEach(x=>x.onclick=()=>sheetPrijzen());
+  $$('[data-gprijzen]').forEach(x=>x.onclick=()=>sheetPrijzen());
+  $$('[data-gkost]').forEach(x=>x.onclick=sheetGeldKostprijs);
+  $$('[data-gloopt]').forEach(x=>x.onclick=sheetGeldLoopt);
+  $$('[data-gbelasting]').forEach(x=>x.onclick=sheetGeldBelasting);
   $$('[data-peruur]').forEach(x=>x.onclick=sheetPerUur);
   $$('[data-derving]').forEach(x=>x.onclick=sheetDerving);
   $$('[data-seizoen]').forEach(x=>x.onclick=sheetSeizoen);
@@ -22477,6 +22618,32 @@ const consMarge=()=>typeof S.consMarge==='number'?S.consMarge:55;
    bij. Verkoop je aan een winkel, dan legt die er zelf nog eens tachtig tot
    honderd procent op; vraag jij dan hetzelfde, dan wordt het schap te duur
    en verkoopt niemand meer iets. */
+/* ═══════════ wat vraagt de markt ═══════════
+   Kostprijs \u00d7 marge geeft een prijs die klopt met je eigen boekhouding, maar
+   niet met wat iemand in Drunen bereid is te betalen. Staat je kostprijs te
+   laag \u2014 zoals toen arbeid nog ontbrak \u2014 dan rolt er \u20ac 0,20 uit en merk je
+   dat pas als iemand ernaar kijkt. Een tweede ijkpunt vangt dat: ligt je prijs
+   ver onder wat handgemaakte bonbons in Nederland doen, dan is er iets mis met
+   je cijfers, niet met de markt. Bedragen per bonbon, inclusief btw. */
+const MARKT={
+  bonbon:{van:1.50, tot:2.50, wat:'losse bonbon aan de consument'},
+  doosje:{van:1.75, tot:3.00, wat:'per bonbon in een doosje, verpakking meegerekend'},
+  zakelijk:{van:0.80, tot:1.20, wat:'per bonbon aan een winkel, exclusief btw'}
+};
+function marktOordeel(prijs,soort){
+  const b=MARKT[soort]; if(!b||prijs===null||isNaN(prijs)||prijs<=0) return null;
+  if(prijs<b.van) return {klas:'rood', kort:'onder de markt',
+    uitleg:'Handgemaakt gaat zelden onder '+euro(b.van)+'. Controleer je kostprijs.'};
+  if(prijs>b.tot) return {klas:'amber',kort:'boven de markt',
+    uitleg:'Boven '+euro(b.tot)+' wordt het een cadeau-aankoop, geen impulsaankoop.'};
+  return {klas:'groen',kort:'marktconform',uitleg:euro(b.van)+' \u2013 '+euro(b.tot)+' is gebruikelijk.'};
+}
+const marktBalk=(prijs,soort)=>{
+  const o=marktOordeel(prijs,soort); if(!o) return '';
+  return `<div class="melding ${o.klas}" style="margin-top:10px">${
+    svg(o.klas==='groen'?I.vink:I.alarm,'2')}<span>${esc(o.kort)} \u00b7 ${esc(o.uitleg)}</span></div>`;
+};
+
 const MARGEBAND={
   consument:{krap:45, goed:55, ruim:72, advies:60,
     waarom:'Jij draagt de verpakking, de webshop, de uitval en het risico.'},
