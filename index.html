@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v534 · 21 aug 2026';
+const APPVERSIE='v535 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3761,7 +3761,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -10542,6 +10542,18 @@ const uurtarief=()=>typeof S.uurtarief==='number'?S.uurtarief:0;
 const bonbonsPerUur=()=>typeof S.bonbonsPerUur==='number'&&S.bonbonsPerUur>0?S.bonbonsPerUur:0;
 const opstartUur=()=>typeof S.opstartUur==='number'&&S.opstartUur>0?S.opstartUur:0;
 const perDag=()=>typeof S.perDag==='number'&&S.perDag>0?S.perDag:0;
+const dagUren=()=>typeof S.dagUren==='number'&&S.dagUren>0?S.dagUren:0;
+
+/* Het tempo hoefde je niet te weten \u2014 je weet hoe lang een productiedag duurt
+   en wat er die dag uit komt. Uit die twee volgt vanzelf hoeveel bonbons je per
+   uur maakt, dus dat vragen we niet meer maar rekenen we uit. Blijft er van een
+   dag van twaalf uur vier uur opzetten en schoonmaken over, dan maak je in de
+   overgebleven acht uur je twaalfhonderd stuks: honderdvijftig per uur. */
+function tempoPerUur(){
+  const d=dagUren(), v=opstartUur(), n=perDag();
+  if(d>0&&n>0&&d>v) return n/(d-v);
+  return bonbonsPerUur();   /* wat je vroeger zelf invulde blijft werken */
+}
 
 /* Een productiedag is niet één lange rij handelingen die per bonbon meeschaalt.
    Opzetten, tempereren, schoonmaken en de afwas kosten hetzelfde of je er nu
@@ -10552,7 +10564,7 @@ const perDag=()=>typeof S.perDag==='number'&&S.perDag>0?S.perDag:0;
    telt per stuk. */
 function arbeidModel(stuks){
   const t=uurtarief(); if(!t) return null;
-  const tempo=bonbonsPerUur(), vast=opstartUur();
+  const tempo=tempoPerUur(), vast=opstartUur();
   const n=stuks||perDag();
   if(!tempo||!n) return null;
   const makenUur=n/tempo;
@@ -10576,8 +10588,8 @@ function arbeidPerBonbon(){
     if(stuks) return {perStuk:(uren*t)/stuks,uren,stuks,batches:af.length,geschat:false};
   }
   const m=arbeidModel();
-  if(m) return {perStuk:m.perStuk, perUur:bonbonsPerUur(), uren:0, stuks:0, batches:0,
-                geschat:true, model:m};
+  if(m) return {perStuk:m.perStuk, perUur:Math.round(tempoPerUur()), uren:0, stuks:0,
+                batches:0, geschat:true, model:m};
   const pu=bonbonsPerUur();
   if(pu>0) return {perStuk:t/pu, perUur:pu, uren:0, stuks:0, batches:0, geschat:true};
   return null;
@@ -10693,48 +10705,47 @@ function sheetWinst(){
 }
 
 function sheetUurtarief(){
-  const t=uurtarief(), tempo=bonbonsPerUur(), vast=opstartUur(), dag=perDag();
+  const t=uurtarief(), dag=dagUren(), vast=opstartUur(), n=perDag();
   const ap=arbeidPerBonbon();
   const m=arbeidModel();
+  const tempo=tempoPerUur();
 
-  /* wat gebeurt er als je meer op één dag maakt */
   const scenario=()=>{
     if(!m) return '';
     const rijen=[Math.round(m.stuks*0.5),m.stuks,Math.round(m.stuks*1.5),m.stuks*2]
       .filter((v,i,a)=>v>0&&a.indexOf(v)===i);
     return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Als je meer op een dag maakt</span></div>
-      <div class="paneel">${rijen.map(n=>{const x=arbeidModel(n);
+      <div class="paneel">${rijen.map(k=>{const x=arbeidModel(k);
         return `<div class="arij" style="cursor:default">
-          <span class="naam">${n} bonbons<small>${komma(Math.round(x.dagUur*10)/10)} uur werk</small></span>
-          <span class="waarde gevuld"${n===m.stuks?' style="font-weight:700"':''}>${euro(x.perStuk)}</span>
+          <span class="naam">${k} bonbons<small>${komma(Math.round(x.dagUur*10)/10)} uur werk</small></span>
+          <span class="waarde gevuld"${k===m.stuks?' style="font-weight:700"':''}>${euro(x.perStuk)}</span>
         </div>`}).join('')}</div>
-      <p class="hint" style="margin-top:8px">De vaste ${komma(vast)} uur blijft hetzelfde,
-        dus hoe meer je op één dag draait, hoe dunner die over je bonbons wordt uitgesmeerd.</p>`;
+      ${vast?`<p class="hint" style="margin-top:8px">De vaste ${komma(vast)} uur blijft hetzelfde,
+        dus hoe meer je op één dag draait, hoe dunner die over je bonbons wordt uitgesmeerd.</p>`:''}`;
   };
 
   sheet('Arbeid',
-    `<p class="hint">Wat is een uur van jou waard, en hoe verloopt een productiedag? Daarmee
-      rekent de app arbeid mee in je kostprijs.</p>
+    `<p class="hint">Beschrijf een gewone productiedag. Hoeveel je per uur maakt rekent de app
+      daaruit zelf uit \u2014 dat hoef je niet te weten.</p>
 
      <div class="veld"><label>Bedrag per uur</label>
        <input class="inp" id="utT" type="text" inputmode="decimal" step="0.5"
          value="${t||''}" placeholder="Bijv. 35"></div>
 
-     <div class="veld"><label>Vaste tijd per productiedag</label>
+     <div class="veld"><label>Hoe lang duurt zo'n dag</label>
+       <input class="inp" id="utDag" type="text" inputmode="decimal"
+         value="${dag||''}" placeholder="Bijv. 12">
+       <div class="hint" style="margin-top:6px">Van aanzetten tot afsluiten, in uren.</div></div>
+
+     <div class="veld"><label>Waarvan opzetten en schoonmaken</label>
        <input class="inp" id="utV" type="text" inputmode="decimal"
          value="${vast||''}" placeholder="Bijv. 4">
-       <div class="hint" style="margin-top:6px">Opzetten, tempereren, schoonmaken, afwas en
-         registratie. Deze uren kosten hetzelfde of je er nu vijfhonderd of vijftienhonderd maakt.</div></div>
+       <div class="hint" style="margin-top:6px">Tempereren, opzetten, afwas en registratie \u2014
+         die uren kosten hetzelfde of je er nu vijfhonderd of vijftienhonderd maakt.</div></div>
 
-     <div class="veld"><label>Daarna: bonbons per uur</label>
-       <input class="inp" id="utP" type="number" inputmode="numeric"
-         value="${tempo||''}" placeholder="Bijv. 150">
-       <div class="hint" style="margin-top:6px">Alleen het werk dat per bonbon meeschaalt:
-         vullen, sluiten, uithalen, afwerken.</div></div>
-
-     <div class="veld"><label>Bonbons op een gewone productiedag</label>
+     <div class="veld"><label>Hoeveel bonbons komen er die dag uit</label>
        <input class="inp" id="utD" type="number" inputmode="numeric"
-         value="${dag||''}" placeholder="Bijv. 1200"></div>
+         value="${n||''}" placeholder="Bijv. 1200"></div>
 
      ${ap&&!ap.geschat
        ? `<div class="melding groen">${svg(I.vink,'2')}<span>Je hebt ${ap.batches}
@@ -10747,10 +10758,14 @@ function sheetUurtarief(){
        : (m
          ? `<div class="paneel">
               <div class="arij" style="cursor:default">
+                <span class="naam">Je tempo<small>${n} in ${komma(Math.round((dag-vast)*10)/10)}
+                  uur maken</small></span>
+                <span class="waarde gevuld">${Math.round(tempo)} per uur</span></div>
+              ${vast?`<div class="arij" style="cursor:default">
                 <span class="naam">Vaste dagtijd<small>${komma(vast)} uur \u00f7 ${m.stuks} bonbons</small></span>
-                <span class="waarde gevuld">${euro(m.vastDeel)}</span></div>
+                <span class="waarde gevuld">${euro(m.vastDeel)}</span></div>`:''}
               <div class="arij" style="cursor:default">
-                <span class="naam">Maken<small>${euro(t)} \u00f7 ${tempo} per uur</small></span>
+                <span class="naam">Maken<small>${euro(t)} \u00f7 ${Math.round(tempo)} per uur</small></span>
                 <span class="waarde gevuld">${euro(m.tempoDeel)}</span></div>
               <div class="arij" style="cursor:default">
                 <span class="naam">Arbeid per bonbon<small>dag van ${komma(Math.round(m.dagUur*10)/10)} uur</small></span>
@@ -10762,7 +10777,7 @@ function sheetUurtarief(){
          : '')}`,
     `<button class="prim" style="margin-top:0" id="utOk">Opslaan</button>`);
 
-  const leesGetalje=(sel,max)=>{
+  const lees=(sel,max)=>{
     const rauw=($(sel).value||'').trim().replace(',','.');
     if(rauw==='') return {leeg:true,waarde:null};
     const v=parseFloat(rauw);
@@ -10771,16 +10786,20 @@ function sheetUurtarief(){
   };
 
   $('#utOk').onclick=()=>{
-    const tt=leesGetalje('#utT',500), vv=leesGetalje('#utV',24),
-          pp=leesGetalje('#utP',5000), dd=leesGetalje('#utD',100000);
+    const tt=lees('#utT',500), dd=lees('#utDag',24),
+          vv=lees('#utV',24), nn=lees('#utD',100000);
     if(tt.fout) return toast('Vul een uurtarief tussen 0 en 500 in.');
-    if(vv.fout) return toast('Vaste dagtijd moet tussen 0 en 24 uur liggen.');
-    if(pp.fout) return toast('Vul een tempo tussen 1 en 5000 per uur in.');
-    if(dd.fout) return toast('Vul een aantal per dag tussen 1 en 100000 in.');
+    if(dd.fout) return toast('Een productiedag duurt tussen 0 en 24 uur.');
+    if(vv.fout) return toast('Opzetten en schoonmaken moet tussen 0 en 24 uur liggen.');
+    if(nn.fout) return toast('Vul een aantal tussen 1 en 100000 in.');
+    if(dd.waarde&&vv.waarde&&vv.waarde>=dd.waarde)
+      return toast('Opzetten en schoonmaken kan niet de hele dag beslaan.');
     S.uurtarief=tt.waarde&&tt.waarde>0?tt.waarde:null;
+    S.dagUren=dd.waarde&&dd.waarde>0?dd.waarde:null;
     S.opstartUur=vv.waarde&&vv.waarde>0?vv.waarde:null;
-    S.bonbonsPerUur=pp.waarde&&pp.waarde>0?pp.waarde:null;
-    S.perDag=dd.waarde&&dd.waarde>0?dd.waarde:null;
+    S.perDag=nn.waarde&&nn.waarde>0?nn.waarde:null;
+    /* het losse tempoveld bestaat niet meer; laat geen oude waarde meerekenen */
+    if(S.dagUren&&S.perDag) S.bonbonsPerUur=null;
     bewaarNu(); dicht(); render();
     toast(S.uurtarief?'Arbeid opgeslagen.':'Uurtarief gewist.');
   };
