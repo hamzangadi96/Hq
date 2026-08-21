@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v529 · 21 aug 2026';
+const APPVERSIE='v530 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10287,9 +10287,13 @@ function sheetKostenbasis(){
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Waar smeer je dat over uit</span></div>
      <div class="paneel"><div class="arij" style="cursor:default">
        <span class="naam">Bonbons per maand<small>${
-         p.bron==='gemeten'?'gemeten uit '+p.stuks+' stuks over '+p.dagen+' dagen'
-         :p.bron==='ingesteld'?'zelf ingesteld'
-         :'nog geen afgeronde batches — vul zelf iets in'}</small></span>
+         p.bron==='maanden'
+           ? p.som+' over '+p.maanden+(p.maanden===1?' maand':' maanden')+
+             (p.eigen&&p.gemeten?' \u00b7 '+p.eigen+' ingevuld, '+p.gemeten+' gemeten'
+              :p.gemeten?'gemeten':' ingevuld')
+         :p.bron==='gemeten'?'gemeten uit '+p.stuks+' stuks over '+p.dagen+' dagen'
+         :p.bron==='ingesteld'?'zelf ingesteld \u2014 overschrijft alles'
+         :'nog geen afgeronde batches \u2014 vul zelf iets in'}</small></span>
        <span class="waarde gevuld">${p.n?p.n:'—'}</span></div></div>
      <div class="veld" style="margin-top:12px"><label>Per maand</label>
        <div class="rijtje">
@@ -22245,9 +22249,38 @@ const vasteLastenPerMaand=()=>(S.vasteLasten||[])
   .reduce((n,p)=>n+(p.per==='jaar'?(parseFloat(p.bedrag)||0)/12:(parseFloat(p.bedrag)||0)),0);
 
 /* waar smeren we die lasten over uit? */
+/* Gemeten en zelf ingevuld hoeven elkaar niet uit te sluiten. Je weet van
+   januari tot mei uit je hoofd wat eruit kwam en vanaf juni rondt de app je
+   batches af; dan wil je die twee naast elkaar, niet het een in plaats van het
+   ander. De regel is per maand: heb je hem zelf ingevuld, dan telt jouw getal
+   \u2014 jij weet wat er buiten de batchregistratie om is gemaakt. Liet je hem
+   leeg, dan telt wat de app gemeten heeft. Alleen het losse veld hierboven
+   overschrijft alles, want dat zet je bewust. */
+function productieGemetenPerMaand(){
+  const uit={};
+  (S.batches||[]).forEach(b=>{
+    if(b.status!=='klaar'||!b.resultaat||!b.eindDatum) return;
+    const m=String(b.eindDatum).slice(0,7);
+    uit[m]=(uit[m]||0)+(b.resultaat.goed||0);
+  });
+  return uit;
+}
+
 function productiePerMaand(){
   if(typeof S.prodPerMaand==='number'&&S.prodPerMaand>0)
     return {n:S.prodPerMaand,bron:'ingesteld'};
+
+  const hand=prodMaanden(), gemeten=productieGemetenPerMaand();
+  const sleutels=Object.keys(hand).concat(Object.keys(gemeten))
+    .filter((v,i,a)=>a.indexOf(v)===i);
+  if(sleutels.length){
+    let som=0;
+    sleutels.forEach(m=>{ som+=typeof hand[m]==='number'?hand[m]:(gemeten[m]||0) });
+    const eigen=sleutels.filter(m=>typeof hand[m]==='number').length;
+    return {n:Math.max(1,Math.round(som/sleutels.length)), bron:'maanden',
+            maanden:sleutels.length, eigen, gemeten:sleutels.length-eigen, som};
+  }
+
   const af=(S.batches||[]).filter(b=>b.status==='klaar'&&b.resultaat&&b.eindDatum);
   if(!af.length) return {n:null,bron:'geen'};
   const stuks=af.reduce((n,b)=>n+(b.resultaat.goed||0),0);
@@ -22338,11 +22371,11 @@ function sheetProductieJaar(){
     });
     if(fout) return toast(fout);
     S.prodMaanden=nieuw;
-    /* het gemiddelde is meteen ook het getal waar de rest mee rekent */
-    const g=prodGemiddeld();
-    S.prodPerMaand=g?g.gem:null;
+    /* Niet ook nog prodPerMaand vastzetten: dat zou je gemeten batches vanaf
+       nu doodslaan. De maanden die je leeg laat blijven van de app. */
     bewaarNu(); dicht(); render();
-    toast(g?'Gemiddeld '+g.gem+' per maand.':'Maandcijfers gewist.',herstel);
+    const p=productiePerMaand();
+    toast(p.n?'Gemiddeld '+p.n+' per maand.':'Maandcijfers gewist.',herstel);
   };
 }
 
