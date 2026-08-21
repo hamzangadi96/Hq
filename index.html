@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v539 · 21 aug 2026';
+const APPVERSIE='v540 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7700,7 +7700,25 @@ const doosjes=()=>alsLijst(S.doosjes);
 const doosOnderdelen=d=>(d.onderdelen||[]).map(x=>
   typeof x==='string' ? {naam:x, aantal:1}
                       : {naam:x.naam||'', aantal:parseFloat(x.aantal)||1});
+/* een kostenpost is naam + bedrag, meer heeft hij niet nodig */
+function doosExtraHTML(d){
+  const l=alsLijst(d.extras);
+  if(!l.length) return '';
+  return l.map((x,i)=>`<div class="rijtje exrij" style="margin-bottom:8px">
+    <input class="inp exn" value="${esc(x.naam||'')}" placeholder="Bijv. verzending">
+    <input class="inp exb" inputmode="decimal" style="max-width:110px"
+      value="${getalIn0(x.bedrag)?getal(getalIn0(x.bedrag)):''}" placeholder="€">
+    <button type="button" class="miniknop" data-exw="${i}">${svg(I.kruis||I.prul,'2')}</button>
+  </div>`).join('');
+}
+
 function doosjeKosten(d){
+  /* Wat je op een doosje toelegt zit niet altijd in de doos zelf. Verzendkosten
+     die je niet doorberekent, betaalgeld van je webshop, een kaartje erbij: het
+     gaat van dezelfde \u20ac 25 af als de chocolade. Zonder deze regel klopt je
+     marge op papier en niet in je bank. */
+  const extras=alsLijst(d.extras).filter(x=>x&&x.naam);
+  const extra=extras.reduce((n,x)=>n+getalIn0(x.bedrag),0);
   const onder=doosOnderdelen(d).filter(x=>x.naam).map(x=>{
     const pr=verpPrijs(x.naam);
     return {product:x.naam, aantal:x.aantal, prijs:pr,
@@ -7714,7 +7732,7 @@ function doosjeKosten(d){
   const perBonbon=sm.length?sm.reduce((n,x)=>n+x.variabel,0)/sm.length:null;
   const aantal=parseInt(d.aantal,10)||0;
   const bonbons=perBonbon===null?null:perBonbon*aantal;
-  const kost=bonbons===null?null:verp+bonbons;
+  const kost=bonbons===null?null:verp+bonbons+extra;
   /* De verkoopprijs van een doosje volgt uit je smaken: het gemiddelde van
      wat je per bonbon vraagt, maal het aantal erin. Vul je zelf een prijs in,
      dan wint die — een cadeauverpakking mag duurder zijn dan de som. */
@@ -7734,7 +7752,7 @@ function doosjeKosten(d){
   const volle=(S.recepten||[]).filter(smaakActief)
     .map(r=>kostprijsVol(r).totaal).filter(x=>typeof x==='number');
   const volPer=volle.length?volle.reduce((a,b2)=>a+b2,0)/volle.length:null;
-  const kostVol=volPer===null?null:verp+volPer*aantal;
+  const kostVol=volPer===null?null:verp+volPer*aantal+extra;
   const mrg=consMarge();
   const advExcl=(kostVol===null||mrg>=100)?null:kostVol/(1-mrg/100);
   const advies=advExcl===null?null:mooiePrijs(advExcl*(1+BTW_ETEN),0.5);
@@ -7751,7 +7769,10 @@ function doosjeKosten(d){
   const b2bAfnemer=(b2bExcl===null||winkelExcl===null||winkelExcl<=0)?null
     :Math.round((winkelExcl-b2bExcl)/winkelExcl*100);
 
-  return {verp, zonder, perBonbon, bonbons, kost, vk, excl,
+  const perMaand=parseInt(d.perMaand,10)||0;
+  return {verp, zonder, perBonbon, bonbons, kost, vk, excl, extra, extras, perMaand,
+          maandOmzet:(excl!==null&&perMaand)?excl*perMaand:null,
+          maandWinst:(excl!==null&&kostVol!==null&&perMaand)?(excl-kostVol)*perMaand:null,
           vkAuto, gemVk, eigen, smaken:metPrijs.length,
           kostVol, advies, margeVol, pctVol, adviesMarge:mrg,
           b2bExcl, b2bMarge:bm, b2bAfnemer, winkelExcl,
@@ -7818,6 +7839,17 @@ function sheetDoosje(id){
          <button type="button" class="wzadd" id="djPlus">${svg(I.plus,'2.2')}
            Onderdeel toevoegen</button>`
        :'<div class="geen">Leg eerst je verpakking vast bij Voorraad.</div>'}</div>
+     <div class="veld"><label>Kosten die erbij horen</label>
+       <div id="djE">${doosExtraHTML(d)}</div>
+       <button type="button" class="wzadd" id="djEPlus">${svg(I.plus,'2.2')}
+         Kostenpost toevoegen</button>
+       <div class="hint" style="margin-top:6px">Verzendkosten die je niet doorberekent,
+         betaalkosten van je webshop, een kaartje erbij \u2014 alles wat van dezelfde prijs af gaat.</div></div>
+
+     <div class="veld"><label>Hoeveel verkoop je er per maand</label>
+       <input class="inp" id="djM" inputmode="numeric" value="${esc(String(d.perMaand||''))}"
+         placeholder="Mag leeg"></div>
+
      <div class="veld"><label>Verkoopprijs incl. btw</label>
        <input class="inp" id="djP" inputmode="decimal"
          value="${typeof d.prijs==='number'?getal(d.prijs):''}"
@@ -7845,6 +7877,12 @@ function sheetDoosje(id){
       naam:(rij.querySelector('.doossel')||{}).value||'',
       aantal:getalIn0((rij.querySelector('.doosaan')||{}).value)||1
     })).filter(x=>x.naam);
+    d.extras=[...document.querySelectorAll('#djE .exrij')].map(rij=>({
+      naam:((rij.querySelector('.exn')||{}).value||'').trim(),
+      bedrag:getalIn0((rij.querySelector('.exb')||{}).value)
+    })).filter(x=>x.naam);
+    const pm=parseInt(($('#djM').value||'').trim(),10);
+    d.perMaand=(isNaN(pm)||pm<=0)?null:pm;
     return d;
   };
   const ververs=()=>{ $('#djSom').innerHTML=doosjeSom(lees()) };
@@ -7861,6 +7899,24 @@ function sheetDoosje(id){
     });
   };
   koppelRijen();
+  const hertekenExtra=()=>{
+    $('#djE').innerHTML=doosExtraHTML(d);
+    koppelExtra(); ververs();
+  };
+  const koppelExtra=()=>{
+    $$('#djE .exn, #djE .exb').forEach(x=>x.oninput=ververs);
+    $$('#djE [data-exw]').forEach(b=>b.onclick=()=>{
+      lees();
+      d.extras=alsLijst(d.extras).filter((_,i)=>i!==parseInt(b.dataset.exw,10));
+      hertekenExtra();
+    });
+  };
+  koppelExtra();
+  if($('#djEPlus')) $('#djEPlus').onclick=()=>{
+    lees(); d.extras=alsLijst(d.extras).concat([{naam:'',bedrag:0}]);
+    hertekenExtra();
+  };
+  if($('#djM')) $('#djM').oninput=ververs;
   if($('#djPlus')) $('#djPlus').onclick=()=>{
     lees(); d.onderdelen=doosOnderdelen(d).concat([{naam:'',aantal:1}]);
     hertekenRijen();
@@ -7899,10 +7955,15 @@ function doosjeSom(d){
       :r((d.aantal||0)+' bonbons',euro(k.bonbons))}
     ${r('Kostprijs',k.kost===null?'onvolledig':euro(k.kost),'kost')}
     ${k.vk!==null?r('Verkoopprijs incl. btw',euro(k.vk),'vk'):''}
+    ${k.extras.map(x=>getalIn0(x.bedrag)
+      ? r(esc(x.naam),euro(getalIn0(x.bedrag)),'kost') : '').join('')}
     ${k.advies!==null?r('Advies bij '+k.adviesMarge+'% marge',euro(k.advies),'vk'):''}
     ${k.margeVol===null
       ? (k.marge===null?'':r('Je houdt over',euro(k.marge)+' · '+k.pct+'%',k.pct<20?'laag':'marge'))
       : r('Je houdt over',euro(k.margeVol)+' · '+k.pctVol+'%',k.pctVol<45?'laag':'marge')}
+    ${k.maandWinst!==null
+      ? r(k.perMaand+' per maand',euro(k.maandWinst)+' winst','marge')
+      : ''}
     ${k.pctVol===null?'':margeMelding(k.pctVol,'consument')}
     ${B2B_AAN&&k.b2bExcl!==null?r('Zakelijk excl. btw',euro(k.b2bExcl),
       'bij '+k.b2bMarge+'% marge'):''}
