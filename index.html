@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v535 · 21 aug 2026';
+const APPVERSIE='v536 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10562,6 +10562,31 @@ function tempoPerUur(){
    volle portie arbeid te kosten en zie je je schaalvoordeel nooit. Deze functie
    splitst het: de vaste dagtijd deel je over de oogst van die dag, het tempo
    telt per stuk. */
+/* ═══════════ wat je eigen registratie zegt ═══════════
+   Je uren staan in de urenregistratie, je aantallen bij bonbons per maand.
+   Samen zeggen die twee precies wat een bonbon je aan arbeid kostte, zonder dat
+   je iets hoeft te schatten. Het is wel een bovengrens: hier zitten ook je
+   administratie, je webshop en je inkoop in, en die maak je niet per bonbon.
+   Ligt dit ver boven je schatting, dan besteed je veel tijd aan alles behalve
+   bonbons maken \u2014 en dat is precies wat je wilt weten. */
+function arbeidUitRegistratie(){
+  const t=uurtarief(); if(!t) return null;
+  const j=urenPeriode(jaarBegin(),jaarEind());
+  const uren=j.totaalSec/3600;
+  if(uren<1) return null;
+
+  const hand=prodMaanden(), gemeten=productieGemetenPerMaand();
+  const jaar=String(new Date().getFullYear());
+  const sleutels=Object.keys(hand).concat(Object.keys(gemeten))
+    .filter((v,i,a)=>a.indexOf(v)===i&&v.slice(0,4)===jaar);
+  let stuks=0;
+  sleutels.forEach(m=>{ stuks+=typeof hand[m]==='number'?hand[m]:(gemeten[m]||0) });
+  if(!stuks) return null;
+
+  return {uren, stuks, perStuk:(uren*t)/stuks, prodSec:j.prodSec,
+          prodDeel:j.totaalSec?j.prodSec/j.totaalSec:0};
+}
+
 function arbeidModel(stuks){
   const t=uurtarief(); if(!t) return null;
   const tempo=tempoPerUur(), vast=opstartUur();
@@ -10710,6 +10735,39 @@ function sheetUurtarief(){
   const m=arbeidModel();
   const tempo=tempoPerUur();
 
+  /* De toets: klopt je schatting met wat je echt registreerde? */
+  const uitReg=()=>{
+    const r=arbeidUitRegistratie(); if(!r) return '';
+    const verschil=m?r.perStuk/m.perStuk:null;
+    const ver=verschil!==null&&(verschil>1.6||verschil<0.6);
+    return `<div class="blokkop" style="margin-top:24px">
+        <span class="eyebrow">Wat je registratie zegt</span></div>
+      <div class="paneel">
+        <button class="arij" id="utUren">
+          <span class="naam">Geregistreerde uren<small>dit jaar, alles bij elkaar</small></span>
+          <span class="waarde gevuld">${komma(Math.round(r.uren*10)/10)} uur</span>
+          <span class="p">${svg(I.pijl,'2')}</span></button>
+        <button class="arij" id="utStuks">
+          <span class="naam">Bonbons dit jaar<small>ingevuld en gemeten samen</small></span>
+          <span class="waarde gevuld">${r.stuks}</span>
+          <span class="p">${svg(I.pijl,'2')}</span></button>
+        <div class="arij" style="cursor:default">
+          <span class="naam">Zou neerkomen op<small>al je uren \u00f7 al je bonbons</small></span>
+          <span class="waarde gevuld" style="font-weight:700">${euro(r.perStuk)}</span></div>
+      </div>
+      <div class="melding ${ver?'amber':'groen'}" style="margin-top:10px">
+        ${svg(ver?I.alarm:I.vink,'2')}<span>${
+          !m?'Dit is inclusief administratie, webshop en inkoop \u2014 die maak je niet per bonbon.'
+          :verschil>1.6
+            ? 'Ruim boven je schatting van '+euro(m.perStuk)+'. Hier zitten ook je administratie, '+
+              'webshop en inkoop in; gaat daar veel tijd heen, dan klopt dat. Zo niet, dan maak '+
+              'je minder bonbons per dag dan je denkt.'
+          :verschil<0.6
+            ? 'Ruim onder je schatting van '+euro(m.perStuk)+'. Waarschijnlijk staan niet al je '+
+              'gewerkte uren geregistreerd.'
+            : 'Ligt dicht bij je schatting van '+euro(m.perStuk)+'; je productiedag klopt.'}</span></div>`;
+  };
+
   const scenario=()=>{
     if(!m) return '';
     const rijen=[Math.round(m.stuks*0.5),m.stuks,Math.round(m.stuks*1.5),m.stuks*2]
@@ -10772,9 +10830,10 @@ function sheetUurtarief(){
                 <span class="waarde gevuld" style="font-weight:700">${euro(m.perStuk)}</span></div>
             </div>
             ${scenario()}
+            ${uitReg()}
             <p class="hint" style="margin-top:14px">Zodra je een batch afrondt met een aantal,
               rekent de app met je werkelijke tijd en vervangt hij dit vanzelf.</p>`
-         : '')}`,
+         : uitReg())}`,
     `<button class="prim" style="margin-top:0" id="utOk">Opslaan</button>`);
 
   const lees=(sel,max)=>{
@@ -10785,6 +10844,8 @@ function sheetUurtarief(){
     return {waarde:v};
   };
 
+  if($('#utUren')) $('#utUren').onclick=()=>sheetUren();
+  if($('#utStuks')) $('#utStuks').onclick=()=>sheetProductieJaar();
   $('#utOk').onclick=()=>{
     const tt=lees('#utT',500), dd=lees('#utDag',24),
           vv=lees('#utV',24), nn=lees('#utD',100000);
@@ -11173,6 +11234,10 @@ function sheetGeldKostprijs(){
      let:dv.pct===null, doe:sheetDerving},
     {naam:'Bonbons per maand', ico:I.doos, waarde:p.n?String(p.n):'',
      let:!p.n, doe:sheetProductieJaar},
+    {naam:'Urenregistratie', ico:I.klok, waarde:(()=>{
+       const j=urenPeriode(jaarBegin(),jaarEind());
+       return j.totaalSec?komma(urenGetal(j.totaalSec))+' uur':''})(),
+     let:(()=>!urenPeriode(jaarBegin(),jaarEind()).totaalSec)(), doe:sheetUren},
     {naam:'Inkoopprijzen', ico:I.doos, waarde:(()=>{
        const ing=alleIngredienten().filter(n=>!ingGearchiveerd(n));
        const mist=ing.filter(n=>ingStand(n).mist).length;
