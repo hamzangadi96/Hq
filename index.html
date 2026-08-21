@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v527 · 21 aug 2026';
+const APPVERSIE='v528 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7208,11 +7208,16 @@ function sheetUren(){
      ${recent.length?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Laatst geregistreerd</span>
        <span class="tel">${(S.klussen||[]).length}</span></div>
        <div class="paneel">${recent.map(x=>{const so=klusSoort(x.soort);
-         return veegRij(`<div class="arij">
+         /* Wegvegen kon al, corrigeren niet. Terwijl je juist bij een getal dat
+            je zelf hebt ingeschat wilt kunnen bijstellen zonder het eerst weg
+            te gooien. Een maandtotaal stuurt je naar het maandscherm; de rest
+            open je los. */
+         return veegRij(`<button class="arij" data-ubew="${x.id}">
            <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
            <span class="naam">${esc(so.n)}${x.tekst?' · '+esc(x.tekst):''}
              <small>${kort(new Date(x.datum))}${x.tijd?' · '+x.tijd:''}</small></span>
-           <span class="waarde gevuld">${urenTekst(klusSec(x))}</span></div>`,
+           <span class="waarde gevuld">${urenTekst(klusSec(x))}</span>
+           <span class="p">${svg(I.pijl,'2')}</span></button>`,
            'data-uwis="'+x.id+'"')}).join('')}</div>`:''}`,
 
     `<button class="prim" style="margin-top:0" id="uHand">${svg(I.plus)}Uren achteraf invoeren</button>
@@ -7233,6 +7238,11 @@ function sheetUren(){
     const herstel=terugpunt(['klussen']);
     S.klussen=(S.klussen||[]).filter(x=>x.id!==b.dataset.uwis);
     sluitVeeg(); bewaarNu(); sheetUren(); render(); toast('Registratie verwijderd.',herstel);
+  });
+  $$('#sheetBody [data-ubew]').forEach(b=>b.onclick=()=>{
+    const k=(S.klussen||[]).find(x=>x.id===b.dataset.ubew);
+    if(!k) return;
+    if(k.bron==='maandtotaal') sheetUrenJaar(); else sheetUrenBewerk(k.id);
   });
   $('#uHand').onclick=()=>sheetUrenHand();
   if($('#uNaarJaar')) $('#uNaarJaar').onclick=()=>sheetUrenJaar();
@@ -7287,6 +7297,50 @@ function sheetKlusOms(){
   $('#koJa').onclick=()=>{
     k.tekst=$('#koT').value.trim();
     bewaarNu(); sheetUren(); render(); toast('Genoteerd.');
+  };
+}
+
+/* een registratie corrigeren: zelfde velden als bij invoeren, plus weggooien */
+function sheetUrenBewerk(id){
+  const k=(S.klussen||[]).find(x=>x.id===id);
+  if(!k) return toast('Die registratie bestaat niet meer.');
+  const u=urenGetal(klusSec(k));
+
+  sheet('Registratie',
+    `<div class="veld"><label>Soort werk</label>
+       <div class="chips" id="ubS">${klusSoorten().map(so=>
+         `<button class="chip ${so.k===k.soort?'aan':''}" data-v="${so.k}">${esc(so.n)}</button>`).join('')}</div></div>
+     <div class="veld"><label>Datum</label>
+       <input class="inp" id="ubD" type="date" value="${esc(k.datum||vandaag())}"></div>
+     <div class="veld"><label>Hoeveel uur</label>
+       <input class="inp" id="ubU" type="text" inputmode="decimal" value="${komma(u)}"></div>
+     <div class="veld"><label>Waar werk je aan? — mag leeg</label>
+       <input class="inp" id="ubT" value="${esc(k.tekst||'')}" autocomplete="off"></div>
+     ${k.start&&!k.sec?`<div class="melding amber">${svg(I.alarm,'2')}
+       <span>Deze klok loopt nog. Pas hem aan en hij wordt vastgezet op wat je invult.</span></div>`:''}`,
+    `<button class="prim" style="margin-top:0" id="ubOk">Bewaren</button>
+     <button class="sec" id="ubWeg">${svg(I.prul)}&nbsp;Verwijderen</button>`);
+
+  chips('#ubS');
+  $('#ubOk').onclick=()=>{
+    const nu=parseFloat(($('#ubU').value||'').replace(',','.'));
+    if(!nu||nu<=0) return toast('Vul in hoeveel uur je gewerkt hebt.');
+    if(nu>24&&k.bron!=='maandtotaal') return toast('Meer dan 24 uur op één dag kan niet.');
+    const herstel=terugpunt(['klussen']);
+    k.soort=chipV('#ubS')||k.soort;
+    k.datum=$('#ubD').value||k.datum;
+    k.tekst=$('#ubT').value.trim();
+    k.sec=Math.round(nu*3600);
+    k.handmatig=true;
+    delete k.start; delete k.eind;
+    bewaarNu(); sheetUren(); render();
+    toast('Aangepast naar '+komma(nu)+' uur.',herstel);
+  };
+  $('#ubWeg').onclick=()=>{
+    const herstel=terugpunt(['klussen']);
+    S.klussen=(S.klussen||[]).filter(x=>x.id!==id);
+    bewaarNu(); sheetUren(); render();
+    toast('Registratie verwijderd.',herstel);
   };
 }
 
