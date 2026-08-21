@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v538 · 21 aug 2026';
+const APPVERSIE='v539 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7904,9 +7904,9 @@ function doosjeSom(d){
       ? (k.marge===null?'':r('Je houdt over',euro(k.marge)+' · '+k.pct+'%',k.pct<20?'laag':'marge'))
       : r('Je houdt over',euro(k.margeVol)+' · '+k.pctVol+'%',k.pctVol<45?'laag':'marge')}
     ${k.pctVol===null?'':margeMelding(k.pctVol,'consument')}
-    ${k.b2bExcl!==null?r('Zakelijk excl. btw',euro(k.b2bExcl),
+    ${B2B_AAN&&k.b2bExcl!==null?r('Zakelijk excl. btw',euro(k.b2bExcl),
       'bij '+k.b2bMarge+'% marge'):''}
-    ${k.b2bAfnemer===null?'':`<div class="pwmist" style="color:${
+    ${!B2B_AAN||k.b2bAfnemer===null?'':`<div class="pwmist" style="color:${
       k.b2bAfnemer<40?'var(--amber)':'var(--grijs)'}">De winkel houdt ${
       k.b2bAfnemer}% over als zij doorverkoopt voor ${euro(k.advies)}.${
       k.b2bAfnemer<40?' Dat is krap; winkels rekenen op 40 à 50%.':''}</div>`}
@@ -8377,7 +8377,7 @@ let B2B={smaak:null,vorm:null,stuks:96};
    De dertien smaken blijven bestaan, maar als lijst waar je naar kijkt in
    plaats van een formulier dat je moet invullen. */
 function sheetPrijzen(voor){
-  if(voor==='zakelijk') return sheetB2B();
+  if(voor==='zakelijk'&&B2B_AAN) return sheetB2B();
   if(voor==='consument') return sheetPrijzenConsument();
   return sheetPrijsOverzicht();
 }
@@ -8445,7 +8445,7 @@ function sheetPrijsOverzicht(){
          <small>stel er een samen uit je verpakkingsonderdelen</small></span>
          <span class="p">${svg(I.pijl,'2')}</span></button>`}
 
-     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Zakelijk</span>
+${B2B_AAN?`     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Zakelijk</span>
        <span class="tel">${b2bMarge()}% marge</span></div>
      <div class="paneel">
        ${(()=>{
@@ -8468,7 +8468,7 @@ function sheetPrijsOverzicht(){
      </div>
      <button class="arij" id="poB2B" style="margin-top:10px">
        <span class="naam">Doorrekenen voor een klant<small>aantal, staffel en offerte</small></span>
-       <span class="p">${svg(I.pijl,'2')}</span></button>`,
+       <span class="p">${svg(I.pijl,'2')}</span></button>`:''}`,
     '');
 
   if($('#poKost')) $('#poKost').onclick=()=>sheetKostprijzen();
@@ -10450,7 +10450,7 @@ function sheetKostenbasis(){
        <div class="hint" style="margin:8px 0 0">Je arbeid rekent al met goede stuks.
          Je grondstoffen nog niet — dat rechtte dit percentage.</div></div>
 
-     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Prijsbeleid</span>
+${B2B_AAN?`     <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Prijsbeleid</span>
        <span class="tel">geldt voor al je klanten</span></div>
      <div class="veld"><label>Gewenste marge op B2B</label>
        <div class="rijtje">
@@ -10470,7 +10470,7 @@ function sheetKostenbasis(){
            ? staffel().filter(t=>t.pct).map(t=>t.pct+'% vanaf '+t.van).join(' \u00b7 ')
            : 'geen korting ingesteld'}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
-     </div>`,
+     </div>`:''}`,
     `<button class="prim" style="margin-top:0" id="kbKlaar">Klaar</button>`);
 
   /* een .duo koppel je handmatig; chips() zoekt naar .chip en vond er geen,
@@ -10481,9 +10481,9 @@ function sheetKostenbasis(){
     x.classList.add('aan'); vlPer=x.dataset.v;
   });
   $('#kbKlaar').onclick=dicht;
-  $('#kbVormen').onclick=sheetVormen;
-  $('#kbStaffel').onclick=sheetStaffel;
-  $('#kbMOk').onclick=()=>{
+  if($('#kbVormen')) $('#kbVormen').onclick=sheetVormen;
+  if($('#kbStaffel')) $('#kbStaffel').onclick=sheetStaffel;
+  if($('#kbMOk')) $('#kbMOk').onclick=()=>{
     const n=getalIn($('#kbM').value);
     if(isNaN(n)||n<0||n>=100) return toast('Vul een marge tussen 0 en 99 in.');
     S.b2bMarge=n; bewaarNu(); sheetKostenbasis(); render();
@@ -12325,13 +12325,13 @@ function sheetKlant(id){
      <div class="veld"><label>Adres <span class="opt">voor op de factuur</span></label>
        <textarea class="inp" id="klA" rows="2" placeholder="Straat en huisnummer&#10;Postcode en plaats">${esc(k.adres||'')}</textarea></div>
 
-     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Prijsafspraak</span></div>
+     ${B2B_AAN?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Prijsafspraak</span></div>
      <div class="paneel"><button class="arij" id="klPrijs">
        <span class="ivak">${svg(I.doc)}</span>
        <span class="naam">${a?'Vastgelegd op '+a.marge+'% marge':'Nog geen afspraak'}<small>${a
          ? (v?esc(v.naam)+' · ':'')+Object.keys(a.prijzen).length+' prijzen · '+kort(new Date(a.datum))
          : 'reken een prijs uit en leg hem hier vast'}</small></span>
-       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
+       <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`:''}
 
      <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Orders</span>
        <span class="tel">${open.length?open.length+' open':orders.length||'geen'}</span></div>
@@ -12350,7 +12350,7 @@ function sheetKlant(id){
   $$('#klT button').forEach(x=>x.onclick=()=>{sluitToetsenbord();
     $$('#klT button').forEach(y=>y.classList.remove('aan'));
     x.classList.add('aan'); zak=x.dataset.v==='zakelijk'});
-  $('#klPrijs').onclick=()=>sheetAfspraak(id);
+  if($('#klPrijs')) $('#klPrijs').onclick=()=>sheetAfspraak(id);
   $('#klOk').onclick=()=>{
     const n=$('#klN').value.trim();
     if(!n) return toast('Vul een naam in.');
@@ -22947,6 +22947,14 @@ const marktBalk=(prijs,soort)=>{
   return `<div class="melding ${o.klas}" style="margin-top:10px">${
     svg(o.klas==='groen'?I.vink:I.alarm,'2')}<span>${esc(o.kort)} \u00b7 ${esc(o.uitleg)}</span></div>`;
 };
+
+/* ═══════════ zakelijk staat even uit ═══════════
+   Alles wat met verkoop aan winkels te maken heeft \u2014 de calculator, de staffel,
+   de leveringsvormen, de prijsafspraken en de offerte \u2014 is verborgen tot de
+   consumentenkant klopt. Verborgen, niet gesloopt: de code blijft staan en de
+   gegevens blijven bewaard, dus als je Verona weer aan de lijn hebt zet je deze
+   ene regel op true en staat alles er weer. */
+const B2B_AAN=false;
 
 const MARGEBAND={
   consument:{krap:45, goed:55, ruim:72, advies:60,
