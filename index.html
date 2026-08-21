@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v532 · 21 aug 2026';
+const APPVERSIE='v534 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10284,7 +10284,7 @@ function sheetKostprijzen(){
   const pr=productieRapport();
   const bal=n=>Math.max(2,Math.min(100,n));
 
-  sheet('Wat kost een bonbon',
+  sheet('Per smaak',
     !k.totaal
     ? `<p class="hint">Nog geen smaken met onderdelen. Zodra je een smaak hebt
         uitgewerkt, staat hier wat hij kost.</p>`
@@ -11108,10 +11108,11 @@ function sheetSeizoen(){
    zeggen waar je heen wilt, met daarachter wat bij elkaar hoort, is één tik
    meer maar veel minder zoeken. Dezelfde tegelvorm als op de tab, zodat je
    niet twee patronen hoeft te leren. */
-function sheetKeuze(titel, items, onder){
+function sheetKeuze(titel, items, onder, boven){
   const doe={};
   sheet(titel,
-    `<div class="fasetegels" style="margin-top:4px">${items.map((x,i)=>{
+    `${boven||''}
+     <div class="fasetegels" style="margin-top:${boven?'14px':'4px'}">${items.map((x,i)=>{
       doe[i]=x.doe;
       return `<button class="fasetegel ${x.let?'let':''}" data-kz="${i}">
         <span class="ftico">${svg(x.ico)}</span>
@@ -11125,10 +11126,27 @@ function sheetKeuze(titel, items, onder){
 function sheetGeldKostprijs(){
   const kv=kostenRapport(), ap=arbeidPerBonbon(), vb=vastPerBonbon(),
         dv=dervingInfo(), p=productiePerMaand(), m=vasteLastenPerMaand();
-  const bn=(S.bonnen||[]).length;
+
+  /* Hier stond kostenRapport().gem onder het label "Grondstoffen". Dat is de
+     volledige kostprijs \u2014 grondstof plus arbeid plus vaste lasten \u2014 dus stond
+     er \u20ac 1,52 bij grondstoffen terwijl je chocolade \u20ac 0,08 kost. Het totaal
+     hoort boven de vier lagen, niet in één ervan. */
+  const smaken=(S.recepten||[]).filter(r=>smaakActief(r)&&(r.onderdelen||[]).length);
+  const gr=smaken.map(r=>kostprijsVol(r).grondNa).filter(x=>typeof x==='number');
+  const gemGrond=gr.length?gr.reduce((a,b)=>a+b,0)/gr.length:null;
+
+  const boven=kv.gem!==null?`<div class="ikstart">
+      <span class="eyebrow">Gemiddeld per bonbon</span>
+      <b>${euro(kv.gem)}</b>
+      <span class="eyebrow" style="margin-top:4px">${[
+        gemGrond!==null?euro(gemGrond)+' grondstof':null,
+        ap?euro(ap.perStuk)+' arbeid':null,
+        vb.per!==null?euro(vb.per)+' vast':null
+      ].filter(Boolean).join(' + ')}</span></div>`:'';
+
   sheetKeuze('Wat kost een bonbon',[
-    {naam:'Grondstoffen', ico:I.doos, waarde:kv.gem!==null?euro(kv.gem):'',
-     let:kv.gem===null, doe:()=>sheetIngredientenLijst(false)},
+    {naam:'Grondstoffen', ico:I.doos, waarde:gemGrond!==null?euro(gemGrond):'',
+     let:gemGrond===null, doe:sheetKostprijzen},
     {naam:'Arbeid', ico:I.klok, waarde:ap?euro(ap.perStuk):'', let:!ap, doe:sheetUurtarief},
     {naam:'Vaste lasten', ico:I.euro, waarde:vb.per!==null?euro(vb.per):(m?euro(m)+' p/m':''),
      let:vb.per===null, doe:sheetKostenbasis},
@@ -11136,8 +11154,14 @@ function sheetGeldKostprijs(){
      let:dv.pct===null, doe:sheetDerving},
     {naam:'Bonbons per maand', ico:I.doos, waarde:p.n?String(p.n):'',
      let:!p.n, doe:sheetProductieJaar},
+    {naam:'Inkoopprijzen', ico:I.doos, waarde:(()=>{
+       const ing=alleIngredienten().filter(n=>!ingGearchiveerd(n));
+       const mist=ing.filter(n=>ingStand(n).mist).length;
+       return ing.length?(mist?mist+' zonder':String(ing.length)):''})(),
+     let:(()=>alleIngredienten().filter(n=>!ingGearchiveerd(n)&&ingStand(n).mist).length>0)(),
+     doe:()=>sheetIngredientenLijst(false)},
     {naam:'Grondstofjaar', ico:I.vracht, waarde:'', doe:()=>sheetGrondstofJaar()}
-  ], 'Deze lagen samen zijn wat \u00e9\u00e9n bonbon je kost. Ontbreekt er een, dan is elke prijs die je erop baseert te laag.');
+  ], 'Deze lagen samen zijn wat \u00e9\u00e9n bonbon je kost. Ontbreekt er een, dan is elke prijs die je erop baseert te laag.', boven);
 }
 
 function sheetGeldLoopt(){
