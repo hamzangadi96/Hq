@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v528 · 21 aug 2026';
+const APPVERSIE='v529 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8424,10 +8424,12 @@ function sheetPrijzenConsument(){
          <span>Je kostprijs mist ${wat.join(' en ')}, dus deze adviezen zijn te laag.
            Vul dat eerst aan bij <b>Kloppen je cijfers</b>.</span></div>`:''})()}
 
-     ${gemAdv!==null?`<div class="ikstart" style="margin-bottom:14px">
+     ${gemAdv!==null?`<button class="ikstart" id="pcKost" style="margin-bottom:14px;
+        width:100%;text-align:left;border:0;cursor:pointer;font:inherit">
        <span class="eyebrow">Gemiddeld per bonbon</span>
        <b>${euro(gemKost)} kost \u2192 ${euro(gemAdv)}</b>
-       <span class="eyebrow" style="margin-top:4px">bij ${m}% marge, incl. btw</span></div>`:''}
+       <span class="eyebrow" style="margin-top:4px">bij ${m}% marge \u00b7 tik voor de opbouw</span>
+       </button>`:''}
 
      ${nogNiet?`<button class="prim" style="margin-top:0;margin-bottom:16px" id="pcAlles">
        ${svg(I.vink)}&nbsp;Zet ${nogNiet===kanAdvies.length?'alle '+nogNiet:nogNiet}
@@ -8477,6 +8479,7 @@ function sheetPrijzenConsument(){
   });
 
   /* Eén tik zet ze allemaal én bewaart. Vergissing? De toast draait hem terug. */
+  if($('#pcKost')) $('#pcKost').onclick=()=>sheetKostprijzen();
   if($('#pcAlles')) $('#pcAlles').onclick=()=>{
     const herstel=terugpunt(['verkoop']);
     S.verkoop=S.verkoop||{};
@@ -11091,33 +11094,37 @@ function geldHTML(){
       <span class="ftico">${svg(ico)}</span>
       <span class="ftn">${label}</span>
       ${waarde?`<i class="ftt${let2?' amber':''}">${waarde}</i>`:''}</button>`;
-  /* Staat er iets niet in, dan hoort dat vóór de uitkomsten die ermee rekenen:
-     anders kijk je naar een streepje zonder te weten waarom het er staat. */
+  /* Acht tegels onder de kop "Inzicht" is geen groepering maar een stapel: je
+     leest ze allemaal om te vinden wat je zocht. Nu blokken waarvan de kop zegt
+     wat je er komt doen. En de melding dat er cijfers ontbreken is geen tegel
+     meer maar een balk: die hoort niet te concurreren met de rest, hij hoort in
+     de weg te zitten tot je hem oplost en te verdwijnen als het klopt. */
   const cfMist=cijferStand().filter(x=>!x.ok).length;
-  const inzicht=`<div class="blokkop"><span class="eyebrow">Inzicht</span></div>
+  const inzicht=`
+    ${cfMist?`<button class="melding rood" data-cijfers style="width:100%;text-align:left;
+       font:inherit;font-size:13.5px;border:0;cursor:pointer;margin:12px 0 0">
+       ${svg(I.alarm,'2')}<span>${cfMist} ${cfMist===1?'cijfer ontbreekt':'cijfers ontbreken'}.
+       Zolang dat zo is rekenen je marge, je uurloon en je adviesprijzen met halve getallen.</span>
+       </button>`:''}
+
+    <div class="blokkop" style="margin-top:${cfMist?18:12}px"><span class="eyebrow">Wat vraag je</span></div>
     <div class="fasetegels">
-      ${gt('data-cijfers',cfMist?I.alarm:I.vink,'Kloppen je cijfers',
-        cfMist?cfMist+(cfMist===1?' ontbreekt':' ontbreken'):'compleet',cfMist>0)}
-      ${gt('data-peruur',I.klok,'Per gewerkt uur',pu?euro(pu.perUur):'')}
-      ${gt('data-derving',I.doos,'Weggegooid',dv.totaal?euro(dv.totaal):'',dv.totaal>0)}
-      ${gt('data-seizoen',I.spark,'Je jaar','')}
-      ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','')}
-      ${gt('data-breakeven',I.spark,'Wat moet je verkopen','')}
-      ${/* De calculator zat alleen achter een tabje binnen Prijzen, dat weer
-           onder Orders hing. Wie een winkel aan de lijn heeft zoekt hem hier. */''}
       ${(()=>{
-        /* Een omschrijving in de hoek waar een getal hoort leest niemand, en
-           lang is het ook nog. Hoeveel smaken al een prijs hebben zegt in één
-           blik of hier nog werk ligt. */
         const sm=(S.recepten||[]).filter(smaakActief);
         const mp=sm.filter(r=>verkoopPrijs(r.id)!==null).length;
         return gt('data-prijsvoor',I.euro,'Je prijzen',
           sm.length?mp+'/'+sm.length:'', sm.length>0&&mp===0)})()}
-      ${/* Een tegel "Je doosjes" bestond al verderop; er hoeft er geen tweede
-           bij. Ik was hem alleen niet tegengekomen omdat break-even het
-           verkeerde systeem las. */''}
       ${gt('data-doosjes',I.doos,'Je doosjes',(()=>{const n=alsLijst(S.doosjes).length;
         return n?String(n):''})())}
+      ${gt('data-prijsopbouw',I.euro,'Prijsopbouw','')}
+    </div>
+
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Hoe loopt het</span></div>
+    <div class="fasetegels">
+      ${gt('data-peruur',I.klok,'Per gewerkt uur',pu?euro(pu.perUur):'')}
+      ${gt('data-seizoen',I.spark,'Je jaar','')}
+      ${gt('data-breakeven',I.spark,'Wat moet je verkopen','')}
+      ${gt('data-derving',I.doos,'Weggegooid',dv.totaal?euro(dv.totaal):'',dv.totaal>0)}
     </div>`;
 
   /* een rit die loopt hoort bovenaan — anders staat geld voorop */
@@ -11250,11 +11257,12 @@ function geldHTML(){
      viel. Beide rijen horen in hetzelfde paneel. */
   /* Zes rijen werden zes tegels, in dezelfde vorm als de rest van de app.
      De ondertitels waren zinnen; als tegel past er één waarde in de hoek. */
-  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Kosten</span></div>
+  /* "Kostprijs" liet zien wat een bonbon kost; "Prijsopbouw" hierboven laat
+     datzelfde zien plus wat je erop legt. Twee ingangen naar hetzelfde antwoord.
+     Het scherm blijft bestaan \u2014 het hangt onder de gemiddelde-kaart in
+     Prijzen \u2014 maar hoeft hier niet ook nog te staan. */
+  h+=`<div class="blokkop" style="margin-top:26px"><span class="eyebrow">Wat vul je in</span></div>
     <div class="fasetegels">
-      ${(()=>{const k=kostenRapport();
-        return gt('data-kostprijzen',I.euro,'Kostprijs',
-          k.gem!==null?euro(k.gem):'onbekend', k.gem===null)})()}
       ${(()=>{const m=vasteLastenPerMaand(), vb=vastPerBonbon();
         /* Stond even achter het tandwiel, maar je vaste lasten en derving
            veranderen elke maand. Dat is bijhouden, geen instellen. */
