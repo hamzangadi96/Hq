@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v521 · 20 aug 2026';
+const APPVERSIE='v522 · 20 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7204,6 +7204,7 @@ function sheetUren(){
            'data-uwis="'+x.id+'"')}).join('')}</div>`:''}`,
 
     `<button class="prim" style="margin-top:0" id="uHand">${svg(I.plus)}Uren achteraf invoeren</button>
+     <button class="sec" id="uJaar">${svg(I.klok)}Dit jaar per maand</button>
      <button class="sec" id="uStaat">${svg(I.doc)}Urenstaat printen</button>`);
 
   $$('[data-ustart]').forEach(b=>b.onclick=()=>{
@@ -7223,6 +7224,7 @@ function sheetUren(){
     sluitVeeg(); bewaarNu(); sheetUren(); render(); toast('Registratie verwijderd.',herstel);
   });
   $('#uHand').onclick=()=>sheetUrenHand();
+  $('#uJaar').onclick=()=>sheetUrenJaar();
   $('#uStaat').onclick=()=>sheetUrenstaat();
   setTimeout(bindVeeg,20);
 }
@@ -7274,6 +7276,108 @@ function sheetKlusOms(){
   $('#koJa').onclick=()=>{
     k.tekst=$('#koT').value.trim();
     bewaarNu(); sheetUren(); render(); toast('Genoteerd.');
+  };
+}
+
+/* ═══════════ uren van eerder dit jaar ═══════════
+   Het inkloksysteem begint te tellen op de dag dat je het in gebruik nam. Alles
+   wat je daarvóór aan de zaak deed staat nergens, terwijl het wel meetelt voor
+   je urencriterium en voor wat je per uur verdient. Dag voor dag invoeren zijn
+   honderd registraties; per maand is één regel. Minder fijnmazig, maar wel
+   ingevuld — en de Belastingdienst wil vooral dat het aannemelijk en consistent
+   is. Bestaat er al een maandregel, dan werken we die bij in plaats van er een
+   tweede naast te zetten. */
+const MAANDSLEUTEL='maandtotaal';
+function maandRegel(maand){
+  return (S.klussen||[]).find(x=>x.bron===MAANDSLEUTEL&&x.maand===maand)||null;
+}
+function zetMaandUren(maand,uren){
+  S.klussen=S.klussen||[];
+  const best=maandRegel(maand);
+  if(!uren||uren<=0){
+    if(best) S.klussen=S.klussen.filter(x=>x!==best);
+    return;
+  }
+  const d=new Date(maand+'-01');
+  const laatste=new Date(d.getFullYear(),d.getMonth()+1,0);
+  const datum=iso(laatste>new Date()?new Date():laatste);
+  const rij={id:best?best.id:uid(), soort:'overig', sec:Math.round(uren*3600),
+    datum, tijd:'', handmatig:true, bron:MAANDSLEUTEL, maand,
+    tekst:'Uren '+MND[d.getMonth()]+' '+d.getFullYear()+', achteraf vastgelegd'};
+  if(best) Object.assign(best,rij); else S.klussen.push(rij);
+}
+
+function sheetUrenJaar(){
+  const nu=new Date(), jaar=nu.getFullYear();
+  const tot=nu.getMonth();
+  const mnd=[]; for(let i=0;i<=tot;i++) mnd.push(jaar+'-'+String(i+1).padStart(2,'0'));
+
+  /* wat er al geklokt is per maand — dat hoef je niet nog eens in te vullen */
+  const geklokt={};
+  mnd.forEach(m=>{
+    const van=m+'-01', d=new Date(m+'-01');
+    const totD=iso(new Date(d.getFullYear(),d.getMonth()+1,0));
+    const p=urenPeriode(van,totD);
+    const eigen=maandRegel(m);
+    geklokt[m]=Math.max(0,p.totaalSec-(eigen?eigen.sec:0));
+  });
+
+  const som=()=>mnd.reduce((n,m)=>{
+    const r=maandRegel(m); return n+(r?r.sec:0)+geklokt[m] },0);
+  const norm=S.urennorm||1225;
+
+  sheet('Uren '+jaar,
+    `<p class="hint">Vul per maand in hoeveel uur je aan Cacaoboetiek hebt gewerkt vóór je
+       ging inklokken. Wat de app al geklokt heeft staat er los naast en telt er gewoon bij op.</p>
+
+     <div class="paneel">${mnd.map(m=>{
+       const d=new Date(m+'-01'), r=maandRegel(m);
+       const g=geklokt[m]?urenGetal(geklokt[m]):0;
+       return `<div class="arij" style="cursor:default">
+         <span class="naam">${MND[d.getMonth()]}${g?`<small>${komma(g)} uur geklokt</small>`:''}</span>
+         <span class="qty"><input class="lotinp" style="width:84px" data-um="${m}" type="text"
+           inputmode="decimal" placeholder="0" value="${r?komma(urenGetal(r.sec)):''}"></span>
+       </div>`}).join('')}</div>
+
+     <div class="ikstand" style="margin-top:16px">
+       <span class="eyebrow">Totaal ${jaar}</span>
+       <b id="ujTot">${komma(urenGetal(som()))} uur</b>
+       <span class="eyebrow" id="ujNorm" style="margin-top:4px">van ${norm} voor het urencriterium</span></div>
+
+     <p class="hint" style="margin-top:14px">Een maandtotaal is zwakker onderbouwd dan een
+       dagstaat. Houd bij wat je invult ergens een agenda of aantekening achter de hand, en
+       klok vanaf nu zoveel mogelijk zodat de rest vanzelf klopt.</p>`,
+    `<button class="prim" style="margin-top:0" id="ujOk">Opslaan</button>`,
+    komma(urenGetal(som()))+' uur');
+
+  const tel=()=>{
+    let sec=0;
+    $$('#sheetBody [data-um]').forEach(i=>{
+      const v=parseFloat((i.value||'').replace(',','.'));
+      sec+=(!isNaN(v)&&v>0?Math.round(v*3600):0)+geklokt[i.dataset.um];
+    });
+    const u=urenGetal(sec);
+    if($('#ujTot')) $('#ujTot').textContent=komma(u)+' uur';
+    if($('#ujNorm')) $('#ujNorm').textContent=u>=norm
+      ? 'urencriterium gehaald' : 'nog '+komma(Math.round((norm-u)*10)/10)+' uur tot '+norm;
+  };
+  $$('#sheetBody [data-um]').forEach(i=>i.oninput=tel);
+
+  $('#ujOk').onclick=()=>{
+    const herstel=terugpunt(['klussen']);
+    let fout=null;
+    $$('#sheetBody [data-um]').forEach(i=>{
+      const rauw=(i.value||'').trim().replace(',','.');
+      const v=rauw===''?0:parseFloat(rauw);
+      if(rauw!==''&&(isNaN(v)||v<0||v>744)) fout='Vul per maand een aantal tussen 0 en 744 in.';
+    });
+    if(fout) return toast(fout);
+    $$('#sheetBody [data-um]').forEach(i=>{
+      const rauw=(i.value||'').trim().replace(',','.');
+      zetMaandUren(i.dataset.um, rauw===''?0:parseFloat(rauw));
+    });
+    bewaarNu(); dicht(); render();
+    toast('Uren opgeslagen.',herstel);
   };
 }
 
