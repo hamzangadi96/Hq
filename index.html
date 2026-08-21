@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v541 · 21 aug 2026';
+const APPVERSIE='v543 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8846,10 +8846,12 @@ function sheetB2B(){
     if(!uurtarief()) return 'uurtarief niet ingesteld';
     const ap=arbeidPerBonbon();
     if(!ap) return 'vul erbij hoeveel bonbons je per uur maakt';
+    if(ap.uitReg) return komma(Math.round(ap.uren*10)/10)+' uur \u00d7 '+euro(uurtarief())+
+      ' \u00f7 '+ap.stuks+' bonbons'+(ap.reg.prodUren!==null?' (productietijd)':'');
     if(ap.geschat) return ap.model
       ? komma(Math.round(ap.model.dagUur*10)/10)+' uur \u00d7 '+euro(uurtarief())+
         ' \u00f7 '+ap.model.stuks+' bonbons per dag'
-      : euro(uurtarief())+' per uur \u00f7 '+ap.perUur+' bonbons, geschat';
+      : 'oud tempo van '+ap.perUur+' per uur \u2014 je productiedag is niet af';
     return 'gemeten over '+ap.batches+(ap.batches===1?' batch':' batches')+
       ' \u00b7 '+komma(ap.uren)+' uur, '+ap.stuks+' bonbons';
   };
@@ -10812,11 +10814,29 @@ function arbeidPerBonbon(){
     const stuks=af.reduce((n,b)=>n+b.resultaat.goed,0);
     if(stuks) return {perStuk:(uren*t)/stuks,uren,stuks,batches:af.length,geschat:false};
   }
+  /* Je hebt je uren en je aantallen allebei geregistreerd. Dan hoeft de app niet
+     te schatten hoe een productiedag verloopt \u2014 ze kan het gewoon uitrekenen:
+     gewerkte uren maal je tarief, gedeeld door wat eruit kwam. Dat is het echte
+     getal, en het beweegt mee zodra je een maand bijwerkt. Heb je ingevuld welk
+     deel van je tijd naar produceren gaat, dan telt alleen dat deel; anders al je
+     uren, en dan is het een bovengrens. De productiedag hieronder blijft bestaan
+     als hulpmiddel om te zien wat een voller schema zou doen. */
+  const reg=arbeidUitRegistratie();
+  if(reg) return {perStuk:reg.perStukProd!==null?reg.perStukProd:reg.perStuk,
+                  uren:reg.prodUren!==null?reg.prodUren:reg.uren, stuks:reg.stuks,
+                  batches:0, geschat:false, uitReg:true, reg};
+
   const m=arbeidModel();
   if(m) return {perStuk:m.perStuk, perUur:Math.round(tempoPerUur()), uren:0, stuks:0,
                 batches:0, geschat:true, model:m};
+  /* Vul je je productiedag niet compleet in, dan rekende de app hier stil door
+     met een tempo dat je ooit los had ingevuld. Je paste je uren aan en er
+     veranderde niets, zonder dat ergens stond waarom. Het getal blijft bruikbaar
+     \u2014 anders valt je hele kostprijs weg \u2014 maar het is nu gemerkt als oud, en
+     elk scherm dat het toont zegt erbij dat je productiedag niet af is. */
   const pu=bonbonsPerUur();
-  if(pu>0) return {perStuk:t/pu, perUur:pu, uren:0, stuks:0, batches:0, geschat:true};
+  if(pu>0) return {perStuk:t/pu, perUur:pu, uren:0, stuks:0, batches:0,
+                   geschat:true, oud:true};
   return null;
 }
 
@@ -10943,7 +10963,7 @@ function sheetUurtarief(){
     const ver=verschil!==null&&(verschil>1.6||verschil<0.6);
     const pct=r.aandeel!==null?Math.round(r.aandeel*100):null;
     return `<div class="blokkop" style="margin-top:24px">
-        <span class="eyebrow">Wat je registratie zegt</span></div>
+        <span class="eyebrow">Waar dat vandaan komt</span></div>
       <div class="paneel">
         <button class="arij" id="utUren">
           <span class="naam">Geregistreerde uren<small>dit jaar, alles bij elkaar</small></span>
@@ -10976,7 +10996,7 @@ function sheetUurtarief(){
 
       <div class="melding ${ver?'amber':'groen'}" style="margin-top:10px">
         ${svg(ver?I.alarm:I.vink,'2')}<span>${
-          !m?'Vergelijk dit met een productiedag hierboven.'
+          !m?'Vul hieronder een productiedag in om te zien wat een voller schema zou doen.'
           :verschil>1.6
             ? 'Ruim boven je schatting van '+euro(m.perStuk)+'. Of je maakt er minder per dag '+
               'dan je denkt, of er gaat meer tijd naar productie dan dit percentage zegt.'
@@ -11001,8 +11021,16 @@ function sheetUurtarief(){
   };
 
   sheet('Arbeid',
-    `<p class="hint">Beschrijf een gewone productiedag. Hoeveel je per uur maakt rekent de app
-      daaruit zelf uit \u2014 dat hoef je niet te weten.</p>
+    `${ap&&ap.uitReg?`<div class="ikstart" style="margin-bottom:14px">
+        <span class="eyebrow">Arbeid per bonbon</span><b>${euro(ap.perStuk)}</b>
+        <span class="eyebrow" style="margin-top:4px">${komma(Math.round(ap.uren*10)/10)} uur
+          \u00d7 ${euro(t)} \u00f7 ${ap.stuks} bonbons</span></div>`:''}
+     ${(ap&&ap.oud)?`<div class="melding amber">${svg(I.alarm,'2')}<span>Je productiedag is
+        niet compleet, dus wordt er nog gerekend met een tempo van ${ap.perUur} per uur dat je
+        eerder had ingevuld. Vul je uren en aantallen in, of de drie velden hieronder.</span></div>`:''}
+     <p class="hint">${ap&&ap.uitReg
+       ? 'De app rekent met je eigen registratie. De productiedag hieronder is een hulpmiddel: daarmee zie je wat een voller schema zou doen.'
+       : 'Beschrijf een gewone productiedag. Hoeveel je per uur maakt rekent de app daaruit zelf uit.'}</p>
 
      <div class="veld"><label>Bedrag per uur</label>
        <input class="inp" id="utT" type="text" inputmode="decimal" step="0.5"
@@ -11088,7 +11116,7 @@ function sheetUurtarief(){
     S.opstartUur=vv.waarde&&vv.waarde>0?vv.waarde:null;
     S.perDag=nn.waarde&&nn.waarde>0?nn.waarde:null;
     /* het losse tempoveld bestaat niet meer; laat geen oude waarde meerekenen */
-    if(S.dagUren&&S.perDag) S.bonbonsPerUur=null;
+    if(S.dagUren&&S.perDag&&S.dagUren>(S.opstartUur||0)) S.bonbonsPerUur=null;
     bewaarNu(); dicht(); render();
     toast(S.uurtarief?'Arbeid opgeslagen.':'Uurtarief gewist.');
   };
@@ -11460,11 +11488,14 @@ function sheetGeldKostprijs(){
        ${laag('Grondstoffen', dv.pct?'incl. '+komma(dv.pct)+'% derving':'chocolade en vulling',
               gemGrond, 'data-l="grond"', gemGrond===null)}
        ${laag('Arbeid', ap
-              ? (ap.geschat&&ap.model
+              ? (ap.uitReg
+                 ? komma(Math.round(ap.uren*10)/10)+' uur \u00f7 '+ap.stuks+' bonbons'
+                 : ap.model
                  ? komma(Math.round(ap.model.dagUur*10)/10)+' uur \u00f7 '+ap.model.stuks+' per dag'
-                 : (ap.geschat?'geschat':'gemeten over '+ap.batches+' batches'))
+                 : (ap.oud?'oud tempo \u2014 vul je productiedag aan'
+                    :'gemeten over '+ap.batches+' batches'))
               : 'nog niets ingevuld',
-              ap?ap.perStuk:null, 'data-l="arbeid"', !ap)}
+              ap?ap.perStuk:null, 'data-l="arbeid"', !ap||ap.oud)}
        ${laag('Vaste lasten', vb.per!==null
               ? euro(vb.maand)+' p/m \u00f7 '+vb.prod
               : (m?'niet te verdelen zonder aantal':'nog niets ingevuld'),
