@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v536 · 21 aug 2026';
+const APPVERSIE='v537 · 21 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3761,7 +3761,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -11204,48 +11204,80 @@ function sheetKeuze(titel, items, onder, boven){
 }
 
 function sheetGeldKostprijs(){
-  const kv=kostenRapport(), ap=arbeidPerBonbon(), vb=vastPerBonbon(),
-        dv=dervingInfo(), p=productiePerMaand(), m=vasteLastenPerMaand();
-
-  /* Hier stond kostenRapport().gem onder het label "Grondstoffen". Dat is de
-     volledige kostprijs \u2014 grondstof plus arbeid plus vaste lasten \u2014 dus stond
-     er \u20ac 1,52 bij grondstoffen terwijl je chocolade \u20ac 0,08 kost. Het totaal
-     hoort boven de vier lagen, niet in één ervan. */
+  /* Alles op één scherm: de ladder is meteen de navigatie. Acht tegels dwongen
+     je te onthouden welk getal waar zat; nu staat de hele optelsom onder elkaar
+     met het bedrag ernaast, en tik je de regel aan die niet klopt. */
   const smaken=(S.recepten||[]).filter(r=>smaakActief(r)&&(r.onderdelen||[]).length);
   const gr=smaken.map(r=>kostprijsVol(r).grondNa).filter(x=>typeof x==='number');
   const gemGrond=gr.length?gr.reduce((a,b)=>a+b,0)/gr.length:null;
+  const ap=arbeidPerBonbon(), vb=vastPerBonbon(), af=afschrijvingPerBonbon();
+  const dv=dervingInfo(), p=productiePerMaand(), m=vasteLastenPerMaand();
+  const tot=(gemGrond===null)?null:gemGrond+(ap?ap.perStuk:0)+(vb.per||0)+(af.per||0);
+  const adv=(tot===null||consMarge()>=100)?null:mooiePrijs(tot/(1-consMarge()/100)*(1+BTW_ETEN),0.05);
 
-  const boven=kv.gem!==null?`<div class="ikstart">
-      <span class="eyebrow">Gemiddeld per bonbon</span>
-      <b>${euro(kv.gem)}</b>
-      <span class="eyebrow" style="margin-top:4px">${[
-        gemGrond!==null?euro(gemGrond)+' grondstof':null,
-        ap?euro(ap.perStuk)+' arbeid':null,
-        vb.per!==null?euro(vb.per)+' vast':null
-      ].filter(Boolean).join(' + ')}</span></div>`:'';
+  const laag=(naam,sub,bedrag,attr,let2)=>`<button class="arij" ${attr}>
+    <span class="naam">${naam}${sub?`<small${let2?' style="color:var(--amber)"':''}>${sub}</small>`:''}</span>
+    <span class="waarde gevuld">${bedrag===null?'\u2014':euro(bedrag)}</span>
+    <span class="p">${svg(I.pijl,'2')}</span></button>`;
 
-  sheetKeuze('Wat kost een bonbon',[
-    {naam:'Grondstoffen', ico:I.doos, waarde:gemGrond!==null?euro(gemGrond):'',
-     let:gemGrond===null, doe:sheetKostprijzen},
-    {naam:'Arbeid', ico:I.klok, waarde:ap?euro(ap.perStuk):'', let:!ap, doe:sheetUurtarief},
-    {naam:'Vaste lasten', ico:I.euro, waarde:vb.per!==null?euro(vb.per):(m?euro(m)+' p/m':''),
-     let:vb.per===null, doe:sheetKostenbasis},
-    {naam:'Weggegooid', ico:I.doos, waarde:dv.pct!==null?komma(dv.pct)+'%':'',
-     let:dv.pct===null, doe:sheetDerving},
-    {naam:'Bonbons per maand', ico:I.doos, waarde:p.n?String(p.n):'',
-     let:!p.n, doe:sheetProductieJaar},
-    {naam:'Urenregistratie', ico:I.klok, waarde:(()=>{
-       const j=urenPeriode(jaarBegin(),jaarEind());
-       return j.totaalSec?komma(urenGetal(j.totaalSec))+' uur':''})(),
-     let:(()=>!urenPeriode(jaarBegin(),jaarEind()).totaalSec)(), doe:sheetUren},
-    {naam:'Inkoopprijzen', ico:I.doos, waarde:(()=>{
-       const ing=alleIngredienten().filter(n=>!ingGearchiveerd(n));
-       const mist=ing.filter(n=>ingStand(n).mist).length;
-       return ing.length?(mist?mist+' zonder':String(ing.length)):''})(),
-     let:(()=>alleIngredienten().filter(n=>!ingGearchiveerd(n)&&ingStand(n).mist).length>0)(),
-     doe:()=>sheetIngredientenLijst(false)},
-    {naam:'Grondstofjaar', ico:I.vracht, waarde:'', doe:()=>sheetGrondstofJaar()}
-  ], 'Deze lagen samen zijn wat \u00e9\u00e9n bonbon je kost. Ontbreekt er een, dan is elke prijs die je erop baseert te laag.', boven);
+  sheet('Wat kost een bonbon',
+    `<div class="ikstart">
+       <span class="eyebrow">Gemiddeld per bonbon</span>
+       <b>${tot===null?'\u2014':euro(tot)}</b>
+       <span class="eyebrow" style="margin-top:4px">${adv!==null
+         ? 'advies '+euro(adv)+' bij '+consMarge()+'% marge'
+         : 'vul de ontbrekende lagen aan'}</span></div>
+
+     <div class="paneel" style="margin-top:14px">
+       ${laag('Grondstoffen', dv.pct?'incl. '+komma(dv.pct)+'% derving':'chocolade en vulling',
+              gemGrond, 'data-l="grond"', gemGrond===null)}
+       ${laag('Arbeid', ap
+              ? (ap.geschat&&ap.model
+                 ? komma(Math.round(ap.model.dagUur*10)/10)+' uur \u00f7 '+ap.model.stuks+' per dag'
+                 : (ap.geschat?'geschat':'gemeten over '+ap.batches+' batches'))
+              : 'nog niets ingevuld',
+              ap?ap.perStuk:null, 'data-l="arbeid"', !ap)}
+       ${laag('Vaste lasten', vb.per!==null
+              ? euro(vb.maand)+' p/m \u00f7 '+vb.prod
+              : (m?'niet te verdelen zonder aantal':'nog niets ingevuld'),
+              vb.per!==null?vb.per:null, 'data-l="vast"', vb.per===null)}
+       ${laag('Afschrijving', af.maand
+              ? (af.per!==null?euro(af.maand)+' p/m \u00f7 '+af.prod:'niet te verdelen zonder aantal')
+              : 'apparatuur en mallen',
+              af.maand?(af.per!==null?af.per:null):0, 'data-l="afschr"', af.per===null&&af.maand>0)}
+     </div>
+
+     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Waar die getallen vandaan komen</span></div>
+     <div class="paneel">
+       ${laag('Bonbons per maand','waar je vaste lasten over worden verdeeld',
+              null,'data-l="prod"',!p.n).replace(/<span class="waarde gevuld">[^<]*<\/span>/,
+              `<span class="waarde gevuld">${p.n?p.n:'\u2014'}</span>`)}
+       ${laag('Urenregistratie','je gewerkte uren dit jaar',
+              null,'data-l="uren"',false).replace(/<span class="waarde gevuld">[^<]*<\/span>/,
+              (()=>{const j=urenPeriode(jaarBegin(),jaarEind());
+                return `<span class="waarde gevuld">${j.totaalSec?komma(urenGetal(j.totaalSec))+' uur':'\u2014'}</span>`})())}
+       ${laag('Inkoopprijzen','wat je voor je ingrediënten betaalt',
+              null,'data-l="ing"',false).replace(/<span class="waarde gevuld">[^<]*<\/span>/,
+              (()=>{const ing=alleIngredienten().filter(n=>!ingGearchiveerd(n));
+                const mist=ing.filter(n=>ingStand(n).mist).length;
+                return `<span class="waarde gevuld">${ing.length?(mist?mist+' zonder':String(ing.length)):'\u2014'}</span>`})())}
+       ${laag('Per smaak','wat elke smaak los kost',
+              null,'data-l="smaak"',false).replace(/<span class="waarde gevuld">[^<]*<\/span>/,'')}
+       ${laag('Grondstofjaar','wat je dit jaar hebt verbruikt',
+              null,'data-l="jaar"',false).replace(/<span class="waarde gevuld">[^<]*<\/span>/,'')}
+     </div>
+
+     <p class="hint" style="margin-top:16px">Deze vier lagen samen zijn wat één bonbon je kost.
+       Ontbreekt er een, dan is elke prijs die je erop baseert te laag.</p>`,
+    '', tot===null?'':euro(tot));
+
+  const naar={grond:sheetKostprijzen, arbeid:sheetUurtarief, vast:sheetKostenbasis,
+    afschr:sheetAfschrijving, prod:sheetProductieJaar, uren:sheetUren,
+    ing:()=>sheetIngredientenLijst(false), smaak:sheetKostprijzen,
+    jaar:()=>sheetGrondstofJaar()};
+  $$('#sheetBody [data-l]').forEach(b=>b.onclick=()=>{
+    const f=naar[b.dataset.l]; if(f) f();
+  });
 }
 
 function sheetGeldLoopt(){
@@ -22628,6 +22660,101 @@ function sheetProductieJaar(){
   };
 }
 
+function sheetAfschrijving(){
+  const lijst=investeringen();
+  const pm=afschrijvingPerMaand(), pb=afschrijvingPerBonbon();
+
+  sheet('Afschrijving',
+    `<p class="hint">Wat je hebt gekocht om te kunnen maken: mallen, tempereermachine, koeling,
+       werkbank. De app verdeelt de aanschaf over de jaren dat je hem gebruikt.</p>
+
+     ${pm?`<div class="ikstart" style="margin-bottom:14px">
+       <span class="eyebrow">Per maand</span><b>${euro(pm)}</b>
+       <span class="eyebrow" style="margin-top:4px">${pb.per!==null
+         ? euro(pb.per)+' per bonbon bij '+pb.prod+' per maand'
+         : 'vul bonbons per maand in om dit te verdelen'}</span></div>`:''}
+
+     ${lijst.length?`<div class="paneel">${lijst.map((x,i)=>{
+       const b=getalIn0(x.bedrag), j=parseFloat(x.jaren)||5;
+       return veegRij(`<button class="arij" data-inv="${i}">
+         <span class="naam">${esc(x.naam||'Investering')}
+           <small>${euro(b)} over ${komma(j)} jaar \u00b7 ${euro(b/(j*12))} p/m</small></span>
+         <span class="p">${svg(I.pijl,'2')}</span></button>`,'data-invweg="'+i+'"')}).join('')}</div>`
+      :'<div class="geen">Nog niets ingevuld.</div>'}
+
+     <div class="veld" style="margin-top:16px"><label>Erbij</label>
+       <input class="inp" id="afN" placeholder="Bijv. tempereermachine" autocomplete="off">
+       <div class="rijtje" style="margin-top:8px">
+         <input class="inp" id="afB" type="text" inputmode="decimal" placeholder="Bedrag">
+         <input class="inp" id="afJ" type="text" inputmode="decimal" placeholder="Jaren" value="5">
+         <button class="miniknop" id="afOk">Toevoegen</button></div>
+       <div class="hint" style="margin:8px 0 0">Vijf jaar is gebruikelijk voor keukenapparatuur,
+         mallen gaan vaak korter mee. Na die termijn telt hij niet meer mee.</div></div>`,
+    `<button class="prim" style="margin-top:0" id="afKlaar">Klaar</button>`);
+
+  $('#afKlaar').onclick=()=>{dicht();render()};
+  $('#afOk').onclick=()=>{
+    const n=($('#afN').value||'').trim();
+    const b=getalIn($('#afB').value), j=getalIn($('#afJ').value)||5;
+    if(!n) return toast('Geef het een naam.');
+    if(!b||b<=0) return toast('Vul het bedrag in.');
+    if(j<=0||j>30) return toast('Vul een termijn tussen 1 en 30 jaar in.');
+    const herstel=terugpunt(['investeringen']);
+    S.investeringen=investeringen().concat([{naam:n,bedrag:b,jaren:j,datum:vandaag()}]);
+    bewaarNu(); sheetAfschrijving(); render();
+    toast(esc(n)+' toegevoegd.',herstel);
+  };
+  $$('#sheetBody [data-invweg]').forEach(b=>b.onclick=()=>{
+    const herstel=terugpunt(['investeringen']);
+    S.investeringen=investeringen().filter((_,i)=>i!==parseInt(b.dataset.invweg,10));
+    sluitVeeg(); bewaarNu(); sheetAfschrijving(); render();
+    toast('Verwijderd.',herstel);
+  });
+  $$('#sheetBody [data-inv]').forEach(b=>b.onclick=()=>{
+    const i=parseInt(b.dataset.inv,10), x=investeringen()[i];
+    if(!x) return;
+    $('#afN').value=x.naam||''; $('#afB').value=getal(getalIn0(x.bedrag));
+    $('#afJ').value=komma(parseFloat(x.jaren)||5);
+    const herstel=terugpunt(['investeringen']);
+    S.investeringen=investeringen().filter((_,k)=>k!==i);
+    bewaarNu();
+    toast('Aanpassen: bewerk en voeg opnieuw toe.',herstel);
+  });
+  setTimeout(bindVeeg,20);
+}
+
+/* ═══════════ afschrijving ═══════════
+   Je mallen, tempereermachine en koeling slijten en moeten ooit vervangen. Die
+   vervanging betaal je niet uit de lucht maar uit wat je bonbons opbrengen, dus
+   hoort een stukje ervan in de kostprijs. Standaard rekenen we een machine in
+   vijf jaar af; kost hij \u20ac 6.000 en maak je 20.000 bonbons per jaar, dan is dat
+   zes cent per bonbon. Zonder deze laag lijkt je marge goed tot het ding stuk
+   gaat. */
+const investeringen=()=>alsLijst(S.investeringen);
+
+function afschrijvingPerMaand(){
+  const nu=new Date();
+  return investeringen().reduce((n,x)=>{
+    const bedrag=getalIn0(x.bedrag), jaren=parseFloat(x.jaren)||5;
+    if(!bedrag||jaren<=0) return n;
+    /* een machine die al is afgeschreven telt niet meer mee */
+    if(x.datum){
+      const eind=new Date(x.datum);
+      eind.setFullYear(eind.getFullYear()+Math.ceil(jaren));
+      if(eind<nu) return n;
+    }
+    return n+bedrag/(jaren*12);
+  },0);
+}
+
+function afschrijvingPerBonbon(){
+  const maand=afschrijvingPerMaand();
+  if(!maand) return {per:0,maand:0};
+  const p=productiePerMaand();
+  if(!p.n) return {per:null,maand};
+  return {per:maand/p.n,maand,prod:p.n};
+}
+
 function vastPerBonbon(){
   const maand=vasteLastenPerMaand();
   const p=productiePerMaand();
@@ -22648,10 +22775,13 @@ function kostprijsVol(r){
   const arbeid=ap?ap.perStuk:0;
   const vb=vastPerBonbon();
   const vast=vb.per||0;
+  const af=afschrijvingPerBonbon();
+  const afschr=af.per||0;
   return {grond,dervingPct:dv,grondNa,
     verlies:(grondNa===null||grond===null)?0:grondNa-grond,
-    arbeid,vast,vastOnbekend:vb.per===null&&vb.maand>0,
-    totaal:grondNa===null?null:grondNa+arbeid+vast,
+    arbeid,vast,afschr,vastOnbekend:vb.per===null&&vb.maand>0,
+    afschrOnbekend:af.per===null&&af.maand>0,
+    totaal:grondNa===null?null:grondNa+arbeid+vast+afschr,
     mist:kp.mist,compleet:kp.compleet};
 }
 
