@@ -3467,7 +3467,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v547 · 21 aug 2026';
+const APPVERSIE='v548 · 27 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21156,7 +21156,6 @@ function sheetAccount(stand){
        <button class="sec" id="acIn">Ik heb al een account</button>
        <button class="sec" id="acK">Terug</button>`
     : `<button class="prim" style="margin-top:0" id="acIn">Inloggen</button>
-       <button class="sec" id="acNieuw">Account aanmaken</button>
        <button class="sec" id="acK">Terug</button>`);
   const melden=e=>{$('#acFout').textContent=({
     'auth/invalid-email':'Dat lijkt geen geldig e-mailadres.',
@@ -21165,7 +21164,7 @@ function sheetAccount(stand){
     'auth/email-already-in-use':'Dit adres bestaat al — kies Inloggen.',
     'auth/invalid-credential':'E-mailadres of wachtwoord klopt niet. Kies "Wachtwoord vergeten?" als je er niet uitkomt.',
     'auth/too-many-requests':'Te vaak geprobeerd. Wacht even voor je het opnieuw doet.',
-    'auth/user-not-found':'Geen account met dit adres. Kies Account aanmaken.',
+    'auth/user-not-found':'Geen account met dit adres. Ga terug en kies Nieuw account.',
     'auth/network-request-failed':'Geen verbinding. Je kunt gewoon doorwerken; synchroniseren lukt later.'
   })[e.code]||e.message};
   const velden=()=>[$('#acM').value.trim(),$('#acW').value];
@@ -21177,7 +21176,8 @@ function sheetAccount(stand){
     firebase.auth().signInWithEmailAndPassword(m,w)
       .then(()=>{dicht();welkomWeg();render();
         toast('Ingelogd. Je gegevens synchroniseren nu.')}).catch(melden)};
-  $('#acNieuw').onclick=()=>{const[m,w]=velden();
+  const bNieuw=$('#acNieuw');
+  if(bNieuw) bNieuw.onclick=()=>{const[m,w]=velden();
     firebase.auth().createUserWithEmailAndPassword(m,w)
       .then(()=>{
         dicht();welkomWeg();render();toast('Account aangemaakt.');
