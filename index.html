@@ -3483,7 +3483,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v549 · 27 aug 2026';
+const APPVERSIE='v550 · 27 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4221,10 +4221,17 @@ function fbConfig(){
 function firebaseStart(){
   const cfg=fbConfig();
   if(!cfg||typeof firebase==='undefined') return;
+  fbStartTijd=Date.now();
+  setTimeout(()=>{ if(!fbOnline&&typeof render==='function'&&startKlaar) render() },3200);
   try{
     firebase.initializeApp(cfg);
     fbKlaar=true;
-    firebase.database().ref('.info/connected').on('value',s2=>{fbOnline=!!s2.val()});
+    firebase.database().ref('.info/connected').on('value',s2=>{
+      const was=fbOnline; fbOnline=!!s2.val();
+      /* Alleen hertekenen als er echt iets verandert: anders tekent elke
+         ping het hele scherm opnieuw terwijl je aan het typen bent. */
+      if(was!==fbOnline&&typeof render==='function'&&startKlaar) render();
+    });
     firebase.auth().onAuthStateChanged(u=>{
       fbUser=u||null;
       if(fbRef){fbRef.off();fbRef=null}
@@ -5546,10 +5553,13 @@ function kopknoppenHTML(){
    beantwoorden. Je zag een leeg dashboard en moest zelf raden of dat kwam
    doordat er niets was, of doordat er niets binnenkwam. Deze strook is
    leeg zolang alles goed gaat, en luid zodra dat niet zo is. */
+let fbStartTijd=Date.now();
 function syncstrookHTML(){
   if(!fbUser) return `<button class="syncstrook rood" data-account>
     ${svg(I.alarm,'2')}<span><b>Niet ingelogd</b><small>Je werk staat alleen op dit
     toestel en wordt niet bewaard. Tik om in te loggen.</small></span></button>`;
+  /* Eerste seconden na het opstarten is "nog niet verbonden" normaal. */
+  if(!fbOnline&&Date.now()-fbStartTijd<3000) return '';
   if(!fbOnline) return `<div class="syncstrook amber">
     ${svg(I.alarm,'2')}<span><b>Geen verbinding</b><small>Je kunt gewoon doorwerken.
     Zodra je weer online bent synchroniseert alles vanzelf.</small></span></div>`;
