@@ -1197,6 +1197,12 @@ nav#tabbar{view-transition-name:tabbalk}
   padding:8px 20px calc(12px + env(safe-area-inset-bottom))}
 .sheetvoet{flex:none;padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
 .sheetvoet:empty{display:none}
+/* Twee knoppen naast elkaar in de voet: terug links, hoofdactie rechts.
+   Losse tekstlinks onderaan een sheet ogen onaf; dit maakt er echte
+   tap-targets van zonder een tweede donkere knop toe te voegen. */
+.voetduo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.voetduo .prim,.voetduo .sec{margin-top:0}
+.sec.los{margin-top:0}
 .sec{width:100%;height:48px;border-radius:14px;background:var(--bg);font-size:15px;font-weight:600;
   margin-top:8px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
 /* zonder maat schaalt een svg op tot de hoogte van de knop */
@@ -1307,6 +1313,16 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 .melding.amber{background:#fffbeb;color:#92400e}
 .melding.rood{background:#fef2f2;color:#991b1b}
 .melding.groen{background:#f0fdf4;color:#14532d}
+/* De syncstrook is geen melding tussen andere meldingen: hij gaat over de
+   vraag of de app uberhaupt werkt. Daarom staat hij vast onder de kop. */
+.syncstrook{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;
+  padding:12px 16px;border-radius:14px;margin:4px 0 12px;font-size:14px}
+.syncstrook svg{width:16px;height:16px;flex:none;margin-top:2px}
+.syncstrook b{display:block;font-weight:700;font-size:14px}
+.syncstrook small{display:block;margin-top:2px;font-size:12.5px;opacity:.85;line-height:1.35}
+.syncstrook.rood{background:#fef2f2;color:#991b1b}
+.syncstrook.amber{background:#fffbeb;color:#92400e}
+.syncstrook.rood:active{background:#fde3e3}
 .prim.groot{height:64px;font-size:17px;border-radius:18px}
 .prim.groot svg{width:20px;height:20px}
 .ritkaart{display:block;background:var(--ink);color:#fff;border-radius:18px;padding:20px}
@@ -3467,7 +3483,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v548 · 27 aug 2026';
+const APPVERSIE='v549 · 27 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5523,7 +5539,21 @@ function kopknoppenHTML(){
       fbUser?'':'<i class="stipje"></i>'}</button>
     <button class="belknop${meld?' aan':''}" data-meldingen aria-label="${
       meld?meld+' meldingen':'Geen meldingen'}">${svg(I.bel)}</button>
-  </div>`;
+  </div>`+syncstrookHTML();
+}
+
+/* Weet je app op dit moment wel op te slaan? Die vraag was nergens te
+   beantwoorden. Je zag een leeg dashboard en moest zelf raden of dat kwam
+   doordat er niets was, of doordat er niets binnenkwam. Deze strook is
+   leeg zolang alles goed gaat, en luid zodra dat niet zo is. */
+function syncstrookHTML(){
+  if(!fbUser) return `<button class="syncstrook rood" data-account>
+    ${svg(I.alarm,'2')}<span><b>Niet ingelogd</b><small>Je werk staat alleen op dit
+    toestel en wordt niet bewaard. Tik om in te loggen.</small></span></button>`;
+  if(!fbOnline) return `<div class="syncstrook amber">
+    ${svg(I.alarm,'2')}<span><b>Geen verbinding</b><small>Je kunt gewoon doorwerken.
+    Zodra je weer online bent synchroniseert alles vanzelf.</small></span></div>`;
+  return '';
 }
 
 function begroetingHTML(){
@@ -21152,11 +21182,13 @@ function sheetAccount(stand){
        ${aanbiederAan().map(k=>`<button class="knop2 acsoc" data-aanbieder="${k}">
          Doorgaan met ${AANBIEDERS[k].naam}</button>`).join('')}`:''}`,
     stand==='nieuw'
-    ? `<button class="prim" style="margin-top:0" id="acNieuw">Account aanmaken</button>
-       <button class="sec" id="acIn">Ik heb al een account</button>
-       <button class="sec" id="acK">Terug</button>`
-    : `<button class="prim" style="margin-top:0" id="acIn">Inloggen</button>
-       <button class="sec" id="acK">Terug</button>`);
+    ? `<button class="sec los" id="acIn">Ik heb al een account</button>
+       <div class="voetduo">
+         <button class="sec" id="acK">Terug</button>
+         <button class="prim" id="acNieuw">Account aanmaken</button></div>`
+    : `<div class="voetduo">
+         <button class="sec" id="acK">Terug</button>
+         <button class="prim" id="acIn">Inloggen</button></div>`);
   const melden=e=>{$('#acFout').textContent=({
     'auth/invalid-email':'Dat lijkt geen geldig e-mailadres.',
     'auth/missing-password':'Vul je wachtwoord in.',
