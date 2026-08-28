@@ -3484,7 +3484,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v559 · 28 aug 2026';
+const APPVERSIE='v560 · 28 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12588,10 +12588,13 @@ function ordersHTML(){
     }
 
     if(mo.length){
-      const teDoen=mo.filter(x=>!x.afgehandeld&&(!x.factuur||!(x.afhaal||x.label)||x.wijziging));
+      /* Alleen wat Shopify zelf als verzonden of geannuleerd meldt is klaar.
+         Eerder telde "geen label nodig" al als af, waardoor een afhaalorder
+         zonder factuur meteen werd afgevinkt. */
+      const teDoen=mo.filter(x=>!x.afgehandeld);
       const gedaan=mo.filter(x=>!teDoen.includes(x));
       const kaart=x=>{
-        const af=x.afgehandeld||(x.factuur&&(x.afhaal||x.label));
+        const af=x.afgehandeld;
         const wat=(x.regels||[]).map(r=>esc(r.aantal+'× '+r.naam+(r.variant?' '+r.variant:'')));
         return `<button class="ordkaart ${x.wijziging?'let':''}" data-macorder="${esc(String(x.nummer))}">
           <div class="okop">
@@ -12602,7 +12605,7 @@ function ordersHTML(){
           </div>
           ${wat.length?`<div class="owat">${wat.join('<br>')}</div>`:''}
           <div class="ovoet">
-            <span>${x.afhaal?'afhalen':'verzenden'}${x.leverdatum?' · '+esc(x.leverdatum):''}</span>
+            <span>${x.geplaatst?esc(kort(new Date(x.geplaatst)))+' · ':''}${x.afhaal?'afhalen':'verzenden'}${x.leverdatum?' · levering '+esc(x.leverdatum):''}</span>
             ${x.afgehandeld?'':`<span class="odocs">
               <i class="${x.factuur?'aan':''}" title="factuur">F</i>
               <i class="${x.afhaal?'aan':(x.label?'aan':'')}" title="verzendlabel">L</i>
@@ -12620,7 +12623,7 @@ function ordersHTML(){
     }
   }
 
-  h+=`<button class="prim" data-nieuweorder style="margin-top:${fbUser?'24px':'0'}">${svg(I.plus)}&nbsp; Order handmatig aanmaken</button>`;
+  h+=`<button class="sec" data-nieuweorder style="margin-top:${fbUser?'24px':'0'}">${svg(I.plus)}&nbsp; Order handmatig aanmaken</button>`;
 
   if(krap.length) h+=`<div class="melding amber" style="margin:20px 0 0">${svg(I.alarm,'2')}
     <span>${krap.length===1?'Eén order heeft':krap.length+' orders hebben'} niet genoeg voorraad.
