@@ -3484,7 +3484,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v558 · 28 aug 2026';
+const APPVERSIE='v559 · 28 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12566,13 +12566,16 @@ function ordersHTML(){
   const aan=macLeeft(), bezig=lopendeOpdracht(), mo=macOrders();
   if(fbUser){
     if(viaServer){
-      h+=`<button class="macbalk aan" data-kopalles>
+      /* Staat alles goed, dan hoeft dat niet elke dag opnieuw gemeld te worden.
+         De balk verschijnt alleen als er iets ontbreekt, en is dan aantikbaar
+         om het meteen te regelen. Wat wél gekoppeld is zie je bij Koppelingen. */
+      if(!k.myparcel) h+=`<button class="macbalk" data-kopalles>
         <span class="macbol"></span>
-        <span class="mactekst">Shopify gekoppeld
-          <em>${k.myparcel?'MyParcel ook · labels maak je hier':'MyParcel nog niet · labels kun je nog niet maken'}</em></span>
+        <span class="mactekst">MyParcel nog niet gekoppeld
+          <em>verzendlabels kun je nog niet maken</em></span>
         ${svg(I.pijl,'2')}
-      </button>
-      <button class="prim" data-haalorders style="margin-top:12px">Orders ophalen</button>`;
+      </button>`;
+      h+=`<button class="prim" data-haalorders style="margin-top:${k.myparcel?'0':'12px'}">Orders ophalen</button>`;
     } else {
       h+=`<button class="macbalk" data-kopalles>
         <span class="macbol"></span>
