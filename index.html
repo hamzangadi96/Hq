@@ -3483,7 +3483,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v551 · 28 aug 2026';
+const APPVERSIE='v552 · 28 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12433,8 +12433,8 @@ function sheetMacOrder(nr){
          <span class="b">${o.afhaal?'Wordt afgehaald':'Wordt verzonden'}
          <em>${o.leverdatum?'leverdatum '+esc(o.leverdatum):(o.geplaatst?'besteld '+kort(new Date(o.geplaatst)):'')}</em></span></div>
      </div>
-     <p class="hint">Adres, e-mail en de tekst van de boodschap staan op je Mac,
-       niet hier. Deze order verdwijnt na een maand vanzelf uit de app.</p>
+     <p class="hint">Adres, e-mail en de tekst van de boodschap staan niet in deze app.
+       Die worden per keer bij Shopify opgehaald en nergens bewaard.</p>
      ${o.wijziging?`<div class="melding amber" style="margin-bottom:20px">${svg(I.alarm,'2')}
        <span>Deze order is gewijzigd nadat hij binnenkwam. Er staat een notitie in de ordermap.</span></div>`:''}
      <div class="paneel">
@@ -12503,10 +12503,10 @@ function ordersHTML(){
     }
 
     if(mo.length){
-      const teDoen=mo.filter(x=>!x.factuur||!(x.afhaal||x.label)||x.wijziging);
+      const teDoen=mo.filter(x=>!x.afgehandeld&&(!x.factuur||!(x.afhaal||x.label)||x.wijziging));
       const gedaan=mo.filter(x=>!teDoen.includes(x));
       const kaart=x=>{
-        const af=x.factuur&&(x.afhaal||x.label);
+        const af=x.afgehandeld||(x.factuur&&(x.afhaal||x.label));
         const wat=(x.regels||[]).map(r=>esc(r.aantal+'× '+r.naam+(r.variant?' '+r.variant:'')));
         return `<button class="ordkaart ${x.wijziging?'let':''}" data-macorder="${esc(String(x.nummer))}">
           <div class="okop">
@@ -12518,11 +12518,11 @@ function ordersHTML(){
           ${wat.length?`<div class="owat">${wat.join('<br>')}</div>`:''}
           <div class="ovoet">
             <span>${x.afhaal?'afhalen':'verzenden'}${x.leverdatum?' · '+esc(x.leverdatum):''}</span>
-            <span class="odocs">
+            ${x.afgehandeld?'':`<span class="odocs">
               <i class="${x.factuur?'aan':''}" title="factuur">F</i>
               <i class="${x.afhaal?'aan':(x.label?'aan':'')}" title="verzendlabel">L</i>
               ${x.wenskaart_gevraagd?`<i class="${x.boodschap?'aan':''}" title="wenskaart">W</i>`:''}
-            </span>
+            </span>`}
           </div>
         </button>`;
       };
@@ -12531,7 +12531,7 @@ function ordersHTML(){
         <div class="ordlijst">${teDoen.slice(0,15).map(kaart).join('')}</div>`;
       if(gedaan.length) h+=`<div class="blokkop" style="margin-top:24px">
         <span class="eyebrow">Klaar</span><span class="tel">${gedaan.length}</span></div>
-        <div class="ordlijst">${gedaan.slice(0,10).map(kaart).join('')}</div>`;
+        <div class="ordlijst">${gedaan.slice(0,30).map(kaart).join('')}</div>`;
     }
   }
 
