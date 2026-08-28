@@ -172,7 +172,79 @@ function veiligeOrder(o) {
   };
 }
 
-/* ═══════════════════════ wat de app aanroept ═══════════════════════ */
+/* ─────────────────────────── MyParcel ─────────────────────────── */
+
+/* MyParcel wil de sleutel base64-versleuteld in de header, en staat op een
+   eigen User-Agent. Zonder die kop weigert hij zonder uitleg. */
+function mpKoppen(sleutel, extra) {
+  return Object.assign({
+    'Authorization': 'bearer ' + Buffer.from(String(sleutel), 'utf8').toString('base64'),
+    'User-Agent': 'CacaoboetiekHQ/1'
+  }, extra || {});
+}
+
+async function mpRoep(sleutel, pad, opties) {
+  const r = await fetch('https://api.myparcel.nl/' + pad, opties);
+  if (r.status === 401 || r.status === 403) {
+    throw new HttpsError('permission-denied',
+      'MyParcel weigert je sleutel. Maak in MyParcel onder Instellingen een nieuwe aan en koppel opnieuw.');
+  }
+  if (r.status === 402) {
+    throw new HttpsError('failed-precondition',
+      'MyParcel wil eerst betaald worden voor dit label. Zet je saldo bij in je MyParcel-account.');
+  }
+  if (r.status === 429) {
+    throw new HttpsError('resource-exhausted', 'Te veel verzoeken bij MyParcel. Probeer het over een minuut opnieuw.');
+  }
+  return r;
+}
+
+/* Shopify levert één adresregel, MyParcel wil straat, nummer en toevoeging
+   apart. Voor Nederland en België knippen we hem, daarbuiten laten we hem heel. */
+function splitsAdres(a) {
+  const land = String((a && a.country_code) || 'NL').toUpperCase();
+  const regel = [a && a.address1, a && a.address2].filter(Boolean).join(' ').trim();
+
+  if (!['NL', 'BE'].includes(land)) return { straat: regel, nummer: '', toevoeging: '' };
+
+  const m = regel.match(/^(.*?)\s+(\d+)\s*([a-zA-Z0-9\-\/]{0,6})$/);
+  if (!m) return { straat: regel, nummer: '', toevoeging: '' };
+  return { straat: m[1].trim(), nummer: m[2], toevoeging: (m[3] || '').trim() };
+}
+
+function zending(o, nr) {
+  const a = o.shipping_address;
+  if (!a) throw new HttpsError('failed-precondition', 'Deze order heeft geen verzendadres. Wordt hij afgehaald?');
+
+  const { straat, nummer, toevoeging } = splitsAdres(a);
+  if (!straat || !nummer) {
+    throw new HttpsError('failed-precondition',
+      'Ik kan huisnummer en straat niet uit elkaar halen bij "' + String(a.address1 || '') +
+      '". Vul het adres handmatig aan in MyParcel.');
+  }
+
+  const ontvanger = {
+    cc: String(a.country_code || 'NL').toUpperCase(),
+    city: String(a.city || ''),
+    street: straat,
+    number: nummer,
+    postal_code: String(a.zip || '').replace(/\s+/g, '').toUpperCase(),
+    person: String(a.name || [a.first_name, a.last_name].filter(Boolean).join(' ') || 'Ontvanger')
+  };
+  if (toevoeging) ontvanger.number_suffix = toevoeging;
+  if (a.company) ontvanger.company = String(a.company);
+  if (a.phone) ontvanger.phone = String(a.phone);
+  if (o.email) ontvanger.email = String(o.email);
+
+  return {
+    reference_identifier: nr,
+    recipient: ontvanger,
+    options: { package_type: 1, label_description: nr },
+    carrier: 1                       /* 1 = PostNL */
+  };
+}
+
+
 
 exports.zetKoppeling = onCall(async req => {
   const uid = wieBenJe(req);
@@ -193,8 +265,18 @@ exports.zetKoppeling = onCall(async req => {
   }
 
   if (d.myparcel) {
-    throw new HttpsError('unimplemented',
-      'MyParcel staat nog niet op de server. Shopify werkt wel — koppel die eerst.');
+    const sleutel = String(d.myparcel.sleutel || '').trim();
+    if (!sleutel) throw new HttpsError('invalid-argument', 'Vul je MyParcel-sleutel in.');
+
+    /* meteen uitproberen met een onschuldige vraag */
+    const r = await mpRoep(sleutel, 'shipments?size=1', { headers: mpKoppen(sleutel) });
+    if (!r.ok) {
+      throw new HttpsError('permission-denied',
+        'MyParcel antwoordde met ' + r.status + '. Controleer of je de sleutel compleet hebt overgenomen.');
+    }
+    await geheimRef(uid).child('myparcel').set({ sleutel });
+    await werkRef(uid).child('koppeling').update({ myparcel: true });
+    return { ok: true };
   }
 
   throw new HttpsError('invalid-argument', 'Ik weet niet wat ik moet koppelen.');
@@ -239,22 +321,97 @@ exports.haalOrders = onCall(async req => {
   return { aantal: orders.length };
 });
 
+/* Een order bij Shopify opzoeken, op id of op ordernummer. */
+async function zoekOrder(uid, ruw) {
+  const nr = String(ruw || '').replace(/^#/, '').trim();
+  if (!nr) throw new HttpsError('invalid-argument', 'Welke order?');
+
+  if (/^\d{6,}$/.test(nr)) {
+    const d = await shopify(uid, 'orders/' + nr + '.json');
+    if (d.order) return d.order;
+  }
+  const d = await shopify(uid, 'orders.json?status=any&name=' +
+    encodeURIComponent(nr) + '&limit=1');
+  const o = (d.orders || [])[0];
+  if (!o) throw new HttpsError('not-found', 'Die order kon ik niet vinden bij Shopify.');
+  return o;
+}
+
 /* De tekst van de wenskaart halen we per keer op en bewaren we nergens. */
 exports.haalBoodschap = onCall(async req => {
   const uid = wieBenJe(req);
-  const nr = String((req.data || {}).order || '').replace(/^#/, '').trim();
-  if (!nr) throw new HttpsError('invalid-argument', 'Welke order?');
-
-  let o = null;
-  if (/^\d+$/.test(nr)) {
-    const d = await shopify(uid, 'orders/' + nr + '.json');
-    o = d.order || null;
-  }
-  if (!o) {
-    const d = await shopify(uid, 'orders.json?status=any&name=' + encodeURIComponent(nr) + '&limit=1');
-    o = (d.orders || [])[0] || null;
-  }
-  if (!o) throw new HttpsError('not-found', 'Die order kon ik niet vinden bij Shopify.');
-
+  const o = await zoekOrder(uid, (req.data || {}).order);
   return { boodschap: boodschapVan(o) };
+});
+
+/* Zending aanmelden bij MyParcel. Het adres komt rechtstreeks van Shopify,
+   gaat door deze functie heen naar MyParcel, en wordt hier niet bewaard. */
+exports.maakLabel = onCall(async req => {
+  const uid = wieBenJe(req);
+  const g = await leesGeheim(uid, 'myparcel');
+  if (!g) throw new HttpsError('failed-precondition', 'MyParcel is nog niet gekoppeld.');
+
+  const o = await zoekOrder(uid, (req.data || {}).order);
+  const nr = String(o.name || o.order_number || '').replace(/^#/, '');
+  const sleutelPad = werkRef(uid).child('orders/' + o.id);
+
+  /* al aangemeld? dan niet nog een keer, anders betaal je twee labels */
+  const bestaand = (await sleutelPad.child('myparcel_id').once('value')).val();
+  if (bestaand) return { id: bestaand, alGedaan: true };
+
+  const r = await mpRoep(g.sleutel, 'shipments', {
+    method: 'POST',
+    headers: mpKoppen(g.sleutel, {
+      'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1'
+    }),
+    body: JSON.stringify({ data: { shipments: [zending(o, nr)] } })
+  });
+
+  const tekst = await r.text();
+  if (!r.ok) {
+    let uitleg = '';
+    try {
+      const f = JSON.parse(tekst);
+      uitleg = (f.errors && f.errors[0] && (f.errors[0].human || f.errors[0].message)) || f.message || '';
+    } catch (e) { /* geen json terug */ }
+    throw new HttpsError('invalid-argument',
+      'MyParcel wilde de zending niet aannemen. ' + (uitleg || 'Antwoord ' + r.status + '.'));
+  }
+
+  let id = null;
+  try { id = ((JSON.parse(tekst).data || {}).ids || [])[0]; } catch (e) { /* leeg */ }
+  id = id && (id.id || id);
+  if (!id) throw new HttpsError('internal', 'MyParcel gaf geen zendingnummer terug.');
+
+  await sleutelPad.update({ myparcel_id: String(id), label: true });
+  return { id: String(id) };
+});
+
+/* Het label als pdf ophalen en teruggeven, zodat je het op je telefoon
+   kunt openen en via het deelmenu naar je printer stuurt. */
+exports.labelPdf = onCall(async req => {
+  const uid = wieBenJe(req);
+  const g = await leesGeheim(uid, 'myparcel');
+  if (!g) throw new HttpsError('failed-precondition', 'MyParcel is nog niet gekoppeld.');
+
+  const nr = String((req.data || {}).order || '').replace(/^#/, '').trim();
+  let id = null;
+
+  const alle = (await werkRef(uid).child('orders').once('value')).val() || {};
+  Object.keys(alle).forEach(k => {
+    const o = alle[k] || {};
+    if (o.myparcel_id && (k === nr || o.shopifyId === nr || o.nummer === nr)) id = o.myparcel_id;
+  });
+  if (!id) throw new HttpsError('failed-precondition', 'Voor deze order is nog geen zending aangemeld.');
+
+  const formaat = String((req.data || {}).formaat || 'A6').toUpperCase() === 'A4' ? 'A4' : 'A6';
+  const r = await mpRoep(g.sleutel, 'shipment_labels/' + encodeURIComponent(id) + '?format=' + formaat, {
+    headers: mpKoppen(g.sleutel, { 'Accept': 'application/pdf' })
+  });
+  if (!r.ok) throw new HttpsError('internal', 'Het label kwam niet door. MyParcel antwoordde met ' + r.status + '.');
+
+  const bytes = Buffer.from(await r.arrayBuffer());
+  if (!bytes.length) throw new HttpsError('internal', 'Het label kwam leeg terug.');
+
+  return { pdf: bytes.toString('base64'), naam: 'verzendlabel-' + (nr || id) + '.pdf' };
 });
