@@ -116,17 +116,25 @@ async function token(uid) {
 }
 
 async function shopify(uid, pad) {
+  return (await shopifyPagina(uid, pad)).gegevens;
+}
+
+/* Shopify geeft maximaal 250 orders per keer en zet de volgende pagina in een
+   Link-kop. Die moeten we uitlezen, anders zie je alleen de eerste lading. */
+async function shopifyPagina(uid, pad) {
   const { winkel, token: t } = await token(uid);
   const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/' + pad, {
     headers: { 'X-Shopify-Access-Token': t, 'Accept': 'application/json' }
   });
   if (r.status === 401 || r.status === 403) {
-    /* token afgekeurd: weggooien, dan haalt de volgende poging een verse op */
     await geheimRef(uid).child('shopify/token').remove();
     throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
   }
   if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
-  return r.json();
+
+  const link = r.headers.get('link') || '';
+  const m = link.match(/<[^>]*[?&]page_info=([^&>]+)[^>]*>;\s*rel="next"/);
+  return { gegevens: await r.json(), volgende: m ? m[1] : null };
 }
 
 /* ─────────── van een Shopify-order naar wat de app mag zien ─────────── */
@@ -147,6 +155,8 @@ function boodschapVan(o) {
     k['persoonlijke boodschap'] || k['kaartje'] || '').trim();
 }
 
+const MAAND = 30 * 24 * 3600 * 1000;
+
 function veiligeOrder(o) {
   const regels = (o.line_items || [])
     .filter(li => !li.gift_card)
@@ -158,6 +168,10 @@ function veiligeOrder(o) {
   const k = kenmerken(o);
   const verzendwijze = (o.shipping_lines || []).map(x => x.title || '').join(' ');
 
+  /* Verzonden, geannuleerd of gesloten: die hoeft niet meer in je werklijst.
+     Historie bewaren we langer, want daar staat toch geen persoonsgegeven in. */
+  const afgehandeld = o.fulfillment_status === 'fulfilled' || !!o.cancelled_at || !!o.closed_at;
+
   return {
     shopifyId: String(o.id),
     nummer: String(o.name || o.order_number || '').replace(/^#/, ''),
@@ -168,7 +182,8 @@ function veiligeOrder(o) {
     afhaal: !o.shipping_address || AFHALEN.test(verzendwijze),
     wenskaart_gevraagd: !!boodschapVan(o),
     betaald: o.financial_status === 'paid',
-    verwijderNa: Date.now() + 30 * 24 * 3600 * 1000
+    afgehandeld,
+    verwijderNa: Date.now() + (afgehandeld ? 24 * MAAND : MAAND)
   };
 }
 
@@ -296,8 +311,18 @@ exports.wisKoppeling = onCall(async req => {
 
 exports.haalOrders = onCall(async req => {
   const uid = wieBenJe(req);
-  const d = await shopify(uid, 'orders.json?status=open&limit=50');
-  const orders = d.orders || [];
+
+  /* status=any pakt ook wat al verzonden is, zodat je je historie terugziet.
+     Shopify geeft standaard maar 60 dagen; wil je verder terug, dan heb je de
+     scope read_all_orders nodig en die moet Shopify eerst goedkeuren. */
+  const orders = [];
+  let pad = 'orders.json?status=any&limit=250';
+  for (let ronde = 0; ronde < 12; ronde++) {
+    const { gegevens, volgende } = await shopifyPagina(uid, pad);
+    (gegevens.orders || []).forEach(o => orders.push(o));
+    if (!volgende) break;
+    pad = 'orders.json?limit=250&page_info=' + encodeURIComponent(volgende);
+  }
 
   /* wat je zelf hebt bijgehouden — zoals een aangemeld label — blijft staan */
   const bestaand = (await werkRef(uid).child('orders').once('value')).val() || {};
@@ -310,7 +335,7 @@ exports.haalOrders = onCall(async req => {
   if (Object.keys(nieuw).length) await werkRef(uid).child('orders').update(nieuw);
   await werkRef(uid).update({ laatstOpgehaald: Date.now() });
 
-  /* orders ouder dan een maand ruimen zichzelf op */
+  /* orders die Shopify niet meer teruggeeft en waarvan de tijd om is, weg */
   const nu = Date.now();
   const oud = {};
   Object.keys(bestaand).forEach(id => {
@@ -318,7 +343,8 @@ exports.haalOrders = onCall(async req => {
   });
   if (Object.keys(oud).length) await werkRef(uid).child('orders').update(oud);
 
-  return { aantal: orders.length };
+  const open = orders.filter(o => !(o.fulfillment_status === 'fulfilled' || o.cancelled_at || o.closed_at));
+  return { aantal: orders.length, open: open.length };
 });
 
 /* Een order bij Shopify opzoeken, op id of op ordernummer. */
