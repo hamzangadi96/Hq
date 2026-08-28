@@ -25,6 +25,12 @@ jobs:
       - name: Firebase-gereedschap
         run: npm install -g firebase-tools
 
+      # Zonder deze stap kan Firebase je functies niet lezen: hij zoekt naar
+      # het pakket firebase-functions en vindt niets. Vandaar npm install.
+      - name: Pakketten installeren
+        working-directory: cloud/functions
+        run: npm install
+
       - name: Uitrollen naar Firebase
         working-directory: cloud
         env:
