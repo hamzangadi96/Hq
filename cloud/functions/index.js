@@ -39,13 +39,28 @@ async function leesGeheim(uid, welke) {
 
 /* ─────────────────────────── Shopify ─────────────────────────── */
 
+/* Je mag hier van alles neerzetten: het kale adres, of gewoon de hele URL
+   uit je browser geplakt. Alles wat naar één winkel wijst wordt hetzelfde. */
 function netteWinkel(ruw) {
-  let s = String(ruw || '').trim().toLowerCase()
-    .replace(/^https?:\/\//, '')
-    .replace(/\/.*$/, '');
+  let s = String(ruw || '').trim().toLowerCase();
+
+  /* de hele admin-URL geplakt: admin.shopify.com/store/3e6b32-d5/... */
+  const admin = s.match(/admin\.shopify\.com\/store\/([a-z0-9][a-z0-9-]*)/);
+  if (admin) return admin[1] + '.myshopify.com';
+
+  s = s.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, '');
   if (!s) throw new HttpsError('invalid-argument', 'Vul het adres van je winkel in.');
-  if (!/\.myshopify\.com$/.test(s)) s += '.myshopify.com';
-  return s;
+
+  if (/\.myshopify\.com$/.test(s)) return s;
+
+  /* een eigen domein zoals cacaoboetiek.nl kan hier niet: de API luistert
+     alleen naar het myshopify-adres. Zeg dat dan ook. */
+  if (s.includes('.')) {
+    throw new HttpsError('invalid-argument',
+      'Dat is niet je myshopify-adres. Kijk in je Shopify-admin in de adresbalk: ' +
+      'het stukje na /store/ gevolgd door .myshopify.com.');
+  }
+  return s + '.myshopify.com';
 }
 
 function duiding(status, tekst) {
