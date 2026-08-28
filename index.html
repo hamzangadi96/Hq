@@ -3484,7 +3484,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v553 · 28 aug 2026';
+const APPVERSIE='v556 · 28 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11215,9 +11215,14 @@ const factuurNr=o=>o.factuurNr||('F-'+new Date().getFullYear()+'-'+pad(
 
 function factuurHTML(o){
   const b=bedrijf();
-  const k=(S.klanten||[]).find(x=>x.id===o.klantId)||{};
+  const k=o.klant||(S.klanten||[]).find(x=>x.id===o.klantId)||{};
   const totStuks=(o.regels||[]).reduce((n,x)=>n+(x.aantal||0),0);
   const regels=(o.regels||[]).map(r=>{
+    /* komt de regel van je webshop, dan staan naam en prijs er al in */
+    if(r.naam&&r.prijs!=null){
+      const p=+r.prijs;
+      return {naam:r.naam,aantal:r.aantal,prijs:p,bedrag:p*r.aantal};
+    }
     /* heeft deze klant een prijsafspraak, dan geldt die — met de staffel over
        het hele orderaantal, niet per regel */
     const pr=prijsVoor(o.klantId,r.receptId,totStuks);
@@ -12421,8 +12426,10 @@ function macOpdracht(mode,order,boodschap){
 
 function sheetMacOrder(nr){
   const o=macOrders().find(x=>String(x.nummer)===String(nr)); if(!o) return;
-  const rij=(aan,naam,uitleg)=>`<div class="item"><span class="t">${aan?'✓':'—'}</span>
-    <span class="b">${naam}<em>${uitleg}</em></span></div>`;
+  const rij=(sleutel,naam,staat,uitleg)=>`<button class="arij" data-doc="${sleutel}">
+    <span class="bol ${staat==='af'?'af':''}">${staat==='af'?svg(I.vink,'2.6'):''}</span>
+    <span class="naam">${naam}<small>${uitleg}</small></span>
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
   sheet('Order '+o.nummer,
     `${(o.regels||[]).length?`<div class="blokkop"><span class="eyebrow">Wat erin moet</span>
        <span class="tel">${o.stuks||''} stuks</span></div>
@@ -12438,39 +12445,86 @@ function sheetMacOrder(nr){
        Die worden per keer bij Shopify opgehaald en nergens bewaard.</p>
      ${o.wijziging?`<div class="melding amber" style="margin-bottom:20px">${svg(I.alarm,'2')}
        <span>Deze order is gewijzigd nadat hij binnenkwam. Er staat een notitie in de ordermap.</span></div>`:''}
+     <div class="blokkop"><span class="eyebrow">Documenten</span></div>
      <div class="paneel">
-       ${rij(o.factuur,'Factuur',o.afhaal?'afhaalorder':'pdf in de ordermap')}
-       ${rij(o.label,'Verzendlabel',o.afhaal?'niet nodig, wordt afgehaald':'via MyParcel')}
-       ${rij(o.boodschap,'Wenskaart','psd voor Photoshop')}
+       ${rij('factuur','Factuur','','bekijken en printen')}
+       ${o.afhaal?'':rij('label','Verzendlabel',o.myparcel_id?'af':'',
+          o.myparcel_id?'aangemeld bij MyParcel':'nog aanmelden bij MyParcel')}
+       ${o.wenskaart_gevraagd?rij('kaart','Wenskaart','','tekst uit je webshop'):''}
+       ${rij('etiket','Ingredi\u00ebntenetiket','','kies eerst een partij')}
      </div>
      <div class="geen" style="padding-top:12px">${esc(o.periode||'')}</div>`,
-    `${o.afhaal?'' : (o.myparcel_id
-        ? `<button class="prim" style="margin-top:0" id="moLabel">${svg(I.doc)}Verzendlabel openen</button>`
-        : `<button class="prim" style="margin-top:0" id="moMaak">Verzendlabel maken</button>`)}
-     ${o.wenskaart_gevraagd?`<button class="sec" id="moKaart">Wenskaart maken</button>`:''}`);
-  if($('#moMaak')) $('#moMaak').onclick=async()=>{
-    const k=$('#moMaak'); k.disabled=true; k.textContent='Aanmelden bij MyParcel…';
-    try{ await roep('maakLabel',{order:o.shopifyId||o.nummer});
-      render(); klaarSheet('Zending aangemeld. Het label staat klaar.'); }
-    catch(e){ toast(fout(e)); k.disabled=false; k.textContent='Verzendlabel maken' }
+    `<button class="sec" id="moDicht">Terug</button>`);
+  if($('#moDicht')) $('#moDicht').onclick=dicht;
+  $$('[data-doc]').forEach(b=>b.onclick=()=>docOpenen(o,b.dataset.doc));
+  /* nog niets ingesteld: dan zeggen we wat er mist, niet dat het niet kan */
+}
+
+/* Gegevens voor de documenten komen per keer bij Shopify vandaan en worden
+   nergens bewaard. Ze leven alleen zolang dit scherm openstaat. */
+async function orderPapieren(o){
+  if(o._papier) return o._papier;
+  const r=await roep('haalOrderDocumenten',{order:o.shopifyId||o.nummer});
+  o._papier=r; return r;
+}
+
+function docOpenen(o,welk){
+  if(welk==='label')   return labelDoen(o);
+  if(welk==='etiket')  return toast('Kies bij Productie eerst uit welke partij je pakt.');
+
+  toast('Ophalen\u2026');
+  orderPapieren(o).then(p=>{
+    if(welk==='kaart') return sheetWenskaart(p.boodschap||'');
+    if(welk==='factuur') return factuurTonen(o,p);
+  }).catch(e=>toast(fout(e)));
+}
+
+function factuurTonen(o,p){
+  /* een Shopify-order omgekat naar de vorm die je factuur al kent */
+  const nep={
+    klant:{naam:p.klant.naam,adres:p.klant.adres},
+    regels:p.regels,
+    verzending:p.verzending,
+    kado:p.kado,
+    factuurNr:p.nummer,
+    factuurDatum:p.datum,
+    betaald:p.betaald
   };
-  if($('#moLabel')) $('#moLabel').onclick=async()=>{
-    const k=$('#moLabel'); k.disabled=true; k.textContent='Ophalen…';
+  const html=factuurHTML(nep);
+  sheet('Factuur '+esc(p.nummer),
+    `<div class="etvoorbeeld" style="padding:12px">
+       <div class="schaal" id="fcSchaal">${html}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="fcPrint">${svg(I.doc)}Printen of delen</button>
+     <button class="sec" id="fcDicht">Terug</button>`);
+  setTimeout(()=>pasSchaal('fcSchaal'),30);
+  $('#fcDicht').onclick=dicht;
+  $('#fcPrint').onclick=()=>drukAf(html,'Factuur '+p.nummer,'@page{size:A4;margin:0}');
+}
+
+async function labelDoen(o){
+  if(!o.myparcel_id){
+    toast('Aanmelden bij MyParcel\u2026');
     try{
-      const r=await roep('labelPdf',{order:o.shopifyId||o.nummer});
-      const blob=new Blob([Uint8Array.from(atob(r.pdf),c=>c.charCodeAt(0))],{type:'application/pdf'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=r.naam;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),4000);
-      k.disabled=false; k.innerHTML=svg(I.doc)+'Verzendlabel openen';
-    }catch(e){ toast(fout(e)); k.disabled=false; k.innerHTML=svg(I.doc)+'Verzendlabel openen' }
-  };
-  if($('#moKaart')) $('#moKaart').onclick=async()=>{
-    try{ const r=await roep('haalBoodschap',{order:o.shopifyId||o.nummer});
-      sheetWenskaart(r.boodschap||''); }
-    catch(e){ sheetWenskaart('') }
-  };
+      await roep('maakLabel',{order:o.shopifyId||o.nummer});
+      klaarSheet('Zending aangemeld. Het label staat klaar.');
+    }catch(e){ toast(fout(e)) }
+    return;
+  }
+  toast('Label ophalen\u2026');
+  try{
+    const r=await roep('labelPdf',{order:o.shopifyId||o.nummer});
+    const blob=new Blob([Uint8Array.from(atob(r.pdf),c=>c.charCodeAt(0))],{type:'application/pdf'});
+    const bestand=new File([blob],r.naam,{type:'application/pdf'});
+    /* op de telefoon geeft het deelmenu je printen, mailen en bewaren in n keer */
+    if(navigator.canShare&&navigator.canShare({files:[bestand]})){
+      await navigator.share({files:[bestand],title:r.naam});
+      return;
+    }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=r.naam;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){ toast(fout(e)) }
 }
 
 function ordersHTML(){
