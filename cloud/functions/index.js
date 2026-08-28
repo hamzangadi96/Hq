@@ -370,6 +370,54 @@ exports.haalBoodschap = onCall(async req => {
   return { boodschap: boodschapVan(o) };
 });
 
+/* Alles wat je documenten nodig hebben, in één keer opgehaald bij Shopify.
+   Hier zit wél naam en adres in — dat moet, want een factuur zonder adres is
+   geen geldige factuur. Het gaat rechtstreeks naar jouw toestel en wordt
+   nergens bewaard: niet in deze functie, niet in de database. */
+exports.haalOrderDocumenten = onCall(async req => {
+  const uid = wieBenJe(req);
+  const o = await zoekOrder(uid, (req.data || {}).order);
+
+  const a = o.shipping_address || o.billing_address || null;
+  const adres = a ? [
+    a.address1,
+    a.address2,
+    [String(a.zip || '').toUpperCase(), a.city].filter(Boolean).join('  '),
+    (a.country_code || 'NL') !== 'NL' ? a.country : null
+  ].filter(Boolean).join('\n') : '';
+
+  /* Shopify rekent per regel; verzending en kado-opties staan apart en vallen
+     onder het hoge btw-tarief. De rest is voedsel en dus laag. */
+  const KADO = /kado|cadeau|gift|inpak|wrap|wenskaart|kaartje/i;
+  const regels = [];
+  let kado = 0;
+  (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
+    const stuk = parseFloat(li.price) || 0;
+    const naam = String(li.title || '') + (li.variant_title ? ' · ' + li.variant_title : '');
+    if (KADO.test(naam)) { kado += stuk * (li.quantity || 0); return; }
+    regels.push({ naam, aantal: Number(li.quantity) || 0, prijs: stuk });
+  });
+
+  const verzending = (o.shipping_lines || [])
+    .reduce((n, s) => n + (parseFloat(s.price) || 0), 0);
+
+  return {
+    nummer: String(o.name || o.order_number || '').replace(/^#/, ''),
+    datum: (o.created_at || '').slice(0, 10),
+    betaald: o.financial_status === 'paid',
+    klant: {
+      naam: (a && a.name) || [o.customer && o.customer.first_name, o.customer && o.customer.last_name]
+        .filter(Boolean).join(' ') || 'Klant',
+      adres,
+      email: o.email || ''
+    },
+    regels,
+    verzending,
+    kado,
+    boodschap: boodschapVan(o),
+    afhaal: !o.shipping_address
+  };
+});
 /* Zending aanmelden bij MyParcel. Het adres komt rechtstreeks van Shopify,
    gaat door deze functie heen naar MyParcel, en wordt hier niet bewaard. */
 exports.maakLabel = onCall(async req => {
