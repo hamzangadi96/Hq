@@ -3484,7 +3484,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v557 · 28 aug 2026';
+const APPVERSIE='v558 · 28 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12471,8 +12471,9 @@ function sheetMacOrder(nr){
      <div class="blokkop"><span class="eyebrow">Documenten</span></div>
      <div class="paneel">
        ${rij('factuur','Factuur','','bekijken en printen')}
-       ${o.afhaal?'':rij('label','Verzendlabel',o.myparcel_id?'af':'',
-          o.myparcel_id?'aangemeld bij MyParcel':'nog aanmelden bij MyParcel')}
+       ${rij('label','Verzendlabel',o.myparcel_id?'af':'',
+          o.afhaal?'niet nodig, wordt afgehaald'
+                 :(o.myparcel_id?'aangemeld bij MyParcel':'nog aanmelden bij MyParcel'))}
        ${o.wenskaart_gevraagd?rij('kaart','Wenskaart','','tekst uit je webshop'):''}
        ${rij('etiket','Ingredi\u00ebntenetiket','','kies eerst een partij')}
      </div>
@@ -12492,7 +12493,10 @@ async function orderPapieren(o){
 }
 
 function docOpenen(o,welk){
-  if(welk==='label')   return labelDoen(o);
+  if(welk==='label'){
+    if(o.afhaal) return toast('Deze order wordt afgehaald. Zet in Shopify een verzendmethode op de order als dat niet klopt.');
+    return labelDoen(o);
+  }
   if(welk==='etiket')  return toast('Kies bij Productie eerst uit welke partij je pakt.');
 
   toast('Ophalen\u2026');
@@ -12605,10 +12609,10 @@ function ordersHTML(){
         </button>`;
       };
       if(teDoen.length) h+=`<div class="blokkop" style="margin-top:24px">
-        <span class="eyebrow">Te verwerken</span><span class="tel">${teDoen.length}</span></div>
+        <span class="eyebrow">Uit je webshop</span><span class="tel">${teDoen.length}</span></div>
         <div class="ordlijst">${teDoen.slice(0,15).map(kaart).join('')}</div>`;
       if(gedaan.length) h+=`<div class="blokkop" style="margin-top:24px">
-        <span class="eyebrow">Klaar</span><span class="tel">${gedaan.length}</span></div>
+        <span class="eyebrow">Webshop &middot; klaar</span><span class="tel">${gedaan.length}</span></div>
         <div class="ordlijst">${gedaan.slice(0,30).map(kaart).join('')}</div>`;
     }
   }
@@ -12632,7 +12636,7 @@ function ordersHTML(){
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
   };
 
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Te doen</span>
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Zelf ingevoerd</span>
       <span class="tel">${open.length||''}</span></div>`;
   h+=open.length?`<div class="paneel">${open.map(rij).join('')}</div>`
     :`<div class="paneel"><div class="geen">Geen openstaande orders.</div></div>`;
