@@ -3484,7 +3484,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v556 · 28 aug 2026';
+const APPVERSIE='v557 · 28 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3861,6 +3861,20 @@ function pakData(){
 const LIJSTVELDEN=Object.keys(S).filter(k=>Array.isArray(S[k]))
   .concat(['ingArchief']);
 
+/* Velden die in de begintoestand een kaart zijn ({} met eigen sleutels).
+   Die mogen nooit tot een lijst worden omgebouwd, ook niet als hun sleutels
+   toevallig cijfers zijn — denk aan doosprijzen per aantal. */
+const KAARTVELDEN=new Set(Object.keys(S).filter(k=>
+  S[k]&&typeof S[k]==='object'&&!Array.isArray(S[k])));
+
+/* Een object waarvan alle sleutels cijfers zijn, is bij Firebase altijd een
+   lijst geweest. Hij slaat lijsten met gaten namelijk op als object. */
+function isVerkapteLijst(v){
+  if(!v||typeof v!=='object'||Array.isArray(v)) return false;
+  const k=Object.keys(v);
+  return k.length>0&&k.every(x=>/^\d+$/.test(x));
+}
+
 function alsLijst(v){
   if(Array.isArray(v)) return v;
   if(v&&typeof v==='object') return Object.keys(v)
@@ -3869,7 +3883,16 @@ function alsLijst(v){
 }
 
 function zetData(d){
-  BEWAARVELDEN.forEach(k=>{if(d[k]!==undefined&&d[k]!==null)S[k]=d[k]});
+  BEWAARVELDEN.forEach(k=>{
+    let v=d[k];
+    if(v===undefined||v===null) return;
+    /* Hier ging het mis: de lijst met te herstellen velden werd met de hand
+       bijgehouden, dus elk veld dat er later bij kwam viel erbuiten. Kwam zo'n
+       veld als object terug van Firebase, dan klapte alles wat er een lijst van
+       verwachtte — en werd je lijst overschreven. Nu herkent hij het zelf. */
+    if(!KAARTVELDEN.has(k)&&isVerkapteLijst(v)) v=alsLijst(v);
+    S[k]=v;
+  });
   LIJSTVELDEN.forEach(k=>{ if(!Array.isArray(S[k])) S[k]=alsLijst(S[k]) });
   S.bijgewerkt=d.bijgewerkt||0;
   /* Het vangnet keek één keer op 2,5 seconde na het starten en daarna pas na
