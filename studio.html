@@ -514,7 +514,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v3';
+const APPVERSIE = 'studio v4';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -579,14 +579,28 @@ function openOpslag(){
 
 function winkel(naam, modus){ return db.transaction(naam, modus).objectStore(naam); }
 
+// Safari laat een transactie soms nooit afronden. Na 8 seconden gaan we door.
+function metVangnet(belofte, terugval){
+  return Promise.race([
+    belofte,
+    new Promise(k => setTimeout(() => k(terugval), 8000))
+  ]);
+}
+
 function zetIn(naam, waarde){
-  return new Promise((k,m) => { const r = winkel(naam,'readwrite').put(waarde); r.onsuccess=()=>k(); r.onerror=()=>m(r.error); });
+  return metVangnet(new Promise((k,m) => {
+    const r = winkel(naam,'readwrite').put(waarde); r.onsuccess=()=>k(true); r.onerror=()=>m(r.error);
+  }), false);
 }
 function haalUit(naam, id){
-  return new Promise((k,m) => { const r = winkel(naam,'readonly').get(id); r.onsuccess=()=>k(r.result); r.onerror=()=>m(r.error); });
+  return metVangnet(new Promise((k,m) => {
+    const r = winkel(naam,'readonly').get(id); r.onsuccess=()=>k(r.result); r.onerror=()=>m(r.error);
+  }), null);
 }
 function allesUit(naam){
-  return new Promise((k,m) => { const r = winkel(naam,'readonly').getAll(); r.onsuccess=()=>k(r.result||[]); r.onerror=()=>m(r.error); });
+  return metVangnet(new Promise((k,m) => {
+    const r = winkel(naam,'readonly').getAll(); r.onsuccess=()=>k(r.result||[]); r.onerror=()=>m(r.error);
+  }), []);
 }
 function wisUit(naam, id){
   return new Promise((k,m) => { const r = winkel(naam,'readwrite').delete(id); r.onsuccess=()=>k(); r.onerror=()=>m(r.error); });
@@ -780,9 +794,13 @@ el('toevoegen').addEventListener('click', () => el('kiezer').click());
 el('kiezer').addEventListener('change', async e => {
   const bestanden = Array.from(e.target.files || []);
   e.target.value = '';
+  if(!bestanden.length) return;
+  toon(bestanden.length === 1 ? 'Clip inladen…' : bestanden.length + ' clips inladen…');
   for(const b of bestanden){
-    try { await voegToe(b); } catch(fout){ toon('Kon ' + b.name + ' niet lezen'); }
+    try { await voegToe(b); } catch(fout){ toon('Kon ' + (b.name || 'clip') + ' niet lezen'); }
+    teken();
   }
+  verbergToast();
   teken();
 });
 
@@ -816,16 +834,31 @@ function voegToe(bestand){
         bron: null
       };
       clips.push(clip);
-      try { await zetIn('bestanden', {id: bestandId, blob: bestand}); }
-      catch(fout){ toon('Kon de clip niet bewaren'); }
       document.getElementById('stal').appendChild(v);
       await ontgrendel(v);
       try { clip.duim = await maakDuim(v); } catch(fout){ clip.duim = null; }
       klaar(clip);
+      bewaarBlob(bestandId, bestand);
     }, {once:true});
 
     v.addEventListener('error', () => { clearTimeout(vangnet); mislukt(new Error('fout')); }, {once:true});
   });
+}
+
+// Een File uit de fotobibliotheek laat zich op iOS niet altijd opslaan.
+// Als gewone Blob lukt het wel; anders via de ruwe bytes.
+async function bewaarBlob(id, bestand){
+  const soort = bestand.type || 'video/mp4';
+  try {
+    const gelukt = await zetIn('bestanden', {id, blob: new Blob([bestand], {type: soort})});
+    if(gelukt) return;
+  } catch(fout){}
+  try {
+    const bytes = await bestand.arrayBuffer();
+    const gelukt = await zetIn('bestanden', {id, blob: new Blob([bytes], {type: soort})});
+    if(gelukt) return;
+  } catch(fout){}
+  toon('Deze clip wordt niet bewaard voor later');
 }
 
 function maakDuim(v){
