@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Test</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  margin:0;padding:20px;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  background:#f4f4f5;color:#18181b;
+}
+h1{font-size:22px;margin:0 0 4px}
+p.uitleg{font-size:14px;color:#71717a;margin:0 0 20px;line-height:1.5}
+button{
+  width:100%;height:56px;margin-bottom:10px;
+  border:none;border-radius:14px;
+  background:#18181b;color:#fff;
+  font-family:inherit;font-size:16px;font-weight:600;
+}
+#log{
+  margin-top:20px;background:#fff;border-radius:14px;padding:16px;
+  font-size:14px;line-height:1.6;min-height:120px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.groen{color:#15803d;font-weight:700}
+.rood{color:#c0392b;font-weight:700}
+#zichtbaar{
+  width:100%;margin-bottom:10px;padding:14px;
+  background:#fff;border-radius:14px;font-size:14px;
+}
+.stil{
+  position:fixed;left:0;top:0;width:1px;height:1px;
+  opacity:.01;overflow:hidden;pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<h1>Bestandstest</h1>
+<p class="uitleg">Probeer ze van boven naar beneden. Na elke poging verschijnt er tekst in het witte vak. Stuur een foto zodra je alle vier geprobeerd hebt.</p>
+
+<button id="k1">1 · verborgen · video · meerdere</button>
+<button id="k2">2 · onzichtbaar maar aanwezig · video</button>
+<button id="k3">3 · zonder filter · één bestand</button>
+
+<div id="zichtbaar">
+  4 · rechtstreekse knop:<br><br>
+  <input type="file" id="i4" accept="video/*">
+</div>
+
+<div id="log">Nog niets geprobeerd.</div>
+
+<input type="file" id="i1" accept="video/*" multiple style="display:none">
+<div class="stil"><input type="file" id="i2" accept="video/*" multiple></div>
+<input type="file" id="i3" style="display:none">
+
+<script>
+var log = document.getElementById('log');
+var start = 0;
+
+function schrijf(t, klasse){
+  var r = document.createElement('div');
+  if(klasse) r.className = klasse;
+  r.textContent = t;
+  log.appendChild(r);
+}
+
+function leeg(n){
+  log.innerHTML = '';
+  start = Date.now();
+  schrijf('Poging ' + n + ' — keuzelijst geopend');
+}
+
+function verslag(n, invoer){
+  var sec = ((Date.now() - start) / 1000).toFixed(1);
+  var lijst = invoer.files;
+  if(!lijst || lijst.length === 0){
+    schrijf('Poging ' + n + ': NIETS ontvangen (na ' + sec + ' s)', 'rood');
+    return;
+  }
+  schrijf('Poging ' + n + ': ' + lijst.length + ' bestand(en) ontvangen na ' + sec + ' s', 'groen');
+  for(var i = 0; i < lijst.length; i++){
+    var f = lijst[i];
+    schrijf('· ' + (f.name || 'zonder naam') + ' · ' + f.type + ' · ' + Math.round(f.size / 1048576) + ' MB');
+  }
+  // kan Safari er ook echt een video van maken?
+  var v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto';
+  v.src = URL.createObjectURL(lijst[0]);
+  var af = false;
+  v.addEventListener('loadedmetadata', function(){
+    if(af) return; af = true;
+    schrijf('video leest: ' + v.videoWidth + '×' + v.videoHeight + ' · ' + v.duration + ' s', 'groen');
+  });
+  v.addEventListener('error', function(){
+    if(af) return; af = true;
+    schrijf('video FOUT code ' + (v.error ? v.error.code : '?'), 'rood');
+  });
+  setTimeout(function(){
+    if(af) return; af = true;
+    schrijf('video: geen reactie na 10 s', 'rood');
+  }, 10000);
+}
+
+function knoop(nr, knopId, invoerId){
+  var invoer = document.getElementById(invoerId);
+  if(knopId){
+    document.getElementById(knopId).addEventListener('click', function(){
+      leeg(nr);
+      invoer.click();
+    });
+  }
+  invoer.addEventListener('change', function(){ verslag(nr, invoer); });
+}
+
+knoop(1, 'k1', 'i1');
+knoop(2, 'k2', 'i2');
+knoop(3, 'k3', 'i3');
+knoop(4, null, 'i4');
+document.getElementById('i4').addEventListener('click', function(){ leeg(4); });
+
+schrijf('Safari: ' + navigator.userAgent.slice(0, 90));
+</script>
+</body>
+</html>
