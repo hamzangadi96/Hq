@@ -117,6 +117,8 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 }
 #leeg h2, #pleeg h2{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
 #leeg p, #pleeg p{font-size:14px;color:var(--zacht);margin:0;line-height:1.5}
+#status{font-weight:600;color:var(--inkt) !important;min-height:20px}
+#status.mis{color:var(--rood) !important}
 #leegicoon{
   width:76px;height:76px;border-radius:24px;
   background:var(--kaart);
@@ -440,6 +442,7 @@ body.werkt #werkscherm{display:flex}
     </div>
     <h2>Nog geen clips</h2>
     <p>Voeg opnames toe uit je Foto's. Je bepaalt de volgorde en knipt per clip het begin en eind bij.</p>
+    <p id="status"></p>
   </div>
 
   <div id="rol" class="verborgen">
@@ -514,7 +517,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v4';
+const APPVERSIE = 'studio v5';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -791,57 +794,116 @@ el('projectweg').addEventListener('click', async () => {
 /* ---------- clips inladen ---------- */
 
 el('toevoegen').addEventListener('click', () => el('kiezer').click());
+function zetStatus(tekst, mis){
+  const s = el('status');
+  if(!s) return;
+  s.textContent = tekst || '';
+  s.classList.toggle('mis', !!mis);
+}
+
 el('kiezer').addEventListener('change', async e => {
-  const bestanden = Array.from(e.target.files || []);
-  e.target.value = '';
-  if(!bestanden.length) return;
-  toon(bestanden.length === 1 ? 'Clip inladen…' : bestanden.length + ' clips inladen…');
-  for(const b of bestanden){
-    try { await voegToe(b); } catch(fout){ toon('Kon ' + (b.name || 'clip') + ' niet lezen'); }
-    teken();
+  const invoer = e.target;
+  const bestanden = Array.from(invoer.files || []);
+  if(!bestanden.length){ zetStatus('Geen clip ontvangen van Foto\u2019s', true); return; }
+
+  zetStatus(bestanden.length + (bestanden.length === 1 ? ' clip ontvangen' : ' clips ontvangen'));
+  let gelukt = 0;
+
+  for(let i = 0; i < bestanden.length; i++){
+    const b = bestanden[i];
+    const nr = (i + 1) + ' van ' + bestanden.length;
+    try {
+      zetStatus('Clip ' + nr + ' inlezen\u2026');
+      await voegToe(b, t => zetStatus('Clip ' + nr + ' \u00b7 ' + t));
+      gelukt++;
+      teken();
+    } catch(fout){
+      zetStatus('Clip ' + nr + ' mislukt: ' + (fout && fout.message ? fout.message : 'onbekend'), true);
+      await new Promise(r => setTimeout(r, 2500));
+    }
   }
-  verbergToast();
+
+  if(gelukt) zetStatus('');
+  invoer.value = '';
   teken();
 });
 
-function voegToe(bestand){
+// iOS geeft soms Infinity als duur. Even naar het einde springen dwingt het echte getal af.
+function echteDuur(v){
+  if(isFinite(v.duration) && v.duration > 0) return Promise.resolve(v.duration);
+  return new Promise(klaar => {
+    let af = false;
+    const eind = () => { if(af) return; af = true; klaar(isFinite(v.duration) && v.duration > 0 ? v.duration : 0); };
+    const luister = () => { if(isFinite(v.duration) && v.duration > 0){ v.removeEventListener('durationchange', luister); eind(); } };
+    v.addEventListener('durationchange', luister);
+    try { v.currentTime = 1e6; } catch(fout){}
+    setTimeout(eind, 3000);
+  });
+}
+
+function voegToe(bestand, meld){
   return new Promise((klaar, mislukt) => {
-    const url = URL.createObjectURL(bestand);
+    const zeg = meld || function(){};
+
+    // Los van de fotobibliotheek: eerst een echte kopie.
+    let blob = bestand;
+    try { blob = new Blob([bestand], {type: bestand.type || 'video/mp4'}); } catch(fout){}
+    if(!blob || !blob.size){ mislukt(new Error('leeg bestand')); return; }
+
+    const url = URL.createObjectURL(blob);
     const v = document.createElement('video');
-    v.src = url;
     v.playsInline = true;
     v.setAttribute('playsinline','');
+    v.setAttribute('webkit-playsinline','');
     v.preload = 'auto';
     v.muted = true;
-    v.crossOrigin = 'anonymous';
+    v.src = url;
+    try { v.load(); } catch(fout){}
 
-    const vangnet = setTimeout(() => mislukt(new Error('te traag')), 15000);
+    let af = false;
+    const vangnet = setTimeout(() => {
+      if(af) return; af = true;
+      mislukt(new Error('geen beeld na 20 s'));
+    }, 20000);
 
-    v.addEventListener('loadedmetadata', async () => {
+    const gereed = async () => {
+      if(af) return; af = true;
       clearTimeout(vangnet);
-      const bestandId = nieuwId();
-      const clip = {
-        id: nieuwId(),
-        bestandId,
-        naam: 'Clip ' + (clips.length + 1),
-        bestand,
-        url,
-        video: v,
-        duur: v.duration || 0,
-        start: 0,
-        eind: v.duration || 0,
-        duim: null,
-        bron: null
-      };
-      clips.push(clip);
-      document.getElementById('stal').appendChild(v);
-      await ontgrendel(v);
-      try { clip.duim = await maakDuim(v); } catch(fout){ clip.duim = null; }
-      klaar(clip);
-      bewaarBlob(bestandId, bestand);
-    }, {once:true});
+      try {
+        zeg('duur bepalen');
+        const duur = await echteDuur(v);
+        if(!duur){ mislukt(new Error('duur onbekend')); return; }
+        try { v.currentTime = 0; } catch(fout){}
 
-    v.addEventListener('error', () => { clearTimeout(vangnet); mislukt(new Error('fout')); }, {once:true});
+        const bestandId = nieuwId();
+        const clip = {
+          id: nieuwId(), bestandId, naam: '',
+          bestand: blob, url, video: v,
+          duur, start: 0, eind: duur, duim: null, bron: null
+        };
+        clips.push(clip);
+        document.getElementById('stal').appendChild(v);
+
+        zeg('beeld ophalen');
+        await ontgrendel(v);
+        try { clip.duim = await maakDuim(v); } catch(fout){ clip.duim = null; }
+
+        klaar(clip);
+        zeg('bewaren');
+        bewaarBlob(bestandId, blob);
+      } catch(fout){ mislukt(fout); }
+    };
+
+    ['loadedmetadata','durationchange','canplay','loadeddata'].forEach(naam => {
+      v.addEventListener(naam, () => { if(v.readyState >= 1) gereed(); });
+    });
+
+    v.addEventListener('error', () => {
+      if(af) return; af = true;
+      clearTimeout(vangnet);
+      const c = v.error ? v.error.code : 0;
+      mislukt(new Error('Safari kan deze clip niet openen (' + c + ')'));
+    }, {once:true});
   });
 }
 
