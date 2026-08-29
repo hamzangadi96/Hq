@@ -56,7 +56,7 @@ header h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0}
 header span{font-size:12px;color:var(--zachter);font-weight:500}
 
 /* lijst */
-#rol{
+#rol, #prol{
   flex:1 1 auto;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
@@ -105,7 +105,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 .greep svg{display:block}
 
 /* leeg */
-#leeg{
+#leeg, #pleeg{
   flex:1 1 auto;
   display:flex;
   flex-direction:column;
@@ -115,8 +115,8 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   padding:0 32px 60px;
   text-align:center;
 }
-#leeg h2{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
-#leeg p{font-size:14px;color:var(--zacht);margin:0;line-height:1.5}
+#leeg h2, #pleeg h2{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
+#leeg p, #pleeg p{font-size:14px;color:var(--zacht);margin:0;line-height:1.5}
 #leegicoon{
   width:76px;height:76px;border-radius:24px;
   background:var(--kaart);
@@ -303,6 +303,83 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   text-decoration:underline;padding:4px;
 }
 .verborgen{display:none !important}
+#projectscherm, #werkscherm{
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+#werkscherm{display:none}
+body.werkt #projectscherm{display:none}
+body.werkt #werkscherm{display:flex}
+
+.werkkop{
+  padding:calc(env(safe-area-inset-top) + 14px) 12px 10px 6px;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  flex:0 0 auto;
+}
+#terug{
+  width:44px;height:44px;
+  flex:0 0 auto;
+  background:none;border:none;
+  display:flex;align-items:center;justify-content:center;
+}
+#projectnaam{
+  background:none;border:none;
+  font-family:inherit;
+  font-size:21px;font-weight:700;
+  letter-spacing:-.02em;
+  color:var(--inkt);
+  text-align:left;
+  padding:6px 8px;
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.projectkaart{
+  background:var(--kaart);
+  border-radius:var(--rond);
+  padding:10px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  border:none;
+  font-family:inherit;
+  text-align:left;
+}
+.projectinfo{flex:1 1 auto;min-width:0}
+.projecttitel{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--inkt)}
+.projectmeta{font-size:13px;color:var(--zacht);margin-top:3px}
+.pijl{flex:0 0 auto;width:24px;display:flex;justify-content:center}
+
+#opslagregel{
+  text-align:center;
+  font-size:12px;
+  color:var(--zachter);
+  padding:14px 0 2px;
+}
+
+#naamveld{
+  width:100%;
+  height:52px;
+  border-radius:14px;
+  border:none;
+  background:var(--achtergrond);
+  font-family:inherit;
+  font-size:16px;
+  font-weight:500;
+  color:var(--inkt);
+  padding:0 16px;
+  margin-bottom:16px;
+}
+#naamveld:focus{outline:2px solid var(--inkt);outline-offset:-2px}
+
 #stal{
   position:fixed;
   left:0;top:0;
@@ -319,9 +396,40 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 <body>
 <div id="schil">
 
-  <header>
-    <h1>Studio</h1>
-    <span id="versie"></span>
+  <div id="projectscherm">
+    <header>
+      <h1>Studio</h1>
+      <span id="versie"></span>
+    </header>
+
+    <div id="pleeg">
+      <div id="leegicoon">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/>
+        </svg>
+      </div>
+      <h2>Nog geen projecten</h2>
+      <p>Begin een nieuw project en voeg je opnames toe. Je werk blijft bewaard op deze telefoon.</p>
+    </div>
+
+    <div id="prol" class="verborgen">
+      <div id="projectlijst"></div>
+      <div id="opslagregel"></div>
+    </div>
+
+    <div id="balk">
+      <div id="knoprij">
+        <button class="knop vol" id="nieuwproject">Nieuw project</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="werkscherm">
+  <header class="werkkop">
+    <button id="terug" aria-label="Terug naar projecten">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button id="projectnaam">Project</button>
   </header>
 
   <div id="leeg">
@@ -349,6 +457,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
       <button class="knop vol" id="exporteren" disabled>Exporteer</button>
     </div>
   </div>
+  </div>
 
   <div id="toast"><span id="toasttekst"></span><button id="toastknop">Ongedaan maken</button></div>
 
@@ -370,6 +479,16 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
     <div id="knoprij">
       <button class="knop stil" id="verwijderen">Verwijder</button>
       <button class="knop vol" id="trimklaar">Klaar</button>
+    </div>
+  </div>
+
+  <div class="blad" id="naamblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel">Projectnaam</h2>
+    <input id="naamveld" type="text" autocomplete="off" placeholder="Naam">
+    <div id="knoprij">
+      <button class="knop stil" id="projectweg">Verwijder</button>
+      <button class="knop vol" id="naamklaar">Klaar</button>
     </div>
   </div>
 
@@ -395,7 +514,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 </div>
 
 <script>
-const APPVERSIE = 'studio v2';
+const APPVERSIE = 'studio v3';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -425,10 +544,13 @@ function totaleDuur(){
   return clips.reduce((s,c) => s + Math.max(0, c.eind - c.start), 0);
 }
 
-function toon(tekst, ongedaan){
+let toastActie = null;
+
+function toon(tekst, ongedaan, actie){
   clearTimeout(toastTimer);
   el('toasttekst').textContent = tekst;
   el('toastknop').style.display = ongedaan ? '' : 'none';
+  toastActie = actie || null;
   el('toast').classList.add('aan');
   toastTimer = setTimeout(() => el('toast').classList.remove('aan'), 5000);
 }
@@ -437,6 +559,220 @@ function verbergToast(){
   clearTimeout(toastTimer);
   el('toast').classList.remove('aan');
 }
+
+/* ---------- opslag op het toestel ---------- */
+
+let db = null;
+
+function openOpslag(){
+  return new Promise((klaar, mislukt) => {
+    const v = indexedDB.open('studio', 1);
+    v.onupgradeneeded = () => {
+      const d = v.result;
+      if(!d.objectStoreNames.contains('projecten')) d.createObjectStore('projecten', {keyPath:'id'});
+      if(!d.objectStoreNames.contains('bestanden')) d.createObjectStore('bestanden', {keyPath:'id'});
+    };
+    v.onsuccess = () => { db = v.result; klaar(); };
+    v.onerror = () => mislukt(v.error);
+  });
+}
+
+function winkel(naam, modus){ return db.transaction(naam, modus).objectStore(naam); }
+
+function zetIn(naam, waarde){
+  return new Promise((k,m) => { const r = winkel(naam,'readwrite').put(waarde); r.onsuccess=()=>k(); r.onerror=()=>m(r.error); });
+}
+function haalUit(naam, id){
+  return new Promise((k,m) => { const r = winkel(naam,'readonly').get(id); r.onsuccess=()=>k(r.result); r.onerror=()=>m(r.error); });
+}
+function allesUit(naam){
+  return new Promise((k,m) => { const r = winkel(naam,'readonly').getAll(); r.onsuccess=()=>k(r.result||[]); r.onerror=()=>m(r.error); });
+}
+function wisUit(naam, id){
+  return new Promise((k,m) => { const r = winkel(naam,'readwrite').delete(id); r.onsuccess=()=>k(); r.onerror=()=>m(r.error); });
+}
+
+function nieuwId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ---------- projecten ---------- */
+
+let huidigProject = null;
+let bewaarTimer = null;
+let projectWeg = null;
+
+const MAANDEN = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+
+function datumNaam(){
+  const d = new Date();
+  return d.getDate() + ' ' + MAANDEN[d.getMonth()];
+}
+
+function bewaarStraks(){
+  clearTimeout(bewaarTimer);
+  bewaarTimer = setTimeout(bewaarNu, 400);
+}
+
+async function bewaarNu(){
+  if(!huidigProject || !db) return;
+  huidigProject.verhouding = verhouding;
+  huidigProject.bijgewerkt = Date.now();
+  huidigProject.clips = clips.map(c => ({
+    id: c.id, bestandId: c.bestandId, duur: c.duur,
+    start: c.start, eind: c.eind, duim: c.duim
+  }));
+  try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
+}
+
+async function nieuwProject(){
+  huidigProject = {
+    id: nieuwId(), naam: datumNaam(),
+    gemaakt: Date.now(), bijgewerkt: Date.now(),
+    verhouding: '9:16', clips: []
+  };
+  clips = [];
+  zetVerhouding('9:16');
+  await zetIn('projecten', huidigProject);
+  naarWerkscherm();
+}
+
+async function openProject(id){
+  const pr = await haalUit('projecten', id);
+  if(!pr) return;
+  huidigProject = pr;
+  zetVerhouding(pr.verhouding || '9:16');
+  clips = [];
+  const stal = el('stal');
+  for(const m of (pr.clips || [])){
+    const rec = await haalUit('bestanden', m.bestandId);
+    if(!rec) continue;
+    const url = URL.createObjectURL(rec.blob);
+    const v = document.createElement('video');
+    v.src = url; v.preload = 'auto'; v.muted = true;
+    v.playsInline = true; v.setAttribute('playsinline','');
+    stal.appendChild(v);
+    clips.push({
+      id: m.id, naam: '', bestand: null, url, video: v,
+      duur: m.duur, start: m.start, eind: m.eind,
+      duim: m.duim, bron: null, bestandId: m.bestandId
+    });
+  }
+  naarWerkscherm();
+}
+
+function naarWerkscherm(){
+  el('projectnaam').textContent = huidigProject.naam;
+  document.body.classList.add('werkt');
+  teken();
+}
+
+async function naarProjecten(){
+  await bewaarNu();
+  clips.forEach(c => { try { URL.revokeObjectURL(c.url); } catch(fout){} c.video.remove(); });
+  clips = [];
+  huidigProject = null;
+  document.body.classList.remove('werkt');
+  await tekenProjecten();
+}
+
+function zetVerhouding(v){
+  verhouding = v;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('aan', c.dataset.verhouding === v));
+}
+
+async function tekenProjecten(){
+  const alle = (await allesUit('projecten')).sort((a,b) => b.bijgewerkt - a.bijgewerkt);
+  const leeg = alle.length === 0;
+  el('pleeg').classList.toggle('verborgen', !leeg);
+  el('prol').classList.toggle('verborgen', leeg);
+
+  const lijst = el('projectlijst');
+  lijst.innerHTML = '';
+  alle.forEach(pr => {
+    const cl = pr.clips || [];
+    const duur = cl.reduce((s,c) => s + Math.max(0, c.eind - c.start), 0);
+    const duim = (cl.find(c => c.duim) || {}).duim;
+
+    const kaart = document.createElement('button');
+    kaart.className = 'projectkaart';
+    kaart.innerHTML =
+      (duim ? '<img class="duim" src="' + duim + '">' : '<div class="duim"></div>') +
+      '<div class="projectinfo"><div class="projecttitel"></div>' +
+      '<div class="projectmeta">' +
+      (cl.length ? cl.length + (cl.length === 1 ? ' clip · ' : ' clips · ') + secs(duur) : 'leeg') +
+      '</div></div>' +
+      '<div class="pijl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
+    kaart.querySelector('.projecttitel').textContent = pr.naam;
+    kaart.addEventListener('click', () => openProject(pr.id));
+    lijst.appendChild(kaart);
+  });
+
+  await ruimOp(alle);
+  toonOpslag();
+}
+
+// bestanden weggooien die bij geen enkel project meer horen
+async function ruimOp(alle){
+  try {
+    const inGebruik = new Set();
+    alle.forEach(pr => (pr.clips || []).forEach(c => inGebruik.add(c.bestandId)));
+    const bestanden = await allesUit('bestanden');
+    for(const b of bestanden){ if(!inGebruik.has(b.id)) await wisUit('bestanden', b.id); }
+  } catch(fout){}
+}
+
+async function toonOpslag(){
+  try {
+    const s = await navigator.storage.estimate();
+    const mb = (s.usage / 1048576);
+    el('opslagregel').textContent = mb < 1 ? '' :
+      (mb > 1024 ? (mb/1024).toFixed(1).replace('.',',') + ' GB' : Math.round(mb) + ' MB') + ' in gebruik op dit toestel';
+  } catch(fout){ el('opslagregel').textContent = ''; }
+}
+
+el('nieuwproject').addEventListener('click', nieuwProject);
+el('terug').addEventListener('click', naarProjecten);
+
+/* ---------- projectnaam ---------- */
+
+el('projectnaam').addEventListener('click', () => {
+  if(!huidigProject) return;
+  el('naamveld').value = huidigProject.naam;
+  el('waas').classList.add('aan');
+  el('naamblad').classList.add('aan');
+});
+
+function sluitNaam(){
+  el('waas').classList.remove('aan');
+  el('naamblad').classList.remove('aan');
+}
+
+el('naamklaar').addEventListener('click', async () => {
+  const nieuw = el('naamveld').value.trim();
+  if(huidigProject && nieuw){
+    huidigProject.naam = nieuw;
+    el('projectnaam').textContent = nieuw;
+    await bewaarNu();
+  }
+  sluitNaam();
+});
+
+el('projectweg').addEventListener('click', async () => {
+  if(!huidigProject) return;
+  const id = huidigProject.id;
+  projectWeg = huidigProject;
+  sluitNaam();
+  clips.forEach(c => { try { URL.revokeObjectURL(c.url); } catch(fout){} c.video.remove(); });
+  clips = [];
+  huidigProject = null;
+  await wisUit('projecten', id);
+  document.body.classList.remove('werkt');
+  await tekenProjecten();
+  toon('Project verwijderd', true, async () => {
+    await zetIn('projecten', projectWeg);
+    projectWeg = null;
+    await tekenProjecten();
+  });
+});
 
 /* ---------- clips inladen ---------- */
 
@@ -465,8 +801,10 @@ function voegToe(bestand){
 
     v.addEventListener('loadedmetadata', async () => {
       clearTimeout(vangnet);
+      const bestandId = nieuwId();
       const clip = {
-        id: 'c' + (++teller),
+        id: nieuwId(),
+        bestandId,
         naam: 'Clip ' + (clips.length + 1),
         bestand,
         url,
@@ -478,6 +816,8 @@ function voegToe(bestand){
         bron: null
       };
       clips.push(clip);
+      try { await zetIn('bestanden', {id: bestandId, blob: bestand}); }
+      catch(fout){ toon('Kon de clip niet bewaren'); }
       document.getElementById('stal').appendChild(v);
       await ontgrendel(v);
       try { clip.duim = await maakDuim(v); } catch(fout){ clip.duim = null; }
@@ -591,6 +931,7 @@ function teken(){
   });
 
   el('exporteren').textContent = leeg ? 'Exporteer' : 'Exporteer · ' + secs(totaleDuur());
+  bewaarStraks();
 }
 
 /* ---------- volgorde slepen ---------- */
@@ -640,6 +981,7 @@ document.querySelectorAll('.chip').forEach(chip => {
     document.querySelectorAll('.chip').forEach(c => c.classList.remove('aan'));
     chip.classList.add('aan');
     verhouding = chip.dataset.verhouding;
+    bewaarStraks();
   });
 });
 
@@ -685,11 +1027,13 @@ el('verwijderen').addEventListener('click', () => {
 });
 
 el('toastknop').addEventListener('click', () => {
+  if(toastActie){ const a = toastActie; toastActie = null; verbergToast(); a(); return; }
   if(!laatstVerwijderd) return;
   clips.splice(laatstVerwijderd.plek, 0, laatstVerwijderd.clip);
   laatstVerwijderd = null;
   verbergToast();
   teken();
+  bewaarStraks();
 });
 
 function werkTrimBij(){
@@ -952,7 +1296,20 @@ el('terugnaarstudio').addEventListener('click', () => {
 });
 
 window.addEventListener('resize', werkTrimBij);
-teken();
+
+async function start(){
+  try { if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch(fout){}
+  try {
+    await openOpslag();
+    await tekenProjecten();
+  } catch(fout){
+    el('pleeg').classList.remove('verborgen');
+    el('pleeg').querySelector('h2').textContent = 'Opslag niet beschikbaar';
+    el('pleeg').querySelector('p').textContent = 'Deze browser laat geen projecten bewaren. Probeer Studio te openen vanaf je beginscherm.';
+    el('nieuwproject').disabled = true;
+  }
+}
+start();
 </script>
 </body>
 </html>
