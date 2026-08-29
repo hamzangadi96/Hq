@@ -303,6 +303,17 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   text-decoration:underline;padding:4px;
 }
 .verborgen{display:none !important}
+#stal{
+  position:fixed;
+  left:0;top:0;
+  width:1px;height:1px;
+  overflow:hidden;
+  opacity:.01;
+  pointer-events:none;
+  z-index:-1;
+}
+#stal video{width:1px;height:1px}
+#voorbeeld video{width:100%;height:100%;object-fit:contain}
 </style>
 </head>
 <body>
@@ -379,11 +390,12 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
     </div>
   </div>
 
+  <div id="stal"></div>
   <input type="file" id="kiezer" accept="video/*" multiple style="display:none">
 </div>
 
 <script>
-const APPVERSIE = 'studio v1';
+const APPVERSIE = 'studio v2';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -466,6 +478,8 @@ function voegToe(bestand){
         bron: null
       };
       clips.push(clip);
+      document.getElementById('stal').appendChild(v);
+      await ontgrendel(v);
       try { clip.duim = await maakDuim(v); } catch(fout){ clip.duim = null; }
       klaar(clip);
     }, {once:true});
@@ -479,11 +493,18 @@ function maakDuim(v){
     const doek = document.createElement('canvas');
     doek.width = 92; doek.height = 124;
     const ctx = doek.getContext('2d');
-    const pak = () => {
+    let pogingen = 0;
+    const pak = async () => {
       try {
         ctx.fillStyle = '#18181b';
         ctx.fillRect(0,0,doek.width,doek.height);
         dekkend(ctx, v, doek.width, doek.height);
+        if(isZwart(ctx, doek.width, doek.height) && pogingen < 2){
+          pogingen++;
+          await ontgrendel(v);
+          setTimeout(pak, 120);
+          return;
+        }
         klaar(doek.toDataURL('image/jpeg', .7));
       } catch(fout){ klaar(null); }
     };
@@ -493,6 +514,29 @@ function maakDuim(v){
     v.currentTime = doel;
     setTimeout(() => klaar(null), 4000);
   });
+}
+
+function ontgrendel(v){
+  return new Promise(klaar => {
+    let af = false;
+    const eind = () => { if(af) return; af = true; try { v.pause(); } catch(fout){} klaar(); };
+    v.muted = true;
+    try {
+      const p = v.play();
+      if(p && p.then) p.then(() => setTimeout(eind, 90)).catch(eind);
+      else setTimeout(eind, 90);
+    } catch(fout){ eind(); }
+    setTimeout(eind, 2500);
+  });
+}
+
+function isZwart(ctx, bw, bh){
+  try {
+    const d = ctx.getImageData(0, 0, bw, bh).data;
+    let som = 0, aantal = 0;
+    for(let i = 0; i < d.length; i += 160){ som += d[i] + d[i+1] + d[i+2]; aantal++; }
+    return aantal ? (som / (aantal * 3)) < 4 : false;
+  } catch(fout){ return false; }
 }
 
 function dekkend(ctx, v, bw, bh){
@@ -610,12 +654,17 @@ function openTrim(c){
   c.video.controls = false;
   doos.appendChild(c.video);
   werkTrimBij();
-  zoekNaar(c.video, c.start);
   el('waas').classList.add('aan');
   el('trimblad').classList.add('aan');
+  ontgrendel(c.video).then(() => zoekNaar(c.video, c.start));
 }
 
 function sluitTrim(){
+  if(actief){
+    try { actief.video.pause(); } catch(fout){}
+    document.getElementById('stal').appendChild(actief.video);
+  }
+  el('voorbeeld').innerHTML = '';
   el('waas').classList.remove('aan');
   el('trimblad').classList.remove('aan');
   actief = null;
