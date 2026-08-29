@@ -180,6 +180,16 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 .knop.stil{background:var(--achtergrond);color:var(--inkt);flex:0 0 auto;padding:0 20px}
 .knop.vol{background:var(--inkt);color:#fff;flex:1 1 auto}
 .knop:disabled{opacity:.35}
+.kiesknop{position:relative;overflow:hidden;cursor:pointer}
+.kiesknop input[type=file]{
+  position:absolute;
+  top:0;right:0;
+  min-width:100%;
+  min-height:100%;
+  font-size:120px;
+  opacity:0;
+  cursor:pointer;
+}
 
 /* bottom sheet */
 #waas{
@@ -456,7 +466,7 @@ body.werkt #werkscherm{display:flex}
       <button class="chip" data-verhouding="1:1">1:1</button>
     </div>
     <div id="knoprij">
-      <button class="knop stil" id="toevoegen">Clips</button>
+      <span class="knop stil kiesknop" id="toevoegen">Clips<input type="file" id="kiezer" accept="video/*" multiple></span>
       <button class="knop vol" id="exporteren" disabled>Exporteer</button>
     </div>
   </div>
@@ -513,11 +523,10 @@ body.werkt #werkscherm{display:flex}
   </div>
 
   <div id="stal"></div>
-  <input type="file" id="kiezer" accept="video/*" multiple style="display:none">
 </div>
 
 <script>
-const APPVERSIE = 'studio v5';
+const APPVERSIE = 'studio v6';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -793,7 +802,6 @@ el('projectweg').addEventListener('click', async () => {
 
 /* ---------- clips inladen ---------- */
 
-el('toevoegen').addEventListener('click', () => el('kiezer').click());
 function zetStatus(tekst, mis){
   const s = el('status');
   if(!s) return;
