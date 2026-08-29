@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f4f5">
+<title>Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --inkt:#18181b;
+  --achtergrond:#f4f4f5;
+  --kaart:#ffffff;
+  --lijn:#ececee;
+  --zacht:#71717a;
+  --zachter:#a1a1aa;
+  --groen:#15803d;
+  --amber:#b45309;
+  --rood:#c0392b;
+  --rond:18px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--achtergrond);
+  color:var(--inkt);
+  height:100dvh;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+#schil{
+  max-width:440px;
+  margin:0 auto;
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  background:var(--achtergrond);
+  position:relative;
+  overflow:hidden;
+}
+
+/* kop */
+header{
+  padding:calc(env(safe-area-inset-top) + 18px) 20px 12px;
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  flex:0 0 auto;
+}
+header h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0}
+header span{font-size:12px;color:var(--zachter);font-weight:500}
+
+/* lijst */
+#rol{
+  flex:1 1 auto;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:4px 16px 24px;
+}
+#lijst{display:flex;flex-direction:column;gap:10px}
+
+.klipkaart{
+  background:var(--kaart);
+  border-radius:var(--rond);
+  padding:10px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  transition:transform .16s ease, box-shadow .16s ease;
+}
+.klipkaart.sleept{
+  box-shadow:0 12px 28px rgba(24,24,27,.18);
+  transform:scale(1.02);
+  position:relative;
+  z-index:5;
+}
+.duim{
+  width:46px;
+  height:62px;
+  border-radius:12px;
+  background:#e4e4e7;
+  object-fit:cover;
+  flex:0 0 auto;
+  display:block;
+}
+.klipinfo{flex:1 1 auto;min-width:0}
+.kliptitel{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.klipmeta{font-size:13px;color:var(--zacht);margin-top:3px}
+.klipmeta span{color:var(--zachter)}
+.greep{
+  flex:0 0 auto;
+  width:44px;
+  height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  touch-action:none;
+  cursor:grab;
+}
+.greep svg{display:block}
+
+/* leeg */
+#leeg{
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  padding:0 32px 60px;
+  text-align:center;
+}
+#leeg h2{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
+#leeg p{font-size:14px;color:var(--zacht);margin:0;line-height:1.5}
+#leegicoon{
+  width:76px;height:76px;border-radius:24px;
+  background:var(--kaart);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:4px;
+}
+
+/* onderbalk */
+#balk{
+  flex:0 0 auto;
+  background:var(--kaart);
+  border-top:1px solid var(--lijn);
+  padding:12px 16px calc(env(safe-area-inset-bottom) + 12px);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+#verhoudingen{
+  display:flex;
+  gap:4px;
+  background:var(--achtergrond);
+  border-radius:14px;
+  padding:4px;
+}
+.chip{
+  flex:1 1 0;
+  height:44px;
+  border-radius:11px;
+  background:transparent;
+  color:var(--zacht);
+  font-size:14px;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:none;
+  font-family:inherit;
+  transition:background .15s ease, color .15s ease;
+}
+.chip.aan{
+  background:var(--kaart);
+  color:var(--inkt);
+  box-shadow:0 1px 3px rgba(24,24,27,.12);
+}
+#knoprij{display:flex;gap:10px}
+.knop{
+  height:52px;
+  border-radius:14px;
+  font-family:inherit;
+  font-size:16px;
+  font-weight:600;
+  border:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  letter-spacing:-.01em;
+}
+.knop.stil{background:var(--achtergrond);color:var(--inkt);flex:0 0 auto;padding:0 20px}
+.knop.vol{background:var(--inkt);color:#fff;flex:1 1 auto}
+.knop:disabled{opacity:.35}
+
+/* bottom sheet */
+#waas{
+  position:absolute;inset:0;
+  background:rgba(24,24,27,.32);
+  opacity:0;pointer-events:none;
+  transition:opacity .22s ease;
+  z-index:20;
+}
+#waas.aan{opacity:1;pointer-events:auto}
+.blad{
+  position:absolute;left:0;right:0;bottom:0;
+  background:var(--kaart);
+  border-radius:24px 24px 0 0;
+  padding:10px 20px calc(env(safe-area-inset-bottom) + 18px);
+  transform:translateY(102%);
+  transition:transform .26s cubic-bezier(.32,.72,0,1);
+  z-index:21;
+  max-height:92dvh;
+  overflow-y:auto;
+}
+.blad.aan{transform:translateY(0)}
+.grip{width:38px;height:4px;border-radius:2px;background:var(--lijn);margin:0 auto 16px}
+.bladtitel{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0 0 14px}
+
+#voorbeeld{
+  width:100%;
+  aspect-ratio:16/10;
+  background:#18181b;
+  border-radius:14px;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:14px;
+}
+#voorbeeld video{max-width:100%;max-height:100%;display:block}
+
+#tijden{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  font-size:14px;
+  color:var(--zacht);
+  margin-bottom:10px;
+  font-variant-numeric:tabular-nums;
+}
+#tijden b{color:var(--inkt);font-weight:600;font-size:15px}
+
+#spoor{
+  position:relative;
+  height:56px;
+  border-radius:14px;
+  background:var(--achtergrond);
+  overflow:hidden;
+  touch-action:none;
+  margin-bottom:18px;
+}
+#gekozen{
+  position:absolute;top:0;bottom:0;
+  background:rgba(24,24,27,.10);
+}
+.handvat{
+  position:absolute;top:0;bottom:0;
+  width:34px;
+  display:flex;align-items:center;justify-content:center;
+  touch-action:none;
+}
+.handvat i{
+  display:block;
+  width:8px;height:30px;
+  border-radius:4px;
+  background:var(--inkt);
+}
+#h1{transform:translateX(-17px)}
+#h2{transform:translateX(-17px)}
+
+/* export */
+#exportlaag{
+  position:absolute;inset:0;
+  background:var(--achtergrond);
+  z-index:40;
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:18px;
+  padding:32px;
+  text-align:center;
+}
+#exportlaag.aan{display:flex}
+#ring{width:120px;height:120px}
+#pct{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#exportuitleg{font-size:14px;color:var(--zacht);line-height:1.5;margin:0;max-width:280px}
+#klaarvideo{width:100%;max-width:240px;border-radius:16px;background:#18181b;display:none}
+#exportknoppen{display:none;flex-direction:column;gap:10px;width:100%;max-width:300px}
+#exportknoppen .knop{width:100%}
+#foutmelding{color:var(--rood);font-size:14px;line-height:1.5;display:none;max-width:300px}
+
+/* toast */
+#toast{
+  position:absolute;
+  left:16px;right:16px;
+  bottom:calc(env(safe-area-inset-bottom) + 130px);
+  background:var(--inkt);
+  color:#fff;
+  border-radius:14px;
+  padding:14px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  font-size:14px;
+  font-weight:500;
+  opacity:0;
+  transform:translateY(8px);
+  pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease;
+  z-index:30;
+}
+#toast.aan{opacity:1;transform:translateY(0);pointer-events:auto}
+#toast button{
+  background:none;border:none;color:#fff;
+  font-family:inherit;font-size:14px;font-weight:700;
+  text-decoration:underline;padding:4px;
+}
+.verborgen{display:none !important}
+</style>
+</head>
+<body>
+<div id="schil">
+
+  <header>
+    <h1>Studio</h1>
+    <span id="versie"></span>
+  </header>
+
+  <div id="leeg">
+    <div id="leegicoon">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/>
+      </svg>
+    </div>
+    <h2>Nog geen clips</h2>
+    <p>Voeg opnames toe uit je Foto's. Je bepaalt de volgorde en knipt per clip het begin en eind bij.</p>
+  </div>
+
+  <div id="rol" class="verborgen">
+    <div id="lijst"></div>
+  </div>
+
+  <div id="balk">
+    <div id="verhoudingen">
+      <button class="chip aan" data-verhouding="9:16">9:16</button>
+      <button class="chip" data-verhouding="4:5">4:5</button>
+      <button class="chip" data-verhouding="1:1">1:1</button>
+    </div>
+    <div id="knoprij">
+      <button class="knop stil" id="toevoegen">Clips</button>
+      <button class="knop vol" id="exporteren" disabled>Exporteer</button>
+    </div>
+  </div>
+
+  <div id="toast"><span id="toasttekst"></span><button id="toastknop">Ongedaan maken</button></div>
+
+  <div id="waas"></div>
+  <div class="blad" id="trimblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel" id="trimtitel">Clip</h2>
+    <div id="voorbeeld"></div>
+    <div id="tijden">
+      <span id="tstart">0,0 s</span>
+      <b id="tduur">0,0 s</b>
+      <span id="teind">0,0 s</span>
+    </div>
+    <div id="spoor">
+      <div id="gekozen"></div>
+      <div class="handvat" id="h1"><i></i></div>
+      <div class="handvat" id="h2"><i></i></div>
+    </div>
+    <div id="knoprij">
+      <button class="knop stil" id="verwijderen">Verwijder</button>
+      <button class="knop vol" id="trimklaar">Klaar</button>
+    </div>
+  </div>
+
+  <div id="exportlaag">
+    <svg id="ring" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="52" fill="none" stroke="#ececee" stroke-width="8"/>
+      <circle id="ringvul" cx="60" cy="60" r="52" fill="none" stroke="#18181b" stroke-width="8"
+              stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="327"
+              transform="rotate(-90 60 60)"/>
+    </svg>
+    <div id="pct">0%</div>
+    <p id="exportuitleg">Laat je scherm aan staan. Dit duurt ongeveer zo lang als de video zelf.</p>
+    <video id="klaarvideo" controls playsinline></video>
+    <div id="foutmelding"></div>
+    <div id="exportknoppen">
+      <button class="knop vol" id="bewaren">Bewaar in Foto's</button>
+      <button class="knop stil" id="terugnaarstudio" style="flex:1 1 auto">Terug</button>
+    </div>
+  </div>
+
+  <input type="file" id="kiezer" accept="video/*" multiple style="display:none">
+</div>
+
+<script>
+const APPVERSIE = 'studio v1';
+document.getElementById('versie').textContent = APPVERSIE;
+
+const MATEN = {
+  '9:16': [720, 1280],
+  '4:5':  [864, 1080],
+  '1:1':  [960, 960]
+};
+
+let clips = [];
+let verhouding = '9:16';
+let teller = 0;
+let actief = null;          // clip die open staat in het trimblad
+let laatstVerwijderd = null;
+let toastTimer = null;
+
+const el = id => document.getElementById(id);
+const lijstEl = el('lijst');
+
+/* ---------- helpers ---------- */
+
+function secs(n){
+  if(!isFinite(n)) return '0,0 s';
+  return n.toFixed(1).replace('.', ',') + ' s';
+}
+
+function totaleDuur(){
+  return clips.reduce((s,c) => s + Math.max(0, c.eind - c.start), 0);
+}
+
+function toon(tekst, ongedaan){
+  clearTimeout(toastTimer);
+  el('toasttekst').textContent = tekst;
+  el('toastknop').style.display = ongedaan ? '' : 'none';
+  el('toast').classList.add('aan');
+  toastTimer = setTimeout(() => el('toast').classList.remove('aan'), 5000);
+}
+
+function verbergToast(){
+  clearTimeout(toastTimer);
+  el('toast').classList.remove('aan');
+}
+
+/* ---------- clips inladen ---------- */
+
+el('toevoegen').addEventListener('click', () => el('kiezer').click());
+el('kiezer').addEventListener('change', async e => {
+  const bestanden = Array.from(e.target.files || []);
+  e.target.value = '';
+  for(const b of bestanden){
+    try { await voegToe(b); } catch(fout){ toon('Kon ' + b.name + ' niet lezen'); }
+  }
+  teken();
+});
+
+function voegToe(bestand){
+  return new Promise((klaar, mislukt) => {
+    const url = URL.createObjectURL(bestand);
+    const v = document.createElement('video');
+    v.src = url;
+    v.playsInline = true;
+    v.setAttribute('playsinline','');
+    v.preload = 'auto';
+    v.muted = true;
+    v.crossOrigin = 'anonymous';
+
+    const vangnet = setTimeout(() => mislukt(new Error('te traag')), 15000);
+
+    v.addEventListener('loadedmetadata', async () => {
+      clearTimeout(vangnet);
+      const clip = {
+        id: 'c' + (++teller),
+        naam: 'Clip ' + (clips.length + 1),
+        bestand,
+        url,
+        video: v,
+        duur: v.duration || 0,
+        start: 0,
+        eind: v.duration || 0,
+        duim: null,
+        bron: null
+      };
+      clips.push(clip);
+      try { clip.duim = await maakDuim(v); } catch(fout){ clip.duim = null; }
+      klaar(clip);
+    }, {once:true});
+
+    v.addEventListener('error', () => { clearTimeout(vangnet); mislukt(new Error('fout')); }, {once:true});
+  });
+}
+
+function maakDuim(v){
+  return new Promise(klaar => {
+    const doek = document.createElement('canvas');
+    doek.width = 92; doek.height = 124;
+    const ctx = doek.getContext('2d');
+    const pak = () => {
+      try {
+        ctx.fillStyle = '#18181b';
+        ctx.fillRect(0,0,doek.width,doek.height);
+        dekkend(ctx, v, doek.width, doek.height);
+        klaar(doek.toDataURL('image/jpeg', .7));
+      } catch(fout){ klaar(null); }
+    };
+    const doel = Math.min(0.15, (v.duration || 1) / 2);
+    if(Math.abs(v.currentTime - doel) < 0.05){ pak(); return; }
+    v.addEventListener('seeked', pak, {once:true});
+    v.currentTime = doel;
+    setTimeout(() => klaar(null), 4000);
+  });
+}
+
+function dekkend(ctx, v, bw, bh){
+  const vw = v.videoWidth, vh = v.videoHeight;
+  if(!vw || !vh) return;
+  const s = Math.max(bw / vw, bh / vh);
+  const w = vw * s, h = vh * s;
+  ctx.drawImage(v, (bw - w) / 2, (bh - h) / 2, w, h);
+}
+
+/* ---------- lijst tekenen ---------- */
+
+function teken(){
+  const leeg = clips.length === 0;
+  el('leeg').classList.toggle('verborgen', !leeg);
+  el('rol').classList.toggle('verborgen', leeg);
+  el('exporteren').disabled = leeg;
+
+  lijstEl.innerHTML = '';
+  clips.forEach((c, i) => {
+    c.naam = 'Clip ' + (i + 1);
+    const kaart = document.createElement('div');
+    kaart.className = 'klipkaart';
+    kaart.dataset.id = c.id;
+
+    const duim = document.createElement('img');
+    duim.className = 'duim';
+    if(c.duim) duim.src = c.duim;
+    kaart.appendChild(duim);
+
+    const info = document.createElement('div');
+    info.className = 'klipinfo';
+    const geknipt = (c.start > 0.05) || (c.eind < c.duur - 0.05);
+    info.innerHTML =
+      '<div class="kliptitel">' + c.naam + '</div>' +
+      '<div class="klipmeta">' + secs(c.eind - c.start) +
+      (geknipt ? ' <span>van ' + secs(c.duur) + '</span>' : '') + '</div>';
+    kaart.appendChild(info);
+
+    const greep = document.createElement('div');
+    greep.className = 'greep';
+    greep.innerHTML =
+      '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#a1a1aa" stroke-width="1.8" stroke-linecap="round">' +
+      '<path d="M4 7h12M4 13h12"/></svg>';
+    kaart.appendChild(greep);
+
+    duim.addEventListener('click', () => openTrim(c));
+    info.addEventListener('click', () => openTrim(c));
+    knoopSleep(greep, kaart);
+
+    lijstEl.appendChild(kaart);
+  });
+
+  el('exporteren').textContent = leeg ? 'Exporteer' : 'Exporteer · ' + secs(totaleDuur());
+}
+
+/* ---------- volgorde slepen ---------- */
+
+function knoopSleep(greep, kaart){
+  let bezig = false;
+
+  greep.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    bezig = true;
+    greep.setPointerCapture(e.pointerId);
+    kaart.classList.add('sleept');
+    verbergToast();
+  });
+
+  greep.addEventListener('pointermove', e => {
+    if(!bezig) return;
+    e.preventDefault();
+    const y = e.clientY;
+    for(const zus of Array.from(lijstEl.children)){
+      if(zus === kaart) continue;
+      const r = zus.getBoundingClientRect();
+      if(y > r.top && y < r.bottom){
+        const onderhelft = y > r.top + r.height / 2;
+        lijstEl.insertBefore(kaart, onderhelft ? zus.nextSibling : zus);
+        break;
+      }
+    }
+  });
+
+  const los = () => {
+    if(!bezig) return;
+    bezig = false;
+    kaart.classList.remove('sleept');
+    const volgorde = Array.from(lijstEl.children).map(k => k.dataset.id);
+    clips.sort((a,b) => volgorde.indexOf(a.id) - volgorde.indexOf(b.id));
+    teken();
+  };
+  greep.addEventListener('pointerup', los);
+  greep.addEventListener('pointercancel', los);
+}
+
+/* ---------- verhouding ---------- */
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('aan'));
+    chip.classList.add('aan');
+    verhouding = chip.dataset.verhouding;
+  });
+});
+
+/* ---------- trimblad ---------- */
+
+function openTrim(c){
+  actief = c;
+  el('trimtitel').textContent = c.naam;
+  const doos = el('voorbeeld');
+  doos.innerHTML = '';
+  c.video.muted = true;
+  c.video.controls = false;
+  doos.appendChild(c.video);
+  werkTrimBij();
+  zoekNaar(c.video, c.start);
+  el('waas').classList.add('aan');
+  el('trimblad').classList.add('aan');
+}
+
+function sluitTrim(){
+  el('waas').classList.remove('aan');
+  el('trimblad').classList.remove('aan');
+  actief = null;
+  teken();
+}
+
+el('waas').addEventListener('click', sluitTrim);
+el('trimklaar').addEventListener('click', sluitTrim);
+
+el('verwijderen').addEventListener('click', () => {
+  const c = actief;
+  if(!c) return;
+  const plek = clips.indexOf(c);
+  laatstVerwijderd = {clip:c, plek};
+  clips.splice(plek, 1);
+  sluitTrim();
+  toon('Clip verwijderd', true);
+});
+
+el('toastknop').addEventListener('click', () => {
+  if(!laatstVerwijderd) return;
+  clips.splice(laatstVerwijderd.plek, 0, laatstVerwijderd.clip);
+  laatstVerwijderd = null;
+  verbergToast();
+  teken();
+});
+
+function werkTrimBij(){
+  if(!actief) return;
+  const c = actief;
+  const breedte = el('spoor').clientWidth || 1;
+  const a = (c.start / c.duur) * breedte;
+  const b = (c.eind  / c.duur) * breedte;
+  el('gekozen').style.left = a + 'px';
+  el('gekozen').style.width = Math.max(0, b - a) + 'px';
+  el('h1').style.left = a + 'px';
+  el('h2').style.left = b + 'px';
+  el('tstart').textContent = secs(c.start);
+  el('teind').textContent  = secs(c.eind);
+  el('tduur').textContent  = secs(c.eind - c.start);
+}
+
+function knoopHandvat(handvat, welke){
+  let bezig = false;
+
+  const zet = e => {
+    if(!actief) return;
+    const r = el('spoor').getBoundingClientRect();
+    const deel = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const t = deel * actief.duur;
+    if(welke === 'start') actief.start = Math.min(t, actief.eind - 0.2);
+    else                  actief.eind  = Math.max(t, actief.start + 0.2);
+    actief.start = Math.max(0, actief.start);
+    actief.eind  = Math.min(actief.duur, actief.eind);
+    werkTrimBij();
+    zoekNaar(actief.video, welke === 'start' ? actief.start : actief.eind);
+  };
+
+  handvat.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    bezig = true;
+    handvat.setPointerCapture(e.pointerId);
+    zet(e);
+  });
+  handvat.addEventListener('pointermove', e => { if(bezig){ e.preventDefault(); zet(e); } });
+  const los = () => { bezig = false; };
+  handvat.addEventListener('pointerup', los);
+  handvat.addEventListener('pointercancel', los);
+}
+knoopHandvat(el('h1'), 'start');
+knoopHandvat(el('h2'), 'eind');
+
+function zoekNaar(v, t){
+  return new Promise(klaar => {
+    if(!v || !isFinite(t)) return klaar();
+    if(Math.abs(v.currentTime - t) < 0.04) return klaar();
+    let af = false;
+    const k = () => { if(af) return; af = true; v.removeEventListener('seeked', k); klaar(); };
+    v.addEventListener('seeked', k);
+    try { v.currentTime = t; } catch(fout){ k(); }
+    setTimeout(k, 2500);
+  });
+}
+
+/* ---------- exporteren ---------- */
+
+let bezigMetExport = false;
+let stopVerzoek = false;
+let wakkerSlot = null;
+
+function kiesType(){
+  const opties = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4;codecs=avc1',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ];
+  for(const t of opties){
+    if(window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return '';
+}
+
+function zetVoortgang(deel){
+  const p = Math.round(Math.min(1, Math.max(0, deel)) * 100);
+  el('pct').textContent = p + '%';
+  el('ringvul').setAttribute('stroke-dashoffset', String(327 - 327 * (p / 100)));
+}
+
+el('exporteren').addEventListener('click', async () => {
+  if(bezigMetExport || clips.length === 0) return;
+
+  // 1. binnen het tikje: alle video's ontgrendelen voor iOS
+  clips.forEach(c => {
+    c.video.muted = true;
+    const p = c.video.play();
+    if(p && p.then) p.then(() => c.video.pause()).catch(() => {});
+  });
+
+  bezigMetExport = true;
+  stopVerzoek = false;
+  el('exportlaag').classList.add('aan');
+  el('klaarvideo').style.display = 'none';
+  el('exportknoppen').style.display = 'none';
+  el('foutmelding').style.display = 'none';
+  el('ring').style.display = '';
+  el('pct').style.display = '';
+  el('exportuitleg').textContent = 'Laat je scherm aan staan. Dit duurt ongeveer zo lang als de video zelf.';
+  zetVoortgang(0);
+
+  try { if(navigator.wakeLock) wakkerSlot = await navigator.wakeLock.request('screen'); } catch(fout){}
+
+  try {
+    const blob = await draaiExport();
+    toonResultaat(blob);
+  } catch(fout){
+    el('ring').style.display = 'none';
+    el('pct').style.display = 'none';
+    el('exportuitleg').textContent = '';
+    el('foutmelding').textContent = 'Exporteren mislukt: ' + (fout && fout.message ? fout.message : 'onbekende fout');
+    el('foutmelding').style.display = '';
+    el('exportknoppen').style.display = 'flex';
+    el('bewaren').style.display = 'none';
+  } finally {
+    bezigMetExport = false;
+    if(wakkerSlot){ try { wakkerSlot.release(); } catch(fout){} wakkerSlot = null; }
+  }
+});
+
+async function draaiExport(){
+  const type = kiesType();
+  if(!window.MediaRecorder) throw new Error('deze browser kan niet opnemen');
+
+  const [B, H] = MATEN[verhouding];
+  const doek = document.createElement('canvas');
+  doek.width = B; doek.height = H;
+  const ctx = doek.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, B, H);
+
+  const stroom = doek.captureStream(30);
+
+  // audio erbij, maar nooit blokkerend
+  let ac = null;
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    if(ac.state === 'suspended') await ac.resume();
+    const doel = ac.createMediaStreamDestination();
+    clips.forEach(c => {
+      if(!c.bron){
+        c.bron = ac.createMediaElementSource(c.video);
+        c.bron.connect(doel);
+      }
+    });
+    const spoorje = doel.stream.getAudioTracks()[0];
+    if(spoorje) stroom.addTrack(spoorje);
+  } catch(fout){ ac = null; }
+
+  const brokken = [];
+  const opnemer = new MediaRecorder(stroom, Object.assign(
+    {videoBitsPerSecond: 6000000},
+    type ? {mimeType: type} : {}
+  ));
+  opnemer.ondataavailable = e => { if(e.data && e.data.size) brokken.push(e.data); };
+
+  const gestopt = new Promise(klaar => { opnemer.onstop = klaar; });
+
+  let huidige = null;
+  let draait = true;
+  (function lus(){
+    if(!draait) return;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, B, H);
+    if(huidige && huidige.video.readyState >= 2) dekkend(ctx, huidige.video, B, H);
+    requestAnimationFrame(lus);
+  })();
+
+  opnemer.start(500);
+
+  const totaal = totaleDuur();
+  let gedaan = 0;
+
+  for(let i = 0; i < clips.length; i++){
+    if(stopVerzoek) break;
+    const c = clips[i];
+    huidige = c;
+    c.video.muted = false;
+    await zoekNaar(c.video, c.start);
+    try { await c.video.play(); } catch(fout){}
+
+    // volgende clip alvast klaarzetten
+    if(clips[i+1]) zoekNaar(clips[i+1].video, clips[i+1].start);
+
+    await new Promise(klaar => {
+      const kijk = () => {
+        if(stopVerzoek || c.video.ended || c.video.currentTime >= c.eind - 0.03){
+          c.video.pause();
+          c.video.muted = true;
+          klaar();
+          return;
+        }
+        const nu = gedaan + (c.video.currentTime - c.start);
+        zetVoortgang(totaal ? nu / totaal : 0);
+        setTimeout(kijk, 40);
+      };
+      kijk();
+    });
+
+    gedaan += Math.max(0, c.eind - c.start);
+    zetVoortgang(totaal ? gedaan / totaal : 1);
+  }
+
+  await new Promise(r => setTimeout(r, 350));
+  draait = false;
+  try { opnemer.stop(); } catch(fout){}
+  await gestopt;
+  if(ac){ try { ac.close(); } catch(fout){} clips.forEach(c => c.bron = null); }
+
+  if(!brokken.length) throw new Error('geen beeld opgenomen');
+  return new Blob(brokken, {type: brokken[0].type || type || 'video/mp4'});
+}
+
+let klaarBlob = null;
+
+function toonResultaat(blob){
+  klaarBlob = blob;
+  zetVoortgang(1);
+  el('ring').style.display = 'none';
+  el('pct').style.display = 'none';
+  const mb = (blob.size / 1048576).toFixed(1).replace('.', ',');
+  const soort = blob.type.indexOf('mp4') > -1 ? 'mp4' : 'webm';
+  el('exportuitleg').textContent = 'Klaar · ' + secs(totaleDuur()) + ' · ' + mb + ' MB · ' + soort;
+  const v = el('klaarvideo');
+  v.src = URL.createObjectURL(blob);
+  v.style.display = 'block';
+  el('bewaren').style.display = '';
+  el('exportknoppen').style.display = 'flex';
+}
+
+el('bewaren').addEventListener('click', async () => {
+  if(!klaarBlob) return;
+  const soort = klaarBlob.type.indexOf('mp4') > -1 ? 'mp4' : 'webm';
+  const naam = 'cacaoboetiek-' + Date.now() + '.' + soort;
+  const bestand = new File([klaarBlob], naam, {type: klaarBlob.type});
+
+  if(navigator.canShare && navigator.canShare({files:[bestand]})){
+    try { await navigator.share({files:[bestand]}); return; } catch(fout){ if(fout.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(klaarBlob);
+  a.download = naam;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+el('terugnaarstudio').addEventListener('click', () => {
+  el('exportlaag').classList.remove('aan');
+  const v = el('klaarvideo');
+  v.pause();
+  v.removeAttribute('src');
+  v.load();
+});
+
+window.addEventListener('resize', werkTrimBij);
+teken();
+</script>
+</body>
+</html>
