@@ -3499,7 +3499,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v561 · 28 aug 2026';
+const APPVERSIE='v562 · 31 aug 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3786,7 +3786,7 @@ const SLEUTEL='cacaoboetiek-hq';
 const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
-  'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount',
+  'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
 'samenstelling',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
@@ -5134,6 +5134,7 @@ const SNELITEMS=[
   {key:'agenda',label:'Agenda',icon:'klok',soort:'tab'},
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
+  {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
   {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
   {key:'smaken',label:'Smaken',icon:'boek',soort:'sheet',doe:()=>sheetRecepten()},
@@ -7298,6 +7299,222 @@ function sheetRit(id){
   };
 }
 
+/* ===================== Seizoen =====================
+   Eén doel voor een heel seizoen, teruggerekend naar wat je deze week
+   moet maken. Het zwaartepunt ligt niet in december maar rond ramadan,
+   het suikerfeest en het offerfeest — daar komt de omzet vandaan.
+   De datums schuiven elk jaar ongeveer elf dagen op, dus ze staan
+   per seizoen vast in plaats van berekend. */
+const SZFEEST={
+  2027:{ram:'2027-02-08',fitr:'2027-03-10',adha:'2027-05-16'},
+  2028:{ram:'2028-01-28',fitr:'2028-02-26',adha:'2028-05-05'},
+  2029:{ram:'2029-01-17',fitr:'2029-02-15',adha:'2029-04-25'}
+};
+const szEuro=n=>'\u20ac '+Math.round(n).toLocaleString('nl-NL');
+const szNum=n=>Math.round(n).toLocaleString('nl-NL');
+const SZZWAAR={fitr:{f:15,a:8,n:'Suikerfeest'},gelijk:{f:12,a:12,n:'Allebei gelijk'},adha:{f:9,a:16,n:'Offerfeest'}};
+
+function szCfg(){
+  const c=S.seizoen||{}, g=(k,v)=>c[k]!=null?c[k]:v;
+  return {start:g('start','2026-09-01'), eind:g('eind','2027-05-31'), doel:g('doel',30000),
+    prijs:g('prijs',24.5), stuks:g('stuks',14), cap:g('cap',400),
+    piekdagen:g('piekdagen',4), uitval:g('uitval',5), zwaarte:g('zwaarte','fitr')};
+}
+function szZet(k,v){S.seizoen=Object.assign(szCfg(),{[k]:v});bewaar();sheetDoel()}
+function szDagPlus(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);
+  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function szTussen(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5)}
+function szKort(d){const x=new Date(d+'T12:00:00');
+  return x.getDate()+' '+['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][x.getMonth()]}
+
+/* Zodra je doosjes een prijs hebben rekenen we met jouw echte cijfers
+   in plaats van met een geschat gemiddelde. */
+function szDoos(){
+  const pr=S.doosPrijzen||{};
+  const l=(S.doosjes||[]).map(d=>({st:+d.stuks||0,pr:+pr[d.id]||0})).filter(d=>d.st>0&&d.pr>0);
+  if(!l.length) return null;
+  return {prijs:l.reduce((a,d)=>a+d.pr,0)/l.length, stuks:l.reduce((a,d)=>a+d.st,0)/l.length, aantal:l.length};
+}
+
+function szCurve(){
+  const c=szCfg(), n=Math.max(1,szTussen(c.start,c.eind)+1);
+  const f=SZFEEST[+String(c.eind).slice(0,4)]||SZFEEST[2027];
+  const dR=szTussen(c.start,f.ram), dF=szTussen(c.start,f.fitr), dA=szTussen(c.start,f.adha);
+  const z=SZZWAAR[c.zwaarte]||SZZWAAR.fitr, g=[];
+  for(let i=0;i<n;i++){
+    let w=0.5;                                        /* wat er buiten de feesten doorloopt */
+    if(i>=dR-2&&i<dF) w+=2;                           /* hele ramadan: iftar en trakteren */
+    w+=z.f*Math.exp(-Math.pow(i-(dF-3),2)/50);        /* gekocht wordt er vóór het feest */
+    w+=z.a*Math.exp(-Math.pow(i-(dA-3),2)/32);
+    g.push(w);
+  }
+  const t=g.reduce((a,b)=>a+b,0)||1;
+  return {g:g.map(x=>x/t*100),n:n,dR:dR,dF:dF,dA:dA,f:f};
+}
+
+function szRekent(){
+  const c=szCfg(), cv=szCurve(), doos=szDoos();
+  const prijs=doos?doos.prijs:c.prijs, stuks=doos?doos.stuks:c.stuks;
+  const netto=prijs/1.09;                             /* doosprijs is inclusief 9% */
+  const bon=o=>o/netto*stuks*(1+c.uitval/100);
+  const vd=vandaag(), tot=vd<c.eind?vd:c.eind, gestart=vd>=c.start;
+  const dag=Math.max(0,Math.min(cv.n-1,szTussen(c.start,vd)));
+  const som=(a,b)=>cv.g.slice(Math.max(0,a),Math.min(cv.n,b)).reduce((x,y)=>x+y,0);
+  const gedaan=gestart?omzetTussen(c.start,tot):0;
+  const gemaakt=gestart?gemaaktTussen(c.start,tot):0;
+  const verwacht=c.doel*som(0,dag)/100;
+  const rest=Math.max(0,c.doel-gedaan), gRest=Math.max(0.001,100-som(0,dag));
+  const wk=Math.floor(dag/7);
+  const week=rest*(som(wk*7,wk*7+7)/gRest);
+  let pw=0,pg=0;
+  const weken=[];
+  for(let w=0;w*7<cv.n;w++){const x=som(w*7,w*7+7);weken.push(x);if(x>pg){pg=x;pw=w}}
+  const piekOmzet=c.doel*pg/100;
+  return {c:c,cv:cv,doos:doos,prijs:prijs,stuks:stuks,netto:netto,bon:bon,dag:dag,wk:wk,
+    gestart:gestart,gedaan:gedaan,gemaakt:gemaakt,verwacht:verwacht,week:week,weken:weken,
+    totDoosjes:c.doel/netto, totBon:bon(c.doel), piekWk:pw, piekOmzet:piekOmzet, piekBon:bon(piekOmzet)};
+}
+
+/* Het vooruitwerk is het enige getal waar je iets mee moet dóén,
+   dus dat kun je meteen op je takenlijst zetten. */
+function szTaak(){
+  const r=szRekent(), c=r.c;
+  const pStart=szDagPlus(c.start,r.piekWk*7);
+  const vooruit=Math.max(0,Math.round(r.piekBon-c.piekdagen*c.cap));
+  if(!vooruit){toast('Die week haal je met je eigen dagen.');return}
+  S.taken=S.taken||[];
+  S.taken.push({id:uid(),datum:szDagPlus(pStart,-14),soort:'overig',
+    tekst:szNum(vooruit)+' bonbons vooruit maken voor '+szKort(pStart),tijd:''});
+  bewaarNu(); dicht(); render(); toast('Op je takenlijst gezet.');
+}
+
+function sheetDoel(){
+  const r=szRekent(), c=r.c;
+  const pct=Math.max(0,Math.min(1,c.doel?r.gedaan/c.doel:0));
+  const opSchema=r.gedaan>=r.verwacht-1;
+  const kleur=opSchema?'var(--goed,#15803d)':'#b45309';
+  const R=44, omtrek=2*Math.PI*R;
+  const pStart=szDagPlus(c.start,r.piekWk*7);
+  const piekDagen=r.piekBon/c.cap;
+  const vooruit=Math.max(0,Math.round(r.piekBon-c.piekdagen*c.cap));
+  const volgend=[{n:'Ramadan',d:r.cv.dR},{n:'Suikerfeest',d:r.cv.dF},{n:'Offerfeest',d:r.cv.dA}]
+    .filter(x=>x.d>=r.dag)[0];
+  /* wat je vorig jaar echt draaide, zodat het doel geen luchtfietserij is */
+  const vorig=(typeof seizoenPerMaand==='function')?seizoenPerMaand(new Date().getFullYear()-1):null;
+  const stap=(id,waarde,k,min,pl)=>
+    '<div class="rij"><span>'+id+'</span>'+
+    '<span style="display:flex;align-items:center;gap:8px">'+
+      '<button class="szmin" data-szk="'+k+'" data-szd="-'+pl+'" data-szmin="'+min+'" '+
+        'style="width:34px;height:34px;border:0;border-radius:9px;background:#f4f4f5;font-size:18px">&minus;</button>'+
+      '<b style="min-width:74px;text-align:center">'+waarde+'</b>'+
+      '<button class="szmin" data-szk="'+k+'" data-szd="'+pl+'" data-szmin="'+min+'" '+
+        'style="width:34px;height:34px;border:0;border-radius:9px;background:#f4f4f5;font-size:18px">+</button>'+
+    '</span></div>';
+
+  sheet('Doel',
+    '<p class="hint">Je vult één omzetdoel in. De app rekent terug hoeveel doosjes dat zijn, '+
+    'hoeveel bonbons je daarvoor moet maken en wat dat deze week betekent. Het zwaartepunt ligt '+
+    'rond ramadan en de twee feesten, niet gelijk over de maanden verdeeld.</p>'+
+
+    '<div class="paneel" style="display:flex;flex-direction:row;align-items:center;gap:16px;padding:16px">'+
+      '<svg width="100" height="100" viewBox="0 0 100 100" style="flex:0 0 100px">'+
+        '<circle cx="50" cy="50" r="'+R+'" fill="none" stroke="#ececee" stroke-width="10"/>'+
+        '<circle cx="50" cy="50" r="'+R+'" fill="none" stroke="'+kleur+'" stroke-width="10" '+
+          'stroke-linecap="round" stroke-dasharray="'+omtrek.toFixed(1)+'" '+
+          'stroke-dashoffset="'+(omtrek*(1-pct)).toFixed(1)+'" transform="rotate(-90 50 50)"/>'+
+        '<text x="50" y="55" text-anchor="middle" font-size="19" font-weight="600" fill="currentColor">'+
+          Math.round(pct*100)+'%</text></svg>'+
+      '<div style="min-width:0">'+
+        '<div style="font-size:24px;font-weight:600">'+szEuro(r.gedaan)+'</div>'+
+        '<div style="font-size:13px;opacity:.6">van '+szEuro(c.doel)+' · t/m '+szKort(c.eind)+'</div>'+
+        '<div style="font-size:13px;font-weight:600;margin-top:8px;color:'+kleur+'">'+
+          (!r.gestart?'Begint '+szKort(c.start):opSchema?'Op schema':szEuro(r.verwacht-r.gedaan)+' achter')+'</div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="kiesbalk" style="background:var(--ink);display:block;padding:14px 16px">'+
+      '<div style="font-size:12px;opacity:.65">Deze week</div>'+
+      '<div style="font-size:30px;font-weight:600;margin:4px 0 8px">'+szNum(Math.round(r.bon(r.week)))+' bonbons</div>'+
+      '<div style="font-size:13px;opacity:.75">'+szNum(Math.round(r.week/r.netto))+' doosjes · '+
+        szEuro(r.week)+' · '+komma(Math.round(r.bon(r.week)/c.cap*10)/10)+' productiedagen</div>'+
+    '</div>'+
+
+    '<div class="paneel">'+
+      (volgend?'<div class="rij"><span>'+volgend.n+'</span><b>'+(volgend.d-r.dag)+' dagen</b></div>':'')+
+      (vorig&&vorig.totaal>0
+        ?'<button class="arij" id="szVorig"><span class="naam">Vorig jaar draaide je'+
+         '<small>tik voor je maanden van toen</small></span>'+
+         '<span class="waarde gevuld">'+szEuro(vorig.totaal)+'</span>'+
+         '<span class="p">'+svg(I.pijl,'2')+'</span></button>':'')+
+    '</div>'+
+
+    '<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Het hele seizoen</span></div>'+
+    '<div class="paneel">'+
+      '<div class="rij"><span>Doosjes verkopen</span><b>'+szNum(Math.round(r.totDoosjes))+'</b></div>'+
+      '<div class="rij"><span>Bonbons maken</span><b>'+szNum(Math.round(r.totBon))+'</b></div>'+
+      '<div class="rij"><span>Productiedagen</span><b>'+szNum(Math.round(r.totBon/c.cap))+'</b></div>'+
+      (r.gemaakt?'<div class="rij"><span>Al gemaakt</span><b>'+szNum(r.gemaakt)+'</b></div>':'')+
+    '</div>'+
+
+    '<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Drukste week</span>'+
+      '<span class="tel">'+szKort(pStart)+'</span></div>'+
+    '<div class="paneel">'+
+      '<div class="rij"><span>Bonbons</span><b>'+szNum(Math.round(r.piekBon))+'</b></div>'+
+      '<div class="rij"><span>Productiedagen nodig</span><b>'+komma(Math.round(piekDagen*10)/10)+'</b></div>'+
+      '<div class="rij"><span>Dagen die je hebt</span><b>'+c.piekdagen+'</b></div>'+
+    '</div>'+
+    (vooruit?'<p class="uitleg" style="margin:10px 0 0">Dat past niet in één week. Maak '+
+      szNum(vooruit)+' bonbons vooruit in de drie weken ervóór — verder vooruit kan niet, '+
+      'je ganache blijft ongeveer drie weken goed.</p>'+
+      '<button class="arij" id="szTaak" style="margin-top:10px"><span class="naam">Zet het vooruitwerk op je taken'+
+      '<small>vanaf '+szKort(szDagPlus(pStart,-14))+'</small></span><span class="p">'+svg(I.pijl,'2')+'</span></button>'
+      :'<p class="uitleg" style="margin:10px 0 0">Die week haal je met je eigen dagen, mits je ze vrijhoudt.</p>')+
+
+    '<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Verdeling over het seizoen</span></div>'+
+    '<div class="paneel" style="padding:14px 12px">'+
+      '<div style="display:flex;align-items:flex-end;gap:2px;height:64px">'+
+        r.weken.map((w,i)=>'<div style="flex:1;border-radius:3px 3px 0 0;height:'+
+          Math.max(6,Math.round(w/Math.max.apply(null,r.weken)*100))+'%;background:'+
+          (i===r.piekWk?'#b45309':i<=r.wk&&r.gestart?'var(--ink)':'#e4e4e7')+'"></div>').join('')+
+      '</div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;opacity:.55;margin-top:6px">'+
+        '<span>'+szKort(c.start)+'</span><span>'+szKort(c.eind)+'</span></div>'+
+    '</div>'+
+
+    '<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Waar dit op rekent</span></div>'+
+    '<div class="paneel">'+
+      stap('Omzetdoel',szEuro(c.doel),'doel',1000,1000)+
+      (r.doos
+        ?'<div class="rij"><span>Doosje gemiddeld</span><b>'+szEuro(r.prijs)+' · '+komma(Math.round(r.stuks*10)/10)+' st</b></div>'
+        :stap('Doosje gemiddeld',szEuro(c.prijs),'prijs',1,1)+stap('Bonbons per doosje',c.stuks,'stuks',1,1))+
+      stap('Bonbons per dag',c.cap,'cap',50,50)+
+      stap('Dagen in de piekweek',c.piekdagen,'piekdagen',1,1)+
+      stap('Uitval',c.uitval+'%','uitval',0,1)+
+    '</div>'+
+
+    '<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Grootste feest</span></div>'+
+    '<div class="paneel">'+
+      Object.keys(SZZWAAR).map(k=>'<button class="arij" data-szzw="'+k+'">'+
+        '<span class="naam">'+SZZWAAR[k].n+'</span>'+
+        '<span class="waarde gevuld">'+(c.zwaarte===k?svg(I.vink,'2'):'')+'</span></button>').join('')+
+    '</div>'+
+
+    (!r.doos?'<button class="arij" id="szDoosjes" style="margin-top:16px">'+
+      '<span class="naam">Je doosjes hebben nog geen prijs<small>zolang die er niet is rekent hij met een gemiddelde</small></span>'+
+      '<span class="p">'+svg(I.pijl,'2')+'</span></button>':''),
+
+    '<button class="prim" style="margin-top:0" id="szKlaar">Klaar</button>');
+
+  document.querySelectorAll('.szmin').forEach(b=>{b.onclick=()=>{
+    const k=b.dataset.szk, d=+b.dataset.szd, min=+b.dataset.szmin;
+    szZet(k,Math.max(min,(szCfg()[k]||0)+d));
+  }});
+  document.querySelectorAll('[data-szzw]').forEach(b=>{b.onclick=()=>szZet('zwaarte',b.dataset.szzw)});
+  const t1=document.getElementById('szTaak'); if(t1) t1.onclick=szTaak;
+  const d1=document.getElementById('szDoosjes'); if(d1) d1.onclick=()=>sheetDoosjes();
+  const v1=document.getElementById('szVorig'); if(v1) v1.onclick=()=>sheetSeizoen();
+  const k1=document.getElementById('szKlaar'); if(k1) k1.onclick=dicht;
+}
 function sheetUren(){
   const vd=vandaag(), jr=new Date().getFullYear();
   const wkVan=(()=>{const d=new Date(); const dag=(d.getDay()+6)%7;
