@@ -631,7 +631,19 @@ body.werkt #werkscherm{display:flex}
   white-space:nowrap;
 }
 
+.wisknop{
+  flex:0 0 auto;
+  width:40px;
+  height:40px;
+  background:none;
+  border:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
 .projectkaart{
+  cursor:pointer;
   background:var(--kaart);
   border-radius:var(--rond);
   padding:10px;
@@ -948,7 +960,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v19';
+const APPVERSIE = 'studio v20';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1134,7 +1146,18 @@ function zetVerhouding(v){
     c.classList.toggle('aan', c.dataset.verhouding === v));
 }
 
-async function tekenProjecten(){
+// Weggooien mag nooit definitief voelen. Het project verdwijnt meteen, maar
+// zolang de ongedaan-knop in beeld staat ruimen we de bestanden nog niet op.
+async function wisProject(pr){
+  await wisUit('projecten', pr.id);
+  await tekenProjecten(true);
+  toon('Project verwijderd', true, async () => {
+    await zetIn('projecten', pr);
+    await tekenProjecten();
+  });
+}
+
+async function tekenProjecten(wachtenMetOpruimen){
   const alle = (await allesUit('projecten')).sort((a,b) => b.bijgewerkt - a.bijgewerkt);
   const leeg = alle.length === 0;
   el('pleeg').classList.toggle('verborgen', !leeg);
@@ -1147,7 +1170,7 @@ async function tekenProjecten(){
     const duur = cl.reduce((s,c) => s + Math.max(0, c.eind - c.start), 0);
     const duim = (cl.find(c => c.duim) || {}).duim;
 
-    const kaart = document.createElement('button');
+    const kaart = document.createElement('div');
     kaart.className = 'projectkaart';
     kaart.innerHTML =
       (duim ? '<img class="duim" src="' + duim + '">' : '<div class="duim"></div>') +
@@ -1155,13 +1178,23 @@ async function tekenProjecten(){
       '<div class="projectmeta">' +
       (cl.length ? cl.length + (cl.length === 1 ? ' clip · ' : ' clips · ') + secs(duur) : 'leeg') +
       '</div></div>' +
+      '<button class="wisknop" aria-label="Project verwijderen">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>' +
       '<div class="pijl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
     kaart.querySelector('.projecttitel').textContent = pr.naam;
-    kaart.addEventListener('click', () => openProject(pr.id));
+
+    const wis = kaart.querySelector('.wisknop');
+    wis.addEventListener('click', e => { e.stopPropagation(); wisProject(pr); });
+
+    kaart.addEventListener('click', e => {
+      if(wis.contains(e.target)) return;
+      openProject(pr.id);
+    });
     lijst.appendChild(kaart);
   });
 
-  await ruimOp(alle);
+  if(!wachtenMetOpruimen) await ruimOp(alle);
   toonOpslag();
 }
 
