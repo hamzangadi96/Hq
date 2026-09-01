@@ -254,6 +254,26 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   margin-bottom:14px;
 }
 #voorbeeld video{max-width:100%;max-height:100%;display:block}
+#voorbeeldvak{position:relative}
+#speelknop{
+  position:absolute;
+  left:50%;
+  top:calc(50% - 7px);
+  transform:translate(-50%, -50%);
+  width:62px;
+  height:62px;
+  border-radius:31px;
+  border:none;
+  background:rgba(24,24,27,.62);
+  backdrop-filter:blur(6px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:opacity .18s ease;
+}
+#speelknop.speelt{opacity:0}
+#voorbeeldvak:hover #speelknop.speelt{opacity:1}
 
 #tijden{
   display:flex;
@@ -419,6 +439,22 @@ body.scant #scanscherm{display:flex}
   font-size:13px;
   color:var(--zacht);
   margin-top:3px;
+}
+.cijfer{
+  color:var(--inkt) !important;
+  font-weight:600;
+  margin-left:6px;
+}
+.bestevlag{
+  display:inline-block;
+  background:var(--groen);
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+  border-radius:6px;
+  padding:2px 6px;
+  margin-left:7px;
+  vertical-align:1px;
 }
 .stukkaart.afgekeurd .vink{background:#e4e4e7}
 #scanmelding{
@@ -755,7 +791,13 @@ body.werkt #werkscherm{display:flex}
   <div class="blad" id="trimblad">
     <div class="grip"></div>
     <h2 class="bladtitel" id="trimtitel">Clip</h2>
-    <div id="voorbeeld"></div>
+    <div id="voorbeeldvak">
+      <div id="voorbeeld"></div>
+      <button id="speelknop" aria-label="Afspelen">
+        <svg id="speelicoon" width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg id="pauzeicoon" class="verborgen" width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+      </button>
+    </div>
     <div id="tijden">
       <span id="tstart">0,0 s</span>
       <b id="tduur">0,0 s</b>
@@ -811,7 +853,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v14';
+const APPVERSIE = 'studio v15';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1411,6 +1453,7 @@ function openTrim(c){
 }
 
 function sluitTrim(){
+  stopSpelen();
   if(actief){
     try { actief.video.pause(); } catch(fout){}
     document.getElementById('stal').appendChild(actief.video);
@@ -1445,8 +1488,49 @@ el('toastknop').addEventListener('click', () => {
   bewaarStraks();
 });
 
+let speelWacht = null;
+
+function stopSpelen(){
+  if(speelWacht){ cancelAnimationFrame(speelWacht); speelWacht = null; }
+  if(actief && actief.video){ try { actief.video.pause(); } catch(fout){} }
+  el('speelknop').classList.remove('speelt');
+  el('speelicoon').classList.remove('verborgen');
+  el('pauzeicoon').classList.add('verborgen');
+}
+
+// speelt precies het stuk dat je hebt uitgeknipt, en begint vanzelf opnieuw
+async function speelStuk(){
+  if(!actief) return;
+  const c = actief;
+  if(!c.video.paused){ stopSpelen(); return; }
+
+  if(c.video.currentTime < c.start || c.video.currentTime >= c.eind - .05){
+    await zoekNaar(c.video, c.start);
+  }
+  try { c.video.playbackRate = c.tempo || 1; } catch(fout){}
+  c.video.muted = (c.tempo || 1) > 1;
+  try { await c.video.play(); } catch(fout){ return; }
+
+  el('speelknop').classList.add('speelt');
+  el('speelicoon').classList.add('verborgen');
+  el('pauzeicoon').classList.remove('verborgen');
+
+  const kijk = () => {
+    if(!actief || actief !== c || c.video.paused){ stopSpelen(); return; }
+    if(c.video.currentTime >= c.eind - .03){
+      c.video.currentTime = c.start;      // rondje opnieuw
+    }
+    speelWacht = requestAnimationFrame(kijk);
+  };
+  speelWacht = requestAnimationFrame(kijk);
+}
+
 function werkTrimBij(){
   if(!actief) return;
+  if(speelWacht && actief.video && !actief.video.paused){
+    // je sleept aan de knip terwijl hij speelt: dan even pauzeren
+    if(actief.video.currentTime < actief.start || actief.video.currentTime > actief.eind) stopSpelen();
+  }
   const c = actief;
   const breedte = el('spoor').clientWidth || 1;
   const a = (c.start / c.duur) * breedte;
@@ -2052,7 +2136,10 @@ function tekenScan(){
   el('scanbalk').classList.toggle('verborgen', !b);
   if(!b) return;
 
-  const goedRij = b.stukken.map((s, i) => i);
+  // beste bovenaan: dit scherm is om te kiezen, niet om te monteren
+  const goedRij = b.stukken.map((s, i) => i)
+    .sort((x, y) => (b.stukken[y].cijfer || 0) - (b.stukken[x].cijfer || 0));
+  const beste = goedRij.length && (b.stukken[goedRij[0]].cijfer || 0) > 0 ? goedRij[0] : -1;
 
   const maakKaart = i => {
     const s = b.stukken[i];
@@ -2067,9 +2154,12 @@ function tekenScan(){
     const info = document.createElement('div');
     info.className = 'klipinfo';
     info.innerHTML =
-      '<div class="kliptitel">' + veiligeTekst(s.label || ('Stuk ' + (i + 1))) + '</div>' +
+      '<div class="kliptitel">' + veiligeTekst(s.label || ('Stuk ' + (i + 1))) +
+        (i === beste ? '<span class="bestevlag">Beste</span>' : '') + '</div>' +
       '<div class="klipmeta">' + secs(s.eind - s.start) +
-      ' <span>vanaf ' + secs(s.start) + '</span></div>';
+      ' <span>vanaf ' + secs(s.start) + '</span>' +
+        (s.cijfer ? '<span class="cijfer">' + s.cijfer + '/10</span>' : '') + '</div>' +
+      (s.waarom ? '<div class="stuklabel">' + veiligeTekst(s.waarom) + '</div>' : '');
     kaart.appendChild(info);
 
     const vink = document.createElement('div');
@@ -2141,7 +2231,9 @@ function sluitScan(){
 async function neemStukkenOver(){
   const b = scanBron;
   if(!b) return;
-  const gekozen = b.stukken.filter((s, i) => scanKeuze.has(i));
+  // in je project wil je ze wél op volgorde van de opname
+  const gekozen = b.stukken.filter((s, i) => scanKeuze.has(i))
+    .slice().sort((x, y) => x.start - y.start);
   if(!gekozen.length) return;
 
   el('scanvoegtoe').disabled = true;
@@ -2430,7 +2522,8 @@ async function laatKnippen(reeksen){
       });
       const d = r.data || {};
       (d.stukken || []).forEach(s => stukken.push({
-        start: s.van, eind: s.tot, label: s.label || ''
+        start: s.van, eind: s.tot, label: s.label || '',
+        cijfer: Number(s.cijfer) || 0, waarom: s.waarom || ''
       }));
       (d.afval || []).forEach(a => afval.push({
         start: a.van, eind: a.tot, reden: a.reden || 'overgeslagen', vanModel: true
@@ -2455,6 +2548,8 @@ document.querySelectorAll('#soorten .chip').forEach(knop => {
 document.querySelectorAll('#regelsoorten .chip').forEach(knop => {
   knop.addEventListener('click', () => kiesBewerkSoort(knop.dataset.soort));
 });
+
+el('speelknop').addEventListener('click', speelStuk);
 
 el('instelknop').addEventListener('click', openInstel);
 el('instelklaar').addEventListener('click', async () => { await bewaarRegels(); sluitInstel(); });
