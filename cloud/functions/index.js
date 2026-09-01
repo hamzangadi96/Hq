@@ -297,12 +297,20 @@ const OPDRACHT =
   '             tot    eindtijd in seconden\n' +
   '             label  wat er te zien is, in het Nederlands, maximaal zes ' +
   'woorden, bijvoorbeeld "handen vullen bonbonvorm"\n' +
+  '             cijfer hoe sterk dit stuk op zichzelf is, 1 tot 10\n' +
+  '             waarom in maximaal acht woorden waarom je dat cijfer geeft\n' +
   '  afval    lijst van stukken die je overslaat, elk met van, tot en ' +
   'reden (maximaal acht woorden)\n\n' +
   'Regels voor de stukken: minstens {MIN} en hoogstens {MAX} seconden, binnen ' +
   '{VAN} en {TOT}, ze mogen elkaar niet overlappen, en op volgorde van tijd. ' +
   'Liever drie goede stukken dan tien halve. Is er niets bruikbaars, geef dan ' +
-  'een lege lijst stukken en zet alles in afval.';
+  'een lege lijst stukken en zet alles in afval.\n\n' +
+  'Wees streng en durf te onderscheiden bij het cijfer. Een 9 of 10 is een ' +
+  'shot dat je zonder aarzelen als opening gebruikt: scherp, goed in kader, ' +
+  'een duidelijke handeling of uitdrukking, met een natuurlijk begin en eind. ' +
+  'Een 5 of 6 is bruikbaar vulmateriaal. Onder de 4 hoort in afval. ' +
+  'Geef niet alles hetzelfde cijfer: als twee stukken op elkaar lijken, ' +
+  'kies dan welke de sterkste is en zet de ander lager.';
 
 exports.beoordeelReeks = onCall(async req => {
   const uid = wieBenJe(req);
@@ -389,7 +397,15 @@ exports.beoordeelReeks = onCall(async req => {
     let b = Math.max(van, Math.min(tot, Number(s.tot)));
     if (!isFinite(a) || !isFinite(b) || b - a < min) return null;
     if (b - a > max) b = a + max;
-    return { van: a, tot: b, label: String(s.label || '').trim().slice(0, 60) };
+    let cijfer = Math.round(Number(s.cijfer));
+    if (!isFinite(cijfer)) cijfer = 5;
+    cijfer = Math.max(1, Math.min(10, cijfer));
+    return {
+      van: a, tot: b,
+      label: String(s.label || '').trim().slice(0, 60),
+      cijfer,
+      waarom: String(s.waarom || '').trim().slice(0, 80)
+    };
   };
 
   const stukken = [];
