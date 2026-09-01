@@ -327,6 +327,35 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   color:#fff;
   text-shadow:0 1px 3px rgba(0,0,0,.7);
 }
+#gereedalgemeen, #gereedclip{
+  flex:0 0 auto;
+  display:flex;
+  gap:4px;
+  padding:2px 12px 6px;
+}
+#gereedclip{display:none}
+body.klipgekozen #gereedalgemeen{display:none}
+body.klipgekozen #gereedclip{display:flex}
+.werktuig{
+  flex:1 1 0;
+  min-width:0;
+  height:56px;
+  background:none;
+  border:none;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  color:var(--inkt);
+  font-family:inherit;
+  cursor:pointer;
+}
+.werktuig:active{background:var(--achtergrond)}
+.werktuig span{font-size:11px;font-weight:600;letter-spacing:-.01em}
+.werktuig[data-doe="weg"]{color:var(--rood)}
+.spoorblok.gekozen{outline:2px solid var(--inkt);outline-offset:-2px}
 #muziekrij{margin-top:6px;height:34px}
 #muziekspoor{
   height:34px;
@@ -918,6 +947,9 @@ body.werkt #werkscherm{display:flex}
     </div>
   </div>
 
+  <div id="gereedalgemeen"><button class="werktuig" data-doe="knip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v12M18 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 15l12-9M18 15L6 6"/></svg><span>Knip</span></button><button class="werktuig" data-doe="muziek"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg><span>Muziek</span></button><button class="werktuig" data-doe="bank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/></svg><span>Bank</span></button></div>
+    <div id="gereedclip"><button class="werktuig" data-doe="bijknip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16M8 4v16M16 4v16"/></svg><span>Bijknippen</span></button><button class="werktuig" data-doe="snelheid"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Snelheid</span></button><button class="werktuig" data-doe="kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg><span>Kader</span></button><button class="werktuig" data-doe="kopie"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></svg><span>Dupliceer</span></button><button class="werktuig" data-doe="weg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span>Verwijder</span></button></div>
+
   <div id="rol" class="verborgen">
     <div id="lijst"></div>
   </div>
@@ -1079,6 +1111,7 @@ body.werkt #werkscherm{display:flex}
         <svg id="pauzeicoon" class="verborgen" width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
       </button>
     </div>
+    <div id="trimknip">
     <div id="tijden">
       <span id="tstart">0,0 s</span>
       <b id="tduur">0,0 s</b>
@@ -1088,6 +1121,7 @@ body.werkt #werkscherm{display:flex}
       <div id="gekozen"></div>
       <div class="handvat" id="h1"><i></i></div>
       <div class="handvat" id="h2"><i></i></div>
+    </div>
     </div>
     <div id="kaderblok" class="verborgen">
       <span>Wat blijft er in beeld</span>
@@ -1140,7 +1174,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v25';
+const APPVERSIE = 'studio v26';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1788,8 +1822,12 @@ document.querySelectorAll('#verhoudingen .chip').forEach(chip => {
 
 /* ---------- trimblad ---------- */
 
-function openTrim(c){
+function openTrim(c, paneel){
   actief = c;
+  const wat = paneel || 'alles';
+  el('trimknip').classList.toggle('verborgen', !(wat === 'alles' || wat === 'knip'));
+  el('kaderblok').dataset.gevraagd = (wat === 'alles' || wat === 'kader') ? 'ja' : 'nee';
+  el('tempoblok').classList.toggle('verborgen', !(wat === 'alles' || wat === 'snelheid'));
   el('trimtitel').textContent = c.naam;
   const doos = el('voorbeeld');
   doos.innerHTML = '';
@@ -1996,7 +2034,8 @@ function werkTrimBij(){
   el('tduur').textContent  = secs(klipDuur(c));
   document.querySelectorAll('#tempos .chip').forEach(k =>
     k.classList.toggle('aan', Number(k.dataset.tempo) === (c.tempo || 1)));
-  el('kaderblok').classList.toggle('verborgen', !kaderNodig(c));
+  el('kaderblok').classList.toggle('verborgen',
+    !kaderNodig(c) || el('kaderblok').dataset.gevraagd === 'nee');
   tekenKader();
   try { c.video.playbackRate = c.tempo || 1; } catch(fout){}
 }
@@ -3634,6 +3673,79 @@ async function speelMontage(){
   speelLus = requestAnimationFrame(lus);
 }
 
+/* ---------- een clip kiezen ----------
+   Zolang je niets hebt gekozen zie je wat je met je hele montage kunt doen.
+   Kies je een clip, dan verandert de balk in wat je met díe clip kunt. */
+
+let gekozenClip = null;
+
+function kiesClip(c){
+  gekozenClip = c || null;
+  document.body.classList.toggle('klipgekozen', !!gekozenClip);
+  document.querySelectorAll('.spoorblok').forEach(b =>
+    b.classList.toggle('gekozen', !!gekozenClip && b.dataset.klip === gekozenClip.id));
+}
+
+function dupliceerClip(){
+  const c = gekozenClip;
+  if(!c) return;
+  laadVideo(c.url).then(async v => {
+    document.getElementById('stal').appendChild(v);
+    const kopie = Object.assign({}, c, {
+      id: nieuwId(), video: v, bron: null,
+      kader: Object.assign({}, c.kader || {x: .5, y: .5})
+    });
+    clips.splice(clips.indexOf(c) + 1, 0, kopie);
+    teken();
+    kiesClip(kopie);
+    bewaarStraks();
+    toon('Clip gedupliceerd', true, () => {
+      const i = clips.indexOf(kopie);
+      if(i >= 0) clips.splice(i, 1);
+      try { kopie.video.remove(); } catch(fout){}
+      teken();
+      kiesClip(c);
+      bewaarStraks();
+    });
+  }).catch(() => toon('Dupliceren mislukt'));
+}
+
+function verwijderGekozen(){
+  const c = gekozenClip;
+  if(!c) return;
+  const plek = clips.indexOf(c);
+  if(plek < 0) return;
+  clips.splice(plek, 1);
+  kiesClip(null);
+  teken();
+  bewaarStraks();
+  toon('Clip verwijderd', true, () => {
+    clips.splice(plek, 0, c);
+    teken();
+    kiesClip(c);
+    bewaarStraks();
+  });
+}
+
+function knoopGereedschap(){
+  const doen = {
+    knip:     () => knipOpKop(),
+    muziek:   () => { if(muziekAan()) openMuziekblad(); else el('muziekkiezer').click(); },
+    bank:     () => openBank(),
+    bijknip:  () => { if(gekozenClip) openTrim(gekozenClip, 'knip'); },
+    snelheid: () => { if(gekozenClip) openTrim(gekozenClip, 'snelheid'); },
+    kader:    () => { if(gekozenClip) openTrim(gekozenClip, 'kader'); },
+    kopie:    () => dupliceerClip(),
+    weg:      () => verwijderGekozen()
+  };
+  document.querySelectorAll('.werktuig').forEach(knop => {
+    knop.addEventListener('click', () => {
+      const f = doen[knop.dataset.doe];
+      if(f) f();
+    });
+  });
+}
+
 /* ---------- knippen op de speelkop ---------- */
 
 // Eén clip wordt er twee, precies op de plek waar de kop staat. Beide helften
@@ -3730,6 +3842,11 @@ function tekenTijdbalk(){
 
   werkKopBij();
   tekenSpelerBeeld();
+  // de keuze overleeft het opnieuw tekenen, tenzij de clip weg is
+  if(typeof kiesClip === 'function'){
+    if(gekozenClip && !clips.includes(gekozenClip)) kiesClip(null);
+    else if(gekozenClip) kiesClip(gekozenClip);
+  }
 }
 
 // De blokken vullen de hele balk, dus tikken en slepen gebeuren op dezelfde
@@ -3767,9 +3884,10 @@ function knoopTijdbalk(){
     if(!neer) return;
     neer = false;
     if(!sleeptKop){
-      // niet gesleept: een tik op een blok opent de clip, elders verzet je de kop
+      // niet gesleept: een tik op een blok kiest de clip, elders verzet je de kop
       const c = beginBlok && clips.find(x => x.id === beginBlok.dataset.klip);
-      if(c) openTrim(c); else zetKop(naarTijd(e));
+      if(c) kiesClip(gekozenClip === c ? null : c);
+      else { kiesClip(null); zetKop(naarTijd(e)); }
     }
     sleeptKop = false;
     beginBlok = null;
@@ -3896,6 +4014,7 @@ function sluitMuziekblad(){
 }
 
 knoopKader();
+knoopGereedschap();
 knoopTijdbalk();
 knoopToetsen();
 el('afspelen').addEventListener('click', speelMontage);
