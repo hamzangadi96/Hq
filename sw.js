@@ -1,6 +1,6 @@
 /* Cacaoboetiek HQ — service worker
    Verhoog VERSIE bij elke nieuwe upload. */
-const VERSIE = 'hq-v562';
+const VERSIE = 'hq-v563';
 
 /* alleen plaatjes en manifest cachen; de app zelf halen we altijd vers op */
 const SCHIL = [
@@ -44,6 +44,25 @@ self.addEventListener('fetch', e => {
       url.hostname.includes('googleapis.com') ||
       url.hostname.includes('gstatic.com') ||
       url.hostname.includes('firebaseapp.com')) return;
+
+  /* Studio is één groot bestand dat bijna dagelijks verandert, en offline kan
+     hij toch niets zonder je videobestanden. Dus altijd vers ophalen, met de
+     cache alleen als vangnet wanneer je even geen verbinding hebt. */
+  if (url.pathname.endsWith('studio.html')) {
+    const sleutel = new Request(url.origin + url.pathname);
+    e.respondWith(
+      fetch(req, { cache: 'no-store' })
+        .then(r => {
+          if (r && r.ok) {
+            const kopie = r.clone();
+            caches.open(VERSIE).then(c => c.put(sleutel, kopie));
+          }
+          return r;
+        })
+        .catch(() => caches.match(sleutel))
+    );
+    return;
+  }
 
   const isApp = req.mode === 'navigate' ||
                 url.pathname.endsWith('/') ||
