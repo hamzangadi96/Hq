@@ -554,6 +554,12 @@ body.bankt #bankscherm{display:flex}
   margin-bottom:12px;
 }
 #bankvoorbeeld video{max-width:100%;max-height:100%;display:block}
+#resoluties, #beeldsnelheden{
+  display:flex;gap:4px;background:var(--achtergrond);
+  border-radius:14px;padding:4px;margin-bottom:18px;
+}
+#exportschatting{font-size:14px;color:var(--zacht);line-height:1.6;margin-bottom:18px}
+#exportschatting b{color:var(--inkt)}
 #muziekfeiten{font-size:14px;color:var(--zacht);line-height:1.6;margin-bottom:18px}
 .volrij{display:flex;align-items:center;gap:12px;margin-bottom:18px}
 .volrij input[type=range]{flex:1 1 auto}
@@ -592,8 +598,8 @@ body.scant #scanscherm{display:flex}
 #scanvoortgang{height:100%;width:0;background:var(--inkt);border-radius:3px;transition:width .2s ease}
 #scanstand{font-size:14px;color:var(--zacht);text-align:center}
 #scantitel{font-size:17px;font-weight:600;letter-spacing:-.01em}
+#exporteren{margin-left:auto;height:38px;padding:0 16px;font-size:14px;flex:0 0 auto}
 #bankknop2{
-  margin-left:auto;
   width:38px;height:38px;
   background:none;border:none;
   display:flex;align-items:center;justify-content:center;
@@ -900,6 +906,7 @@ body.werkt #werkscherm{display:flex}
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <button id="projectnaam">Project</button>
+    <button class="knop vol" id="exporteren" disabled>Exporteer</button>
     <button id="bankknop2" aria-label="Bank">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/>
@@ -972,9 +979,6 @@ body.werkt #werkscherm{display:flex}
       </div>
       <input type="file" id="scankiezer" accept="video/*">
     </div>
-    <div id="knoprij">
-      <button class="knop vol" id="exporteren" disabled>Exporteer</button>
-    </div>
   </div>
   </div>
 
@@ -1032,6 +1036,31 @@ body.werkt #werkscherm{display:flex}
       <div id="knoprij">
         <button class="knop vol" id="scanvoegtoe" disabled>Voeg stukken toe</button>
       </div>
+    </div>
+  </div>
+
+  <div class="blad" id="exportblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel">Exporteren</h2>
+
+    <span class="veldkop">Resolutie</span>
+    <div id="resoluties">
+      <button class="chip" data-kort="720">720p</button>
+      <button class="chip aan" data-kort="1080">1080p</button>
+    </div>
+
+    <span class="veldkop">Beelden per seconde</span>
+    <div id="beeldsnelheden">
+      <button class="chip" data-fps="24">24</button>
+      <button class="chip aan" data-fps="30">30</button>
+      <button class="chip" data-fps="60">60</button>
+    </div>
+
+    <div id="exportschatting"></div>
+
+    <div id="knoprij">
+      <button class="knop stil" id="exportterug">Terug</button>
+      <button class="knop vol" id="exportstart">Exporteer</button>
     </div>
   </div>
 
@@ -1174,14 +1203,32 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v26';
+const APPVERSIE = 'studio v27';
 document.getElementById('versie').textContent = APPVERSIE;
 
-const MATEN = {
-  '9:16': [720, 1280],
-  '4:5':  [864, 1080],
-  '1:1':  [960, 960]
+/* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
+   bij het exporteren kiest, zodat 1080p ook echt 1080 pixels breed is. */
+const VERHOUDINGEN = {
+  '9:16': 9 / 16,
+  '4:5':  4 / 5,
+  '1:1':  1
 };
+let kortezijde = 1080;    // 720 of 1080
+let beeldsnelheid = 30;   // 24, 30 of 60
+
+function maatVan(v, kort){
+  const f = VERHOUDINGEN[v] || VERHOUDINGEN['9:16'];
+  const k = kort || kortezijde;
+  const even = n => Math.round(n / 2) * 2;
+  return f <= 1 ? [even(k), even(k / f)] : [even(k * f), even(k)];
+}
+
+// De speler mag klein blijven; alleen bij het exporteren telt de echte maat.
+const MATEN = new Proxy({}, {
+  get: (doel, sleutel) => (typeof sleutel === 'string' && VERHOUDINGEN[sleutel])
+    ? maatVan(sleutel, 720)
+    : undefined
+});
 
 let clips = [];
 let verhouding = '9:16';
@@ -1305,6 +1352,8 @@ async function bewaarNu(){
     : null;
   huidigProject.muziekVolume = muziekVolume;
   huidigProject.clipVolume = clipVolume;
+  huidigProject.kortezijde = kortezijde;
+  huidigProject.beeldsnelheid = beeldsnelheid;
   try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
 }
 
@@ -1345,6 +1394,8 @@ async function openProject(id){
   }
 
   muziek = null;
+  kortezijde = pr.kortezijde === 720 ? 720 : 1080;
+  beeldsnelheid = [24, 30, 60].includes(pr.beeldsnelheid) ? pr.beeldsnelheid : 30;
   muziekVolume = typeof pr.muziekVolume === 'number' ? pr.muziekVolume : .6;
   clipVolume = typeof pr.clipVolume === 'number' ? pr.clipVolume : 1;
   if(pr.muziek && pr.muziek.bestandId){
@@ -1856,6 +1907,8 @@ function sluitTrim(){
 }
 
 el('waas').addEventListener('click', () => {
+  if(el('exportblad').classList.contains('aan')){ sluitExportblad(); return; }
+  if(el('muziekblad').classList.contains('aan')){ sluitMuziekblad(); return; }
   if(el('bankblad').classList.contains('aan')){ sluitBankBlad(); return; }
   if(el('instelblad').classList.contains('aan')){ sluitInstel(); return; }
   sluitTrim();
@@ -2118,8 +2171,64 @@ function zetVoortgang(deel){
   el('ringvul').setAttribute('stroke-dashoffset', String(327 - 327 * (p / 100)));
 }
 
-el('exporteren').addEventListener('click', async () => {
+/* Meer pixels en meer beelden vragen meer bits, anders wordt het blokkerig.
+   Deze getallen zijn wat je voor sociale video's nodig hebt, niet meer. */
+function bitsPerSeconde(){
+  const zwaar = (kortezijde >= 1080 ? 10 : 6) * (beeldsnelheid >= 60 ? 1.4 : 1);
+  return Math.round(zwaar * 1000000);
+}
+
+function toonExportSchatting(){
+  const [B, H] = maatVan(verhouding, kortezijde);
+  const duur = totaleDuur();
+  const mb = (bitsPerSeconde() * duur) / 8 / 1024 / 1024;
+  el('exportschatting').innerHTML =
+    '<b>' + B + ' \u00d7 ' + H + '</b> \u00b7 ' + beeldsnelheid + ' beelden per seconde<br>' +
+    'Ongeveer <b>' + (mb < 1 ? '1' : Math.round(mb)) + ' MB</b>, ' +
+    'en het duurt ongeveer <b>' + secs(duur) + '</b> \u2014 zo lang als de video zelf.';
+}
+
+function openExportblad(){
+  if(clips.length === 0) return;
+  document.querySelectorAll('#resoluties .chip').forEach(c =>
+    c.classList.toggle('aan', Number(c.dataset.kort) === kortezijde));
+  document.querySelectorAll('#beeldsnelheden .chip').forEach(c =>
+    c.classList.toggle('aan', Number(c.dataset.fps) === beeldsnelheid));
+  toonExportSchatting();
+  el('waas').classList.add('aan');
+  el('exportblad').classList.add('aan');
+}
+
+function sluitExportblad(){
+  el('waas').classList.remove('aan');
+  el('exportblad').classList.remove('aan');
+}
+
+document.querySelectorAll('#resoluties .chip').forEach(knop => {
+  knop.addEventListener('click', () => {
+    kortezijde = Number(knop.dataset.kort);
+    document.querySelectorAll('#resoluties .chip').forEach(c =>
+      c.classList.toggle('aan', c === knop));
+    toonExportSchatting();
+    bewaarStraks();
+  });
+});
+document.querySelectorAll('#beeldsnelheden .chip').forEach(knop => {
+  knop.addEventListener('click', () => {
+    beeldsnelheid = Number(knop.dataset.fps);
+    document.querySelectorAll('#beeldsnelheden .chip').forEach(c =>
+      c.classList.toggle('aan', c === knop));
+    toonExportSchatting();
+    bewaarStraks();
+  });
+});
+
+el('exporteren').addEventListener('click', () => { if(!bezigMetExport) openExportblad(); });
+el('exportterug').addEventListener('click', sluitExportblad);
+
+el('exportstart').addEventListener('click', async () => {
   if(bezigMetExport || clips.length === 0) return;
+  sluitExportblad();
 
   // 1. binnen het tikje: alle video's ontgrendelen voor iOS
   clips.forEach(c => {
@@ -2162,14 +2271,14 @@ async function draaiExport(){
   const type = kiesType();
   if(!window.MediaRecorder) throw new Error('deze browser kan niet opnemen');
 
-  const [B, H] = MATEN[verhouding];
+  const [B, H] = maatVan(verhouding, kortezijde);
   const doek = document.createElement('canvas');
   doek.width = B; doek.height = H;
   const ctx = doek.getContext('2d');
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, B, H);
 
-  const stroom = doek.captureStream(30);
+  const stroom = doek.captureStream(beeldsnelheid);
 
   // audio erbij, maar nooit blokkerend
   let ac = null;
@@ -2208,7 +2317,7 @@ async function draaiExport(){
 
   const brokken = [];
   const opnemer = new MediaRecorder(stroom, Object.assign(
-    {videoBitsPerSecond: 6000000},
+    {videoBitsPerSecond: bitsPerSeconde()},
     type ? {mimeType: type} : {}
   ));
   opnemer.ondataavailable = e => { if(e.data && e.data.size) brokken.push(e.data); };
