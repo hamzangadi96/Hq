@@ -396,6 +396,12 @@ body.bankt #bankscherm{display:flex}
 }
 #bankfilters{display:flex;gap:4px;background:var(--kaart);border-radius:14px;padding:4px}
 #bankrol{flex:1 1 auto;overflow-y:auto;padding:0 16px 24px;-webkit-overflow-scrolling:touch}
+#bankbalk{
+  flex:0 0 auto;
+  background:var(--kaart);
+  border-top:1px solid var(--lijn);
+  padding:12px 16px calc(env(safe-area-inset-bottom) + 12px);
+}
 #bankstand{font-size:14px;color:var(--zacht);padding:12px 2px}
 #bankvoorbeeld{
   width:100%;
@@ -818,6 +824,12 @@ body.werkt #werkscherm{display:flex}
       <div id="bankstand" class="verborgen"></div>
       <div id="banklijst"></div>
     </div>
+
+    <div id="bankbalk" class="verborgen">
+      <div id="knoprij">
+        <button class="knop vol" id="bankvoegtoe">Voeg toe aan project</button>
+      </div>
+    </div>
   </div>
 
   <div id="scanscherm">
@@ -960,7 +972,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v20';
+const APPVERSIE = 'studio v21';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -2749,6 +2761,7 @@ let opslagFout = '';
 let bank = [];
 let bankZoek = '';
 let bankFilter = 'alles';
+let bankKeuze = new Set();
 
 // De opslagmodule zit niet in je repo. Eerst daar kijken, anders bij Google.
 function laadOpslagModule(){
@@ -2902,6 +2915,7 @@ async function laadBank(){
 }
 
 async function openBank(){
+  bankKeuze = new Set();
   document.body.classList.add('bankt');
   el('banklijst').innerHTML = '';
   el('bankstand').textContent = 'Ophalen\u2026';
@@ -2929,6 +2943,13 @@ function tekenBank(){
     : rij.length === bank.length ? bank.length + ' stukken'
     : rij.length + ' van ' + bank.length + ' stukken';
 
+  const inProjectNu = document.body.classList.contains('werkt');
+  const balk = el('bankbalk');
+  balk.classList.toggle('verborgen', !inProjectNu || bankKeuze.size === 0);
+  el('bankvoegtoe').textContent = bankKeuze.size === 1
+    ? 'Voeg 1 stuk toe aan project'
+    : 'Voeg ' + bankKeuze.size + ' stukken toe aan project';
+
   const lijst = el('banklijst');
   lijst.innerHTML = '';
 
@@ -2948,8 +2969,9 @@ function tekenBank(){
   }
 
   rij.forEach(s => {
+    const inProject = document.body.classList.contains('werkt');
     const kaart = document.createElement('div');
-    kaart.className = 'stukkaart gekozen';
+    kaart.className = 'stukkaart' + (!inProject || bankKeuze.has(s.id) ? ' gekozen' : '');
 
     const duim = document.createElement('div');
     duim.className = 'duim';
@@ -2973,6 +2995,22 @@ function tekenBank(){
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" ' +
       'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
     kaart.appendChild(pijl);
+
+    // Binnen een project kun je aanvinken: tik het rondje voor kiezen,
+    // tik de kaart voor bekijken.
+    if(inProject){
+      const vink = document.createElement('div');
+      vink.className = 'vink';
+      vink.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" ' +
+        'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+      vink.addEventListener('click', e => {
+        e.stopPropagation();
+        if(bankKeuze.has(s.id)) bankKeuze.delete(s.id); else bankKeuze.add(s.id);
+        tekenBank();
+      });
+      kaart.insertBefore(vink, pijl);
+    }
 
     kaart.addEventListener('click', () => openBankBlad(s));
     lijst.appendChild(kaart);
@@ -3050,6 +3088,36 @@ async function gebruikUitBank(){
   }
 }
 
+async function haalGekozenUitBank(){
+  const gekozen = bank.filter(s => bankKeuze.has(s.id));
+  if(!gekozen.length) return;
+
+  const knop = el('bankvoegtoe');
+  knop.disabled = true;
+  let gelukt = 0;
+
+  for(let i = 0; i < gekozen.length; i++){
+    const s = gekozen[i];
+    knop.textContent = 'Ophalen \u00b7 ' + (i + 1) + ' van ' + gekozen.length;
+    try {
+      const r = await fetch(s.url);
+      if(!r.ok) throw new Error('ophalen mislukt (' + r.status + ')');
+      const clip = await voegToe(await r.blob());
+      if(s.duim) clip.duim = s.duim;
+      gelukt++;
+      teken();
+    } catch(fout){
+      toon('Niet gelukt: ' + (fout && fout.message ? fout.message : 'onbekend'));
+    }
+  }
+
+  bankKeuze = new Set();
+  knop.disabled = false;
+  bewaarStraks();
+  sluitBank();
+  toon(gelukt === 1 ? '1 stuk toegevoegd' : gelukt + ' stukken toegevoegd');
+}
+
 async function wisUitBank(){
   const s = bankActief;
   if(!s || !firebaseKlaar()) return;
@@ -3063,6 +3131,7 @@ async function wisUitBank(){
   toon('Stuk verwijderd uit de bank');
 }
 
+el('bankvoegtoe').addEventListener('click', haalGekozenUitBank);
 el('bankgebruik').addEventListener('click', gebruikUitBank);
 el('bankwis').addEventListener('click', wisUitBank);
 
