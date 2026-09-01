@@ -136,12 +136,31 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   flex-direction:column;
   gap:12px;
 }
-#verhoudingen{
+#verhoudingen, #tempos{
   display:flex;
   gap:4px;
   background:var(--achtergrond);
   border-radius:14px;
   padding:4px;
+}
+#tempoblok{margin:4px 0 16px}
+#tempoblok > span{
+  display:block;
+  font-size:14px;
+  font-weight:600;
+  color:var(--zacht);
+  margin:0 0 8px 2px;
+}
+.tempovlag{
+  display:inline-block;
+  background:var(--inkt);
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+  border-radius:6px;
+  padding:2px 6px;
+  margin-left:6px;
+  vertical-align:1px;
 }
 .chip{
   flex:1 1 0;
@@ -492,6 +511,14 @@ body.werkt #werkscherm{display:flex}
       <div class="handvat" id="h1"><i></i></div>
       <div class="handvat" id="h2"><i></i></div>
     </div>
+    <div id="tempoblok">
+      <span>Snelheid</span>
+      <div id="tempos">
+        <button class="chip aan" data-tempo="1">1&times;</button>
+        <button class="chip" data-tempo="2">2&times;</button>
+        <button class="chip" data-tempo="4">4&times;</button>
+      </div>
+    </div>
     <div id="knoprij">
       <button class="knop stil" id="verwijderen">Verwijder</button>
       <button class="knop vol" id="trimklaar">Klaar</button>
@@ -529,7 +556,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v7';
+const APPVERSIE = 'studio v8';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -555,8 +582,13 @@ function secs(n){
   return n.toFixed(1).replace('.', ',') + ' s';
 }
 
+// hoe lang een clip in de montage duurt: geknipt stuk gedeeld door de snelheid
+function klipDuur(c){
+  return Math.max(0, c.eind - c.start) / (c.tempo || 1);
+}
+
 function totaleDuur(){
-  return clips.reduce((s,c) => s + Math.max(0, c.eind - c.start), 0);
+  return clips.reduce((s,c) => s + klipDuur(c), 0);
 }
 
 let toastActie = null;
@@ -647,7 +679,7 @@ async function bewaarNu(){
   huidigProject.bijgewerkt = Date.now();
   huidigProject.clips = clips.map(c => ({
     id: c.id, bestandId: c.bestandId, duur: c.duur,
-    start: c.start, eind: c.eind, duim: c.duim
+    start: c.start, eind: c.eind, duim: c.duim, tempo: c.tempo || 1
   }));
   try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
 }
@@ -682,7 +714,8 @@ async function openProject(id){
     clips.push({
       id: m.id, naam: '', bestand: null, url, video: v,
       duur: m.duur, start: m.start, eind: m.eind,
-      duim: m.duim, bron: null, bestandId: m.bestandId
+      duim: m.duim, bron: null, bestandId: m.bestandId,
+      tempo: m.tempo || 1
     });
   }
   naarWerkscherm();
@@ -890,7 +923,7 @@ function voegToe(bestand, meld){
         const clip = {
           id: nieuwId(), bestandId, naam: '',
           bestand: blob, url, video: v,
-          duur, start: 0, eind: duur, duim: null, bron: null
+          duur, start: 0, eind: duur, duim: null, bron: null, tempo: 1
         };
         clips.push(clip);
         document.getElementById('stal').appendChild(v);
@@ -1018,8 +1051,10 @@ function teken(){
     const geknipt = (c.start > 0.05) || (c.eind < c.duur - 0.05);
     info.innerHTML =
       '<div class="kliptitel">' + c.naam + '</div>' +
-      '<div class="klipmeta">' + secs(c.eind - c.start) +
-      (geknipt ? ' <span>van ' + secs(c.duur) + '</span>' : '') + '</div>';
+      '<div class="klipmeta">' + secs(klipDuur(c)) +
+      (geknipt ? ' <span>van ' + secs(c.duur) + '</span>' : '') +
+      ((c.tempo || 1) > 1 ? '<span class="tempovlag">' + c.tempo + '\u00d7</span>' : '') +
+      '</div>';
     kaart.appendChild(info);
 
     const greep = document.createElement('div');
@@ -1100,6 +1135,7 @@ function openTrim(c){
   doos.innerHTML = '';
   c.video.muted = true;
   c.video.controls = false;
+  try { c.video.playbackRate = c.tempo || 1; } catch(fout){}
   doos.appendChild(c.video);
   werkTrimBij();
   el('waas').classList.add('aan');
@@ -1154,8 +1190,20 @@ function werkTrimBij(){
   el('h2').style.left = b + 'px';
   el('tstart').textContent = secs(c.start);
   el('teind').textContent  = secs(c.eind);
-  el('tduur').textContent  = secs(c.eind - c.start);
+  el('tduur').textContent  = secs(klipDuur(c));
+  document.querySelectorAll('#tempos .chip').forEach(k =>
+    k.classList.toggle('aan', Number(k.dataset.tempo) === (c.tempo || 1)));
+  try { c.video.playbackRate = c.tempo || 1; } catch(fout){}
 }
+
+document.querySelectorAll('#tempos .chip').forEach(knop => {
+  knop.addEventListener('click', () => {
+    if(!actief) return;
+    actief.tempo = Number(knop.dataset.tempo) || 1;
+    werkTrimBij();
+    bewaarStraks();
+  });
+});
 
 function knoopHandvat(handvat, welke){
   let bezig = false;
@@ -1323,9 +1371,13 @@ async function draaiExport(){
     if(stopVerzoek) break;
     const c = clips[i];
     huidige = c;
-    c.video.muted = false;
+    const snel = c.tempo || 1;
+    // versneld geluid klinkt als een piepstem, dus dat laten we weg
+    c.video.muted = snel > 1;
     await zoekNaar(c.video, c.start);
+    try { c.video.playbackRate = snel; } catch(fout){}
     try { await c.video.play(); } catch(fout){}
+    try { c.video.playbackRate = snel; } catch(fout){}
 
     // volgende clip alvast klaarzetten
     if(clips[i+1]) zoekNaar(clips[i+1].video, clips[i+1].start);
@@ -1338,14 +1390,15 @@ async function draaiExport(){
           klaar();
           return;
         }
-        const nu = gedaan + (c.video.currentTime - c.start);
+        const nu = gedaan + (c.video.currentTime - c.start) / snel;
         zetVoortgang(totaal ? nu / totaal : 0);
         setTimeout(kijk, 40);
       };
       kijk();
     });
 
-    gedaan += Math.max(0, c.eind - c.start);
+    try { c.video.playbackRate = 1; } catch(fout){}
+    gedaan += klipDuur(c);
     zetVoortgang(totaal ? gedaan / totaal : 1);
   }
 
