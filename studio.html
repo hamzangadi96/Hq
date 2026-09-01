@@ -153,6 +153,26 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   border-radius:14px;
   padding:4px;
 }
+#kaderblok{margin:4px 0 18px}
+#kaderblok > span{
+  display:block;
+  font-size:14px;
+  font-weight:600;
+  color:var(--zacht);
+  margin:0 0 8px 2px;
+}
+#kadervak{
+  background:#18181b;
+  border-radius:14px;
+  overflow:hidden;
+  line-height:0;
+  touch-action:none;
+  cursor:grab;
+}
+#kadervak.sleept{cursor:grabbing}
+/* niet uitrekken: dan klopt het kader niet meer met wat je ziet */
+#kaderdoek{display:block;margin:0 auto;max-width:100%}
+#kadermidden{margin-top:10px;width:100%}
 #tempoblok{margin:4px 0 16px}
 #tempoblok > span{
   display:block;
@@ -927,6 +947,12 @@ body.werkt #werkscherm{display:flex}
       <div class="handvat" id="h1"><i></i></div>
       <div class="handvat" id="h2"><i></i></div>
     </div>
+    <div id="kaderblok" class="verborgen">
+      <span>Wat blijft er in beeld</span>
+      <div id="kadervak"><canvas id="kaderdoek"></canvas></div>
+      <button class="knop stil" id="kadermidden">Terug naar het midden</button>
+    </div>
+
     <div id="tempoblok">
       <span>Snelheid</span>
       <div id="tempos">
@@ -972,7 +998,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v21';
+const APPVERSIE = 'studio v22';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1095,7 +1121,8 @@ async function bewaarNu(){
   huidigProject.bijgewerkt = Date.now();
   huidigProject.clips = clips.map(c => ({
     id: c.id, bestandId: c.bestandId, duur: c.duur,
-    start: c.start, eind: c.eind, duim: c.duim, tempo: c.tempo || 1
+    start: c.start, eind: c.eind, duim: c.duim, tempo: c.tempo || 1,
+    kader: c.kader || {x: .5, y: .5}
   }));
   try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
 }
@@ -1131,7 +1158,8 @@ async function openProject(id){
       id: m.id, naam: '', bestand: null, url, video: v,
       duur: m.duur, start: m.start, eind: m.eind,
       duim: m.duim, bron: null, bestandId: m.bestandId,
-      tempo: m.tempo || 1
+      tempo: m.tempo || 1,
+      kader: m.kader || {x: .5, y: .5}
     });
   }
   naarWerkscherm();
@@ -1361,7 +1389,8 @@ function voegToe(bestand, meld){
         const clip = {
           id: nieuwId(), bestandId, naam: '',
           bestand: blob, url, video: v,
-          duur, start: 0, eind: duur, duim: null, bron: null, tempo: 1
+          duur, start: 0, eind: duur, duim: null, bron: null, tempo: 1,
+          kader: {x: .5, y: .5}
         };
         clips.push(clip);
         document.getElementById('stal').appendChild(v);
@@ -1456,12 +1485,16 @@ function isZwart(ctx, bw, bh){
   } catch(fout){ return false; }
 }
 
-function dekkend(ctx, v, bw, bh){
+function dekkend(ctx, v, bw, bh, kader){
   const vw = v.videoWidth, vh = v.videoHeight;
   if(!vw || !vh) return;
   const s = Math.max(bw / vw, bh / vh);
   const w = vw * s, h = vh * s;
-  ctx.drawImage(v, (bw - w) / 2, (bh - h) / 2, w, h);
+  // kader is het punt uit de opname dat in het midden komt te staan, 0 tot 1.
+  // Zonder kader staat hij op het midden, precies zoals het altijd was.
+  const kx = kader && isFinite(kader.x) ? kader.x : .5;
+  const ky = kader && isFinite(kader.y) ? kader.y : .5;
+  ctx.drawImage(v, (bw - w) * kx, (bh - h) * ky, w, h);
 }
 
 /* ---------- lijst tekenen ---------- */
@@ -1632,6 +1665,102 @@ el('toastknop').addEventListener('click', () => {
   bewaarStraks();
 });
 
+/* ---------- kader kiezen ----------
+   Je filmt liggend, je reel is staand. Er valt dus altijd iets buiten beeld.
+   Hier zie je wat er overblijft en sleep je het naar de goede plek. */
+
+const KADERHOOG = 150;   // hoogte van het strookje waarin je sleept
+
+function kaderNodig(c){
+  if(!c || !c.video) return false;
+  const vw = c.video.videoWidth, vh = c.video.videoHeight;
+  if(!vw || !vh) return false;
+  const doel = MATEN[verhouding] || MATEN['9:16'];
+  const bron = vw / vh, uit = doel[0] / doel[1];
+  return Math.abs(bron - uit) > .02;
+}
+
+function tekenKader(){
+  const c = actief;
+  if(!c || !kaderNodig(c)) return;
+  const doek = el('kaderdoek');
+  const vw = c.video.videoWidth, vh = c.video.videoHeight;
+
+  const breed = el('kadervak').clientWidth || 320;
+  const schaal = Math.min(breed / vw, KADERHOOG / vh);
+  doek.width = Math.round(vw * schaal);
+  doek.height = Math.round(vh * schaal);
+  const ctx = doek.getContext('2d');
+
+  ctx.fillStyle = '#18181b';
+  ctx.fillRect(0, 0, doek.width, doek.height);
+  try { ctx.drawImage(c.video, 0, 0, doek.width, doek.height); } catch(fout){}
+
+  // het deel dat straks overblijft
+  const doel = MATEN[verhouding] || MATEN['9:16'];
+  const uit = doel[0] / doel[1];
+  let kb = doek.width, kh = doek.width / uit;
+  if(kh > doek.height){ kh = doek.height; kb = kh * uit; }
+
+  const kader = c.kader || {x: .5, y: .5};
+  const links = (doek.width - kb) * kader.x;
+  const boven = (doek.height - kh) * kader.y;
+
+  ctx.fillStyle = 'rgba(24,24,27,.6)';
+  ctx.fillRect(0, 0, doek.width, boven);
+  ctx.fillRect(0, boven + kh, doek.width, doek.height - boven - kh);
+  ctx.fillRect(0, boven, links, kh);
+  ctx.fillRect(links + kb, boven, doek.width - links - kb, kh);
+
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(links + 1, boven + 1, kb - 2, kh - 2);
+}
+
+function knoopKader(){
+  const vak = el('kadervak');
+  let bezig = false;
+
+  const zet = e => {
+    const c = actief;
+    if(!c) return;
+    const doek = el('kaderdoek');
+    const doos = doek.getBoundingClientRect();
+    const doel = MATEN[verhouding] || MATEN['9:16'];
+    const uit = doel[0] / doel[1];
+    let kb = doos.width, kh = doos.width / uit;
+    if(kh > doos.height){ kh = doos.height; kb = kh * uit; }
+
+    const speelX = doos.width - kb, speelY = doos.height - kh;
+    const mx = e.clientX - doos.left - kb / 2;
+    const my = e.clientY - doos.top - kh / 2;
+
+    c.kader = {
+      x: speelX > 1 ? Math.max(0, Math.min(1, mx / speelX)) : .5,
+      y: speelY > 1 ? Math.max(0, Math.min(1, my / speelY)) : .5
+    };
+    tekenKader();
+  };
+
+  vak.addEventListener('pointerdown', e => {
+    if(!actief || !kaderNodig(actief)) return;
+    bezig = true;
+    vak.classList.add('sleept');
+    try { vak.setPointerCapture(e.pointerId); } catch(fout){}
+    e.preventDefault();
+    zet(e);
+  });
+  vak.addEventListener('pointermove', e => { if(bezig) zet(e); });
+  const los = () => {
+    if(!bezig) return;
+    bezig = false;
+    vak.classList.remove('sleept');
+    bewaarStraks();
+  };
+  vak.addEventListener('pointerup', los);
+  vak.addEventListener('pointercancel', los);
+}
+
 let speelWacht = null;
 
 function stopSpelen(){
@@ -1688,6 +1817,8 @@ function werkTrimBij(){
   el('tduur').textContent  = secs(klipDuur(c));
   document.querySelectorAll('#tempos .chip').forEach(k =>
     k.classList.toggle('aan', Number(k.dataset.tempo) === (c.tempo || 1)));
+  el('kaderblok').classList.toggle('verborgen', !kaderNodig(c));
+  tekenKader();
   try { c.video.playbackRate = c.tempo || 1; } catch(fout){}
 }
 
@@ -1853,7 +1984,7 @@ async function draaiExport(){
     if(!draait) return;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, B, H);
-    if(huidige && huidige.video.readyState >= 2) dekkend(ctx, huidige.video, B, H);
+    if(huidige && huidige.video.readyState >= 2) dekkend(ctx, huidige.video, B, H, huidige.kader);
     requestAnimationFrame(lus);
   })();
 
@@ -2390,7 +2521,7 @@ async function neemStukkenOver(){
       id: nieuwId(), bestandId, naam: '',
       bestand: b.blob, url: b.url, video: v,
       duur: b.duur, start: s.start, eind: s.eind,
-      duim: s.duim, bron: null, tempo: 1
+      duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5}
     });
   }
   b.gebruikt = true;
@@ -3146,6 +3277,15 @@ document.querySelectorAll('#bankfilters .chip').forEach(knop => {
       c.classList.toggle('aan', c.dataset.filter === bankFilter));
     tekenBank();
   });
+});
+
+knoopKader();
+
+el('kadermidden').addEventListener('click', () => {
+  if(!actief) return;
+  actief.kader = {x: .5, y: .5};
+  tekenKader();
+  bewaarStraks();
 });
 
 el('speelknop').addEventListener('click', speelStuk);
