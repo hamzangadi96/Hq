@@ -371,6 +371,34 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   min-height:0;
 }
 #werkscherm{display:none}
+#bankscherm{
+  display:none;
+  position:absolute;
+  inset:0;
+  background:var(--achtergrond);
+  flex-direction:column;
+  z-index:13;
+}
+body.bankt #bankscherm{display:flex}
+#banktitel{font-size:17px;font-weight:600;letter-spacing:-.01em}
+#banktelling{margin-left:auto;font-size:13px;color:var(--zacht)}
+#bankkop{flex:0 0 auto;padding:4px 16px 12px;display:flex;flex-direction:column;gap:10px}
+#bankzoek{
+  width:100%;
+  font:inherit;
+  font-size:16px;
+  background:var(--kaart);
+  border:none;
+  border-radius:14px;
+  padding:13px 14px;
+  color:var(--inkt);
+  -webkit-appearance:none;
+}
+#bankfilters{display:flex;gap:4px;background:var(--kaart);border-radius:14px;padding:4px}
+#bankrol{flex:1 1 auto;overflow-y:auto;padding:0 16px 24px;-webkit-overflow-scrolling:touch}
+#bankstand{font-size:14px;color:var(--zacht);padding:12px 2px}
+#banklijst{display:flex;flex-direction:column;gap:10px}
+
 #scanscherm{
   display:none;
   position:absolute;
@@ -470,7 +498,7 @@ body.scant #scanscherm{display:flex}
 @media (min-width: 900px){
   #schil{max-width:1080px}
 
-  #lijst, #scangoed{
+  #lijst, #scangoed, #banklijst{
     display:grid;
     grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
     gap:12px;
@@ -481,7 +509,7 @@ body.scant #scanscherm{display:flex}
   .duim{width:92px;height:124px;border-radius:14px}
   .kliptitel{font-size:16px}
 
-  #rol, #scanrol, #prol{padding-left:24px;padding-right:24px}
+  #rol, #scanrol, #prol, #bankrol, #bankkop{padding-left:24px;padding-right:24px}
   #balk, #scanbalk{padding-left:24px;padding-right:24px}
 
   /* de balk onderin heeft hier ruimte zat, dus naast elkaar */
@@ -649,6 +677,11 @@ body.werkt #werkscherm{display:flex}
     <header>
       <h1>Studio</h1>
       <span id="versie"></span>
+      <button id="bankknop" aria-label="Bank">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/>
+        </svg>
+      </button>
       <button id="instelknop" aria-label="Instellingen">
         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
@@ -724,6 +757,31 @@ body.werkt #werkscherm{display:flex}
       <button class="knop vol" id="exporteren" disabled>Exporteer</button>
     </div>
   </div>
+  </div>
+
+  <div id="bankscherm">
+    <header class="werkkop">
+      <button id="bankterug" aria-label="Terug">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div id="banktitel">Bank</div>
+      <span id="banktelling"></span>
+    </header>
+
+    <div id="bankkop">
+      <input type="search" id="bankzoek" placeholder="Zoek op wat je ziet…" autocomplete="off" spellcheck="false">
+      <div id="bankfilters">
+        <button class="chip aan" data-filter="alles">Alles</button>
+        <button class="chip" data-filter="top">8 en hoger</button>
+        <button class="chip" data-filter="productie">Productie</button>
+        <button class="chip" data-filter="vlog">Vlog</button>
+      </div>
+    </div>
+
+    <div id="bankrol">
+      <div id="bankstand" class="verborgen"></div>
+      <div id="banklijst"></div>
+    </div>
   </div>
 
   <div id="scanscherm">
@@ -853,7 +911,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v15';
+const APPVERSIE = 'studio v16';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -2083,6 +2141,7 @@ async function scanBestand(bestand){
 
   const uitslag = beoordeel(monsters, duur);
   scanBron = {blob, url, duur, video: v, monsters, soort,
+              bronNaam: (bestand && bestand.name) || '',
               stukken: [], afval: uitslag.afval.slice()};
 
   let stukken;
@@ -2252,8 +2311,50 @@ async function neemStukkenOver(){
   bewaarBlob(bestandId, b.blob);
   teken();
   bewaarStraks();
+
+  const gebankt = await bewaarInBank(b, gekozen);
+
   sluitScan();
-  toon(gekozen.length === 1 ? '1 stuk toegevoegd' : gekozen.length + ' stukken toegevoegd');
+  const aantal = gekozen.length === 1 ? '1 stuk' : gekozen.length + ' stukken';
+  toon(gebankt > 0
+    ? aantal + ' toegevoegd en bewaard in de bank'
+    : aantal + ' toegevoegd');
+}
+
+/* Elk stuk dat je goedkeurt wordt er ook echt uitgesneden en in de bank
+   gezet. Dat kost even tijd — uitsnijden gaat in echte tijd — maar daarna
+   heb je de bronopname nooit meer nodig, ook niet op je telefoon. */
+async function bewaarInBank(b, gekozen){
+  if(!firebaseKlaar()) return 0;
+  if(!await startOpslag()){
+    toon('Opslag niet beschikbaar, alleen aan project toegevoegd');
+    return 0;
+  }
+
+  const snijder = await laadVideo(b.url);
+  document.getElementById('stal').appendChild(snijder);
+  let gelukt = 0;
+
+  for(let i = 0; i < gekozen.length; i++){
+    const s = gekozen[i];
+    zetScanStand('Uitsnijden \u00b7 ' + (i + 1) + ' van ' + gekozen.length,
+                 (i / gekozen.length) * .9);
+    el('scanrol').classList.add('verborgen');
+    el('scanbezig').classList.remove('verborgen');
+    try {
+      const blob = await snijUit(snijder, s.start, s.eind);
+      zetScanStand('Bewaren \u00b7 ' + (i + 1) + ' van ' + gekozen.length,
+                   ((i + .5) / gekozen.length) * .9);
+      await naarBank(blob, s, b.bronNaam || '');
+      gelukt++;
+    } catch(fout){
+      toon('Stuk ' + (i + 1) + ' niet bewaard: ' + (fout && fout.message ? fout.message : 'onbekend'));
+    }
+  }
+
+  try { snijder.pause(); } catch(fout){}
+  snijder.remove();
+  return gelukt;
 }
 
 el('scankiezer').addEventListener('change', async e => {
@@ -2547,6 +2648,220 @@ document.querySelectorAll('#soorten .chip').forEach(knop => {
 
 document.querySelectorAll('#regelsoorten .chip').forEach(knop => {
   knop.addEventListener('click', () => kiesBewerkSoort(knop.dataset.soort));
+});
+
+
+/* ================== DE BANK ==================
+   Een goedgekeurd stuk wordt er echt uitgesneden en als eigen bestandje in
+   Firebase gezet. Daarna heb je de bronopname nooit meer nodig: niet op je
+   Mac en niet op je telefoon. In de database staat alleen wat het is —
+   label, cijfer, herkomst — plus een verwijzing naar het bestand. */
+
+let opslag = null;
+let bank = [];
+let bankZoek = '';
+let bankFilter = 'alles';
+
+// De opslagmodule zit niet in je repo. Eerst daar kijken, anders bij Google.
+function laadOpslagModule(){
+  return new Promise(klaar => {
+    if(typeof firebase === 'undefined'){ klaar(false); return; }
+    if(firebase.storage){ klaar(true); return; }
+    const probeer = adressen => {
+      if(!adressen.length){ klaar(false); return; }
+      const s = document.createElement('script');
+      s.src = adressen[0];
+      s.onload = () => klaar(!!firebase.storage);
+      s.onerror = () => probeer(adressen.slice(1));
+      document.head.appendChild(s);
+    };
+    probeer([
+      'firebase-storage-compat.js',
+      'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js'
+    ]);
+  });
+}
+
+async function startOpslag(){
+  if(opslag) return true;
+  const gelukt = await laadOpslagModule();
+  if(!gelukt) return false;
+  try { opslag = firebase.storage(); } catch(fout){ return false; }
+  return true;
+}
+
+/* ---------- uitsnijden ---------- */
+
+function stroomVan(v){
+  if(v.captureStream) return v.captureStream();
+  if(v.webkitCaptureStream) return v.webkitCaptureStream();
+  if(v.mozCaptureStream) return v.mozCaptureStream();
+  return null;
+}
+
+// Snijdt precies het gekozen stuk uit, op volle breedte en met geluid.
+// Dit gebeurt in echte tijd: vier seconden beeld kost vier seconden.
+async function snijUit(v, van, tot){
+  if(!window.MediaRecorder) throw new Error('deze browser kan niet uitsnijden');
+  const stroom = stroomVan(v);
+  if(!stroom) throw new Error('deze browser geeft geen beeldstroom');
+
+  const type = kiesType();
+  const opnemer = new MediaRecorder(stroom, Object.assign(
+    {videoBitsPerSecond: 4000000},
+    type ? {mimeType: type} : {}
+  ));
+  const brokken = [];
+  opnemer.ondataavailable = e => { if(e.data && e.data.size) brokken.push(e.data); };
+  const gestopt = new Promise(r => { opnemer.onstop = r; });
+
+  try { v.playbackRate = 1; } catch(fout){}
+  v.muted = false;
+  await zoekNaar(v, van);
+
+  opnemer.start(200);
+  try { await v.play(); } catch(fout){ opnemer.stop(); throw fout; }
+
+  await new Promise(klaar => {
+    const kijk = () => {
+      if(v.paused || v.ended || v.currentTime >= tot - .02){ klaar(); return; }
+      requestAnimationFrame(kijk);
+    };
+    requestAnimationFrame(kijk);
+  });
+
+  try { v.pause(); } catch(fout){}
+  v.muted = true;
+  opnemer.stop();
+  await gestopt;
+
+  const blob = new Blob(brokken, {type: opnemer.mimeType || 'video/webm'});
+  if(!blob.size) throw new Error('er kwam geen beeld uit');
+  return blob;
+}
+
+/* ---------- bewaren ---------- */
+
+async function naarBank(blob, stuk, bronNaam){
+  const id = nieuwId();
+  const staart = (blob.type || '').includes('mp4') ? '.mp4' : '.webm';
+  const pad = 'stukken/' + gebruiker.uid + '/' + id + staart;
+
+  const verwijzing = opslag.ref(pad);
+  await verwijzing.put(blob, {contentType: blob.type || 'video/webm'});
+  const url = await verwijzing.getDownloadURL();
+
+  const regel = {
+    label: stuk.label || '',
+    cijfer: stuk.cijfer || 0,
+    waarom: stuk.waarom || '',
+    soort: (scanBron && scanBron.soort) || soort,
+    duur: Math.round((stuk.eind - stuk.start) * 10) / 10,
+    bron: bronNaam || '',
+    van: Math.round(stuk.start * 10) / 10,
+    tot: Math.round(stuk.eind * 10) / 10,
+    datum: Date.now(),
+    grootte: blob.size,
+    pad, url,
+    duim: stuk.duim || null
+  };
+  await vuur.db.ref('werkvloer/' + gebruiker.uid + '/bank/' + id).set(regel);
+  regel.id = id;
+  bank.unshift(regel);
+  return regel;
+}
+
+/* ---------- bankscherm ---------- */
+
+async function laadBank(){
+  if(!firebaseKlaar()) return;
+  try {
+    const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/bank').once('value');
+    const v = s.val() || {};
+    bank = Object.keys(v).map(k => Object.assign({id: k}, v[k]))
+                  .sort((a, b) => (b.datum || 0) - (a.datum || 0));
+  } catch(fout){ bank = []; }
+}
+
+async function openBank(){
+  document.body.classList.add('bankt');
+  el('banklijst').innerHTML = '';
+  el('bankstand').textContent = 'Ophalen\u2026';
+  el('bankstand').classList.remove('verborgen');
+  await laadBank();
+  el('bankstand').classList.add('verborgen');
+  tekenBank();
+}
+
+function sluitBank(){ document.body.classList.remove('bankt'); }
+
+function tekenBank(){
+  const zoek = bankZoek.trim().toLowerCase();
+  const rij = bank.filter(s => {
+    if(bankFilter === 'top' && (s.cijfer || 0) < 8) return false;
+    if(bankFilter === 'productie' && s.soort !== 'productie') return false;
+    if(bankFilter === 'vlog' && s.soort !== 'vlog') return false;
+    if(!zoek) return true;
+    return ((s.label || '') + ' ' + (s.bron || '') + ' ' + (s.waarom || ''))
+             .toLowerCase().includes(zoek);
+  });
+
+  el('banktelling').textContent =
+    bank.length === 0 ? 'Nog niets bewaard'
+    : rij.length === bank.length ? bank.length + ' stukken'
+    : rij.length + ' van ' + bank.length + ' stukken';
+
+  const lijst = el('banklijst');
+  lijst.innerHTML = '';
+
+  if(!bank.length){
+    const p = document.createElement('div');
+    p.className = 'scanleeg';
+    p.textContent = 'Elk stuk dat je na het uitpluizen bewaart komt hier terecht, uit al je opnames.';
+    lijst.appendChild(p);
+    return;
+  }
+  if(!rij.length){
+    const p = document.createElement('div');
+    p.className = 'scanleeg';
+    p.textContent = 'Niets gevonden. Probeer een ander woord.';
+    lijst.appendChild(p);
+    return;
+  }
+
+  rij.forEach(s => {
+    const kaart = document.createElement('div');
+    kaart.className = 'stukkaart gekozen';
+
+    const duim = document.createElement('div');
+    duim.className = 'duim';
+    if(s.duim) duim.style.backgroundImage = 'url(' + s.duim + ')';
+    kaart.appendChild(duim);
+
+    const info = document.createElement('div');
+    info.className = 'klipinfo';
+    const dag = s.datum ? new Date(s.datum).toLocaleDateString('nl-NL', {day:'numeric', month:'short'}) : '';
+    info.innerHTML =
+      '<div class="kliptitel">' + veiligeTekst(s.label || 'Stuk') + '</div>' +
+      '<div class="klipmeta">' + secs(s.duur || 0) +
+        (s.cijfer ? '<span class="cijfer">' + s.cijfer + '/10</span>' : '') +
+        ' <span>' + veiligeTekst(dag) + '</span></div>' +
+      '<div class="stuklabel">' + veiligeTekst(s.bron || '') + '</div>';
+    kaart.appendChild(info);
+    lijst.appendChild(kaart);
+  });
+}
+
+el('bankknop').addEventListener('click', openBank);
+el('bankterug').addEventListener('click', sluitBank);
+el('bankzoek').addEventListener('input', e => { bankZoek = e.target.value; tekenBank(); });
+document.querySelectorAll('#bankfilters .chip').forEach(knop => {
+  knop.addEventListener('click', () => {
+    bankFilter = knop.dataset.filter;
+    document.querySelectorAll('#bankfilters .chip').forEach(c =>
+      c.classList.toggle('aan', c.dataset.filter === bankFilter));
+    tekenBank();
+  });
 });
 
 el('speelknop').addEventListener('click', speelStuk);
