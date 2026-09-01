@@ -279,48 +279,78 @@ function claudeKoppen(sleutel) {
 }
 
 const OPDRACHT =
-  'Je beoordeelt losse stukken uit ruwe video-opnames van een chocolatier, ' +
-  'bedoeld voor korte verticale filmpjes. Je krijgt drie beelden uit hetzelfde ' +
-  'stuk: begin, midden en eind.\n\n' +
+  'Je bent monteur. Je krijgt beelden uit een aaneengesloten stuk ruwe opname ' +
+  'van een chocolatier, bedoeld voor korte verticale filmpjes. Elk beeld heeft ' +
+  'een tijdstip in seconden. Jij bepaalt zelf waar de bruikbare stukken beginnen ' +
+  'en eindigen.\n\n' +
+  'Knip op natuurlijke grenzen: waar een handeling af is, waar een blik wisselt, ' +
+  'waar een beweging tot rust komt. Knip nooit midden in een beweging. ' +
+  'Je krijgt een lijst rustpunten mee, gemeten momenten waarop het beeld even ' +
+  'tot stilstand komt. Gebruik die waar ze passen, maar je mag ervan afwijken ' +
+  'als het beeld daarom vraagt.\n\n' +
   'Hieronder staat wat de maker bruikbaar vindt. Houd je daar strikt aan.\n\n' +
   '{REGELS}\n\n' +
   'Antwoord met alleen een JSON-object, zonder uitleg eromheen en zonder ' +
-  'markdown, met deze sleutels:\n' +
-  '  bruikbaar  true of false\n' +
-  '  label      korte omschrijving in het Nederlands van wat er te zien is, ' +
-  'maximaal zes woorden, bijvoorbeeld "handen vullen bonbonvorm"\n' +
-  '  reden      alleen invullen als bruikbaar false is: in maximaal acht ' +
-  'woorden waarom het afvalt';
+  'markdown, met deze twee sleutels:\n' +
+  '  stukken  lijst van bruikbare stukken, elk met:\n' +
+  '             van    begintijd in seconden\n' +
+  '             tot    eindtijd in seconden\n' +
+  '             label  wat er te zien is, in het Nederlands, maximaal zes ' +
+  'woorden, bijvoorbeeld "handen vullen bonbonvorm"\n' +
+  '  afval    lijst van stukken die je overslaat, elk met van, tot en ' +
+  'reden (maximaal acht woorden)\n\n' +
+  'Regels voor de stukken: minstens {MIN} en hoogstens {MAX} seconden, binnen ' +
+  '{VAN} en {TOT}, ze mogen elkaar niet overlappen, en op volgorde van tijd. ' +
+  'Liever drie goede stukken dan tien halve. Is er niets bruikbaars, geef dan ' +
+  'een lege lijst stukken en zet alles in afval.';
 
-exports.beoordeelStuk = onCall(async req => {
+exports.beoordeelReeks = onCall(async req => {
   const uid = wieBenJe(req);
   const d = req.data || {};
 
-  const beelden = Array.isArray(d.beelden) ? d.beelden.slice(0, 4) : [];
+  const beelden = Array.isArray(d.beelden) ? d.beelden.slice(0, 24) : [];
   if (!beelden.length) throw new HttpsError('invalid-argument', 'Geen beeld ontvangen.');
 
   const regels = String(d.regels || '').trim();
   if (!regels) throw new HttpsError('invalid-argument', 'Geen maatstaf meegegeven.');
 
+  const van = Number(d.van) || 0;
+  const tot = Number(d.tot) || 0;
+  const min = Number(d.min) || 2;
+  const max = Number(d.max) || 5;
+  const rust = Array.isArray(d.rustpunten) ? d.rustpunten.slice(0, 20) : [];
+
   const g = await leesGeheim(uid, 'claude');
   if (!g || !g.sleutel) throw new HttpsError('failed-precondition', 'Koppel eerst je Claude-sleutel.');
 
   const inhoud = [];
-  beelden.forEach((b, i) => {
-    inhoud.push({ type: 'text', text: ['Begin', 'Midden', 'Eind'][i] || ('Beeld ' + (i + 1)) });
+  inhoud.push({
+    type: 'text',
+    text: 'Deze reeks loopt van ' + van.toFixed(1) + ' tot ' + tot.toFixed(1) + ' seconden.' +
+          (rust.length ? '\nRustpunten: ' + rust.map(x => Number(x).toFixed(1)).join(', ') : '')
+  });
+  beelden.forEach(b => {
+    inhoud.push({ type: 'text', text: 't = ' + Number(b.t).toFixed(1) + ' s' });
     inhoud.push({
       type: 'image',
-      source: { type: 'base64', media_type: 'image/jpeg', data: String(b || '') }
+      source: { type: 'base64', media_type: 'image/jpeg', data: String(b.data || '') }
     });
   });
+
+  const opdracht = OPDRACHT
+    .replace('{REGELS}', regels)
+    .replace('{MIN}', String(min))
+    .replace('{MAX}', String(max))
+    .replace('{VAN}', van.toFixed(1))
+    .replace('{TOT}', tot.toFixed(1));
 
   const r = await fetch(CLAUDE_URL, {
     method: 'POST',
     headers: claudeKoppen(g.sleutel),
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 200,
-      system: OPDRACHT.replace('{REGELS}', regels),
+      max_tokens: 1500,
+      system: opdracht,
       messages: [{ role: 'user', content: inhoud }]
     })
   });
@@ -337,8 +367,8 @@ exports.beoordeelStuk = onCall(async req => {
   }
 
   const uit = await r.json();
-  const stukken = Array.isArray(uit.content) ? uit.content : [];
-  const tekst = stukken.filter(x => x && x.type === 'text').map(x => x.text).join('\n');
+  const blokken = Array.isArray(uit.content) ? uit.content : [];
+  const tekst = blokken.filter(x => x && x.type === 'text').map(x => x.text).join('\n');
 
   /* Het model hoort kaal JSON te sturen, maar we halen er nog even
      eventuele backticks omheen weg voor we het proberen te lezen. */
@@ -351,11 +381,37 @@ exports.beoordeelStuk = onCall(async req => {
     throw new HttpsError('internal', 'Onleesbaar antwoord van Claude.');
   }
 
-  return {
-    bruikbaar: oordeel.bruikbaar !== false,
-    label: String(oordeel.label || '').trim().slice(0, 60),
-    reden: String(oordeel.reden || '').trim().slice(0, 80)
+  /* Het model mag zich vergissen in de randen, dus we snijden alles terug
+     naar wat er echt kan: binnen de reeks, lang genoeg, kort genoeg, en
+     op volgorde zonder overlap. */
+  const schoonStuk = s => {
+    let a = Math.max(van, Math.min(tot, Number(s.van)));
+    let b = Math.max(van, Math.min(tot, Number(s.tot)));
+    if (!isFinite(a) || !isFinite(b) || b - a < min) return null;
+    if (b - a > max) b = a + max;
+    return { van: a, tot: b, label: String(s.label || '').trim().slice(0, 60) };
   };
+
+  const stukken = [];
+  let laatste = van;
+  (Array.isArray(oordeel.stukken) ? oordeel.stukken : [])
+    .map(schoonStuk)
+    .filter(Boolean)
+    .sort((x, y) => x.van - y.van)
+    .forEach(s => {
+      if (s.van < laatste) s.van = laatste;
+      if (s.tot - s.van < min) return;
+      stukken.push(s);
+      laatste = s.tot;
+    });
+
+  const afval = (Array.isArray(oordeel.afval) ? oordeel.afval : []).map(a => ({
+    van: Math.max(van, Math.min(tot, Number(a.van) || van)),
+    tot: Math.max(van, Math.min(tot, Number(a.tot) || van)),
+    reden: String(a.reden || '').trim().slice(0, 80) || 'overgeslagen'
+  })).filter(a => a.tot - a.van >= .4);
+
+  return { stukken, afval };
 });
 
 exports.zetKoppeling = onCall(async req => {
