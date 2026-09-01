@@ -146,7 +146,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   flex-direction:column;
   gap:12px;
 }
-#verhoudingen, #tempos{
+#verhoudingen, #tempos, #soorten, #regelsoorten{
   display:flex;
   gap:4px;
   background:var(--achtergrond);
@@ -396,6 +396,8 @@ body.scant #scanscherm{display:flex}
   color:var(--zacht);
   margin:0 0 8px 2px;
 }
+#soorten{margin:10px 0 4px}
+#regelsoorten{margin:0 0 10px}
 #duurblok{margin-bottom:22px}
 #duurveld{width:110px}
 #sleutelveld, #regelveld, #duurveld{
@@ -626,6 +628,10 @@ body.werkt #werkscherm{display:flex}
     </div>
     <div id="kiesrij">
       <span>Lange opname uitpluizen</span>
+      <div id="soorten">
+        <button class="chip aan" data-soort="productie">Productie</button>
+        <button class="chip" data-soort="vlog">Vlog</button>
+      </div>
       <input type="file" id="scankiezer" accept="video/*">
     </div>
     <div id="knoprij">
@@ -681,6 +687,10 @@ body.werkt #werkscherm{display:flex}
 
     <div id="regelblok" class="verborgen">
       <span class="veldkop">Wat is bruikbaar beeld</span>
+      <div id="regelsoorten">
+        <button class="chip aan" data-soort="productie">Productie</button>
+        <button class="chip" data-soort="vlog">Vlog</button>
+      </div>
       <textarea id="regelveld" rows="12" spellcheck="false"></textarea>
     </div>
 
@@ -751,7 +761,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v12';
+const APPVERSIE = 'studio v13';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1866,19 +1876,42 @@ function beoordeel(monsters, duur){
     }
     const a = Math.max(b.start - RANDJE, kop);
     const z = Math.min(b.eind + RANDJE, duur - kop);
-    const lengte = z - a;
-    if(lengte >= MINSTUK){
-      // een goede minuut is geen bruikbaar stuk. We hakken hem in gelijke
-      // happen, zodat je geen restje van een halve seconde overhoudt.
-      const happen = MAXSTUK > 0 ? Math.ceil(lengte / MAXSTUK) : 1;
-      const hap = lengte / happen;
-      for(let k = 0; k < happen; k++){
-        stukken.push({start: a + k * hap, eind: a + (k + 1) * hap});
-      }
-    }
+    // hele reeksen, niet opgehakt: waar er precies geknipt wordt bepaalt
+    // straks het model, dat ziet wat er in beeld gebeurt
+    if(z - a >= MINSTUK) stukken.push({start: a, eind: z});
     else if(b.eind - b.start >= .6) afval.push({start: b.start, eind: b.eind, reden: 'te kort'});
   });
   return {stukken, afval};
+}
+
+// Zonder model kunnen we niet zien waar een handeling ophoudt. Dan maar
+// gelijke happen: beter een botte knip dan een stuk van een minuut.
+function hapOp(reeksen){
+  const uit = [];
+  reeksen.forEach(s => {
+    const lengte = s.eind - s.start;
+    const happen = MAXSTUK > 0 ? Math.ceil(lengte / MAXSTUK) : 1;
+    const hap = lengte / happen;
+    for(let k = 0; k < happen; k++){
+      uit.push({start: s.start + k * hap, eind: s.start + (k + 1) * hap});
+    }
+  });
+  return uit;
+}
+
+// De momenten waarop het beeld even tot rust komt. Daar knipt een monteur ook.
+function rustpunten(monsters, van, tot){
+  const binnen = monsters.filter(m => m.t >= van && m.t <= tot);
+  if(binnen.length < 5) return [];
+  const punten = [];
+  for(let i = 2; i < binnen.length - 2; i++){
+    const m = binnen[i];
+    const buren = [binnen[i-2], binnen[i-1], binnen[i+1], binnen[i+2]];
+    if(buren.every(b => m.beweegt <= b.beweegt)){
+      if(!punten.length || m.t - punten[punten.length - 1] > .8) punten.push(m.t);
+    }
+  }
+  return punten.slice(0, 20).map(t => Math.round(t * 10) / 10);
 }
 
 function duimOp(v, t){
@@ -1914,15 +1947,37 @@ async function scanBestand(bestand){
   if(monsters.length < 3) throw new Error('te weinig beeld gelezen');
 
   const uitslag = beoordeel(monsters, duur);
+  scanBron = {blob, url, duur, video: v, monsters, soort,
+              stukken: [], afval: uitslag.afval.slice()};
 
-  zetScanStand('Beelden ophalen\u2026', .92);
-  for(const s of uitslag.stukken){
+  let stukken;
+  if(firebaseKlaar() && heeftSleutel && uitslag.stukken.length){
+    // gaat het beoordelen onderuit, dan leveren we alsnog happen af.
+    // Beter een botte knip dan een leeg scherm na een minuut wachten.
+    try {
+      const uit = await laatKnippen(uitslag.stukken);
+      stukken = uit.stukken;
+      uit.afval.forEach(a => scanBron.afval.push(a));
+    } catch(fout){
+      scanBron.fout = fout && fout.message ? fout.message : 'beoordelen mislukt';
+      stukken = [];
+    }
+    if(!stukken.length && scanBron.fout) stukken = hapOp(uitslag.stukken);
+  } else {
+    stukken = hapOp(uitslag.stukken);
+  }
+
+  stukken.sort((a, b) => a.start - b.start);
+  scanBron.stukken = stukken;
+  scanBron.afval.sort((a, b) => a.start - b.start);
+
+  zetScanStand('Beelden ophalen\u2026', .95);
+  for(const s of stukken){
     s.duim = await duimOp(v, (s.start + s.eind) / 2);
   }
 
   try { v.pause(); } catch(fout){}
-  scanBron = {blob, url, duur, video: v, monsters, stukken: uitslag.stukken, afval: uitslag.afval};
-  scanKeuze = new Set(uitslag.stukken.map((s, i) => i));
+  scanKeuze = new Set(stukken.map((s, i) => i));
   return scanBron;
 }
 
@@ -1946,35 +2001,24 @@ function tekenScan(){
   el('scanbalk').classList.toggle('verborgen', !b);
   if(!b) return;
 
-  // een stuk dat het model afkeurt blijft zichtbaar en aantikbaar:
-  // jij hebt altijd het laatste woord over je eigen beeld
-  const afgekeurd = i => {
-    const o = b.stukken[i].oordeel;
-    return !!(o && o.bruikbaar === false);
-  };
-  const goedRij = [], slechtRij = [];
-  b.stukken.forEach((s, i) => (afgekeurd(i) ? slechtRij : goedRij).push(i));
+  const goedRij = b.stukken.map((s, i) => i);
 
   const maakKaart = i => {
     const s = b.stukken[i];
     const kaart = document.createElement('div');
-    kaart.className = 'stukkaart' +
-      (scanKeuze.has(i) ? ' gekozen' : '') + (afgekeurd(i) ? ' afgekeurd' : '');
+    kaart.className = 'stukkaart' + (scanKeuze.has(i) ? ' gekozen' : '');
 
     const duim = document.createElement('div');
     duim.className = 'duim';
     if(s.duim) duim.style.backgroundImage = 'url(' + s.duim + ')';
     kaart.appendChild(duim);
 
-    const o = s.oordeel || {};
-    const titel = o.label ? o.label : 'Stuk ' + (i + 1);
     const info = document.createElement('div');
     info.className = 'klipinfo';
     info.innerHTML =
-      '<div class="kliptitel">' + veiligeTekst(titel) + '</div>' +
+      '<div class="kliptitel">' + veiligeTekst(s.label || ('Stuk ' + (i + 1))) + '</div>' +
       '<div class="klipmeta">' + secs(s.eind - s.start) +
-      ' <span>vanaf ' + secs(s.start) + '</span></div>' +
-      (o.reden ? '<div class="stuklabel">' + veiligeTekst(o.reden) + '</div>' : '');
+      ' <span>vanaf ' + secs(s.start) + '</span></div>';
     kaart.appendChild(info);
 
     const vink = document.createElement('div');
@@ -2009,18 +2053,10 @@ function tekenScan(){
   const slechtEl = el('scanslecht');
   slechtEl.innerHTML = '';
 
-  if(slechtRij.length){
-    const k1 = document.createElement('div');
-    k1.className = 'scankop';
-    k1.textContent = slechtRij.length + ' afgekeurd op inhoud';
-    slechtEl.appendChild(k1);
-    slechtRij.forEach(i => slechtEl.appendChild(maakKaart(i)));
-  }
-
   if(b.afval.length){
     const k2 = document.createElement('div');
     k2.className = 'scankop';
-    k2.textContent = b.afval.length + ' afgekeurd op beeld';
+    k2.textContent = b.afval.length + ' overgeslagen';
     slechtEl.appendChild(k2);
     b.afval.forEach(a => {
       const r = document.createElement('div');
@@ -2033,9 +2069,9 @@ function tekenScan(){
 
   const melding = el('scanmelding');
   if(b.fout) melding.textContent = 'Beoordelen liep vast: ' + b.fout;
-  else if(!firebaseKlaar()) melding.textContent = 'Alleen op beeld gezeefd. Log in bij HQ om ook op inhoud te laten beoordelen.';
-  else if(!heeftSleutel) melding.textContent = 'Alleen op beeld gezeefd. Koppel je sleutel bij het tandwiel om ook op inhoud te laten beoordelen.';
-  else melding.textContent = '';
+  else if(!firebaseKlaar()) melding.textContent = 'Alleen op beeld gezeefd, in gelijke happen. Log in bij HQ om te laten knippen op inhoud.';
+  else if(!heeftSleutel) melding.textContent = 'Alleen op beeld gezeefd, in gelijke happen. Koppel je sleutel bij het tandwiel om te laten knippen op inhoud.';
+  else melding.textContent = 'Geknipt volgens je maatstaf voor ' + (SOORTEN[b.soort] || SOORTEN.productie).naam.toLowerCase() + '.';
 
   const n = scanKeuze.size;
   const knop = el('scanvoegtoe');
@@ -2087,9 +2123,6 @@ el('scankiezer').addEventListener('change', async e => {
   zetScanStand('Opname openen\u2026', 0);
   try {
     await scanBestand(bestand);
-    if(firebaseKlaar() && heeftSleutel){
-      await beoordeelStukken();
-    }
     tekenScan();
   } catch(fout){
     zetScanStand('Mislukt: ' + (fout && fout.message ? fout.message : 'onbekend'), 0);
@@ -2126,10 +2159,35 @@ const STANDAARDREGELS =
   '\u2022 iemand anders herkenbaar in beeld\n' +
   '\u2022 alcohol of niet-halal product zichtbaar';
 
+const STANDAARDVLOG =
+  'Dit is vlogbeeld: de maker filmt zichzelf, onderweg of in zijn werkruimte.\n\n' +
+  'Bruikbaar is beeld waarin de maker iets doet, zegt of uitstraalt:\n' +
+  '• hij praat tegen de camera, ook als hij recht in de lens kijkt\n' +
+  '• hij rijdt, loopt of is onderweg\n' +
+  '• rustige sfeerbeelden: koffie, handen aan het stuur, uitzicht\n' +
+  '• een duidelijk gebaar of een uitgesproken gezichtsuitdrukking\n' +
+  '• producten of werk in beeld, maar dat hoeft hier niet\n\n' +
+  'Niet bruikbaar:\n' +
+  '• hij reikt naar de camera om op te nemen of te stoppen\n' +
+  '• hij kijkt weg en er gebeurt seconden achtereen niets\n' +
+  '• zijn hoofd valt half buiten beeld of hij zit helemaal buiten kader\n' +
+  '• iemand anders herkenbaar in beeld\n' +
+  '• alcohol of niet-halal product zichtbaar\n' +
+  '• rommel prominent in beeld';
+
+const SOORTEN = {
+  productie: {naam: 'Productie', sleutel: 'regels',     standaard: null},
+  vlog:      {naam: 'Vlog',      sleutel: 'regelsVlog', standaard: null}
+};
+
+let soort = 'productie';        // waarmee je scant
+let bewerkSoort = 'productie';  // welke maatstaf je in de instellingen bewerkt
+
 let vuur = null;          // {auth, db, fn} zodra Firebase geladen is
 let gebruiker = null;
 let heeftSleutel = false;
-let regels = STANDAARDREGELS;
+let regelsVan = {productie: STANDAARDREGELS, vlog: STANDAARDVLOG};
+const regelsNu = () => regelsVan[soort] || STANDAARDREGELS;
 
 function firebaseKlaar(){
   return !!(vuur && gebruiker);
@@ -2154,11 +2212,13 @@ function startFirebase(){
 }
 
 async function laadInstellingen(){
-  try {
-    const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio/regels').once('value');
-    const v = s.val();
-    if(v && String(v).trim()) regels = String(v);
-  } catch(fout){}
+  for(const k of Object.keys(SOORTEN)){
+    try {
+      const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio/' + SOORTEN[k].sleutel).once('value');
+      const v = s.val();
+      if(v && String(v).trim()) regelsVan[k] = String(v);
+    } catch(fout){}
+  }
   try {
     const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio/maxstuk').once('value');
     const n = Number(s.val());
@@ -2200,7 +2260,11 @@ function tekenInstel(){
   el('duurblok').classList.remove('verborgen');   // werkt ook zonder inloggen
   el('duurveld').value = MAXSTUK;
   el('sleutelontkoppel').classList.toggle('verborgen', !heeftSleutel);
-  el('regelveld').value = regels;
+  el('regelveld').value = regelsVan[bewerkSoort];
+  document.querySelectorAll('#regelsoorten .chip').forEach(c =>
+    c.classList.toggle('aan', c.dataset.soort === bewerkSoort));
+  document.querySelectorAll('#soorten .chip').forEach(c =>
+    c.classList.toggle('aan', c.dataset.soort === soort));
 }
 
 async function koppelSleutel(){
@@ -2231,94 +2295,115 @@ async function ontkoppelSleutel(){
 }
 
 async function bewaarRegels(){
-  regels = el('regelveld').value.trim() || STANDAARDREGELS;
+  const standaard = bewerkSoort === 'vlog' ? STANDAARDVLOG : STANDAARDREGELS;
+  regelsVan[bewerkSoort] = el('regelveld').value.trim() || standaard;
   const n = Number(el('duurveld').value);
   MAXSTUK = (n >= 2 && n <= 60) ? n : 5;
   if(!firebaseKlaar()) return;
+  const nieuw = {maxstuk: MAXSTUK};
+  nieuw[SOORTEN[bewerkSoort].sleutel] = regelsVan[bewerkSoort];
   try {
-    await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio').update({
-      regels, maxstuk: MAXSTUK
-    });
+    await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio').update(nieuw);
   } catch(fout){ toon('Instellingen niet bewaard'); }
+}
+
+function kiesBewerkSoort(k){
+  if(k === bewerkSoort) return;
+  const standaard = bewerkSoort === 'vlog' ? STANDAARDVLOG : STANDAARDREGELS;
+  regelsVan[bewerkSoort] = el('regelveld').value.trim() || standaard;   // niet kwijtraken bij wisselen
+  bewerkSoort = k;
+  tekenInstel();
 }
 
 /* ---------- beelden uit een stuk halen ---------- */
 
-async function beeldenUit(v, stuk){
-  const lengte = stuk.eind - stuk.start;
-  const punten = [
-    stuk.start + lengte * .15,
-    stuk.start + lengte * .5,
-    stuk.start + lengte * .85
-  ];
+const BEELDSTAP = 1.2;   // seconden tussen de beelden die het model ziet
+const MAXBEELDEN = 20;   // per keer, anders wordt het pakket te zwaar
+
+async function beeldenTussen(v, van, tot){
   const doek = document.createElement('canvas');
   const uit = [];
-  for(const t of punten){
+  const aantal = Math.max(2, Math.min(MAXBEELDEN, Math.round((tot - van) / BEELDSTAP)));
+  const stap = (tot - van) / aantal;
+  for(let k = 0; k < aantal; k++){
+    const t = van + stap * (k + .5);
     try {
       await zoekNaar(v, t);
       const bw = v.videoWidth || 640, bh = v.videoHeight || 360;
-      const schaal = Math.min(1, 512 / Math.max(bw, bh));
+      const schaal = Math.min(1, 448 / Math.max(bw, bh));
       doek.width = Math.max(2, Math.round(bw * schaal));
       doek.height = Math.max(2, Math.round(bh * schaal));
       doek.getContext('2d').drawImage(v, 0, 0, doek.width, doek.height);
-      const d = doek.toDataURL('image/jpeg', .6);
+      const d = doek.toDataURL('image/jpeg', .55);
       const komma = d.indexOf(',');
-      if(komma > 0) uit.push(d.slice(komma + 1));
+      if(komma > 0) uit.push({t: Math.round(t * 10) / 10, data: d.slice(komma + 1)});
     } catch(fout){}
   }
   return uit;
 }
 
+// een lange reeks knippen we op in vensters, anders wordt het pakket te groot
+function vensters(van, tot){
+  const maxLengte = BEELDSTAP * MAXBEELDEN;
+  const n = Math.max(1, Math.ceil((tot - van) / maxLengte));
+  const stap = (tot - van) / n;
+  const uit = [];
+  for(let k = 0; k < n; k++) uit.push([van + k * stap, van + (k + 1) * stap]);
+  return uit;
+}
+
 /* ---------- beoordelen ---------- */
 
-async function beoordeelStukken(){
+async function laatKnippen(reeksen){
   const b = scanBron;
-  if(!b || !b.stukken.length) return;
-  if(!firebaseKlaar() || !heeftSleutel) return;
+  const roep = vuur.fn.httpsCallable('beoordeelReeks');
 
-  b.bezig = true;
-  const totaal = b.stukken.length;
+  const werk = [];
+  reeksen.forEach(r => vensters(r.start, r.eind).forEach(v => werk.push(v)));
 
-  for(let i = 0; i < totaal; i++){
-    zetScanStand('Beelden verzamelen \u00b7 ' + (i + 1) + ' van ' + totaal, (i + 1) / totaal * .5);
-    b.stukken[i].beelden = await beeldenUit(b.video, b.stukken[i]);
-  }
+  const stukken = [], afval = [];
+  for(let i = 0; i < werk.length; i++){
+    const [van, tot] = werk[i];
+    zetScanStand('Beelden verzamelen \u00b7 ' + (i + 1) + ' van ' + werk.length,
+                 .5 + (i / werk.length) * .25);
+    const beelden = await beeldenTussen(b.video, van, tot);
+    if(!beelden.length) continue;
 
-  const roep = vuur.fn.httpsCallable('beoordeelStuk');
-  let klaar = 0;
-  const beurt = async i => {
-    const s = b.stukken[i];
-    if(!s.beelden || !s.beelden.length){ s.oordeel = null; return; }
+    zetScanStand('Laten beoordelen \u00b7 ' + (i + 1) + ' van ' + werk.length,
+                 .5 + ((i + .5) / werk.length) * .5);
     try {
-      const r = await roep({ beelden: s.beelden, regels });
-      s.oordeel = r.data || null;
+      const r = await roep({
+        beelden, regels: regelsNu(),
+        van, tot, min: MINSTUK, max: MAXSTUK,
+        rustpunten: rustpunten(b.monsters, van, tot)
+      });
+      const d = r.data || {};
+      (d.stukken || []).forEach(s => stukken.push({
+        start: s.van, eind: s.tot, label: s.label || ''
+      }));
+      (d.afval || []).forEach(a => afval.push({
+        start: a.van, eind: a.tot, reden: a.reden || 'overgeslagen', vanModel: true
+      }));
     } catch(fout){
-      s.oordeel = null;
       b.fout = fout && fout.message ? fout.message : 'beoordelen mislukt';
+      // deze reeks dan maar in gelijke happen, beter dan niets
+      hapOp([{start: van, eind: tot}]).forEach(s => stukken.push(s));
     }
-    s.beelden = null;                       // geheugen meteen weer vrijgeven
-    klaar++;
-    zetScanStand('Beoordelen \u00b7 ' + klaar + ' van ' + totaal, .5 + (klaar / totaal) * .5);
-  };
-
-  // drie tegelijk: sneller dan achter elkaar, rustig genoeg voor de limiet
-  const rij = b.stukken.map((s, i) => i);
-  const werkers = [];
-  for(let k = 0; k < 3; k++){
-    werkers.push((async () => {
-      while(rij.length) await beurt(rij.shift());
-    })());
   }
-  await Promise.all(werkers);
-
-  // wat is afgekeurd gaat vanzelf uit de selectie
-  b.stukken.forEach((s, i) => {
-    if(s.oordeel && s.oordeel.bruikbaar === false) scanKeuze.delete(i);
-  });
-
-  b.bezig = false;
-  b.beoordeeld = true;
+  return {stukken, afval};
 }
+
+document.querySelectorAll('#soorten .chip').forEach(knop => {
+  knop.addEventListener('click', () => {
+    soort = knop.dataset.soort;
+    document.querySelectorAll('#soorten .chip').forEach(c =>
+      c.classList.toggle('aan', c.dataset.soort === soort));
+  });
+});
+
+document.querySelectorAll('#regelsoorten .chip').forEach(knop => {
+  knop.addEventListener('click', () => kiesBewerkSoort(knop.dataset.soort));
+});
 
 el('instelknop').addEventListener('click', openInstel);
 el('instelklaar').addEventListener('click', async () => { await bewaarRegels(); sluitInstel(); });
