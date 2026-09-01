@@ -261,6 +261,103 @@ function zending(o, nr) {
 
 
 
+/* ─────────────────────── Beeld beoordelen ───────────────────────
+
+   Studio stuurt drie beelden uit hetzelfde stuk: begin, midden, eind.
+   Eén beeld liegt te makkelijk — bij drie zie je of er echt iets gebeurt.
+   De maatstaf komt uit de app mee, want dat is Hamza's smaak en niet de mijne. */
+
+const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL = 'claude-haiku-4-5';
+
+function claudeKoppen(sleutel) {
+  return {
+    'content-type': 'application/json',
+    'x-api-key': sleutel,
+    'anthropic-version': '2023-06-01'
+  };
+}
+
+const OPDRACHT =
+  'Je beoordeelt losse stukken uit ruwe video-opnames van een chocolatier, ' +
+  'bedoeld voor korte verticale filmpjes. Je krijgt drie beelden uit hetzelfde ' +
+  'stuk: begin, midden en eind.\n\n' +
+  'Hieronder staat wat de maker bruikbaar vindt. Houd je daar strikt aan.\n\n' +
+  '{REGELS}\n\n' +
+  'Antwoord met alleen een JSON-object, zonder uitleg eromheen en zonder ' +
+  'markdown, met deze sleutels:\n' +
+  '  bruikbaar  true of false\n' +
+  '  label      korte omschrijving in het Nederlands van wat er te zien is, ' +
+  'maximaal zes woorden, bijvoorbeeld "handen vullen bonbonvorm"\n' +
+  '  reden      alleen invullen als bruikbaar false is: in maximaal acht ' +
+  'woorden waarom het afvalt';
+
+exports.beoordeelStuk = onCall(async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+
+  const beelden = Array.isArray(d.beelden) ? d.beelden.slice(0, 4) : [];
+  if (!beelden.length) throw new HttpsError('invalid-argument', 'Geen beeld ontvangen.');
+
+  const regels = String(d.regels || '').trim();
+  if (!regels) throw new HttpsError('invalid-argument', 'Geen maatstaf meegegeven.');
+
+  const g = await leesGeheim(uid, 'claude');
+  if (!g || !g.sleutel) throw new HttpsError('failed-precondition', 'Koppel eerst je Claude-sleutel.');
+
+  const inhoud = [];
+  beelden.forEach((b, i) => {
+    inhoud.push({ type: 'text', text: ['Begin', 'Midden', 'Eind'][i] || ('Beeld ' + (i + 1)) });
+    inhoud.push({
+      type: 'image',
+      source: { type: 'base64', media_type: 'image/jpeg', data: String(b || '') }
+    });
+  });
+
+  const r = await fetch(CLAUDE_URL, {
+    method: 'POST',
+    headers: claudeKoppen(g.sleutel),
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 200,
+      system: OPDRACHT.replace('{REGELS}', regels),
+      messages: [{ role: 'user', content: inhoud }]
+    })
+  });
+
+  if (!r.ok) {
+    const tekst = await r.text().catch(() => '');
+    if (r.status === 401 || r.status === 403) {
+      throw new HttpsError('permission-denied', 'Je Claude-sleutel wordt niet meer geaccepteerd.');
+    }
+    if (r.status === 429) {
+      throw new HttpsError('resource-exhausted', 'Te veel tegelijk. Probeer het zo opnieuw.');
+    }
+    throw new HttpsError('internal', 'Claude antwoordde met ' + r.status + '. ' + tekst.slice(0, 200));
+  }
+
+  const uit = await r.json();
+  const stukken = Array.isArray(uit.content) ? uit.content : [];
+  const tekst = stukken.filter(x => x && x.type === 'text').map(x => x.text).join('\n');
+
+  /* Het model hoort kaal JSON te sturen, maar we halen er nog even
+     eventuele backticks omheen weg voor we het proberen te lezen. */
+  let oordeel = null;
+  try {
+    const schoon = tekst.replace(/```json|```/g, '').trim();
+    const van = schoon.indexOf('{'), tot = schoon.lastIndexOf('}');
+    oordeel = JSON.parse(van >= 0 && tot > van ? schoon.slice(van, tot + 1) : schoon);
+  } catch (fout) {
+    throw new HttpsError('internal', 'Onleesbaar antwoord van Claude.');
+  }
+
+  return {
+    bruikbaar: oordeel.bruikbaar !== false,
+    label: String(oordeel.label || '').trim().slice(0, 60),
+    reden: String(oordeel.reden || '').trim().slice(0, 80)
+  };
+});
+
 exports.zetKoppeling = onCall(async req => {
   const uid = wieBenJe(req);
   const d = req.data || {};
@@ -294,13 +391,35 @@ exports.zetKoppeling = onCall(async req => {
     return { ok: true };
   }
 
+  if (d.claude) {
+    const sleutel = String(d.claude.sleutel || '').trim();
+    if (!sleutel) throw new HttpsError('invalid-argument', 'Vul je sleutel in.');
+
+    /* meteen uitproberen met de kleinst mogelijke vraag */
+    const r = await fetch(CLAUDE_URL, {
+      method: 'POST',
+      headers: claudeKoppen(sleutel),
+      body: JSON.stringify({
+        model: CLAUDE_MODEL, max_tokens: 1,
+        messages: [{ role: 'user', content: 'hoi' }]
+      })
+    });
+    if (!r.ok) {
+      throw new HttpsError('permission-denied',
+        'Claude antwoordde met ' + r.status + '. Controleer of je de sleutel compleet hebt overgenomen.');
+    }
+    await geheimRef(uid).child('claude').set({ sleutel });
+    await werkRef(uid).child('koppeling').update({ claude: true });
+    return { ok: true };
+  }
+
   throw new HttpsError('invalid-argument', 'Ik weet niet wat ik moet koppelen.');
 });
 
 exports.wisKoppeling = onCall(async req => {
   const uid = wieBenJe(req);
   const welke = String((req.data || {}).welke || '');
-  if (!['shopify', 'myparcel'].includes(welke)) {
+  if (!['shopify', 'myparcel', 'claude'].includes(welke)) {
     throw new HttpsError('invalid-argument', 'Onbekende koppeling.');
   }
   await geheimRef(uid).child(welke).remove();
