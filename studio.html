@@ -397,6 +397,18 @@ body.bankt #bankscherm{display:flex}
 #bankfilters{display:flex;gap:4px;background:var(--kaart);border-radius:14px;padding:4px}
 #bankrol{flex:1 1 auto;overflow-y:auto;padding:0 16px 24px;-webkit-overflow-scrolling:touch}
 #bankstand{font-size:14px;color:var(--zacht);padding:12px 2px}
+#bankvoorbeeld{
+  width:100%;
+  aspect-ratio:16/10;
+  background:#18181b;
+  border-radius:14px;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:12px;
+}
+#bankvoorbeeld video{max-width:100%;max-height:100%;display:block}
+#bankfeiten{font-size:14px;color:var(--zacht);line-height:1.6;margin-bottom:18px}
+#bankfeiten b{color:var(--inkt)}
 #banklijst{display:flex;flex-direction:column;gap:10px}
 
 #scanscherm{
@@ -822,6 +834,17 @@ body.werkt #werkscherm{display:flex}
     </div>
   </div>
 
+  <div class="blad" id="bankblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel" id="bankbladtitel">Stuk</h2>
+    <div id="bankvoorbeeld"></div>
+    <div id="bankfeiten"></div>
+    <div id="knoprij">
+      <button class="knop stil" id="bankwis">Verwijder</button>
+      <button class="knop vol" id="bankgebruik">Voeg toe aan project</button>
+    </div>
+  </div>
+
   <div class="blad" id="instelblad">
     <div class="grip"></div>
     <h2 class="bladtitel">Instellingen</h2>
@@ -925,7 +948,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v18';
+const APPVERSIE = 'studio v19';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1537,7 +1560,11 @@ function sluitTrim(){
   teken();
 }
 
-el('waas').addEventListener('click', sluitTrim);
+el('waas').addEventListener('click', () => {
+  if(el('bankblad').classList.contains('aan')){ sluitBankBlad(); return; }
+  if(el('instelblad').classList.contains('aan')){ sluitInstel(); return; }
+  sluitTrim();
+});
 el('trimklaar').addEventListener('click', sluitTrim);
 
 el('verwijderen').addEventListener('click', () => {
@@ -2906,9 +2933,105 @@ function tekenBank(){
         ' <span>' + veiligeTekst(dag) + '</span></div>' +
       '<div class="stuklabel">' + veiligeTekst(s.bron || '') + '</div>';
     kaart.appendChild(info);
+
+    const pijl = document.createElement('div');
+    pijl.className = 'klippijl';
+    pijl.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+    kaart.appendChild(pijl);
+
+    kaart.addEventListener('click', () => openBankBlad(s));
     lijst.appendChild(kaart);
   });
 }
+
+let bankActief = null;
+
+function openBankBlad(s){
+  bankActief = s;
+  el('bankbladtitel').textContent = s.label || 'Stuk';
+
+  const vak = el('bankvoorbeeld');
+  vak.innerHTML = '';
+  const v = document.createElement('video');
+  v.playsInline = true;
+  v.setAttribute('playsinline', '');
+  v.controls = true;
+  v.loop = true;
+  v.preload = 'metadata';
+  v.src = s.url;
+  vak.appendChild(v);
+  try { v.play(); } catch(fout){}
+
+  const dag = s.datum ? new Date(s.datum).toLocaleDateString('nl-NL',
+    {day:'numeric', month:'long', year:'numeric'}) : '';
+  el('bankfeiten').innerHTML =
+    '<b>' + secs(s.duur || 0) + '</b>' +
+    (s.cijfer ? ' \u00b7 cijfer <b>' + s.cijfer + '</b>' : '') +
+    (s.soort ? ' \u00b7 ' + veiligeTekst(s.soort) : '') + '<br>' +
+    (s.waarom ? veiligeTekst(s.waarom) + '<br>' : '') +
+    veiligeTekst(s.bron || '') +
+    (s.van != null ? ' \u00b7 vanaf ' + secs(s.van) : '') +
+    (dag ? '<br>bewaard op ' + veiligeTekst(dag) : '');
+
+  const knop = el('bankgebruik');
+  const inProject = document.body.classList.contains('werkt');
+  knop.disabled = !inProject;
+  knop.textContent = inProject ? 'Voeg toe aan project' : 'Open eerst een project';
+
+  el('waas').classList.add('aan');
+  el('bankblad').classList.add('aan');
+}
+
+function sluitBankBlad(){
+  const v = el('bankvoorbeeld').querySelector('video');
+  if(v){ try { v.pause(); } catch(fout){} }
+  el('bankvoorbeeld').innerHTML = '';
+  el('waas').classList.remove('aan');
+  el('bankblad').classList.remove('aan');
+  bankActief = null;
+}
+
+// Het stuk staat als eigen bestandje in Firebase. We halen het op en zetten
+// het als gewone clip in je project, zodat trimmen en exporteren gewoon werken.
+async function gebruikUitBank(){
+  const s = bankActief;
+  if(!s) return;
+  const knop = el('bankgebruik');
+  knop.disabled = true; knop.textContent = 'Ophalen\u2026';
+  try {
+    const r = await fetch(s.url);
+    if(!r.ok) throw new Error('ophalen mislukt (' + r.status + ')');
+    const blob = await r.blob();
+    const clip = await voegToe(blob);
+    if(s.duim) clip.duim = s.duim;
+    teken();
+    bewaarStraks();
+    sluitBankBlad();
+    sluitBank();
+    toon('Toegevoegd aan je project');
+  } catch(fout){
+    toon('Niet gelukt: ' + (fout && fout.message ? fout.message : 'onbekend'));
+    knop.disabled = false; knop.textContent = 'Voeg toe aan project';
+  }
+}
+
+async function wisUitBank(){
+  const s = bankActief;
+  if(!s || !firebaseKlaar()) return;
+  try {
+    if(s.pad && await startOpslag()) await opslag.ref(s.pad).delete();
+  } catch(fout){}
+  try { await vuur.db.ref('werkvloer/' + gebruiker.uid + '/bank/' + s.id).remove(); } catch(fout){}
+  bank = bank.filter(x => x.id !== s.id);
+  sluitBankBlad();
+  tekenBank();
+  toon('Stuk verwijderd uit de bank');
+}
+
+el('bankgebruik').addEventListener('click', gebruikUitBank);
+el('bankwis').addEventListener('click', wisUitBank);
 
 el('bankknop').addEventListener('click', openBank);
 el('bankknop2').addEventListener('click', openBank);
