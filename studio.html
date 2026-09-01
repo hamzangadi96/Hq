@@ -429,6 +429,12 @@ body.scant #scanscherm{display:flex}
 #scanvoortgang{height:100%;width:0;background:var(--inkt);border-radius:3px;transition:width .2s ease}
 #scanstand{font-size:14px;color:var(--zacht);text-align:center}
 #scantitel{font-size:17px;font-weight:600;letter-spacing:-.01em}
+#bankknop2{
+  margin-left:auto;
+  width:38px;height:38px;
+  background:none;border:none;
+  display:flex;align-items:center;justify-content:center;
+}
 #instelknop{
   margin-left:auto;
   width:38px;height:38px;
@@ -436,6 +442,7 @@ body.scant #scanscherm{display:flex}
   display:flex;align-items:center;justify-content:center;
 }
 #inlogregel{font-size:14px;color:var(--zacht);line-height:1.5;margin-bottom:18px}
+#bankregel{font-size:14px;color:var(--zacht);line-height:1.5;margin-bottom:18px}
 #inlogregel a{color:var(--inkt);font-weight:600}
 .veldkop{
   display:block;
@@ -718,6 +725,11 @@ body.werkt #werkscherm{display:flex}
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <button id="projectnaam">Project</button>
+    <button id="bankknop2" aria-label="Bank">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/>
+      </svg>
+    </button>
   </header>
 
   <div id="leeg">
@@ -829,6 +841,8 @@ body.werkt #werkscherm{display:flex}
       <input type="number" id="duurveld" min="2" max="60" step="1" inputmode="numeric">
     </div>
 
+    <div id="bankregel"></div>
+
     <div id="regelblok" class="verborgen">
       <span class="veldkop">Wat is bruikbaar beeld</span>
       <div id="regelsoorten">
@@ -911,7 +925,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v16';
+const APPVERSIE = 'studio v17';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -2318,16 +2332,16 @@ async function neemStukkenOver(){
   const aantal = gekozen.length === 1 ? '1 stuk' : gekozen.length + ' stukken';
   toon(gebankt > 0
     ? aantal + ' toegevoegd en bewaard in de bank'
-    : aantal + ' toegevoegd');
+    : aantal + ' toegevoegd \u00b7 bank: ' + (b.bankfout || 'onbekend'));
 }
 
 /* Elk stuk dat je goedkeurt wordt er ook echt uitgesneden en in de bank
    gezet. Dat kost even tijd — uitsnijden gaat in echte tijd — maar daarna
    heb je de bronopname nooit meer nodig, ook niet op je telefoon. */
 async function bewaarInBank(b, gekozen){
-  if(!firebaseKlaar()) return 0;
+  if(!firebaseKlaar()){ b.bankfout = 'niet ingelogd'; return 0; }
   if(!await startOpslag()){
-    toon('Opslag niet beschikbaar, alleen aan project toegevoegd');
+    b.bankfout = opslagFout || 'opslag niet beschikbaar';
     return 0;
   }
 
@@ -2348,7 +2362,7 @@ async function bewaarInBank(b, gekozen){
       await naarBank(blob, s, b.bronNaam || '');
       gelukt++;
     } catch(fout){
-      toon('Stuk ' + (i + 1) + ' niet bewaard: ' + (fout && fout.message ? fout.message : 'onbekend'));
+      b.bankfout = (fout && fout.message ? fout.message : 'uitsnijden mislukt');
     }
   }
 
@@ -2476,8 +2490,19 @@ async function laadInstellingen(){
 
 /* ---------- instellingenblad ---------- */
 
+async function toonBankStatus(){
+  const regel = el('bankregel');
+  if(!firebaseKlaar()){ regel.textContent = ''; return; }
+  regel.textContent = 'Bank \u00b7 controleren\u2026';
+  const klaar = await startOpslag();
+  regel.textContent = klaar
+    ? 'Bank \u00b7 klaar om stukken te bewaren'
+    : 'Bank \u00b7 werkt niet: ' + (opslagFout || 'onbekend');
+}
+
 function openInstel(){
   tekenInstel();
+  toonBankStatus();
   el('waas').classList.add('aan');
   el('instelblad').classList.add('aan');
 }
@@ -2658,6 +2683,7 @@ document.querySelectorAll('#regelsoorten .chip').forEach(knop => {
    label, cijfer, herkomst — plus een verwijzing naar het bestand. */
 
 let opslag = null;
+let opslagFout = '';
 let bank = [];
 let bankZoek = '';
 let bankFilter = 'alles';
@@ -2684,9 +2710,14 @@ function laadOpslagModule(){
 
 async function startOpslag(){
   if(opslag) return true;
+  if(!firebaseKlaar()){ opslagFout = 'niet ingelogd'; return false; }
   const gelukt = await laadOpslagModule();
-  if(!gelukt) return false;
-  try { opslag = firebase.storage(); } catch(fout){ return false; }
+  if(!gelukt){ opslagFout = 'opslagmodule laadt niet'; return false; }
+  try { opslag = firebase.storage(); } catch(fout){
+    opslagFout = fout && fout.message ? fout.message : 'opslag start niet';
+    return false;
+  }
+  opslagFout = '';
   return true;
 }
 
@@ -2853,6 +2884,7 @@ function tekenBank(){
 }
 
 el('bankknop').addEventListener('click', openBank);
+el('bankknop2').addEventListener('click', openBank);
 el('bankterug').addEventListener('click', sluitBank);
 el('bankzoek').addEventListener('input', e => { bankZoek = e.target.value; tekenBank(); });
 document.querySelectorAll('#bankfilters .chip').forEach(knop => {
