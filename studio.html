@@ -427,6 +427,56 @@ body.scant #scanscherm{display:flex}
   padding:10px 2px 0;
   line-height:1.5;
 }
+
+/* ---------- breed scherm ----------
+   Uitpluizen doe je achter je Mac, want daar staan je opnames. Dan wil je
+   niet door een kolom van 440 pixels scrollen, maar alles tegelijk zien. */
+@media (min-width: 900px){
+  #schil{max-width:1080px}
+
+  #lijst, #scangoed{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
+    gap:12px;
+    align-items:start;
+  }
+  #scangoed .scankop, #scangoed .scanleeg{grid-column:1 / -1}
+
+  .duim{width:92px;height:124px;border-radius:14px}
+  .kliptitel{font-size:16px}
+
+  #rol, #scanrol, #prol{padding-left:24px;padding-right:24px}
+  #balk, #scanbalk{padding-left:24px;padding-right:24px}
+
+  /* de balk onderin heeft hier ruimte zat, dus naast elkaar */
+  #balk{flex-direction:row;align-items:stretch;gap:20px}
+  #balk > #verhoudingen{flex:0 0 auto;align-self:center}
+  #balk > #kiesrij{flex:1 1 0;justify-content:space-between}
+  #balk > #knoprij{flex:0 0 240px;display:flex;align-items:flex-end}
+  #balk > #knoprij .knop{width:100%}
+  /* binnen een grijs blok moet de gekozen knop juist wit oplichten */
+  #kiesrij #soorten{background:transparent;padding:0}
+
+  /* bladen schuiven niet meer van onderen op, maar staan midden in beeld */
+  .blad{
+    left:50%;
+    right:auto;
+    bottom:auto;
+    top:50%;
+    width:min(560px, 92vw);
+    border-radius:22px;
+    transform:translate(-50%, calc(-50% + 24px));
+    opacity:0;
+    pointer-events:none;
+    transition:transform .2s ease, opacity .2s ease;
+    max-height:86dvh;
+  }
+  .blad.aan{transform:translate(-50%, -50%);opacity:1;pointer-events:auto}
+  .grip{display:none}
+
+  #voorbeeld{max-height:46dvh}
+  #toast{left:50%;right:auto;transform:translateX(-50%);width:min(520px, 92vw)}
+}
 .scankop{
   font-size:14px;
   font-weight:600;
@@ -761,7 +811,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v13';
+const APPVERSIE = 'studio v14';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -943,7 +993,8 @@ async function naarProjecten(){
 
 function zetVerhouding(v){
   verhouding = v;
-  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('aan', c.dataset.verhouding === v));
+  document.querySelectorAll('#verhoudingen .chip').forEach(c =>
+    c.classList.toggle('aan', c.dataset.verhouding === v));
 }
 
 async function tekenProjecten(){
@@ -1333,9 +1384,9 @@ function knoopSleep(greep, kaart){
 
 /* ---------- verhouding ---------- */
 
-document.querySelectorAll('.chip').forEach(chip => {
+document.querySelectorAll('#verhoudingen .chip').forEach(chip => {
   chip.addEventListener('click', () => {
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('aan'));
+    document.querySelectorAll('#verhoudingen .chip').forEach(c => c.classList.remove('aan'));
     chip.classList.add('aan');
     verhouding = chip.dataset.verhouding;
     bewaarStraks();
