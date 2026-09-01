@@ -396,7 +396,9 @@ body.scant #scanscherm{display:flex}
   color:var(--zacht);
   margin:0 0 8px 2px;
 }
-#sleutelveld, #regelveld{
+#duurblok{margin-bottom:22px}
+#duurveld{width:110px}
+#sleutelveld, #regelveld, #duurveld{
   width:100%;
   font:inherit;
   font-size:15px;
@@ -672,6 +674,11 @@ body.werkt #werkscherm{display:flex}
       </div>
     </div>
 
+    <div id="duurblok" class="verborgen">
+      <span class="veldkop">Langste stuk in seconden</span>
+      <input type="number" id="duurveld" min="2" max="60" step="1" inputmode="numeric">
+    </div>
+
     <div id="regelblok" class="verborgen">
       <span class="veldkop">Wat is bruikbaar beeld</span>
       <textarea id="regelveld" rows="12" spellcheck="false"></textarea>
@@ -744,7 +751,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v11';
+const APPVERSIE = 'studio v12';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1665,6 +1672,7 @@ const MINSTUK = 2;               // korter dan dit is geen bruikbaar stuk
 const RANDJE = 0.3;              // extra lucht rond elk stuk, anders voelt de knip abrupt
 const KOP = 1.5;                 // begin en eind van de opname zijn nooit bruikbaar
 const STILMAX = 3;               // zolang mag er niets bewegen voor we afkeuren
+let MAXSTUK = 5;                 // langer dan dit knippen we in gelijke happen
 
 let scanBron = null;             // {blob, url, duur, stukken, afval}
 let scanKeuze = new Set();
@@ -1803,9 +1811,9 @@ function beoordeel(monsters, duur){
     if(m.licht < 22) m.reden = 'zwart beeld';
     else if(m.licht > 242) m.reden = 'uitgebrand';
     else if(m.scherp < scherpGrens) m.reden = 'onscherp';
-    // camera verschuiven raakt het hele beeld tegelijk en hard;
-    // handen die werken raken maar een paar vakken
-    else if(m.vakken >= 12 && m.beweegt > 2.5) m.reden = 'camera beweegt';
+    // het hele beeld dat tegelijk en hard verschuift. Of dat erg is hangt
+    // van de duur af, dus we onthouden het nu alleen en oordelen straks.
+    m.schuift = m.vakken >= 12 && m.beweegt > 2.5;
   });
 
   // stilstand keuren we pas af als het lang genoeg duurt
@@ -1817,6 +1825,23 @@ function beoordeel(monsters, duur){
     const tot = (j < monsters.length ? monsters[j].t : duur);
     if(tot - monsters[i].t >= STILMAX){
       for(let k = i; k < j; k++) monsters[k].reden = 'niets beweegt';
+    }
+    i = j;
+  }
+
+  // Een camera die verschuift is alleen een probleem als het een korte hik is
+  // in een verder rustige opname: je pakt hem op, je stoot ertegen. Rijd je in
+  // de auto of loop je mee, dan schuift het beeld de hele opname door en is dat
+  // gewoon je shot. Dan laten we het oordeel aan het model.
+  const deelSchuift = monsters.filter(m => m.schuift).length / monsters.length;
+  i = 0;
+  while(i < monsters.length){
+    if(monsters[i].reden || !monsters[i].schuift){ i++; continue; }
+    let j = i;
+    while(j < monsters.length && !monsters[j].reden && monsters[j].schuift) j++;
+    const tot = (j < monsters.length ? monsters[j].t : duur);
+    if(tot - monsters[i].t < 5 && deelSchuift < .5){
+      for(let k = i; k < j; k++) monsters[k].reden = 'camera beweegt';
     }
     i = j;
   }
@@ -1841,7 +1866,16 @@ function beoordeel(monsters, duur){
     }
     const a = Math.max(b.start - RANDJE, kop);
     const z = Math.min(b.eind + RANDJE, duur - kop);
-    if(z - a >= MINSTUK) stukken.push({start: a, eind: z});
+    const lengte = z - a;
+    if(lengte >= MINSTUK){
+      // een goede minuut is geen bruikbaar stuk. We hakken hem in gelijke
+      // happen, zodat je geen restje van een halve seconde overhoudt.
+      const happen = MAXSTUK > 0 ? Math.ceil(lengte / MAXSTUK) : 1;
+      const hap = lengte / happen;
+      for(let k = 0; k < happen; k++){
+        stukken.push({start: a + k * hap, eind: a + (k + 1) * hap});
+      }
+    }
     else if(b.eind - b.start >= .6) afval.push({start: b.start, eind: b.eind, reden: 'te kort'});
   });
   return {stukken, afval};
@@ -2126,6 +2160,11 @@ async function laadInstellingen(){
     if(v && String(v).trim()) regels = String(v);
   } catch(fout){}
   try {
+    const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio/maxstuk').once('value');
+    const n = Number(s.val());
+    if(n >= 2 && n <= 60) MAXSTUK = n;
+  } catch(fout){}
+  try {
     const k = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/koppeling/claude').once('value');
     heeftSleutel = k.val() === true;
   } catch(fout){ heeftSleutel = false; }
@@ -2158,6 +2197,8 @@ function tekenInstel(){
   }
   el('sleutelblok').classList.toggle('verborgen', !firebaseKlaar());
   el('regelblok').classList.toggle('verborgen', !firebaseKlaar());
+  el('duurblok').classList.remove('verborgen');   // werkt ook zonder inloggen
+  el('duurveld').value = MAXSTUK;
   el('sleutelontkoppel').classList.toggle('verborgen', !heeftSleutel);
   el('regelveld').value = regels;
 }
@@ -2191,10 +2232,14 @@ async function ontkoppelSleutel(){
 
 async function bewaarRegels(){
   regels = el('regelveld').value.trim() || STANDAARDREGELS;
+  const n = Number(el('duurveld').value);
+  MAXSTUK = (n >= 2 && n <= 60) ? n : 5;
   if(!firebaseKlaar()) return;
   try {
-    await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio/regels').set(regels);
-  } catch(fout){ toon('Maatstaf niet bewaard'); }
+    await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio').update({
+      regels, maxstuk: MAXSTUK
+    });
+  } catch(fout){ toon('Instellingen niet bewaard'); }
 }
 
 /* ---------- beelden uit een stuk halen ---------- */
