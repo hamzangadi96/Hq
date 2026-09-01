@@ -298,6 +298,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   flex:0 0 auto;
 }
 #tijdnu{font-size:14px;font-variant-numeric:tabular-nums}
+#knipknop{height:38px;padding:0 14px;font-size:14px}
 #tijdtotaal{font-size:14px;color:var(--zacht);margin-left:auto;font-variant-numeric:tabular-nums}
 #spoorbalk{
   position:relative;
@@ -863,6 +864,7 @@ body.werkt #werkscherm{display:flex}
         <svg id="speelpauze" class="verborgen" width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
       </button>
       <b id="tijdnu">0,0 s</b>
+      <button class="knop stil" id="knipknop">Knip hier</button>
       <span id="tijdtotaal">0,0 s</span>
     </div>
     <div id="spoorbalk">
@@ -1076,7 +1078,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v23';
+const APPVERSIE = 'studio v24';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -3502,6 +3504,75 @@ async function speelMontage(){
   speelLus = requestAnimationFrame(lus);
 }
 
+/* ---------- knippen op de speelkop ---------- */
+
+// Eén clip wordt er twee, precies op de plek waar de kop staat. Beide helften
+// wijzen naar hetzelfde bronbestand, dus dit kost geen extra opslag.
+async function knipOpKop(){
+  if(!clips.length) return;
+  const vak = opTijd(kopTijd);
+  if(!vak) return;
+  const c = vak.clip;
+  const inClip = c.start + (kopTijd - vak.van) * (c.tempo || 1);
+
+  if(inClip - c.start < .2 || c.eind - inClip < .2){
+    toon('Te dicht op de rand om te knippen');
+    return;
+  }
+
+  stopMontage();
+  const knop = el('knipknop');
+  knop.disabled = true;
+
+  const v = await laadVideo(c.url);
+  document.getElementById('stal').appendChild(v);
+
+  const tweede = Object.assign({}, c, {
+    id: nieuwId(),
+    video: v,
+    bron: null,
+    start: inClip,
+    eind: c.eind,
+    kader: Object.assign({}, c.kader || {x: .5, y: .5})
+  });
+  const oudEind = c.eind;
+  c.eind = inClip;
+  clips.splice(clips.indexOf(c) + 1, 0, tweede);
+
+  try { tweede.duim = await duimOp(v, Math.min(inClip + .1, oudEind)); } catch(fout){}
+
+  knop.disabled = false;
+  teken();
+  bewaarStraks();
+
+  toon('Geknipt', true, () => {
+    const i = clips.indexOf(tweede);
+    if(i >= 0) clips.splice(i, 1);
+    c.eind = oudEind;
+    try { tweede.video.remove(); } catch(fout){}
+    teken();
+    bewaarStraks();
+  });
+}
+
+/* ---------- toetsen ---------- */
+
+function knoopToetsen(){
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if(!document.body.classList.contains('werkt')) return;
+    if(document.body.classList.contains('bankt') || document.body.classList.contains('scant')) return;
+    if(el('trimblad').classList.contains('aan') || el('instelblad').classList.contains('aan')) return;
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+
+    if(e.code === 'Space'){ e.preventDefault(); speelMontage(); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); stopMontage(); zetKop(kopTijd - (e.shiftKey ? 1 : .1)); }
+    else if(e.key === 'ArrowRight'){ e.preventDefault(); stopMontage(); zetKop(kopTijd + (e.shiftKey ? 1 : .1)); }
+    else if(e.key === 's' || e.key === 'S'){ e.preventDefault(); knipOpKop(); }
+  });
+}
+
 /* ---------- de balk zelf ---------- */
 
 function tekenTijdbalk(){
@@ -3579,7 +3650,9 @@ function knoopTijdbalk(){
 
 knoopKader();
 knoopTijdbalk();
+knoopToetsen();
 el('afspelen').addEventListener('click', speelMontage);
+el('knipknop').addEventListener('click', knipOpKop);
 
 el('kadermidden').addEventListener('click', () => {
   if(!actief) return;
