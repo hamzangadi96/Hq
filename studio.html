@@ -925,7 +925,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v17';
+const APPVERSIE = 'studio v18';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -2347,6 +2347,7 @@ async function bewaarInBank(b, gekozen){
 
   const snijder = await laadVideo(b.url);
   document.getElementById('stal').appendChild(snijder);
+  const geluid = await maakGeluidsbron(snijder);
   let gelukt = 0;
 
   for(let i = 0; i < gekozen.length; i++){
@@ -2356,7 +2357,7 @@ async function bewaarInBank(b, gekozen){
     el('scanrol').classList.add('verborgen');
     el('scanbezig').classList.remove('verborgen');
     try {
-      const blob = await snijUit(snijder, s.start, s.eind);
+      const blob = await snijUit(snijder, s.start, s.eind, geluid);
       zetScanStand('Bewaren \u00b7 ' + (i + 1) + ' van ' + gekozen.length,
                    ((i + .5) / gekozen.length) * .9);
       await naarBank(blob, s, b.bronNaam || '');
@@ -2367,6 +2368,7 @@ async function bewaarInBank(b, gekozen){
   }
 
   try { snijder.pause(); } catch(fout){}
+  if(geluid && geluid.ac){ try { geluid.ac.close(); } catch(fout){} }
   snijder.remove();
   return gelukt;
 }
@@ -2723,19 +2725,31 @@ async function startOpslag(){
 
 /* ---------- uitsnijden ---------- */
 
-function stroomVan(v){
-  if(v.captureStream) return v.captureStream();
-  if(v.webkitCaptureStream) return v.webkitCaptureStream();
-  if(v.mozCaptureStream) return v.mozCaptureStream();
-  return null;
-}
-
 // Snijdt precies het gekozen stuk uit, op volle breedte en met geluid.
 // Dit gebeurt in echte tijd: vier seconden beeld kost vier seconden.
-async function snijUit(v, van, tot){
+//
+// Belangrijk: we tekenen het beeld eerst op een doek en nemen dát op.
+// Rechtstreeks de stroom uit een videoveld halen kan Safari niet, en juist
+// daar draait deze app. Dezelfde weg die het exporteren ook gebruikt.
+async function snijUit(v, van, tot, geluidsbron){
   if(!window.MediaRecorder) throw new Error('deze browser kan niet uitsnijden');
-  const stroom = stroomVan(v);
-  if(!stroom) throw new Error('deze browser geeft geen beeldstroom');
+
+  const bw = v.videoWidth || 1280, bh = v.videoHeight || 720;
+  const schaal = Math.min(1, 1280 / Math.max(bw, bh));
+  const doek = document.createElement('canvas');
+  doek.width = Math.round(bw * schaal / 2) * 2;     // even getallen, anders klaagt de codec
+  doek.height = Math.round(bh * schaal / 2) * 2;
+  const ctx = doek.getContext('2d');
+
+  const stroom = doek.captureStream(30);
+
+  // geluid erbij, maar nooit blokkerend
+  try {
+    if(geluidsbron && geluidsbron.doel){
+      const spoorje = geluidsbron.doel.stream.getAudioTracks()[0];
+      if(spoorje) stroom.addTrack(spoorje);
+    }
+  } catch(fout){}
 
   const type = kiesType();
   const opnemer = new MediaRecorder(stroom, Object.assign(
@@ -2747,18 +2761,19 @@ async function snijUit(v, van, tot){
   const gestopt = new Promise(r => { opnemer.onstop = r; });
 
   try { v.playbackRate = 1; } catch(fout){}
-  v.muted = false;
+  v.muted = !geluidsbron;
   await zoekNaar(v, van);
 
   opnemer.start(200);
   try { await v.play(); } catch(fout){ opnemer.stop(); throw fout; }
 
   await new Promise(klaar => {
-    const kijk = () => {
+    const teken = () => {
       if(v.paused || v.ended || v.currentTime >= tot - .02){ klaar(); return; }
-      requestAnimationFrame(kijk);
+      try { ctx.drawImage(v, 0, 0, doek.width, doek.height); } catch(fout){}
+      requestAnimationFrame(teken);
     };
-    requestAnimationFrame(kijk);
+    requestAnimationFrame(teken);
   });
 
   try { v.pause(); } catch(fout){}
@@ -2769,6 +2784,18 @@ async function snijUit(v, van, tot){
   const blob = new Blob(brokken, {type: opnemer.mimeType || 'video/webm'});
   if(!blob.size) throw new Error('er kwam geen beeld uit');
   return blob;
+}
+
+// Eén geluidsleiding voor alle stukken uit dezelfde opname. Een videoveld
+// mag maar één keer aan een geluidsbron gekoppeld worden, dus dit hergebruiken we.
+async function maakGeluidsbron(v){
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    if(ac.state === 'suspended') await ac.resume();
+    const doel = ac.createMediaStreamDestination();
+    ac.createMediaElementSource(v).connect(doel);
+    return {ac, doel};
+  } catch(fout){ return null; }
 }
 
 /* ---------- bewaren ---------- */
