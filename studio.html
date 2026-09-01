@@ -327,6 +327,36 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   color:#fff;
   text-shadow:0 1px 3px rgba(0,0,0,.7);
 }
+#muziekrij{margin-top:6px;height:34px}
+#muziekspoor{
+  height:34px;
+  border-radius:10px;
+  background:#dbeafe;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 10px;
+  cursor:pointer;
+  overflow:hidden;
+  min-width:60px;
+}
+#muzieknaam{
+  font-size:12px;font-weight:600;color:#1e3a5f;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#muziekduur{font-size:11px;color:#3b6a99;margin-left:auto;flex:0 0 auto}
+#muziekleeg{
+  height:34px;
+  border-radius:10px;
+  background:var(--achtergrond);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 10px;
+}
+#muziekleeg > span{font-size:12px;font-weight:600;color:var(--zacht);flex:0 0 auto}
+#muziekkiezer{font-size:11px;min-width:0;flex:1 1 auto}
+
 #speelkop{
   position:absolute;
   top:0;bottom:0;
@@ -495,6 +525,10 @@ body.bankt #bankscherm{display:flex}
   margin-bottom:12px;
 }
 #bankvoorbeeld video{max-width:100%;max-height:100%;display:block}
+#muziekfeiten{font-size:14px;color:var(--zacht);line-height:1.6;margin-bottom:18px}
+.volrij{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.volrij input[type=range]{flex:1 1 auto}
+.volrij b{font-size:14px;min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
 #bankfeiten{font-size:14px;color:var(--zacht);line-height:1.6;margin-bottom:18px}
 #bankfeiten b{color:var(--inkt)}
 #banklijst{display:flex;flex-direction:column;gap:10px}
@@ -871,6 +905,17 @@ body.werkt #werkscherm{display:flex}
       <div id="spoorclips"></div>
       <div id="speelkop"></div>
     </div>
+
+    <div id="muziekrij">
+      <div id="muziekspoor" class="verborgen">
+        <span id="muzieknaam"></span>
+        <span id="muziekduur"></span>
+      </div>
+      <div id="muziekleeg">
+        <span>Muziek</span>
+        <input type="file" id="muziekkiezer" accept="audio/*">
+      </div>
+    </div>
   </div>
 
   <div id="rol" class="verborgen">
@@ -955,6 +1000,23 @@ body.werkt #werkscherm{display:flex}
       <div id="knoprij">
         <button class="knop vol" id="scanvoegtoe" disabled>Voeg stukken toe</button>
       </div>
+    </div>
+  </div>
+
+  <div class="blad" id="muziekblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel" id="muziektitel">Muziek</h2>
+    <div id="muziekfeiten"></div>
+
+    <span class="veldkop">Muziek</span>
+    <div class="volrij"><input type="range" id="muziekvol" min="0" max="100" step="5"><b id="muziekvolgetal"></b></div>
+
+    <span class="veldkop">Geluid uit je clips</span>
+    <div class="volrij"><input type="range" id="clipvol" min="0" max="100" step="5"><b id="clipvolgetal"></b></div>
+
+    <div id="knoprij">
+      <button class="knop stil" id="muziekweg">Verwijder</button>
+      <button class="knop vol" id="muziekklaar">Klaar</button>
     </div>
   </div>
 
@@ -1078,7 +1140,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v24';
+const APPVERSIE = 'studio v25';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1204,6 +1266,11 @@ async function bewaarNu(){
     start: c.start, eind: c.eind, duim: c.duim, tempo: c.tempo || 1,
     kader: c.kader || {x: .5, y: .5}
   }));
+  huidigProject.muziek = muziek
+    ? {bestandId: muziek.bestandId, naam: muziek.naam, duur: muziek.duur}
+    : null;
+  huidigProject.muziekVolume = muziekVolume;
+  huidigProject.clipVolume = clipVolume;
   try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
 }
 
@@ -1242,6 +1309,25 @@ async function openProject(id){
       kader: m.kader || {x: .5, y: .5}
     });
   }
+
+  muziek = null;
+  muziekVolume = typeof pr.muziekVolume === 'number' ? pr.muziekVolume : .6;
+  clipVolume = typeof pr.clipVolume === 'number' ? pr.clipVolume : 1;
+  if(pr.muziek && pr.muziek.bestandId){
+    try {
+      const rec = await haalUit('bestanden', pr.muziek.bestandId);
+      if(rec){
+        const url = URL.createObjectURL(rec.blob);
+        const a = await laadAudio(url);
+        stal.appendChild(a);
+        a.volume = muziekVolume;
+        muziek = {bestandId: pr.muziek.bestandId, naam: pr.muziek.naam || 'Muziek',
+                  duur: pr.muziek.duur || (isFinite(a.duration) ? a.duration : 0),
+                  url, audio: a, blob: rec.blob};
+      }
+    } catch(fout){}
+  }
+
   naarWerkscherm();
 }
 
@@ -1253,6 +1339,11 @@ function naarWerkscherm(){
 
 async function naarProjecten(){
   await bewaarNu();
+  if(typeof stopMontage === 'function') stopMontage();
+  if(muziek){
+    try { muziek.audio.pause(); muziek.audio.remove(); URL.revokeObjectURL(muziek.url); } catch(fout){}
+    muziek = null;
+  }
   clips.forEach(c => { try { URL.revokeObjectURL(c.url); } catch(fout){} c.video.remove(); });
   clips = [];
   huidigProject = null;
@@ -1323,7 +1414,10 @@ async function tekenProjecten(wachtenMetOpruimen){
 async function ruimOp(alle){
   try {
     const inGebruik = new Set();
-    alle.forEach(pr => (pr.clips || []).forEach(c => inGebruik.add(c.bestandId)));
+    alle.forEach(pr => {
+      (pr.clips || []).forEach(c => inGebruik.add(c.bestandId));
+      if(pr.muziek && pr.muziek.bestandId) inGebruik.add(pr.muziek.bestandId);
+    });
     const bestanden = await allesUit('bestanden');
     for(const b of bestanden){ if(!inGebruik.has(b.id)) await wisUit('bestanden', b.id); }
   } catch(fout){}
@@ -1587,6 +1681,7 @@ function teken(){
   el('exporteren').disabled = leeg;
 
   if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
+  if(typeof tekenMuziekspoor === 'function') tekenMuziekspoor();
 
   lijstEl.innerHTML = '';
   clips.forEach((c, i) => {
@@ -2043,12 +2138,31 @@ async function draaiExport(){
     ac = new (window.AudioContext || window.webkitAudioContext)();
     if(ac.state === 'suspended') await ac.resume();
     const doel = ac.createMediaStreamDestination();
+
+    // Clipgeluid en muziek gaan elk door hun eigen kraan, zodat de balans
+    // die je in beeld hoort ook in het geëxporteerde bestand zit.
+    const clipKraan = ac.createGain();
+    clipKraan.gain.value = clipVolume;
+    clipKraan.connect(doel);
     clips.forEach(c => {
       if(!c.bron){
         c.bron = ac.createMediaElementSource(c.video);
-        c.bron.connect(doel);
+        c.bron.connect(clipKraan);
       }
     });
+
+    if(muziekAan()){
+      const muziekKraan = ac.createGain();
+      muziekKraan.gain.value = muziekVolume;
+      muziekKraan.connect(doel);
+      if(!muziek.bron) muziek.bron = ac.createMediaElementSource(muziek.audio);
+      muziek.bron.connect(muziekKraan);
+      try {
+        muziek.audio.currentTime = 0;
+        await muziek.audio.play();
+      } catch(fout){}
+    }
+
     const spoorje = doel.stream.getAudioTracks()[0];
     if(spoorje) stroom.addTrack(spoorje);
   } catch(fout){ ac = null; }
@@ -2116,7 +2230,12 @@ async function draaiExport(){
   draait = false;
   try { opnemer.stop(); } catch(fout){}
   await gestopt;
-  if(ac){ try { ac.close(); } catch(fout){} clips.forEach(c => c.bron = null); }
+  if(muziekAan()){ try { muziek.audio.pause(); } catch(fout){} }
+  if(ac){
+    try { ac.close(); } catch(fout){}
+    clips.forEach(c => c.bron = null);
+    if(muziek) muziek.bron = null;
+  }
 
   if(!brokken.length) throw new Error('geen beeld opgenomen');
   return new Blob(brokken, {type: brokken[0].type || type || 'video/mp4'});
@@ -3425,6 +3544,9 @@ async function zetKop(t, stil){
   const totaal = totaleDuur();
   kopTijd = Math.max(0, Math.min(totaal, t));
   werkKopBij();
+  if(muziekAan() && !speelt){
+    try { muziek.audio.currentTime = Math.min(kopTijd, Math.max(0, (muziek.duur || 0) - .05)); } catch(fout){}
+  }
   const vak = opTijd(kopTijd);
   if(!vak) { tekenSpelerBeeld(); return; }
   const inClip = vak.clip.start + (kopTijd - vak.van) * (vak.clip.tempo || 1);
@@ -3447,6 +3569,7 @@ function stopMontage(){
   speelt = false;
   if(speelLus){ cancelAnimationFrame(speelLus); speelLus = null; }
   clips.forEach(c => { try { c.video.pause(); } catch(fout){} });
+  if(muziekAan()){ try { muziek.audio.pause(); } catch(fout){} }
   speelKlok = null;
   el('afspelen').classList.remove('speelt');
   el('speelpijl').classList.remove('verborgen');
@@ -3459,6 +3582,13 @@ async function speelMontage(){
   if(kopTijd >= totaleDuur() - .05) await zetKop(0);
 
   speelt = true;
+  zetVolumes();
+  if(muziekAan()){
+    try {
+      muziek.audio.currentTime = Math.min(kopTijd, Math.max(0, (muziek.duur || 0) - .05));
+      muziek.audio.play();
+    } catch(fout){}
+  }
   el('afspelen').classList.add('speelt');
   el('speelpijl').classList.add('verborgen');
   el('speelpauze').classList.remove('verborgen');
@@ -3648,11 +3778,149 @@ function knoopTijdbalk(){
   balk.addEventListener('pointercancel', () => { neer = false; sleeptKop = false; });
 }
 
+
+/* ================== MUZIEK ==================
+   Een tweede spoor onder je clips. De muziek loopt door over de knippen heen,
+   want dat is precies wat een reel een reel maakt. Het bestand komt op dezelfde
+   plek te liggen als je clips, dus het blijft bewaard bij je project. */
+
+let muziek = null;          // {bestandId, naam, duur, url, audio}
+let muziekVolume = .6;      // hoe hard de muziek staat
+let clipVolume = 1;         // hoe hard het geluid uit je clips staat
+
+function muziekAan(){ return !!(muziek && muziek.audio); }
+
+function zetVolumes(){
+  if(muziek && muziek.audio) muziek.audio.volume = muziekVolume;
+  clips.forEach(c => {
+    // versnelde clips blijven stil, dat klinkt anders als een piepstem
+    if((c.tempo || 1) > 1) return;
+    try { c.video.volume = clipVolume; } catch(fout){}
+  });
+}
+
+function laadAudio(url){
+  return new Promise((klaar, mis) => {
+    const a = document.createElement('audio');
+    a.preload = 'auto';
+    a.src = url;
+    let af = false;
+    const vangnet = setTimeout(() => { if(!af){ af = true; mis(new Error('geen geluid na 20 s')); } }, 20000);
+    ['loadedmetadata','canplay'].forEach(n => a.addEventListener(n, () => {
+      if(af || a.readyState < 1) return;
+      af = true; clearTimeout(vangnet); klaar(a);
+    }));
+    a.addEventListener('error', () => {
+      if(af) return; af = true; clearTimeout(vangnet);
+      mis(new Error('dit geluidsbestand kan niet geopend worden'));
+    }, {once:true});
+    try { a.load(); } catch(fout){}
+  });
+}
+
+async function zetMuziek(bestand){
+  let blob = bestand;
+  try { blob = new Blob([bestand], {type: bestand.type || 'audio/mpeg'}); } catch(fout){}
+  if(!blob || !blob.size) throw new Error('leeg bestand');
+
+  const url = URL.createObjectURL(blob);
+  const a = await laadAudio(url);
+  document.getElementById('stal').appendChild(a);
+
+  const bestandId = nieuwId();
+  muziek = {
+    bestandId, naam: (bestand && bestand.name) || 'Muziek',
+    duur: isFinite(a.duration) ? a.duration : 0,
+    url, audio: a, blob
+  };
+  a.volume = muziekVolume;
+  bewaarBlob(bestandId, blob);
+  teken();
+  bewaarStraks();
+}
+
+function haalMuziekWeg(){
+  if(!muziek) return;
+  const oud = muziek;
+  try { oud.audio.pause(); oud.audio.remove(); } catch(fout){}
+  muziek = null;
+  sluitMuziekblad();
+  teken();
+  bewaarStraks();
+  toon('Muziek verwijderd', true, async () => {
+    try {
+      const a = await laadAudio(oud.url);
+      document.getElementById('stal').appendChild(a);
+      oud.audio = a; a.volume = muziekVolume;
+      muziek = oud;
+      teken();
+      bewaarStraks();
+    } catch(fout){ toon('Terugzetten mislukt'); }
+  });
+}
+
+/* ---------- het spoor ---------- */
+
+function tekenMuziekspoor(){
+  const spoor = el('muziekspoor');
+  const leegrij = el('muziekleeg');
+  spoor.classList.toggle('verborgen', !muziekAan());
+  leegrij.classList.toggle('verborgen', muziekAan());
+  if(!muziekAan()) return;
+
+  const totaal = totaleDuur() || 1;
+  const deel = Math.min(1, (muziek.duur || totaal) / totaal);
+  spoor.style.width = (deel * 100) + '%';
+  el('muzieknaam').textContent = muziek.naam;
+  el('muziekduur').textContent = secs(Math.min(muziek.duur || totaal, totaal));
+}
+
+/* ---------- blad ---------- */
+
+function openMuziekblad(){
+  if(!muziekAan()) return;
+  el('muziektitel').textContent = muziek.naam;
+  el('muziekfeiten').textContent = 'Lengte ' + secs(muziek.duur || 0) +
+    ' \u00b7 je montage duurt ' + secs(totaleDuur());
+  el('muziekvol').value = Math.round(muziekVolume * 100);
+  el('clipvol').value = Math.round(clipVolume * 100);
+  el('muziekvolgetal').textContent = Math.round(muziekVolume * 100) + '%';
+  el('clipvolgetal').textContent = Math.round(clipVolume * 100) + '%';
+  el('waas').classList.add('aan');
+  el('muziekblad').classList.add('aan');
+}
+
+function sluitMuziekblad(){
+  el('waas').classList.remove('aan');
+  el('muziekblad').classList.remove('aan');
+}
+
 knoopKader();
 knoopTijdbalk();
 knoopToetsen();
 el('afspelen').addEventListener('click', speelMontage);
 el('knipknop').addEventListener('click', knipOpKop);
+
+el('muziekkiezer').addEventListener('change', async e => {
+  const bestand = (e.target.files || [])[0];
+  if(!bestand) return;
+  try { await zetMuziek(bestand); toon('Muziek toegevoegd'); }
+  catch(fout){ toon('Niet gelukt: ' + (fout && fout.message ? fout.message : 'onbekend')); }
+  e.target.value = '';
+});
+el('muziekspoor').addEventListener('click', openMuziekblad);
+el('muziekklaar').addEventListener('click', () => { sluitMuziekblad(); bewaarStraks(); });
+el('muziekweg').addEventListener('click', haalMuziekWeg);
+el('muziekvol').addEventListener('input', e => {
+  muziekVolume = Number(e.target.value) / 100;
+  el('muziekvolgetal').textContent = e.target.value + '%';
+  zetVolumes();
+});
+el('clipvol').addEventListener('input', e => {
+  clipVolume = Number(e.target.value) / 100;
+  el('clipvolgetal').textContent = e.target.value + '%';
+  zetVolumes();
+});
 
 el('kadermidden').addEventListener('click', () => {
   if(!actief) return;
