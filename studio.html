@@ -59,6 +59,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 /* lijst */
 #rol, #prol{
   flex:1 1 auto;
+  min-height:150px;          /* de cliplijst mag nooit platgedrukt worden */
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
   padding:4px 16px 24px;
@@ -274,6 +275,66 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   margin-bottom:14px;
 }
 #voorbeeld video{max-width:100%;max-height:100%;display:block}
+#speelvak{
+  flex:0 0 auto;
+  background:#000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  max-height:38dvh;
+  padding:8px 0;
+}
+#speeldoek{max-width:100%;max-height:36dvh;display:block}
+
+#tijdbalk{flex:0 0 auto;padding:10px 16px 6px}
+#tijdrij{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+#afspelen{
+  width:40px;height:40px;
+  border-radius:20px;
+  border:none;
+  background:var(--inkt);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  flex:0 0 auto;
+}
+#tijdnu{font-size:14px;font-variant-numeric:tabular-nums}
+#tijdtotaal{font-size:14px;color:var(--zacht);margin-left:auto;font-variant-numeric:tabular-nums}
+#spoorbalk{
+  position:relative;
+  height:56px;
+  border-radius:12px;
+  overflow:hidden;
+  background:var(--achtergrond);
+  touch-action:none;
+  cursor:pointer;
+}
+#spoorclips{display:flex;height:100%;gap:2px}
+.spoorblok{
+  height:100%;
+  background:#d4d4d8 center/cover;
+  border-radius:8px;
+  position:relative;
+  overflow:hidden;
+  min-width:6px;
+  cursor:pointer;
+}
+.spoorblok span{
+  position:absolute;
+  left:5px;bottom:4px;
+  font-size:10px;
+  font-weight:600;
+  color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,.7);
+}
+#speelkop{
+  position:absolute;
+  top:0;bottom:0;
+  width:2px;
+  background:var(--rood);
+  pointer-events:none;
+  box-shadow:0 0 0 1px rgba(255,255,255,.6);
+}
+
 #voorbeeldvak{position:relative}
 #speelknop{
   position:absolute;
@@ -793,6 +854,23 @@ body.werkt #werkscherm{display:flex}
     <p id="status"></p>
   </div>
 
+  <div id="speelvak" class="verborgen"><canvas id="speeldoek"></canvas></div>
+
+  <div id="tijdbalk" class="verborgen">
+    <div id="tijdrij">
+      <button id="afspelen" aria-label="Afspelen">
+        <svg id="speelpijl" width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg id="speelpauze" class="verborgen" width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+      </button>
+      <b id="tijdnu">0,0 s</b>
+      <span id="tijdtotaal">0,0 s</span>
+    </div>
+    <div id="spoorbalk">
+      <div id="spoorclips"></div>
+      <div id="speelkop"></div>
+    </div>
+  </div>
+
   <div id="rol" class="verborgen">
     <div id="lijst"></div>
   </div>
@@ -998,7 +1076,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v22';
+const APPVERSIE = 'studio v23';
 document.getElementById('versie').textContent = APPVERSIE;
 
 const MATEN = {
@@ -1184,6 +1262,7 @@ function zetVerhouding(v){
   verhouding = v;
   document.querySelectorAll('#verhoudingen .chip').forEach(c =>
     c.classList.toggle('aan', c.dataset.verhouding === v));
+  if(typeof tekenTijdbalk === 'function' && clips.length) tekenTijdbalk();
 }
 
 // Weggooien mag nooit definitief voelen. Het project verdwijnt meteen, maar
@@ -1505,6 +1584,8 @@ function teken(){
   el('rol').classList.toggle('verborgen', leeg);
   el('exporteren').disabled = leeg;
 
+  if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
+
   lijstEl.innerHTML = '';
   clips.forEach((c, i) => {
     c.naam = 'Clip ' + (i + 1);
@@ -1627,6 +1708,7 @@ function openTrim(c){
 
 function sluitTrim(){
   stopSpelen();
+  if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
   if(actief){
     try { actief.video.pause(); } catch(fout){}
     document.getElementById('stal').appendChild(actief.video);
@@ -3279,7 +3361,225 @@ document.querySelectorAll('#bankfilters .chip').forEach(knop => {
   });
 });
 
+
+/* ================== TIJDLIJN ==================
+   Tot nu toe was een project een lijst kaartjes: daar is tijd geen ruimte.
+   Hier wordt het een liniaal. De speler laat je hele montage zien, de kop
+   staat waar je bent, en slepen brengt je erheen. */
+
+let kopTijd = 0;          // waar de speelkop staat, in seconden van de montage
+let speelt = false;
+let speelLus = null;
+let speelKlok = null;     // welke clip nu aan de beurt is
+let sleeptKop = false;
+
+// Elke clip krijgt zijn plek op de liniaal. Snelheid telt mee: een clip van
+// vier seconden op 2x duurt op de tijdlijn maar twee seconden.
+function tijdIndex(){
+  const uit = [];
+  let loper = 0;
+  clips.forEach(c => {
+    const lengte = klipDuur(c);
+    uit.push({clip: c, van: loper, tot: loper + lengte, lengte});
+    loper += lengte;
+  });
+  return uit;
+}
+
+function opTijd(t){
+  const index = tijdIndex();
+  for(const vak of index){
+    if(t >= vak.van && t < vak.tot) return vak;
+  }
+  return index.length ? index[index.length - 1] : null;
+}
+
+function spelerMaat(){
+  const doel = MATEN[verhouding] || MATEN['9:16'];
+  return doel;
+}
+
+function tekenSpelerBeeld(){
+  const doek = el('speeldoek');
+  const ctx = doek.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, doek.width, doek.height);
+  const vak = opTijd(kopTijd);
+  if(vak && vak.clip.video && vak.clip.video.readyState >= 2){
+    dekkend(ctx, vak.clip.video, doek.width, doek.height, vak.clip.kader);
+  }
+}
+
+function zetSpelerMaat(){
+  const doek = el('speeldoek');
+  const [b, hh] = spelerMaat();
+  const schaal = Math.min(1, 540 / Math.max(b, hh));
+  doek.width = Math.round(b * schaal);
+  doek.height = Math.round(hh * schaal);
+}
+
+// De kop verzetten: zoek de clip, spring erheen, teken.
+async function zetKop(t, stil){
+  const totaal = totaleDuur();
+  kopTijd = Math.max(0, Math.min(totaal, t));
+  werkKopBij();
+  const vak = opTijd(kopTijd);
+  if(!vak) { tekenSpelerBeeld(); return; }
+  const inClip = vak.clip.start + (kopTijd - vak.van) * (vak.clip.tempo || 1);
+  if(!stil){
+    try { await zoekNaar(vak.clip.video, inClip); } catch(fout){}
+  }
+  tekenSpelerBeeld();
+}
+
+function werkKopBij(){
+  const totaal = totaleDuur() || 1;
+  el('speelkop').style.left = (kopTijd / totaal * 100) + '%';
+  el('tijdnu').textContent = secs(kopTijd);
+  el('tijdtotaal').textContent = secs(totaal);
+}
+
+/* ---------- afspelen ---------- */
+
+function stopMontage(){
+  speelt = false;
+  if(speelLus){ cancelAnimationFrame(speelLus); speelLus = null; }
+  clips.forEach(c => { try { c.video.pause(); } catch(fout){} });
+  speelKlok = null;
+  el('afspelen').classList.remove('speelt');
+  el('speelpijl').classList.remove('verborgen');
+  el('speelpauze').classList.add('verborgen');
+}
+
+async function speelMontage(){
+  if(speelt){ stopMontage(); return; }
+  if(!clips.length) return;
+  if(kopTijd >= totaleDuur() - .05) await zetKop(0);
+
+  speelt = true;
+  el('afspelen').classList.add('speelt');
+  el('speelpijl').classList.add('verborgen');
+  el('speelpauze').classList.remove('verborgen');
+
+  const start = async vak => {
+    speelKlok = vak;
+    const inClip = vak.clip.start + (kopTijd - vak.van) * (vak.clip.tempo || 1);
+    await zoekNaar(vak.clip.video, inClip);
+    try { vak.clip.video.playbackRate = vak.clip.tempo || 1; } catch(fout){}
+    vak.clip.video.muted = (vak.clip.tempo || 1) > 1;
+    try { await vak.clip.video.play(); } catch(fout){}
+  };
+
+  const eerste = opTijd(kopTijd);
+  if(eerste) await start(eerste);
+
+  const lus = async () => {
+    if(!speelt) return;
+    const vak = speelKlok;
+    if(vak){
+      const c = vak.clip;
+      kopTijd = vak.van + (c.video.currentTime - c.start) / (c.tempo || 1);
+      if(c.video.currentTime >= c.eind - .03 || c.video.ended){
+        try { c.video.pause(); } catch(fout){}
+        const index = tijdIndex();
+        const plek = index.indexOf(index.find(x => x.clip === c));
+        if(plek >= 0 && plek + 1 < index.length){
+          kopTijd = index[plek + 1].van;
+          await start(index[plek + 1]);
+        } else {
+          kopTijd = totaleDuur();
+          werkKopBij();
+          tekenSpelerBeeld();
+          stopMontage();
+          return;
+        }
+      }
+      werkKopBij();
+      tekenSpelerBeeld();
+    }
+    speelLus = requestAnimationFrame(lus);
+  };
+  speelLus = requestAnimationFrame(lus);
+}
+
+/* ---------- de balk zelf ---------- */
+
+function tekenTijdbalk(){
+  const leeg = clips.length === 0;
+  el('speelvak').classList.toggle('verborgen', leeg);
+  el('tijdbalk').classList.toggle('verborgen', leeg);
+  if(leeg){ stopMontage(); return; }
+
+  zetSpelerMaat();
+  const totaal = totaleDuur() || 1;
+  const rij = el('spoorclips');
+  rij.innerHTML = '';
+
+  tijdIndex().forEach(vak => {
+    const blok = document.createElement('div');
+    blok.className = 'spoorblok';
+    blok.style.width = (vak.lengte / totaal * 100) + '%';
+    if(vak.clip.duim) blok.style.backgroundImage = 'url(' + vak.clip.duim + ')';
+    const merk = document.createElement('span');
+    merk.textContent = secs(vak.lengte);
+    blok.appendChild(merk);
+    blok.dataset.klip = vak.clip.id;
+    rij.appendChild(blok);
+  });
+
+  werkKopBij();
+  tekenSpelerBeeld();
+}
+
+// De blokken vullen de hele balk, dus tikken en slepen gebeuren op dezelfde
+// plek. Een tik opent de clip, zodra je beweegt wordt het slepen van de kop.
+function knoopTijdbalk(){
+  const balk = el('spoorbalk');
+  let neer = false, startX = 0, beginBlok = null;
+
+  const naarTijd = e => {
+    const doos = balk.getBoundingClientRect();
+    const deel = Math.max(0, Math.min(1, (e.clientX - doos.left) / doos.width));
+    return deel * (totaleDuur() || 0);
+  };
+
+  balk.addEventListener('pointerdown', e => {
+    if(!clips.length) return;
+    neer = true; sleeptKop = false;
+    startX = e.clientX;
+    beginBlok = e.target.closest('.spoorblok');
+    try { balk.setPointerCapture(e.pointerId); } catch(fout){}
+    e.preventDefault();
+  });
+
+  balk.addEventListener('pointermove', e => {
+    if(!neer) return;
+    if(!sleeptKop){
+      if(Math.abs(e.clientX - startX) < 5) return;   // nog een tik, geen sleep
+      sleeptKop = true;
+      stopMontage();
+    }
+    zetKop(naarTijd(e));
+  });
+
+  const los = e => {
+    if(!neer) return;
+    neer = false;
+    if(!sleeptKop){
+      // niet gesleept: een tik op een blok opent de clip, elders verzet je de kop
+      const c = beginBlok && clips.find(x => x.id === beginBlok.dataset.klip);
+      if(c) openTrim(c); else zetKop(naarTijd(e));
+    }
+    sleeptKop = false;
+    beginBlok = null;
+  };
+  balk.addEventListener('pointerup', los);
+  balk.addEventListener('pointercancel', () => { neer = false; sleeptKop = false; });
+}
+
 knoopKader();
+knoopTijdbalk();
+el('afspelen').addEventListener('click', speelMontage);
 
 el('kadermidden').addEventListener('click', () => {
   if(!actief) return;
