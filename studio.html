@@ -168,6 +168,35 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 /* niet uitrekken: dan klopt het kader niet meer met wat je ziet */
 #kaderdoek{display:block;margin:0 auto;max-width:100%}
 #kadermidden{margin-top:10px;width:100%}
+#tekstblok{margin:4px 0 16px}
+#tekstblok > span{
+  display:block;
+  font-size:14px;
+  font-weight:600;
+  color:var(--zacht);
+  margin:0 0 8px 2px;
+}
+#tekstveld{
+  width:100%;
+  height:48px;
+  border-radius:14px;
+  border:none;
+  background:var(--achtergrond);
+  font-family:inherit;
+  font-size:16px;
+  color:var(--inkt);
+  padding:0 14px;
+  margin-bottom:8px;
+}
+#tekstveld:focus{outline:2px solid var(--inkt);outline-offset:-2px}
+#tekstplekken{
+  display:flex;
+  gap:4px;
+  background:var(--achtergrond);
+  border-radius:14px;
+  padding:4px;
+}
+
 #tempoblok{margin:4px 0 16px}
 #tempoblok > span{
   display:block;
@@ -1058,7 +1087,7 @@ body.werkt #werkscherm{display:flex}
   </div>
 
   <div id="gereedalgemeen"><button class="werktuig" data-doe="knip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v12M18 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 15l12-9M18 15L6 6"/></svg><span>Knip</span></button><button class="werktuig" data-doe="muziek"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg><span>Muziek</span></button><button class="werktuig" data-doe="optijd"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h10M3 12h7M3 18h4"/><path d="M17 7v10M17 17l-2.5-2.5M17 17l2.5-2.5"/></svg><span>Op tijd</span></button><button class="werktuig" data-doe="reel"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.3 4.6.5-3.5 3.1 1 4.6L12 13.2 8 15.5l1-4.6L5.5 7.8l4.6-.5z"/><path d="M18.5 17.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/></svg><span>Reel</span></button><button class="werktuig" data-doe="bank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/></svg><span>Bank</span></button></div>
-    <div id="gereedclip"><button class="werktuig" data-doe="bijknip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16M8 4v16M16 4v16"/></svg><span>Bijknippen</span></button><button class="werktuig" data-doe="snelheid"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Snelheid</span></button><button class="werktuig" data-doe="kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg><span>Kader</span></button><button class="werktuig" data-doe="kopie"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></svg><span>Dupliceer</span></button><button class="werktuig" data-doe="weg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span>Verwijder</span></button></div>
+    <div id="gereedclip"><button class="werktuig" data-doe="bijknip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16M8 4v16M16 4v16"/></svg><span>Bijknippen</span></button><button class="werktuig" data-doe="snelheid"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Snelheid</span></button><button class="werktuig" data-doe="kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg><span>Kader</span></button><button class="werktuig" data-doe="tekst"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg><span>Tekst</span></button><button class="werktuig" data-doe="kopie"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></svg><span>Dupliceer</span></button><button class="werktuig" data-doe="weg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span>Verwijder</span></button></div>
 
   <div id="balk">
     <div id="verhoudingen">
@@ -1289,6 +1318,17 @@ body.werkt #werkscherm{display:flex}
       <button class="knop stil" id="kadermidden">Terug naar het midden</button>
     </div>
 
+    <div id="tekstblok">
+      <span>Tekst in beeld</span>
+      <input type="text" id="tekstveld" maxlength="90" autocomplete="off"
+             placeholder="Bijvoorbeeld: 200 bonbons op één dag">
+      <div id="tekstplekken">
+        <button class="chip" data-plek="boven">Boven</button>
+        <button class="chip" data-plek="midden">Midden</button>
+        <button class="chip aan" data-plek="onder">Onder</button>
+      </div>
+    </div>
+
     <div id="tempoblok">
       <span>Snelheid</span>
       <div id="tempos">
@@ -1334,7 +1374,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v38';
+const APPVERSIE = 'studio v39';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1478,6 +1518,7 @@ async function bewaarNu(){
     opname: c.opname || null, opnamebron: c.opnamebron || '',
     cijfer: c.cijfer || 0, label: c.label || '',
     uitgeknipt: !!c.uitgeknipt,
+    tekst: c.tekst || '', tekstplek: c.tekstplek || 'onder',
     kader: c.kader || {x: .5, y: .5}
   }));
   huidigProject.muziek = muziek
@@ -1525,6 +1566,7 @@ async function openProject(id){
       opname: m.opname || null, opnamebron: m.opnamebron || '',
       cijfer: m.cijfer || 0, label: m.label || '',
       uitgeknipt: !!m.uitgeknipt,
+      tekst: m.tekst || '', tekstplek: m.tekstplek || 'onder',
       kader: m.kader || {x: .5, y: .5}
     });
   }
@@ -2325,6 +2367,7 @@ function openTrim(c, paneel){
   el('trimknip').classList.toggle('verborgen', !(wat === 'alles' || wat === 'knip'));
   el('kaderblok').dataset.gevraagd = (wat === 'alles' || wat === 'kader') ? 'ja' : 'nee';
   el('tempoblok').classList.toggle('verborgen', !(wat === 'alles' || wat === 'snelheid'));
+  el('tekstblok').classList.toggle('verborgen', !(wat === 'alles' || wat === 'tekst'));
   el('trimtitel').textContent = c.naam +
     (c.opname ? ' \u00b7 ' + opnameTekst(c.opname) : '') +
     (c.cijfer ? ' \u00b7 ' + c.cijfer + '/10' : '');
@@ -2537,6 +2580,10 @@ function werkTrimBij(){
   el('tduur').textContent  = secs(klipDuur(c));
   document.querySelectorAll('#tempos .chip').forEach(k =>
     k.classList.toggle('aan', Number(k.dataset.tempo) === (c.tempo || 1)));
+  const veld = el('tekstveld');
+  if(document.activeElement !== veld) veld.value = c.tekst || '';
+  document.querySelectorAll('#tekstplekken .chip').forEach(k =>
+    k.classList.toggle('aan', k.dataset.plek === (c.tekstplek || 'onder')));
   el('kaderblok').classList.toggle('verborgen',
     !kaderNodig(c) || el('kaderblok').dataset.gevraagd === 'nee');
   tekenKader();
@@ -2781,6 +2828,7 @@ async function draaiExport(){
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, B, H);
     if(huidige && huidige.video.readyState >= 2) dekkend(ctx, huidige.video, B, H, huidige.kader);
+    if(huidige) tekenTekst(ctx, huidige, B, H);
     requestAnimationFrame(lus);
   })();
 
@@ -4356,6 +4404,66 @@ function spelerMaat(){
   return doel;
 }
 
+
+/* ---------- tekst in beeld ----------
+
+   Een reel zonder haak in de eerste seconde wordt weggescrold. Elke clip mag
+   daarom één regel meekrijgen die zolang die clip duurt in beeld staat.
+
+   Twee dingen bepalen hoe het eruitziet. Ten eerste een donkere rand om de
+   letters: witte tekst op een lichte chocoladewerkbank leest anders niet. Ten
+   tweede de plek: onderaan een reel staan de knoppen van TikTok en Instagram
+   overheen, dus 'onder' betekent hier op tachtig procent van de hoogte en niet
+   tegen de rand aan. */
+
+function tekstRegels(ctx, tekst, maxBreed){
+  const uit = [];
+  String(tekst).split('\n').forEach(stuk => {
+    let nu = '';
+    stuk.trim().split(/\s+/).forEach(w => {
+      if(!w) return;
+      const proef = nu ? nu + ' ' + w : w;
+      if(nu && ctx.measureText(proef).width > maxBreed){ uit.push(nu); nu = w; }
+      else nu = proef;
+    });
+    if(nu) uit.push(nu);
+  });
+  return uit.slice(0, 4);
+}
+
+function tekenTekst(ctx, c, B, H){
+  const tekst = (c && c.tekst ? String(c.tekst) : '').trim();
+  if(!tekst) return;
+
+  const grootte = Math.max(12, Math.round(H * .042));
+  ctx.save();
+  ctx.font = '700 ' + grootte + 'px Inter, -apple-system, "Helvetica Neue", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+
+  const regels = tekstRegels(ctx, tekst, B * .84);
+  const regelhoog = grootte * 1.3;
+  const blok = regels.length * regelhoog;
+
+  const plek = c.tekstplek || 'onder';
+  let midden;
+  if(plek === 'boven') midden = H * .14 + blok / 2;
+  else if(plek === 'midden') midden = H / 2;
+  else midden = H * .80 - blok / 2;
+
+  regels.forEach((r, i) => {
+    const y = midden - blok / 2 + regelhoog * (i + .5);
+    ctx.lineWidth = Math.max(2, grootte * .17);
+    ctx.strokeStyle = 'rgba(0,0,0,.6)';
+    ctx.strokeText(r, B / 2, y);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(r, B / 2, y);
+  });
+  ctx.restore();
+}
+
 function tekenSpelerBeeld(){
   const doek = el('speeldoek');
   const ctx = doek.getContext('2d');
@@ -4365,6 +4473,8 @@ function tekenSpelerBeeld(){
   if(vak && vak.clip.video && vak.clip.video.readyState >= 2){
     dekkend(ctx, vak.clip.video, doek.width, doek.height, vak.clip.kader);
   }
+  // wat je in de speler ziet moet zijn wat je straks exporteert
+  if(vak) tekenTekst(ctx, vak.clip, doek.width, doek.height);
 }
 
 /* Vroeger tekende de speler altijd op 540 punten lang. Op een scherm dat het
@@ -5011,6 +5121,7 @@ function knoopGereedschap(){
     bijknip:  () => { if(gekozenClip) openTrim(gekozenClip, 'knip'); },
     snelheid: () => { if(gekozenClip) openTrim(gekozenClip, 'snelheid'); },
     kader:    () => { if(gekozenClip) openTrim(gekozenClip, 'kader'); },
+    tekst:    () => { if(gekozenClip) openTrim(gekozenClip, 'tekst'); },
     kopie:    () => dupliceerClip(),
     weg:      () => verwijderGekozen()
   };
@@ -5439,6 +5550,26 @@ el('clipvol').addEventListener('input', e => {
   clipVolume = Number(e.target.value) / 100;
   el('clipvolgetal').textContent = e.target.value + '%';
   zetVolumes();
+});
+
+// Terwijl je typt zie je het meteen op de tijdlijnspeler; zo hoef je niet te
+// gokken of het past en of het niet over je bonbons heen valt.
+el('tekstveld').addEventListener('input', e => {
+  if(!actief) return;
+  actief.tekst = e.target.value;
+  tekenSpelerBeeld();
+  bewaarStraks();
+});
+
+document.querySelectorAll('#tekstplekken .chip').forEach(k => {
+  k.addEventListener('click', () => {
+    if(!actief) return;
+    actief.tekstplek = k.dataset.plek;
+    document.querySelectorAll('#tekstplekken .chip').forEach(c =>
+      c.classList.toggle('aan', c === k));
+    tekenSpelerBeeld();
+    bewaarStraks();
+  });
 });
 
 el('kadermidden').addEventListener('click', () => {
