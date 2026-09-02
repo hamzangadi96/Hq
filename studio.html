@@ -189,7 +189,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 #woordenveld:focus{outline:2px solid var(--inkt);outline-offset:-2px}
 #woordenuitleg{font-size:13px;color:var(--zachter);line-height:1.5;margin-top:8px}
 
-#reellengtes{
+#reellengtes, #reelopeningen{
   display:flex;
   gap:4px;
   background:var(--achtergrond);
@@ -197,6 +197,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   padding:4px;
   margin-bottom:14px;
 }
+#reelopeningen .chip{font-size:13px}
 #reelfeiten{font-size:14px;color:var(--zacht);line-height:1.5;margin-bottom:16px}
 #reelplan{font-size:14px;line-height:1.6;margin:2px 0 18px}
 #reelplan b{font-weight:600}
@@ -1403,6 +1404,12 @@ body.werkt #werkscherm{display:flex}
     <h2 class="bladtitel">Reel maken</h2>
     <div id="reelfeiten"></div>
 
+    <span class="veldkop">Waarmee opent hij</span>
+    <div id="reelopeningen">
+      <button class="chip aan" data-opening="verhaal">Verhaal van de dag</button>
+      <button class="chip" data-opening="beste">Beste shot eerst</button>
+    </div>
+
     <span class="veldkop">Hoe lang</span>
     <div id="reellengtes">
       <button class="chip" data-lengte="15">15 s</button>
@@ -1584,7 +1591,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v49';
+const APPVERSIE = 'studio v51';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1741,6 +1748,7 @@ async function bewaarNu(){
   huidigProject.kortezijde = kortezijde;
   huidigProject.logoUit = logoUit;
   huidigProject.duiken = duiken;
+  huidigProject.reelOpening = reelOpening;
   huidigProject.beeldsnelheid = beeldsnelheid;
   try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
 }
@@ -1748,6 +1756,7 @@ async function bewaarNu(){
 async function nieuwProject(){
   logoUit = false;
   duiken = true;
+  reelOpening = 'verhaal';
   vergeetSpraak();
   huidigProject = {
     id: nieuwId(), naam: datumNaam(),
@@ -1793,6 +1802,7 @@ async function openProject(id){
   kortezijde = pr.kortezijde === 720 ? 720 : 1080;
   logoUit = !!pr.logoUit;
   duiken = pr.duiken !== false;
+  reelOpening = pr.reelOpening === 'beste' ? 'beste' : 'verhaal';
   vergeetSpraak();
   beeldsnelheid = [24, 30, 60].includes(pr.beeldsnelheid) ? pr.beeldsnelheid : 30;
   muziekVolume = typeof pr.muziekVolume === 'number' ? pr.muziekVolume : .6;
@@ -5886,6 +5896,12 @@ function knoopGereedschap(){
 const MOMENTGAT = 20 * 60 * 1000;      // twintig minuten stilte is een nieuw moment
 let reelDoel = 30;
 
+/* Waarmee open je? Op volgorde van opnemen vertel je het verhaal van de dag,
+   en dat leest prettig. Maar op TikTok beslist de eerste seconde of iemand
+   blijft kijken, en je sterkste shot is zelden je eerste opname. Dus mag je
+   kiezen: het verhaal, of de haak vooraan en de rest op volgorde. */
+let reelOpening = 'verhaal';      // 'verhaal' of 'beste'
+
 function momentenVan(lijst){
   const met = lijst.filter(c => c.opname).slice().sort((a, b) => a.opname - b.opname);
   const zonder = lijst.filter(c => !c.opname);
@@ -5912,7 +5928,17 @@ function reelPlan(doel){
   const momenten = momentenVan(clips).map(m => m.slice().sort(opWaarde));
   // Een reel snijdt kort. Mik op ongeveer acht beelden, maar houd elk beeld
   // tussen twee en vier seconden: korter leest niet, langer sleept.
-  const perBeeld = Math.max(2, Math.min(4, doel / 8));
+  let perBeeld = Math.max(2, Math.min(4, doel / 8));
+
+  /* Weten we de maat van je muziek, dan maken we er meteen een heel aantal
+     tellen van. Dan valt je reel vanzelf op de tel en hoef je achteraf niet
+     nog eens op "knip op de maat" te tikken. */
+  const maat = muziek && muziek.maat;
+  let tellen = 0;
+  if(maat && maat.slag > .15 && maat.slag <= 4){
+    tellen = Math.max(1, Math.round(perBeeld / maat.slag));
+    perBeeld = tellen * maat.slag;
+  }
 
   const gekozen = [];
   let totaal = 0, ronde = 0, gepakt = true;
@@ -5939,7 +5965,18 @@ function reelPlan(doel){
     if(at !== bt) return at - bt;
     return clips.indexOf(a.c) - clips.indexOf(b.c);
   });
-  return {gekozen, totaal, momenten, perBeeld};
+
+  // De haak vooraan: het sterkste shot opent, de rest houdt zijn volgorde.
+  let haak = null;
+  if(reelOpening === 'beste' && gekozen.length > 1){
+    haak = gekozen.reduce((beste, g) => opWaarde(g.c, beste.c) < 0 ? g : beste, gekozen[0]);
+    const plek = gekozen.indexOf(haak);
+    if(plek > 0){
+      gekozen.splice(plek, 1);
+      gekozen.unshift(haak);
+    }
+  }
+  return {gekozen, totaal, momenten, perBeeld, tellen, haak};
 }
 
 function tekenReel(){
@@ -5952,6 +5989,8 @@ function tekenReel(){
 
   document.querySelectorAll('#reellengtes .chip').forEach(k =>
     k.classList.toggle('aan', Number(k.dataset.lengte) === reelDoel));
+  document.querySelectorAll('#reelopeningen .chip').forEach(k =>
+    k.classList.toggle('aan', k.dataset.opening === reelOpening));
 
   const plan = reelPlan(reelDoel);
   const vak = el('reelplan');
@@ -5966,8 +6005,21 @@ function tekenReel(){
 
   const kop = document.createElement('div');
   kop.innerHTML = '<b>' + plan.gekozen.length + ' beelden</b> van maximaal ' +
-    secs(plan.perBeeld) + ' \u00b7 samen <b>' + secs(plan.totaal) + '</b>';
+    secs(plan.perBeeld) +
+    (plan.tellen ? ' (' + plan.tellen + (plan.tellen === 1 ? ' tel' : ' tellen') + ')' : '') +
+    ' \u00b7 samen <b>' + secs(plan.totaal) + '</b>';
   vak.appendChild(kop);
+
+  // vertellen waar hij mee opent, want dat is de belangrijkste seconde
+  if(plan.gekozen.length){
+    const eerste = plan.gekozen[0].c;
+    const r = document.createElement('div');
+    r.className = 'momentregel';
+    r.innerHTML = '<span>Opent met ' +
+      (eerste.label ? veiligeTekst(eerste.label) : (eerste.opname ? opnameTekst(eerste.opname) : 'de eerste clip')) +
+      '</span><span>' + (eerste.cijfer ? eerste.cijfer + '/10' : '') + '</span>';
+    vak.appendChild(r);
+  }
 
   plan.momenten.forEach((m, i) => {
     const uitDitMoment = plan.gekozen.filter(g => m.includes(g.c)).length;
@@ -6003,6 +6055,10 @@ function openReel(){
   if(clips.length < 2){ toon('Je hebt minstens twee clips nodig'); return; }
   stopMontage();
   tekenReel();
+  // de maat opzoeken als dat nog niet gebeurd is, dan kan het plan erop mikken
+  if(muziekAan() && muziek.maat === undefined){
+    zoekMaat().then(() => { if(el('reelblad').classList.contains('aan')) tekenReel(); });
+  }
   el('waas').classList.add('aan');
   el('reelblad').classList.add('aan');
 }
@@ -6010,6 +6066,50 @@ function openReel(){
 function sluitReel(){
   el('waas').classList.remove('aan');
   el('reelblad').classList.remove('aan');
+}
+
+
+/* Waar knippen we het stuk uit dat we overhouden?
+
+   Zonder gesproken tekst uit het midden: het begin van een shot is meestal
+   aanloop. Maar zodra je iets zegt, is het midden precies de verkeerde plek —
+   dan houd je "...en dan giet ik de vor" over. Dus proberen we elk venster dat
+   bij het begin van een gesproken regel aanvangt, en kiezen we het venster dat
+   de meeste hele zinnen bevat. Een half afgekapte zin telt als min één, want
+   die is erger dan geen zin. */
+
+function besteVenster(c, wil){
+  const vanaf = c.start, tot = c.eind;
+  const midden = (vanaf + tot) / 2;
+  const uitMidden = Math.max(vanaf, Math.min(tot - wil, midden - wil / 2));
+
+  const regels = (c.ondertitels || []).filter(r => regelInBeeld(c, r));
+  if(!regels.length) return uitMidden;
+
+  const kandidaten = [uitMidden];
+  regels.forEach(r => {
+    kandidaten.push(Math.max(vanaf, Math.min(tot - wil, r.van - .2)));
+  });
+
+  const punten = begin => {
+    const eind = begin + wil;
+    let score = 0;
+    regels.forEach(r => {
+      if(r.van >= begin - .05 && r.tot <= eind + .05) score += 1;          // hele zin
+      else if(r.tot > begin && r.van < eind) score -= 1;                    // half afgekapt
+    });
+    return score;
+  };
+
+  let beste = uitMidden, besteScore = punten(uitMidden);
+  kandidaten.forEach(k => {
+    const s = punten(k);
+    // gelijk spel gaat naar het venster dat het dichtst bij het midden ligt
+    if(s > besteScore || (s === besteScore && Math.abs(k - uitMidden) < Math.abs(beste - uitMidden))){
+      beste = k; besteScore = s;
+    }
+  });
+  return beste;
 }
 
 function maakReel(){
@@ -6024,18 +6124,17 @@ function maakReel(){
     const wil = lengte * (c.tempo || 1);
     const vol = c.eind - c.start;
     if(wil < vol - .05){
-      // uit het midden knippen: het begin van een shot is meestal aanloop
-      const midden = (c.start + c.eind) / 2;
-      let begin = Math.max(c.start, midden - wil / 2);
-      if(begin + wil > c.eind) begin = c.eind - wil;
-      c.start = begin;
+      const begin = besteVenster(c, wil);
       c.eind = begin + wil;
+      c.start = begin;
     }
     nieuw.push(c);
   });
 
   clips.length = 0;
   Array.prototype.push.apply(clips, nieuw);
+  // let op: hier niet alsnog op tijd sorteren, anders zakt je haak terug naar
+  // zijn plek in de dag en is de opening weer weg
   sluitReel();
   teken();
   bewaarStraks();
@@ -6050,6 +6149,13 @@ function maakReel(){
 
 document.querySelectorAll('#reellengtes .chip').forEach(k => {
   k.addEventListener('click', () => { reelDoel = Number(k.dataset.lengte) || 30; tekenReel(); });
+});
+document.querySelectorAll('#reelopeningen .chip').forEach(k => {
+  k.addEventListener('click', () => {
+    reelOpening = k.dataset.opening === 'beste' ? 'beste' : 'verhaal';
+    tekenReel();
+    bewaarStraks();
+  });
 });
 el('reelterug').addEventListener('click', sluitReel);
 el('reelmaak').addEventListener('click', maakReel);
