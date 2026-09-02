@@ -787,6 +787,10 @@ body.scant #scanscherm{display:flex}
 }
 #scanvoortgang{height:100%;width:0;background:var(--inkt);border-radius:3px;transition:width .2s ease}
 #scanstand{font-size:14px;color:var(--zacht);text-align:center}
+#scanwakker{font-size:13px;color:var(--zachter);text-align:center;margin-top:10px;line-height:1.5}
+#scanwakker:empty{display:none}
+#ondertitelwakker{font-size:13px;color:var(--zachter);text-align:center;margin-top:8px;line-height:1.5}
+#ondertitelwakker:empty{display:none}
 #scantitel{font-size:17px;font-weight:600;letter-spacing:-.01em}
 #exporteren{margin-left:auto;height:38px;padding:0 16px;font-size:14px;flex:0 0 auto}
 #instelknop{
@@ -1288,6 +1292,7 @@ body.werkt #werkscherm{display:flex}
     <div id="scanbezig">
       <div id="scanspoor"><div id="scanvoortgang"></div></div>
       <div id="scanstand">Opname openen…</div>
+      <div id="scanwakker"></div>
     </div>
 
     <div id="scanrol" class="verborgen">
@@ -1370,6 +1375,7 @@ body.werkt #werkscherm{display:flex}
     <div id="ondertitelstand" class="verborgen">
       <div id="ondertitelspoor"><div id="ondertitelvoortgang"></div></div>
       <div id="ondertitelmelding"></div>
+      <div id="ondertitelwakker"></div>
     </div>
     <div id="ondertitellijst"></div>
     <div id="knoprij">
@@ -1578,7 +1584,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v48';
+const APPVERSIE = 'studio v49';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2863,7 +2869,6 @@ function zoekNaar(v, t){
 
 let bezigMetExport = false;
 let stopVerzoek = false;
-let wakkerSlot = null;
 
 function kiesType(){
   const opties = [
@@ -2976,7 +2981,8 @@ el('exportstart').addEventListener('click', async () => {
   el('exportuitleg').textContent = 'Laat je scherm aan staan. Dit duurt ongeveer zo lang als de video zelf.';
   zetVoortgang(0);
 
-  try { if(navigator.wakeLock) wakkerSlot = await navigator.wakeLock.request('screen'); } catch(fout){}
+  klusBegin();
+  await wakker(true);
 
   try {
     const blob = await draaiExport();
@@ -2991,7 +2997,7 @@ el('exportstart').addEventListener('click', async () => {
     el('bewaren').style.display = 'none';
   } finally {
     bezigMetExport = false;
-    if(wakkerSlot){ try { wakkerSlot.release(); } catch(fout){} wakkerSlot = null; }
+    wakker(false);
   }
 });
 
@@ -3557,9 +3563,66 @@ function veiligeTekst(t){
   return d.innerHTML;
 }
 
+
+/* ================== LANGE KLUSSEN ==================
+
+   Uitpluizen, uitknippen, verstaan en exporteren duren minuten. Legt iOS het
+   scherm in die tijd om, dan bevriest de pagina en stopt de klus halverwege —
+   zonder melding, want er is niemand meer om die te tonen. Dus vragen we het
+   toestel wakker te blijven zolang er iets loopt.
+
+   Wissel je toch even van app, dan neemt iOS het slot af. Bij terugkomst
+   pakken we het opnieuw. */
+
+let wakkerSlot = null;
+let wakkerNodig = false;
+
+async function wakker(aan){
+  wakkerNodig = !!aan;
+  if(!navigator.wakeLock) return;
+  if(aan){
+    if(wakkerSlot) return;
+    try {
+      wakkerSlot = await navigator.wakeLock.request('screen');
+      wakkerSlot.addEventListener('release', () => { wakkerSlot = null; });
+    } catch(fout){ wakkerSlot = null; }
+  } else if(wakkerSlot){
+    try { await wakkerSlot.release(); } catch(fout){}
+    wakkerSlot = null;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && wakkerNodig && !wakkerSlot) wakker(true);
+});
+
+function wakkerRegel(){
+  return navigator.wakeLock
+    ? 'Je scherm blijft vanzelf aan zolang dit loopt.'
+    : 'Houd je scherm aan, anders stopt hij halverwege.';
+}
+
+/* Hoelang duurt dit nog? Niet gokken vooraf, maar meten terwijl het loopt: na
+   het eerste stuk weet je genoeg om de rest te schatten. Onder de tien seconden
+   zeggen we niets, dan is een schatting alleen maar onrust. */
+
+let klusStart = 0;
+
+function klusBegin(){ klusStart = Date.now(); }
+
+function restTekst(deel){
+  if(!klusStart || !(deel > .04) || deel >= .999) return '';
+  const bezig = (Date.now() - klusStart) / 1000;
+  const rest = bezig / deel - bezig;
+  if(rest < 10) return '';
+  if(rest < 90) return ' \u00b7 nog ' + Math.round(rest / 5) * 5 + ' s';
+  return ' \u00b7 nog ' + Math.round(rest / 60) + ' min';
+}
+
 function zetScanStand(tekst, deel){
   el('scanstand').textContent =
-    (scanTotaal > 1 ? 'Opname ' + scanNu + ' van ' + scanTotaal + ' \u00b7 ' : '') + tekst;
+    (scanTotaal > 1 ? 'Opname ' + scanNu + ' van ' + scanTotaal + ' \u00b7 ' : '') +
+    tekst + restTekst(deel);
   el('scanvoortgang').style.width = Math.round(Math.max(0, Math.min(1, deel)) * 100) + '%';
 }
 
@@ -3689,6 +3752,7 @@ function maakStukKaart(b, bi, i, isBeste){
 
 function sluitScan(){
   document.body.classList.remove('scant');
+  wakker(false);          // vangnet: hoe je ook weggaat, het scherm is weer van jou
   if(scanBron && scanBron.url && !scanBron.gebruikt) URL.revokeObjectURL(scanBron.url);
   scanBron = null;
   scanBronnen = [];
@@ -3749,6 +3813,9 @@ async function neemStukkenOver(){
   el('scanvoegtoe').disabled = true;
   el('scanrol').classList.add('verborgen');
   el('scanbezig').classList.remove('verborgen');
+  el('scanwakker').textContent = wakkerRegel();
+  klusBegin();
+  await wakker(true);
 
   const stal = document.getElementById('stal');
   const totaal = werk.reduce((n, x) => n + x.gekozen.length, 0);
@@ -3887,6 +3954,8 @@ async function neemStukkenOver(){
     teken();
   }
 
+  await wakker(false);
+
   // Stukken uit verschillende opnames horen op volgorde van opnemen te staan,
   // niet op de volgorde waarin je ze aantikte.
   if(toegevoegd > 1) zetStilOpTijd();
@@ -3921,12 +3990,16 @@ el('scankiezer').addEventListener('change', async e => {
   scanNu = 0; scanTotaal = bestanden.length;
   document.body.classList.add('scant');
   tekenScan();
+  klusBegin();
+  await wakker(true);
+  el('scanwakker').textContent = wakkerRegel();
 
   // Eén voor één, nooit tegelijk: uitpluizen springt door de hele opname heen
   // en twee daarvan naast elkaar maakt het alleen maar trager. Bovendien laten
   // we elke opname weer los voordat de volgende opengaat.
   for(let i = 0; i < bestanden.length; i++){
-    if(!document.body.classList.contains('scant')) return;   // je bent teruggegaan
+    // ben je teruggegaan, dan stoppen we — en geven we het scherm weer vrij
+    if(!document.body.classList.contains('scant')){ await wakker(false); return; }
     scanNu = i + 1;
     zetScanStand('Opname openen\u2026', 0);
     try {
@@ -3940,6 +4013,7 @@ el('scankiezer').addEventListener('change', async e => {
     }
   }
 
+  await wakker(false);
   if(!document.body.classList.contains('scant')) return;
   scanBezig = false;
   tekenScan();
@@ -6102,7 +6176,7 @@ function zetOndertitelStand(tekst, deel, mis){
   el('ondertitelstand').classList.remove('verborgen');
   el('ondertitelvoortgang').style.width = Math.round(Math.max(0, Math.min(1, deel)) * 100) + '%';
   const m = el('ondertitelmelding');
-  m.textContent = tekst;
+  m.textContent = tekst + (mis ? '' : restTekst(deel));
   m.classList.toggle('mis', !!mis);
 }
 
@@ -6110,6 +6184,8 @@ async function maakAlleOndertitels(){
   if(ondertitelBezig || !clips.length) return;
   ondertitelBezig = true;
   tekenOndertitelblad();
+  klusBegin();
+  await wakker(true);
 
   const voor = clips.map(c => ({c, was: c.ondertitels || null}));
   let gelukt = 0, regels = 0, laatsteFout = '';
@@ -6118,6 +6194,7 @@ async function maakAlleOndertitels(){
     const c = clips[i];
     zetOndertitelStand('Clip ' + (i + 1) + ' van ' + clips.length + ' afluisteren\u2026',
                        i / clips.length);
+    el('ondertitelwakker').textContent = wakkerRegel();
     try {
       const gevonden = await vraagOndertitels(c);
       c.ondertitels = gevonden.length ? gevonden : null;
@@ -6128,9 +6205,11 @@ async function maakAlleOndertitels(){
   }
 
   ondertitelBezig = false;
+  await wakker(false);
   tekenSpelerBeeld();
   bewaarStraks();
 
+  el('ondertitelwakker').textContent = '';
   if(!regels){
     zetOndertitelStand(laatsteFout || 'Niets verstaan in deze clips', 1, true);
     tekenOndertitelblad();
