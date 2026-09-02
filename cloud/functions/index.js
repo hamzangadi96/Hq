@@ -684,3 +684,7 @@ exports.labelPdf = onCall(async req => {
 /* Ondertitels staan in een eigen bestand ernaast, zodat dit bestand niet nog
    langer wordt. Deze regel haalt ze binnen. */
 Object.assign(exports, require('./maakOndertitels'));
+
+/* Het indelen tegen je eigen lijst staat ook apart, want de lijst groeit en
+   deze functie moet klein blijven. */
+Object.assign(exports, require('./beoordeelCode'));
