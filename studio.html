@@ -1038,6 +1038,7 @@ body.werkt #werkscherm{display:flex}
   margin-bottom:18px;
 }
 #ondertitellijst:empty{display:none}
+.buitenbeeld{display:block;margin-top:6px;color:var(--zachter)}
 .regelrij{display:flex;align-items:center;gap:8px;padding:3px 0}
 .regeltijd{
   flex:0 0 auto;
@@ -1577,7 +1578,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v47';
+const APPVERSIE = 'studio v48';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -4884,12 +4885,29 @@ async function haalGeluidUit(blob, van, tot){
 
 /* ---------- de motor aanroepen ---------- */
 
+/* Luisteren doen we met aanloop en uitloop, niet alleen naar het stukje dat je
+   overhoudt. Twee redenen. Een spraakmotor die vier seconden krijgt hoort losse
+   klanken; met een halve zin eromheen hoort hij een zin. En het maakt het niet
+   meer uit of je eerst je reel bouwt of eerst laat verstaan — dat was een
+   volgorde die je moest onthouden, en dat hoort de app te regelen. */
+const LUISTERRAND = 4;      // seconden extra aan beide kanten
+const LUISTERMAX = 50;      // langer accepteert de motor niet in één keer
+
 async function vraagOndertitels(c){
   if(!firebaseKlaar()) throw new Error('log in bij HQ');
   const blob = c.bestand;
   if(!blob) throw new Error('bestand niet meer beschikbaar');
 
-  const wav = await haalGeluidUit(blob, c.start, c.eind);
+  let van = Math.max(0, c.start - LUISTERRAND);
+  let tot = Math.min(c.duur || c.eind, c.eind + LUISTERRAND);
+  if(tot - van > LUISTERMAX){
+    // te lang: dan om het midden van je stuk heen luisteren
+    const midden = (c.start + c.eind) / 2;
+    van = Math.max(0, midden - LUISTERMAX / 2);
+    tot = Math.min(c.duur || c.eind, van + LUISTERMAX);
+  }
+
+  const wav = await haalGeluidUit(blob, van, tot);
   const antwoord = await vuur.fn.httpsCallable('maakOndertitels')({
     geluid: naarBase64(wav),
     hz: SPRAAKHZ,
@@ -4899,14 +4917,20 @@ async function vraagOndertitels(c){
   const regels = ((antwoord.data || {}).regels) || [];
 
   // terug naar seconden van het bronbestand, zodat ze blijven kloppen als je
-  // later opnieuw bijknipt
+  // later opnieuw bijknipt of juist ruimer maakt
   return regels
     .map(r => ({
-      van: c.start + (Number(r.van) || 0),
-      tot: c.start + (Number(r.tot) || 0),
+      van: van + (Number(r.van) || 0),
+      tot: van + (Number(r.tot) || 0),
       tekst: String(r.tekst || '').trim()
     }))
     .filter(r => r.tekst && r.tot > r.van);
+}
+
+// Staat deze regel in het stuk dat je overhoudt? Wat erbuiten valt bewaren we
+// wel — knip je later ruimer, dan staat hij er meteen weer.
+function regelInBeeld(c, r){
+  return r.tot > c.start + .05 && r.van < c.eind - .05;
 }
 
 /* ---------- tekenen ---------- */
@@ -5962,11 +5986,15 @@ el('reelmaak').addEventListener('click', maakReel);
 let ondertitelBezig = false;
 
 function ondertitelTelling(){
-  let clipsMet = 0, regels = 0;
+  let clipsMet = 0, regels = 0, buiten = 0;
   clips.forEach(c => {
-    if(c.ondertitels && c.ondertitels.length){ clipsMet++; regels += c.ondertitels.length; }
+    if(!c.ondertitels || !c.ondertitels.length) return;
+    const in_ = c.ondertitels.filter(r => regelInBeeld(c, r));
+    if(in_.length) clipsMet++;
+    regels += in_.length;
+    buiten += c.ondertitels.length - in_.length;
   });
-  return {clipsMet, regels};
+  return {clipsMet, regels, buiten};
 }
 
 
@@ -5986,6 +6014,7 @@ function tekenOndertitelLijst(){
   clips.forEach((c, ci) => {
     if(!c.ondertitels || !c.ondertitels.length) return;
     c.ondertitels.forEach((r, ri) => {
+      if(!regelInBeeld(c, r)) return;      // buiten je knip: staat niet in je video
       const rij = document.createElement('div');
       rij.className = 'regelrij';
 
@@ -6023,7 +6052,8 @@ function ruimLegeRegels(){
   let weg = 0;
   clips.forEach(c => {
     if(!c.ondertitels) return;
-    const over = c.ondertitels.filter(r => (r.tekst || '').trim());
+    // regels buiten je knip blijven staan; die heb je niet leeggemaakt
+    const over = c.ondertitels.filter(r => (r.tekst || '').trim() || !regelInBeeld(c, r));
     weg += c.ondertitels.length - over.length;
     c.ondertitels = over.length ? over : null;
   });
@@ -6032,12 +6062,15 @@ function ruimLegeRegels(){
 }
 
 function tekenOndertitelblad(){
-  const {clipsMet, regels} = ondertitelTelling();
+  const {clipsMet, regels, buiten} = ondertitelTelling();
   const vak = el('ondertitelfeiten');
   if(regels){
     vak.innerHTML = '<b>' + regels + (regels === 1 ? ' regel' : ' regels') + '</b> over ' +
       clipsMet + ' van ' + clips.length + ' clips. Tik op een tijd om te kijken, ' +
-      'of typ een regel over als er iets verkeerd verstaan is.';
+      'of typ een regel over als er iets verkeerd verstaan is.' +
+      (buiten ? ' <span class="buitenbeeld">' + buiten +
+        (buiten === 1 ? ' regel valt' : ' regels vallen') +
+        ' buiten je knip en staan bewaard voor als je ruimer knipt.</span>' : '');
   } else {
     vak.innerHTML = 'Studio luistert je clips af en zet wat er gezegd wordt onder in beeld. ' +
       'Dat gebeurt in de cloud, dus je moet ingelogd zijn bij HQ.';
@@ -6454,6 +6487,7 @@ function spreekVakken(){
       if(!c.ondertitels || !c.ondertitels.length) return;
       const tempo = c.tempo || 1;
       c.ondertitels.forEach(r => {
+        if(!regelInBeeld(c, r)) return;                   // hoor je niet, dus duiken hoeft niet
         const van = vak.van + Math.max(0, r.van - c.start) / tempo;
         const tot = vak.van + Math.max(0, r.tot - c.start) / tempo;
         if(tot <= vak.van || van >= vak.tot) return;      // valt buiten wat je overhield
