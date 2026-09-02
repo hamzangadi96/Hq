@@ -289,10 +289,23 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   height:100%;
   background:#d4d4d8 center/cover;
   border-radius:8px;
-  position:relative;
   overflow:hidden;
   min-width:6px;
   cursor:pointer;
+  /* anders pakt iOS je lange druk af voor zijn eigen menu */
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-touch-callout:none;
+  transition:transform .14s ease, box-shadow .14s ease;
+}
+/* Opgetild blok. Het luistert zelf niet meer naar je vinger, zodat we kunnen
+   zien welk blok eronder ligt en dus waar je het neerzet. */
+.spoorblok.sleept{
+  transform:scale(1.05);
+  box-shadow:0 10px 26px rgba(24,24,27,.4);
+  z-index:3;
+  pointer-events:none;
+  cursor:grabbing;
 }
 .spoorblok span{
   position:absolute;
@@ -1228,7 +1241,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v33';
+const APPVERSIE = 'studio v34';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -4374,6 +4387,7 @@ function knoopTijdbalk(){
   /* schuiven verzet de kop */
   balk.addEventListener('scroll', () => {
     if(zelfScrollen || !clips.length) return;
+    if(sleept) return;                       // je verplaatst een blok, je scrolt niet
     if(speelt) stopMontage();
     kopTijd = Math.max(0, Math.min(totaleDuur(), balk.scrollLeft / pps));
     werkKopBij();
@@ -4382,18 +4396,116 @@ function knoopTijdbalk(){
     zoekWacht = setTimeout(() => zetKop(kopTijd), 60);
   }, {passive: true});
 
-  /* tikken kiest een clip */
+  /* Tikken kiest een clip. Vasthouden tilt hem op en dan verschuif je hem.
+
+     Schuiven over de tijdlijn is scrollen, dus slepen kan pas als vaststaat
+     dat je niet aan het scrollen bent: je vinger moet een derde seconde stil
+     blijven liggen. Beweeg je eerder, dan was het scrollen en vervalt het
+     optillen. Zodra je aan het slepen bent houden we het scrollen tegen met
+     preventDefault op touchmove; touch-action halverwege omzetten werkt niet
+     op iOS, dit wel. */
   let neer = false, startX = 0, startY = 0, beginBlok = null, bewogen = false;
+  let tilTimer = null, sleept = null, volgordeVoor = null;
+
+  const stopTillen = () => { clearTimeout(tilTimer); tilTimer = null; };
+
   balk.addEventListener('pointerdown', e => {
     if(e.target.closest('.blokgreep')) return;
     neer = true; bewogen = false;
     startX = e.clientX; startY = e.clientY;
     beginBlok = e.target.closest('.spoorblok');
+
+    stopTillen();
+    if(!beginBlok || clips.length < 2) return;
+    const blok = beginBlok;
+    tilTimer = setTimeout(() => {
+      const c = clips.find(x => x.id === blok.dataset.klip);
+      if(!c) return;
+      stopMontage();
+      sleept = {c, blok};
+      volgordeVoor = clips.slice();
+      bewogen = true;                        // dit is geen tik meer
+      blok.classList.add('sleept');
+      kiesClip(c);
+      try { if(navigator.vibrate) navigator.vibrate(12); } catch(fout){}
+    }, 330);
   });
+
+  // Onder je vinger ligt het blok waar je hem tussen wilt zetten. Rechterhelft
+  // betekent erachter, linkerhelft ervoor.
+  const verzetNaar = (x, y) => {
+    if(!sleept) return;
+    const onder = document.elementFromPoint(x, y);
+    const doel = (onder && onder.closest) ? onder.closest('.spoorblok') : null;
+    if(!doel || doel === sleept.blok) return;
+
+    const rij = el('spoorclips');
+    const doos = doel.getBoundingClientRect();
+    const erachter = x > doos.left + doos.width / 2;
+    rij.insertBefore(sleept.blok, erachter ? doel.nextSibling : doel);
+
+    const volgorde = Array.from(rij.children).map(n => n.dataset.klip);
+    clips.sort((a, b) => volgorde.indexOf(a.id) - volgorde.indexOf(b.id));
+  };
+
+  /* Houd je een blok tegen de rand van het scherm, dan schuift de tijdlijn
+     mee. Zonder dit kun je een clip nooit verder verplaatsen dan wat er
+     toevallig in beeld staat, en dat is bij een lange montage bijna niets. */
+  let rolLus = null;
+  const rolStap = () => {
+    if(!sleept || !sleept.rand){ rolLus = null; return; }
+    const voor = balk.scrollLeft;
+    balk.scrollLeft = Math.max(0, voor + sleept.rand);
+    if(balk.scrollLeft !== voor) verzetNaar(sleept.x, sleept.y);
+    rolLus = requestAnimationFrame(rolStap);
+  };
+
   balk.addEventListener('pointermove', e => {
-    if(neer && (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5)) bewogen = true;
+    if(!sleept){
+      if(neer && (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5)){
+        bewogen = true;
+        stopTillen();                        // je scrolt, dus niet optillen
+      }
+      return;
+    }
+
+    sleept.x = e.clientX; sleept.y = e.clientY;
+    const rand = balk.getBoundingClientRect();
+    if(e.clientX < rand.left + 48) sleept.rand = -10;
+    else if(e.clientX > rand.right - 48) sleept.rand = 10;
+    else sleept.rand = 0;
+    if(sleept.rand && !rolLus) rolLus = requestAnimationFrame(rolStap);
+
+    verzetNaar(e.clientX, e.clientY);
   });
+
+  // zolang je sleept mag de tijdlijn niet meeschuiven
+  balk.addEventListener('touchmove', e => { if(sleept) e.preventDefault(); }, {passive: false});
+
+  const legNeer = () => {
+    stopTillen();
+    if(!sleept) return;
+    const blok = sleept.blok;
+    const voor = volgordeVoor;
+    sleept = null; volgordeVoor = null;
+    if(rolLus){ cancelAnimationFrame(rolLus); rolLus = null; }
+    blok.classList.remove('sleept');
+
+    const veranderd = clips.some((c, i) => c !== voor[i]);
+    teken();
+    if(!veranderd) return;
+    bewaarStraks();
+    toon('Volgorde gewijzigd', true, () => {
+      clips.length = 0;
+      Array.prototype.push.apply(clips, voor);
+      teken();
+      bewaarStraks();
+    });
+  };
+
   balk.addEventListener('pointerup', () => {
+    if(sleept){ legNeer(); neer = false; beginBlok = null; return; }
+    stopTillen();
     if(!neer) return;
     neer = false;
     if(bewogen) return;                      // je hebt geschoven, niet getikt
@@ -4401,7 +4513,7 @@ function knoopTijdbalk(){
     if(c) kiesClip(gekozenClip === c ? null : c); else kiesClip(null);
     beginBlok = null;
   });
-  balk.addEventListener('pointercancel', () => { neer = false; });
+  balk.addEventListener('pointercancel', () => { legNeer(); neer = false; });
 
   /* bijknippen aan de randen van een blok */
   let greepBezig = null;
