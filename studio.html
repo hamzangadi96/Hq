@@ -126,6 +126,22 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   border-radius:14px;
   padding:4px;
 }
+#woordenblok{margin:4px 0 18px}
+#woordenveld{
+  width:100%;
+  border-radius:14px;
+  border:none;
+  background:var(--achtergrond);
+  font-family:inherit;
+  font-size:15px;
+  line-height:1.5;
+  color:var(--inkt);
+  padding:12px 14px;
+  resize:none;
+}
+#woordenveld:focus{outline:2px solid var(--inkt);outline-offset:-2px}
+#woordenuitleg{font-size:13px;color:var(--zachter);line-height:1.5;margin-top:8px}
+
 #reellengtes{
   display:flex;
   gap:4px;
@@ -1375,6 +1391,14 @@ body.werkt #werkscherm{display:flex}
       <textarea id="regelveld" rows="12" spellcheck="false"></textarea>
     </div>
 
+    <div id="woordenblok" class="verborgen">
+      <span class="veldkop">Woorden die hij moet kennen</span>
+      <textarea id="woordenveld" rows="5" spellcheck="false"
+                placeholder="ganache, couverture, tempereren"></textarea>
+      <div id="woordenuitleg">Gescheiden door komma's. Hier let de spraakherkenning
+        extra op, zodat je vaktermen goed in je ondertitels komen.</div>
+    </div>
+
     <div id="knoprij">
       <button class="knop vol" id="instelklaar">Klaar</button>
     </div>
@@ -1467,7 +1491,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v44';
+const APPVERSIE = 'studio v45';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -3897,6 +3921,11 @@ async function laadInstellingen(){
     if(n >= 2 && n <= 60) MAXSTUK = n;
   } catch(fout){}
   try {
+    const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio/woorden').once('value');
+    const v = s.val();
+    if(v && String(v).trim()) spraakWoorden = String(v);
+  } catch(fout){}
+  try {
     const k = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/koppeling/claude').once('value');
     heeftSleutel = k.val() === true;
   } catch(fout){ heeftSleutel = false; }
@@ -3944,6 +3973,8 @@ function tekenInstel(){
   el('duurveld').value = MAXSTUK;
   el('sleutelontkoppel').classList.toggle('verborgen', !heeftSleutel);
   el('regelveld').value = regelsVan[bewerkSoort];
+  el('woordenblok').classList.toggle('verborgen', !firebaseKlaar());
+  el('woordenveld').value = spraakWoorden;
   document.querySelectorAll('#regelsoorten .chip').forEach(c =>
     c.classList.toggle('aan', c.dataset.soort === bewerkSoort));
   document.querySelectorAll('#soorten .chip').forEach(c =>
@@ -3983,7 +4014,8 @@ async function bewaarRegels(){
   const n = Number(el('duurveld').value);
   MAXSTUK = (n >= 2 && n <= 60) ? n : 5;
   if(!firebaseKlaar()) return;
-  const nieuw = {maxstuk: MAXSTUK};
+  spraakWoorden = el('woordenveld').value.trim() || STANDAARDWOORDEN;
+  const nieuw = {maxstuk: MAXSTUK, woorden: spraakWoorden};
   nieuw[SOORTEN[bewerkSoort].sleutel] = regelsVan[bewerkSoort];
   try {
     await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio').update(nieuw);
@@ -4615,6 +4647,28 @@ function tekenTekst(ctx, c, B, H){
 
 const SPRAAKHZ = 16000;
 
+/* Spraakherkenning is getraind op gewoon Nederlands en struikelt over een
+   vakgebied. "Ganache" wordt "gasnacht", "couverture" wordt van alles. Google
+   kan woorden meekrijgen waar hij extra op let, dus sturen we die mee. Dit is
+   een startlijst; je vult 'm zelf aan bij het tandwiel. */
+const STANDAARDWOORDEN =
+  'ganache, couverture, tempereren, getempereerd, bonbon, bonbons, praline, ' +
+  'pralines, cacaoboter, cacaomassa, callets, truffel, truffels, vulling, ' +
+  'bonbonvorm, chocolatier, Cacaoboetiek, Suikerfeest, halal, ' +
+  'melkchocolade, pure chocolade, witte chocolade, glucose, room, ' +
+  'kristalliseren, uitkloppen, afsteken, gieten, spuitzak';
+
+let spraakWoorden = STANDAARDWOORDEN;
+
+// Google wil losse zinnetjes, geen komma's. Ook een grens tegen onzin.
+function woordenlijst(){
+  return String(spraakWoorden || '')
+    .split(/[,\n]/)
+    .map(w => w.trim())
+    .filter(w => w.length > 1 && w.length < 100)
+    .slice(0, 400);
+}
+
 function naarWav(kanaal, hz){
   const n = kanaal.length;
   const buf = new ArrayBuffer(44 + n * 2);
@@ -4701,7 +4755,8 @@ async function vraagOndertitels(c){
   const antwoord = await vuur.fn.httpsCallable('maakOndertitels')({
     geluid: naarBase64(wav),
     hz: SPRAAKHZ,
-    taal: 'nl-NL'
+    taal: 'nl-NL',
+    woorden: woordenlijst()
   });
   const regels = ((antwoord.data || {}).regels) || [];
 
