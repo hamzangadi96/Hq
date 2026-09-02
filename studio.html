@@ -1020,6 +1020,28 @@ body.werkt #werkscherm{display:flex}
 #opslagregel:empty{display:none}
 
 /* doorlichten */
+.lichtregel.tikbaar{cursor:pointer}
+.lichtregel.tikbaar:active{opacity:.55}
+.lichtregel.open{font-weight:600}
+.lichtuitleg{
+  font-size:13px;
+  color:var(--zachter);
+  line-height:1.5;
+  padding:2px 0 10px;
+}
+.opruimknop{
+  width:100%;
+  min-height:44px;
+  border:0;
+  border-radius:12px;
+  background:var(--inkt);
+  color:#fff;
+  font:600 15px Inter,system-ui,sans-serif;
+  cursor:pointer;
+}
+.opruimknop:disabled{opacity:.5}
+.opruimknop.weg{background:var(--rood)}
+.weggooivak{padding:10px 0 4px}
 #ondertitelfeiten{font-size:14px;color:var(--zacht);line-height:1.6;margin-bottom:18px}
 #ondertitelfeiten b{color:var(--inkt);font-weight:600}
 #ondertitelstand{margin-bottom:18px}
@@ -1591,7 +1613,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v51';
+const APPVERSIE = 'studio v53';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1907,14 +1929,16 @@ async function tekenProjecten(wachtenMetOpruimen){
   toonOpslag();
 }
 
-// bestanden weggooien die bij geen enkel project meer horen
+/* Bestanden weggooien die bij geen enkel project meer horen.
+
+   Deze opruimer keek alleen naar bewaarde projecten. Daardoor gooide hij twee
+   dingen weg die er niet in staan maar wel in gebruik zijn: je logo (dat bij
+   geen enkel project hoort) en de clips van een project dat je nog niet
+   bewaard hebt. inGebruikIds() weet van allebei. */
+
 async function ruimOp(alle){
   try {
-    const inGebruik = new Set();
-    alle.forEach(pr => {
-      (pr.clips || []).forEach(c => inGebruik.add(c.bestandId));
-      if(pr.muziek && pr.muziek.bestandId) inGebruik.add(pr.muziek.bestandId);
-    });
+    const inGebruik = inGebruikIds(alle);
     const bestanden = await allesUit('bestanden');
     for(const b of bestanden){ if(!inGebruik.has(b.id)) await wisUit('bestanden', b.id); }
   } catch(fout){}
@@ -1943,6 +1967,61 @@ function maat(bytes){
   return mb >= 1024
     ? (mb / 1024).toFixed(1).replace('.', ',') + ' GB'
     : Math.max(1, Math.round(mb)) + ' MB';
+}
+
+
+/* ================== OPRUIMEN ==================
+
+   In 'bestanden' liggen de brokken video en muziek. Er komt van alles bij en
+   er gaat nooit iets af: verwijder je een project, dan blijven zijn bestanden
+   liggen. Op een telefoon loopt dat vol, en dan mislukt het bewaren midden in
+   een draaidag.
+
+   Een weesbestand is een brok waar niets meer naar wijst. Drie dingen mogen
+   nooit als wees gelden:
+   - het logo, dat hoort bij geen enkel project maar wordt overal gebruikt
+   - de bestanden van projecten die op de plank staan
+   - de bestanden van wat je NU op je tijdlijn hebt staan, want een nieuw
+     project is nog niet bewaard en zou zichzelf opruimen */
+
+function inGebruikIds(projecten){
+  const in_ = new Set(['logo']);
+  (projecten || []).forEach(pr => {
+    (pr.clips || []).forEach(c => { if(c.bestandId) in_.add(c.bestandId); });
+    if(pr.muziek && pr.muziek.bestandId) in_.add(pr.muziek.bestandId);
+    if(pr.logoId) in_.add(pr.logoId);
+  });
+  // wat er op dit moment op de tijdlijn ligt, bewaard of niet
+  clips.forEach(c => { if(c.bestandId) in_.add(c.bestandId); });
+  if(muziek && muziek.bestandId) in_.add(muziek.bestandId);
+  return in_;
+}
+
+async function zoekWezen(){
+  const projecten = await allesUit('projecten');
+  const bestanden = await allesUit('bestanden');
+  const in_ = inGebruikIds(projecten);
+  const wezen = bestanden.filter(b => !in_.has(b.id));
+  return {ids: wezen.map(b => b.id),
+          bytes: wezen.reduce((s, b) => s + ((b.blob && b.blob.size) || 0), 0)};
+}
+
+async function ruimWezenOp(){
+  const w = await zoekWezen();
+  for(const id of w.ids){
+    try { await wisUit('bestanden', id); } catch(fout){}
+  }
+  return w;
+}
+
+/* Een heel project weggooien haalt ook zijn bestanden weg, maar alleen die
+   waar geen ander project meer naar wijst. Deel je een opname tussen twee
+   projecten, dan blijft hij staan voor de ander. */
+
+async function gooiProjectWeg(id){
+  await wisUit('projecten', id);
+  const w = await ruimWezenOp();
+  return w.bytes;
 }
 
 async function doorlicht(){
@@ -1977,7 +2056,8 @@ async function doorlicht(){
     if(pr.muziek && pr.muziek.bestandId && !gezien.has(pr.muziek.bestandId)){
       bytes += grootte[pr.muziek.bestandId] || 0;
     }
-    perProject.push({naam: pr.naam, clips: cl.length, bytes});
+    perProject.push({id: pr.id, naam: pr.naam, clips: cl.length, bytes,
+                     nu: !!(huidigProject && huidigProject.id === pr.id)});
   });
 
   let gebruikt = 0, ruimte = 0;
@@ -1987,9 +2067,17 @@ async function doorlicht(){
     ruimte = s.quota || 0;
   } catch(fout){}
 
+  const wezen = {ids: [], bytes: 0};
+  const in_ = inGebruikIds(projecten);
+  bestanden.forEach(b => {
+    if(in_.has(b.id)) return;
+    wezen.ids.push(b.id);
+    wezen.bytes += (b.blob && b.blob.size) || 0;
+  });
+
   return {projecten: perProject.sort((a, b) => b.bytes - a.bytes),
           clips, metTijd, bronnen, geknipt, heel,
-          geknipteBytes, heleBytes, gebruikt, ruimte};
+          geknipteBytes, heleBytes, gebruikt, ruimte, wezen};
 }
 
 function regel(links, rechts, dik){
@@ -2063,9 +2151,77 @@ async function openOpslagblad(){
   const zwaar = d.projecten.filter(p => p.bytes >= 1048576);
   if(zwaar.length){
     const g3 = groep('PROJECTEN');
-    zwaar.forEach(p => g3.appendChild(regel(p.naam, maat(p.bytes))));
+    zwaar.forEach(p => {
+      const r = regel(p.naam + (p.nu ? ' \u00b7 open' : ''), maat(p.bytes));
+      if(!p.nu){
+        r.classList.add('tikbaar');
+        r.addEventListener('click', () => vouwProjectOpen(r, p));
+      }
+      g3.appendChild(r);
+    });
     vak.appendChild(g3);
   }
+
+  // 4. losse brokken waar niets meer naar wijst
+  if(d.wezen.bytes >= 1048576){
+    const g4 = groep('LOSSE BESTANDEN');
+    const uitleg = document.createElement('div');
+    uitleg.className = 'lichtuitleg';
+    uitleg.textContent = d.wezen.ids.length + ' ' +
+      (d.wezen.ids.length === 1 ? 'brok hoort' : 'brokken horen') +
+      ' bij geen enkel project meer. Blijven liggen van verwijderde projecten.';
+    g4.appendChild(uitleg);
+    const knop = document.createElement('button');
+    knop.className = 'opruimknop';
+    knop.id = 'ruimop';
+    knop.textContent = 'Ruim ' + maat(d.wezen.bytes) + ' op';
+    knop.addEventListener('click', async () => {
+      knop.disabled = true;
+      knop.textContent = 'Opruimen\u2026';
+      const w = await ruimWezenOp();
+      toon(maat(w.bytes) + ' vrijgemaakt');
+      await openOpslagblad();
+      toonOpslag();
+    });
+    g4.appendChild(knop);
+    vak.appendChild(g4);
+  }
+}
+
+/* Geen bevestigingsvenster: de regel klapt open en laat zien wat je weggooit.
+   Tik je er nog eens op, dan klapt hij weer dicht. Weggooien kan niet terug —
+   dat staat er dan ook bij, want dat is de eerlijke versie van "weet je het
+   zeker". */
+
+function vouwProjectOpen(r, p){
+  const bestond = r.nextSibling && r.nextSibling.classList &&
+                  r.nextSibling.classList.contains('weggooivak');
+  document.querySelectorAll('.weggooivak').forEach(v => v.remove());
+  document.querySelectorAll('.lichtregel.open').forEach(v => v.classList.remove('open'));
+  if(bestond) return;
+
+  r.classList.add('open');
+  const vak = document.createElement('div');
+  vak.className = 'weggooivak';
+  const uit = document.createElement('div');
+  uit.className = 'lichtuitleg';
+  uit.textContent = p.clips + ' ' + (p.clips === 1 ? 'clip' : 'clips') +
+    '. De opnames zijn daarna weg en komen niet terug.';
+  const knop = document.createElement('button');
+  knop.className = 'opruimknop weg';
+  knop.textContent = 'Gooi weg \u00b7 ' + maat(p.bytes);
+  knop.addEventListener('click', async () => {
+    knop.disabled = true;
+    knop.textContent = 'Weggooien\u2026';
+    const bytes = await gooiProjectWeg(p.id);
+    toon(maat(Math.max(bytes, p.bytes)) + ' vrijgemaakt');
+    await tekenProjecten();
+    await openOpslagblad();
+    toonOpslag();
+  });
+  vak.appendChild(uit);
+  vak.appendChild(knop);
+  r.parentNode.insertBefore(vak, r.nextSibling);
 }
 
 function sluitOpslagblad(){
