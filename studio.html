@@ -1003,7 +1003,7 @@ body.werkt #werkscherm{display:flex}
       <button class="chip" data-soort="vlog">Vlog</button>
     </div>
     <input type="file" id="kiezer" accept="video/*" multiple>
-    <input type="file" id="scankiezer" accept="video/*">
+    <input type="file" id="scankiezer" accept="video/*" multiple>
   </div>
   </div>
 
@@ -1228,7 +1228,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v32';
+const APPVERSIE = 'studio v33';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2622,8 +2622,11 @@ const KOP = 1.5;                 // begin en eind van de opname zijn nooit bruik
 const STILMAX = 3;               // zolang mag er niets bewegen voor we afkeuren
 let MAXSTUK = 5;                 // langer dan dit knippen we in gelijke happen
 
-let scanBron = null;             // {blob, url, duur, stukken, afval}
-let scanKeuze = new Set();
+let scanBron = null;             // de opname die op dit moment wordt uitgeplozen
+let scanBronnen = [];            // alle uitgeplozen opnames, klaar om uit te kiezen
+let scanKeuze = new Set();       // sleutels 'opnamenummer:stuknummer'
+let scanBezig = false;
+let scanNu = 0, scanTotaal = 0;  // hoeveelste opname van hoeveel
 
 function grijsUit(ctx){
   const d = ctx.getImageData(0, 0, SCANB, SCANH).data;
@@ -2922,8 +2925,28 @@ async function scanBestand(bestand){
   }
 
   try { v.pause(); } catch(fout){}
-  scanKeuze = new Set(stukken.map((s, i) => i));
-  return scanBron;
+
+  // Klaar met deze opname. De video zelf hebben we niet meer nodig tot je op
+  // toevoegen tikt; we houden alleen de verwijzing naar het bestand vast. Die
+  // kost niets, terwijl tien kopieën van een halve gigabyte je telefoon
+  // omleggen. Bij toevoegen openen we hem gewoon opnieuw.
+  const pakket = {
+    bestand,
+    bronNaam: scanBron.bronNaam,
+    duur, soort: scanBron.soort,
+    opname: scanBron.opname,
+    stukken,
+    afval: scanBron.afval,
+    fout: scanBron.fout || ''
+  };
+  try { v.pause(); v.removeAttribute('src'); v.load(); v.remove(); } catch(fout){}
+  try { URL.revokeObjectURL(url); } catch(fout){}
+  scanBron = null;
+
+  const bi = scanBronnen.length;
+  scanBronnen.push(pakket);
+  stukken.forEach((s, si) => scanKeuze.add(bi + ':' + si));
+  return pakket;
 }
 
 /* ---------- scanscherm ---------- */
@@ -2935,94 +2958,100 @@ function veiligeTekst(t){
 }
 
 function zetScanStand(tekst, deel){
-  el('scanstand').textContent = tekst;
+  el('scanstand').textContent =
+    (scanTotaal > 1 ? 'Opname ' + scanNu + ' van ' + scanTotaal + ' \u00b7 ' : '') + tekst;
   el('scanvoortgang').style.width = Math.round(Math.max(0, Math.min(1, deel)) * 100) + '%';
 }
 
 function tekenScan(){
-  const b = scanBron;
-  el('scanbezig').classList.toggle('verborgen', !!b);
-  el('scanrol').classList.toggle('verborgen', !b);
-  el('scanbalk').classList.toggle('verborgen', !b);
-  if(!b) return;
-
-  // beste bovenaan: dit scherm is om te kiezen, niet om te monteren
-  const goedRij = b.stukken.map((s, i) => i)
-    .sort((x, y) => (b.stukken[y].cijfer || 0) - (b.stukken[x].cijfer || 0));
-  const beste = goedRij.length && (b.stukken[goedRij[0]].cijfer || 0) > 0 ? goedRij[0] : -1;
-
-  const maakKaart = i => {
-    const s = b.stukken[i];
-    const kaart = document.createElement('div');
-    kaart.className = 'stukkaart' + (scanKeuze.has(i) ? ' gekozen' : '');
-
-    const duim = document.createElement('div');
-    duim.className = 'duim';
-    if(s.duim) duim.style.backgroundImage = 'url(' + s.duim + ')';
-    kaart.appendChild(duim);
-
-    const info = document.createElement('div');
-    info.className = 'klipinfo';
-    info.innerHTML =
-      '<div class="kliptitel">' + veiligeTekst(s.label || ('Stuk ' + (i + 1))) +
-        (i === beste ? '<span class="bestevlag">Beste</span>' : '') + '</div>' +
-      '<div class="klipmeta">' + secs(s.eind - s.start) +
-      ' <span>vanaf ' + secs(s.start) + '</span>' +
-        (s.cijfer ? '<span class="cijfer">' + s.cijfer + '/10</span>' : '') + '</div>' +
-      (s.waarom ? '<div class="stuklabel">' + veiligeTekst(s.waarom) + '</div>' : '');
-    kaart.appendChild(info);
-
-    const vink = document.createElement('div');
-    vink.className = 'vink';
-    vink.innerHTML =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" ' +
-      'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
-    kaart.appendChild(vink);
-
-    kaart.addEventListener('click', () => {
-      if(scanKeuze.has(i)) scanKeuze.delete(i); else scanKeuze.add(i);
-      tekenScan();
-    });
-    return kaart;
-  };
+  const klaar = !scanBezig && scanBronnen.length > 0;
+  el('scanbezig').classList.toggle('verborgen', klaar);
+  el('scanrol').classList.toggle('verborgen', !klaar);
+  el('scanbalk').classList.toggle('verborgen', !klaar);
+  if(!klaar) return;
 
   const goedEl = el('scangoed');
   goedEl.innerHTML = '';
-  const kop = document.createElement('div');
-  kop.className = 'scankop';
-  kop.textContent = goedRij.length === 1 ? '1 bruikbaar stuk' : goedRij.length + ' bruikbare stukken';
-  goedEl.appendChild(kop);
-
-  if(!goedRij.length){
-    const p = document.createElement('div');
-    p.className = 'scanleeg';
-    p.textContent = 'Niets bruikbaars gevonden in deze opname.';
-    goedEl.appendChild(p);
-  }
-  goedRij.forEach(i => goedEl.appendChild(maakKaart(i)));
-
   const slechtEl = el('scanslecht');
   slechtEl.innerHTML = '';
 
-  if(b.afval.length){
+  let totaalStukken = 0, totaalAfval = 0, fouten = [];
+
+  scanBronnen.forEach((b, bi) => {
+    totaalAfval += b.afval.length;
+    if(b.fout) fouten.push(b.fout);
+
+    // beste bovenaan: dit scherm is om te kiezen, niet om te monteren
+    const rij = b.stukken.map((s, i) => i)
+      .sort((x, y) => (b.stukken[y].cijfer || 0) - (b.stukken[x].cijfer || 0));
+    const beste = rij.length && (b.stukken[rij[0]].cijfer || 0) > 0 ? rij[0] : -1;
+    totaalStukken += rij.length;
+
+    // Bij meerdere opnames moet je kunnen zien uit welke een stuk komt,
+    // anders kies je blind.
+    if(scanBronnen.length > 1){
+      const kop = document.createElement('div');
+      kop.className = 'scankop';
+      kop.textContent = (b.bronNaam || 'Opname ' + (bi + 1)) +
+        ' \u00b7 ' + (rij.length === 1 ? '1 stuk' : rij.length + ' stukken');
+      goedEl.appendChild(kop);
+    }
+
+    if(!rij.length){
+      const p = document.createElement('div');
+      p.className = 'scanleeg';
+      p.textContent = b.fout
+        ? 'Deze opname liep vast: ' + b.fout
+        : 'Niets bruikbaars gevonden in deze opname.';
+      goedEl.appendChild(p);
+      return;
+    }
+
+    rij.forEach(i => goedEl.appendChild(maakStukKaart(b, bi, i, i === beste)));
+  });
+
+  if(scanBronnen.length === 1){
+    const kop = document.createElement('div');
+    kop.className = 'scankop';
+    kop.textContent = totaalStukken === 1 ? '1 bruikbaar stuk' : totaalStukken + ' bruikbare stukken';
+    goedEl.insertBefore(kop, goedEl.firstChild);
+  }
+
+  if(totaalAfval){
     const k2 = document.createElement('div');
     k2.className = 'scankop';
-    k2.textContent = b.afval.length + ' overgeslagen';
+    k2.textContent = totaalAfval + ' overgeslagen';
     slechtEl.appendChild(k2);
-    b.afval.forEach(a => {
+    scanBronnen.forEach(b => b.afval.forEach(a => {
       const r = document.createElement('div');
       r.className = 'afvalregel';
       r.innerHTML = '<span>' + secs(a.start) + ' \u2013 ' + secs(a.eind) + '</span>' +
                     '<span class="reden">' + veiligeTekst(a.reden) + '</span>';
       slechtEl.appendChild(r);
-    });
+    }));
   }
 
   const melding = el('scanmelding');
-  if(b.fout) melding.textContent = 'Beoordelen liep vast: ' + b.fout;
+  const soortNu = (scanBronnen[0] && scanBronnen[0].soort) || soort;
+  if(fouten.length) melding.textContent = 'Beoordelen liep vast: ' + fouten[0];
   else if(!firebaseKlaar()) melding.textContent = 'Alleen op beeld gezeefd, in gelijke happen. Log in bij HQ om te laten knippen op inhoud.';
   else if(!heeftSleutel) melding.textContent = 'Alleen op beeld gezeefd, in gelijke happen. Koppel je sleutel bij het tandwiel om te laten knippen op inhoud.';
-  else melding.textContent = 'Geknipt volgens je maatstaf voor ' + (SOORTEN[b.soort] || SOORTEN.productie).naam.toLowerCase() + '.';
+  else melding.textContent = 'Geknipt volgens je maatstaf voor ' + (SOORTEN[soortNu] || SOORTEN.productie).naam.toLowerCase() + '.';
+
+  // Van elke opname waar je iets uit meeneemt bewaart Studio de hele ruwe
+  // opname op je telefoon, want je stukken wijzen ernaar. Bij dertien
+  // DJI-bestanden loopt dat hard op, dus zeggen we het voordat je tikt.
+  let bytes = 0;
+  scanBronnen.forEach((b, bi) => {
+    if(b.stukken.some((s, si) => scanKeuze.has(bi + ':' + si)) && b.bestand)
+      bytes += b.bestand.size || 0;
+  });
+  const gb = bytes / 1073741824;
+  if(gb >= 1){
+    melding.textContent += ' Let op: hiervoor bewaart Studio ' +
+      (Math.round(gb * 10) / 10).toString().replace('.', ',') +
+      ' GB ruwe opname op je telefoon.';
+  }
 
   const n = scanKeuze.size;
   const knop = el('scanvoegtoe');
@@ -3030,48 +3059,125 @@ function tekenScan(){
   knop.textContent = n === 1 ? 'Voeg 1 stuk toe' : 'Voeg ' + n + ' stukken toe';
 }
 
+function maakStukKaart(b, bi, i, isBeste){
+  const s = b.stukken[i];
+  const sleutel = bi + ':' + i;
+  const kaart = document.createElement('div');
+  kaart.className = 'stukkaart' + (scanKeuze.has(sleutel) ? ' gekozen' : '');
+
+  const duim = document.createElement('div');
+  duim.className = 'duim';
+  if(s.duim) duim.style.backgroundImage = 'url(' + s.duim + ')';
+  kaart.appendChild(duim);
+
+  const info = document.createElement('div');
+  info.className = 'klipinfo';
+  info.innerHTML =
+    '<div class="kliptitel">' + veiligeTekst(s.label || ('Stuk ' + (i + 1))) +
+      (isBeste ? '<span class="bestevlag">Beste</span>' : '') + '</div>' +
+    '<div class="klipmeta">' + secs(s.eind - s.start) +
+    ' <span>vanaf ' + secs(s.start) + '</span>' +
+      (s.cijfer ? '<span class="cijfer">' + s.cijfer + '/10</span>' : '') + '</div>' +
+    (s.waarom ? '<div class="stuklabel">' + veiligeTekst(s.waarom) + '</div>' : '');
+  kaart.appendChild(info);
+
+  const vink = document.createElement('div');
+  vink.className = 'vink';
+  vink.innerHTML =
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" ' +
+    'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+  kaart.appendChild(vink);
+
+  kaart.addEventListener('click', () => {
+    if(scanKeuze.has(sleutel)) scanKeuze.delete(sleutel); else scanKeuze.add(sleutel);
+    tekenScan();
+  });
+  return kaart;
+}
+
 function sluitScan(){
   document.body.classList.remove('scant');
   if(scanBron && scanBron.url && !scanBron.gebruikt) URL.revokeObjectURL(scanBron.url);
   scanBron = null;
+  scanBronnen = [];
   scanKeuze = new Set();
+  scanBezig = false;
+  scanNu = 0; scanTotaal = 0;
   el('scankiezer').value = '';
 }
 
 async function neemStukkenOver(){
-  const b = scanBron;
-  if(!b) return;
-  // in je project wil je ze wél op volgorde van de opname
-  const gekozen = b.stukken.filter((s, i) => scanKeuze.has(i))
-    .slice().sort((x, y) => x.start - y.start);
-  if(!gekozen.length) return;
+  const werk = scanBronnen.map((b, bi) => ({
+    b,
+    // binnen één opname wil je ze op volgorde van de opname
+    gekozen: b.stukken.filter((s, si) => scanKeuze.has(bi + ':' + si))
+                      .slice().sort((x, y) => x.start - y.start)
+  })).filter(x => x.gekozen.length);
+  if(!werk.length) return;
 
   el('scanvoegtoe').disabled = true;
-  const bestandId = nieuwId();   // één bron, dus één keer bewaren
-  for(const s of gekozen){
-    const v = await laadVideo(b.url);
-    document.getElementById('stal').appendChild(v);
-    clips.push({
-      id: nieuwId(), bestandId, naam: '',
-      bestand: b.blob, url: b.url, video: v,
-      duur: b.duur, start: s.start, eind: s.eind,
-      duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5},
-      opname: b.opname ? b.opname + Math.round(s.start * 1000) : null,
-      opnamebron: b.opname ? 'bestand' : 'onbekend'
-    });
+  el('scanrol').classList.add('verborgen');
+  el('scanbezig').classList.remove('verborgen');
+
+  let toegevoegd = 0, gebankt = 0, misgegaan = '';
+  scanTotaal = werk.length;
+
+  for(let w = 0; w < werk.length; w++){
+    const {b, gekozen} = werk[w];
+    scanNu = w + 1;
+    zetScanStand('Opname openen\u2026', 0);
+
+    try {
+      let blob = b.bestand;
+      try { blob = new Blob([b.bestand], {type: b.bestand.type || 'video/mp4'}); } catch(fout){}
+      const url = URL.createObjectURL(blob);
+      const bestandId = nieuwId();   // één opname, dus één keer bewaren
+
+      for(const s of gekozen){
+        const v = await laadVideo(url);
+        document.getElementById('stal').appendChild(v);
+        clips.push({
+          id: nieuwId(), bestandId, naam: '',
+          bestand: blob, url, video: v,
+          duur: b.duur, start: s.start, eind: s.eind,
+          duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5},
+          opname: b.opname ? b.opname + Math.round(s.start * 1000) : null,
+          opnamebron: b.opname ? 'bestand' : 'onbekend'
+        });
+        toegevoegd++;
+      }
+      bewaarBlob(bestandId, blob);
+      teken();
+
+      const metBestand = Object.assign({}, b, {url, blob});
+      gebankt += await bewaarInBank(metBestand, gekozen);
+      if(metBestand.bankfout) misgegaan = metBestand.bankfout;
+    } catch(fout){
+      misgegaan = (fout && fout.message) ? fout.message : 'toevoegen mislukt';
+    }
   }
-  b.gebruikt = true;
-  bewaarBlob(bestandId, b.blob);
+
+  // Stukken uit verschillende opnames horen op volgorde van opnemen te staan,
+  // niet op de volgorde waarin je ze aantikte.
+  if(toegevoegd > 1) zetStilOpTijd();
   teken();
   bewaarStraks();
 
-  const gebankt = await bewaarInBank(b, gekozen);
-
   sluitScan();
-  const aantal = gekozen.length === 1 ? '1 stuk' : gekozen.length + ' stukken';
+  const aantal = toegevoegd === 1 ? '1 stuk' : toegevoegd + ' stukken';
+  const uit = werk.length > 1 ? ' uit ' + werk.length + ' opnames' : '';
   toon(gebankt > 0
-    ? aantal + ' toegevoegd en bewaard in de bank'
-    : aantal + ' toegevoegd \u00b7 bank: ' + (b.bankfout || 'onbekend'));
+    ? aantal + uit + ' toegevoegd en bewaard in de bank'
+    : aantal + uit + ' toegevoegd \u00b7 bank: ' + (misgegaan || 'onbekend'));
+}
+
+// Zelfde sortering als de knop Op tijd, maar zonder melding: dit gebeurt
+// tijdens het toevoegen en dan wil je geen tweede toast over je eerste heen.
+function zetStilOpTijd(){
+  if(clips.length < 2 || !clips.some(c => c.opname)) return;
+  const nieuw = opTijdVolgorde(clips);
+  clips.length = 0;
+  Array.prototype.push.apply(clips, nieuw);
 }
 
 /* Elk stuk dat je goedkeurt wordt er ook echt uitgesneden en in de bank
@@ -3099,7 +3205,7 @@ async function bewaarInBank(b, gekozen){
       const blob = await snijUit(snijder, s.start, s.eind, geluid);
       zetScanStand('Bewaren \u00b7 ' + (i + 1) + ' van ' + gekozen.length,
                    ((i + .5) / gekozen.length) * .9);
-      await naarBank(blob, s, b.bronNaam || '');
+      await naarBank(blob, s, b);
       gelukt++;
     } catch(fout){
       b.bankfout = (fout && fout.message ? fout.message : 'uitsnijden mislukt');
@@ -3113,19 +3219,38 @@ async function bewaarInBank(b, gekozen){
 }
 
 el('scankiezer').addEventListener('change', async e => {
-  const bestand = (e.target.files || [])[0];
-  if(!bestand) return;
+  const bestanden = Array.from(e.target.files || []);
+  if(!bestanden.length) return;
+
   scanBron = null;
+  scanBronnen = [];
   scanKeuze = new Set();
+  scanBezig = true;
+  scanNu = 0; scanTotaal = bestanden.length;
   document.body.classList.add('scant');
   tekenScan();
-  zetScanStand('Opname openen\u2026', 0);
-  try {
-    await scanBestand(bestand);
-    tekenScan();
-  } catch(fout){
-    zetScanStand('Mislukt: ' + (fout && fout.message ? fout.message : 'onbekend'), 0);
+
+  // Eén voor één, nooit tegelijk: uitpluizen springt door de hele opname heen
+  // en twee daarvan naast elkaar maakt het alleen maar trager. Bovendien laten
+  // we elke opname weer los voordat de volgende opengaat.
+  for(let i = 0; i < bestanden.length; i++){
+    if(!document.body.classList.contains('scant')) return;   // je bent teruggegaan
+    scanNu = i + 1;
+    zetScanStand('Opname openen\u2026', 0);
+    try {
+      await scanBestand(bestanden[i]);
+    } catch(fout){
+      scanBronnen.push({
+        bestand: bestanden[i], bronNaam: (bestanden[i] && bestanden[i].name) || '',
+        duur: 0, soort, opname: null, stukken: [], afval: [],
+        fout: (fout && fout.message) ? fout.message : 'mislukt'
+      });
+    }
   }
+
+  if(!document.body.classList.contains('scant')) return;
+  scanBezig = false;
+  tekenScan();
 });
 
 el('scanterug').addEventListener('click', sluitScan);
@@ -3540,7 +3665,8 @@ async function maakGeluidsbron(v){
 
 /* ---------- bewaren ---------- */
 
-async function naarBank(blob, stuk, bronNaam){
+async function naarBank(blob, stuk, bron){
+  const bronNaam = (bron && bron.bronNaam) || '';
   const id = nieuwId();
   const staart = (blob.type || '').includes('mp4') ? '.mp4' : '.webm';
   const pad = 'stukken/' + gebruiker.uid + '/' + id + staart;
@@ -3553,13 +3679,13 @@ async function naarBank(blob, stuk, bronNaam){
     label: stuk.label || '',
     cijfer: stuk.cijfer || 0,
     waarom: stuk.waarom || '',
-    soort: (scanBron && scanBron.soort) || soort,
+    soort: (bron && bron.soort) || soort,
     duur: Math.round((stuk.eind - stuk.start) * 10) / 10,
     bron: bronNaam || '',
     van: Math.round(stuk.start * 10) / 10,
     tot: Math.round(stuk.eind * 10) / 10,
     datum: Date.now(),
-    opname: (scanBron && scanBron.opname) ? scanBron.opname + Math.round(stuk.start * 1000) : null,
+    opname: (bron && bron.opname) ? bron.opname + Math.round(stuk.start * 1000) : null,
     grootte: blob.size,
     pad, url,
     duim: stuk.duim || null
