@@ -90,6 +90,14 @@ exports.maakOndertitels = onCall(
   const hz = Number(d.hz) || 16000;
   const taal = String(d.taal || 'nl-NL');
 
+  /* Woorden waar de motor extra op moet letten. Zonder dit maakt hij van
+     "ganache" een "gasnacht" en van "couverture" iets onherkenbaars. Een
+     te hoge nadruk gaat woorden verzinnen die er niet staan, dus twaalf. */
+  const woorden = (Array.isArray(d.woorden) ? d.woorden : [])
+    .map(w => String(w || '').trim())
+    .filter(w => w.length > 1 && w.length < 100)
+    .slice(0, 400);
+
   let token;
   try {
     const client = await auth.getClient();
@@ -114,7 +122,8 @@ exports.maakOndertitels = onCall(
           enableAutomaticPunctuation: true,
           // 'latest_short' is gemaakt voor korte fragmenten en verstaat
           // spreektaal beter dan het algemene model
-          model: 'latest_short'
+          model: 'latest_short',
+          speechContexts: woorden.length ? [{ phrases: woorden, boost: 12 }] : undefined
         },
         audio: { content: geluid }
       })
@@ -134,11 +143,11 @@ exports.maakOndertitels = onCall(
   }
 
   const uit = await antwoord.json().catch(() => ({}));
-  const woorden = [];
+  const verstaan = [];
   (uit.results || []).forEach(r => {
     const eerste = (r.alternatives || [])[0];
-    if (eerste && Array.isArray(eerste.words)) eerste.words.forEach(w => woorden.push(w));
+    if (eerste && Array.isArray(eerste.words)) eerste.words.forEach(w => verstaan.push(w));
   });
 
-  return { regels: totRegels(woorden) };
+  return { regels: totRegels(verstaan) };
   });
