@@ -126,6 +126,44 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   border-radius:14px;
   padding:4px;
 }
+#logoaan{
+  display:flex;
+  gap:4px;
+  background:var(--achtergrond);
+  border-radius:14px;
+  padding:4px;
+}
+
+#logoblok{margin:4px 0 18px}
+#logorij{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+#logovoorbeeld{
+  flex:0 0 auto;
+  width:84px;height:64px;
+  border-radius:12px;
+  background:#18181b;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+#logovoorbeeld img{max-width:76%;max-height:70%;display:block}
+#logovoorbeeld.leeg::after{
+  content:'geen';
+  font-size:12px;
+  color:#71717a;
+}
+#logoknoppen{flex:1 1 auto;display:flex;gap:8px}
+#logoknoppen .knop{flex:1 1 0;height:44px;font-size:15px;padding:0 10px}
+#logokiezer{display:none}
+#logohoeken, #logomaten{
+  display:flex;
+  gap:4px;
+  background:var(--achtergrond);
+  border-radius:14px;
+  padding:4px;
+  margin-bottom:8px;
+}
+#logohoeken .chip, #logomaten .chip{height:38px;font-size:12px}
+#logouitleg{font-size:13px;color:var(--zachter);line-height:1.5}
+
 #woordenblok{margin:4px 0 18px}
 #woordenveld{
   width:100%;
@@ -1272,6 +1310,12 @@ body.werkt #werkscherm{display:flex}
       <button class="chip" data-fps="60">60</button>
     </div>
 
+    <span class="veldkop" id="logokop">Logo</span>
+    <div id="logoaan">
+      <button class="chip aan" data-logo="aan">In beeld</button>
+      <button class="chip" data-logo="uit">Deze keer niet</button>
+    </div>
+
     <div id="exportschatting"></div>
 
     <div id="knoprij">
@@ -1391,6 +1435,31 @@ body.werkt #werkscherm{display:flex}
       <textarea id="regelveld" rows="12" spellcheck="false"></textarea>
     </div>
 
+    <div id="logoblok">
+      <span class="veldkop">Logo in beeld</span>
+      <div id="logorij">
+        <div id="logovoorbeeld"></div>
+        <div id="logoknoppen">
+          <button class="knop stil" id="logokies">Kies logo</button>
+          <button class="knop stil verborgen" id="logoweg">Verwijder</button>
+        </div>
+      </div>
+      <input type="file" id="logokiezer" accept="image/*">
+      <div id="logohoeken" class="verborgen">
+        <button class="chip" data-hoek="linksboven">Linksboven</button>
+        <button class="chip aan" data-hoek="rechtsboven">Rechtsboven</button>
+        <button class="chip" data-hoek="linksonder">Linksonder</button>
+        <button class="chip" data-hoek="rechtsonder">Rechtsonder</button>
+      </div>
+      <div id="logomaten" class="verborgen">
+        <button class="chip" data-maat="klein">Klein</button>
+        <button class="chip aan" data-maat="midden">Midden</button>
+        <button class="chip" data-maat="groot">Groot</button>
+      </div>
+      <div id="logouitleg">Rechtsboven is de enige hoek die op TikTok en Instagram
+        vrij blijft. Onderin staan de bijschrijving en de knoppen.</div>
+    </div>
+
     <div id="woordenblok" class="verborgen">
       <span class="veldkop">Woorden die hij moet kennen</span>
       <textarea id="woordenveld" rows="5" spellcheck="false"
@@ -1491,7 +1560,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v45';
+const APPVERSIE = 'studio v46';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1646,11 +1715,13 @@ async function bewaarNu(){
   huidigProject.muziekVolume = muziekVolume;
   huidigProject.clipVolume = clipVolume;
   huidigProject.kortezijde = kortezijde;
+  huidigProject.logoUit = logoUit;
   huidigProject.beeldsnelheid = beeldsnelheid;
   try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
 }
 
 async function nieuwProject(){
+  logoUit = false;
   huidigProject = {
     id: nieuwId(), naam: datumNaam(),
     gemaakt: Date.now(), bijgewerkt: Date.now(),
@@ -1693,6 +1764,7 @@ async function openProject(id){
 
   muziek = null;
   kortezijde = pr.kortezijde === 720 ? 720 : 1080;
+  logoUit = !!pr.logoUit;
   beeldsnelheid = [24, 30, 60].includes(pr.beeldsnelheid) ? pr.beeldsnelheid : 30;
   muziekVolume = typeof pr.muziekVolume === 'number' ? pr.muziekVolume : .6;
   clipVolume = typeof pr.clipVolume === 'number' ? pr.clipVolume : 1;
@@ -2813,6 +2885,11 @@ function openExportblad(){
     c.classList.toggle('aan', Number(c.dataset.kort) === kortezijde));
   document.querySelectorAll('#beeldsnelheden .chip').forEach(c =>
     c.classList.toggle('aan', Number(c.dataset.fps) === beeldsnelheid));
+  // zonder logo hoef je er ook niet over na te denken
+  el('logokop').classList.toggle('verborgen', !logo);
+  el('logoaan').classList.toggle('verborgen', !logo);
+  document.querySelectorAll('#logoaan .chip').forEach(k =>
+    k.classList.toggle('aan', (k.dataset.logo === 'uit') === logoUit));
   toonExportSchatting();
   el('waas').classList.add('aan');
   el('exportblad').classList.add('aan');
@@ -2843,6 +2920,14 @@ document.querySelectorAll('#beeldsnelheden .chip').forEach(knop => {
 });
 
 el('exporteren').addEventListener('click', () => { if(!bezigMetExport) openExportblad(); });
+document.querySelectorAll('#logoaan .chip').forEach(k => {
+  k.addEventListener('click', () => {
+    logoUit = k.dataset.logo === 'uit';
+    document.querySelectorAll('#logoaan .chip').forEach(c => c.classList.toggle('aan', c === k));
+    tekenSpelerBeeld();
+    bewaarStraks();
+  });
+});
 el('exportterug').addEventListener('click', sluitExportblad);
 
 el('exportstart').addEventListener('click', async () => {
@@ -2969,6 +3054,7 @@ async function draaiExport(){
       tekenOndertitel(ctx, huidige, B, H);
       tekenTekst(ctx, huidige, B, H);
     }
+    tekenLogo(ctx, B, H);
     requestAnimationFrame(lus);
   })();
 
@@ -3901,6 +3987,7 @@ function startFirebase(){
     vuur.auth.onAuthStateChanged(async u => {
       gebruiker = u || null;
       if(gebruiker) await laadInstellingen();
+      if(gebruiker) await laadLogo();      // je account weet het beter dan dit toestel
       tekenInstel();
       tekenScan();
     });
@@ -3975,6 +4062,23 @@ function tekenInstel(){
   el('regelveld').value = regelsVan[bewerkSoort];
   el('woordenblok').classList.toggle('verborgen', !firebaseKlaar());
   el('woordenveld').value = spraakWoorden;
+
+  const voorbeeld = el('logovoorbeeld');
+  voorbeeld.innerHTML = '';
+  voorbeeld.classList.toggle('leeg', !logo);
+  if(logo && logo.url){
+    const b = document.createElement('img');
+    b.src = logo.url;
+    voorbeeld.appendChild(b);
+  }
+  el('logoweg').classList.toggle('verborgen', !logo);
+  el('logokies').textContent = logo ? 'Vervang' : 'Kies logo';
+  el('logohoeken').classList.toggle('verborgen', !logo);
+  el('logomaten').classList.toggle('verborgen', !logo);
+  document.querySelectorAll('#logohoeken .chip').forEach(k =>
+    k.classList.toggle('aan', k.dataset.hoek === logoHoek()));
+  document.querySelectorAll('#logomaten .chip').forEach(k =>
+    k.classList.toggle('aan', k.dataset.maat === logoMaat()));
   document.querySelectorAll('#regelsoorten .chip').forEach(c =>
     c.classList.toggle('aan', c.dataset.soort === bewerkSoort));
   document.querySelectorAll('#soorten .chip').forEach(c =>
@@ -4539,6 +4643,7 @@ document.querySelectorAll('#bankfilters .chip').forEach(knop => {
    Hier wordt het een liniaal. De speler laat je hele montage zien, de kop
    staat waar je bent, en slepen brengt je erheen. */
 
+let logoUit = false;      // per project: dit filmpje zonder logo
 let kopTijd = 0;          // waar de speelkop staat, in seconden van de montage
 let speelt = false;
 let speelLus = null;
@@ -4815,6 +4920,146 @@ function tekenOndertitel(ctx, c, B, H){
   ctx.restore();
 }
 
+
+/* ---------- logo in beeld ----------
+
+   Je merk hoort op je eigen beeld. Eén logo voor alles wat je maakt, dus we
+   bewaren het los van je projecten: op dit toestel in de opslag, en als je
+   ingelogd bent ook bij je account, zodat het op je iPad hetzelfde is.
+
+   De hoek is niet vrijblijvend. Onderin een reel staan de bijschrijving en de
+   knoppen van TikTok, rechtsonder je profielfoto en het hartje. Rechtsboven is
+   de enige hoek die op alle platforms vrij blijft, dus dat is de standaard. */
+
+const LOGOMATEN = {klein: .10, midden: .15, groot: .22};   // deel van de korte zijde
+const LOGORAND = .04;                                      // lucht tot de rand
+
+let logo = null;          // {blob, url, beeld, hoek, maat}
+
+function logoMaat(){ return (logo && LOGOMATEN[logo.maat]) ? logo.maat : 'midden'; }
+function logoHoek(){ return (logo && logo.hoek) || 'rechtsboven'; }
+
+function tekenLogo(ctx, B, H){
+  if(!logo || !logo.beeld || !logo.beeld.width || logoUit) return;
+  const kort = Math.min(B, H);
+  const breed = kort * LOGOMATEN[logoMaat()];
+  const hoog = breed * (logo.beeld.height / logo.beeld.width);
+  const rand = kort * LOGORAND;
+  const hoek = logoHoek();
+  const x = hoek.indexOf('links') > -1 ? rand : B - rand - breed;
+  const y = hoek.indexOf('boven') > -1 ? rand : H - rand - hoog;
+  ctx.save();
+  ctx.globalAlpha = .92;
+  try { ctx.drawImage(logo.beeld, x, y, breed, hoog); } catch(fout){}
+  ctx.restore();
+}
+
+function laadLogoBeeld(blob){
+  return new Promise(klaar => {
+    const url = URL.createObjectURL(blob);
+    const b = new Image();
+    b.onload = () => klaar({url, beeld: b});
+    b.onerror = () => { try { URL.revokeObjectURL(url); } catch(fout){} klaar(null); };
+    b.src = url;
+  });
+}
+
+// Een logo van vier megapixel heeft niemand nodig op een beeld van 1080 breed.
+// Terugschalen scheelt geheugen en maakt het klein genoeg om bij je account te
+// bewaren in plaats van alleen op dit toestel.
+function schaalLogo(bestand){
+  return new Promise((klaar, mis) => {
+    const url = URL.createObjectURL(bestand);
+    const b = new Image();
+    b.onload = () => {
+      try {
+        const schaal = Math.min(1, 512 / Math.max(b.width, b.height));
+        const doek = document.createElement('canvas');
+        doek.width = Math.max(1, Math.round(b.width * schaal));
+        doek.height = Math.max(1, Math.round(b.height * schaal));
+        doek.getContext('2d').drawImage(b, 0, 0, doek.width, doek.height);
+        doek.toBlob(blob => {
+          URL.revokeObjectURL(url);
+          blob ? klaar(blob) : mis(new Error('kon het plaatje niet opslaan'));
+        }, 'image/png');
+      } catch(fout){ URL.revokeObjectURL(url); mis(fout); }
+    };
+    b.onerror = () => { URL.revokeObjectURL(url); mis(new Error('dit is geen plaatje')); };
+    b.src = url;
+  });
+}
+
+function blobNaarTekst(blob){
+  return new Promise(klaar => {
+    const l = new FileReader();
+    l.onload = () => klaar(l.result);
+    l.onerror = () => klaar(null);
+    l.readAsDataURL(blob);
+  });
+}
+
+async function zetLogo(bestand){
+  const blob = await schaalLogo(bestand);
+  const geladen = await laadLogoBeeld(blob);
+  if(!geladen) throw new Error('kon het plaatje niet openen');
+
+  if(logo && logo.url){ try { URL.revokeObjectURL(logo.url); } catch(fout){} }
+  logo = {blob, url: geladen.url, beeld: geladen.beeld, hoek: logoHoek(), maat: logoMaat()};
+
+  await zetIn('bestanden', {id: 'logo', blob});
+  await bewaarLogoBijAccount();
+  tekenInstel();
+  tekenSpelerBeeld();
+}
+
+async function bewaarLogoBijAccount(){
+  if(!firebaseKlaar()) return;
+  try {
+    const tekst = logo ? await blobNaarTekst(logo.blob) : null;
+    await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio').update({
+      logo: tekst, logohoek: logoHoek(), logomaat: logoMaat()
+    });
+  } catch(fout){}
+}
+
+async function laadLogo(){
+  let blob = null, hoek = 'rechtsboven', maat = 'midden';
+
+  // je account gaat voor: dan klopt het ook op je andere toestellen
+  if(firebaseKlaar()){
+    try {
+      const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/studio').once('value');
+      const v = s.val() || {};
+      if(v.logohoek) hoek = v.logohoek;
+      if(v.logomaat) maat = v.logomaat;
+      if(v.logo){
+        const r = await fetch(v.logo);
+        blob = await r.blob();
+        zetIn('bestanden', {id: 'logo', blob});
+      }
+    } catch(fout){}
+  }
+  if(!blob){
+    try {
+      const rec = await haalUit('bestanden', 'logo');
+      if(rec && rec.blob) blob = rec.blob;
+    } catch(fout){}
+  }
+  if(!blob){ logo = null; return; }
+
+  const geladen = await laadLogoBeeld(blob);
+  logo = geladen ? {blob, url: geladen.url, beeld: geladen.beeld, hoek, maat} : null;
+}
+
+async function haalLogoWeg(){
+  if(logo && logo.url){ try { URL.revokeObjectURL(logo.url); } catch(fout){} }
+  logo = null;
+  try { await wisUit('bestanden', 'logo'); } catch(fout){}
+  await bewaarLogoBijAccount();
+  tekenInstel();
+  tekenSpelerBeeld();
+}
+
 function tekenSpelerBeeld(){
   const doek = el('speeldoek');
   const ctx = doek.getContext('2d');
@@ -4829,6 +5074,7 @@ function tekenSpelerBeeld(){
     tekenOndertitel(ctx, vak.clip, doek.width, doek.height);
     tekenTekst(ctx, vak.clip, doek.width, doek.height);
   }
+  tekenLogo(ctx, doek.width, doek.height);
 }
 
 /* Vroeger tekende de speler altijd op 540 punten lang. Op een scherm dat het
@@ -6456,6 +6702,38 @@ el('kadermidden').addEventListener('click', () => {
 
 el('speelknop').addEventListener('click', speelStuk);
 
+
+el('logokies').addEventListener('click', () => el('logokiezer').click());
+el('logokiezer').addEventListener('change', async e => {
+  const bestand = (e.target.files || [])[0];
+  e.target.value = '';
+  if(!bestand) return;
+  try { await zetLogo(bestand); toon('Logo ingesteld'); }
+  catch(fout){ toon(fout && fout.message ? fout.message : 'Logo instellen mislukt'); }
+});
+el('logoweg').addEventListener('click', async () => {
+  await haalLogoWeg();
+  toon('Logo verwijderd');
+});
+document.querySelectorAll('#logohoeken .chip').forEach(k => {
+  k.addEventListener('click', () => {
+    if(!logo) return;
+    logo.hoek = k.dataset.hoek;
+    tekenInstel();
+    tekenSpelerBeeld();
+    bewaarLogoBijAccount();
+  });
+});
+document.querySelectorAll('#logomaten .chip').forEach(k => {
+  k.addEventListener('click', () => {
+    if(!logo) return;
+    logo.maat = k.dataset.maat;
+    tekenInstel();
+    tekenSpelerBeeld();
+    bewaarLogoBijAccount();
+  });
+});
+
 el('instelknop').addEventListener('click', openInstel);
 el('instelklaar').addEventListener('click', async () => { await bewaarRegels(); sluitInstel(); });
 el('sleutelbewaar').addEventListener('click', koppelSleutel);
@@ -6469,6 +6747,7 @@ async function start(){
   try { if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch(fout){}
   try {
     await openOpslag();
+    await laadLogo();
     await tekenProjecten();
   } catch(fout){
     el('pleeg').classList.remove('verborgen');
