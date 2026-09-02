@@ -680,3 +680,7 @@ exports.labelPdf = onCall(async req => {
 
   return { pdf: bytes.toString('base64'), naam: 'verzendlabel-' + (nr || id) + '.pdf' };
 });
+
+/* Ondertitels staan in een eigen bestand ernaast, zodat dit bestand niet nog
+   langer wordt. Deze regel haalt ze binnen. */
+Object.assign(exports, require('./maakOndertitels'));
