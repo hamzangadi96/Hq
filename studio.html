@@ -840,6 +840,11 @@ body.scant #scanscherm{display:flex}
   color:var(--zacht);
   margin-top:3px;
 }
+.stukcode{
+  font-size:11px;
+  color:var(--zachter);
+  letter-spacing:.02em;
+}
 .cijfer{
   color:var(--inkt) !important;
   font-weight:600;
@@ -1620,7 +1625,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v54';
+const APPVERSIE = 'studio v55';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1763,6 +1768,7 @@ async function bewaarNu(){
     start: c.start, eind: c.eind, duim: c.duim, tempo: c.tempo || 1,
     opname: c.opname || null, opnamebron: c.opnamebron || '',
     cijfer: c.cijfer || 0, label: c.label || '',
+    code: c.code || '', rol: c.rol || '', stukduur: c.stukduur || null,
     uitgeknipt: !!c.uitgeknipt,
     tekst: c.tekst || '', tekstplek: c.tekstplek || 'onder',
     ondertitels: c.ondertitels || null,
@@ -1820,6 +1826,7 @@ async function openProject(id){
       tempo: m.tempo || 1,
       opname: m.opname || null, opnamebron: m.opnamebron || '',
       cijfer: m.cijfer || 0, label: m.label || '',
+      code: m.code || '', rol: m.rol || '', stukduur: m.stukduur || null,
       uitgeknipt: !!m.uitgeknipt,
       tekst: m.tekst || '', tekstplek: m.tekstplek || 'onder',
       ondertitels: m.ondertitels || null,
@@ -3691,6 +3698,25 @@ async function scanBestand(bestand){
       stukken = [];
     }
     if(!stukken.length && scanBron.fout) stukken = hapOp(uitslag.stukken);
+
+    /* Nu de knippunten vastliggen: elk stuk naast je lijst leggen. Gaat dat
+       mis, dan houd je gewoon de stukken met hun vrije label — minder
+       precies, maar je draaidag is niet weg. */
+    if(stukken.length){
+      voorstellen = [];
+      try {
+        const n = await deelIn(stukken);
+        scanBron.ingedeeld = n;
+        scanBron.voorstellen = voorstellen.filter(v => v.aantal >= 3);
+      } catch(fout){
+        scanBron.fout = fout && fout.message ? fout.message : 'indelen mislukt';
+      }
+      // wat je lijst als onbruikbaar aanmerkt hoort niet in de keuze
+      const weg = stukken.filter(s => s.klasse === 'WEG');
+      weg.forEach(s => scanBron.afval.push(
+        {start: s.start, eind: s.eind, reden: s.label || 'volgens je lijst onbruikbaar', vanModel: true}));
+      stukken = stukken.filter(s => s.klasse !== 'WEG');
+    }
   } else {
     stukken = hapOp(uitslag.stukken);
   }
@@ -3906,7 +3932,9 @@ function maakStukKaart(b, bi, i, isBeste){
       (isBeste ? '<span class="bestevlag">Beste</span>' : '') + '</div>' +
     '<div class="klipmeta">' + secs(s.eind - s.start) +
     ' <span>vanaf ' + secs(s.start) + '</span>' +
-      (s.cijfer ? '<span class="cijfer">' + s.cijfer + '/10</span>' : '') + '</div>' +
+      (s.cijfer ? '<span class="cijfer">' + s.cijfer + '/10</span>' : '') +
+      (s.code ? '<span class="stukcode">' + veiligeTekst(s.code) +
+                (s.rol ? ' \u00b7 ' + veiligeTekst(s.rol) : '') + '</span>' : '') + '</div>' +
     (s.waarom ? '<div class="stuklabel">' + veiligeTekst(s.waarom) + '</div>' : '');
   kaart.appendChild(info);
 
@@ -4078,6 +4106,7 @@ async function neemStukkenOver(){
             opname: b.opname ? b.opname + Math.round(van * 1000) : null,
             opnamebron: b.opname ? 'bestand' : 'onbekend',
             cijfer: Number(s.cijfer) || 0, label: s.label || '',
+            code: s.code || '', rol: s.rol || '', stukduur: s.duur || null,
             uitgeknipt: true
           });
           bewaarBlob(eigenId, klein);
@@ -4096,6 +4125,7 @@ async function neemStukkenOver(){
             opname: b.opname ? b.opname + Math.round(s.start * 1000) : null,
             opnamebron: b.opname ? 'bestand' : 'onbekend',
             cijfer: Number(s.cijfer) || 0, label: s.label || '',
+            code: s.code || '', rol: s.rol || '', stukduur: s.duur || null,
             uitgeknipt: false
           });
           toegevoegd++;
@@ -4454,6 +4484,159 @@ function vensters(van, tot){
 }
 
 /* ---------- beoordelen ---------- */
+
+
+/* ================== INDELEN TEGEN JE LIJST ==================
+
+   beoordeelReeks vindt de knippunten en geeft een vrij label. Met een vrij
+   label als "handen bezig met chocolade" kan de app niets: hij weet niet of
+   het shot mag openen, hoe lang het in beeld hoort, of het uberhaupt bruikbaar
+   is. Met een code uit je eigen lijst weet hij dat allemaal wel.
+
+   Dus leggen we elk stuk daarna naast de lijst. Een beeld uit het midden is
+   genoeg: de knippunten staan al vast, we willen alleen weten wat het is.
+
+   Twee trappen, want de lijst is te groot om in een keer mee te sturen. Trap
+   een kiest de groep uit vijfendertig koppen, trap twee de regel uit die ene
+   groep. Zestig regels per aanroep in plaats van vijfhonderd. */
+
+let lijstCache = null;
+let voorstellen = [];      // wat het model niet kon plaatsen
+
+async function haalLijst(){
+  if(lijstCache) return lijstCache;
+  if(!firebaseKlaar() || !gebruiker) return null;
+  try {
+    const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/lijst').once('value');
+    const v = s.val();
+    if(v && Array.isArray(v.regels) && v.regels.length){
+      lijstCache = {versie: v.versie || 0, regels: {}, groepen: {}};
+      v.regels.forEach(r => { lijstCache.regels[r.code] = r; });
+      (v.groepen || []).forEach(g => { lijstCache.groepen[g.code] = g.naam; });
+      return lijstCache;
+    }
+  } catch(fout){}
+  return null;    // eerste keer nog leeg; de Cloud Function vult hem
+}
+
+/* De lijst is de baas over klasse, rol en duur. Het cijfer van beoordeelReeks
+   blijft de rangschikking binnen die klasse: van twee shots met dezelfde code
+   is de een nu eenmaal beter gefilmd dan de ander.
+
+   Twee harde regels uit je lijst overrulen alles:
+     WEG blijft WEG, hoe mooi het cijfer ook is
+     GOUD zakt niet onder een acht */
+function pasCodeToe(stuk, regel){
+  if(!regel) return;
+  stuk.code = regel.code;
+  if(regel.naam) stuk.label = regel.naam;
+  if(regel.rol) stuk.rol = regel.rol;
+  if(regel.duur) stuk.duur = regel.duur.slice();   // heet in de clip stukduur
+  stuk.klasse = regel.klasse || '';
+
+  const cijfer = Number(stuk.cijfer) || 0;
+  if(regel.klasse === 'WEG'){
+    stuk.cijfer = 0;
+    stuk.waarom = regel.naam;
+  } else if(regel.klasse === 'GOUD'){
+    stuk.cijfer = Math.max(8, cijfer);
+  } else if(regel.klasse === 'TWIJFEL'){
+    stuk.cijfer = Math.min(5, cijfer || 3);
+  } else if(regel.klasse === 'BRUIK' && !cijfer){
+    stuk.cijfer = 7;
+  }
+}
+
+// een voorstel telt pas mee als je het drie keer bent tegengekomen
+function onthoudVoorstel(v){
+  // de Cloud Function levert een object, maar een ruw model soms een kale
+  // tekst. Allebei accepteren is goedkoper dan erop vertrouwen.
+  if(typeof v === 'string') v = {omschrijving: v};
+  if(!v) return;
+  const sleutel = (v.omschrijving || '').toLowerCase().trim();
+  if(!sleutel) return;
+  const bestaat = voorstellen.find(x => x.sleutel === sleutel);
+  if(bestaat){ bestaat.aantal++; return; }
+  voorstellen.push({sleutel, omschrijving: v.omschrijving,
+                    gok: v.gok || 'TWIJFEL', lijkt_op: v.lijkt_op || null, aantal: 1});
+}
+
+async function deelIn(stukken){
+  const lijst = await haalLijst();
+  if(!lijst || !stukken.length) return 0;
+
+  const roep = vuur.fn.httpsCallable('beoordeelCode');
+  const b = scanBron;
+
+  // een beeld uit het midden van elk stuk, in pakketjes van twaalf
+  const beelden = [];
+  for(let i = 0; i < stukken.length; i++){
+    const s = stukken[i];
+    const midden = (s.start + s.eind) / 2;
+    const uit = await beeldenTussen(b.video, midden - .05, midden + .05);
+    if(uit.length) beelden.push({t: uit[0].t, data: uit[0].data, stuk: i});
+  }
+  if(!beelden.length) return 0;
+
+  const pakketten = [];
+  for(let i = 0; i < beelden.length; i += 12) pakketten.push(beelden.slice(i, i + 12));
+
+  // ---- trap 1: welke groep ----
+  const groepVan = {};
+  for(let p = 0; p < pakketten.length; p++){
+    zetScanStand('Indelen \u00b7 groep ' + (p + 1) + ' van ' + pakketten.length,
+                 .8 + (p / pakketten.length) * .1);
+    try {
+      const r = await roep({fase: 'groep',
+                            beelden: pakketten[p].map(x => ({t: x.t, data: x.data}))});
+      ((r.data || {}).beelden || []).forEach(uit => {
+        const hoort = pakketten[p].find(x => Math.abs(x.t - uit.t) < .15);
+        if(hoort && uit.groep) groepVan[hoort.stuk] = uit.groep;
+      });
+    } catch(fout){
+      b.fout = fout && fout.message ? fout.message : 'indelen mislukt';
+      return 0;
+    }
+  }
+
+  // ---- trap 2: welke regel, per groep gebundeld ----
+  const perGroep = {};
+  beelden.forEach(x => {
+    const g = groepVan[x.stuk];
+    if(!g) return;
+    (perGroep[g] = perGroep[g] || []).push(x);
+  });
+
+  const groepen = Object.keys(perGroep);
+  let gelukt = 0;
+  for(let i = 0; i < groepen.length; i++){
+    const g = groepen[i];
+    zetScanStand('Indelen \u00b7 ' + (lijst.groepen[g] || g), .9 + (i / groepen.length) * .1);
+    for(let k = 0; k < perGroep[g].length; k += 12){
+      const hap = perGroep[g].slice(k, k + 12);
+      try {
+        const r = await roep({fase: 'code', groep: g,
+                              beelden: hap.map(x => ({t: x.t, data: x.data}))});
+        ((r.data || {}).beelden || []).forEach(uit => {
+          const hoort = hap.find(x => Math.abs(x.t - uit.t) < .15);
+          if(!hoort) return;
+          const stuk = stukken[hoort.stuk];
+          if(uit.code && lijst.regels[uit.code]){
+            pasCodeToe(stuk, lijst.regels[uit.code]);
+            if(uit.let_op) stuk.waarom = uit.let_op;
+            if(uit.kader) stuk.kader_soort = uit.kader;
+            gelukt++;
+          } else if(uit.onbekend){
+            onthoudVoorstel(uit.onbekend);
+          }
+        });
+      } catch(fout){
+        b.fout = fout && fout.message ? fout.message : 'indelen mislukt';
+      }
+    }
+  }
+  return gelukt;
+}
 
 async function laatKnippen(reeksen){
   const b = scanBron;
