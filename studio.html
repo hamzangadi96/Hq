@@ -126,6 +126,15 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   border-radius:14px;
   padding:4px;
 }
+#duikblok{margin-bottom:14px}
+#duikkeuze{
+  display:flex;
+  gap:4px;
+  background:var(--achtergrond);
+  border-radius:14px;
+  padding:4px;
+}
+
 #logoaan{
   display:flex;
   gap:4px;
@@ -1333,6 +1342,14 @@ body.werkt #werkscherm{display:flex}
     <div id="golfregel"></div>
     <button class="knop stil" id="opdemaat" disabled>Zoekt de maat…</button>
 
+    <div id="duikblok" class="verborgen">
+      <span class="veldkop">Als je praat</span>
+      <div id="duikkeuze">
+        <button class="chip aan" data-duik="aan">Muziek zakt</button>
+        <button class="chip" data-duik="uit">Blijft even hard</button>
+      </div>
+    </div>
+
     <span class="veldkop">Muziek</span>
     <div class="volrij"><input type="range" id="muziekvol" min="0" max="100" step="5"><b id="muziekvolgetal"></b></div>
 
@@ -1560,7 +1577,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v46';
+const APPVERSIE = 'studio v47';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1716,12 +1733,15 @@ async function bewaarNu(){
   huidigProject.clipVolume = clipVolume;
   huidigProject.kortezijde = kortezijde;
   huidigProject.logoUit = logoUit;
+  huidigProject.duiken = duiken;
   huidigProject.beeldsnelheid = beeldsnelheid;
   try { await zetIn('projecten', huidigProject); } catch(fout){ toon('Bewaren mislukt'); }
 }
 
 async function nieuwProject(){
   logoUit = false;
+  duiken = true;
+  vergeetSpraak();
   huidigProject = {
     id: nieuwId(), naam: datumNaam(),
     gemaakt: Date.now(), bijgewerkt: Date.now(),
@@ -1765,6 +1785,8 @@ async function openProject(id){
   muziek = null;
   kortezijde = pr.kortezijde === 720 ? 720 : 1080;
   logoUit = !!pr.logoUit;
+  duiken = pr.duiken !== false;
+  vergeetSpraak();
   beeldsnelheid = [24, 30, 60].includes(pr.beeldsnelheid) ? pr.beeldsnelheid : 30;
   muziekVolume = typeof pr.muziekVolume === 'number' ? pr.muziekVolume : .6;
   clipVolume = typeof pr.clipVolume === 'number' ? pr.clipVolume : 1;
@@ -2530,6 +2552,7 @@ function teken(){
   el('exporteren').disabled = leeg;
 
   clips.forEach((c, i) => { c.naam = 'Clip ' + (i + 1); });
+  vergeetSpraak();
 
   if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
   if(typeof tekenMuziekspoor === 'function') tekenMuziekspoor();
@@ -3084,12 +3107,22 @@ async function draaiExport(){
     try { if(muziekStart) await muziekStart; } catch(fout){}
     try { c.video.playbackRate = snel; } catch(fout){}
 
-    // de fade plannen vanaf het moment dat het echt loopt
+    /* Het volumeverloop plannen vanaf het moment dat het echt loopt. We nemen
+       precies dezelfde functie als de speler gebruikt en meten hem uit tot een
+       curve. Zo is wat je hoort in je voorbeeld gegarandeerd wat er in je
+       bestand komt — één plek waar het verloop bepaald wordt, geen twee. */
     if(i === 0 && ac && muziekAan() && muziekKraan){
       const eind = totaleDuur();
-      if(eind > UITFADEN){
-        muziekKraan.gain.setValueAtTime(muziekVolume, ac.currentTime + eind - UITFADEN);
-        muziekKraan.gain.linearRampToValueAtTime(.0001, ac.currentTime + eind);
+      if(eind > .2){
+        const punten = Math.max(2, Math.min(8000, Math.round(eind * 40)));
+        const curve = new Float32Array(punten);
+        for(let n = 0; n < punten; n++){
+          curve[n] = Math.max(.0001, muziekNiveau((n / (punten - 1)) * eind));
+        }
+        try {
+          muziekKraan.gain.cancelScheduledValues(ac.currentTime);
+          muziekKraan.gain.setValueCurveAtTime(curve, ac.currentTime, eind);
+        } catch(fout){}
       }
     }
 
@@ -5973,6 +6006,7 @@ function tekenOndertitelLijst(){
       veld.placeholder = 'leeg laat de regel weg';
       veld.addEventListener('input', () => {
         r.tekst = veld.value;
+        vergeetSpraak();
         veld.classList.toggle('leeg', !veld.value.trim());
         tekenSpelerBeeld();
         bewaarStraks();
@@ -6391,14 +6425,77 @@ function zetMuziekBegin(sec){
   bewaarStraks();
 }
 
+/* ---------- muziek zakt als je praat ----------
+
+   Je ondertitels vertellen precies wanneer er gesproken wordt. Daarmee kunnen
+   we doen wat een monteur met de hand doet: de muziek eronder wegdraaien zodra
+   je iets zegt, en weer optrekken als je klaar bent. Zonder dat praat je tegen
+   je eigen soundtrack in.
+
+   We zakken alvast een fractie voordat het woord valt, want anders hoor je de
+   eerste lettergreep nog door de muziek heen. */
+
+const DUIK = .35;          // hoever de muziek zakt tijdens spraak
+const DUIKRAMP = .25;      // seconden om te zakken en weer op te komen
+const VOORLOOP = .15;      // alvast zakken net voor het eerste woord
+const NALOOP = .25;        // en nog even laag blijven na het laatste
+
+let duiken = true;
+let spreekCache = null;
+
+function vergeetSpraak(){ spreekCache = null; }
+
+function spreekVakken(){
+  if(spreekCache) return spreekCache;
+  const uit = [];
+  if(duiken){
+    tijdIndex().forEach(vak => {
+      const c = vak.clip;
+      if(!c.ondertitels || !c.ondertitels.length) return;
+      const tempo = c.tempo || 1;
+      c.ondertitels.forEach(r => {
+        const van = vak.van + Math.max(0, r.van - c.start) / tempo;
+        const tot = vak.van + Math.max(0, r.tot - c.start) / tempo;
+        if(tot <= vak.van || van >= vak.tot) return;      // valt buiten wat je overhield
+        uit.push({van: Math.max(vak.van, van - VOORLOOP),
+                  tot: Math.min(vak.tot, tot + NALOOP)});
+      });
+    });
+    uit.sort((a, b) => a.van - b.van);
+  }
+  // stukken die tegen elkaar aan liggen als één stuk behandelen
+  const samen = [];
+  uit.forEach(v => {
+    const laatste = samen[samen.length - 1];
+    if(laatste && v.van <= laatste.tot) laatste.tot = Math.max(laatste.tot, v.tot);
+    else samen.push({van: v.van, tot: v.tot});
+  });
+  spreekCache = samen;
+  return samen;
+}
+
+function duikFactor(t){
+  const vakken = spreekVakken();
+  if(!vakken.length) return 1;
+  let f = 1;
+  for(const v of vakken){
+    if(t >= v.van && t <= v.tot) return DUIK;
+    if(t > v.van - DUIKRAMP && t < v.van)
+      f = Math.min(f, 1 - (1 - DUIK) * (t - (v.van - DUIKRAMP)) / DUIKRAMP);
+    else if(t > v.tot && t < v.tot + DUIKRAMP)
+      f = Math.min(f, DUIK + (1 - DUIK) * (t - v.tot) / DUIKRAMP);
+  }
+  return f;
+}
+
 // Aan het eind niet abrupt afkappen maar wegzakken; anders klinkt je reel of
 // hij halverwege is afgebroken.
 function muziekNiveau(t){
   const totaal = totaleDuur();
   if(totaal <= 0) return muziekVolume;
   const over = totaal - t;
-  if(over >= UITFADEN) return muziekVolume;
-  return muziekVolume * Math.max(0, over / UITFADEN);
+  const eind = over >= UITFADEN ? 1 : Math.max(0, over / UITFADEN);
+  return muziekVolume * eind * duikFactor(t);
 }
 
 
@@ -6602,6 +6699,12 @@ function openMuziekblad(){
       knop.textContent = 'Geen maat gevonden';
     }
   });
+  // alleen tonen als er iets te zakken valt
+  const gesproken = clips.some(c => c.ondertitels && c.ondertitels.length);
+  el('duikblok').classList.toggle('verborgen', !gesproken);
+  document.querySelectorAll('#duikkeuze .chip').forEach(k =>
+    k.classList.toggle('aan', (k.dataset.duik === 'uit') === !duiken));
+
   el('muziekvol').value = Math.round(muziekVolume * 100);
   el('clipvol').value = Math.round(clipVolume * 100);
   el('muziekvolgetal').textContent = Math.round(muziekVolume * 100) + '%';
@@ -6659,6 +6762,15 @@ el('muziekkiezer').addEventListener('change', async e => {
 
 el('muziekleeg').addEventListener('click', () => el('muziekkiezer').click());
 el('muziekspoor').addEventListener('click', openMuziekblad);
+document.querySelectorAll('#duikkeuze .chip').forEach(k => {
+  k.addEventListener('click', () => {
+    duiken = k.dataset.duik === 'aan';
+    document.querySelectorAll('#duikkeuze .chip').forEach(c => c.classList.toggle('aan', c === k));
+    vergeetSpraak();
+    zetVolumes();
+    bewaarStraks();
+  });
+});
 el('opdemaat').addEventListener('click', () => { opDeMaat(); sluitMuziekblad(); });
 el('muziekklaar').addEventListener('click', () => { sluitMuziekblad(); bewaarStraks(); });
 el('muziekweg').addEventListener('click', haalMuziekWeg);
