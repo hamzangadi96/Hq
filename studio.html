@@ -436,6 +436,28 @@ body.klipgekozen #gereedclip{display:flex}
 #muziekduur{font-size:11px;color:#3b6a99;margin-left:auto;flex:0 0 auto}
 /* Geen kaal bestandsveld meer: één balk die je aantikt. Hij houdt de plek van
    het muziekspoor bezet, zodat je ook na vier weken nog weet dat die er is. */
+/* Sleep de golfvorm om te kiezen waar het nummer begint. Het omkaderde stuk
+   is wat je in je montage hoort. */
+#golfvak{
+  height:72px;
+  border-radius:14px;
+  background:var(--achtergrond);
+  padding:4px;
+  touch-action:none;
+  cursor:grab;
+  margin-bottom:8px;
+}
+#golfvak:active{cursor:grabbing}
+#golfdoek{display:block;width:100%;height:64px}
+#golfregel{
+  font-size:13px;
+  color:var(--zacht);
+  text-align:center;
+  margin-bottom:10px;
+  font-variant-numeric:tabular-nums;
+}
+#opdemaat{width:100%;margin-bottom:18px}
+
 #muziekleeg{
   width:100%;
   height:34px;
@@ -1209,6 +1231,10 @@ body.werkt #werkscherm{display:flex}
     <h2 class="bladtitel" id="muziektitel">Muziek</h2>
     <div id="muziekfeiten"></div>
 
+    <div id="golfvak"><canvas id="golfdoek"></canvas></div>
+    <div id="golfregel"></div>
+    <button class="knop stil" id="opdemaat" disabled>Zoekt de maat…</button>
+
     <span class="veldkop">Muziek</span>
     <div class="volrij"><input type="range" id="muziekvol" min="0" max="100" step="5"><b id="muziekvolgetal"></b></div>
 
@@ -1402,7 +1428,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v40';
+const APPVERSIE = 'studio v42';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1551,7 +1577,8 @@ async function bewaarNu(){
     kader: c.kader || {x: .5, y: .5}
   }));
   huidigProject.muziek = muziek
-    ? {bestandId: muziek.bestandId, naam: muziek.naam, duur: muziek.duur}
+    ? {bestandId: muziek.bestandId, naam: muziek.naam, duur: muziek.duur,
+       begin: muziekBegin()}
     : null;
   huidigProject.muziekVolume = muziekVolume;
   huidigProject.clipVolume = clipVolume;
@@ -1616,6 +1643,7 @@ async function openProject(id){
         a.volume = muziekVolume;
         muziek = {bestandId: pr.muziek.bestandId, naam: pr.muziek.naam || 'Muziek',
                   duur: pr.muziek.duur || (isFinite(a.duration) ? a.duration : 0),
+                  begin: Number(pr.muziek.begin) || 0,
                   url, audio: a, blob: rec.blob};
       }
     } catch(fout){}
@@ -2833,8 +2861,15 @@ async function draaiExport(){
       muziekKraan.connect(doel);
       if(!muziek.bron) muziek.bron = ac.createMediaElementSource(muziek.audio);
       muziek.bron.connect(muziekKraan);
+      // de export begint bij het stuk dat jij hebt aangewezen, en zakt aan het
+      // eind weg in plaats van er middenin af te kappen
       try {
-        muziek.audio.currentTime = 0;
+        muziek.audio.currentTime = muziekBegin();
+        const eind = totaleDuur();
+        if(eind > UITFADEN){
+          muziekKraan.gain.setValueAtTime(muziekVolume, ac.currentTime + eind - UITFADEN);
+          muziekKraan.gain.linearRampToValueAtTime(.0001, ac.currentTime + eind);
+        }
         await muziek.audio.play();
       } catch(fout){}
     }
@@ -4721,7 +4756,7 @@ async function speelMontage(){
   zetVolumes();
   if(muziekAan()){
     try {
-      muziek.audio.currentTime = Math.min(kopTijd, Math.max(0, (muziek.duur || 0) - .05));
+      muziek.audio.currentTime = muziekTijd(kopTijd);
       muziek.audio.play();
     } catch(fout){}
   }
@@ -4743,6 +4778,9 @@ async function speelMontage(){
 
   const lus = async () => {
     if(!speelt) return;
+    if(muziekAan()){
+      try { muziek.audio.volume = muziekNiveau(kopTijd); } catch(fout){}
+    }
     const vak = speelKlok;
     if(vak){
       const c = vak.clip;
@@ -4831,7 +4869,7 @@ async function zetKop(t, stil){
   if(!speelt) zetScrollNaarKop();
   const vak = opTijd(kopTijd);
   if(muziekAan() && !speelt){
-    try { muziek.audio.currentTime = Math.min(kopTijd, Math.max(0, (muziek.duur || 0) - .05)); } catch(fout){}
+    try { muziek.audio.currentTime = muziekTijd(kopTijd); } catch(fout){}
   }
   if(!vak){ tekenSpelerBeeld(); return; }
   const inClip = vak.clip.start + (kopTijd - vak.van) * (vak.clip.tempo || 1);
@@ -5726,7 +5764,7 @@ let clipVolume = 1;         // hoe hard het geluid uit je clips staat
 function muziekAan(){ return !!(muziek && muziek.audio); }
 
 function zetVolumes(){
-  if(muziek && muziek.audio) muziek.audio.volume = muziekVolume;
+  if(muziek && muziek.audio) muziek.audio.volume = speelt ? muziekNiveau(kopTijd) : muziekVolume;
   clips.forEach(c => {
     // versnelde clips blijven stil, dat klinkt anders als een piepstem
     if((c.tempo || 1) > 1) return;
@@ -5796,6 +5834,302 @@ function haalMuziekWeg(){
 
 /* ---------- het spoor ---------- */
 
+
+/* ---------- waar begint de muziek? ----------
+
+   Een nummer begint zelden op nul met het stuk dat je wilt horen. De drop zit
+   op een minuut twaalf, en dat is waar je montage moet beginnen. Dus onthouden
+   we een begintijd in het nummer, en tellen we die overal bij op waar we de
+   muziek op een plek zetten.
+
+   Om te kunnen mikken tekenen we de golfvorm van het hele nummer. Dat doen we
+   één keer: we lezen het geluid uit, nemen per stukje de hoogste uitslag, en
+   bewaren die reeks. Daarna is opnieuw tekenen gratis. */
+
+const GOLFPUNTEN = 900;
+const UITFADEN = 1.2;      // seconden waarin de muziek naar nul zakt aan het eind
+
+function muziekBegin(){
+  return (muziek && Number(muziek.begin)) || 0;
+}
+
+// waar moet de speelkop van het nummer staan als de montage op t staat?
+function muziekTijd(t){
+  const grens = Math.max(0, (muziek && muziek.duur || 0) - .05);
+  return Math.max(0, Math.min(grens, muziekBegin() + Math.max(0, t)));
+}
+
+async function maakGolf(){
+  if(!muziekAan() || muziek.golf) return muziek && muziek.golf;
+  const blob = muziek.blob;
+  if(!blob) return null;
+  const Ac = window.AudioContext || window.webkitAudioContext;
+  if(!Ac) return null;
+  const ac = new Ac();
+  let buf;
+  try {
+    buf = await ac.decodeAudioData(await blob.arrayBuffer());
+  } catch(fout){ return null; }
+  finally { try { ac.close(); } catch(fout){} }
+
+  const kanaal = buf.getChannelData(0);
+  const perPunt = Math.max(1, Math.floor(kanaal.length / GOLFPUNTEN));
+  const golf = new Float32Array(GOLFPUNTEN);
+  let hoogst = .0001;
+  for(let i = 0; i < GOLFPUNTEN; i++){
+    let top = 0;
+    const van = i * perPunt, tot = Math.min(kanaal.length, van + perPunt);
+    // niet elk monster langs: om de tien is voor een golfvorm ruim genoeg
+    for(let j = van; j < tot; j += 10){
+      const v = Math.abs(kanaal[j]);
+      if(v > top) top = v;
+    }
+    golf[i] = top;
+    if(top > hoogst) hoogst = top;
+  }
+  for(let i = 0; i < GOLFPUNTEN; i++) golf[i] /= hoogst;
+  muziek.golf = golf;
+  return golf;
+}
+
+function tekenGolf(){
+  const doek = el('golfdoek');
+  if(!doek || !muziekAan()) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const breed = doek.clientWidth || 320, hoog = doek.clientHeight || 64;
+  doek.width = Math.round(breed * dpr);
+  doek.height = Math.round(hoog * dpr);
+  const ctx = doek.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, breed, hoog);
+
+  const golf = muziek.golf;
+  const duur = muziek.duur || 1;
+  const montage = totaleDuur();
+  const vanDeel = Math.min(1, muziekBegin() / duur);
+  const totDeel = Math.min(1, (muziekBegin() + montage) / duur);
+
+  if(!golf){
+    ctx.fillStyle = '#c7d7ea';
+    ctx.fillRect(0, hoog / 2 - 1, breed, 2);
+  } else {
+    const staaf = breed / golf.length;
+    for(let i = 0; i < golf.length; i++){
+      const x = i * staaf;
+      const deel = i / golf.length;
+      const binnen = deel >= vanDeel && deel <= totDeel;
+      const h = Math.max(1.5, golf[i] * (hoog - 6));
+      ctx.fillStyle = binnen ? '#18181b' : '#d4d4d8';
+      ctx.fillRect(x, (hoog - h) / 2, Math.max(1, staaf - .5), h);
+    }
+  }
+
+  // het stuk dat je gebruikt krijgt een rand, zodat je ziet wat je meeneemt
+  const l = vanDeel * breed, r = totDeel * breed;
+  ctx.strokeStyle = '#18181b';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(l + 1, 1, Math.max(2, r - l - 2), hoog - 2);
+}
+
+function werkGolfBij(){
+  tekenGolf();
+  const duur = muziek && muziek.duur || 0;
+  el('golfregel').textContent =
+    'Begint bij ' + klok(muziekBegin()) + ' van ' + klok(duur);
+}
+
+function klok(sec){
+  const s = Math.max(0, Math.round(sec || 0));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function zetMuziekBegin(sec){
+  if(!muziekAan()) return;
+  const montage = totaleDuur();
+  const grens = Math.max(0, (muziek.duur || 0) - Math.min(montage, muziek.duur || 0));
+  muziek.begin = Math.max(0, Math.min(grens, sec));
+  werkGolfBij();
+  tekenMuziekspoor();
+  if(!speelt){
+    try { muziek.audio.currentTime = muziekTijd(kopTijd); } catch(fout){}
+  }
+  bewaarStraks();
+}
+
+// Aan het eind niet abrupt afkappen maar wegzakken; anders klinkt je reel of
+// hij halverwege is afgebroken.
+function muziekNiveau(t){
+  const totaal = totaleDuur();
+  if(totaal <= 0) return muziekVolume;
+  const over = totaal - t;
+  if(over >= UITFADEN) return muziekVolume;
+  return muziekVolume * Math.max(0, over / UITFADEN);
+}
+
+
+/* ---------- de maat uit het nummer halen ----------
+
+   Een reel voelt pas af als de knippen op de tel vallen. Daarvoor moeten we
+   weten hoe snel het nummer gaat.
+
+   Dat doen we in drie stappen. Eerst maken we een aanzetlijn: hoe hard komt
+   het geluid op elk moment op gang. Niet hoe luid het is, maar hoeveel het
+   toeneemt — een tel hoor je aan de klap, niet aan het volume. Dan leggen we
+   die lijn over zichzelf heen, telkens een stukje verschoven. Bij de
+   verschuiving die overeenkomt met de tel valt alles op elkaar, en daar
+   piekt de uitkomst. Dat is het tempo.
+
+   Tot slot zoeken we de fase: waar valt de eerste tel. We schuiven een
+   pulsenreeks op dat tempo over de aanzetlijn en pakken de stand waarop de
+   pulsen de meeste klappen raken. */
+
+const AANZETHZ = 200;      // metingen per seconde in de aanzetlijn
+const TRAAGSTE = 60, SNELSTE = 190;
+
+function aanzetLijn(kanaal, hz){
+  const perVak = Math.max(1, Math.round(hz / AANZETHZ));
+  const n = Math.floor(kanaal.length / perVak);
+  const kracht = new Float32Array(n);
+  for(let i = 0; i < n; i++){
+    let som = 0;
+    const van = i * perVak, tot = van + perVak;
+    for(let j = van; j < tot; j += 2) som += kanaal[j] * kanaal[j];
+    kracht[i] = Math.sqrt(som / Math.max(1, perVak / 2));
+  }
+  // alleen de toename telt: een tel is een klap, geen luid stuk
+  const aanzet = new Float32Array(n);
+  for(let i = 1; i < n; i++) aanzet[i] = Math.max(0, kracht[i] - kracht[i - 1]);
+
+  let gem = 0;
+  for(let i = 0; i < n; i++) gem += aanzet[i];
+  gem /= Math.max(1, n);
+  for(let i = 0; i < n; i++) aanzet[i] = Math.max(0, aanzet[i] - gem);
+  return aanzet;
+}
+
+function zoekTempo(aanzet){
+  const traag = Math.floor(60 / SNELSTE * AANZETHZ);   // kortste tel in vakjes
+  const snel  = Math.ceil(60 / TRAAGSTE * AANZETHZ);   // langste tel in vakjes
+
+  const scoreVan = lag => {
+    let som = 0;
+    for(let i = lag; i < aanzet.length; i++) som += aanzet[i] * aanzet[i - lag];
+    return som / (aanzet.length - lag);
+  };
+
+  let besteLag = 0, besteScore = 0;
+  for(let lag = traag; lag <= snel; lag++){
+    const score = scoreVan(lag);
+    if(score > besteScore){ besteScore = score; besteLag = lag; }
+  }
+  if(!besteLag) return null;
+
+  /* Een tel die twee of drie keer zo lang is valt per definitie ook samen, dus
+     meet je zomaar halve snelheid. Blijkt de helft bijna even sterk te scoren,
+     dan is dat de echte tel en niet de trage. */
+  for(const deel of [2, 3, 4]){
+    const kort = Math.round(besteLag / deel);
+    if(kort < traag) break;
+    if(scoreVan(kort) >= besteScore * .78){ besteLag = kort; break; }
+  }
+
+  // Muziek zit vrijwel altijd tussen negentig en honderdtachtig tellen. Zit hij
+  // erbuiten, dan hebben we een tel te veel of te weinig geteld.
+  let lag = besteLag;
+  while(60 / (lag / AANZETHZ) < 90 && Math.round(lag / 2) >= traag) lag = Math.round(lag / 2);
+  while(60 / (lag / AANZETHZ) > 180 && lag * 2 <= snel) lag = lag * 2;
+
+  const bpm = 60 / (lag / AANZETHZ);
+  return {bpm: Math.round(bpm * 10) / 10, lag, score: besteScore};
+}
+
+function zoekFase(aanzet, lag){
+  let besteStand = 0, besteSom = -1;
+  for(let stand = 0; stand < lag; stand++){
+    let som = 0;
+    for(let i = stand; i < aanzet.length; i += lag) som += aanzet[i];
+    if(som > besteSom){ besteSom = som; besteStand = stand; }
+  }
+  return besteStand / AANZETHZ;      // seconden vanaf het begin van het nummer
+}
+
+async function zoekMaat(){
+  if(!muziekAan()) return null;
+  if(muziek.maat !== undefined) return muziek.maat;
+  const blob = muziek.blob;
+  if(!blob){ muziek.maat = null; return null; }
+
+  const Ac = window.AudioContext || window.webkitAudioContext;
+  if(!Ac){ muziek.maat = null; return null; }
+  const ac = new Ac();
+  let buf;
+  try { buf = await ac.decodeAudioData(await blob.arrayBuffer()); }
+  catch(fout){ muziek.maat = null; return null; }
+  finally { try { ac.close(); } catch(fout){} }
+
+  const aanzet = aanzetLijn(buf.getChannelData(0), buf.sampleRate);
+  const tempo = zoekTempo(aanzet);
+  if(!tempo){ muziek.maat = null; return null; }
+
+  muziek.maat = {
+    bpm: tempo.bpm,
+    slag: 60 / tempo.bpm,
+    eerste: zoekFase(aanzet, tempo.lag)
+  };
+  return muziek.maat;
+}
+
+/* ---------- op de maat knippen ----------
+
+   Duurt elke clip een heel aantal tellen, dan valt elke knip vanzelf op de
+   tel: ze stapelen immers op elkaar. We schuiven daarom ook het begin van het
+   nummer naar de dichtstbijzijnde tel, zodat de eerste knip ook klopt. */
+
+function opDeMaat(){
+  const maat = muziek && muziek.maat;
+  if(!maat){ toon('Geen maat gevonden in dit nummer'); return; }
+  if(!clips.length) return;
+
+  const voor = clips.map(c => ({c, start: c.start, eind: c.eind}));
+  const oudBegin = muziekBegin();
+
+  // begin van het nummer op de dichtstbijzijnde tel
+  const slag = maat.slag;
+  const vanaf = maat.eerste;
+  const tellen = Math.round((oudBegin - vanaf) / slag);
+  zetMuziekBegin(Math.max(0, vanaf + tellen * slag));
+
+  let aangepast = 0;
+  clips.forEach(c => {
+    const tempo = c.tempo || 1;
+    const nu = klipDuur(c);
+    const beschikbaar = (c.duur - c.start) / tempo;
+    let aantal = Math.max(1, Math.round(nu / slag));
+    if(aantal * slag > beschikbaar) aantal = Math.floor(beschikbaar / slag);
+    if(aantal < 1) return;                       // te kort voor zelfs één tel
+    const wil = aantal * slag * tempo;
+    if(Math.abs(wil - (c.eind - c.start)) < .02) return;
+    c.eind = Math.min(c.duur, c.start + wil);
+    aangepast++;
+  });
+
+  stopMontage();
+  teken();
+  bewaarStraks();
+
+  if(!aangepast){
+    toon('Stond al op de maat');
+    return;
+  }
+  toon(aangepast + (aangepast === 1 ? ' clip' : ' clips') + ' op de maat \u00b7 ' +
+       Math.round(maat.bpm) + ' tellen per minuut', true, () => {
+    voor.forEach(v => { v.c.start = v.start; v.c.eind = v.eind; });
+    zetMuziekBegin(oudBegin);
+    teken();
+    bewaarStraks();
+  });
+}
+
 function tekenMuziekspoor(){
   const spoor = el('muziekspoor');
   const leegrij = el('muziekleeg');
@@ -5815,8 +6149,24 @@ function tekenMuziekspoor(){
 function openMuziekblad(){
   if(!muziekAan()) return;
   el('muziektitel').textContent = muziek.naam;
-  el('muziekfeiten').textContent = 'Lengte ' + secs(muziek.duur || 0) +
+  el('muziekfeiten').textContent = 'Lengte ' + klok(muziek.duur || 0) +
     ' \u00b7 je montage duurt ' + secs(totaleDuur());
+  werkGolfBij();
+  // golfvorm en maat uitrekenen kost even; het blad staat er ondertussen al
+  const knop = el('opdemaat');
+  knop.disabled = true;
+  knop.textContent = 'Zoekt de maat\u2026';
+  maakGolf().then(() => { if(el('muziekblad').classList.contains('aan')) werkGolfBij(); });
+  zoekMaat().then(maat => {
+    if(!el('muziekblad').classList.contains('aan')) return;
+    if(maat){
+      knop.disabled = false;
+      knop.textContent = 'Knip op de maat \u00b7 ' + Math.round(maat.bpm) + ' bpm';
+    } else {
+      knop.disabled = true;
+      knop.textContent = 'Geen maat gevonden';
+    }
+  });
   el('muziekvol').value = Math.round(muziekVolume * 100);
   el('clipvol').value = Math.round(clipVolume * 100);
   el('muziekvolgetal').textContent = Math.round(muziekVolume * 100) + '%';
@@ -5843,8 +6193,38 @@ el('muziekkiezer').addEventListener('change', async e => {
   catch(fout){ toon('Niet gelukt: ' + (fout && fout.message ? fout.message : 'onbekend')); }
   e.target.value = '';
 });
+
+/* de golfvorm slepen kiest waar het nummer begint */
+(function(){
+  const vak = el('golfvak');
+  if(!vak) return;
+  let bezig = false, startX = 0, startBegin = 0;
+
+  const seconden = px => {
+    const breed = vak.clientWidth || 320;
+    return (px / breed) * (muziek && muziek.duur || 0);
+  };
+
+  vak.addEventListener('pointerdown', e => {
+    if(!muziekAan()) return;
+    bezig = true;
+    startX = e.clientX;
+    startBegin = muziekBegin();
+    try { vak.setPointerCapture(e.pointerId); } catch(fout){}
+    e.preventDefault();
+  });
+  vak.addEventListener('pointermove', e => {
+    if(!bezig) return;
+    zetMuziekBegin(startBegin + seconden(e.clientX - startX));
+  });
+  const los = () => { bezig = false; };
+  vak.addEventListener('pointerup', los);
+  vak.addEventListener('pointercancel', los);
+})();
+
 el('muziekleeg').addEventListener('click', () => el('muziekkiezer').click());
 el('muziekspoor').addEventListener('click', openMuziekblad);
+el('opdemaat').addEventListener('click', () => { opDeMaat(); sluitMuziekblad(); });
 el('muziekklaar').addEventListener('click', () => { sluitMuziekblad(); bewaarStraks(); });
 el('muziekweg').addEventListener('click', haalMuziekWeg);
 el('muziekvol').addEventListener('input', e => {
