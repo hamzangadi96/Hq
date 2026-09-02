@@ -57,31 +57,14 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 #projectscherm header{display:flex;align-items:center;gap:8px}
 
 /* lijst */
-#rol, #prol{
+#prol{
   flex:1 1 auto;
-  min-height:150px;          /* de cliplijst mag nooit platgedrukt worden */
+  min-height:150px;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
   padding:4px 16px 24px;
 }
-#lijst{display:flex;flex-direction:column;gap:10px}
 
-.klipkaart{
-  background:var(--kaart);
-  border-radius:var(--rond);
-  padding:10px;
-  display:flex;
-  align-items:center;
-  gap:12px;
-  cursor:pointer;
-  transition:transform .16s ease, box-shadow .16s ease;
-}
-.klipkaart.sleept{
-  box-shadow:0 12px 28px rgba(24,24,27,.18);
-  transform:scale(1.02);
-  position:relative;
-  z-index:5;
-}
 .duim{
   width:46px;
   height:62px;
@@ -95,17 +78,6 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 .kliptitel{font-size:15px;font-weight:600;letter-spacing:-.01em}
 .klipmeta{font-size:13px;color:var(--zacht);margin-top:3px}
 .klipmeta span{color:var(--zachter)}
-.greep{
-  flex:0 0 auto;
-  width:44px;
-  height:52px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  touch-action:none;
-  cursor:grab;
-}
-.greep svg{display:block}
 .klippijl{
   flex:0 0 auto;
   width:20px;
@@ -230,16 +202,13 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 .knop.stil{background:var(--achtergrond);color:var(--inkt);flex:0 0 auto;padding:0 20px}
 .knop.vol{background:var(--inkt);color:#fff;flex:1 1 auto}
 .knop:disabled{opacity:.35}
-#kiesrij{
-  background:var(--achtergrond);
-  border-radius:14px;
-  padding:14px 16px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-#kiesrij span{font-size:14px;font-weight:600;color:var(--zacht)}
-#kiesrij input[type=file]{font-size:15px;font-family:inherit;color:var(--inkt)}
+/* onderbalk van het werkscherm: zo laag mogelijk, de tijdlijn heeft de ruimte nodig */
+#werkscherm #balk{gap:8px;padding:10px 16px calc(env(safe-area-inset-bottom) + 10px)}
+#werkscherm #balk .chip{height:36px;font-size:13px}
+#werkscherm #balk > #soorten{margin:0}
+#werkscherm #balk input[type=file]{display:none}
+#voegrij{display:flex;gap:8px}
+#voegrij .knop{flex:1 1 0;min-width:0;height:46px;font-size:15px;padding:0 8px}
 
 /* bottom sheet */
 #waas{
@@ -275,16 +244,18 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   margin-bottom:14px;
 }
 #voorbeeld video{max-width:100%;max-height:100%;display:block}
+/* De speler pakt wat er overblijft; de tijdlijn en de balken staan vast.
+   Zo kan de tijdlijn niet meer platgedrukt worden door de rest. */
 #speelvak{
-  flex:0 0 auto;
+  flex:1 1 auto;
+  min-height:120px;
   background:#000;
   display:flex;
   align-items:center;
   justify-content:center;
-  max-height:38dvh;
   padding:8px 0;
 }
-#speeldoek{max-width:100%;max-height:36dvh;display:block}
+#speeldoek{max-width:100%;max-height:100%;display:block}
 
 #tijdbalk{flex:0 0 auto;padding:10px 16px 6px}
 #tijdrij{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -300,7 +271,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 #tijdnu{font-size:14px;font-variant-numeric:tabular-nums}
 #knipknop{height:38px;padding:0 14px;font-size:14px}
 #tijdtotaal{font-size:14px;color:var(--zacht);margin-left:auto;font-variant-numeric:tabular-nums}
-#tijdvenster{position:relative;height:56px}
+#tijdvenster{position:relative;height:min(168px, 22dvh)}
 #spoorbalk{
   height:100%;
   border-radius:12px;
@@ -714,7 +685,7 @@ body.scant #scanscherm{display:flex}
 @media (min-width: 900px){
   #schil{max-width:1080px}
 
-  #lijst, #scangoed, #banklijst{
+  #scangoed, #banklijst{
     display:grid;
     grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
     gap:12px;
@@ -725,17 +696,15 @@ body.scant #scanscherm{display:flex}
   .duim{width:92px;height:124px;border-radius:14px}
   .kliptitel{font-size:16px}
 
-  #rol, #scanrol, #prol, #bankrol, #bankkop{padding-left:24px;padding-right:24px}
+  #scanrol, #prol, #bankrol, #bankkop{padding-left:24px;padding-right:24px}
   #balk, #scanbalk{padding-left:24px;padding-right:24px}
 
   /* de balk onderin heeft hier ruimte zat, dus naast elkaar */
   #balk{flex-direction:row;align-items:stretch;gap:20px}
   #balk > #verhoudingen{flex:0 0 auto;align-self:center}
-  #balk > #kiesrij{flex:1 1 0;justify-content:space-between}
+  #balk > #voegrij{flex:1 1 0}
   #balk > #knoprij{flex:0 0 240px;display:flex;align-items:flex-end}
   #balk > #knoprij .knop{width:100%}
-  /* binnen een grijs blok moet de gekozen knop juist wit oplichten */
-  #kiesrij #soorten{background:transparent;padding:0}
 
   /* bladen schuiven niet meer van onderen op, maar staan midden in beeld */
   .blad{
@@ -999,28 +968,22 @@ body.werkt #werkscherm{display:flex}
   <div id="gereedalgemeen"><button class="werktuig" data-doe="knip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v12M18 3v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 15l12-9M18 15L6 6"/></svg><span>Knip</span></button><button class="werktuig" data-doe="muziek"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg><span>Muziek</span></button><button class="werktuig" data-doe="bank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/></svg><span>Bank</span></button></div>
     <div id="gereedclip"><button class="werktuig" data-doe="bijknip"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16M8 4v16M16 4v16"/></svg><span>Bijknippen</span></button><button class="werktuig" data-doe="snelheid"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Snelheid</span></button><button class="werktuig" data-doe="kader"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg><span>Kader</span></button><button class="werktuig" data-doe="kopie"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></svg><span>Dupliceer</span></button><button class="werktuig" data-doe="weg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg><span>Verwijder</span></button></div>
 
-  <div id="rol" class="verborgen">
-    <div id="lijst"></div>
-  </div>
-
   <div id="balk">
     <div id="verhoudingen">
       <button class="chip aan" data-verhouding="9:16">9:16</button>
       <button class="chip" data-verhouding="4:5">4:5</button>
       <button class="chip" data-verhouding="1:1">1:1</button>
     </div>
-    <div id="kiesrij">
-      <span>Clips toevoegen</span>
-      <input type="file" id="kiezer" accept="video/*" multiple>
+    <div id="voegrij">
+      <button class="knop stil" id="voegclips">Clips toevoegen</button>
+      <button class="knop stil" id="voegscan">Uitpluizen</button>
     </div>
-    <div id="kiesrij">
-      <span>Lange opname uitpluizen</span>
-      <div id="soorten">
-        <button class="chip aan" data-soort="productie">Productie</button>
-        <button class="chip" data-soort="vlog">Vlog</button>
-      </div>
-      <input type="file" id="scankiezer" accept="video/*">
+    <div id="soorten">
+      <button class="chip aan" data-soort="productie">Productie</button>
+      <button class="chip" data-soort="vlog">Vlog</button>
     </div>
+    <input type="file" id="kiezer" accept="video/*" multiple>
+    <input type="file" id="scankiezer" accept="video/*">
   </div>
   </div>
 
@@ -1245,7 +1208,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v28';
+const APPVERSIE = 'studio v29';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1280,7 +1243,6 @@ let laatstVerwijderd = null;
 let toastTimer = null;
 
 const el = id => document.getElementById(id);
-const lijstEl = el('lijst');
 
 /* ---------- helpers ---------- */
 
@@ -1615,6 +1577,9 @@ function zetStatus(tekst, mis){
   s.classList.toggle('mis', !!mis);
 }
 
+el('voegclips').addEventListener('click', () => el('kiezer').click());
+el('voegscan').addEventListener('click', () => el('scankiezer').click());
+
 el('kiezer').addEventListener('change', async e => {
   const invoer = e.target;
   const bestanden = Array.from(invoer.files || []);
@@ -1806,102 +1771,15 @@ function dekkend(ctx, v, bw, bh, kader){
 function teken(){
   const leeg = clips.length === 0;
   el('leeg').classList.toggle('verborgen', !leeg);
-  el('rol').classList.toggle('verborgen', leeg);
   el('exporteren').disabled = leeg;
+
+  clips.forEach((c, i) => { c.naam = 'Clip ' + (i + 1); });
 
   if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
   if(typeof tekenMuziekspoor === 'function') tekenMuziekspoor();
 
-  lijstEl.innerHTML = '';
-  clips.forEach((c, i) => {
-    c.naam = 'Clip ' + (i + 1);
-    const kaart = document.createElement('div');
-    kaart.className = 'klipkaart';
-    kaart.dataset.id = c.id;
-
-    const duim = document.createElement('img');
-    duim.className = 'duim';
-    if(c.duim) duim.src = c.duim;
-    kaart.appendChild(duim);
-
-    const info = document.createElement('div');
-    info.className = 'klipinfo';
-    const geknipt = (c.start > 0.05) || (c.eind < c.duur - 0.05);
-    info.innerHTML =
-      '<div class="kliptitel">' + c.naam + '</div>' +
-      '<div class="klipmeta">' + secs(klipDuur(c)) +
-      (geknipt ? ' <span>van ' + secs(c.duur) + '</span>' : '') +
-      ((c.tempo || 1) > 1 ? '<span class="tempovlag">' + c.tempo + '\u00d7</span>' : '') +
-      '</div>';
-    kaart.appendChild(info);
-
-    const pijl = document.createElement('div');
-    pijl.className = 'klippijl';
-    pijl.innerHTML =
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" ' +
-      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
-    kaart.appendChild(pijl);
-
-    const greep = document.createElement('div');
-    greep.className = 'greep';
-    greep.innerHTML =
-      '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#a1a1aa" stroke-width="1.8" stroke-linecap="round">' +
-      '<path d="M4 7h12M4 13h12"/></svg>';
-    kaart.appendChild(greep);
-
-    // hele kaartje opent het bewerkblad, behalve het sleepgreepje
-    kaart.addEventListener('click', e => {
-      if(greep.contains(e.target)) return;
-      openTrim(c);
-    });
-    greep.addEventListener('click', e => e.stopPropagation());
-    knoopSleep(greep, kaart);
-
-    lijstEl.appendChild(kaart);
-  });
-
-  el('exporteren').textContent = leeg ? 'Exporteer' : 'Exporteer · ' + secs(totaleDuur());
+  el('exporteren').textContent = leeg ? 'Exporteer' : 'Exporteer \u00b7 ' + secs(totaleDuur());
   bewaarStraks();
-}
-
-/* ---------- volgorde slepen ---------- */
-
-function knoopSleep(greep, kaart){
-  let bezig = false;
-
-  greep.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    bezig = true;
-    greep.setPointerCapture(e.pointerId);
-    kaart.classList.add('sleept');
-    verbergToast();
-  });
-
-  greep.addEventListener('pointermove', e => {
-    if(!bezig) return;
-    e.preventDefault();
-    const y = e.clientY;
-    for(const zus of Array.from(lijstEl.children)){
-      if(zus === kaart) continue;
-      const r = zus.getBoundingClientRect();
-      if(y > r.top && y < r.bottom){
-        const onderhelft = y > r.top + r.height / 2;
-        lijstEl.insertBefore(kaart, onderhelft ? zus.nextSibling : zus);
-        break;
-      }
-    }
-  });
-
-  const los = () => {
-    if(!bezig) return;
-    bezig = false;
-    kaart.classList.remove('sleept');
-    const volgorde = Array.from(lijstEl.children).map(k => k.dataset.id);
-    clips.sort((a,b) => volgorde.indexOf(a.id) - volgorde.indexOf(b.id));
-    teken();
-  };
-  greep.addEventListener('pointerup', los);
-  greep.addEventListener('pointercancel', los);
 }
 
 /* ---------- verhouding ---------- */
