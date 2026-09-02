@@ -887,11 +887,48 @@ body.werkt #werkscherm{display:flex}
 .pijl{flex:0 0 auto;width:24px;display:flex;justify-content:center}
 
 #opslagregel{
+  display:block;
+  width:100%;
   text-align:center;
   font-size:12px;
   color:var(--zachter);
   padding:14px 0 2px;
+  background:none;
+  border:none;
+  font-family:inherit;
+  cursor:pointer;
 }
+#opslagregel:empty{display:none}
+
+/* doorlichten */
+#meterbak{
+  height:8px;
+  border-radius:4px;
+  background:var(--achtergrond);
+  overflow:hidden;
+  margin:2px 0 8px;
+}
+#meter{height:100%;width:0;background:var(--inkt);border-radius:4px;transition:width .3s ease}
+#metertekst{font-size:14px;color:var(--zacht);margin-bottom:20px}
+.lichtkop{
+  font-size:12px;
+  font-weight:600;
+  color:var(--zachter);
+  letter-spacing:.02em;
+  margin:0 0 6px;
+}
+.lichtregel{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:12px;
+  font-size:14px;
+  padding:7px 0;
+}
+.lichtregel span:last-child{color:var(--zacht);flex:0 0 auto;font-variant-numeric:tabular-nums}
+.lichtregel.dik{font-weight:600}
+.lichtgroep{margin-bottom:18px}
+.lichtmis{color:var(--amber);font-size:13px;line-height:1.5;margin-top:4px}
 
 #naamveld{
   width:100%;
@@ -959,7 +996,7 @@ body.werkt #werkscherm{display:flex}
 
     <div id="prol" class="verborgen">
       <div id="projectlijst"></div>
-      <div id="opslagregel"></div>
+      <button id="opslagregel"></button>
     </div>
 
     <div id="balk">
@@ -1141,6 +1178,20 @@ body.werkt #werkscherm{display:flex}
     </div>
   </div>
 
+  <div class="blad" id="opslagblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel">Doorlichten</h2>
+
+    <div id="meterbak"><div id="meter"></div></div>
+    <div id="metertekst"></div>
+
+    <div id="lichtinhoud"></div>
+
+    <div id="knoprij">
+      <button class="knop vol" id="opslagklaar">Klaar</button>
+    </div>
+  </div>
+
   <div class="blad" id="reelblad">
     <div class="grip"></div>
     <h2 class="bladtitel">Reel maken</h2>
@@ -1283,7 +1334,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v37';
+const APPVERSIE = 'studio v38';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1426,6 +1477,7 @@ async function bewaarNu(){
     start: c.start, eind: c.eind, duim: c.duim, tempo: c.tempo || 1,
     opname: c.opname || null, opnamebron: c.opnamebron || '',
     cijfer: c.cijfer || 0, label: c.label || '',
+    uitgeknipt: !!c.uitgeknipt,
     kader: c.kader || {x: .5, y: .5}
   }));
   huidigProject.muziek = muziek
@@ -1472,6 +1524,7 @@ async function openProject(id){
       tempo: m.tempo || 1,
       opname: m.opname || null, opnamebron: m.opnamebron || '',
       cijfer: m.cijfer || 0, label: m.label || '',
+      uitgeknipt: !!m.uitgeknipt,
       kader: m.kader || {x: .5, y: .5}
     });
   }
@@ -1593,13 +1646,172 @@ async function ruimOp(alle){
   } catch(fout){}
 }
 
+
+/* ================== DOORLICHTEN ==================
+
+   Twee dingen kun je niet zien maar bepalen wel of Studio doet wat hij belooft:
+   weet hij van je clips wanneer ze zijn opgenomen, en heeft hij de stukken er
+   echt uitgeknipt of staat je hele ruwe opname nog op je toestel? Allebei
+   hangen ze af van wat jouw camera en jouw telefoon aanleveren, en dat is per
+   toestel anders. Dus vraagt de app het gewoon aan zichzelf. */
+
+const BRONNAAM = {
+  bestand: 'uit het bestand',
+  naam: 'uit de bestandsnaam',
+  datum: 'uit de bestandsdatum',
+  bank: 'uit de bank',
+  onbekend: 'onbekend'
+};
+
+function maat(bytes){
+  if(!bytes) return '0 MB';
+  const mb = bytes / 1048576;
+  return mb >= 1024
+    ? (mb / 1024).toFixed(1).replace('.', ',') + ' GB'
+    : Math.max(1, Math.round(mb)) + ' MB';
+}
+
+async function doorlicht(){
+  const projecten = (await allesUit('projecten')).sort((a, b) => b.bijgewerkt - a.bijgewerkt);
+  const bestanden = await allesUit('bestanden');
+
+  const grootte = {};
+  bestanden.forEach(b => { grootte[b.id] = (b.blob && b.blob.size) || 0; });
+
+  const bronnen = {};
+  let clips = 0, metTijd = 0, geknipt = 0, heel = 0;
+  let geknipteBytes = 0, heleBytes = 0;
+  const perProject = [];
+
+  projecten.forEach(pr => {
+    const cl = pr.clips || [];
+    const gezien = new Set();
+    let bytes = 0;
+    cl.forEach(c => {
+      clips++;
+      if(c.opname) metTijd++;
+      const bron = c.opnamebron || 'onbekend';
+      bronnen[bron] = (bronnen[bron] || 0) + 1;
+      if(c.uitgeknipt) geknipt++; else heel++;
+      if(!gezien.has(c.bestandId)){
+        gezien.add(c.bestandId);
+        const g = grootte[c.bestandId] || 0;
+        bytes += g;
+        if(c.uitgeknipt) geknipteBytes += g; else heleBytes += g;
+      }
+    });
+    if(pr.muziek && pr.muziek.bestandId && !gezien.has(pr.muziek.bestandId)){
+      bytes += grootte[pr.muziek.bestandId] || 0;
+    }
+    perProject.push({naam: pr.naam, clips: cl.length, bytes});
+  });
+
+  let gebruikt = 0, ruimte = 0;
+  try {
+    const s = await navigator.storage.estimate();
+    gebruikt = s.usage || 0;
+    ruimte = s.quota || 0;
+  } catch(fout){}
+
+  return {projecten: perProject.sort((a, b) => b.bytes - a.bytes),
+          clips, metTijd, bronnen, geknipt, heel,
+          geknipteBytes, heleBytes, gebruikt, ruimte};
+}
+
+function regel(links, rechts, dik){
+  const r = document.createElement('div');
+  r.className = 'lichtregel' + (dik ? ' dik' : '');
+  const a = document.createElement('span'); a.textContent = links;
+  const b = document.createElement('span'); b.textContent = rechts;
+  r.appendChild(a); r.appendChild(b);
+  return r;
+}
+
+function groep(kop){
+  const g = document.createElement('div');
+  g.className = 'lichtgroep';
+  const k = document.createElement('div');
+  k.className = 'lichtkop';
+  k.textContent = kop;
+  g.appendChild(k);
+  return g;
+}
+
+async function openOpslagblad(){
+  el('lichtinhoud').innerHTML = '';
+  el('metertekst').textContent = 'Meten\u2026';
+  el('waas').classList.add('aan');
+  el('opslagblad').classList.add('aan');
+
+  const d = await doorlicht();
+
+  const deel = d.ruimte ? Math.min(1, d.gebruikt / d.ruimte) : 0;
+  el('meter').style.width = Math.round(deel * 100) + '%';
+  el('metertekst').textContent = d.ruimte
+    ? maat(d.gebruikt) + ' van ' + maat(d.ruimte) + ' gebruikt'
+    : maat(d.gebruikt) + ' in gebruik';
+
+  const vak = el('lichtinhoud');
+
+  // 1. weet hij wanneer je hebt opgenomen?
+  const g1 = groep('OPNAMETIJD');
+  g1.appendChild(regel(d.metTijd + ' van ' + d.clips + ' clips', 'bekend', true));
+  Object.keys(BRONNAAM).forEach(k => {
+    if(d.bronnen[k]) g1.appendChild(regel(BRONNAAM[k], String(d.bronnen[k])));
+  });
+  if(d.clips && d.metTijd === 0){
+    const m = document.createElement('div');
+    m.className = 'lichtmis';
+    m.textContent = 'Van geen enkele clip is het opnamemoment bekend. Op tijd zetten en de reel werken dan niet. Waarschijnlijk levert Foto\u2019s je bestanden zonder datum aan; importeer ze dan via Bestanden in plaats van via Foto\u2019s.';
+    g1.appendChild(m);
+  }
+  vak.appendChild(g1);
+
+  // 2. staat je ruwe opname er nog op?
+  // nullen zeggen niets; wat er niet is laten we weg
+  const g2 = groep('RUIMTE');
+  if(d.geknipt) g2.appendChild(regel(
+    d.geknipt + (d.geknipt === 1 ? ' uitgeknipt stukje' : ' uitgeknipte stukjes'),
+    maat(d.geknipteBytes)));
+  if(d.heel) g2.appendChild(regel(
+    d.heel + (d.heel === 1 ? ' clip op een hele opname' : ' clips op hele opnames'),
+    maat(d.heleBytes)));
+  if(d.heleBytes > 1073741824){
+    const m = document.createElement('div');
+    m.className = 'lichtmis';
+    m.textContent = 'Er staat meer dan een gigabyte aan ruwe opname op je toestel. Dat gebeurt als het uitknippen niet lukte of als de opname zo klein was dat uitknippen niets zou schelen.';
+    g2.appendChild(m);
+  }
+  if(g2.children.length > 1) vak.appendChild(g2);
+
+  // 3. waar zit het in
+  // projecten die geen ruimte kosten hoeven hier niet te staan
+  const zwaar = d.projecten.filter(p => p.bytes >= 1048576);
+  if(zwaar.length){
+    const g3 = groep('PROJECTEN');
+    zwaar.forEach(p => g3.appendChild(regel(p.naam, maat(p.bytes))));
+    vak.appendChild(g3);
+  }
+}
+
+function sluitOpslagblad(){
+  el('waas').classList.remove('aan');
+  el('opslagblad').classList.remove('aan');
+}
+
+el('opslagregel').addEventListener('click', openOpslagblad);
+el('opslagklaar').addEventListener('click', sluitOpslagblad);
+
 async function toonOpslag(){
   try {
     const s = await navigator.storage.estimate();
     const mb = (s.usage / 1048576);
-    el('opslagregel').textContent = mb < 1 ? '' :
-      (mb > 1024 ? (mb/1024).toFixed(1).replace('.',',') + ' GB' : Math.round(mb) + ' MB') + ' in gebruik op dit toestel';
-  } catch(fout){ el('opslagregel').textContent = ''; }
+    // Ook bij weinig gebruik moet de knop er staan: juist dan wil je kunnen
+    // kijken of het uitknippen zijn werk doet.
+    el('opslagregel').textContent = mb < 1 ? 'Doorlichten' :
+      (mb > 1024 ? (mb/1024).toFixed(1).replace('.',',') + ' GB' : Math.round(mb) + ' MB') +
+      ' in gebruik \u00b7 doorlichten';
+  } catch(fout){ el('opslagregel').textContent = 'Doorlichten'; }
 }
 
 el('nieuwproject').addEventListener('click', nieuwProject);
@@ -1967,7 +2179,7 @@ function voegToe(bestand, meld, vastMoment){
           bestand: blob, url, video: v,
           duur, start: 0, eind: duur, duim: null, bron: null, tempo: 1,
           opname: moment.tijd, opnamebron: moment.bron,
-          cijfer: 0, label: '',
+          cijfer: 0, label: '', uitgeknipt: false,
           kader: {x: .5, y: .5}
         };
         clips.push(clip);
@@ -2145,6 +2357,7 @@ function sluitTrim(){
 el('waas').addEventListener('click', () => {
   if(el('exportblad').classList.contains('aan')){ sluitExportblad(); return; }
   if(el('muziekblad').classList.contains('aan')){ sluitMuziekblad(); return; }
+  if(el('opslagblad').classList.contains('aan')){ sluitOpslagblad(); return; }
   if(el('reelblad').classList.contains('aan')){ sluitReel(); return; }
   if(el('bankblad').classList.contains('aan')){ sluitBankBlad(); return; }
   if(el('instelblad').classList.contains('aan')){ sluitInstel(); return; }
@@ -3296,7 +3509,8 @@ async function neemStukkenOver(){
             duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5},
             opname: b.opname ? b.opname + Math.round(van * 1000) : null,
             opnamebron: b.opname ? 'bestand' : 'onbekend',
-            cijfer: Number(s.cijfer) || 0, label: s.label || ''
+            cijfer: Number(s.cijfer) || 0, label: s.label || '',
+            uitgeknipt: true
           });
           bewaarBlob(eigenId, klein);
           toegevoegd++;
@@ -3313,7 +3527,8 @@ async function neemStukkenOver(){
             duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5},
             opname: b.opname ? b.opname + Math.round(s.start * 1000) : null,
             opnamebron: b.opname ? 'bestand' : 'onbekend',
-            cijfer: Number(s.cijfer) || 0, label: s.label || ''
+            cijfer: Number(s.cijfer) || 0, label: s.label || '',
+            uitgeknipt: false
           });
           toegevoegd++;
         }
@@ -4059,6 +4274,7 @@ async function haalGekozenUitBank(){
       if(s.duim) clip.duim = s.duim;
       clip.cijfer = Number(s.cijfer) || 0;
       clip.label = s.label || '';
+      clip.uitgeknipt = true;      // wat in de bank staat is altijd een uitgesneden stukje
       gelukt++;
       teken();
     } catch(fout){
