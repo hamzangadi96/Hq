@@ -1428,7 +1428,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v42';
+const APPVERSIE = 'studio v43';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2838,6 +2838,7 @@ async function draaiExport(){
 
   // audio erbij, maar nooit blokkerend
   let ac = null;
+  let muziekKraan = null;
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)();
     if(ac.state === 'suspended') await ac.resume();
@@ -2856,23 +2857,24 @@ async function draaiExport(){
     });
 
     if(muziekAan()){
-      const muziekKraan = ac.createGain();
+      muziekKraan = ac.createGain();
       muziekKraan.gain.value = muziekVolume;
       muziekKraan.connect(doel);
       if(!muziek.bron) muziek.bron = ac.createMediaElementSource(muziek.audio);
       muziek.bron.connect(muziekKraan);
-      // de export begint bij het stuk dat jij hebt aangewezen, en zakt aan het
-      // eind weg in plaats van er middenin af te kappen
-      try {
-        muziek.audio.currentTime = muziekBegin();
-        const eind = totaleDuur();
-        if(eind > UITFADEN){
-          muziekKraan.gain.setValueAtTime(muziekVolume, ac.currentTime + eind - UITFADEN);
-          muziekKraan.gain.linearRampToValueAtTime(.0001, ac.currentTime + eind);
-        }
-        await muziek.audio.play();
-      } catch(fout){}
+      /* Hier alleen klaarzetten, nog niet spelen. Het zoeken naar het eerste
+         beeld duurt op een telefoon zo een halve seconde, en al die tijd zou
+         de muziek doorlopen. Dan staat je hele reel scheef ten opzichte van de
+         tel. We starten hem straks tegelijk met het eerste beeld. */
+      try { muziek.audio.currentTime = muziekBegin(); } catch(fout){}
     }
+
+    /* De kranen hierboven regelen het volume. Staat datzelfde volume ook nog
+       op de spelers zelf, dan werkt het twee keer door: zet je de clips op de
+       helft, dan komt er een kwart uit. Dus zetten we de spelers vol open en
+       laten we het regelen aan de kranen. Na afloop zetten we ze terug. */
+    clips.forEach(c => { try { c.video.volume = 1; } catch(fout){} });
+    if(muziekAan()){ try { muziek.audio.volume = 1; } catch(fout){} }
 
     const spoorje = doel.stream.getAudioTracks()[0];
     if(spoorje) stroom.addTrack(spoorje);
@@ -2887,7 +2889,13 @@ async function draaiExport(){
 
   const gestopt = new Promise(klaar => { opnemer.onstop = klaar; });
 
-  let huidige = null;
+  /* Het eerste beeld alvast klaarzetten. Beginnen we op te nemen terwijl er
+     nog gezocht wordt, dan staat er een flard zwart aan het begin van je reel
+     — en juist dat eerste beeld is waar iemand op blijft hangen. */
+  let huidige = clips.length ? clips[0] : null;
+  if(huidige){
+    try { await zoekNaar(huidige.video, huidige.start); } catch(fout){}
+  }
   let draait = true;
   (function lus(){
     if(!draait) return;
@@ -2915,8 +2923,26 @@ async function draaiExport(){
     c.video.muted = snel > 1;
     await zoekNaar(c.video, c.start);
     try { c.video.playbackRate = snel; } catch(fout){}
+    /* Beeld en muziek in dezelfde tel op gang brengen. Wachten we eerst tot het
+       beeld echt loopt en starten we de muziek pas daarna, dan komt hij een
+       paar beeldjes te laat — en dat hoor je zodra je op de maat hebt geknipt. */
+    let muziekStart = null;
+    if(i === 0 && ac && muziekAan()){
+      try { muziek.audio.currentTime = muziekBegin(); } catch(fout){}
+      try { muziekStart = muziek.audio.play(); } catch(fout){}
+    }
     try { await c.video.play(); } catch(fout){}
+    try { if(muziekStart) await muziekStart; } catch(fout){}
     try { c.video.playbackRate = snel; } catch(fout){}
+
+    // de fade plannen vanaf het moment dat het echt loopt
+    if(i === 0 && ac && muziekAan() && muziekKraan){
+      const eind = totaleDuur();
+      if(eind > UITFADEN){
+        muziekKraan.gain.setValueAtTime(muziekVolume, ac.currentTime + eind - UITFADEN);
+        muziekKraan.gain.linearRampToValueAtTime(.0001, ac.currentTime + eind);
+      }
+    }
 
     // volgende clip alvast klaarzetten
     if(clips[i+1]) zoekNaar(clips[i+1].video, clips[i+1].start);
@@ -2951,6 +2977,7 @@ async function draaiExport(){
     clips.forEach(c => c.bron = null);
     if(muziek) muziek.bron = null;
   }
+  zetVolumes();      // de spelers weer op jouw ingestelde volume
 
   if(!brokken.length) throw new Error('geen beeld opgenomen');
   return new Blob(brokken, {type: brokken[0].type || type || 'video/mp4'});
