@@ -269,8 +269,9 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   flex:0 0 auto;
 }
 #tijdnu{font-size:14px;font-variant-numeric:tabular-nums}
-#knipknop{height:38px;padding:0 14px;font-size:14px}
-#tijdtotaal{font-size:14px;color:var(--zacht);margin-left:auto;font-variant-numeric:tabular-nums}
+#tijdtotaal{font-size:14px;color:var(--zacht);font-variant-numeric:tabular-nums}
+/* de zoomknoppen en de totaaltijd horen bij elkaar, rechts */
+#zoomuit{margin-left:auto}
 #tijdvenster{position:relative;height:min(168px, 22dvh)}
 #spoorbalk{
   height:100%;
@@ -382,17 +383,26 @@ body.klipgekozen #gereedclip{display:flex}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 #muziekduur{font-size:11px;color:#3b6a99;margin-left:auto;flex:0 0 auto}
+/* Geen kaal bestandsveld meer: één balk die je aantikt. Hij houdt de plek van
+   het muziekspoor bezet, zodat je ook na vier weken nog weet dat die er is. */
 #muziekleeg{
+  width:100%;
   height:34px;
   border-radius:10px;
+  border:none;
   background:var(--achtergrond);
   display:flex;
   align-items:center;
-  gap:10px;
-  padding:0 10px;
+  justify-content:center;
+  gap:7px;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:600;
+  color:var(--zacht);
+  cursor:pointer;
 }
-#muziekleeg > span{font-size:12px;font-weight:600;color:var(--zacht);flex:0 0 auto}
-#muziekkiezer{font-size:11px;min-width:0;flex:1 1 auto}
+#muziekleeg:active{background:#e4e4e7}
+#muziekrij input[type=file]{display:none}
 
 /* De kop staat stil in het midden; de tijdlijn schuift eronderdoor. */
 #speelkop{
@@ -643,11 +653,6 @@ body.scant #scanscherm{display:flex}
 #scanstand{font-size:14px;color:var(--zacht);text-align:center}
 #scantitel{font-size:17px;font-weight:600;letter-spacing:-.01em}
 #exporteren{margin-left:auto;height:38px;padding:0 16px;font-size:14px;flex:0 0 auto}
-#bankknop2{
-  width:38px;height:38px;
-  background:none;border:none;
-  display:flex;align-items:center;justify-content:center;
-}
 #instelknop{
   margin-left:auto;
   width:38px;height:38px;
@@ -949,11 +954,6 @@ body.werkt #werkscherm{display:flex}
     </button>
     <button id="projectnaam">Project</button>
     <button class="knop vol" id="exporteren" disabled>Exporteer</button>
-    <button id="bankknop2" aria-label="Bank">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/>
-      </svg>
-    </button>
   </header>
 
   <div id="leeg">
@@ -976,7 +976,6 @@ body.werkt #werkscherm{display:flex}
         <svg id="speelpauze" class="verborgen" width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
       </button>
       <b id="tijdnu">0,0 s</b>
-      <button class="knop stil" id="knipknop">Knip hier</button>
       <button class="zoomknop" id="zoomuit" aria-label="Uitzoomen">&minus;</button>
       <button class="zoomknop" id="zoomin" aria-label="Inzoomen">+</button>
       <span id="tijdtotaal">0,0 s</span>
@@ -991,10 +990,11 @@ body.werkt #werkscherm{display:flex}
         <span id="muzieknaam"></span>
         <span id="muziekduur"></span>
       </div>
-      <div id="muziekleeg">
-        <span>Muziek</span>
-        <input type="file" id="muziekkiezer" accept="audio/*">
-      </div>
+      <button id="muziekleeg">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
+        <span>Muziek toevoegen</span>
+      </button>
+      <input type="file" id="muziekkiezer" accept="audio/*">
     </div>
   </div>
 
@@ -1241,7 +1241,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v34';
+const APPVERSIE = 'studio v36';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -3051,19 +3051,11 @@ function tekenScan(){
   else if(!heeftSleutel) melding.textContent = 'Alleen op beeld gezeefd, in gelijke happen. Koppel je sleutel bij het tandwiel om te laten knippen op inhoud.';
   else melding.textContent = 'Geknipt volgens je maatstaf voor ' + (SOORTEN[soortNu] || SOORTEN.productie).naam.toLowerCase() + '.';
 
-  // Van elke opname waar je iets uit meeneemt bewaart Studio de hele ruwe
-  // opname op je telefoon, want je stukken wijzen ernaar. Bij dertien
-  // DJI-bestanden loopt dat hard op, dus zeggen we het voordat je tikt.
-  let bytes = 0;
-  scanBronnen.forEach((b, bi) => {
-    if(b.stukken.some((s, si) => scanKeuze.has(bi + ':' + si)) && b.bestand)
-      bytes += b.bestand.size || 0;
-  });
-  const gb = bytes / 1073741824;
-  if(gb >= 1){
-    melding.textContent += ' Let op: hiervoor bewaart Studio ' +
-      (Math.round(gb * 10) / 10).toString().replace('.', ',') +
-      ' GB ruwe opname op je telefoon.';
+  // Uitknippen gaat op ware snelheid, dus zeg eerlijk hoe lang je erop wacht.
+  const sec = Math.round(snijTijd());
+  if(sec >= 20){
+    melding.textContent += ' Uitknippen duurt ongeveer ' +
+      (sec >= 90 ? Math.round(sec / 60) + ' minuten' : sec + ' seconden') + '.';
   }
 
   const n = scanKeuze.size;
@@ -3119,6 +3111,45 @@ function sluitScan(){
   el('scankiezer').value = '';
 }
 
+/* ---------- stukken overnemen ----------
+
+   Vroeger bewaarde Studio de hele ruwe opname en wees elk stuk daar met een
+   begin- en eindtijd naartoe. Bij een telefoonfilmpje kan dat, bij een
+   DJI-bestand van een gigabyte niet: neem je uit tien opnames iets mee, dan
+   staat er tien gigabyte op je toestel en loopt het opslagvak vol.
+
+   Nu knippen we elk stuk er echt uit en bewaren we alleen dat stukje. Dat kost
+   tijd, want uitsnijden gaat op ware snelheid, maar het is dezelfde snee die
+   de bank toch al maakte — die hergebruiken we nu in plaats van hem twee keer
+   te maken. Rondom elk stuk laten we een seconde extra staan, zodat je op de
+   tijdlijn nog kunt bijschuiven als de scanner er net naast zat. */
+
+const SNIJMARGE = 1;      // seconden lucht voor en na elk stuk
+const SNIJBITS = 10000000;
+
+/* Uitknippen loont niet altijd. Een kort telefoonfilmpje is als geheel vaak
+   kleiner dan wat MediaRecorder ervan zou maken; dan bewaren we hem gewoon
+   heel. Dat is kleiner, scherper én je kunt verder bijschuiven. Bij een
+   DJI-bestand van een gigabyte draait die rekensom precies andersom. */
+function loontUitknippen(b, gekozen){
+  if(!b.bestand || !b.bestand.size) return false;
+  const sec = gekozen.reduce((n, s) => n + (s.eind - s.start) + SNIJMARGE * 2, 0);
+  return (sec * SNIJBITS / 8) < b.bestand.size * .8;
+}
+
+// hoe lang gaat het uitknippen ongeveer duren?
+function snijTijd(){
+  let sec = 0;
+  scanBronnen.forEach((b, bi) => {
+    const gekozen = b.stukken.filter((s, si) => scanKeuze.has(bi + ':' + si));
+    if(!gekozen.length) return;
+    // ook zonder besparing knippen we als de bank aanstaat, want die wil een stukje
+    if(!loontUitknippen(b, gekozen) && !firebaseKlaar()) return;
+    gekozen.forEach(s => { sec += (s.eind - s.start) + SNIJMARGE * 2; });
+  });
+  return sec;
+}
+
 async function neemStukkenOver(){
   const werk = scanBronnen.map((b, bi) => ({
     b,
@@ -3132,42 +3163,137 @@ async function neemStukkenOver(){
   el('scanrol').classList.add('verborgen');
   el('scanbezig').classList.remove('verborgen');
 
-  let toegevoegd = 0, gebankt = 0, misgegaan = '';
+  const stal = document.getElementById('stal');
+  const totaal = werk.reduce((n, x) => n + x.gekozen.length, 0);
+  let gesneden = 0, toegevoegd = 0, gebankt = 0, misgegaan = '';
+
+  const bankKan = firebaseKlaar() ? await startOpslag() : false;
+  if(!firebaseKlaar()) misgegaan = 'niet ingelogd';
+  else if(!bankKan) misgegaan = opslagFout || 'opslag niet beschikbaar';
+
   scanTotaal = werk.length;
 
   for(let w = 0; w < werk.length; w++){
     const {b, gekozen} = werk[w];
     scanNu = w + 1;
-    zetScanStand('Opname openen\u2026', 0);
+    zetScanStand('Opname openen\u2026', gesneden / Math.max(1, totaal));
+
+    const loont = loontUitknippen(b, gekozen);
+    const moetSnijden = loont || bankKan;
+
+    let blob = b.bestand, url = null, snijder = null, geluid = null, bronInGebruik = false;
+    const gemaakt = [];
 
     try {
-      let blob = b.bestand;
       try { blob = new Blob([b.bestand], {type: b.bestand.type || 'video/mp4'}); } catch(fout){}
-      const url = URL.createObjectURL(blob);
-      const bestandId = nieuwId();   // één opname, dus één keer bewaren
+      url = URL.createObjectURL(blob);
 
-      for(const s of gekozen){
-        const v = await laadVideo(url);
-        document.getElementById('stal').appendChild(v);
-        clips.push({
-          id: nieuwId(), bestandId, naam: '',
-          bestand: blob, url, video: v,
-          duur: b.duur, start: s.start, eind: s.eind,
-          duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5},
-          opname: b.opname ? b.opname + Math.round(s.start * 1000) : null,
-          opnamebron: b.opname ? 'bestand' : 'onbekend'
-        });
-        toegevoegd++;
+      if(moetSnijden){
+        snijder = await laadVideo(url);
+        stal.appendChild(snijder);
+        geluid = await maakGeluidsbron(snijder);
+
+        for(const s of gekozen){
+          const van = Math.max(0, s.start - SNIJMARGE);
+          const tot = Math.min(b.duur, s.eind + SNIJMARGE);
+          zetScanStand('Uitknippen \u00b7 ' + (gesneden + 1) + ' van ' + totaal,
+                       gesneden / Math.max(1, totaal));
+          gemaakt.push({s, van, tot, klein: await snijUit(snijder, van, tot, geluid)});
+          gesneden++;
+        }
       }
-      bewaarBlob(bestandId, blob);
-      teken();
+    } catch(fout){
+      misgegaan = (fout && fout.message) ? fout.message : 'uitknippen mislukt';
+    }
 
-      const metBestand = Object.assign({}, b, {url, blob});
-      gebankt += await bewaarInBank(metBestand, gekozen);
-      if(metBestand.bankfout) misgegaan = metBestand.bankfout;
+    /* Zit er ook echt beeld in wat we eruit knipten? Gaat het uitsnijden
+       ergens stil onderuit, dan krijg je een bestandje van niks terug en merk
+       je dat pas als je project leeg blijkt. Dus controleren we het eerste
+       stuk: heeft het breedte en duur? Zo niet, dan gooien we de hele snee weg
+       en houden we de opname zoals we hem hadden. */
+    let sneeDeugt = gemaakt.length > 0 && gemaakt.length === gekozen.length;
+    if(sneeDeugt){
+      let proefUrl = null;
+      try {
+        proefUrl = URL.createObjectURL(gemaakt[0].klein);
+        const proef = await laadVideo(proefUrl);
+        sneeDeugt = proef.videoWidth > 0 && (await echteDuur(proef)) > .2;
+        try { proef.removeAttribute('src'); proef.load(); proef.remove(); } catch(fout){}
+      } catch(fout){ sneeDeugt = false; }
+      try { if(proefUrl) URL.revokeObjectURL(proefUrl); } catch(fout){}
+      if(!sneeDeugt){
+        gemaakt.length = 0;
+        misgegaan = 'uitknippen leverde geen beeld op';
+      }
+    }
+
+    // Alleen als de snee deugt én het echt ruimte scheelt, laten we de stukken
+    // naar hun eigen bestandje wijzen. Anders houden we de opname en wijzen we
+    // er met een begin- en eindtijd naartoe, zoals altijd.
+    const eigenBestandjes = loont && sneeDeugt;
+
+    try {
+      if(eigenBestandjes){
+        for(const {s, van, tot, klein} of gemaakt){
+          const eigenId = nieuwId();
+          const eigenUrl = URL.createObjectURL(klein);
+          const v = await laadVideo(eigenUrl);
+          stal.appendChild(v);
+          const duur = (await echteDuur(v)) || (tot - van);
+          const begin = Math.max(0, Math.min(s.start - van, Math.max(0, duur - .3)));
+          const einde = Math.min(duur, begin + (s.eind - s.start));
+          clips.push({
+            id: nieuwId(), bestandId: eigenId, naam: '',
+            bestand: klein, url: eigenUrl, video: v,
+            duur, start: begin, eind: einde > begin + .1 ? einde : duur,
+            duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5},
+            opname: b.opname ? b.opname + Math.round(van * 1000) : null,
+            opnamebron: b.opname ? 'bestand' : 'onbekend'
+          });
+          bewaarBlob(eigenId, klein);
+          toegevoegd++;
+        }
+      } else {
+        const bestandId = nieuwId();
+        for(const s of gekozen){
+          const v = await laadVideo(url);
+          stal.appendChild(v);
+          clips.push({
+            id: nieuwId(), bestandId, naam: '',
+            bestand: blob, url, video: v,
+            duur: b.duur, start: s.start, eind: s.eind,
+            duim: s.duim, bron: null, tempo: 1, kader: {x: .5, y: .5},
+            opname: b.opname ? b.opname + Math.round(s.start * 1000) : null,
+            opnamebron: b.opname ? 'bestand' : 'onbekend'
+          });
+          toegevoegd++;
+        }
+        bewaarBlob(bestandId, blob);
+        bronInGebruik = true;
+      }
     } catch(fout){
       misgegaan = (fout && fout.message) ? fout.message : 'toevoegen mislukt';
     }
+
+    // dezelfde snee gaat naar de bank; die hoeft dus niet nog een keer gemaakt
+    if(bankKan){
+      for(let i = 0; i < gemaakt.length; i++){
+        const {s, van, tot, klein} = gemaakt[i];
+        zetScanStand('Bewaren in de bank \u00b7 ' + (i + 1) + ' van ' + gemaakt.length,
+                     .9 + (i / Math.max(1, gemaakt.length)) * .1);
+        try {
+          await naarBank(klein, Object.assign({}, s, {start: van, eind: tot}), b);
+          gebankt++;
+        } catch(fout){
+          misgegaan = (fout && fout.message) ? fout.message : 'bank mislukt';
+        }
+      }
+    }
+
+    try { if(geluid && geluid.ac) geluid.ac.close(); } catch(fout){}
+    try { if(snijder){ snijder.pause(); snijder.removeAttribute('src'); snijder.load(); snijder.remove(); } } catch(fout){}
+    if(!bronInGebruik){ try { if(url) URL.revokeObjectURL(url); } catch(fout){} }
+    teken();
   }
 
   // Stukken uit verschillende opnames horen op volgorde van opnemen te staan,
@@ -3191,44 +3317,6 @@ function zetStilOpTijd(){
   const nieuw = opTijdVolgorde(clips);
   clips.length = 0;
   Array.prototype.push.apply(clips, nieuw);
-}
-
-/* Elk stuk dat je goedkeurt wordt er ook echt uitgesneden en in de bank
-   gezet. Dat kost even tijd — uitsnijden gaat in echte tijd — maar daarna
-   heb je de bronopname nooit meer nodig, ook niet op je telefoon. */
-async function bewaarInBank(b, gekozen){
-  if(!firebaseKlaar()){ b.bankfout = 'niet ingelogd'; return 0; }
-  if(!await startOpslag()){
-    b.bankfout = opslagFout || 'opslag niet beschikbaar';
-    return 0;
-  }
-
-  const snijder = await laadVideo(b.url);
-  document.getElementById('stal').appendChild(snijder);
-  const geluid = await maakGeluidsbron(snijder);
-  let gelukt = 0;
-
-  for(let i = 0; i < gekozen.length; i++){
-    const s = gekozen[i];
-    zetScanStand('Uitsnijden \u00b7 ' + (i + 1) + ' van ' + gekozen.length,
-                 (i / gekozen.length) * .9);
-    el('scanrol').classList.add('verborgen');
-    el('scanbezig').classList.remove('verborgen');
-    try {
-      const blob = await snijUit(snijder, s.start, s.eind, geluid);
-      zetScanStand('Bewaren \u00b7 ' + (i + 1) + ' van ' + gekozen.length,
-                   ((i + .5) / gekozen.length) * .9);
-      await naarBank(blob, s, b);
-      gelukt++;
-    } catch(fout){
-      b.bankfout = (fout && fout.message ? fout.message : 'uitsnijden mislukt');
-    }
-  }
-
-  try { snijder.pause(); } catch(fout){}
-  if(geluid && geluid.ac){ try { geluid.ac.close(); } catch(fout){} }
-  snijder.remove();
-  return gelukt;
 }
 
 el('scankiezer').addEventListener('change', async e => {
@@ -3612,8 +3700,12 @@ async function startOpslag(){
 async function snijUit(v, van, tot, geluidsbron){
   if(!window.MediaRecorder) throw new Error('deze browser kan niet uitsnijden');
 
+  // Vroeger schaalden we terug naar 1280 op de lange zijde. Sinds de stukken
+  // zelf je montage vormen is dat te weinig: je exporteert op 1080 bij 1920,
+  // dus dan zou je uit een kleiner beeld omhoog rekken. 1920 is precies genoeg
+  // en niet meer dan dat.
   const bw = v.videoWidth || 1280, bh = v.videoHeight || 720;
-  const schaal = Math.min(1, 1280 / Math.max(bw, bh));
+  const schaal = Math.min(1, 1920 / Math.max(bw, bh));
   const doek = document.createElement('canvas');
   doek.width = Math.round(bw * schaal / 2) * 2;     // even getallen, anders klaagt de codec
   doek.height = Math.round(bh * schaal / 2) * 2;
@@ -3630,8 +3722,11 @@ async function snijUit(v, van, tot, geluidsbron){
   } catch(fout){}
 
   const type = kiesType();
+  // Meer beeldpunten vragen meer bits, anders wordt het blokkerig precies daar
+  // waar je het gaat gebruiken.
+  const langeZijde = Math.max(doek.width, doek.height);
   const opnemer = new MediaRecorder(stroom, Object.assign(
-    {videoBitsPerSecond: 4000000},
+    {videoBitsPerSecond: langeZijde >= 1600 ? 10000000 : 5000000},
     type ? {mimeType: type} : {}
   ));
   const brokken = [];
@@ -3945,7 +4040,6 @@ el('bankgebruik').addEventListener('click', gebruikUitBank);
 el('bankwis').addEventListener('click', wisUitBank);
 
 el('bankknop').addEventListener('click', openBank);
-el('bankknop2').addEventListener('click', openBank);
 el('bankterug').addEventListener('click', sluitBank);
 el('bankzoek').addEventListener('input', e => { bankZoek = e.target.value; tekenBank(); });
 document.querySelectorAll('#bankfilters .chip').forEach(knop => {
@@ -4664,6 +4758,8 @@ function knoopGereedschap(){
 
 // Eén clip wordt er twee, precies op de plek waar de kop staat. Beide helften
 // wijzen naar hetzelfde bronbestand, dus dit kost geen extra opslag.
+let knipBezig = false;
+
 async function knipOpKop(){
   if(!clips.length) return;
   const vak = opTijd(kopTijd);
@@ -4676,11 +4772,22 @@ async function knipOpKop(){
     return;
   }
 
+  // zonder knop om uit te zetten houden we zelf bij dat er al geknipt wordt,
+  // anders knip je bij een dubbele tik twee keer op dezelfde plek
+  if(knipBezig) return;
+  knipBezig = true;
   stopMontage();
-  const knop = el('knipknop');
-  knop.disabled = true;
 
-  const v = await laadVideo(c.url);
+  // Gaat het openen mis, dan moet de vlag weer omlaag; anders kun je de rest
+  // van je sessie niet meer knippen zonder dat je snapt waarom.
+  let v;
+  try {
+    v = await laadVideo(c.url);
+  } catch(fout){
+    knipBezig = false;
+    toon('Knippen mislukt: ' + (fout && fout.message ? fout.message : 'onbekend'));
+    return;
+  }
   document.getElementById('stal').appendChild(v);
 
   const tweede = Object.assign({}, c, {
@@ -4697,7 +4804,7 @@ async function knipOpKop(){
 
   try { tweede.duim = await duimOp(v, Math.min(inClip + .1, oudEind)); } catch(fout){}
 
-  knop.disabled = false;
+  knipBezig = false;
   teken();
   bewaarStraks();
 
@@ -4857,7 +4964,6 @@ knoopGereedschap();
 knoopTijdbalk();
 knoopToetsen();
 el('afspelen').addEventListener('click', speelMontage);
-el('knipknop').addEventListener('click', knipOpKop);
 
 el('muziekkiezer').addEventListener('change', async e => {
   const bestand = (e.target.files || [])[0];
@@ -4866,6 +4972,7 @@ el('muziekkiezer').addEventListener('change', async e => {
   catch(fout){ toon('Niet gelukt: ' + (fout && fout.message ? fout.message : 'onbekend')); }
   e.target.value = '';
 });
+el('muziekleeg').addEventListener('click', () => el('muziekkiezer').click());
 el('muziekspoor').addEventListener('click', openMuziekblad);
 el('muziekklaar').addEventListener('click', () => { sluitMuziekblad(); bewaarStraks(); });
 el('muziekweg').addEventListener('click', haalMuziekWeg);
