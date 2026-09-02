@@ -301,7 +301,27 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   font-weight:600;
   color:#fff;
   text-shadow:0 1px 3px rgba(0,0,0,.7);
+  z-index:2;
 }
+/* De filmstrook ligt over het blok heen. Zolang de beeldjes nog niet klaar
+   zijn zie je het oude enkele beeld eronder, dus je staart nooit naar grijs. */
+.strook{
+  position:absolute;
+  inset:0;
+  display:flex;
+  overflow:hidden;
+  border-radius:8px;
+}
+.beeldje{
+  flex:1 1 0;
+  min-width:0;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  opacity:0;
+  transition:opacity .2s ease;
+}
+.beeldje.klaar{opacity:1}
 #gereedalgemeen, #gereedclip{
   flex:0 0 auto;
   display:flex;
@@ -1208,7 +1228,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v31';
+const APPVERSIE = 'studio v32';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -3957,6 +3977,7 @@ function pasZoom(nieuw){
   pps = Math.max(8, Math.min(400, nieuw));
   zetSpoorMaat();
   zetScrollNaarKop();
+  plandStroken();
   el('zoomuit').disabled = pps <= 8;
   el('zoomin').disabled = pps >= 400;
 }
@@ -4049,12 +4070,176 @@ function tekenTijdbalk(){
   zetScrollNaarKop();
   werkKopBij();
   tekenSpelerBeeld();
+  plandStroken();
 
   // de keuze overleeft het opnieuw tekenen, tenzij de clip weg is
   if(typeof kiesClip === 'function'){
     if(gekozenClip && !clips.includes(gekozenClip)) kiesClip(null);
     else if(gekozenClip) kiesClip(gekozenClip);
   }
+}
+
+
+/* ---------- filmstrook ----------
+
+   Eén beeldje uitgerekt over een blok van vier seconden zegt je niets: je ziet
+   niet waar de clip heen gaat. Dus vullen we elk blok met losse beeldjes,
+   evenveel als er naast elkaar passen, gepakt op gelijke afstanden binnen het
+   stuk dat je hebt overgehouden na het bijknippen.
+
+   Beeldjes pakken kost tijd: elke sprong in een video duurt op een telefoon
+   een tiende seconde. Daarom gebeurt het op de achtergrond, in een rij, en
+   ligt die rij stil zolang je afspeelt of exporteert. Wat we ophalen bewaren
+   we bij de clip, zodat opnieuw tekenen of in- en uitzoomen gratis is. */
+
+const STROOKHOOG = 260;        // hoogte waarop we een beeldje bewaren
+const STROOKMAX = 10;          // nooit meer dan dit aantal beeldjes per blok
+const STROOKTOTAAL = 60;       // en nooit meer dan dit op de hele tijdlijn
+const STROOKONTHOUD = 24;      // zoveel beeldjes onthouden we per clip
+
+let strookVideo = null;        // één losse speler om beeldjes mee te pakken
+let strookBron = null;
+let strookRij = [];
+let strookLoopt = false;
+let strookWacht = null;
+
+const strookSleutel = tijd => Math.round(tijd * 2);
+const evenWachten = ms => new Promise(k => setTimeout(k, ms));
+
+async function pakBeeldje(c, tijd){
+  try {
+    if(!strookVideo){
+      strookVideo = document.createElement('video');
+      strookVideo.muted = true;
+      strookVideo.playsInline = true;
+      strookVideo.setAttribute('playsinline', '');
+      strookVideo.setAttribute('webkit-playsinline', '');
+      strookVideo.preload = 'auto';
+      document.getElementById('stal').appendChild(strookVideo);
+    }
+
+    if(strookBron !== c.url){
+      strookBron = c.url;
+      strookVideo.src = c.url;
+      await new Promise(klaar => {
+        let af = false;
+        const k = () => { if(af) return; af = true; klaar(); };
+        ['loadedmetadata','loadeddata','canplay'].forEach(n =>
+          strookVideo.addEventListener(n, () => { if(strookVideo.readyState >= 1) k(); }, {once: true}));
+        strookVideo.addEventListener('error', k, {once: true});
+        setTimeout(k, 8000);
+      });
+      // iOS geeft anders een zwart beeld terug bij de eerste sprong
+      await ontgrendel(strookVideo);
+    }
+
+    if(!strookVideo.videoWidth) return null;
+    const grens = Math.max(0, (strookVideo.duration || c.duur || 1) - .05);
+    await zoekNaar(strookVideo, Math.min(Math.max(0, tijd), grens));
+    if(strookVideo.readyState < 2) return null;
+
+    const vb = strookVideo.videoWidth, vh = strookVideo.videoHeight;
+    if(!vb || !vh) return null;
+    const h = STROOKHOOG, b = Math.max(2, Math.round(h * vb / vh));
+    const doek = document.createElement('canvas');
+    doek.width = b; doek.height = h;
+    doek.getContext('2d').drawImage(strookVideo, 0, 0, b, h);
+    return doek.toDataURL('image/jpeg', .65);
+  } catch(fout){ return null; }
+}
+
+async function draaiStrookRij(){
+  if(strookLoopt) return;
+  strookLoopt = true;
+  try {
+    while(strookRij.length){
+      // afspelen en exporteren gaan voor; een sprong erdoorheen laat haperen
+      if(speelt || bezigMetExport){ await evenWachten(400); continue; }
+      const taak = strookRij.shift();
+      if(!taak || !taak.beeld.isConnected) continue;
+      if(!clips.includes(taak.c)) continue;
+
+      const bron = await pakBeeldje(taak.c, taak.tijd);
+      if(bron){
+        if(!taak.c.strook) taak.c.strook = {};
+        const onthouden = Object.keys(taak.c.strook);
+        if(onthouden.length > STROOKONTHOUD) taak.c.strook = {};
+        taak.c.strook[strookSleutel(taak.tijd)] = bron;
+        if(taak.beeld.isConnected){
+          taak.beeld.src = bron;
+          taak.beeld.classList.add('klaar');
+        }
+      }
+      await evenWachten(0);
+    }
+  } catch(fout){}
+  strookLoopt = false;
+}
+
+function bouwStroken(){
+  const rij = el('spoorclips');
+  if(!rij || !clips.length) return;
+  const hoogte = el('tijdvenster').clientHeight || 168;
+  strookRij = [];
+
+  // Eerst uitrekenen hoeveel beeldjes elk blok zou willen. Elk beeldje dat in
+  // beeld staat is een uitgepakt plaatje in het geheugen van je telefoon, dus
+  // boven een totaal van zestig delen we eerlijk terug. Anders loopt Safari
+  // vast op een project van dertig clips.
+  const blokken = Array.from(rij.children).map(blok => {
+    const c = clips.find(x => x.id === blok.dataset.klip);
+    if(!c) return null;
+    const breed = blok.getBoundingClientRect().width;
+    if(breed < 8) return null;
+    // een beeldje krijgt de vorm van je opname, niet die van het blok
+    const verhoud = (c.video && c.video.videoWidth && c.video.videoHeight)
+      ? c.video.videoWidth / c.video.videoHeight : 9 / 16;
+    const tegel = Math.max(36, hoogte * verhoud);
+    return {blok, c, wens: Math.max(1, Math.min(STROOKMAX, Math.round(breed / tegel)))};
+  }).filter(Boolean);
+
+  const som = blokken.reduce((s, x) => s + x.wens, 0);
+  const krimp = som > STROOKTOTAAL ? STROOKTOTAAL / som : 1;
+
+  blokken.forEach(({blok, c, wens}) => {
+    const aantal = Math.max(1, Math.round(wens * krimp));
+
+    let strook = blok.querySelector('.strook');
+    if(!strook){
+      strook = document.createElement('div');
+      strook.className = 'strook';
+      blok.insertBefore(strook, blok.firstChild);
+    }
+    strook.innerHTML = '';
+
+    const lengte = Math.max(.1, c.eind - c.start);
+    for(let i = 0; i < aantal; i++){
+      const tijd = c.start + lengte * ((i + .5) / aantal);
+      const beeld = document.createElement('img');
+      beeld.className = 'beeldje';
+      beeld.decoding = 'async';
+      beeld.alt = '';
+      const bewaard = c.strook && c.strook[strookSleutel(tijd)];
+      if(bewaard){
+        beeld.src = bewaard;
+        beeld.classList.add('klaar');
+      } else {
+        strookRij.push({c, tijd, beeld, eerste: i === 0});
+      }
+      strook.appendChild(beeld);
+    }
+  });
+
+  // eerst één beeldje per blok, dan pas de rest: zo weet je meteen wat waar staat
+  strookRij.sort((a, b) => (b.eerste ? 1 : 0) - (a.eerste ? 1 : 0));
+  draaiStrookRij();
+}
+
+// Tijdens slepen en zoomen verandert de breedte tien keer per seconde. Pas als
+// je even stilhoudt gaan we beeldjes ophalen.
+function plandStroken(){
+  clearTimeout(strookWacht);
+  strookWacht = setTimeout(bouwStroken, 250);
 }
 
 function knoopTijdbalk(){
@@ -4122,6 +4307,7 @@ function knoopTijdbalk(){
     werkKopBij();
     const blok = el('spoorclips').querySelector('.spoorblok[data-klip="' + g.c.id + '"]');
     if(blok) blok.querySelector('span').textContent = secs(klipDuur(g.c));
+    plandStroken();
   };
   balk.addEventListener('pointermove', sleepGreep);
 
@@ -4158,6 +4344,7 @@ function knoopTijdbalk(){
     // mee te groeien, anders wordt het alsnog uitgerekt
     zetSpelerMaat();
     tekenSpelerBeeld();
+    plandStroken();
   });
 }
 
