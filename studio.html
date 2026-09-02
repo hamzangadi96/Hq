@@ -300,17 +300,21 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 #tijdnu{font-size:14px;font-variant-numeric:tabular-nums}
 #knipknop{height:38px;padding:0 14px;font-size:14px}
 #tijdtotaal{font-size:14px;color:var(--zacht);margin-left:auto;font-variant-numeric:tabular-nums}
+#tijdvenster{position:relative;height:56px}
 #spoorbalk{
-  position:relative;
-  height:56px;
+  height:100%;
   border-radius:12px;
-  overflow:hidden;
   background:var(--achtergrond);
-  touch-action:none;
-  cursor:pointer;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
 }
-#spoorclips{display:flex;height:100%;gap:2px}
+#spoorbalk::-webkit-scrollbar{display:none}
+#spoorclips{display:flex;height:100%;gap:2px;align-items:stretch}
 .spoorblok{
+  position:relative;
+  flex:0 0 auto;
   height:100%;
   background:#d4d4d8 center/cover;
   border-radius:8px;
@@ -386,13 +390,49 @@ body.klipgekozen #gereedclip{display:flex}
 #muziekleeg > span{font-size:12px;font-weight:600;color:var(--zacht);flex:0 0 auto}
 #muziekkiezer{font-size:11px;min-width:0;flex:1 1 auto}
 
+/* De kop staat stil in het midden; de tijdlijn schuift eronderdoor. */
 #speelkop{
   position:absolute;
-  top:0;bottom:0;
+  top:-3px;bottom:-3px;
+  left:50%;
   width:2px;
+  margin-left:-1px;
   background:var(--rood);
   pointer-events:none;
-  box-shadow:0 0 0 1px rgba(255,255,255,.6);
+  border-radius:1px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.7);
+}
+.zoomknop{
+  width:34px;height:34px;
+  border:none;
+  border-radius:17px;
+  background:var(--achtergrond);
+  font-size:17px;
+  font-weight:600;
+  color:var(--inkt);
+  cursor:pointer;
+  flex:0 0 auto;
+}
+.zoomknop:disabled{opacity:.35}
+.blokgreep{
+  position:absolute;
+  top:0;bottom:0;
+  width:16px;
+  display:none;
+  touch-action:none;
+  cursor:ew-resize;
+}
+.blokgreep.links{left:0;border-radius:8px 0 0 8px}
+.blokgreep.rechts{right:0;border-radius:0 8px 8px 0}
+.spoorblok.gekozen .blokgreep{display:block;background:var(--inkt)}
+.spoorblok.gekozen .blokgreep::after{
+  content:'';
+  position:absolute;
+  left:50%;top:50%;
+  width:2px;height:14px;
+  margin:-7px 0 0 -1px;
+  background:#fff;
+  border-radius:1px;
 }
 
 #voorbeeldvak{position:relative}
@@ -935,10 +975,12 @@ body.werkt #werkscherm{display:flex}
       </button>
       <b id="tijdnu">0,0 s</b>
       <button class="knop stil" id="knipknop">Knip hier</button>
+      <button class="zoomknop" id="zoomuit" aria-label="Uitzoomen">&minus;</button>
+      <button class="zoomknop" id="zoomin" aria-label="Inzoomen">+</button>
       <span id="tijdtotaal">0,0 s</span>
     </div>
-    <div id="spoorbalk">
-      <div id="spoorclips"></div>
+    <div id="tijdvenster">
+      <div id="spoorbalk"><div id="spoorclips"></div></div>
       <div id="speelkop"></div>
     </div>
 
@@ -1203,7 +1245,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v27';
+const APPVERSIE = 'studio v28';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1420,6 +1462,8 @@ function naarWerkscherm(){
   el('projectnaam').textContent = huidigProject.naam;
   document.body.classList.add('werkt');
   teken();
+  // bij openen zo inzoomen dat je hele montage in beeld past
+  requestAnimationFrame(() => { if(clips.length) zoomPassend(); });
 }
 
 async function naarProjecten(){
@@ -3687,29 +3731,7 @@ function zetSpelerMaat(){
   doek.height = Math.round(hh * schaal);
 }
 
-// De kop verzetten: zoek de clip, spring erheen, teken.
-async function zetKop(t, stil){
-  const totaal = totaleDuur();
-  kopTijd = Math.max(0, Math.min(totaal, t));
-  werkKopBij();
-  if(muziekAan() && !speelt){
-    try { muziek.audio.currentTime = Math.min(kopTijd, Math.max(0, (muziek.duur || 0) - .05)); } catch(fout){}
-  }
-  const vak = opTijd(kopTijd);
-  if(!vak) { tekenSpelerBeeld(); return; }
-  const inClip = vak.clip.start + (kopTijd - vak.van) * (vak.clip.tempo || 1);
-  if(!stil){
-    try { await zoekNaar(vak.clip.video, inClip); } catch(fout){}
-  }
-  tekenSpelerBeeld();
-}
 
-function werkKopBij(){
-  const totaal = totaleDuur() || 1;
-  el('speelkop').style.left = (kopTijd / totaal * 100) + '%';
-  el('tijdnu').textContent = secs(kopTijd);
-  el('tijdtotaal').textContent = secs(totaal);
-}
 
 /* ---------- afspelen ---------- */
 
@@ -3775,11 +3797,226 @@ async function speelMontage(){
         }
       }
       werkKopBij();
+      zetScrollNaarKop();
       tekenSpelerBeeld();
     }
     speelLus = requestAnimationFrame(lus);
   };
   speelLus = requestAnimationFrame(lus);
+}
+
+
+/* De kop staat stil in het midden en de tijdlijn schuift eronderdoor. Zo kun
+   je op een tiende seconde nauwkeurig werken, ook met één duim. De schaal
+   staat in pixels per seconde; daarmee zoom je in en uit. */
+
+let pps = 40;             // pixels per seconde
+let zelfScrollen = false; // schuift de app of schuif jij?
+let zoekWacht = null;
+
+function pasZoom(nieuw){
+  const balk = el('spoorbalk');
+  pps = Math.max(8, Math.min(400, nieuw));
+  zetSpoorMaat();
+  zetScrollNaarKop();
+  el('zoomuit').disabled = pps <= 8;
+  el('zoomin').disabled = pps >= 400;
+}
+
+function zoomPassend(){
+  const balk = el('spoorbalk');
+  const breed = balk.clientWidth || 320;
+  const totaal = totaleDuur();
+  if(totaal > 0) pasZoom((breed - 24) / totaal);
+}
+
+// De rij krijgt links en rechts een halve schermbreedte lucht, zodat het
+// eerste en het laatste beeld ook onder de kop kunnen komen.
+function zetSpoorMaat(){
+  const balk = el('spoorbalk');
+  const rij = el('spoorclips');
+  const half = (balk.clientWidth || 320) / 2;
+  rij.style.paddingLeft = half + 'px';
+  rij.style.paddingRight = half + 'px';
+  Array.from(rij.children).forEach(blok => {
+    const c = clips.find(x => x.id === blok.dataset.klip);
+    if(c) blok.style.width = Math.max(4, klipDuur(c) * pps) + 'px';
+  });
+}
+
+function zetScrollNaarKop(){
+  const balk = el('spoorbalk');
+  zelfScrollen = true;
+  balk.scrollLeft = kopTijd * pps;
+  requestAnimationFrame(() => { zelfScrollen = false; });
+}
+
+function werkKopBij(){
+  el('tijdnu').textContent = secs(kopTijd);
+  el('tijdtotaal').textContent = secs(totaleDuur());
+}
+
+// De kop verzetten: schuif de tijdlijn, zoek de clip op en teken.
+async function zetKop(t, stil){
+  const totaal = totaleDuur();
+  kopTijd = Math.max(0, Math.min(totaal, t));
+  werkKopBij();
+  if(!speelt) zetScrollNaarKop();
+  const vak = opTijd(kopTijd);
+  if(muziekAan() && !speelt){
+    try { muziek.audio.currentTime = Math.min(kopTijd, Math.max(0, (muziek.duur || 0) - .05)); } catch(fout){}
+  }
+  if(!vak){ tekenSpelerBeeld(); return; }
+  const inClip = vak.clip.start + (kopTijd - vak.van) * (vak.clip.tempo || 1);
+  if(!stil){
+    try { await zoekNaar(vak.clip.video, inClip); } catch(fout){}
+  }
+  tekenSpelerBeeld();
+}
+
+/* ---------- de balk zelf ---------- */
+
+function tekenTijdbalk(){
+  const leeg = clips.length === 0;
+  el('speelvak').classList.toggle('verborgen', leeg);
+  el('tijdbalk').classList.toggle('verborgen', leeg);
+  if(leeg){ stopMontage(); return; }
+
+  zetSpelerMaat();
+  const rij = el('spoorclips');
+  rij.innerHTML = '';
+
+  tijdIndex().forEach(vak => {
+    const blok = document.createElement('div');
+    blok.className = 'spoorblok';
+    blok.dataset.klip = vak.clip.id;
+    if(vak.clip.duim) blok.style.backgroundImage = 'url(' + vak.clip.duim + ')';
+
+    const merk = document.createElement('span');
+    merk.textContent = secs(vak.lengte);
+    blok.appendChild(merk);
+
+    // handvatten om rechtstreeks op de tijdlijn bij te knippen
+    ['links','rechts'].forEach(kant => {
+      const greep = document.createElement('div');
+      greep.className = 'blokgreep ' + kant;
+      greep.dataset.kant = kant;
+      blok.appendChild(greep);
+    });
+
+    rij.appendChild(blok);
+  });
+
+  zetSpoorMaat();
+  zetScrollNaarKop();
+  werkKopBij();
+  tekenSpelerBeeld();
+
+  // de keuze overleeft het opnieuw tekenen, tenzij de clip weg is
+  if(typeof kiesClip === 'function'){
+    if(gekozenClip && !clips.includes(gekozenClip)) kiesClip(null);
+    else if(gekozenClip) kiesClip(gekozenClip);
+  }
+}
+
+function knoopTijdbalk(){
+  const balk = el('spoorbalk');
+
+  /* schuiven verzet de kop */
+  balk.addEventListener('scroll', () => {
+    if(zelfScrollen || !clips.length) return;
+    if(speelt) stopMontage();
+    kopTijd = Math.max(0, Math.min(totaleDuur(), balk.scrollLeft / pps));
+    werkKopBij();
+    // zoeken pas als je even stilhoudt, anders loopt de video achter je duim aan
+    clearTimeout(zoekWacht);
+    zoekWacht = setTimeout(() => zetKop(kopTijd), 60);
+  }, {passive: true});
+
+  /* tikken kiest een clip */
+  let neer = false, startX = 0, startY = 0, beginBlok = null, bewogen = false;
+  balk.addEventListener('pointerdown', e => {
+    if(e.target.closest('.blokgreep')) return;
+    neer = true; bewogen = false;
+    startX = e.clientX; startY = e.clientY;
+    beginBlok = e.target.closest('.spoorblok');
+  });
+  balk.addEventListener('pointermove', e => {
+    if(neer && (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5)) bewogen = true;
+  });
+  balk.addEventListener('pointerup', () => {
+    if(!neer) return;
+    neer = false;
+    if(bewogen) return;                      // je hebt geschoven, niet getikt
+    const c = beginBlok && clips.find(x => x.id === beginBlok.dataset.klip);
+    if(c) kiesClip(gekozenClip === c ? null : c); else kiesClip(null);
+    beginBlok = null;
+  });
+  balk.addEventListener('pointercancel', () => { neer = false; });
+
+  /* bijknippen aan de randen van een blok */
+  let greepBezig = null;
+  balk.addEventListener('pointerdown', e => {
+    const greep = e.target.closest('.blokgreep');
+    if(!greep) return;
+    const blok = greep.closest('.spoorblok');
+    const c = clips.find(x => x.id === blok.dataset.klip);
+    if(!c) return;
+    stopMontage();
+    kiesClip(c);
+    greepBezig = {c, kant: greep.dataset.kant, x: e.clientX,
+                  start: c.start, eind: c.eind};
+    try { greep.setPointerCapture(e.pointerId); } catch(fout){}
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  const sleepGreep = e => {
+    if(!greepBezig) return;
+    const g = greepBezig;
+    const verzet = ((e.clientX - g.x) / pps) * (g.c.tempo || 1);
+    if(g.kant === 'links'){
+      g.c.start = Math.max(0, Math.min(g.eind - .3, g.start + verzet));
+    } else {
+      g.c.eind = Math.min(g.c.duur, Math.max(g.start + .3, g.eind + verzet));
+    }
+    zetSpoorMaat();
+    werkKopBij();
+    const blok = el('spoorclips').querySelector('.spoorblok[data-klip="' + g.c.id + '"]');
+    if(blok) blok.querySelector('span').textContent = secs(klipDuur(g.c));
+  };
+  balk.addEventListener('pointermove', sleepGreep);
+
+  const greepLos = () => {
+    if(!greepBezig) return;
+    const g = greepBezig;
+    greepBezig = null;
+    tekenTijdbalk();
+    bewaarStraks();
+    const oud = {start: g.start, eind: g.eind};
+    toon('Bijgeknipt', true, () => {
+      g.c.start = oud.start; g.c.eind = oud.eind;
+      tekenTijdbalk();
+      bewaarStraks();
+    });
+  };
+  balk.addEventListener('pointerup', greepLos);
+  balk.addEventListener('pointercancel', greepLos);
+
+  /* zoomen */
+  el('zoomin').addEventListener('click', () => pasZoom(pps * 1.6));
+  el('zoomuit').addEventListener('click', () => pasZoom(pps / 1.6));
+  balk.addEventListener('wheel', e => {
+    if(!e.ctrlKey) return;      // knijpen op een trackpad komt binnen als ctrl+wiel
+    e.preventDefault();
+    pasZoom(pps * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+  }, {passive: false});
+
+  window.addEventListener('resize', () => {
+    if(!clips.length) return;
+    zetSpoorMaat();
+    zetScrollNaarKop();
+  });
 }
 
 /* ---------- een clip kiezen ----------
@@ -3926,84 +4163,9 @@ function knoopToetsen(){
 
 /* ---------- de balk zelf ---------- */
 
-function tekenTijdbalk(){
-  const leeg = clips.length === 0;
-  el('speelvak').classList.toggle('verborgen', leeg);
-  el('tijdbalk').classList.toggle('verborgen', leeg);
-  if(leeg){ stopMontage(); return; }
-
-  zetSpelerMaat();
-  const totaal = totaleDuur() || 1;
-  const rij = el('spoorclips');
-  rij.innerHTML = '';
-
-  tijdIndex().forEach(vak => {
-    const blok = document.createElement('div');
-    blok.className = 'spoorblok';
-    blok.style.width = (vak.lengte / totaal * 100) + '%';
-    if(vak.clip.duim) blok.style.backgroundImage = 'url(' + vak.clip.duim + ')';
-    const merk = document.createElement('span');
-    merk.textContent = secs(vak.lengte);
-    blok.appendChild(merk);
-    blok.dataset.klip = vak.clip.id;
-    rij.appendChild(blok);
-  });
-
-  werkKopBij();
-  tekenSpelerBeeld();
-  // de keuze overleeft het opnieuw tekenen, tenzij de clip weg is
-  if(typeof kiesClip === 'function'){
-    if(gekozenClip && !clips.includes(gekozenClip)) kiesClip(null);
-    else if(gekozenClip) kiesClip(gekozenClip);
-  }
-}
 
 // De blokken vullen de hele balk, dus tikken en slepen gebeuren op dezelfde
 // plek. Een tik opent de clip, zodra je beweegt wordt het slepen van de kop.
-function knoopTijdbalk(){
-  const balk = el('spoorbalk');
-  let neer = false, startX = 0, beginBlok = null;
-
-  const naarTijd = e => {
-    const doos = balk.getBoundingClientRect();
-    const deel = Math.max(0, Math.min(1, (e.clientX - doos.left) / doos.width));
-    return deel * (totaleDuur() || 0);
-  };
-
-  balk.addEventListener('pointerdown', e => {
-    if(!clips.length) return;
-    neer = true; sleeptKop = false;
-    startX = e.clientX;
-    beginBlok = e.target.closest('.spoorblok');
-    try { balk.setPointerCapture(e.pointerId); } catch(fout){}
-    e.preventDefault();
-  });
-
-  balk.addEventListener('pointermove', e => {
-    if(!neer) return;
-    if(!sleeptKop){
-      if(Math.abs(e.clientX - startX) < 5) return;   // nog een tik, geen sleep
-      sleeptKop = true;
-      stopMontage();
-    }
-    zetKop(naarTijd(e));
-  });
-
-  const los = e => {
-    if(!neer) return;
-    neer = false;
-    if(!sleeptKop){
-      // niet gesleept: een tik op een blok kiest de clip, elders verzet je de kop
-      const c = beginBlok && clips.find(x => x.id === beginBlok.dataset.klip);
-      if(c) kiesClip(gekozenClip === c ? null : c);
-      else { kiesClip(null); zetKop(naarTijd(e)); }
-    }
-    sleeptKop = false;
-    beginBlok = null;
-  };
-  balk.addEventListener('pointerup', los);
-  balk.addEventListener('pointercancel', () => { neer = false; sleeptKop = false; });
-}
 
 
 /* ================== MUZIEK ==================
