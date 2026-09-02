@@ -513,6 +513,12 @@ body.klipgekozen #gereedclip{display:flex}
 }
 #golfvak:active{cursor:grabbing}
 #golfdoek{display:block;width:100%;height:64px}
+#golfwaarschuwing{
+  font-size:13px;
+  color:var(--amber);
+  line-height:1.5;
+  margin-top:8px;
+}
 #golfregel{
   font-size:13px;
   color:var(--zacht);
@@ -1369,6 +1375,7 @@ body.werkt #werkscherm{display:flex}
 
     <div id="golfvak"><canvas id="golfdoek"></canvas></div>
     <div id="golfregel"></div>
+    <div id="golfwaarschuwing" class="verborgen"></div>
     <button class="knop stil" id="opdemaat" disabled>Zoekt de maat…</button>
 
     <div id="duikblok" class="verborgen">
@@ -1613,7 +1620,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v53';
+const APPVERSIE = 'studio v54';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2726,6 +2733,7 @@ function teken(){
 
   clips.forEach((c, i) => { c.naam = 'Clip ' + (i + 1); });
   vergeetSpraak();
+  pasMuziekBeginAan();
 
   if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
   if(typeof tekenMuziekspoor === 'function') tekenMuziekspoor();
@@ -6692,6 +6700,42 @@ function haalMuziekWeg(){
 const GOLFPUNTEN = 900;
 const UITFADEN = 1.2;      // seconden waarin de muziek naar nul zakt aan het eind
 
+
+/* Het startpunt van je muziek werd begrensd op de montagelengte van dat
+   moment. Maak je je reel daarna langer, dan blijft het startpunt staan waar
+   het stond en valt je muziek halverwege stil. Dat merk je pas in het
+   geexporteerde bestand.
+
+   Dus stellen we het bij zodra de montage groeit. Verschuiven we je keuze
+   echt, dan zeggen we dat ook: je had hem zelf gezet. */
+
+function muziekGrens(){
+  if(!muziekAan()) return 0;
+  const duur = muziek.duur || 0;
+  return Math.max(0, duur - Math.min(totaleDuur(), duur));
+}
+
+// hoeveel seconden muziek komt je tekort? nul als het nummer lang genoeg is
+function muziekTekort(){
+  if(!muziekAan()) return 0;
+  const duur = muziek.duur || 0;
+  if(!duur) return 0;
+  return Math.max(0, totaleDuur() - (duur - muziekBegin()));
+}
+
+function pasMuziekBeginAan(){
+  if(!muziekAan()) return;
+  const grens = muziekGrens();
+  if(muziekBegin() <= grens + .01) return;
+  muziek.begin = grens;
+  toon('Muziek begint nu bij ' + klok(grens) + ' \u00b7 je montage werd langer');
+  if(!speelt){
+    try { muziek.audio.currentTime = muziekTijd(kopTijd); } catch(fout){}
+  }
+  if(document.getElementById('muziekblad').classList.contains('aan')) werkGolfBij();
+  bewaarStraks();
+}
+
 function muziekBegin(){
   return (muziek && Number(muziek.begin)) || 0;
 }
@@ -6777,8 +6821,17 @@ function tekenGolf(){
 function werkGolfBij(){
   tekenGolf();
   const duur = muziek && muziek.duur || 0;
+  const tekort = muziekTekort();
   el('golfregel').textContent =
     'Begint bij ' + klok(muziekBegin()) + ' van ' + klok(duur);
+  const w = el('golfwaarschuwing');
+  if(tekort > .5){
+    w.textContent = 'Je nummer is ' + secs(tekort) +
+      ' korter dan je montage. De laatste ' + secs(tekort) + ' blijft stil.';
+    w.classList.remove('verborgen');
+  } else {
+    w.classList.add('verborgen');
+  }
 }
 
 function klok(sec){
@@ -6788,9 +6841,7 @@ function klok(sec){
 
 function zetMuziekBegin(sec){
   if(!muziekAan()) return;
-  const montage = totaleDuur();
-  const grens = Math.max(0, (muziek.duur || 0) - Math.min(montage, muziek.duur || 0));
-  muziek.begin = Math.max(0, Math.min(grens, sec));
+  muziek.begin = Math.max(0, Math.min(muziekGrens(), sec));
   werkGolfBij();
   tekenMuziekspoor();
   if(!speelt){
