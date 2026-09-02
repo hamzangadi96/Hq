@@ -966,6 +966,44 @@ body.werkt #werkscherm{display:flex}
 #ondertitelmelding{font-size:14px;color:var(--zacht);text-align:center}
 #ondertitelmelding.mis{color:var(--rood)}
 
+/* Nalopen wat er verstaan is. Spraakherkenning struikelt over vakwoorden, dus
+   je moet erbij kunnen zonder alles opnieuw te laten doen. */
+#ondertitellijst{
+  max-height:38vh;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  margin-bottom:18px;
+}
+#ondertitellijst:empty{display:none}
+.regelrij{display:flex;align-items:center;gap:8px;padding:3px 0}
+.regeltijd{
+  flex:0 0 auto;
+  width:52px;
+  font-size:12px;
+  color:var(--zachter);
+  font-variant-numeric:tabular-nums;
+  background:none;
+  border:none;
+  font-family:inherit;
+  text-align:left;
+  padding:0;
+  cursor:pointer;
+}
+.regelveld{
+  flex:1 1 auto;
+  min-width:0;
+  height:42px;
+  border-radius:12px;
+  border:none;
+  background:var(--achtergrond);
+  font-family:inherit;
+  font-size:15px;
+  color:var(--inkt);
+  padding:0 12px;
+}
+.regelveld:focus{outline:2px solid var(--inkt);outline-offset:-2px}
+.regelveld.leeg{color:var(--zachter)}
+
 #meterbak{
   height:8px;
   border-radius:4px;
@@ -1255,6 +1293,7 @@ body.werkt #werkscherm{display:flex}
       <div id="ondertitelspoor"><div id="ondertitelvoortgang"></div></div>
       <div id="ondertitelmelding"></div>
     </div>
+    <div id="ondertitellijst"></div>
     <div id="knoprij">
       <button class="knop stil" id="ondertitelweg">Wis</button>
       <button class="knop vol" id="ondertitelmaak">Verstaan</button>
@@ -1428,7 +1467,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v43';
+const APPVERSIE = 'studio v44';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -5596,12 +5635,74 @@ function ondertitelTelling(){
   return {clipsMet, regels};
 }
 
+
+/* Waar staat deze ondertitelregel in je montage? De regel is bewaard in
+   seconden van het bronbestand; de tijdlijn rekent in seconden van de montage. */
+function montageTijdVan(c, bronSeconden){
+  const vak = tijdIndex().find(x => x.clip === c);
+  if(!vak) return 0;
+  return vak.van + Math.max(0, bronSeconden - c.start) / (c.tempo || 1);
+}
+
+function tekenOndertitelLijst(){
+  const vak = el('ondertitellijst');
+  vak.innerHTML = '';
+  if(ondertitelBezig) return;
+
+  clips.forEach((c, ci) => {
+    if(!c.ondertitels || !c.ondertitels.length) return;
+    c.ondertitels.forEach((r, ri) => {
+      const rij = document.createElement('div');
+      rij.className = 'regelrij';
+
+      const tijd = document.createElement('button');
+      tijd.className = 'regeltijd';
+      tijd.textContent = klok(montageTijdVan(c, r.van));
+      // tikken op de tijd brengt je naar dat moment, zodat je ziet waar het over gaat
+      tijd.addEventListener('click', () => {
+        stopMontage();
+        zetKop(montageTijdVan(c, r.van) + .05);
+      });
+      rij.appendChild(tijd);
+
+      const veld = document.createElement('input');
+      veld.type = 'text';
+      veld.className = 'regelveld';
+      veld.value = r.tekst;
+      veld.placeholder = 'leeg laat de regel weg';
+      veld.addEventListener('input', () => {
+        r.tekst = veld.value;
+        veld.classList.toggle('leeg', !veld.value.trim());
+        tekenSpelerBeeld();
+        bewaarStraks();
+      });
+      rij.appendChild(veld);
+
+      vak.appendChild(rij);
+    });
+  });
+}
+
+// lege regels horen niet in je reel; die ruimen we op zodra je het blad sluit
+function ruimLegeRegels(){
+  let weg = 0;
+  clips.forEach(c => {
+    if(!c.ondertitels) return;
+    const over = c.ondertitels.filter(r => (r.tekst || '').trim());
+    weg += c.ondertitels.length - over.length;
+    c.ondertitels = over.length ? over : null;
+  });
+  if(weg){ tekenSpelerBeeld(); bewaarStraks(); }
+  return weg;
+}
+
 function tekenOndertitelblad(){
   const {clipsMet, regels} = ondertitelTelling();
   const vak = el('ondertitelfeiten');
   if(regels){
     vak.innerHTML = '<b>' + regels + (regels === 1 ? ' regel' : ' regels') + '</b> over ' +
-      clipsMet + ' van ' + clips.length + ' clips. Opnieuw verstaan overschrijft wat er staat.';
+      clipsMet + ' van ' + clips.length + ' clips. Tik op een tijd om te kijken, ' +
+      'of typ een regel over als er iets verkeerd verstaan is.';
   } else {
     vak.innerHTML = 'Studio luistert je clips af en zet wat er gezegd wordt onder in beeld. ' +
       'Dat gebeurt in de cloud, dus je moet ingelogd zijn bij HQ.';
@@ -5609,6 +5710,7 @@ function tekenOndertitelblad(){
   el('ondertitelweg').disabled = !regels || ondertitelBezig;
   el('ondertitelmaak').disabled = !clips.length || ondertitelBezig;
   el('ondertitelmaak').textContent = regels ? 'Opnieuw verstaan' : 'Verstaan';
+  tekenOndertitelLijst();
 }
 
 function openOndertitel(){
@@ -5622,8 +5724,10 @@ function openOndertitel(){
 
 function sluitOndertitel(){
   if(ondertitelBezig) return;         // midden in het verstaan wegklikken geeft rommel
+  const weg = ruimLegeRegels();
   el('waas').classList.remove('aan');
   el('ondertitelblad').classList.remove('aan');
+  if(weg) toon(weg === 1 ? '1 lege regel weggehaald' : weg + ' lege regels weggehaald');
 }
 
 function zetOndertitelStand(tekst, deel, mis){
@@ -5665,10 +5769,13 @@ async function maakAlleOndertitels(){
     return;
   }
 
-  sluitOndertitel();
+  // blad blijft open: je wilt meteen kunnen nalopen wat hij ervan gemaakt heeft
+  el('ondertitelstand').classList.add('verborgen');
+  tekenOndertitelblad();
   toon(regels + (regels === 1 ? ' regel' : ' regels') + ' over ' + gelukt +
-       (gelukt === 1 ? ' clip' : ' clips'), true, () => {
+       (gelukt === 1 ? ' clip' : ' clips') + ' \u00b7 loop ze even na', true, () => {
     voor.forEach(v => { v.c.ondertitels = v.was; });
+    tekenOndertitelblad();
     tekenSpelerBeeld();
     bewaarStraks();
   });
