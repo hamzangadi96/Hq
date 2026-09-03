@@ -1499,7 +1499,9 @@ body.werkt #werkscherm{display:flex}
       </svg>
     </div>
     <h2>Nog geen clips</h2>
-    <p>Voeg opnames toe uit je Foto's. Je bepaalt de volgorde en knipt per clip het begin en eind bij.</p>
+    <p>Tik onderin op <b>Uitpluizen</b> om een opname te laten doorzoeken, of op
+      <b>Clips toevoegen</b> als je zelf wil kiezen. Uit je bank halen kan ook,
+      via het pictogram rechts in de gereedschapsbalk.</p>
     <p id="status"></p>
   </div>
 
@@ -1923,7 +1925,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v71';
+const APPVERSIE = 'studio v74';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2190,6 +2192,7 @@ function naarWerkscherm(){
 }
 
 function toonEersteBeeld(){
+  regelBuffers();
   zetKop(kopTijd || 0, true);
   const begonnen = Date.now();
   const nogeens = () => {
@@ -2204,6 +2207,17 @@ function toonEersteBeeld(){
 }
 
 async function naarProjecten(){
+  /* Een project zonder clips en zonder eigen naam is niets: dat ontstaat als
+     je op uitpluizen tikt en dan de bestandskiezer wegklikt. Blijft het staan,
+     dan open je het later, zie je een leeg scherm zonder gereedschap en denk
+     je dat de app kapot is. Dus laten we het niet achter. */
+  if(huidigProject && !clips.length && huidigProject.naam === datumNaam()){
+    try { await wisUit('projecten', huidigProject.id); } catch(fout){}
+    huidigProject = null;
+    document.body.classList.remove('werkt');
+    await tekenProjecten(true);
+    return;
+  }
   await bewaarNu();
   if(typeof stopMontage === 'function') stopMontage();
   if(muziek){
@@ -3170,13 +3184,22 @@ function teken(){
   const leeg = clips.length === 0;
   el('leeg').classList.toggle('verborgen', !leeg);
   el('exporteren').disabled = leeg;
-  // zonder clips is er niets om bij te knippen, te versnellen of te verwijderen
-  el('gereedalgemeen').classList.toggle('verborgen', leeg);
+  /* Zonder clips valt er niets bij te knippen of te versnellen. Maar de
+     algemene balk helemaal weghalen was te ver: dan staat er een leeg scherm
+     zonder enige knop en lijkt de app stuk. De cliptools verdwijnen, de rest
+     blijft staan en is uitgeschakeld tot er clips zijn. */
+  el('gereedalgemeen').classList.remove('verborgen');
+  document.querySelectorAll('#gereedalgemeen .werktuig').forEach(k => {
+    const altijd = k.dataset.doe === 'bank';   // je bank kun je altijd openen
+    k.disabled = leeg && !altijd;
+    k.style.opacity = (leeg && !altijd) ? '.35' : '';
+  });
   if(leeg) document.body.classList.remove('klipgekozen');
 
   clips.forEach((c, i) => { c.naam = 'Clip ' + (i + 1); });
   vergeetSpraak();
   pasMuziekBeginAan();
+  regelBuffers();
 
   if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
   if(typeof tekenMuziekspoor === 'function') tekenMuziekspoor();
@@ -5547,8 +5570,15 @@ function onthoudVoorstel(v, groep){
 }
 
 async function deelIn(stukken){
-  const lijst = await haalLijst();
-  if(!lijst || !stukken.length) return 0;
+  if(!stukken.length || !firebaseKlaar()) return 0;
+
+  /* Hier zat een kip-en-ei. We stopten als de lijst nog niet in Firebase
+     stond — maar die lijst wordt daar neergezet door de Cloud Function, en die
+     riepen we alleen aan als de lijst er al was. Dus gebeurde het nooit.
+
+     Nu gaan we gewoon door. De eerste aanroep legt de lijst aan; daarna halen
+     we hem op zodat trap twee de codes kan opzoeken. */
+  let lijst = await haalLijst();
 
   const roep = vuur.fn.httpsCallable('beoordeelCode');
   const b = scanBron;
@@ -5592,11 +5622,22 @@ async function deelIn(stukken){
     (perGroep[g] = perGroep[g] || []).push(x);
   });
 
+  // de eerste aanroep hierboven heeft de lijst aangelegd; nu pas is hij er
+  if(!lijst){
+    lijstCache = null;
+    lijst = await haalLijst();
+    if(!lijst){
+      b.fout = 'De lijst kon niet aangelegd worden.';
+      return 0;
+    }
+  }
+
   const groepen = Object.keys(perGroep);
   let gelukt = 0;
   for(let i = 0; i < groepen.length; i++){
     const g = groepen[i];
-    zetScanStand('Indelen \u00b7 ' + (lijst.groepen[g] || g), .9 + (i / groepen.length) * .1);
+    zetScanStand('Indelen \u00b7 ' + ((lijst.groepen && lijst.groepen[g]) || g),
+                 .9 + (i / groepen.length) * .1);
     for(let k = 0; k < perGroep[g].length; k += 12){
       const hap = perGroep[g].slice(k, k + 12);
       try {
@@ -6598,6 +6639,51 @@ function wisMeters(){
   vorigeTekening = 0;
 }
 
+
+/* ================== HOEVEEL VIDEO TEGELIJK ==================
+
+   Elke clip is een eigen videoveld, en die stonden allemaal op preload='auto'.
+   Bij negentien clips vraagt de app dus negentien keer tegelijk om vooruit te
+   bufferen, allemaal van schijf. Een browser kan maar een paar videostromen
+   tegelijk decoderen; de rest wordt geknepen, en dat merk je als haperen bij
+   elke clipwissel.
+
+   Je kijkt maar naar één clip tegelijk. Dus houden we er drie warm: de clip
+   waar de kop staat, de volgende (die komt zo) en de vorige (voor als je
+   terugschuift). De rest zetten we op 'metadata' — dan blijft de lengte
+   bekend en het beeld beschikbaar, maar stopt het vooruit bufferen. */
+
+const WARM = 1;          // hoeveel clips vóór en ná de huidige warm blijven
+
+function regelBuffers(){
+  if(!clips.length) return;
+  const index = tijdIndex();
+  if(!index.length) return;
+
+  const vak = opTijd(kopTijd);
+  let nu = vak ? index.findIndex(x => x.clip === vak.clip) : 0;
+  if(nu < 0) nu = 0;
+
+  /* Twee clips kunnen hetzelfde videoveld delen — dat gebeurt zodra je een
+     clip dupliceert. Zetten we dan per clip een waarde, dan overschrijft de
+     verste de dichtstbijzijnde en staat alles koud. Dus eerst per veld de
+     kleinste afstand tot de kop bepalen, en die pas daarna toepassen. */
+  const afstand = new Map();
+  index.forEach((x, i) => {
+    const v = x.clip && x.clip.video;
+    if(!v) return;
+    const d = Math.abs(i - nu);
+    if(!afstand.has(v) || d < afstand.get(v)) afstand.set(v, d);
+  });
+
+  afstand.forEach((d, v) => {
+    const wil = d <= WARM ? 'auto' : 'metadata';
+    if(v.preload !== wil){
+      try { v.preload = wil; } catch(fout){}
+    }
+  });
+}
+
 function tekenSpelerBeeld(){
   const doek = el('speeldoek');
   const ctx = doek.getContext('2d');
@@ -6696,6 +6782,7 @@ async function speelMontage(){
     const index = tijdIndex();
     const plek = index.findIndex(x => x.clip === vak.clip);
     if(plek >= 0 && plek + 1 < index.length) zetKlaar(index[plek + 1]);
+    regelBuffers();
   };
 
   const eerste = opTijd(kopTijd);
@@ -6815,6 +6902,7 @@ async function zetKop(t, stil){
   const totaal = totaleDuur();
   kopTijd = Math.max(0, Math.min(totaal, t));
   werkKopBij();
+  regelBuffers();      // de warme zone schuift mee met de kop
   if(!speelt) zetScrollNaarKop();
   const vak = opTijd(kopTijd);
   if(muziekAan() && !speelt){
