@@ -301,8 +301,13 @@ const OPDRACHT =
   '             waarom in maximaal acht woorden waarom je dat cijfer geeft\n' +
   '  afval    lijst van stukken die je overslaat, elk met van, tot en ' +
   'reden (maximaal acht woorden)\n\n' +
-  'Regels voor de stukken: minstens {MIN} en hoogstens {MAX} seconden, binnen ' +
-  '{VAN} en {TOT}, ze mogen elkaar niet overlappen, en op volgorde van tijd. ' +
+  'Regels voor de stukken: minstens {MIN} seconden, binnen {VAN} en {TOT}, ze ' +
+  'mogen elkaar niet overlappen, en op volgorde van tijd.\n\n' +
+  'Over de lengte: {MAX} seconden is een richtlijn, geen grens. Het eind van de ' +
+  'handeling bepaalt waar je knipt. Duurt een handeling langer dan de richtlijn, ' +
+  'laat het stuk dan langer duren tot de handeling af is. Kap nooit halverwege ' +
+  'af en sla een goede handeling ook niet over omdat hij lang is; een afgekapte ' +
+  'beweging is onbruikbaar en dat weegt zwaarder dan de richtlijn.\n\n' +
   'Liever drie goede stukken dan tien halve. Is er niets bruikbaars, geef dan ' +
   'een lege lijst stukken en zet alles in afval.\n\n' +
   'Wees streng en durf te onderscheiden bij het cijfer. Een 9 of 10 is een ' +
