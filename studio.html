@@ -974,6 +974,18 @@ body.scant #scanscherm{display:flex}
 #scanstand{font-size:14px;color:var(--zacht);text-align:center}
 #scanwakker{font-size:13px;color:var(--zachter);text-align:center;margin-top:10px;line-height:1.5}
 #scanwakker:empty{display:none}
+#scansla{
+  display:block;
+  margin:18px auto 0;
+  min-height:44px;
+  padding:0 18px;
+  border:0;
+  border-radius:12px;
+  background:var(--druk);
+  color:var(--zacht);
+  font:600 14px Inter,system-ui,sans-serif;
+  cursor:pointer;
+}
 #ondertitelwakker{font-size:13px;color:var(--zachter);text-align:center;margin-top:8px;line-height:1.5}
 #ondertitelwakker:empty{display:none}
 #scantitel{font-size:17px;font-weight:600;letter-spacing:-.01em}
@@ -1558,6 +1570,9 @@ body.werkt #werkscherm{display:flex}
       <div id="scanspoor"><div id="scanvoortgang"></div></div>
       <div id="scanstand">Opname openen…</div>
       <div id="scanwakker"></div>
+      <!-- Loopt een opname vast, dan zit je zonder deze knop klem: je kunt
+           alleen nog het tabblad sluiten en de hele scan kwijtraken. -->
+      <button id="scansla" class="verborgen">Sla deze opname over</button>
     </div>
 
     <div id="scanrol" class="verborgen">
@@ -1879,7 +1894,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v68';
+const APPVERSIE = 'studio v69';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2545,6 +2560,13 @@ function sluitOpslagblad(){
 
 el('opslagregel').addEventListener('click', openOpslagblad);
 
+el('scansla').addEventListener('click', () => {
+  slaOver = true;
+  el('scansla').disabled = true;
+  el('scansla').textContent = 'Overslaan\u2026';
+  zetScanStand('Overslaan\u2026', 0);
+});
+
 /* Grijze zwevende tekst ziet er niet uit als iets waar je op kunt tikken.
    Als kaart met een waarde rechts leest hij als een regel in een lijst, en
    dan snap je vanzelf dat er iets achter zit. */
@@ -2937,9 +2959,10 @@ function voegToe(bestand, meld, vastMoment){
   return new Promise((klaar, mislukt) => {
     const zeg = meld || function(){};
 
-    // Los van de fotobibliotheek: eerst een echte kopie.
-    let blob = bestand;
-    try { blob = new Blob([bestand], {type: bestand.type || 'video/mp4'}); } catch(fout){}
+    /* Rechtstreeks van schijf, geen kopie in het geheugen. Dit veld is
+       tijdelijk; wat bewaard moet blijven gaat verderop via bewaarBlob naar
+       de opslag, en dáár wordt wel een echte kopie gemaakt. */
+    const blob = bestand;
     if(!blob || !blob.size){ mislukt(new Error('leeg bestand')); return; }
 
     const url = URL.createObjectURL(blob);
@@ -3935,6 +3958,9 @@ async function meetOpname(v, duur, meld){
   let vorig = null, laatst = -1;
 
   const pak = () => {
+    // wil je deze opname overslaan, dan houdt het hier op; de speler wordt
+    // stilgezet en meetOpname keert terug met wat er tot dan toe gemeten is
+    if(typeof slaOver !== 'undefined' && slaOver){ try { v.pause(); } catch(fout){} return; }
     const t = v.currentTime;
     if(t - laatst < SCANSTAP) return;
     laatst = t;
@@ -4096,21 +4122,34 @@ function duimOp(v, t){
   });
 }
 
+/* Wie de huidige opname wil overslaan zet dit op waar; scanBestand kijkt er
+   op de plekken die lang kunnen duren naar en breekt af. */
+let slaOver = false;
+
 async function scanBestand(bestand){
-  let blob = bestand;
-  try { blob = new Blob([bestand], {type: bestand.type || 'video/mp4'}); } catch(fout){}
+  /* Hier stond `new Blob([bestand])`. Dat leest het hele bestand in het
+     geheugen — bij een DJI-opname van een gigabyte dus een gigabyte. Bedoeld
+     om los te komen van de fotobibliotheek, maar voor uitpluizen niet nodig:
+     een File kun je rechtstreeks gebruiken en dan leest de browser hem van
+     schijf, stukje bij beetje. Bij zes opnames achter elkaar scheelt dat zes
+     gigabyte, en dat is precies waar het vastliep. */
+  const blob = bestand;
   if(!blob || !blob.size) throw new Error('leeg bestand');
 
   const url = URL.createObjectURL(blob);
-  zetScanStand('Opname openen\u2026', 0);
+  // de naam erbij: loopt er een vast, dan weet je meteen welke
+  const naam = (bestand && bestand.name) || '';
+  zetScanStand('Openen \u00b7 ' + (naam ? kortenaam(naam) : 'opname'), 0);
   const v = await laadVideo(url);
   const duur = await echteDuur(v);
   if(!duur) throw new Error('duur onbekend');
 
+  if(slaOver) throw new Error('overgeslagen');
   zetScanStand('Beeld doorzoeken\u2026', 0);
   const monsters = await meetOpname(v, duur, deel => {
     zetScanStand('Beeld doorzoeken\u2026', deel * .9);
   });
+  if(slaOver) throw new Error('overgeslagen');
   if(monsters.length < 3) throw new Error('te weinig beeld gelezen');
 
   const uitslag = beoordeel(monsters, duur);
@@ -4256,6 +4295,12 @@ function restTekst(deel){
   if(rest < 10) return '';
   if(rest < 90) return ' \u00b7 nog ' + Math.round(rest / 5) * 5 + ' s';
   return ' \u00b7 nog ' + Math.round(rest / 60) + ' min';
+}
+
+// DJI_20260901161222_0049_D.MP4 is te lang voor een regel; het nummer volstaat
+function kortenaam(n){
+  const zonder = String(n).replace(/\.[^.]+$/, '');
+  return zonder.length > 22 ? '\u2026' + zonder.slice(-16) : zonder;
 }
 
 function zetScanStand(tekst, deel){
@@ -4874,7 +4919,7 @@ async function neemStukkenOver(){
     const gemaakt = [];
 
     try {
-      try { blob = new Blob([b.bestand], {type: b.bestand.type || 'video/mp4'}); } catch(fout){}
+      blob = b.bestand;   // net als bij het uitpluizen: rechtstreeks van schijf
       url = URL.createObjectURL(blob);
 
       if(moetSnijden){
@@ -5034,6 +5079,7 @@ el('scankiezer').addEventListener('change', async e => {
   klusBegin();
   await wakker(true);
   el('scanwakker').textContent = wakkerRegel();
+  el('scansla').classList.remove('verborgen');
 
   // Eén voor één, nooit tegelijk: uitpluizen springt door de hele opname heen
   // en twee daarvan naast elkaar maakt het alleen maar trager. Bovendien laten
@@ -5042,6 +5088,9 @@ el('scankiezer').addEventListener('change', async e => {
     // ben je teruggegaan, dan stoppen we — en geven we het scherm weer vrij
     if(!document.body.classList.contains('scant')){ await wakker(false); return; }
     scanNu = i + 1;
+    slaOver = false;
+    el('scansla').disabled = false;
+    el('scansla').textContent = 'Sla deze opname over';
     zetScanStand('Opname openen\u2026', 0);
     try {
       await scanBestand(bestanden[i]);
@@ -5055,6 +5104,7 @@ el('scankiezer').addEventListener('change', async e => {
   }
 
   await wakker(false);
+  el('scansla').classList.add('verborgen');
   meters.scanSec = Math.round((Date.now() - scanBegon) / 1000);
   if(!document.body.classList.contains('scant')) return;
   scanBezig = false;
