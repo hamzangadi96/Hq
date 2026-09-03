@@ -1879,7 +1879,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v66';
+const APPVERSIE = 'studio v67';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -4441,7 +4441,22 @@ async function wisRegel(r){
 
 function toonLijstregel(){
   const k = el('lijstregel');
-  if(!lijstCache){ k.innerHTML = ''; return; }
+  if(!k) return;
+
+  /* Hij stond er wel, maar leeg — en een lege knop verbergt zichzelf. Dan zie
+     je nergens dat je lijst bestaat. Nu zegt hij het gewoon als hij er nog
+     niet is: die wordt namelijk pas aangelegd bij je eerste scan. */
+  if(!lijstCache){
+    k.innerHTML = '';
+    const links = document.createElement('span');
+    links.textContent = 'Je lijst';
+    const rechts = document.createElement('span');
+    rechts.style.color = 'var(--zacht)';
+    rechts.textContent = firebaseKlaar() && gebruiker
+      ? 'na je eerste scan' : 'log eerst in';
+    k.appendChild(links); k.appendChild(rechts);
+    return;
+  }
   const n = Object.keys(lijstCache.regels).length;
   const eigen = Object.values(lijstCache.regels).filter(r => r.eigen).length;
   k.innerHTML = '';
@@ -5166,6 +5181,9 @@ async function toonBankStatus(){
 }
 
 function openInstel(){
+  // de lijst ophalen zodra je hier komt, anders blijft die regel leeg tot je
+  // toevallig een keer gescand hebt
+  haalLijst().then(toonLijstregel).catch(() => toonLijstregel());
   tekenInstel();
   toonBankStatus();
   el('waas').classList.add('aan');
