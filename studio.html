@@ -1879,7 +1879,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v67';
+const APPVERSIE = 'studio v68';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -5119,7 +5119,30 @@ let vuur = null;          // {auth, db, fn} zodra Firebase geladen is
 let gebruiker = null;
 let heeftSleutel = false;
 let regelsVan = {productie: STANDAARDREGELS, vlog: STANDAARDVLOG};
-const regelsNu = () => regelsVan[soort] || STANDAARDREGELS;
+/* De maatstaf die naar het model gaat bij de eerste beoordeling.
+
+   Daar zat een gat in de volgorde. beoordeelReeks besloot dat "persoon nadert
+   camera" een 7 was en knipte hem uit; pas daarna legde beoordeelCode hem
+   naast de lijst en gooide hem weg. Twee keer betalen en video knippen voor
+   niets — en op het scanscherm zag je stukken staan die er niet horen.
+
+   Je lijst kent 72 dingen die nooit bruikbaar zijn, ongeacht of je productie
+   of vlog scant: camera pakken, schoonmaken, wachten, rondlopen. Die plakken
+   we onder elke maatstaf. Zo weet de eerste beoordeling het al.
+
+   Ze staan op één plek: je lijst. Pas je daar iets aan, dan verandert dit mee. */
+
+function hardeRegels(){
+  if(!lijstCache) return '';
+  const weg = Object.values(lijstCache.regels)
+    .filter(r => r.klasse === 'WEG')
+    .map(r => r.naam);
+  if(!weg.length) return '';
+  return '\n\nDeze dingen zijn nooit bruikbaar, hoe goed ze er ook uitzien. ' +
+         'Zie je er een, sla het stuk dan over:\n\u2022 ' + weg.join('\n\u2022 ');
+}
+
+const regelsNu = () => (regelsVan[soort] || STANDAARDREGELS) + hardeRegels();
 
 function firebaseKlaar(){
   return !!(vuur && gebruiker);
@@ -5499,6 +5522,8 @@ async function deelIn(stukken){
 
 async function laatKnippen(reeksen){
   const b = scanBron;
+  // eerst de lijst ophalen: die levert de harde regels voor deze beoordeling
+  try { await haalLijst(); } catch(fout){}
   const roep = vuur.fn.httpsCallable('beoordeelReeks');
 
   const werk = [];
