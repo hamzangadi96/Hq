@@ -1879,7 +1879,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v63';
+const APPVERSIE = 'studio v64';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -6433,6 +6433,20 @@ async function speelMontage(){
   el('speelpijl').classList.add('verborgen');
   el('speelpauze').classList.remove('verborgen');
 
+  /* Zoeken naar het juiste beeld in een clip kost tijd — soms een fractie van
+     een seconde, soms meer, want de browser moet vanaf het vorige sleutelbeeld
+     terugrekenen. Gebeurt dat pas op het moment van de wissel, dan staat je
+     beeld al die tijd stil. Bij een reel van twintig clips hapert het dus elke
+     paar seconden.
+
+     Dus zetten we de volgende clip alvast klaar terwijl deze nog loopt. Bij de
+     wissel staat hij dan al goed en keert zoekNaar meteen terug. De export
+     deed dit al; de speler niet. */
+  const zetKlaar = vak => {
+    if(!vak || !vak.clip || !vak.clip.video) return;
+    try { zoekNaar(vak.clip.video, vak.clip.start); } catch(fout){}
+  };
+
   const start = async vak => {
     speelKlok = vak;
     const inClip = vak.clip.start + (kopTijd - vak.van) * (vak.clip.tempo || 1);
@@ -6440,6 +6454,11 @@ async function speelMontage(){
     try { vak.clip.video.playbackRate = vak.clip.tempo || 1; } catch(fout){}
     vak.clip.video.muted = (vak.clip.tempo || 1) > 1;
     try { await vak.clip.video.play(); } catch(fout){}
+
+    // en meteen de volgende vast opzoeken
+    const index = tijdIndex();
+    const plek = index.findIndex(x => x.clip === vak.clip);
+    if(plek >= 0 && plek + 1 < index.length) zetKlaar(index[plek + 1]);
   };
 
   const eerste = opTijd(kopTijd);
