@@ -1879,7 +1879,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v60';
+const APPVERSIE = 'studio v62';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -3507,6 +3507,72 @@ el('exportstart').addEventListener('click', async () => {
   }
 });
 
+
+/* ================== GELUID ==================
+
+   createMediaElementSource() mag je per videoveld maar een keer aanroepen, en
+   die koppeling is definitief: vanaf dat moment gaat het geluid van dat veld
+   nog uitsluitend naar de audiocontext waar je het aan hebt gehangen.
+
+   De export deed dat met een eigen, verse context per keer. Gevolg:
+
+     eerste export   geluid staat in het bestand, maar je voorbeeld is daarna
+                     stil, want de context hangt aan een opnamestroom en niet
+                     aan je speakers
+     tweede export   koppelen gooit een fout, want dit veld was al gekoppeld;
+                     die fout werd opgevangen en zette het hele geluid uit
+
+   Dus: een motor voor de hele app, kranen die permanent aan je speakers
+   hangen, en tijdens het exporteren een aftakking erbij. */
+
+let geluidAC = null;
+let clipKraan = null;
+let muziekKraanVast = null;
+
+function audioMotor(){
+  if(geluidAC) return geluidAC;
+  try {
+    geluidAC = new (window.AudioContext || window.webkitAudioContext)();
+    clipKraan = geluidAC.createGain();
+    muziekKraanVast = geluidAC.createGain();
+    clipKraan.gain.value = 1;          // het volume zit op de spelers zelf
+    muziekKraanVast.gain.value = 1;
+    clipKraan.connect(geluidAC.destination);
+    muziekKraanVast.connect(geluidAC.destination);
+  } catch(fout){ geluidAC = null; }
+  return geluidAC;
+}
+
+// iOS zet de context stil zodra je van app wisselt; bij spelen weer aanzetten
+async function wekGeluid(){
+  const ac = audioMotor();
+  if(ac && ac.state === 'suspended'){
+    try { await ac.resume(); } catch(fout){}
+  }
+  return ac;
+}
+
+/* Een veld koppelen doen we een keer en onthouden we voorgoed. Lukt het niet,
+   dan was het al eens gekoppeld en valt er niets meer aan te doen; we
+   onthouden dat ook, anders blijven we het elke keer opnieuw proberen. */
+function koppelClip(c){
+  const ac = audioMotor();
+  if(!ac || !c || !c.video || c.bron) return;
+  try {
+    c.bron = ac.createMediaElementSource(c.video);
+    c.bron.connect(clipKraan);
+  } catch(fout){ c.bron = 'mislukt'; }
+}
+
+function koppelMuziek(){
+  const ac = audioMotor();
+  if(!ac || !muziek || !muziek.audio || muziek.bron) return;
+  try {
+    muziek.bron = ac.createMediaElementSource(muziek.audio);
+    muziek.bron.connect(muziekKraanVast);
+  } catch(fout){ muziek.bron = 'mislukt'; }
+}
+
 async function draaiExport(){
   const type = kiesType();
   if(!window.MediaRecorder) throw new Error('deze browser kan niet opnemen');
@@ -3523,29 +3589,25 @@ async function draaiExport(){
   // audio erbij, maar nooit blokkerend
   let ac = null;
   let muziekKraan = null;
+  let exportDoel = null;
   try {
-    ac = new (window.AudioContext || window.webkitAudioContext)();
-    if(ac.state === 'suspended') await ac.resume();
-    const doel = ac.createMediaStreamDestination();
+    ac = await wekGeluid();
+    if(!ac) throw new Error('geen geluid');
+    exportDoel = ac.createMediaStreamDestination();
 
-    // Clipgeluid en muziek gaan elk door hun eigen kraan, zodat de balans
-    // die je in beeld hoort ook in het geëxporteerde bestand zit.
-    const clipKraan = ac.createGain();
+    /* De kranen hangen al aan je speakers. Hier hangen we er de opnamestroom
+       naast, zodat hetzelfde geluid twee kanten op gaat: naar jou en naar het
+       bestand. Na afloop halen we alleen die aftakking weer weg. */
+    clips.forEach(koppelClip);
     clipKraan.gain.value = clipVolume;
-    clipKraan.connect(doel);
-    clips.forEach(c => {
-      if(!c.bron){
-        c.bron = ac.createMediaElementSource(c.video);
-        c.bron.connect(clipKraan);
-      }
-    });
+    clipKraan.connect(exportDoel);
+    const doel = exportDoel;
 
     if(muziekAan()){
-      muziekKraan = ac.createGain();
+      koppelMuziek();
+      muziekKraan = muziekKraanVast;
       muziekKraan.gain.value = muziekVolume;
       muziekKraan.connect(doel);
-      if(!muziek.bron) muziek.bron = ac.createMediaElementSource(muziek.audio);
-      muziek.bron.connect(muziekKraan);
       /* Hier alleen klaarzetten, nog niet spelen. Het zoeken naar het eerste
          beeld duurt op een telefoon zo een halve seconde, en al die tijd zou
          de muziek doorlopen. Dan staat je hele reel scheef ten opzichte van de
@@ -3560,7 +3622,7 @@ async function draaiExport(){
     clips.forEach(c => { try { c.video.volume = 1; } catch(fout){} });
     if(muziekAan()){ try { muziek.audio.volume = 1; } catch(fout){} }
 
-    const spoorje = doel.stream.getAudioTracks()[0];
+    const spoorje = exportDoel.stream.getAudioTracks()[0];
     if(spoorje) stroom.addTrack(spoorje);
   } catch(fout){ ac = null; }
 
@@ -3668,9 +3730,24 @@ async function draaiExport(){
   await gestopt;
   if(muziekAan()){ try { muziek.audio.pause(); } catch(fout){} }
   if(ac){
-    try { ac.close(); } catch(fout){}
-    clips.forEach(c => c.bron = null);
-    if(muziek) muziek.bron = null;
+    /* Niet sluiten. Deze context is van de hele app: hier hangt het geluid van
+       je clips en je muziek aan. Sloten we hem hier af, dan was je voorbeeld
+       daarna stil en gaf een tweede export helemaal niets meer.
+
+       De koppeling zelf blijft staan: die mag je maar een keer maken en hem
+       weggooien maakt je voorbeeld stil. Alleen de aftakking naar de opname
+       gaat eraf, en de kranen terug naar normaal. */
+    try {
+      if(clipKraan){
+        if(exportDoel) clipKraan.disconnect(exportDoel);
+        clipKraan.gain.value = 1;
+      }
+      if(muziekKraanVast){
+        if(exportDoel) muziekKraanVast.disconnect(exportDoel);
+        muziekKraanVast.gain.cancelScheduledValues(ac ? ac.currentTime : 0);
+        muziekKraanVast.gain.value = 1;
+      }
+    } catch(fout){}
   }
   zetVolumes();      // de spelers weer op jouw ingestelde volume
 
@@ -7077,6 +7154,23 @@ function reelPlan(doel){
     perBeeld = tellen * maat.slag;
   }
 
+  /* Niet elk shot wil even lang in beeld. Een karamel die omslaat heeft vier
+     seconden nodig om te lezen, een productstill anderhalve. Je lijst weet dat
+     per regel; staat er niets, dan valt hij terug op de algemene lengte.
+
+     Bij bekende maat ronden we alsnog af op hele tellen, anders loopt je reel
+     scheef zodra de lengtes per shot verschillen. */
+  const lengteVoor = c => {
+    let l = perBeeld;
+    if(Array.isArray(c.stukduur) && c.stukduur.length === 2){
+      l = (c.stukduur[0] + c.stukduur[1]) / 2;
+      if(maat && maat.slag > .15 && maat.slag <= 4){
+        l = Math.max(1, Math.round(l / maat.slag)) * maat.slag;
+      }
+    }
+    return Math.min(klipDuur(c), l);
+  };
+
   const gekozen = [];
   let totaal = 0, ronde = 0, gepakt = true;
   while(gepakt && totaal < doel){
@@ -7084,7 +7178,7 @@ function reelPlan(doel){
     for(const m of momenten){
       if(ronde >= m.length) continue;
       const c = m[ronde];
-      const lengte = Math.min(klipDuur(c), perBeeld);
+      const lengte = lengteVoor(c);
       if(lengte < .4) continue;
       gekozen.push({c, lengte});
       totaal += lengte;
@@ -7103,17 +7197,24 @@ function reelPlan(doel){
     return clips.indexOf(a.c) - clips.indexOf(b.c);
   });
 
-  // De haak vooraan: het sterkste shot opent, de rest houdt zijn volgorde.
+  /* De haak vooraan. Tot nu toe koos hij puur op cijfer, maar een shot kan
+     een acht zijn en toch een waardeloze opening: doosjes vouwen leest prima
+     in het midden en opent niets. Je lijst zegt per regel welke rol een shot
+     heeft. Kunnen we daaruit kiezen, dan doen we dat; anders valt hij terug
+     op het cijfer zoals eerst. */
   let haak = null;
   if(reelOpening === 'beste' && gekozen.length > 1){
-    haak = gekozen.reduce((beste, g) => opWaarde(g.c, beste.c) < 0 ? g : beste, gekozen[0]);
+    const haken = gekozen.filter(g => g.c.rol === 'haak');
+    const uit = haken.length ? haken : gekozen;
+    haak = uit.reduce((beste, g) => opWaarde(g.c, beste.c) < 0 ? g : beste, uit[0]);
     const plek = gekozen.indexOf(haak);
     if(plek > 0){
       gekozen.splice(plek, 1);
       gekozen.unshift(haak);
     }
   }
-  return {gekozen, totaal, momenten, perBeeld, tellen, haak};
+  return {gekozen, totaal, momenten, perBeeld, tellen, haak,
+          rollen: gekozen.filter(g => g.c.rol).length};
 }
 
 function tekenReel(){
@@ -7141,10 +7242,12 @@ function tekenReel(){
   el('reelmaak').disabled = false;
 
   const kop = document.createElement('div');
-  kop.innerHTML = '<b>' + plan.gekozen.length + ' beelden</b> van maximaal ' +
-    secs(plan.perBeeld) +
-    (plan.tellen ? ' (' + plan.tellen + (plan.tellen === 1 ? ' tel' : ' tellen') + ')' : '') +
-    ' \u00b7 samen <b>' + secs(plan.totaal) + '</b>';
+  kop.innerHTML = '<b>' + plan.gekozen.length + ' beelden</b> \u00b7 samen <b>' +
+    secs(plan.totaal) + '</b>' +
+    (plan.rollen
+      ? ' \u00b7 ' + plan.rollen + ' met eigen lengte'
+      : ' \u00b7 elk ' + secs(plan.perBeeld) +
+        (plan.tellen ? ' (' + plan.tellen + (plan.tellen === 1 ? ' tel' : ' tellen') + ')' : ''));
   vak.appendChild(kop);
 
   // vertellen waar hij mee opent, want dat is de belangrijkste seconde
@@ -7154,7 +7257,9 @@ function tekenReel(){
     r.className = 'momentregel';
     r.innerHTML = '<span>Opent met ' +
       (eerste.label ? veiligeTekst(eerste.label) : (eerste.opname ? opnameTekst(eerste.opname) : 'de eerste clip')) +
-      '</span><span>' + (eerste.cijfer ? eerste.cijfer + '/10' : '') + '</span>';
+      '</span><span>' +
+      (eerste.rol === 'haak' ? 'haak \u00b7 ' : '') +
+      (eerste.cijfer ? eerste.cijfer + '/10' : '') + '</span>';
     vak.appendChild(r);
   }
 
@@ -7588,10 +7693,12 @@ let clipVolume = 1;         // hoe hard het geluid uit je clips staat
 function muziekAan(){ return !!(muziek && muziek.audio); }
 
 function zetVolumes(){
+  if(muziek && muziek.audio) koppelMuziek();
   if(muziek && muziek.audio) muziek.audio.volume = speelt ? muziekNiveau(kopTijd) : muziekVolume;
   clips.forEach(c => {
     // versnelde clips blijven stil, dat klinkt anders als een piepstem
     if((c.tempo || 1) > 1) return;
+    koppelClip(c);
     try { c.video.volume = clipVolume; } catch(fout){}
   });
 }
