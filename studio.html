@@ -5,24 +5,59 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#f4f4f5">
+<meta name="theme-color" content="#0c0c0d">
 <title>Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --inkt:#18181b;
-  --achtergrond:#f4f4f5;
-  --kaart:#ffffff;
-  --lijn:#ececee;
-  --zacht:#71717a;
-  --zachter:#a1a1aa;
-  --groen:#15803d;
-  --amber:#b45309;
-  --rood:#c0392b;
+  /* Studio is donker en HQ blijft licht, en dat is geen smaakverschil.
+
+     Je oog meet geen absolute helderheid, alleen het verschil met de
+     omgeving. Dezelfde grijstint lijkt donker op wit en licht op zwart.
+     Beoordeel je hier een donkerbruine bonbon in een klein venster met
+     lichtgrijs eromheen, dan ijkt je oog zich op dat grijs en lijkt elk
+     shot doffer dan het is. Op donkergrijs valt die vertekening weg.
+
+     HQ is lezen: daar wint zwarte tekst op wit. Studio is kijken. */
+
+  --inkt:#f4f4f5;         /* de sterke kleur: tekst en de hoofdknop      */
+  --opknop:#0c0c0d;       /* wat er op die hoofdknop staat               */
+  --achtergrond:#0c0c0d;
+  --kaart:#17171a;
+  --lijn:#2c2c33;
+  --zacht:#a1a1aa;
+  --zachter:#8a8a93;
+  --druk:#26262b;         /* ingedrukt, uitgeschakeld, voortgangsspoor   */
+  --duim:#2e2e34;         /* lege duimafdruk, nog niet gevuld            */
+  --letterbox:#000000;    /* om video heen, gelijk aan de canvasvulling  */
+  --groen:#4ade80;
+  --amber:#fbbf24;
+  --rood:#f87171;
+  --blauw:#8ec5ff;        /* muziek                                      */
+  --blauwvlak:#16273a;
+  --blauwzacht:#6fa3d8;
+  --blauwrand:#2f4a6b;
   --rond:18px;
 }
+/* Zonder deze regel tekent de browser schuifjes, selectievakjes en
+   scrollbalken nog in hun lichte vorm — dan houd je witte blokjes over
+   in een verder donkere app. */
+html{color-scheme:dark}
+
+/* Deze knop had helemaal geen styling en kreeg dus de grijze knop van de
+   browser. Als pictogramknop hoort hij geen eigen vlak te hebben. */
+#bankknop{
+  background:none;
+  border:0;
+  padding:6px;
+  margin-left:auto;
+  line-height:0;
+  border-radius:10px;
+  cursor:pointer;
+}
+#bankknop:active{background:var(--druk)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{
@@ -69,7 +104,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   width:46px;
   height:62px;
   border-radius:12px;
-  background:#e4e4e7;
+  background:var(--duim);
   object-fit:cover;
   flex:0 0 auto;
   display:block;
@@ -149,7 +184,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   flex:0 0 auto;
   width:84px;height:64px;
   border-radius:12px;
-  background:#18181b;
+  background:var(--letterbox);
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;
 }
@@ -221,7 +256,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   margin:0 0 8px 2px;
 }
 #kadervak{
-  background:#18181b;
+  background:var(--letterbox);
   border-radius:14px;
   overflow:hidden;
   line-height:0;
@@ -315,7 +350,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   letter-spacing:-.01em;
 }
 .knop.stil{background:var(--achtergrond);color:var(--inkt);flex:0 0 auto;padding:0 20px}
-.knop.vol{background:var(--inkt);color:#fff;flex:1 1 auto}
+.knop.vol{background:var(--inkt);color:var(--opknop);flex:1 1 auto}
 .knop:disabled{opacity:.35}
 /* onderbalk van het werkscherm: zo laag mogelijk, de tijdlijn heeft de ruimte nodig */
 #werkscherm #balk{gap:8px;padding:10px 16px calc(env(safe-area-inset-bottom) + 10px)}
@@ -352,7 +387,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 #voorbeeld{
   width:100%;
   aspect-ratio:16/10;
-  background:#18181b;
+  background:var(--letterbox);
   border-radius:14px;
   overflow:hidden;
   display:flex;align-items:center;justify-content:center;
@@ -398,12 +433,29 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   scrollbar-width:none;
 }
 #spoorbalk::-webkit-scrollbar{display:none}
+/* De blokken dragen een afbeelding, en die maakt de browser vanzelf
+   versleepbaar. Sleep je er dan overheen, dan begint hij zijn eigen
+   sleephandeling en krijg jij geen muisbewegingen meer: twee stuks en klaar.
+   Ook selecteren moet uit, anders sleep je tekst in plaats van de tijdlijn. */
+#spoorbalk, #spoorclips, .spoorblok, .spoorblok *{
+  -webkit-user-drag:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
+/* Zonder aanwijzing ziet niemand dat je hier kunt slepen. Op een telefoon
+   raad je het vanzelf, met een muis niet. */
+@media (hover:hover){
+  #spoorbalk{cursor:grab}
+  #spoorbalk.sleepbaar,
+  #spoorbalk.sleepbaar .spoorblok{cursor:grabbing}
+}
 #spoorclips{display:flex;height:100%;gap:2px;align-items:stretch}
+.lucht{flex:0 0 auto;height:100%;pointer-events:none}
 .spoorblok{
   position:relative;
   flex:0 0 auto;
   height:100%;
-  background:#d4d4d8 center/cover;
+  background:var(--duim) center/cover;
   border-radius:8px;
   overflow:hidden;
   min-width:6px;
@@ -484,7 +536,7 @@ body.klipgekozen #gereedclip{display:flex}
 #muziekspoor{
   height:34px;
   border-radius:10px;
-  background:#dbeafe;
+  background:var(--blauwvlak);
   display:flex;
   align-items:center;
   gap:8px;
@@ -494,10 +546,10 @@ body.klipgekozen #gereedclip{display:flex}
   min-width:60px;
 }
 #muzieknaam{
-  font-size:12px;font-weight:600;color:#1e3a5f;
+  font-size:12px;font-weight:600;color:var(--blauw);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-#muziekduur{font-size:11px;color:#3b6a99;margin-left:auto;flex:0 0 auto}
+#muziekduur{font-size:11px;color:var(--blauwzacht);margin-left:auto;flex:0 0 auto}
 /* Geen kaal bestandsveld meer: één balk die je aantikt. Hij houdt de plek van
    het muziekspoor bezet, zodat je ook na vier weken nog weet dat die er is. */
 /* Sleep de golfvorm om te kiezen waar het nummer begint. Het omkaderde stuk
@@ -544,7 +596,7 @@ body.klipgekozen #gereedclip{display:flex}
   color:var(--zacht);
   cursor:pointer;
 }
-#muziekleeg:active{background:#e4e4e7}
+#muziekleeg:active{background:var(--druk)}
 #muziekrij input[type=file]{display:none}
 
 /* De kop staat stil in het midden; de tijdlijn schuift eronderdoor. */
@@ -669,7 +721,7 @@ body.klipgekozen #gereedclip{display:flex}
 #ring{width:120px;height:120px}
 #pct{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 #exportuitleg{font-size:14px;color:var(--zacht);line-height:1.5;margin:0;max-width:280px}
-#klaarvideo{width:100%;max-width:240px;border-radius:16px;background:#18181b;display:none}
+#klaarvideo{width:100%;max-width:240px;border-radius:16px;background:var(--letterbox);display:none}
 #exportknoppen{display:none;flex-direction:column;gap:10px;width:100%;max-width:300px}
 #exportknoppen .knop{width:100%}
 #foutmelding{color:var(--rood);font-size:14px;line-height:1.5;display:none;max-width:300px}
@@ -680,7 +732,7 @@ body.klipgekozen #gereedclip{display:flex}
   left:16px;right:16px;
   bottom:calc(env(safe-area-inset-bottom) + 130px);
   background:var(--inkt);
-  color:#fff;
+  color:var(--opknop);
   border-radius:14px;
   padding:14px 16px;
   display:flex;
@@ -697,7 +749,7 @@ body.klipgekozen #gereedclip{display:flex}
 }
 #toast.aan{opacity:1;transform:translateY(0);pointer-events:auto}
 #toast button{
-  background:none;border:none;color:#fff;
+  background:none;border:none;color:var(--opknop);
   font-family:inherit;font-size:14px;font-weight:700;
   text-decoration:underline;padding:4px;
 }
@@ -744,7 +796,7 @@ body.bankt #bankscherm{display:flex}
 #bankvoorbeeld{
   width:100%;
   aspect-ratio:16/10;
-  background:#18181b;
+  background:var(--letterbox);
   border-radius:14px;
   overflow:hidden;
   display:flex;align-items:center;justify-content:center;
@@ -789,7 +841,7 @@ body.scant #scanscherm{display:flex}
   max-width:260px;
   height:6px;
   border-radius:3px;
-  background:#e4e4e7;
+  background:var(--druk);
   overflow:hidden;
 }
 #scanvoortgang{height:100%;width:0;background:var(--inkt);border-radius:3px;transition:width .2s ease}
@@ -853,7 +905,7 @@ body.scant #scanscherm{display:flex}
 .bestevlag{
   display:inline-block;
   background:var(--groen);
-  color:#fff;
+  color:var(--opknop);
   font-size:11px;
   font-weight:700;
   border-radius:6px;
@@ -861,7 +913,7 @@ body.scant #scanscherm{display:flex}
   margin-left:7px;
   vertical-align:1px;
 }
-.stukkaart.afgekeurd .vink{background:#e4e4e7}
+.stukkaart.afgekeurd .vink{background:var(--druk)}
 #scanmelding{
   font-size:13px;
   color:var(--zacht);
@@ -941,7 +993,7 @@ body.scant #scanscherm{display:flex}
   width:26px;
   height:26px;
   border-radius:13px;
-  background:#d4d4d8;
+  background:var(--duim);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1046,7 +1098,7 @@ body.werkt #werkscherm{display:flex}
   border:0;
   border-radius:12px;
   background:var(--inkt);
-  color:#fff;
+  color:var(--opknop);
   font:600 15px Inter,system-ui,sans-serif;
   cursor:pointer;
 }
@@ -1177,12 +1229,12 @@ body.werkt #werkscherm{display:flex}
       <h1>Studio</h1>
       <span id="versie"></span>
       <button id="bankknop" aria-label="Bank">
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--zacht)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/>
         </svg>
       </button>
       <button id="instelknop" aria-label="Instellingen">
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--zacht)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 01-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5v.2a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 01-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 012.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 012.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/>
         </svg>
@@ -1191,7 +1243,7 @@ body.werkt #werkscherm{display:flex}
 
     <div id="pleeg">
       <div id="leegicoon">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--zachter)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/>
         </svg>
       </div>
@@ -1214,7 +1266,7 @@ body.werkt #werkscherm{display:flex}
   <div id="werkscherm">
   <header class="werkkop">
     <button id="terug" aria-label="Terug naar projecten">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--inkt)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <button id="projectnaam">Project</button>
     <button class="knop vol" id="exporteren" disabled>Exporteer</button>
@@ -1222,7 +1274,7 @@ body.werkt #werkscherm{display:flex}
 
   <div id="leeg">
     <div id="leegicoon">
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--zachter)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/>
       </svg>
     </div>
@@ -1236,8 +1288,8 @@ body.werkt #werkscherm{display:flex}
   <div id="tijdbalk" class="verborgen">
     <div id="tijdrij">
       <button id="afspelen" aria-label="Afspelen">
-        <svg id="speelpijl" width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z"/></svg>
-        <svg id="speelpauze" class="verborgen" width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+        <svg id="speelpijl" width="20" height="20" viewBox="0 0 24 24" fill="var(--opknop)"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg id="speelpauze" class="verborgen" width="20" height="20" viewBox="0 0 24 24" fill="var(--opknop)"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
       </button>
       <b id="tijdnu">0,0 s</b>
       <button class="zoomknop" id="zoomuit" aria-label="Uitzoomen">&minus;</button>
@@ -1287,7 +1339,7 @@ body.werkt #werkscherm{display:flex}
   <div id="bankscherm">
     <header class="werkkop">
       <button id="bankterug" aria-label="Terug">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--inkt)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <div id="banktitel">Bank</div>
       <span id="banktelling"></span>
@@ -1318,7 +1370,7 @@ body.werkt #werkscherm{display:flex}
   <div id="scanscherm">
     <header class="werkkop">
       <button id="scanterug" aria-label="Terug">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--inkt)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <div id="scantitel">Opname uitpluizen</div>
     </header>
@@ -1547,8 +1599,8 @@ body.werkt #werkscherm{display:flex}
     <div id="voorbeeldvak">
       <div id="voorbeeld"></div>
       <button id="speelknop" aria-label="Afspelen">
-        <svg id="speelicoon" width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z"/></svg>
-        <svg id="pauzeicoon" class="verborgen" width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+        <svg id="speelicoon" width="26" height="26" viewBox="0 0 24 24" fill="var(--opknop)"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <svg id="pauzeicoon" class="verborgen" width="26" height="26" viewBox="0 0 24 24" fill="var(--opknop)"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
       </button>
     </div>
     <div id="trimknip">
@@ -1606,8 +1658,8 @@ body.werkt #werkscherm{display:flex}
 
   <div id="exportlaag">
     <svg id="ring" viewBox="0 0 120 120">
-      <circle cx="60" cy="60" r="52" fill="none" stroke="#ececee" stroke-width="8"/>
-      <circle id="ringvul" cx="60" cy="60" r="52" fill="none" stroke="#18181b" stroke-width="8"
+      <circle cx="60" cy="60" r="52" fill="none" stroke="var(--lijn)" stroke-width="8"/>
+      <circle id="ringvul" cx="60" cy="60" r="52" fill="none" stroke="var(--inkt)" stroke-width="8"
               stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="327"
               transform="rotate(-90 60 60)"/>
     </svg>
@@ -1625,7 +1677,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v55';
+const APPVERSIE = 'studio v57';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1924,9 +1976,9 @@ async function tekenProjecten(wachtenMetOpruimen){
       (cl.length ? cl.length + (cl.length === 1 ? ' clip · ' : ' clips · ') + secs(duur) : 'leeg') +
       '</div></div>' +
       '<button class="wisknop" aria-label="Project verwijderen">' +
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--zachter)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>' +
-      '<div class="pijl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
+      '<div class="pijl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--zachter)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
     kaart.querySelector('.projecttitel').textContent = pr.naam;
 
     const wis = kaart.querySelector('.wisknop');
@@ -2676,7 +2728,7 @@ function maakDuim(v){
     let pogingen = 0;
     const pak = async () => {
       try {
-        ctx.fillStyle = '#18181b';
+        ctx.fillStyle = kleur('--letterbox');
         ctx.fillRect(0,0,doek.width,doek.height);
         dekkend(ctx, v, doek.width, doek.height);
         if(isZwart(ctx, doek.width, doek.height) && pogingen < 2){
@@ -3649,7 +3701,7 @@ function duimOp(v, t){
       const doek = document.createElement('canvas');
       doek.width = 92; doek.height = 124;
       const ctx = doek.getContext('2d');
-      ctx.fillStyle = '#18181b';
+      ctx.fillStyle = kleur('--letterbox');
       ctx.fillRect(0, 0, doek.width, doek.height);
       dekkend(ctx, v, doek.width, doek.height);
       klaar(doek.toDataURL('image/jpeg', .7));
@@ -4942,7 +4994,7 @@ function tekenBank(){
     const pijl = document.createElement('div');
     pijl.className = 'klippijl';
     pijl.innerHTML =
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" ' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--zachter)" ' +
       'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
     kaart.appendChild(pijl);
 
@@ -5690,14 +5742,36 @@ function zoomPassend(){
   if(totaal > 0) pasZoom((breed - 24) / totaal);
 }
 
-// De rij krijgt links en rechts een halve schermbreedte lucht, zodat het
-// eerste en het laatste beeld ook onder de kop kunnen komen.
+/* De rij krijgt links en rechts een halve schermbreedte lucht, zodat het
+   eerste en het laatste beeld ook onder de kop kunnen komen.
+
+   Dat gebeurt met twee lege blokken en niet met opvulling. Reden: de
+   rechteropvulling van een flexrij telt niet mee in de scrollbreedte, en dan
+   kun je niet tot het eind van je montage schuiven — bij een breed venster
+   scheelde dat de laatste dertien seconden. Een leeg blok telt wel mee. */
 function zetSpoorMaat(){
   const balk = el('spoorbalk');
   const rij = el('spoorclips');
   const half = (balk.clientWidth || 320) / 2;
-  rij.style.paddingLeft = half + 'px';
-  rij.style.paddingRight = half + 'px';
+  rij.style.paddingLeft = '0';
+  rij.style.paddingRight = '0';
+
+  let voor = rij.querySelector('.lucht.voor');
+  let na = rij.querySelector('.lucht.na');
+  if(!voor){
+    voor = document.createElement('div');
+    voor.className = 'lucht voor';
+    rij.insertBefore(voor, rij.firstChild);
+  } else if(voor !== rij.firstChild){
+    rij.insertBefore(voor, rij.firstChild);
+  }
+  if(!na){
+    na = document.createElement('div');
+    na.className = 'lucht na';
+  }
+  rij.appendChild(na);
+  voor.style.width = half + 'px';
+  na.style.width = half + 'px';
   Array.from(rij.children).forEach(blok => {
     const c = clips.find(x => x.id === blok.dataset.klip);
     if(c) blok.style.width = Math.max(4, klipDuur(c) * pps) + 'px';
@@ -5946,6 +6020,16 @@ function plandStroken(){
 function knoopTijdbalk(){
   const balk = el('spoorbalk');
 
+  /* Een muiswiel geeft verticale uitslag, maar deze strook schuift horizontaal.
+     Zonder dit doet je wiel niets boven de tijdlijn. Een trackpad geeft wel
+     horizontale uitslag; die laten we met rust. */
+  balk.addEventListener('wheel', e => {
+    if(Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;   // trackpad, zijwaarts
+    if(!e.deltaY) return;
+    balk.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, {passive: false});
+
   /* schuiven verzet de kop */
   balk.addEventListener('scroll', () => {
     if(zelfScrollen || !clips.length) return;
@@ -5971,11 +6055,57 @@ function knoopTijdbalk(){
 
   const stopTillen = () => { clearTimeout(tilTimer); tilTimer = null; };
 
+  /* Op een telefoon veeg je de strook en schuift hij mee: dat is gewone
+     scroll, en de speelkop volgt de scrollstand. Met een muis werkt dat niet.
+     Een scrollbalk die verborgen is kun je niet pakken, en slepen doet niets.
+
+     Dus verzetten we bij een muis de scrollstand zelf. Voor vingers laten we
+     het aan de browser: die heeft uitloop en veert aan de randen, en dat
+     voelt beter dan wat wij namaken. */
+  let muisSleep = null;
+
+  /* Waarom dit niet aan pointermove hangt: deze strook schuift horizontaal, en
+     zodra je er met ingedrukte muisknop overheen sleept besluit de browser dat
+     hij zelf gaat pannen. Hij stuurt dan pointercancel en je krijgt geen enkele
+     beweging meer — twee stuks en klaar. Vastpakken helpt daar niet tegen.
+
+     Gewone muisgebeurtenissen worden niet zo afgebroken. Die hangen we aan het
+     venster, zodat het ook doorloopt als je buiten de tijdlijn komt. */
+
+  const muisBeweegt = e => {
+    if(!muisSleep || sleept) return;
+    if(Math.abs(e.clientX - muisSleep.x) < 3) return;
+    bewogen = true;
+    stopTillen();
+    balk.scrollLeft = muisSleep.scroll - (e.clientX - muisSleep.x);
+    e.preventDefault();
+  };
+
+  const muisLos = () => {
+    if(!muisSleep) return;
+    muisSleep = null;
+    balk.classList.remove('sleepbaar');
+    window.removeEventListener('mousemove', muisBeweegt);
+    window.removeEventListener('mouseup', muisLos);
+  };
+
+  // vangnet voor browsers die -webkit-user-drag niet kennen
+  balk.addEventListener('dragstart', e => e.preventDefault());
+
+  function beginMuisSleep(x){
+    muisSleep = {x, scroll: balk.scrollLeft};
+    balk.classList.add('sleepbaar');
+    window.addEventListener('mousemove', muisBeweegt);
+    window.addEventListener('mouseup', muisLos);
+  }
+
   balk.addEventListener('pointerdown', e => {
     if(e.target.closest('.blokgreep')) return;
     neer = true; bewogen = false;
     startX = e.clientX; startY = e.clientY;
     beginBlok = e.target.closest('.spoorblok');
+
+    if(e.pointerType === 'mouse') beginMuisSleep(e.clientX);
 
     stopTillen();
     if(!beginBlok || clips.length < 2) return;
@@ -6962,6 +7092,16 @@ async function maakGolf(){
   return golf;
 }
 
+/* Canvas werkt niet met CSS-variabelen. Uitlezen kost werk, dus onthouden
+   we het antwoord — het palet verandert toch niet tijdens gebruik. */
+const kleurCache = {};
+function kleur(naam){
+  if(kleurCache[naam]) return kleurCache[naam];
+  const v = getComputedStyle(document.documentElement).getPropertyValue(naam).trim();
+  kleurCache[naam] = v || '#888';
+  return kleurCache[naam];
+}
+
 function tekenGolf(){
   const doek = el('golfdoek');
   if(!doek || !muziekAan()) return;
@@ -6980,7 +7120,7 @@ function tekenGolf(){
   const totDeel = Math.min(1, (muziekBegin() + montage) / duur);
 
   if(!golf){
-    ctx.fillStyle = '#c7d7ea';
+    ctx.fillStyle = kleur('--blauwrand');
     ctx.fillRect(0, hoog / 2 - 1, breed, 2);
   } else {
     const staaf = breed / golf.length;
@@ -6989,14 +7129,14 @@ function tekenGolf(){
       const deel = i / golf.length;
       const binnen = deel >= vanDeel && deel <= totDeel;
       const h = Math.max(1.5, golf[i] * (hoog - 6));
-      ctx.fillStyle = binnen ? '#18181b' : '#d4d4d8';
+      ctx.fillStyle = binnen ? kleur('--inkt') : kleur('--duim');
       ctx.fillRect(x, (hoog - h) / 2, Math.max(1, staaf - .5), h);
     }
   }
 
   // het stuk dat je gebruikt krijgt een rand, zodat je ziet wat je meeneemt
   const l = vanDeel * breed, r = totDeel * breed;
-  ctx.strokeStyle = '#18181b';
+  ctx.strokeStyle = kleur('--inkt');
   ctx.lineWidth = 2;
   ctx.strokeRect(l + 1, 1, Math.max(2, r - l - 2), hoog - 2);
 }
