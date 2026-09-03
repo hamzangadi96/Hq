@@ -635,9 +635,38 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   gap:4px;
   padding:2px 12px 6px;
 }
-#gereedclip{display:none}
-body.klipgekozen #gereedalgemeen{display:none}
-body.klipgekozen #gereedclip{display:flex}
+/* Hier verdwenen zes pictogrammen en kwamen er zes andere voor in de plaats.
+   Zonder dat iets aangaf dát er gewisseld was — dus leek Reel gewoon weg.
+
+   Nu blijft de algemene balk staan waar hij staat, en schuift de clipbalk er
+   ónder bij zodra je een clip kiest. Dan zie je iets bijkomen in plaats van
+   iets verdwijnen, en je weet altijd waar Reel zit. */
+#gereedclip{
+  display:flex;
+  max-height:0;
+  overflow:hidden;
+  opacity:0;
+  padding-top:0;
+  padding-bottom:0;
+  transition:max-height .18s ease, opacity .18s ease, padding .18s ease;
+}
+body.klipgekozen #gereedclip{
+  max-height:70px;
+  opacity:1;
+  padding-top:2px;
+  padding-bottom:6px;
+}
+
+/* De cliptools horen bij de clip die je koos, niet bij het project. Een eigen
+   vlak eronder maakt dat zichtbaar zonder er een rand omheen te zetten. */
+#gereedclip{
+  margin:0 12px;
+  padding-left:0;
+  padding-right:0;
+  background:var(--kaart);
+  border-radius:14px;
+}
+body.klipgekozen #gereedclip{margin-bottom:6px}
 .werktuig{
   flex:1 1 0;
   min-width:0;
@@ -1894,7 +1923,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v69';
+const APPVERSIE = 'studio v71';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2148,6 +2177,30 @@ function naarWerkscherm(){
   teken();
   // bij openen zo inzoomen dat je hele montage in beeld past
   requestAnimationFrame(() => { if(clips.length) zoomPassend(); });
+
+  /* En het eerste beeld erin zetten. Zonder dit blijft de speler zwart tot je
+     iets aanraakt: teken() vult de tijdlijn maar zet de speelkop niet, dus er
+     is nooit een moment waarop het beeld getekend wordt.
+
+     Eén keer tekenen is niet genoeg. Vlak na het openen kent de browser wel de
+     lengte van je clip maar heeft hij nog geen beeld, en dan tekent hij zwart.
+     Dus proberen we het opnieuw zodra er beeld is — hoogstens vijf seconden,
+     daarna houdt het op en blijft het zwart in plaats van eeuwig te proberen. */
+  if(clips.length) toonEersteBeeld();
+}
+
+function toonEersteBeeld(){
+  zetKop(kopTijd || 0, true);
+  const begonnen = Date.now();
+  const nogeens = () => {
+    if(!document.body.classList.contains('werkt') || speelt) return;
+    const vak = opTijd(kopTijd);
+    const v = vak && vak.clip && vak.clip.video;
+    if(v && v.readyState >= 2){ tekenSpelerBeeld(); return; }
+    if(Date.now() - begonnen > 5000) return;
+    setTimeout(nogeens, 120);
+  };
+  setTimeout(nogeens, 120);
 }
 
 async function naarProjecten(){
@@ -3117,6 +3170,9 @@ function teken(){
   const leeg = clips.length === 0;
   el('leeg').classList.toggle('verborgen', !leeg);
   el('exporteren').disabled = leeg;
+  // zonder clips is er niets om bij te knippen, te versnellen of te verwijderen
+  el('gereedalgemeen').classList.toggle('verborgen', leeg);
+  if(leeg) document.body.classList.remove('klipgekozen');
 
   clips.forEach((c, i) => { c.naam = 'Clip ' + (i + 1); });
   vergeetSpraak();
