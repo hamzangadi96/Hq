@@ -41,6 +41,11 @@
   --blauwrand:#2f4a6b;
   --rond:18px;
 }
+.projectwanneer{
+  font-size:12px;
+  color:var(--zachter);
+  margin-top:2px;
+}
 /* Zonder deze regel tekent de browser schuifjes, selectievakjes en
    scrollbalken nog in hun lichte vorm — dan houd je witte blokjes over
    in een verder donkere app. */
@@ -92,6 +97,50 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 #projectscherm header{display:flex;align-items:center;gap:8px}
 
 /* lijst */
+#bankstrip{
+  flex:0 0 auto;
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding:0 16px 16px;
+  scrollbar-width:none;
+}
+#bankstrip::-webkit-scrollbar{display:none}
+.bankduim{
+  flex:0 0 auto;
+  width:62px;
+  height:96px;
+  border-radius:12px;
+  background:var(--duim) center/cover;
+  position:relative;
+  cursor:pointer;
+}
+.bankduim span{
+  position:absolute;
+  left:5px;bottom:5px;
+  font-size:10px;
+  font-weight:700;
+  color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,.9);
+}
+.bankmeer{
+  flex:0 0 auto;
+  width:62px;height:96px;
+  border-radius:12px;
+  background:var(--kaart);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;
+  color:var(--zacht);
+  cursor:pointer;
+}
+.stripkop{
+  flex:0 0 auto;
+  padding:0 16px 8px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.04em;
+  color:var(--zachter);
+}
 #prol{
   flex:1 1 auto;
   min-height:150px;
@@ -1069,18 +1118,31 @@ body.werkt #werkscherm{display:flex}
 .pijl{flex:0 0 auto;width:24px;display:flex;justify-content:center}
 
 #opslagregel{
-  display:block;
-  width:100%;
-  text-align:center;
-  font-size:12px;
-  color:var(--zachter);
-  padding:14px 0 2px;
-  background:none;
-  border:none;
-  font-family:inherit;
+  flex:0 0 auto;
+  width:calc(100% - 32px);
+  margin:4px 16px 12px;
+  padding:13px 16px;
+  border:0;
+  border-radius:14px;
+  background:var(--kaart);
+  font:400 13px Inter,system-ui,sans-serif;
+  color:var(--zacht);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  text-align:left;
   cursor:pointer;
 }
 #opslagregel:empty{display:none}
+/* Het versienummer had nergens opmaak en stond naast de titel. Bouwinformatie
+   hoort niet in het zicht van wie de app gebruikt. */
+#versie{
+  font-size:12px;
+  color:var(--zachter);
+  text-align:center;
+  padding:2px 0 14px;
+}
 
 /* doorlichten */
 .lichtregel.tikbaar{cursor:pointer}
@@ -1227,7 +1289,6 @@ body.werkt #werkscherm{display:flex}
   <div id="projectscherm">
     <header>
       <h1>Studio</h1>
-      <span id="versie"></span>
       <button id="bankknop" aria-label="Bank">
         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--zacht)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/>
@@ -1251,14 +1312,22 @@ body.werkt #werkscherm{display:flex}
       <p>Begin een nieuw project en voeg je opnames toe. Je werk blijft bewaard op deze telefoon.</p>
     </div>
 
+    <!-- Wat er in de bank ligt is werk dat al gedaan is. Dat hoort niet
+         verstopt achter een pictogram in de kop. -->
+    <div id="bankstrip" class="verborgen"></div>
+
     <div id="prol" class="verborgen">
       <div id="projectlijst"></div>
       <button id="opslagregel"></button>
     </div>
 
     <div id="balk">
+      <!-- Je komt hier na een draaidag met opnames op je telefoon. Uitpluizen
+           is dus wat je wil, en een leeg project aanmaken de uitzondering.
+           Daarom is uitpluizen de enige donkere knop, en staat hij rechts. -->
       <div id="knoprij">
-        <button class="knop vol" id="nieuwproject">Nieuw project</button>
+        <button class="knop stil" id="nieuwproject">Leeg project</button>
+        <button class="knop vol" id="pluisdirect">Opnames uitpluizen</button>
       </div>
     </div>
   </div>
@@ -1525,6 +1594,7 @@ body.werkt #werkscherm{display:flex}
   <div class="blad" id="instelblad">
     <div class="grip"></div>
     <h2 class="bladtitel">Instellingen</h2>
+    <div id="versie"></div>
     <div id="inlogregel"></div>
 
     <div id="sleutelblok" class="verborgen">
@@ -1677,7 +1747,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v57';
+const APPVERSIE = 'studio v58';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -1714,6 +1784,17 @@ let toastTimer = null;
 const el = id => document.getElementById(id);
 
 /* ---------- helpers ---------- */
+
+/* "3 dagen geleden" leest sneller dan een datum. Verder terug dan een week
+   zegt de dag zelf meer, want dan gaat het over welke draaidag het was. */
+function wanneer(t){
+  if(!t) return '';
+  const dagen = Math.floor((Date.now() - t) / 86400000);
+  if(dagen <= 0) return 'vandaag';
+  if(dagen === 1) return 'gisteren';
+  if(dagen < 7) return dagen + ' dagen geleden';
+  return new Date(t).toLocaleDateString('nl-NL', {day: 'numeric', month: 'short'});
+}
 
 function secs(n){
   if(!isFinite(n)) return '0,0 s';
@@ -1974,11 +2055,13 @@ async function tekenProjecten(wachtenMetOpruimen){
       '<div class="projectinfo"><div class="projecttitel"></div>' +
       '<div class="projectmeta">' +
       (cl.length ? cl.length + (cl.length === 1 ? ' clip · ' : ' clips · ') + secs(duur) : 'leeg') +
-      '</div></div>' +
+      '</div>' +
+      '<div class="projectwanneer">' + wanneer(pr.bijgewerkt) + '</div></div>' +
       '<button class="wisknop" aria-label="Project verwijderen">' +
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--zachter)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>' +
-      '<div class="pijl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--zachter)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>';
+      '';   // geen pijl: die stond tegen de prullenbak aan en de kaart is
+             // duidelijk genoeg aantikbaar zonder
     kaart.querySelector('.projecttitel').textContent = pr.naam;
 
     const wis = kaart.querySelector('.wisknop');
@@ -1993,6 +2076,7 @@ async function tekenProjecten(wachtenMetOpruimen){
 
   if(!wachtenMetOpruimen) await ruimOp(alle);
   toonOpslag();
+  tekenBankstrip();
 }
 
 /* Bestanden weggooien die bij geen enkel project meer horen.
@@ -2296,6 +2380,64 @@ function sluitOpslagblad(){
 }
 
 el('opslagregel').addEventListener('click', openOpslagblad);
+
+/* Grijze zwevende tekst ziet er niet uit als iets waar je op kunt tikken.
+   Als kaart met een waarde rechts leest hij als een regel in een lijst, en
+   dan snap je vanzelf dat er iets achter zit. */
+function zetOpslagregel(waarde){
+  const k = el('opslagregel');
+  k.innerHTML = '';
+  const links = document.createElement('span');
+  links.textContent = 'Ruimte';
+  const rechts = document.createElement('span');
+  rechts.textContent = waarde || 'doorlichten';
+  rechts.style.color = 'var(--zachter)';
+  k.appendChild(links); k.appendChild(rechts);
+}
+
+/* Uitpluizen zonder eerst een project te maken. Je komt hier na een draaidag
+   met opnames op je telefoon; dat je daarvoor eerst iets moet aanmaken is
+   administratie die jij niet gevraagd hebt. Dus maken we het project zelf en
+   openen meteen de kiezer. */
+el('pluisdirect').addEventListener('click', async () => {
+  await nieuwProject();
+  el('scankiezer').click();
+});
+
+/* De bank staat achter een pictogram in de kop. Wie vier weken niet gewerkt
+   heeft weet niet meer dat dat pictogram bestaat, laat staan wat erin ligt.
+   Een strookje met de sterkste stukken laat het zien. */
+async function tekenBankstrip(){
+  const strip = el('bankstrip');
+  if(!firebaseKlaar() || !gebruiker){ strip.classList.add('verborgen'); return; }
+  try {
+    if(!bank.length) await laadBank();
+  } catch(fout){ strip.classList.add('verborgen'); return; }
+
+  const beste = bank.slice()
+    .sort((a, b) => (b.cijfer || 0) - (a.cijfer || 0))
+    .slice(0, 8);
+  if(!beste.length){ strip.classList.add('verborgen'); return; }
+
+  strip.innerHTML = '';
+  beste.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'bankduim';
+    if(s.duim) d.style.backgroundImage = 'url(' + s.duim + ')';
+    if(s.cijfer) d.innerHTML = '<span>' + s.cijfer + '</span>';
+    d.title = s.label || '';
+    d.addEventListener('click', openBank);
+    strip.appendChild(d);
+  });
+  if(bank.length > beste.length){
+    const meer = document.createElement('div');
+    meer.className = 'bankmeer';
+    meer.textContent = '+' + (bank.length - beste.length);
+    meer.addEventListener('click', openBank);
+    strip.appendChild(meer);
+  }
+  strip.classList.remove('verborgen');
+}
 el('opslagklaar').addEventListener('click', sluitOpslagblad);
 
 async function toonOpslag(){
@@ -2304,10 +2446,9 @@ async function toonOpslag(){
     const mb = (s.usage / 1048576);
     // Ook bij weinig gebruik moet de knop er staan: juist dan wil je kunnen
     // kijken of het uitknippen zijn werk doet.
-    el('opslagregel').textContent = mb < 1 ? 'Doorlichten' :
-      (mb > 1024 ? (mb/1024).toFixed(1).replace('.',',') + ' GB' : Math.round(mb) + ' MB') +
-      ' in gebruik \u00b7 doorlichten';
-  } catch(fout){ el('opslagregel').textContent = 'Doorlichten'; }
+    zetOpslagregel(mb < 1 ? '' :
+      (mb > 1024 ? (mb/1024).toFixed(1).replace('.',',') + ' GB' : Math.round(mb) + ' MB'));
+  } catch(fout){ zetOpslagregel(''); }
 }
 
 el('nieuwproject').addEventListener('click', nieuwProject);
