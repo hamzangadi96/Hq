@@ -511,6 +511,7 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
 .bladtitel{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0 0 14px}
 
 #voorbeeld{
+  position:relative;
   width:100%;
   aspect-ratio:16/10;
   background:var(--letterbox);
@@ -1003,6 +1004,14 @@ body.scant #scanscherm{display:flex}
 #scanstand{font-size:14px;color:var(--zacht);text-align:center}
 #scanwakker{font-size:13px;color:var(--zachter);text-align:center;margin-top:10px;line-height:1.5}
 #scanwakker:empty{display:none}
+#haperregel{
+  position:absolute;
+  left:0;right:0;bottom:8px;
+  text-align:center;
+  font-size:12px;
+  color:var(--amber);
+  pointer-events:none;
+}
 #scansla{
   display:block;
   margin:18px auto 0;
@@ -1039,6 +1048,7 @@ body.scant #scanscherm{display:flex}
 #regelsoorten{margin:0 0 10px}
 #duurblok{margin-bottom:22px}
 #duurveld{width:110px}
+#duuruitleg{font-size:13px;color:var(--zacht);line-height:1.5;margin-top:8px}
 #sleutelveld, #regelveld, #duurveld{
   width:100%;
   font:inherit;
@@ -1784,8 +1794,11 @@ body.werkt #werkscherm{display:flex}
     </div>
 
     <div id="duurblok" class="verborgen">
-      <span class="veldkop">Langste stuk in seconden</span>
+      <span class="veldkop">Hoe lang mag een stuk ongeveer duren</span>
       <input type="number" id="duurveld" min="2" max="60" step="1" inputmode="numeric">
+      <div id="duuruitleg">Een richtlijn, geen grens. Duurt een handeling langer,
+        dan loopt het stuk door tot de handeling af is — een half afgekapte
+        beweging kun je toch niet gebruiken.</div>
     </div>
 
     <div id="bankregel"></div>
@@ -1846,6 +1859,7 @@ body.werkt #werkscherm{display:flex}
     <h2 class="bladtitel" id="trimtitel">Clip</h2>
     <div id="voorbeeldvak">
       <div id="voorbeeld"></div>
+      <div id="haperregel" class="verborgen"></div>
       <button id="speelknop" aria-label="Afspelen">
         <svg id="speelicoon" width="26" height="26" viewBox="0 0 24 24" fill="var(--opknop)"><path d="M8 5.5v13l11-6.5z"/></svg>
         <svg id="pauzeicoon" class="verborgen" width="26" height="26" viewBox="0 0 24 24" fill="var(--opknop)"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
@@ -1925,7 +1939,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v75';
+const APPVERSIE = 'studio v77';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -3954,11 +3968,19 @@ el('terugnaarstudio').addEventListener('click', () => {
 const SCANB = 128, SCANH = 72;   // meetdoek, klein genoeg om snel te blijven
 const SCANSTAP = 0.2;            // seconden tussen twee metingen
 const SCANTEMPO = 8;             // hoe snel we door de opname vliegen
-const MINSTUK = 2;               // korter dan dit is geen bruikbaar stuk
+/* Was 2. Bij twee seconden zit je midden in een handeling voordat je hem hebt
+   gezien: een hand die een bak pakt is pas af als de bak vastzit. Drie is de
+   ondergrens waarbij een handeling nog leesbaar is. */
+const MINSTUK = 3;               // korter dan dit is geen bruikbaar stuk
 const RANDJE = 0.3;              // extra lucht rond elk stuk, anders voelt de knip abrupt
 const KOP = 1.5;                 // begin en eind van de opname zijn nooit bruikbaar
 const STILMAX = 3;               // zolang mag er niets bewegen voor we afkeuren
-let MAXSTUK = 5;                 // langer dan dit knippen we in gelijke happen
+/* Dit was 5, en dat was een klem: duurt een handeling negen seconden, dan kan
+   het model niet anders dan afkappen of overslaan. Het is bedoeld als
+   richtlijn voor hoe lang een stuk ongeveer hoort te zijn, niet als grens.
+   Twaalf geeft een handeling ruimte om af te lopen; te korte stukken worden
+   later in de reelbouwer alsnog ingekort. */
+let MAXSTUK = 12;                // richtlijn voor de lengte van een stuk
 
 let scanBron = null;             // de opname die op dit moment wordt uitgeplozen
 let scanBronnen = [];            // alle uitgeplozen opnames, klaar om uit te kiezen
@@ -4934,7 +4956,10 @@ function sluitScan(){
    te maken. Rondom elk stuk laten we een seconde extra staan, zodat je op de
    tijdlijn nog kunt bijschuiven als de scanner er net naast zat. */
 
-const SNIJMARGE = 1;      // seconden lucht voor en na elk stuk
+/* Was 1 seconde. Zat de knip er net naast, dan had je te weinig om naar buiten
+   te schuiven met Bijknippen. Twee seconden lucht kost nauwelijks ruimte en
+   geeft je de speling om een handeling alsnog heel te maken. */
+const SNIJMARGE = 2;      // seconden lucht voor en na elk stuk
 
 /* Hoeveel bits per seconde een uitgeknipt stuk kost. Dit moet gelijk lopen met
    wat snijUit werkelijk gebruikt, anders rekent de app zich rijk en knipt hij
@@ -5277,7 +5302,16 @@ function hardeRegels(){
     .filter(r => r.klasse === 'WEG')
     .map(r => r.naam);
   if(!weg.length) return '';
-  return '\n\nDeze dingen zijn nooit bruikbaar, hoe goed ze er ook uitzien. ' +
+  return '\n\nDe lengte van een stuk wordt bepaald door de handeling, niet door ' +
+         'een getal. Kijk waar de handeling begint en waar hij af is, en knip daar. ' +
+         'Begint iemand iets te pakken, dan hoort het pakken erbij; giet iemand ' +
+         'iets in, dan loopt het stuk tot het inschenken klaar is; tikt iemand een ' +
+         'vorm uit, dan hoort het uitvallen van de bonbons erbij.\n\n' +
+         'De opgegeven maximale lengte is een richtlijn, geen grens. Duurt een ' +
+         'handeling langer, laat het stuk dan langer duren. Kap nooit halverwege ' +
+         'af en sla het ook niet over: een afgekapte handeling is onbruikbaar, en ' +
+         'een goede handeling weggooien omdat hij lang is, is zonde.' +
+         '\n\nDeze dingen zijn nooit bruikbaar, hoe goed ze er ook uitzien. ' +
          'Zie je er een, sla het stuk dan over:\n\u2022 ' + weg.join('\n\u2022 ');
 }
 
@@ -5431,7 +5465,7 @@ async function bewaarRegels(){
   const standaard = bewerkSoort === 'vlog' ? STANDAARDVLOG : STANDAARDREGELS;
   regelsVan[bewerkSoort] = el('regelveld').value.trim() || standaard;
   const n = Number(el('duurveld').value);
-  MAXSTUK = (n >= 2 && n <= 60) ? n : 5;
+  MAXSTUK = (n >= 2 && n <= 60) ? n : 12;
   if(!firebaseKlaar()) return;
   spraakWoorden = el('woordenveld').value.trim() || STANDAARDWOORDEN;
   const nieuw = {maxstuk: MAXSTUK, woorden: spraakWoorden};
@@ -6634,12 +6668,25 @@ function meetTekening(duur){
     // gaten boven de twee seconden zijn geen hapering maar een pauze
     if(gat < 2000){
       if(gat > meters.gatLangst) meters.gatLangst = Math.round(gat);
-      if(gat > 100) meters.gatBoven100++;
+      if(gat > 100){ meters.gatBoven100++; toonHapering(); }
     }
   }
   vorigeTekening = nu;
   meters.tekeningen++;
   meters.tekenTijd += duur;
+}
+
+/* Het getal moet naar jou toe komen in plaats van andersom. Hapert het, dan
+   staat het onder de speler; hapert het niet, dan zie je hier niets. */
+let haperTimer = null;
+function toonHapering(){
+  const r = el('haperregel');
+  if(!r) return;
+  r.textContent = meters.gatBoven100 + '\u00d7 vastgelopen \u00b7 langste ' +
+                  meters.gatLangst + ' ms';
+  r.classList.remove('verborgen');
+  clearTimeout(haperTimer);
+  haperTimer = setTimeout(() => r.classList.add('verborgen'), 6000);
 }
 
 function meterUit(){ vorigeTekening = 0; }
