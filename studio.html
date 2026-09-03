@@ -1925,7 +1925,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v74';
+const APPVERSIE = 'studio v75';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2191,16 +2191,24 @@ function naarWerkscherm(){
   if(clips.length) toonEersteBeeld();
 }
 
+/* Dit hing alleen aan het openen van een project. Maar na het maken van een
+   reel wisselen alle clips, en dan stond de speler weer zwart. Nu hangt het
+   aan teken(), dus geldt het overal — met een slot, want teken() draait vaak
+   en tien pogingen tegelijk helpen niemand. */
+let eersteBeeldLus = false;
+
 function toonEersteBeeld(){
+  if(eersteBeeldLus) return;
+  eersteBeeldLus = true;
   regelBuffers();
   zetKop(kopTijd || 0, true);
   const begonnen = Date.now();
   const nogeens = () => {
-    if(!document.body.classList.contains('werkt') || speelt) return;
+    if(!document.body.classList.contains('werkt') || speelt){ eersteBeeldLus = false; return; }
     const vak = opTijd(kopTijd);
     const v = vak && vak.clip && vak.clip.video;
-    if(v && v.readyState >= 2){ tekenSpelerBeeld(); return; }
-    if(Date.now() - begonnen > 5000) return;
+    if(v && v.readyState >= 2){ tekenSpelerBeeld(); eersteBeeldLus = false; return; }
+    if(Date.now() - begonnen > 5000){ eersteBeeldLus = false; return; }
     setTimeout(nogeens, 120);
   };
   setTimeout(nogeens, 120);
@@ -3200,6 +3208,8 @@ function teken(){
   vergeetSpraak();
   pasMuziekBeginAan();
   regelBuffers();
+  // ook na een reel of een andere grote wijziging hoort er beeld te staan
+  if(clips.length && !speelt && document.body.classList.contains('werkt')) toonEersteBeeld();
 
   if(typeof tekenTijdbalk === 'function') tekenTijdbalk();
   if(typeof tekenMuziekspoor === 'function') tekenMuziekspoor();
