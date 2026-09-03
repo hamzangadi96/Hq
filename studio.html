@@ -430,7 +430,56 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   overflow-y:auto;
 }
 .blad.aan{transform:translateY(0)}
-#voorstelblad{max-height:88dvh;display:flex;flex-direction:column}
+#voorstelblad, #lijstblad{max-height:88dvh;display:flex;flex-direction:column}
+#lijstzoek{
+  width:100%;
+  min-height:44px;
+  padding:0 14px;
+  margin-bottom:12px;
+  border:0;
+  border-radius:12px;
+  background:var(--druk);
+  color:var(--inkt);
+  font:400 15px Inter,system-ui,sans-serif;
+  flex:0 0 auto;
+}
+#lijstinhoud{flex:1 1 auto;overflow-y:auto;margin-bottom:12px}
+.lijstgroep{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:13px 0;
+  border-bottom:1px solid var(--lijn);
+  cursor:pointer;
+}
+.lijstgroep span:last-child{color:var(--zachter);font-size:13px}
+.lijstregel{
+  padding:11px 0;
+  border-bottom:1px solid var(--lijn);
+  cursor:pointer;
+}
+.lijstregel:last-child{border-bottom:0}
+.regelnaam{font-size:14px;display:flex;gap:8px;align-items:baseline}
+.regelcode{font-size:11px;color:var(--zachter);flex:0 0 auto;min-width:38px}
+.regelmerk{
+  font-size:10px;font-weight:700;letter-spacing:.04em;
+  padding:1px 5px;border-radius:5px;flex:0 0 auto;
+}
+.regelmerk.GOUD{background:rgba(74,222,128,.16);color:var(--groen)}
+.regelmerk.BRUIK{background:var(--druk);color:var(--zacht)}
+.regelmerk.TWIJFEL{background:rgba(251,191,36,.14);color:var(--amber)}
+.regelmerk.WEG{background:rgba(248,113,113,.14);color:var(--rood)}
+.regeleigen{color:var(--blauw)}
+.regelbewerk{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px}
+.regelbewerk button{
+  min-height:34px;padding:0 11px;border:0;border-radius:9px;
+  background:var(--druk);color:var(--inkt);
+  font:600 12px Inter,system-ui,sans-serif;cursor:pointer;
+}
+.regelbewerk button.aan{background:var(--inkt);color:var(--opknop)}
+.regelbewerk button.weg{background:none;color:var(--rood)}
+.lijstleeg{font-size:13px;color:var(--zachter);padding:14px 0}
 #voorstellijst{
   flex:1 1 auto;
   overflow-y:auto;
@@ -991,6 +1040,23 @@ body.scant #scanscherm{display:flex}
   vertical-align:1px;
 }
 .stukkaart.afgekeurd .vink{background:var(--druk)}
+#lijstregel{
+  width:100%;
+  min-height:48px;
+  margin:2px 0 14px;
+  padding:0 16px;
+  border:0;
+  border-radius:14px;
+  background:var(--druk);
+  color:var(--inkt);
+  font:600 14px Inter,system-ui,sans-serif;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+}
+#lijstregel:empty{display:none}
 #voorstelregel{
   width:100%;
   min-height:48px;
@@ -1635,6 +1701,16 @@ body.werkt #werkscherm{display:flex}
     </div>
   </div>
 
+  <div class="blad" id="lijstblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel">Je lijst</h2>
+    <input type="search" id="lijstzoek" placeholder="Zoek een regel of groep" autocomplete="off">
+    <div id="lijstinhoud"></div>
+    <div id="knoprij">
+      <button class="knop vol" id="lijstklaar">Klaar</button>
+    </div>
+  </div>
+
   <div class="blad" id="voorstelblad">
     <div class="grip"></div>
     <h2 class="bladtitel">Nieuw gezien</h2>
@@ -1667,6 +1743,7 @@ body.werkt #werkscherm{display:flex}
     </div>
 
     <div id="bankregel"></div>
+    <button id="lijstregel"></button>
 
     <div id="regelblok" class="verborgen">
       <span class="veldkop">Wat is bruikbaar beeld</span>
@@ -1802,7 +1879,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v59';
+const APPVERSIE = 'studio v60';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -4075,6 +4152,201 @@ function zetScanStand(tekst, deel){
 }
 
 
+
+/* ================== JE LIJST BEKIJKEN EN CORRIGEREN ==================
+
+   Vorige versie kon regels toevoegen maar niet terugnemen. Tik je naast en
+   keur je iets als goud goed wat onbruikbaar is, dan staat het er voorgoed en
+   krijgt elk shot van dat soort een acht. Dat is precies het soort fout die je
+   pas maanden later merkt, aan reels die niet kloppen.
+
+   Dus: alles wat je toevoegt moet je ook kunnen zien en veranderen. */
+
+let lijstZoek = '';
+let lijstOpen = null;      // welke groep openstaat
+let regelOpen = null;      // welke regel je aan het bewerken bent
+
+function eigenRegel(r){
+  // regels die jij hebt goedgekeurd hebben geen let_op en geen duur uit de
+  // startlijst; makkelijker is een merkje dat we bij het toevoegen zetten
+  return !!r.eigen;
+}
+
+async function openLijstblad(){
+  const lijst = await haalLijst();
+  if(!lijst){ toon('Log eerst in bij HQ'); return; }
+  lijstZoek = ''; lijstOpen = null; regelOpen = null;
+  el('lijstzoek').value = '';
+  tekenLijst();
+  el('waas').classList.add('aan');
+  el('lijstblad').classList.add('aan');
+}
+function sluitLijstblad(){
+  el('waas').classList.remove('aan');
+  el('lijstblad').classList.remove('aan');
+}
+
+function regelRij(r){
+  const d = document.createElement('div');
+  d.className = 'lijstregel';
+
+  const naam = document.createElement('div');
+  naam.className = 'regelnaam';
+  const code = document.createElement('span');
+  code.className = 'regelcode' + (r.eigen ? ' regeleigen' : '');
+  code.textContent = r.code;
+  const tekst = document.createElement('span');
+  tekst.textContent = r.naam;
+  naam.appendChild(code); naam.appendChild(tekst);
+  if(r.klasse){
+    const merk = document.createElement('span');
+    merk.className = 'regelmerk ' + r.klasse;
+    merk.textContent = r.klasse === 'BRUIK' ? 'BRUIK' : r.klasse;
+    naam.appendChild(merk);
+  }
+  d.appendChild(naam);
+
+  d.addEventListener('click', e => {
+    if(e.target.closest('.regelbewerk')) return;
+    regelOpen = regelOpen === r.code ? null : r.code;
+    tekenLijst();
+  });
+
+  if(regelOpen === r.code){
+    const vak = document.createElement('div');
+    vak.className = 'regelbewerk';
+    ['GOUD', 'BRUIK', 'TWIJFEL', 'WEG'].forEach(k => {
+      const b = document.createElement('button');
+      b.textContent = k === 'BRUIK' ? 'Bruikbaar' : k === 'GOUD' ? 'Goud'
+                    : k === 'TWIJFEL' ? 'Twijfel' : 'Onbruikbaar';
+      if(r.klasse === k) b.classList.add('aan');
+      b.addEventListener('click', () => zetRegel(r, {klasse: k}));
+      vak.appendChild(b);
+    });
+    ['haak', 'midden', 'slot', 'broll'].forEach(rol => {
+      const b = document.createElement('button');
+      b.textContent = rol;
+      if(r.rol === rol) b.classList.add('aan');
+      b.addEventListener('click', () => zetRegel(r, {rol}));
+      vak.appendChild(b);
+    });
+    const weg = document.createElement('button');
+    weg.className = 'weg';
+    weg.textContent = 'Verwijder';
+    weg.addEventListener('click', () => wisRegel(r));
+    vak.appendChild(weg);
+    d.appendChild(vak);
+  }
+  return d;
+}
+
+function tekenLijst(){
+  const vak = el('lijstinhoud');
+  vak.innerHTML = '';
+  if(!lijstCache) return;
+
+  const zoek = lijstZoek.trim().toLowerCase();
+
+  if(zoek){
+    // zoeken gaat door alles heen; groepen zijn dan alleen in de weg
+    const treffers = Object.values(lijstCache.regels)
+      .filter(r => (r.code + ' ' + r.naam).toLowerCase().includes(zoek))
+      .slice(0, 60);
+    if(!treffers.length){
+      const leeg = document.createElement('div');
+      leeg.className = 'lijstleeg';
+      leeg.textContent = 'Niets gevonden.';
+      vak.appendChild(leeg);
+      return;
+    }
+    treffers.forEach(r => vak.appendChild(regelRij(r)));
+    return;
+  }
+
+  Object.keys(lijstCache.groepen).sort().forEach(g => {
+    const regels = Object.values(lijstCache.regels).filter(r => r.groep === g);
+    const kop = document.createElement('div');
+    kop.className = 'lijstgroep';
+    const links = document.createElement('span');
+    links.textContent = g + '  ' + lijstCache.groepen[g];
+    const rechts = document.createElement('span');
+    rechts.textContent = regels.length;
+    kop.appendChild(links); kop.appendChild(rechts);
+    kop.addEventListener('click', () => {
+      lijstOpen = lijstOpen === g ? null : g;
+      regelOpen = null;
+      tekenLijst();
+    });
+    vak.appendChild(kop);
+    if(lijstOpen === g) regels.forEach(r => vak.appendChild(regelRij(r)));
+  });
+}
+
+async function bewaarLijst(){
+  const alle = Object.values(lijstCache.regels);
+  const ref = vuur.db.ref('werkvloer/' + gebruiker.uid + '/lijst');
+  await ref.child('regels').set(alle);
+  lijstCache.versie = (lijstCache.versie || 0) + 1;
+  await ref.child('versie').set(lijstCache.versie);
+}
+
+async function zetRegel(r, wat){
+  const voor = Object.assign({}, r);
+  Object.assign(r, wat);
+  try {
+    await bewaarLijst();
+    tekenLijst();
+    toon(r.code + ' aangepast', true, async () => {
+      Object.assign(lijstCache.regels[r.code], voor);
+      await bewaarLijst();
+      tekenLijst();
+    });
+  } catch(fout){
+    Object.assign(r, voor);
+    toon('Aanpassen mislukt');
+  }
+}
+
+async function wisRegel(r){
+  const voor = Object.assign({}, r);
+  delete lijstCache.regels[r.code];
+  try {
+    await bewaarLijst();
+    regelOpen = null;
+    tekenLijst();
+    toon(r.code + ' verwijderd', true, async () => {
+      lijstCache.regels[voor.code] = voor;
+      await bewaarLijst();
+      tekenLijst();
+    });
+  } catch(fout){
+    lijstCache.regels[r.code] = voor;
+    toon('Verwijderen mislukt');
+  }
+}
+
+function toonLijstregel(){
+  const k = el('lijstregel');
+  if(!lijstCache){ k.innerHTML = ''; return; }
+  const n = Object.keys(lijstCache.regels).length;
+  const eigen = Object.values(lijstCache.regels).filter(r => r.eigen).length;
+  k.innerHTML = '';
+  const links = document.createElement('span');
+  links.textContent = 'Je lijst';
+  const rechts = document.createElement('span');
+  rechts.style.color = 'var(--zachter)';
+  rechts.textContent = n + ' regels' + (eigen ? ' \u00b7 ' + eigen + ' zelf' : '');
+  k.appendChild(links); k.appendChild(rechts);
+}
+
+el('lijstregel').addEventListener('click', openLijstblad);
+el('lijstklaar').addEventListener('click', sluitLijstblad);
+el('lijstzoek').addEventListener('input', e => {
+  lijstZoek = e.target.value;
+  regelOpen = null;
+  tekenLijst();
+});
+
 /* ================== VOORSTELLEN GOEDKEUREN ==================
 
    Het model stelt voor, jij beslist. Nooit automatisch toevoegen: een model
@@ -4169,7 +4441,7 @@ async function keurGoed(v, klasse, rij){
   const code = vrijeCode(groep);
   if(!code){ toon('Groep ' + groep + ' zit vol'); return; }
 
-  const regel = {code, groep, naam: v.omschrijving, klasse};
+  const regel = {code, groep, naam: v.omschrijving, klasse, eigen: true};
   if(klasse !== 'WEG'){
     // een verstandige eerste gok; je kunt het later in de lijst bijstellen
     regel.rol = klasse === 'GOUD' ? 'haak' : klasse === 'BRUIK' ? 'midden' : 'broll';
@@ -4187,7 +4459,14 @@ async function keurGoed(v, klasse, rij){
     lijstCache.versie = (lijstCache.versie || 0) + 1;
     rij.classList.add('klaar');
     rij.querySelectorAll('button').forEach(b => b.disabled = true);
-    toon(code + ' toegevoegd aan je lijst');
+    // ongedaan maken hoort erbij: tik je naast, dan staat er anders voorgoed
+    // een verkeerde regel in je lijst
+    toon(code + ' toegevoegd', true, async () => {
+      delete lijstCache.regels[code];
+      try { await bewaarLijst(); } catch(fout){}
+      rij.classList.remove('klaar');
+      rij.querySelectorAll('button').forEach(b => b.disabled = false);
+    });
   } catch(fout){
     toon('Toevoegen mislukt');
   }
@@ -4939,6 +5218,7 @@ async function haalLijst(){
     await laadWeggegooid();
     if(v && Array.isArray(v.regels) && v.regels.length){
       lijstCache = {versie: v.versie || 0, regels: {}, groepen: {}};
+      setTimeout(toonLijstregel, 0);
       v.regels.forEach(r => { lijstCache.regels[r.code] = r; });
       (v.groepen || []).forEach(g => { lijstCache.groepen[g.code] = g.naam; });
       return lijstCache;
