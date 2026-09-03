@@ -1879,7 +1879,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v62';
+const APPVERSIE = 'studio v63';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -3581,6 +3581,8 @@ async function draaiExport(){
   const doek = document.createElement('canvas');
   doek.width = B; doek.height = H;
   const ctx = doek.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, B, H);
 
@@ -4749,7 +4751,16 @@ function sluitScan(){
    tijdlijn nog kunt bijschuiven als de scanner er net naast zat. */
 
 const SNIJMARGE = 1;      // seconden lucht voor en na elk stuk
-const SNIJBITS = 10000000;
+
+/* Hoeveel bits per seconde een uitgeknipt stuk kost. Dit moet gelijk lopen met
+   wat snijUit werkelijk gebruikt, anders rekent de app zich rijk en knipt hij
+   uit terwijl de hele opname kleiner was geweest. */
+function snijBits(v){
+  const bw = (v && v.videoWidth) || 1080, bh = (v && v.videoHeight) || 1920;
+  const schaal = Math.min(1, 1920 / Math.max(bw, bh));
+  const punten = Math.round(bw * schaal) * Math.round(bh * schaal);
+  return Math.min(40000000, Math.max(8000000, Math.round(punten * 10)));
+}
 
 /* Uitknippen loont niet altijd. Een kort telefoonfilmpje is als geheel vaak
    kleiner dan wat MediaRecorder ervan zou maken; dan bewaren we hem gewoon
@@ -4758,7 +4769,7 @@ const SNIJBITS = 10000000;
 function loontUitknippen(b, gekozen){
   if(!b.bestand || !b.bestand.size) return false;
   const sec = gekozen.reduce((n, s) => n + (s.eind - s.start) + SNIJMARGE * 2, 0);
-  return (sec * SNIJBITS / 8) < b.bestand.size * .8;
+  return (sec * snijBits(b.video) / 8) < b.bestand.size * .8;
 }
 
 // hoe lang gaat het uitknippen ongeveer duren?
@@ -5548,6 +5559,14 @@ async function snijUit(v, van, tot, geluidsbron){
   doek.height = Math.round(bh * schaal / 2) * 2;
   const ctx = doek.getContext('2d');
 
+  /* Van 4K naar 1080 is halveren, en dat deed de browser met zijn snelste
+     methode. Bij fijne structuur — chocoladeglans, korrel, weefsel — geeft dat
+     flikkering: elk beeldje kiest nét andere beeldpunten. Die flikkering is
+     bovendien duur om weg te persen, dus hij vreet ook nog de ruimte op die je
+     beeld nodig had. */
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
   const stroom = doek.captureStream(30);
 
   // geluid erbij, maar nooit blokkerend
@@ -5559,11 +5578,17 @@ async function snijUit(v, van, tot, geluidsbron){
   } catch(fout){}
 
   const type = kiesType();
-  // Meer beeldpunten vragen meer bits, anders wordt het blokkerig precies daar
-  // waar je het gaat gebruiken.
-  const langeZijde = Math.max(doek.width, doek.height);
+
+  /* Dit stuk wordt straks nog een keer dichtgeperst bij het exporteren. Een
+     kopie van een kopie dus, en de tweede ronde besteedt zijn ruimte deels aan
+     de foutjes van de eerste in plaats van aan je beeld.
+
+     Daarom krijgt deze eerste ronde ruwweg het dubbele van wat de export
+     gebruikt. Dan is hij zo goed als verliesvrij en houdt de export schoon
+     materiaal over. Je stukken worden er ongeveer twee keer zo groot van. */
+  const punten = doek.width * doek.height;
   const opnemer = new MediaRecorder(stroom, Object.assign(
-    {videoBitsPerSecond: langeZijde >= 1600 ? 10000000 : 5000000},
+    {videoBitsPerSecond: Math.min(40000000, Math.max(8000000, Math.round(punten * 10)))},
     type ? {mimeType: type} : {}
   ));
   const brokken = [];
