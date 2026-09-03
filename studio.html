@@ -1879,7 +1879,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v64';
+const APPVERSIE = 'studio v65';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2444,7 +2444,39 @@ async function openOpslagblad(){
     vak.appendChild(g3);
   }
 
-  // 4. losse brokken waar niets meer naar wijst
+  // 4. hoe snel doet dit toestel het
+  if(meters.tekeningen > 30 || meters.scanSec || meters.exportSec){
+    const g5 = groep('SNELHEID');
+    if(meters.tekeningen > 30){
+      const gem = meters.tekenTijd / meters.tekeningen;
+      g5.appendChild(regel('Beeld tekenen', gem.toFixed(1) + ' ms'));
+      g5.appendChild(regel('Langste stilstand', meters.gatLangst + ' ms'));
+      if(meters.gatBoven100){
+        const r = regel('Zichtbare schokjes', String(meters.gatBoven100));
+        r.style.color = 'var(--amber)';
+        g5.appendChild(r);
+      }
+    }
+    if(meters.scanSec){
+      g5.appendChild(regel('Uitpluizen',
+        meters.scanSec + ' s' + (meters.scanMB ? ' voor ' + meters.scanMB + ' MB' : '')));
+    }
+    if(meters.knipSec) g5.appendChild(regel('Uitknippen', meters.knipSec + ' s'));
+    if(meters.exportSec){
+      g5.appendChild(regel('Exporteren', meters.exportSec + ' s voor ' +
+        meters.exportSec_montage + ' s montage'));
+    }
+    const uit = document.createElement('div');
+    uit.className = 'lichtuitleg';
+    uit.textContent = meters.gatBoven100
+      ? 'Bij zestig beelden per seconde hoort de stilstand rond 17 ms te liggen. ' +
+        'Boven de 100 ms zie je een schokje.'
+      : 'Sinds je de app opende. Handig als iets traag aanvoelt: dan heb je een getal.';
+    g5.appendChild(uit);
+    vak.appendChild(g5);
+  }
+
+  // 5. losse brokken waar niets meer naar wijst
   if(d.wezen.bytes >= 1048576){
     const g4 = groep('LOSSE BESTANDEN');
     const uitleg = document.createElement('div');
@@ -3488,10 +3520,13 @@ el('exportstart').addEventListener('click', async () => {
   zetVoortgang(0);
 
   klusBegin();
+  const exportBegon = Date.now();
+  meters.exportSec_montage = Math.round(totaleDuur());
   await wakker(true);
 
   try {
     const blob = await draaiExport();
+    meters.exportSec = Math.round((Date.now() - exportBegon) / 1000);
     toonResultaat(blob);
   } catch(fout){
     el('ring').style.display = 'none';
@@ -4799,6 +4834,7 @@ async function neemStukkenOver(){
   el('scanbezig').classList.remove('verborgen');
   el('scanwakker').textContent = wakkerRegel();
   klusBegin();
+  const knipBegon = Date.now();
   await wakker(true);
 
   const stal = document.getElementById('stal');
@@ -4941,6 +4977,7 @@ async function neemStukkenOver(){
   }
 
   await wakker(false);
+  meters.knipSec = Math.round((Date.now() - knipBegon) / 1000);
 
   // Stukken uit verschillende opnames horen op volgorde van opnemen te staan,
   // niet op de volgorde waarin je ze aantikte.
@@ -4972,6 +5009,9 @@ el('scankiezer').addEventListener('change', async e => {
   scanBron = null;
   scanBronnen = [];
   scanKeuze = new Set();
+  const scanBegon = Date.now();
+  meters.scanMB = Math.round(
+    Array.from(bestanden).reduce((n, b) => n + (b.size || 0), 0) / 1048576);
   scanBezig = true;
   scanNu = 0; scanTotaal = bestanden.length;
   document.body.classList.add('scant');
@@ -5000,6 +5040,7 @@ el('scankiezer').addEventListener('change', async e => {
   }
 
   await wakker(false);
+  meters.scanSec = Math.round((Date.now() - scanBegon) / 1000);
   if(!document.body.classList.contains('scant')) return;
   scanBezig = false;
   tekenScan();
@@ -6362,6 +6403,52 @@ async function haalLogoWeg(){
   tekenSpelerBeeld();
 }
 
+
+/* ================== HOE SNEL IS HET HIER ==================
+
+   "Het hapert" is niet te repareren; een getal wel. Deze meters lopen mee
+   tijdens gewoon gebruik en staan in het doorlichtscherm. Ze gaan nergens
+   heen: puur zodat je kunt zeggen wat je toestel werkelijk doet.
+
+   De haperingsmeter kijkt naar het gat tussen twee tekenbeurten. Bij zestig
+   beelden per seconde hoort dat gat rond de 17 ms te liggen. Alles boven de
+   100 ms zie je als een schokje. */
+
+const meters = {
+  gatLangst: 0,        // langste stilstand tijdens afspelen, in ms
+  gatBoven100: 0,      // hoe vaak het beeld langer dan 100 ms stilstond
+  tekeningen: 0,
+  tekenTijd: 0,        // opgeteld, om het gemiddelde te kunnen tonen
+  scanSec: 0,          // hoe lang het uitpluizen duurde
+  scanMB: 0,
+  knipSec: 0,          // hoe lang het uitknippen duurde
+  exportSec: 0,        // hoe lang het exporteren duurde
+  exportSec_montage: 0
+};
+let vorigeTekening = 0;
+
+function meetTekening(duur){
+  const nu = performance.now();
+  if(vorigeTekening){
+    const gat = nu - vorigeTekening;
+    // gaten boven de twee seconden zijn geen hapering maar een pauze
+    if(gat < 2000){
+      if(gat > meters.gatLangst) meters.gatLangst = Math.round(gat);
+      if(gat > 100) meters.gatBoven100++;
+    }
+  }
+  vorigeTekening = nu;
+  meters.tekeningen++;
+  meters.tekenTijd += duur;
+}
+
+function meterUit(){ vorigeTekening = 0; }
+
+function wisMeters(){
+  Object.keys(meters).forEach(k => { meters[k] = 0; });
+  vorigeTekening = 0;
+}
+
 function tekenSpelerBeeld(){
   const doek = el('speeldoek');
   const ctx = doek.getContext('2d');
@@ -6406,6 +6493,7 @@ function zetSpelerMaat(){
 /* ---------- afspelen ---------- */
 
 function stopMontage(){
+  meterUit();
   speelt = false;
   if(speelLus){ cancelAnimationFrame(speelLus); speelLus = null; }
   clips.forEach(c => { try { c.video.pause(); } catch(fout){} });
@@ -6490,7 +6578,9 @@ async function speelMontage(){
       }
       werkKopBij();
       zetScrollNaarKop();
+      const t0 = performance.now();
       tekenSpelerBeeld();
+      meetTekening(performance.now() - t0);
     }
     speelLus = requestAnimationFrame(lus);
   };
