@@ -430,6 +430,34 @@ header span{font-size:12px;color:var(--zachter);font-weight:500}
   overflow-y:auto;
 }
 .blad.aan{transform:translateY(0)}
+#voorstelblad{max-height:88dvh;display:flex;flex-direction:column}
+#voorstellijst{
+  flex:1 1 auto;
+  overflow-y:auto;
+  margin-bottom:12px;
+}
+.voorstel{
+  padding:14px 0;
+  border-bottom:1px solid var(--lijn);
+}
+.voorstel:last-child{border-bottom:0}
+.voorsteltekst{font-size:15px;font-weight:600;margin-bottom:2px}
+.voorstelmeta{font-size:12px;color:var(--zachter);margin-bottom:10px}
+.voorstelkeuze{display:flex;flex-wrap:wrap;gap:6px}
+.voorstelkeuze button{
+  min-height:36px;
+  padding:0 12px;
+  border:0;
+  border-radius:10px;
+  background:var(--druk);
+  color:var(--inkt);
+  font:600 13px Inter,system-ui,sans-serif;
+  cursor:pointer;
+}
+.voorstelkeuze button.zelfde{background:var(--blauwvlak);color:var(--blauw)}
+.voorstelkeuze button.weg{background:none;color:var(--zachter)}
+.voorstel.klaar{opacity:.4}
+.bladuitleg{font-size:13px;color:var(--zacht);line-height:1.5;margin:0 0 12px}
 .grip{width:38px;height:4px;border-radius:2px;background:var(--lijn);margin:0 auto 16px}
 .bladtitel{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0 0 14px}
 
@@ -963,6 +991,22 @@ body.scant #scanscherm{display:flex}
   vertical-align:1px;
 }
 .stukkaart.afgekeurd .vink{background:var(--druk)}
+#voorstelregel{
+  width:100%;
+  min-height:48px;
+  margin:4px 0 12px;
+  padding:0 16px;
+  border:0;
+  border-radius:14px;
+  background:var(--kaart);
+  color:var(--inkt);
+  font:600 14px Inter,system-ui,sans-serif;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+}
 #scanmelding{
   font-size:13px;
   color:var(--zacht);
@@ -1591,6 +1635,17 @@ body.werkt #werkscherm{display:flex}
     </div>
   </div>
 
+  <div class="blad" id="voorstelblad">
+    <div class="grip"></div>
+    <h2 class="bladtitel">Nieuw gezien</h2>
+    <p class="bladuitleg">Dit kwam voorbij en staat niet in je lijst. Keur je het
+      goed, dan herkent hij het voortaan vanzelf.</p>
+    <div id="voorstellijst"></div>
+    <div id="knoprij">
+      <button class="knop vol" id="voorstelklaar">Klaar</button>
+    </div>
+  </div>
+
   <div class="blad" id="instelblad">
     <div class="grip"></div>
     <h2 class="bladtitel">Instellingen</h2>
@@ -1747,7 +1802,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v58';
+const APPVERSIE = 'studio v59';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -4019,6 +4074,149 @@ function zetScanStand(tekst, deel){
   el('scanvoortgang').style.width = Math.round(Math.max(0, Math.min(1, deel)) * 100) + '%';
 }
 
+
+/* ================== VOORSTELLEN GOEDKEUREN ==================
+
+   Het model stelt voor, jij beslist. Nooit automatisch toevoegen: een model
+   dat zelf regels aanmaakt loopt binnen drie draaidagen vol met varianten van
+   hetzelfde, en dan weet niets meer wat wat is.
+
+   Vier keuzes per voorstel. Drie ervan zetten een nieuwe regel in je lijst,
+   de vierde zegt dat het gewoon een bestaande regel was — dan leert hij de
+   variant zonder dat je lijst groeit. */
+
+function openVoorstelblad(){
+  tekenVoorstellen();
+  el('waas').classList.add('aan');
+  el('voorstelblad').classList.add('aan');
+}
+function sluitVoorstelblad(){
+  el('waas').classList.remove('aan');
+  el('voorstelblad').classList.remove('aan');
+}
+
+function tekenVoorstellen(){
+  const vak = el('voorstellijst');
+  vak.innerHTML = '';
+  const rij = (scanBron && scanBron.voorstellen) || [];
+
+  rij.forEach(v => {
+    const d = document.createElement('div');
+    d.className = 'voorstel';
+
+    const tekst = document.createElement('div');
+    tekst.className = 'voorsteltekst';
+    tekst.textContent = v.omschrijving;
+
+    const meta = document.createElement('div');
+    meta.className = 'voorstelmeta';
+    const stukjes = [v.aantal + '\u00d7 gezien'];
+    if(v.groep && lijstCache && lijstCache.groepen[v.groep]) stukjes.push(lijstCache.groepen[v.groep]);
+    meta.textContent = stukjes.join(' \u00b7 ');
+
+    const keuze = document.createElement('div');
+    keuze.className = 'voorstelkeuze';
+
+    ['GOUD', 'BRUIK', 'TWIJFEL', 'WEG'].forEach(klasse => {
+      const k = document.createElement('button');
+      k.textContent = klasse === 'GOUD' ? 'Goud'
+                    : klasse === 'BRUIK' ? 'Bruikbaar'
+                    : klasse === 'TWIJFEL' ? 'Twijfel' : 'Onbruikbaar';
+      k.addEventListener('click', () => keurGoed(v, klasse, d));
+      keuze.appendChild(k);
+    });
+
+    // Het model zegt zelf waar het het meest op lijkt. Is dat raak, dan hoeft
+    // er geen regel bij en blijft je lijst klein.
+    if(v.lijkt_op && lijstCache && lijstCache.regels[v.lijkt_op]){
+      const zelfde = document.createElement('button');
+      zelfde.className = 'zelfde';
+      zelfde.textContent = 'Is ' + lijstCache.regels[v.lijkt_op].naam.toLowerCase();
+      zelfde.addEventListener('click', () => leerVariant(v, v.lijkt_op, d));
+      keuze.appendChild(zelfde);
+    }
+
+    const weg = document.createElement('button');
+    weg.className = 'weg';
+    weg.textContent = 'Nooit vragen';
+    weg.addEventListener('click', () => gooiVoorstelWeg(v, d));
+    keuze.appendChild(weg);
+
+    d.appendChild(tekst); d.appendChild(meta); d.appendChild(keuze);
+    vak.appendChild(d);
+  });
+
+  if(!rij.length){
+    const leeg = document.createElement('div');
+    leeg.className = 'voorstelmeta';
+    leeg.textContent = 'Niets nieuws gezien.';
+    vak.appendChild(leeg);
+  }
+}
+
+// een vrije code in de juiste groep: AK01, AK02, ... pak het eerste gat
+function vrijeCode(groep){
+  const bezet = new Set(Object.keys(lijstCache.regels)
+    .filter(c => c.startsWith(groep))
+    .map(c => Number(c.slice(groep.length))));
+  for(let n = 1; n < 100; n++) if(!bezet.has(n)) return groep + String(n).padStart(2, '0');
+  return null;
+}
+
+async function keurGoed(v, klasse, rij){
+  const groep = v.groep || (v.lijkt_op ? v.lijkt_op.replace(/\d+$/, '') : null);
+  if(!groep || !lijstCache){ toon('Kon de groep niet bepalen'); return; }
+  const code = vrijeCode(groep);
+  if(!code){ toon('Groep ' + groep + ' zit vol'); return; }
+
+  const regel = {code, groep, naam: v.omschrijving, klasse};
+  if(klasse !== 'WEG'){
+    // een verstandige eerste gok; je kunt het later in de lijst bijstellen
+    regel.rol = klasse === 'GOUD' ? 'haak' : klasse === 'BRUIK' ? 'midden' : 'broll';
+    regel.duur = klasse === 'GOUD' ? [3, 4] : klasse === 'BRUIK' ? [2, 3] : [2, 2];
+  }
+
+  try {
+    const ref = vuur.db.ref('werkvloer/' + gebruiker.uid + '/lijst');
+    const s = await ref.child('regels').once('value');
+    const alle = s.val() || [];
+    alle.push(regel);
+    await ref.child('regels').set(alle);
+    await ref.child('versie').set((lijstCache.versie || 0) + 1);
+    lijstCache.regels[code] = regel;
+    lijstCache.versie = (lijstCache.versie || 0) + 1;
+    rij.classList.add('klaar');
+    rij.querySelectorAll('button').forEach(b => b.disabled = true);
+    toon(code + ' toegevoegd aan je lijst');
+  } catch(fout){
+    toon('Toevoegen mislukt');
+  }
+}
+
+async function leerVariant(v, code, rij){
+  // geen nieuwe regel; we onthouden alleen dat deze omschrijving hierbij hoort
+  try {
+    await vuur.db.ref('werkvloer/' + gebruiker.uid + '/lijstzelfde/' + v.sleutel
+                      .replace(/[.#$/\[\]]/g, '_')).set(code);
+    rij.classList.add('klaar');
+    rij.querySelectorAll('button').forEach(b => b.disabled = true);
+    toon('Onthouden als ' + code);
+  } catch(fout){ toon('Onthouden mislukt'); }
+}
+
+async function gooiVoorstelWeg(v, rij){
+  try {
+    await vuur.db.ref('werkvloer/' + gebruiker.uid + '/lijstweg/' +
+                      v.sleutel.replace(/[.#$/\[\]]/g, '_')).set(true);
+    weggegooid.add(v.sleutel);
+    rij.classList.add('klaar');
+    rij.querySelectorAll('button').forEach(b => b.disabled = true);
+    toon('Hier vraagt hij niet meer naar');
+  } catch(fout){ toon('Weggooien mislukt'); }
+}
+
+el('voorstelklaar').addEventListener('click', sluitVoorstelblad);
+
 function tekenScan(){
   const klaar = !scanBezig && scanBronnen.length > 0;
   el('scanbezig').classList.toggle('verborgen', klaar);
@@ -4085,6 +4283,30 @@ function tekenScan(){
                     '<span class="reden">' + veiligeTekst(a.reden) + '</span>';
       slechtEl.appendChild(r);
     }));
+  }
+
+  /* Voorstellen zijn geen foutmelding maar werk dat klaarligt. Dus als regel
+     met een aantal ervoor, aantikbaar, en niet als grijze zin onderaan. */
+  const nieuw = (scanBron && scanBron.voorstellen) || [];
+  let voorstelknop = el('voorstelregel');
+  if(nieuw.length){
+    if(!voorstelknop){
+      voorstelknop = document.createElement('button');
+      voorstelknop.id = 'voorstelregel';
+      voorstelknop.addEventListener('click', openVoorstelblad);
+      el('scanrol').insertBefore(voorstelknop, el('scanmelding'));
+    }
+    voorstelknop.innerHTML = '';
+    const links = document.createElement('span');
+    links.textContent = nieuw.length === 1 ? '1 nieuw ding gezien'
+                                           : nieuw.length + ' nieuwe dingen gezien';
+    const rechts = document.createElement('span');
+    rechts.textContent = 'bekijken';
+    rechts.style.color = 'var(--zachter)';
+    voorstelknop.appendChild(links); voorstelknop.appendChild(rechts);
+    voorstelknop.classList.remove('verborgen');
+  } else if(voorstelknop){
+    voorstelknop.classList.add('verborgen');
   }
 
   const melding = el('scanmelding');
@@ -4695,6 +4917,18 @@ function vensters(van, tot){
 
 let lijstCache = null;
 let voorstellen = [];      // wat het model niet kon plaatsen
+let weggegooid = new Set();  // voorstellen die je al eens hebt afgewezen
+
+/* Wijs je een voorstel af, dan hoort hij er nooit meer over te beginnen. Anders
+   krijg je elke draaidag dezelfde vraag en leer je hem wegklikken zonder te
+   lezen — en dan glipt er ooit een goede doorheen. */
+async function laadWeggegooid(){
+  if(!firebaseKlaar() || !gebruiker) return;
+  try {
+    const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/lijstweg').once('value');
+    weggegooid = new Set(Object.keys(s.val() || {}));
+  } catch(fout){}
+}
 
 async function haalLijst(){
   if(lijstCache) return lijstCache;
@@ -4702,6 +4936,7 @@ async function haalLijst(){
   try {
     const s = await vuur.db.ref('werkvloer/' + gebruiker.uid + '/lijst').once('value');
     const v = s.val();
+    await laadWeggegooid();
     if(v && Array.isArray(v.regels) && v.regels.length){
       lijstCache = {versie: v.versie || 0, regels: {}, groepen: {}};
       v.regels.forEach(r => { lijstCache.regels[r.code] = r; });
@@ -4741,16 +4976,17 @@ function pasCodeToe(stuk, regel){
 }
 
 // een voorstel telt pas mee als je het drie keer bent tegengekomen
-function onthoudVoorstel(v){
+function onthoudVoorstel(v, groep){
   // de Cloud Function levert een object, maar een ruw model soms een kale
   // tekst. Allebei accepteren is goedkoper dan erop vertrouwen.
   if(typeof v === 'string') v = {omschrijving: v};
   if(!v) return;
   const sleutel = (v.omschrijving || '').toLowerCase().trim();
   if(!sleutel) return;
+  if(weggegooid.has(sleutel)) return;      // dit heb je al eens afgewezen
   const bestaat = voorstellen.find(x => x.sleutel === sleutel);
   if(bestaat){ bestaat.aantal++; return; }
-  voorstellen.push({sleutel, omschrijving: v.omschrijving,
+  voorstellen.push({sleutel, omschrijving: v.omschrijving, groep: groep || null,
                     gok: v.gok || 'TWIJFEL', lijkt_op: v.lijkt_op || null, aantal: 1});
 }
 
@@ -4820,7 +5056,10 @@ async function deelIn(stukken){
             if(uit.kader) stuk.kader_soort = uit.kader;
             gelukt++;
           } else if(uit.onbekend){
-            onthoudVoorstel(uit.onbekend);
+            // de groep weten we al: dat is de groep die we aan het uitvragen
+            // waren. Zonder die groep weet je later niet waar de nieuwe regel
+            // thuishoort.
+            onthoudVoorstel(uit.onbekend, g);
           }
         });
       } catch(fout){
