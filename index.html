@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v573 · 6 sep 2026';
+const APPVERSIE='v574 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18369,10 +18369,16 @@ function sheetSchoonmaak(){
          <button class="chip" data-v="Tussendoor">Tussendoor</button>
          <button class="chip aan" data-v="Na productie">Na productie</button></div></div>
      <p class="hint">Vink aan wat je hebt gereinigd.</p>
-     ${S.zones.length?`<div class="veld" id="sZ">${S.zones.map((z,i)=>`
+     ${S.zones.length?`
+       <!-- ═══════════ de knop die twaalf tikken bespaart, stond ná die twaalf
+            ═══════════ "Alles aanvinken" hing onder de lijst, dus je scrolde
+            eerst langs alle onderdelen voordat je zag dat het in één keer kon.
+            Bij de openingscheck staat "Alles in orde" al bovenaan; hier hoort
+            hij op dezelfde plek en in dezelfde vorm, zodat je hem herkent. -->
+       <button type="button" class="allesok" id="sAlles">${svg(I.vink,'2.4')}Alles aanvinken</button>
+       <div class="veld" id="sZ">${S.zones.map((z,i)=>`
        <button type="button" class="tog" data-zone="${esc(z)}">
-         <span class="tbox">${svg(I.vink,'2.4')}</span><span class="tekst">${esc(z)}</span></button>`).join('')}</div>
-       <button class="knop2" id="sAlles" style="margin-top:0">${svg(I.vink)}Alles aanvinken</button>`
+         <span class="tbox">${svg(I.vink,'2.4')}</span><span class="tekst">${esc(z)}</span></button>`).join('')}</div>`
       :`<div class="geen">Nog geen onderdelen. Voeg toe wat jij schoonmaakt.</div>`}
      ${nieuwChip('sZNieuw')}
      <div class="inlineform" id="sZForm"><div class="rijtje">
