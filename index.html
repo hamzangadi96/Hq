@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v572 · 6 sep 2026';
+const APPVERSIE='v573 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17618,7 +17618,9 @@ function wizard2(){
                <div class="rsub" data-hint="${r.id}">${af?hintTekst(r,W.mallen[r.id]):'nog niet af — voeg de onderdelen toe'}</div></div>
              ${af?`<div class="qty">
                <button class="qtybtn" data-m="min" data-r="${r.id}">${svg(I.min)}</button>
-               <span class="qtyval" data-mal="${r.id}">${W.mallen[r.id]||0}</span>
+               <button class="qtyval" data-mal="${r.id}" data-malin="${r.id}"
+                 style="background:var(--bg);height:32px;border-radius:10px;width:40px"
+                 aria-label="Aantal mallen kiezen">${W.mallen[r.id]||0}</button>
                <button class="qtybtn" data-m="plus" data-r="${r.id}">${svg(I.plus)}</button></div>`
              :`<button class="chip klein" data-afmaken="${r.id}">Afmaken</button>`}</div>`}).join('')}`
       : `<p class="hint">Je hebt nog geen smaken met ${chocNaam(W.choc).toLowerCase()}. Voeg er één toe, dan kun je verder.</p>`,
@@ -17632,6 +17634,7 @@ function wizard2(){
     document.querySelector(`[data-hint="${r.id}"]`).textContent=hintTekst(r,W.mallen[r.id]);
   });
   if($('#w2Leeg')) $('#w2Leeg').onclick=()=>{ W.mallen={}; W.vanBatch=''; wizard2() };
+  $$('[data-malin]').forEach(b=>b.onclick=()=>sheetMalAantal(b.dataset.malin));
   $$('[data-afmaken]').forEach(b=>b.onclick=()=>sheetReceptForm(b.dataset.afmaken));
   $('#w2N').onclick=()=>sheetReceptForm(null,W.choc);
   $('#w2T').onclick=wizard1;
@@ -17640,6 +17643,54 @@ function wizard2(){
     if(!g.length) return toast('Zet minimaal één mal klaar.');
     wizard3();
   };
+}
+
+/* ═══════════ vijftien mallen zijn geen vijftien tikken ═══════════
+   De teller ging met één omhoog per tik. Vijftien mallen pistache en tien
+   framboos waren vijfentwintig keer hetzelfde knopje raken — de duurste
+   handeling van de hele dag, gemeten. Tik nu op het getal zelf: je krijgt de
+   aantallen die je eerder draaide, plus een veld voor iets anders. Eén tik.
+   De plus en min blijven staan voor het bijstellen met één. */
+function sheetMalAantal(receptId){
+  const r=recept(receptId);
+  const nu=W.mallen[receptId]||0;
+  /* wat je bij deze smaak eerder draaide, meest recent eerst */
+  const eerder=[];
+  (S.batches||[]).slice().sort((a,c)=>String(c.startDatum||'')
+    .localeCompare(String(a.startDatum||''))).forEach(b=>{
+      (b.regels||[]).forEach(rg=>{
+        const n=parseInt(rg.mallen)||0;
+        if(rg.receptId===receptId&&n>0&&eerder.indexOf(n)<0&&eerder.length<4) eerder.push(n);
+      });
+    });
+  const vast=[5,10,12,15,20].filter(n=>eerder.indexOf(n)<0);
+  const alle=eerder.concat(vast).slice(0,8);
+
+  sheet('Hoeveel mallen '+(r.naam||'').toLowerCase()+'?',
+    `<p class="hint">Eén mal is ${S.malGrootte} bonbons.${
+      eerder.length?' Je eerdere aantallen staan vooraan.':''}</p>
+     <div class="keuzeraster" id="maR">${alle.map(n=>
+       `<button class="chip ${n===nu?'aan':''}" data-v="${n}">${n}
+         <em style="display:block;font-size:11px;font-weight:500;opacity:.6">${
+           n*S.malGrootte} st</em></button>`).join('')}</div>
+     <div class="veld" style="margin-top:14px"><label>Of een ander aantal</label>
+       <input class="inp" id="maN" type="number" inputmode="numeric" min="0"
+         value="${nu||''}" placeholder="Aantal mallen"></div>`,
+    `<button class="prim" style="margin-top:0" id="maOk">Instellen</button>
+     <button class="sec" id="maT">Terug</button>`);
+
+  const zet=n=>{
+    W.mallen[receptId]=Math.max(0,parseInt(n)||0);
+    /* Zelf een aantal kiezen is sterker dan wat we uit je vorige batch
+       overnamen. Zonder deze vlag zou het voorvullen in wizard2 je keuze
+       er meteen weer overheen schrijven. */
+    W.voorgevuld=true; W.vanBatch='';
+    wizard2();
+  };
+  $$('#maR [data-v]').forEach(x=>x.onclick=()=>zet(x.dataset.v));
+  $('#maT').onclick=wizard2;
+  $('#maOk').onclick=()=>zet($('#maN').value);
+  setTimeout(()=>{const el=$('#maN'); if(el) el.select()},250);
 }
 
 function wizard3(){
