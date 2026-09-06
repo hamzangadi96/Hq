@@ -3499,7 +3499,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v564 · 6 sep 2026';
+const APPVERSIE='v565 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20242,7 +20242,7 @@ function sheetReceptForm(id,voorChoc){
   R.id=id||null;
   R.naam=best?best.naam:'';
   R.chocolade=best?best.chocolade:(voorChoc||'melk');
-  R.tht=best?best.tht:14;
+  R.tht=best?best.tht:(vaakTht()||14);
   R.onderdelen=best?JSON.parse(JSON.stringify(best.onderdelen||[])):[];
   R.stappen=best?(best.stappen||[]).slice():[];
   R.wizard=null; R.voorstel='';
@@ -20531,14 +20531,52 @@ function ondSoort(naam){
 const schelpSoort=()=>ONDERDEELSOORTEN.find(x=>x.k==='schelp')||{n:'Schelp',gram:4,ww:[],stap:''};
 const isSchelp=o=>{const s=ondSoort(o&&o.naam); return !!s&&s.k==='schelp'};
 
-/* de schelp die je bij een eerdere smaak van deze chocoladesoort al uitwerkte */
-function schelpVoorbeeld(chocKey){
+/* ═══════════ dezelfde laag hoef je maar één keer uit te werken ═══════════
+   Een ganache op witte chocolade is bij elke witte smaak dezelfde basis: room,
+   chocolade, boter, glucose. Alleen de smaakcomponent wisselt. Zoek daarom bij
+   een nieuwe laag de laatste smaak van diezelfde chocoladesoort die deze laag
+   al uitgewerkt heeft, en neem die over — gewicht, verhouding en handelingen.
+   Je past alleen aan wat écht anders is. */
+function laagVoorbeeld(naam, chocKey){
+  const s=ondSoort(naam);
   const l=(S.recepten||[]).filter(r=>r.chocolade===chocKey&&r.id!==R.id);
   for(let i=l.length-1;i>=0;i--){
-    const o=(l[i].onderdelen||[]).find(x=>isSchelp(x)&&(x.ing||[]).some(y=>y.naam));
-    if(o) return o;
+    const o=(l[i].onderdelen||[]).find(x=>{
+      const sx=ondSoort(x.naam);
+      const zelfde = (s&&sx) ? sx.k===s.k : gKey(x.naam)===gKey(naam);
+      return zelfde && (x.ing||[]).some(y=>y.naam);
+    });
+    if(o) return {o:o, smaak:l[i].naam||'een eerdere smaak'};
   }
   return null;
+}
+
+/* een nieuwe laag: ingevuld als je hem eerder maakte, anders het gebruikelijke
+   startpunt uit de soortenlijst. Nooit een leeg scherm als het niet hoeft. */
+function nieuweLaag(naam){
+  const v = naam ? laagVoorbeeld(naam, R.chocolade) : null;
+  if(v){
+    const k = JSON.parse(JSON.stringify(v.o));
+    k.naam = naam; k._van = v.smaak;
+    return k;
+  }
+  const s0 = ondSoort(naam);
+  return {naam:naam||'', gram:s0?s0.gram:'', ing:[{naam:'',deel:''}],
+          werkwijze:s0?(s0.ww||[]).slice():[], stap:s0?s0.stap:''};
+}
+
+/* het aantal dagen houdbaarheid dat je het vaakst kiest */
+function vaakTht(){
+  const tel={};
+  (S.recepten||[]).forEach(r=>{const d=parseInt(r.tht); if(d>0) tel[d]=(tel[d]||0)+1});
+  const l=Object.keys(tel).sort((a,b)=>tel[b]-tel[a]);
+  return l.length?parseInt(l[0]):0;
+}
+
+/* de schelp die je bij een eerdere smaak van deze chocoladesoort al uitwerkte */
+function schelpVoorbeeld(chocKey){
+  const v=laagVoorbeeld('Schelp', chocKey);
+  return v?v.o:null;
 }
 
 function schelpVoor(chocKey){
@@ -21020,10 +21058,13 @@ function sheetOnderdeel(idx,stap){
 
   /* Ga je een ingrediënt kiezen, dan wordt dit scherm even vervangen. Wat je
      al had ingevuld staat dan in de buffer, zodat je niets kwijtraakt. */
+  let overVan='';
   const o = ONDERDEELBUF ? ONDERDEELBUF
-          : nieuw ? {naam:R.voorstel||'',gram:'',ing:[{naam:'',deel:''}],werkwijze:[],stap:''}
+          : nieuw ? (()=>{ const k=nieuweLaag(R.voorstel||'');
+                           overVan=k._van||''; delete k._van; return k })()
                   : JSON.parse(JSON.stringify(R.onderdelen[idx]));
   ONDERDEELBUF=null;
+  if(overVan) setTimeout(()=>toast('Overgenomen van '+overVan+' · pas aan wat anders is'),350);
   if(nieuw) R.voorstel='';
   /* Komt de soort van buiten (uit stap 3 van de smaakwizard), dan zetten we
      het gebruikelijke gewicht meteen klaar — dat deed anders alleen de
