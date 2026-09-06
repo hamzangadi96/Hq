@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v568 · 6 sep 2026';
+const APPVERSIE='v569 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19467,7 +19467,21 @@ function sheetGeleid(naam,i){
   b.afvink=b.afvink||{};
   i=Math.max(0,Math.min(lijst.length-1,i|0));
   const h=lijst[i], laatste=i===lijst.length-1;
+  /* ═══════════ de tijd loopt vanzelf ═══════════
+     Bij "laten uitharden 20 min" stond een Start-knop. Maar op het moment dat
+     je die handeling opent bén je al aan het uitharden — die tik voegde niets
+     toe behalve een handeling met chocolade aan je handen. De klok begint dus
+     zelf. Eén keer per handeling: zet je hem stil, dan blijft hij stil, ook
+     als je later terugkomt. */
+  b.autoTik = b.autoTik || {};
+  if(h.sec && !b.afvink[h.k] && !b.autoTik[h.k] && !(S.kook&&S.kook.k===h.k)){
+    b.autoTik[h.k]=true;
+    S.kook={k:h.k,sec:h.sec,start:Date.now()};
+    schermWakker(true);
+    bewaarNu();
+  }
   const loopt=S.kook&&S.kook.k===h.k, rest=loopt?kookRest():0;
+  const vanzelf=loopt&&b.autoTik[h.k];
 
   let midden='';
   if(h.soort==='weeg'){
@@ -19478,7 +19492,10 @@ function sheetGeleid(naam,i){
     if(h.sec){
       midden+=`<div class="gtimer ${loopt?'loopt':''}">
         <span class="gklok ${loopt&&!rest?'op':''}" id="gKlok">${klokTekst(loopt?rest:h.sec)}</span>
-        <button class="gstart" id="gStart">${loopt?(rest?'Stoppen':'Opnieuw'):'Start'}</button></div>`;
+        <button class="gstart" id="gStart">${loopt?(rest?'Stoppen':'Opnieuw'):'Start'}</button></div>
+        ${vanzelf&&rest?`<div style="text-align:center;font-size:12.5px;
+          color:var(--grijs2);margin-top:9px">De tijd loopt al — leg je telefoon
+          maar neer, hij piept vanzelf.</div>`:''}`;
     }
     if(h.graden!==null&&h.graden!==undefined){
       midden+=`<button class="gmeet" id="gMeet">${svg(I.temp,'1.9')}Meting vastleggen bij ${getal(h.graden)} °C</button>`;
@@ -19519,6 +19536,9 @@ function sheetGeleid(naam,i){
   $('#gLijst').onclick=()=>sheetStapDoen(naam);
   $('#gVorige').onclick=()=>{ if(i) sheetGeleid(naam,i-1) };
   $('#gOk').onclick=()=>{
+    /* iOS geeft geluid pas vrij na een echte tik. Doen we dat hier, dan kan
+       een timer die verderop vanzelf start ook écht piepen. */
+    geluidVrijgeven();
     b.afvink[h.k]=true; bewaarNu();
     if(S.kook&&S.kook.k===h.k) S.kook=null;
     if(laatste){
