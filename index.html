@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v576 · 6 sep 2026';
+const APPVERSIE='v577 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16835,9 +16835,21 @@ function bind(){
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
   $$('[data-sheet]').forEach(b=>b.onclick=()=>SHEETS[b.dataset.sheet]());
   /* De Nu-kaart brengt je niet naar de lijst met stappen maar naar de stap
-     zelf: één tik minder, en je staat meteen in het werk. */
+     zelf: één tik minder, en je staat meteen in het werk.
+
+     ═══════════ en dan door tot in het werk ═══════════
+     "Beginnen" opende de lijst van die stap: alle handelingen onder elkaar met
+     één knop om ze in één keer af te vinken. Wie op Beginnen tikt wil beginnen,
+     niet afvinken — en sloeg zo ongemerkt de gewichten, de timers en het
+     afwegen op één scherm over. Deze kaart is de route die je het vaakst
+     neemt, dus juist hier hoort de begeleiding te openen. Een stap zonder
+     handelingen gaat gewoon naar de lijst, net als voorheen. */
   $$('[data-nustap]').forEach(b=>b.onclick=()=>{
-    sluitToetsenbord(); sheetStapDoen(b.dataset.nustap);
+    sluitToetsenbord();
+    const nm=b.dataset.nustap, bb=batch();
+    const g=bb&&geleidStand(bb,nm);
+    if(g&&!g.klaar) return sheetGeleid(nm,g.index);
+    sheetStapDoen(nm);
   });
   /* Rechtstreeks de geleide modus in, op de handeling waar je gebleven was.
      Eén tik van vergrendeld scherm naar wat je moet doen. */
