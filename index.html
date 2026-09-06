@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v570 · 6 sep 2026';
+const APPVERSIE='v572 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3518,6 +3518,15 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const komma=n=>String(n).replace('.',',');
 const getal=n=>{const r=Math.round(n*10)/10;return komma(r%1===0?r.toFixed(0):r.toFixed(1))};
+/* ═══════════ een weegschaal kent geen 436,4 gram ═══════════
+   Op je huishoudweegschaal is 436,4 g gewoon 436 g, en die komma leest bij
+   elk ingrediënt een fractie langer. Boven de twintig gram ronden we daarom
+   af op hele grammen. Daaronder blijft de decimaal staan: bij 2,5 g zout of
+   kleurstof is dat wél het verschil. */
+const weeggetal=n=>{
+  const v=parseFloat(n)||0;
+  return v>=20 ? komma(Math.round(v).toFixed(0)) : getal(v);
+};
 
 /* ================= state ================= */
 /* de 14 groepen uit bijlage II van verordening 1169/2011 */
@@ -19488,7 +19497,19 @@ function sheetGeleid(naam,i){
   if(!w||w.act!==naam){startWerk(b,naam);w=lopendWerk(b);setTimeout(render,0)}
   b.afvink=b.afvink||{};
   i=Math.max(0,Math.min(lijst.length-1,i|0));
-  const h=lijst[i], laatste=i===lijst.length-1;
+  const h=lijst[i];
+  /* ═══════════ afwegen is één handeling, geen drie ═══════════
+     Room, chocolade en pistachepasta stonden elk op een eigen scherm met een
+     eigen knop. Maar je zet ze achter elkaar op dezelfde weegschaal — dat is
+     één gang naar de werkbank. Ze staan nu samen op één scherm met één knop.
+     De rest van de handelingen blijft één voor één: die dóé je ook één voor
+     één, en aan sommige hangt een timer. */
+  const ondVan=k=>String(k||'').split('|').slice(0,3).join('|');
+  const groep = h.soort==='weeg'
+    ? lijst.filter(x=>x.soort==='weeg' && ondVan(x.k)===ondVan(h.k))
+    : [h];
+  const laatsteVanGroep = groep[groep.length-1];
+  const laatste = lijst.indexOf(laatsteVanGroep)===lijst.length-1;
   /* ═══════════ de tijd loopt vanzelf ═══════════
      Bij "laten uitharden 20 min" stond een Start-knop. Maar op het moment dat
      je die handeling opent bén je al aan het uitharden — die tik voegde niets
@@ -19506,9 +19527,19 @@ function sheetGeleid(naam,i){
   const vanzelf=loopt&&b.autoTik[h.k];
 
   let midden='';
-  if(h.soort==='weeg'){
+  if(h.soort==='weeg'&&groep.length>1){
+    midden=`<div class="gwoord">${esc(h.deel)}</div>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+        ${groep.map(x=>`<div style="display:flex;justify-content:space-between;
+          align-items:baseline;gap:14px;background:var(--bg);border-radius:14px;
+          padding:13px 16px">
+          <span style="font-size:15px;font-weight:600;text-align:left">${esc(x.tekst)}</span>
+          <b style="font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;
+            white-space:nowrap">${weeggetal(x.gram)} g</b></div>`).join('')}
+      </div>`;
+  } else if(h.soort==='weeg'){
     midden=`<div class="gwoord">${esc(h.tekst)}</div>
-      <div class="ggetal">${getal(h.gram)}<em>gram</em></div>`;
+      <div class="ggetal">${weeggetal(h.gram)}<em>gram</em></div>`;
   } else {
     midden=`<div class="gzin">${esc(h.tekst)}</div>`;
     if(h.sec){
@@ -19526,11 +19557,15 @@ function sheetGeleid(naam,i){
 
   sheet(naam,
     `<div class="gbalk"><div class="gvul" style="width:${((i+1)/lijst.length*100).toFixed(1)}%"></div></div>
-     <div class="gtel">${i+1} van ${lijst.length} · ${esc(h.deel)}${
+     <div class="gtel">${groep.length>1
+       ? (i+1)+'–'+(i+groep.length)+' van '+lijst.length
+       : (i+1)+' van '+lijst.length} · ${esc(h.deel)}${
        b.regels.length>1?' · '+esc(h.smaak):''}</div>
      <div class="gvak">${midden}</div>`,
     `<button class="prim" style="margin-top:0" id="gOk">${
-       h.soort==='weeg'?'Afgewogen':'Klaar'}${laatste?' — stap afronden':', volgende'}</button>
+       h.soort==='weeg'
+         ? (groep.length>1?'Alle '+groep.length+' afgewogen':'Afgewogen')
+         : 'Klaar'}${laatste?' — stap afronden':', volgende'}</button>
      <div class="gvoet">
        <button id="gVorige" ${i?'':'disabled'}>${svg(I.pijl,'2')}Vorige</button>
        <button id="gLijst">Hele lijst</button>
@@ -19561,7 +19596,8 @@ function sheetGeleid(naam,i){
     /* iOS geeft geluid pas vrij na een echte tik. Doen we dat hier, dan kan
        een timer die verderop vanzelf start ook écht piepen. */
     geluidVrijgeven();
-    b.afvink[h.k]=true; bewaarNu();
+    groep.forEach(x=>{ b.afvink[x.k]=true });
+    bewaarNu();
     if(S.kook&&S.kook.k===h.k) S.kook=null;
     if(laatste){
       stapKlaar(b,naam); stopWerk(b);
@@ -19572,7 +19608,7 @@ function sheetGeleid(naam,i){
       dicht(); render();
       return toast(nv?'Klaar. Volgende: '+nv.toLowerCase():'Alle productiestappen gedaan.');
     }
-    sheetGeleid(naam,i+1);
+    sheetGeleid(naam, lijst.indexOf(laatsteVanGroep)+1);
   };
 }
 const klokTekst=s=>{const m=Math.floor(s/60),r=s%60;
@@ -19611,14 +19647,24 @@ function sheetStapDoen(naam){
     bij.forEach((o,oi)=>{
       const tot=(parseFloat(o.gram)||0)*rg.aantal;
       const del=verdeel(o,tot);
+      /* ═══════════ afwegen doe je in één ruk ═══════════
+         Vier ingrediënten voor de ganache betekende vier keer het scherm
+         aanraken, terwijl je ze gewoon achter elkaar op de weegschaal zet.
+         Eén knop vinkt het hele onderdeel af. Tik je nog een keer, dan staat
+         alles weer open — geen bevestigingsvraag vooraf. */
+      const alleK=del.map((x,i)=>sleutel(rg.receptId,'ing'+oi,i));
+      const alAf=alleK.length&&alleK.every(k=>b.afvink[k]);
       blokken+=`<div class="totaalregel" style="margin:0 0 12px"><span class="l">${esc(o.naam)}</span>
-        <span class="w">${getal(tot)} g</span></div>`;
+        <span class="w">${getal(tot)} g</span>
+        ${del.length>1?`<button type="button" class="chip klein"
+          data-afalles="${esc(naam+'|'+rg.receptId+'|ing'+oi)}" data-aantal="${del.length}"
+          style="margin-left:12px">${alAf?'Weer open':'Alles gewogen'}</button>`:''}</div>`;
       if(del.length){
         blokken+=`<div class="veld" style="margin-bottom:14px">${del.map((x,i)=>{
           const k=sleutel(rg.receptId,'ing'+oi,i);
           return `<button type="button" class="weegrij ${b.afvink[k]?'af':''}" data-af="${k}">
             <span class="vinkknop ${b.afvink[k]?'aan':''}">${svg(I.vink,'2.4')}</span>
-            <span class="wgn">${esc(x.naam)}</span><span class="wgg">${getal(x.gram)} g</span></button>`}).join('')}</div>`;
+            <span class="wgn">${esc(x.naam)}</span><span class="wgg">${weeggetal(x.gram)} g</span></button>`}).join('')}</div>`;
       }
       if((o.werkwijze||[]).length){
         blokken+=`<div class="veld" style="margin-bottom:14px">${o.werkwijze.map((t,i)=>{
@@ -19657,6 +19703,15 @@ function sheetStapDoen(naam){
     const k=x.dataset.af;
     if(b.afvink[k]) delete b.afvink[k]; else b.afvink[k]=true;
     bewaarNu(); sheetStapDoen(naam);
+  });
+  $$('[data-afalles]').forEach(x=>x.onclick=()=>{
+    sluitToetsenbord();
+    const pre=x.dataset.afalles, n=parseInt(x.dataset.aantal)||0;
+    const keys=[]; for(let i=0;i<n;i++) keys.push(pre+'|'+i);
+    const allesAf=keys.length&&keys.every(k=>b.afvink[k]);
+    keys.forEach(k=>{ if(allesAf) delete b.afvink[k]; else b.afvink[k]=true });
+    bewaarNu(); sheetStapDoen(naam);
+    toast(allesAf ? 'Weer opengezet.' : n+' ingrediënten afgevinkt.');
   });
   $('#uvTerug').onclick=sheetProductie;
   $('#uvOk').onclick=()=>{
