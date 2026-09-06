@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v575 · 6 sep 2026';
+const APPVERSIE='v576 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19497,7 +19497,23 @@ function sheetProductie(){
   }));
   const ga=naam=>{sluitToetsenbord();startWerk(b,naam);stapTimer=null;sheetProductie();render();
     toast('Bezig met '+naam.toLowerCase()+'.')};
-  $$('[data-stap]').forEach(x=>x.onclick=()=>{sluitToetsenbord();sheetStapDoen(x.dataset.stap)});
+  /* ═══════════ de begeleiding stond achter een extra knop ═══════════
+     Tikken op een stap opende de lijst: alle handelingen onder elkaar, met
+     één knop om de hele stap in één keer af te vinken. Snel, maar je sloeg
+     alles over wat helpt — de gewichten groot in beeld, de timers die vanzelf
+     lopen, het afwegen op één scherm. Wie de begeleiding wilde moest hem eerst
+     zoeken.
+
+     Nu is het andersom: een stap met handelingen begint bij de eerste
+     handeling, of waar je gebleven was. De lijst blijft één tik weg via
+     "Hele lijst", en een stap zonder handelingen gaat er meteen naartoe. */
+  $$('[data-stap]').forEach(x=>x.onclick=()=>{
+    sluitToetsenbord();
+    const nm=x.dataset.stap;
+    const g=geleidStand(b,nm);
+    if(g&&!g.klaar) return sheetGeleid(nm,g.index);
+    sheetStapDoen(nm);
+  });
   $$('[data-tussen]').forEach(x=>x.onclick=()=>ga(x.dataset.tussen));
   $$('[data-vink]').forEach(x=>x.onclick=()=>{
     sluitToetsenbord();
