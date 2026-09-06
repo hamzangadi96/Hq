@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v569 · 6 sep 2026';
+const APPVERSIE='v570 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5822,14 +5822,26 @@ function heroBatchHTML(b, metStap){
             <span>${(()=>{
               /* "Productiestappen — volgende stap" zei niets: dat is de naam
                  van een categorie, niet van het werk. Zit je in de productie,
-                 dan noemen we de handeling zelf. */
+                 dan noemen we de handeling zelf.
+
+                 En loopt er werk, dan is dát wat je wilt lezen. Je pakt je
+                 telefoon op om verder te gaan waar je gebleven was, niet om
+                 te horen welke categorie daarna aan de beurt is. */
+              if(w){
+                const g=geleidStand(b,w.act);
+                if(g&&!g.klaar&&g.huidig&&g.huidig.tekst){
+                  const zin=String(g.huidig.tekst);
+                  return esc(w.act)+' — '+esc(zin.length>34?zin.slice(0,33)+'…':zin).toLowerCase();
+                }
+                return esc(w.act)+' loopt';
+              }
               if(!v) return 'Alle stappen gedaan — afronden';
               if(v.key==='productie'){
                 const volg=planVolgende(b);
                 if(volg) return esc(volg)+' — volgende stap';
               }
               return esc(v.label)+' — volgende stap';
-            })()}${w?' · '+esc(w.act)+' loopt':''}</span>
+            })()}</span>
           </div>`}
         </span>
       </div>
@@ -16883,6 +16895,16 @@ function bind(){
   $$('[data-batch]').forEach(b=>b.onclick=()=>{
     S.tab='productie';S.batchId=b.dataset.batch;S.open=null;render();$('#scherm').scrollTop=0;
     if(vergetenTimer()) return setTimeout(sheetTimerCorrectie,350);
+    /* ═══════════ terug op je plek, niet bij het begin ═══════════
+       Loopt er werk, dan opende dit de eerstvolgende categorie en moest je
+       daarna zelf terugklikken naar de handeling waar je gebleven was. Op een
+       productiedag pak je je telefoon tientallen keren; dat zijn tientallen
+       keren zoeken. Loopt er iets, dan gaan we daar meteen naartoe. */
+    const bb=batch(), w2=bb&&lopendWerk(bb);
+    if(w2){
+      const g=geleidStand(bb,w2.act);
+      if(g&&!g.klaar) return setTimeout(()=>sheetGeleid(w2.act,g.index),300);
+    }
     const st=bVolgende(batch()); if(st&&st.sheet&&SHEETS[st.sheet]) setTimeout(()=>SHEETS[st.sheet](),300);
   });
   $$('[data-allerg]').forEach(x=>x.onclick=sheetAllergenenBatch);
