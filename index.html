@@ -3502,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v574 · 6 sep 2026';
+const APPVERSIE='v575 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18441,7 +18441,8 @@ function sheetAfronden(){
         <div class="rsub">gepland ${rg.aantal} st</div></div>
         <div class="qty"><input class="lotinp" style="width:70px" data-goed="${rg.receptId}" type="number" inputmode="numeric" value="${rg.aantal}" placeholder="goed">
           <input class="lotinp" style="width:70px" data-afkeur="${rg.receptId}" type="number" inputmode="numeric" value="0" placeholder="afkeur"></div></div>`).join('')}
-      <div class="geen" style="padding-top:8px">Links het aantal goed, rechts de afkeur.</div></div>
+      <div class="geen" style="padding-top:8px">Vul rechts je afkeur in — het aantal
+        goede stuks rekent zichzelf uit. Klopt dat niet, dan pas je het links aan.</div></div>
      ${(()=>{const v=verbruikVanBatch(b); if(!v.length) return '';
        const per={}; v.forEach(x=>{const k=gKey(x.product);
          per[k]=per[k]||{product:x.product,gram:0,onbekend:x.onbekend};
@@ -18458,6 +18459,23 @@ function sheetAfronden(){
      <div class="veld"><label>Notitie</label><textarea class="inp" id="fN" placeholder="Optioneel"></textarea></div>
      <p class="hint">${niet.length?'Nog niet compleet: '+niet.map(s=>s.label.toLowerCase()).join(', ')+'. Je kunt toch afronden — het komt als aandachtspunt in je dagrapport.':'Alles compleet. Na afronden staat deze batch vast.'}</p>`,
     `<button class="prim" style="margin-top:0" id="fOk">Batch afronden om ${nu()}</button>`);
+  /* ═══════════ je telt je afkeur, niet je goede stuks ═══════════
+     Twaalf mislukte bonbons tel je zo. Driehonderdachtenveertig goede telt
+     niemand — die reken je uit, en dat deed je tot nu toe zelf, op je
+     telefoon, aan het eind van een lange dag. Vul je afkeur in en het aantal
+     goede stuks volgt vanzelf. Tik je het linkerveld zelf aan, dan houdt de
+     app zich er verder buiten: jouw telling is dan de echte. */
+  b.regels.forEach(rg=>{
+    const g=document.querySelector(`[data-goed="${rg.receptId}"]`);
+    const a=document.querySelector(`[data-afkeur="${rg.receptId}"]`);
+    if(!g||!a) return;
+    g.addEventListener('input',()=>{ g.dataset.eigen='1' });
+    a.addEventListener('input',()=>{
+      if(g.dataset.eigen) return;
+      const af=Math.max(0,parseInt(a.value)||0);
+      g.value=Math.max(0,(parseInt(rg.aantal)||0)-af);
+    });
+  });
   $('#fOk').onclick=()=>{
     const perSmaak=b.regels.map(rg=>({receptId:rg.receptId,
       goed:parseInt(document.querySelector(`[data-goed="${rg.receptId}"]`).value)||0,
