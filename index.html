@@ -3499,7 +3499,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v562 · 31 aug 2026';
+const APPVERSIE='v564 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20316,11 +20316,15 @@ function smaakStap2(){
   });
   $('#sw2T').onclick=()=>sheetSmaakWizard(1);
   $('#sw2').onclick=()=>{
+    const vorige=R.chocolade;
     R.chocolade=chipV('#swC')||R.chocolade;
     const v=chipV('#swT');
     R.tht = Math.min(GRENS.tht, Math.max(1,
       v==='anders' ? (parseInt($('#swTN').value)||14) : (parseInt(v)||14)));
+    const gedaan=schelpBij(R.chocolade, vorige);
     bewaarSmaak(); bewaarNu(); sheetSmaakWizard(3);
+    if(gedaan==='nieuw') toast('Schelp toegevoegd · '+getal(schelpSoort().gram)+' g');
+    else if(gedaan==='gewisseld') toast('Chocolade in de schelp aangepast');
   };
 }
 
@@ -20518,6 +20522,50 @@ function ondSoort(naam){
      (s.k==='praline' && /pralin/.test(n)))) || null;
 }
 
+/* ═══════════ de schelp hoort bij de chocolade, niet bij de smaak ═══════════
+   Een schelp van witte chocolade is bij elke witte smaak dezelfde: vier gram,
+   dezelfde chocolade, dezelfde handelingen. Dat hoor je maar één keer in te
+   vullen. Kies je in stap 2 een chocoladesoort, dan staat de schelp er meteen,
+   inclusief wat je bij een eerdere smaak van diezelfde soort al invulde.
+   Klopt hij niet, dan pas je hem aan of haal je hem weg — niets is definitief. */
+const schelpSoort=()=>ONDERDEELSOORTEN.find(x=>x.k==='schelp')||{n:'Schelp',gram:4,ww:[],stap:''};
+const isSchelp=o=>{const s=ondSoort(o&&o.naam); return !!s&&s.k==='schelp'};
+
+/* de schelp die je bij een eerdere smaak van deze chocoladesoort al uitwerkte */
+function schelpVoorbeeld(chocKey){
+  const l=(S.recepten||[]).filter(r=>r.chocolade===chocKey&&r.id!==R.id);
+  for(let i=l.length-1;i>=0;i--){
+    const o=(l[i].onderdelen||[]).find(x=>isSchelp(x)&&(x.ing||[]).some(y=>y.naam));
+    if(o) return o;
+  }
+  return null;
+}
+
+function schelpVoor(chocKey){
+  const v=schelpVoorbeeld(chocKey);
+  if(v) return JSON.parse(JSON.stringify(v));
+  const s0=schelpSoort();
+  return {naam:s0.n, gram:s0.gram, ing:[{naam:'',deel:''}],
+          werkwijze:(s0.ww||[]).slice(), stap:s0.stap||''};
+}
+
+/* Zet de schelp klaar bij de gekozen soort. Wissel je van wit naar melk, dan
+   wisselt de chocolade in de schelp mee — anders blijft er witte chocolade in
+   een melkbonbon staan zonder dat je het ziet. */
+function schelpBij(chocKey, vorige){
+  R.onderdelen = R.onderdelen || [];
+  const i = R.onderdelen.findIndex(isSchelp);
+  if(i < 0){ R.onderdelen.unshift(schelpVoor(chocKey)); return 'nieuw'; }
+  if(vorige && vorige !== chocKey){
+    const v = schelpVoorbeeld(chocKey);
+    if(v && (v.ing||[]).some(x=>x.naam)){
+      R.onderdelen[i].ing = JSON.parse(JSON.stringify(v.ing));
+      return 'gewisseld';
+    }
+  }
+  return '';
+}
+
 /* De productiestap hoeft je niet meer zelf te kiezen. Hij volgt uit de soort,
    en alleen als die stap ook echt in jouw werkplan staat — je kunt dat
    werkplan namelijk zelf aanpassen. */
@@ -20545,6 +20593,15 @@ function smaakStap3(){
        <div class="totaalregel" style="margin:0 0 14px"><span class="l">Eén bonbon weegt</span>
          <span class="w">${getal(totaal)} g</span></div>`
       :''}
+     ${(()=>{
+       const o=(R.onderdelen||[]).find(isSchelp);
+       if(!o || (o.ing||[]).some(x=>x.naam)) return '';
+       return `<div class="melding amber" data-ond="${R.onderdelen.indexOf(o)}"
+         style="cursor:pointer">De schelp weet nog niet wélke chocolade.
+         Tik erop en kies hem één keer — daarna staat hij bij elke
+         ${esc((soorten().find(c=>c.key===R.chocolade)||{}).naam||'smaak').toLowerCase()} vanzelf goed,
+         en telt hij mee in je kostprijs en je boodschappenlijst.</div>`;
+     })()}
      <div class="veld"><label>${R.onderdelen.length?'Nog een laag toevoegen':'Begin met een laag'}</label>
        <div class="keuzeraster" id="swO">${ONDERDEELSOORTEN.filter(x=>x.k!=='anders'&&
          !R.onderdelen.some(o=>gKey(o.naam)===gKey(x.n))).map(x=>
