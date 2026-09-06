@@ -2132,6 +2132,9 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .snvink:active{background:var(--choco);border-color:var(--choco);color:#fff}
 .snprim{flex:1;height:46px;border-radius:13px;background:var(--ink);color:#fff;
   font-size:15.5px;font-weight:600;letter-spacing:-.015em;display:grid;place-items:center}
+.snprim small{display:block;font-size:11.5px;font-weight:500;opacity:.72;
+  margin-top:1px;letter-spacing:0}
+.snprim span{display:block;line-height:1.15}
 .snprim:active{background:var(--choco)}
 
 /* kopjes boven de twee lijsten */
@@ -3499,7 +3502,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v567 · 6 sep 2026';
+const APPVERSIE='v568 · 6 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19289,8 +19292,14 @@ function sheetProductie(){
       <h3>${esc(w.act)}</h3>
       ${rest?`<div class="snsub">${esc(rest)}</div>`:''}
       <div class="snknoppen">
-        <button type="button" class="snvink" data-vink="${esc(w.act)}">${svg(I.vink,'2.4')}Afronden</button>
-        <button type="button" class="snprim" data-stap="${esc(w.act)}">Verder</button>
+        <button type="button" class="snvink" data-stap="${esc(w.act)}">Verder</button>
+        ${(()=>{
+          /* De eerstvolgende stap die nog niet gedaan is en niet deze zelf.
+             Die weet de app al — dan hoef jij hem niet op te zoeken. */
+          const vlg=plan.find(x=>x!==w.act&&!(st[x]&&st[x].gedaan));
+          return `<button type="button" class="snprim" data-klaarvolg="${esc(w.act)}">
+            <span>Klaar</span>${vlg?`<small>dan: ${esc(vlg.toLowerCase())}</small>`:''}</button>`;
+        })()}
       </div></div>`;
   };
   /* alles wat niet in het plan staat: tussendoor */
@@ -19392,6 +19401,22 @@ function sheetProductie(){
     sheetProductie(); render();
     toast(huidig?'Weer open gezet.':n+' afgevinkt.');
   });
+  /* ═══════════ afronden en doorgaan is één handeling ═══════════
+     Je stond met chocolade aan je handen af te vinken, terug te scrollen,
+     de volgende stap op te zoeken en die aan te tikken. Vier handelingen voor
+     één moment. Het is er nu één: de stap gaat op klaar, de timer springt
+     over naar de volgende en die staat meteen bovenaan. Zit je ernaast, dan
+     tik je gewoon een andere stap aan — de timer schakelt mee. */
+  $$('[data-klaarvolg]').forEach(x=>x.onclick=veilig('stap afronden',()=>{
+    sluitToetsenbord();
+    const n=x.dataset.klaarvolg;
+    if(w&&w.act===n) stopWerk(b);
+    stapKlaar(b,n);
+    const v=planVolgende(b);
+    if(v) startWerk(b,v);
+    bewaarNu(); sheetProductie(); render();
+    toast(v ? n+' klaar · nu '+v.toLowerCase() : n+' klaar · alle stappen gedaan');
+  }));
   if($('#pStart')) $('#pStart').onclick=()=>sheetStapDoen(volgende);
   if($('#pVerder')) $('#pVerder').onclick=veilig('verder met de stap',()=>{
     sluitToetsenbord();
