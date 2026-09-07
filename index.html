@@ -3518,7 +3518,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v585 · 7 sep 2026';
+const APPVERSIE='v586 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4896,14 +4896,24 @@ function klokWidgetHTML(){
     /* Ook leeg is de ring rond: je ziet meteen wat er nog moet komen, en het
        scherm springt niet van vorm zodra je inklokt. */
     const doel0=(S.dagdoel||8)*3600;
-    return `<button class="klokw" id="klokWidget">
+    /* ═══════════ eerst de klok aan, dan pas nadenken ═══════════
+       Tikken op deze kaart opende een scherm dat vroeg waar je aan ging
+       werken. Maar dat weet je 's ochtends nog niet altijd, en je wilt vooral
+       dat je uren lopen. Nu staat de knop er los naast: één tik en je bent
+       ingeklokt, zonder scherm. Waar je mee bezig bent kies je erna — dat kan
+       met de knop die dan op deze plek staat. De kaart zelf blijft naar het
+       keuzescherm gaan voor wie meteen wél wil kiezen. */
+    return `<div class="klokw metnext">
+      <button class="kwhoofd" id="klokWidget">
       <span class="kwring">${ringSvg(Math.min(1,sec/doel0))}
         <i class="kwrt">${klokKort(sec)}</i></span>
       <span class="kwl"><span class="eyebrow">Nog niet begonnen</span>
         <b>Begin je werkdag</b>
         <i class="kwsub">${sec?urenTekst(sec)+' vandaag gewerkt':'nog niets vandaag'}</i></span>
-      ${svg(I.pijl,'2')}
-    </button>`;
+      </button>
+      <button class="kwnext" id="kwInklok" aria-label="Inklokken">${svg(I.klok,'2.4')}
+        <em>Inklokken</em></button>
+    </div>`;
   }
   /* De ring die de app al kent bij een batch en op het klokscherm, nu ook
      hier: hij loopt vol naarmate je werkdag vordert. In het midden staat hoe
@@ -16912,6 +16922,16 @@ function bind(){
   $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
   $$('[data-account]').forEach(b=>b.onclick=()=>sheetJij());
   if($('#klokWidget')) $('#klokWidget').onclick=()=>{ sluitToetsenbord(); sheetInklok() };
+  /* Inklokken zonder scherm. Ging het per ongeluk, dan draai je het meteen
+     terug met de knop in de melding — geen vraag vooraf. */
+  if($('#kwInklok')) $('#kwInklok').onclick=veilig('inklokken',()=>{
+    sluitToetsenbord();
+    if(S.dienst) return;
+    dienstStart(); bewaarNu(); render();
+    toast('Ingeklokt om '+nu()+'.', ()=>{
+      S.dienst=null; bewaarNu(); render();
+    });
+  });
   $$('[data-kwstap]').forEach(x=>x.onclick=veilig('volgende stap',()=>{
     const b2=(S.batches||[]).find(y=>y.status==='bezig'||y.status==='loopt');
     if(!b2) return;
