@@ -3518,7 +3518,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v583 · 7 sep 2026';
+const APPVERSIE='v585 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20679,9 +20679,9 @@ const ANDERSVOORSTEL=['Karamel','Crunch','Croustillant','Marsepein'];
    met de rol erin, zodat je ziet wat er hoort te komen.
    De grammen vullen we niet in: dat is jouw recept, niet het onze. */
 const LAAGBASIS={
-  schelp:  [{rol:'chocolade',  zoek:['chocolade','callebaut','couverture','choc']}],
+  schelp:  [{rol:'chocolade',  choc:true}],
   ganache: [{rol:'room',       zoek:['slagroom','room'], niet:['boter','ijs']},
-            {rol:'chocolade',  zoek:['chocolade','callebaut','couverture','choc']},
+            {rol:'chocolade',  choc:true},
             {rol:'boter',      zoek:['roomboter','boter']},
             {rol:'glucose',    zoek:['glucose','dextrose']}],
   gelei:   [{rol:'vrucht',     zoek:[], uitSmaak:true},
@@ -20689,9 +20689,82 @@ const LAAGBASIS={
             {rol:'pectine',    zoek:['pectine']},
             {rol:'citroensap', zoek:['citroensap','citroenzuur','citroen']}],
   praline: [{rol:'noten',      zoek:['hazelnoot','amandel','pistache','noten','noot']},
-            {rol:'suiker',     zoek:['kristalsuiker','suiker']},
-            {rol:'chocolade',  zoek:['chocolade','callebaut','couverture','choc']}]
+            {rol:'suiker',     zoek:['kristalsuiker','suiker'], niet:['stroop','glucose']},
+            {rol:'chocolade',  choc:true}],
+  /* ═══════════ ook de lagen die je zelf een naam geeft ═══════════
+     Karamel, crunch, croustillant en marsepein kwamen binnen als "Anders" en
+     kregen daarom één lege regel. Terwijl ook die een vast rijtje hebben. */
+  karamel: [{rol:'suiker',     zoek:['kristalsuiker','suiker'], niet:['stroop','glucose']},
+            {rol:'room',       zoek:['slagroom','room'], niet:['boter','ijs']},
+            {rol:'boter',      zoek:['roomboter','boter']},
+            {rol:'zout',       zoek:['zeezout','zout','fleur de sel']}],
+  crunch:  [{rol:'chocolade',  choc:true},
+            {rol:'crunch',     zoek:['feuilletine','pailleté','krokant','rijst','wafel']}],
+  croustillant: [{rol:'praliné', zoek:['praliné','pralin','notenpasta','pasta']},
+            {rol:'feuilletine', zoek:['feuilletine','pailleté','krokant','wafel']},
+            {rol:'chocolade',  choc:true}],
+  marsepein: [{rol:'amandelen', zoek:['amandel','amandelmeel']},
+            {rol:'suiker',     zoek:['poedersuiker','kristalsuiker','suiker'], niet:['stroop','glucose']}]
 };
+
+/* ═══════════ witte chocolade is niet zomaar chocolade ═══════════
+   De rol "chocolade" zocht het eerste artikel met dat woord erin. Bij een
+   lijst met wit, melk én puur pakte hij alfabetisch de eerste — dus kreeg je
+   melkchocolade in een witte bonbon, zonder dat je het zag. De soort van je
+   smaak bepaalt welke chocolade erbij hoort. Kan de app niet zien welke soort
+   jouw artikelen zijn, dan pakt hij de enige die er is; zijn ze wél benoemd
+   maar staat de jouwe er niet bij, dan blijft de regel leeg. */
+/* Chocolade koop je zelden onder de naam "chocolade". Het heet druppels,
+   callets, pastilles of gewoon de merknaam. Deze lijst dekt wat gangbaar is —
+   maar hij is niet waterdicht, en dat hoeft ook niet: zodra jij één keer zelf
+   kiest welke chocolade bij wit hoort, weet de app het daarna uit je recepten
+   en doen deze woorden er niet meer toe. */
+const CHOCWOORD=['chocolade','chocola','druppel','callets','callebaut','couverture',
+  'pastille','cacaomassa','cacaoboter','wafer','disc','pistole','feve','chips',
+  'valrhona','barry','belcolade','sicao','cacao'];
+const CHOCSOORTWOORD={
+  wit:  ['wit','white','w2','ivoire','velvet','blanc'],
+  melk: ['melk','milk','823','lactee','lait'],
+  puur: ['puur','pure','dark','811','fondant','bitter','noir','extra']
+};
+/* ═══════════ jouw naam voor chocolade wint van onze woordenlijst ═══════════
+   Noem jij het "druppels", "bruin goud" of iets wat wij nooit zouden raden,
+   dan hoef je dat maar één keer in te vullen. Daarna staat het in je recepten
+   en zoeken we het daar op: welke chocolade zit er in je andere witte smaken?
+   Die dus. Zo hoeft de app jouw manier van benoemen niet te kennen. */
+function chocUitRecepten(soort){
+  const l=(S.recepten||[]).filter(r=>r.chocolade===soort&&r.id!==R.id);
+  for(let i=l.length-1;i>=0;i--){
+    const ond=l[i].onderdelen||[];
+    /* een regel die we zelf als chocolade hebben aangemerkt */
+    for(let j=0;j<ond.length;j++){
+      const hit=(ond[j].ing||[]).find(x=>x.rol==='chocolade'&&x.naam);
+      if(hit) return hit.naam;
+    }
+    /* oudere lagen zonder rollen: een schelp bestaat uit chocolade */
+    for(let j=0;j<ond.length;j++){
+      if(!isSchelp(ond[j])) continue;
+      const e=(ond[j].ing||[]).find(x=>x.naam);
+      if(e) return e.naam;
+    }
+  }
+  return '';
+}
+
+function zoekChocolade(soort, bezet){
+  const eigen=chocUitRecepten(soort);
+  if(eigen && (bezet||[]).indexOf(eigen)<0) return eigen;
+  const alle=(alleIngredienten()||[]).filter(n=>!ingGearchiveerd(n));
+  const vrij=n=>(bezet||[]).indexOf(n)<0;
+  const isChoc=n=>CHOCWOORD.some(w=>String(n).toLowerCase().includes(w));
+  const heeftSoort=(n,s)=>(CHOCSOORTWOORD[s]||[]).some(w=>String(n).toLowerCase().includes(w));
+  const chocs=alle.filter(n=>vrij(n)&&isChoc(n));
+  if(!chocs.length) return '';
+  const jouwe=chocs.find(n=>heeftSoort(n, soort));
+  if(jouwe) return jouwe;
+  const benoemd=chocs.filter(n=>['wit','melk','puur'].some(s=>heeftSoort(n,s)));
+  return benoemd.length ? '' : chocs[0];
+}
 
 /* Het eerste ingrediënt uit je eigen lijst dat op een van deze termen lijkt.
    Met twee vangnetten: "room" zit ook in "roomboter", dus een rol kan woorden
@@ -20769,12 +20842,19 @@ function laagCompleet(k){
   return ing.every(x => x.naam && String(x.deel||'').trim());
 }
 
-function basisIng(soortKey){
-  const rollen=LAAGBASIS[soortKey];
+function basisIng(soortKey, laagNaam){
+  /* "Anders" heeft geen eigen sleutel: dan kijken we naar de naam die je koos */
+  let rollen=LAAGBASIS[soortKey];
+  if(!rollen && laagNaam){
+    const k=String(laagNaam).toLowerCase().replace(/[^a-z]/g,'');
+    rollen=LAAGBASIS[k];
+  }
   if(!rollen) return [{naam:'',deel:''}];
   const bezet=[];
   return rollen.map(r=>{
-    const naam = r.uitSmaak ? zoekVrucht() : zoekIng(r.zoek, r.niet, bezet);
+    const naam = r.choc    ? zoekChocolade(R.chocolade, bezet)
+               : r.uitSmaak ? zoekVrucht()
+               : zoekIng(r.zoek, r.niet, bezet);
     if(naam) bezet.push(naam);
     return {naam:naam, deel:'', rol:r.rol};
   });
@@ -20998,7 +21078,7 @@ function nieuweLaag(naam){
   }
   const s0 = ondSoort(naam);
   return {naam:naam||'', gram:s0?s0.gram:'',
-          ing: s0 ? basisIng(s0.k) : [{naam:'',deel:''}],
+          ing: basisIng(s0?s0.k:'', naam),
           werkwijze:s0?(s0.ww||[]).slice():[], stap:s0?s0.stap:''};
 }
 
@@ -21020,7 +21100,7 @@ function schelpVoor(chocKey){
   const v=schelpVoorbeeld(chocKey);
   if(v) return JSON.parse(JSON.stringify(v));
   const s0=schelpSoort();
-  return {naam:s0.n, gram:s0.gram, ing:basisIng('schelp'),
+  return {naam:s0.n, gram:s0.gram, ing:basisIng('schelp', s0.n),
           werkwijze:(s0.ww||[]).slice(), stap:s0.stap||''};
 }
 

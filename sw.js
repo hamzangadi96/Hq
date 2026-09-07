@@ -1,6 +1,6 @@
 /* Cacaoboetiek HQ — service worker
    Verhoog VERSIE bij elke nieuwe upload. */
-const VERSIE = 'hq-v583';
+const VERSIE = 'hq-v585';
 
 /* alleen plaatjes en manifest cachen; de app zelf halen we altijd vers op */
 const SCHIL = [
