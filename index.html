@@ -3543,7 +3543,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v598 · 7 sep 2026';
+const APPVERSIE='v599 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11468,6 +11468,54 @@ function sheetWinst(){
     });
   };
   teken(new Date().getFullYear(),kwartaalVan(new Date()));
+}
+
+const DAGNAMEN=['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+
+/* ═══════════ twee getallen die in de code stonden ═══════════
+   Hoeveel chocolade er onderin je kuip achterblijft en op welke dag je je
+   ronde loopt, bepaalde ik voor je: anderhalve kilo en zondag. Redelijke
+   aannames, maar het zijn jouw machine en jouw week. */
+function sheetTempReserve(){
+  const nu2=(typeof S.tempReserve==='number'?S.tempReserve:1500);
+  const keuzes=[500,1000,1500,2000,3000];
+  sheet('Werkvoorraad in de kuip',
+    `<p class="hint">Je kunt een tempereerkuip niet leeggieten: onderin blijft
+      altijd zoveel staan dat je nog kunt scheppen. Die voorraad ben je niet
+      kwijt — hij gaat terug in je bak — maar je moet hem er wél bij pakken.
+      De app telt dit op bij wat je verwerkt, zodat "in de machine" klopt.</p>
+     <div class="keuzeraster" id="trR">${keuzes.map(n=>
+       `<button class="chip ${n===nu2?'aan':''}" data-v="${n}">${komma((n/1000).toFixed(1))} kg</button>`).join('')}</div>
+     <div class="veld" style="margin-top:14px"><label>Of een ander gewicht</label>
+       <input class="inp" id="trN" type="number" inputmode="decimal" min="0" step="0.1"
+         value="${(nu2/1000).toFixed(1)}" placeholder="Kilo"></div>`,
+    `<button class="sec" id="trT">Terug</button>
+     <button class="prim" id="trOk">Instellen</button>`);
+  const zet=g=>{
+    S.tempReserve=Math.max(0,Math.round(parseFloat(g)||0));
+    bewaarNu(); sheetInstellingen();
+    toast('Werkvoorraad op '+komma((S.tempReserve/1000).toFixed(1))+' kg.');
+  };
+  $$('#trR [data-v]').forEach(x=>x.onclick=()=>zet(x.dataset.v));
+  $('#trT').onclick=sheetInstellingen;
+  $('#trOk').onclick=()=>zet((parseFloat($('#trN').value)||0)*1000);
+}
+
+function sheetControleDag(){
+  const nu2=(typeof S.controleDag==='number'?S.controleDag:0);
+  sheet('Dag van je controleronde',
+    `<p class="hint">Op deze dag zet de app je hele ronde op het dashboard:
+      temperatuur, schoonmaak, ongedierte, ijking. De rest van de week stoort
+      hij alleen met wat écht over tijd is.</p>
+     <div class="keuzeraster" id="cdR">${DAGNAMEN.map((d,i)=>
+       `<button class="chip ${i===nu2?'aan':''}" data-v="${i}">${d}</button>`).join('')}</div>`,
+    `<button class="sec" id="cdT">Terug</button>`);
+  $$('#cdR [data-v]').forEach(x=>x.onclick=()=>{
+    S.controleDag=parseInt(x.dataset.v)||0;
+    bewaarNu(); sheetInstellingen();
+    toast('Je ronde staat voortaan op '+DAGNAMEN[S.controleDag]+'.');
+  });
+  $('#cdT').onclick=sheetInstellingen;
 }
 
 function sheetUurtarief(){
@@ -27721,6 +27769,8 @@ function insBinden(){
     if(k==='autosoort') return sheetAutoSoort();
     if(k==='bedrijf') return sheetBedrijf();
     if(k==='uurtarief') return sheetUurtarief();
+    if(k==='tempreserve') return sheetTempReserve();
+    if(k==='controledag') return sheetControleDag();
     if(k==='levertijd') return sheetLevertijden();
     if(k==='verkoop') return sheetVerkoopprijzen();
     if(k==='verzend') return sheetVerzendregel();
@@ -27837,6 +27887,12 @@ function sheetInstellingen(){
        uurtarief()?euro(uurtarief())+' per uur':'niet ingesteld'}</span></button>
      <button class="menurij" data-ins="verzend">${svg(I.vracht)}Verzendregel<span class="tel">voor ${
        verzendgrens()}:00</span></button>
+
+     <div class="mkop">Productie en controle</div>
+     <button class="menurij" data-ins="tempreserve">${svg(I.vorm)}Werkvoorraad in de kuip<span class="tel">${
+       komma(((typeof S.tempReserve==='number'?S.tempReserve:1500)/1000).toFixed(1))} kg</span></button>
+     <button class="menurij" data-ins="controledag">${svg(I.klok)}Dag van je controleronde<span class="tel">${
+       DAGNAMEN[(typeof S.controleDag==='number'?S.controleDag:0)]}</span></button>
 
      <div class="mkop">Auto</div>
      <button class="menurij" data-ins="kmtarief">${svg(I.euro)}Kilometervergoeding<span class="tel">${
