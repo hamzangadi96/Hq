@@ -2290,7 +2290,13 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
   margin:6mm 0 2mm;padding-bottom:1mm;border-bottom:.2mm solid #bbb}
 .rapport h3:first-of-type{margin-top:0}
 .rapport table{width:100%;border-collapse:collapse}
-.rapport td,.rapport th{padding:1.4mm 0;vertical-align:top;border-bottom:.15mm solid #e2e2e2;text-align:left}
+/* Zonder ruimte tussen de kolommen plakken lange teksten aan elkaar: in het
+   dagrapport stond "Voor productieWerkbank en werkbladen" als één woord. Dat
+   gold voor elke tabel behalve de urenstaat, want alleen die had ruimte. Nu
+   krijgt elke rapporttabel het, en de laatste kolom loopt netjes tot de rand. */
+.rapport td,.rapport th{padding:1.4mm 4mm 1.4mm 0;vertical-align:top;
+  border-bottom:.15mm solid #e2e2e2;text-align:left}
+.rapport td:last-child,.rapport th:last-child{padding-right:0}
 .rapport th{font-size:7pt;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em}
 .rapport td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rapport td.t{width:16mm;color:#555;font-variant-numeric:tabular-nums}
@@ -3543,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v599 · 7 sep 2026';
+const APPVERSIE='v600 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
