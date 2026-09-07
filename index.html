@@ -3543,7 +3543,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v597 · 7 sep 2026';
+const APPVERSIE='v598 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16551,6 +16551,7 @@ function sheetHaccp(){
     ${rij('schoon','Schoonmaak','wat je hebt gereinigd',
       sLaatst?(sLaatst.datum===vandaag()?'vandaag':kort(new Date(sLaatst.datum))):'nooit',
       !sLaatst||sLaatst.datum!==vandaag())}
+    ${rij('afwijking','Afwijking melden','er ging iets mis','',false)}
   </div>`;
 
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Periodiek</span></div><div class="paneel">
@@ -17327,6 +17328,7 @@ function bind(){
     if(k==='dagrapport') return sheetRapport('dag',null,vandaag());
     if(k==='temp') return sheetTemp();
     if(k==='schoon') return sheetSchoonmaak();
+    if(k==='afwijking') return sheetAfwijking();
     sheetControles(k==='klacht'?'klacht':k);
   });
   $$('[data-etiket]').forEach(b=>b.onclick=()=>sheetVoorraadLabel(S.batchId,b.dataset.etiket));
@@ -18550,7 +18552,13 @@ function sheetIngredienten(){
 }
 
 function sheetAfwijking(){
-  const b=batch(); if(!b) return;
+  /* ═══════════ een afwijking wacht niet op een batch ═══════════
+     Dit scherm ging alleen open als er productie liep. Maar juist buiten een
+     productiedag gaat er wat mis: je koeling staat op zondag op tien graden,
+     een levering komt ontdooid binnen. Dat moet je kunnen vastleggen mét de
+     maatregel die je nam — daar vraagt de NVWA naar. Loopt er een batch, dan
+     hoort het daarbij; zo niet, dan komt het los in je dagrapport. */
+  const b=batch();
   sheet('Afwijking melden',
     `<div class="veld"><label>Ernst</label><div class="duo" id="aS">
       <button class="aan" data-v="klein">Klein</button><button data-v="groot">Groot</button></div></div>
@@ -18563,14 +18571,17 @@ function sheetAfwijking(){
     const w=$('#aW').value.trim(),a=$('#aA').value.trim();
     if(!w) return toast('Beschrijf kort wat er gebeurde.');
     if(!a) return toast('Noteer de corrigerende actie — dit wil de NVWA zien.');
-    bLog(b,{type:'afwijking',titel:w,sub:'Actie: '+a,status:e==='groot'?'fout':'let'});
-    klaarSheet('Afwijking vastgelegd bij deze batch.');
+    const waar=legVast({type:'afwijking',titel:w,sub:'Actie: '+a,
+      status:e==='groot'?'fout':'let'});
+    if(waar==='batch') return klaarSheet('Afwijking vastgelegd bij deze batch.');
+    dicht(); render(); sheetRapport('dag',null,vandaag());
+    toast('Afwijking vastgelegd.');
   };
 }
 
 function sheetSchoonmaak(){
-  const b=batch(); if(!b) return;
-  startStap(b,'Schoonmaken');
+  const b=batch();
+  if(b) startStap(b,'Schoonmaken');
   sheet('Schoonmaak',
     `<div class="veld"><label>Wanneer is dit?</label>
        <div class="chips" id="sSoort">
