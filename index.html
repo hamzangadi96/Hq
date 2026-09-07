@@ -3538,7 +3538,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v593 · 7 sep 2026';
+const APPVERSIE='v594 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3796,7 +3796,7 @@ const soorten=()=>branche().soorten||CHOCSTANDAARD;
 const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
-  malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[],
+  malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[], controleDag:0,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
@@ -3841,7 +3841,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -6185,7 +6185,9 @@ function dashboardHTML(){
   /* Boven de weekstrip: het eerste wat je 's ochtends doet is inklokken, en
      het laatste wat je 's avonds doet is uitklokken. Dan hoort het ook
      bovenaan te staan en niet weggestopt achter een tabblad. */
-  let h=begroetingHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML();
+  /* De ronde hoort er ook te staan als je nog niet bent ingeklokt: je koeling
+     meten doe je juist vóór je begint. Daarom hier en niet in de klokkaart. */
+  let h=begroetingHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()+controleKaartHTML();
 
   /* ── de hoofdkaart ── */
   if(t.soort==='bezig'){
@@ -19422,6 +19424,66 @@ function schoonMoment(naam){
   return 'Voor productie';
 }
 function isSchoonWerk(naam){ return /schoonmaa?k/i.test(String(naam||'')) }
+
+/* ═══════════ de ronde die niemand onthoudt ═══════════
+   Je thermometer ijken, ongedierte controleren, de koeling meten: dingen die
+   maar een paar keer per jaar of één keer per week hoeven, en die je daarom
+   vergeet. Ze stonden alleen in het HACCP-dossier, drie tikken diep, en pas
+   in het rapport zag je in rood dat ze open stonden.
+   Nu staan ze op je dashboard: op je vaste rondedag, en daarbuiten alleen als
+   iets écht over tijd is. Wat vandaag al gedaan is, valt vanzelf weg. */
+function laatsteVan(type){
+  const alle=[];
+  (S.batches||[]).forEach(b=>(b.logs||[]).forEach(l=>{if(l.type===type)alle.push(l)}));
+  alsLijst(S.losLog).forEach(l=>{if(l.type===type)alle.push(l)});
+  alle.sort((a,b)=>String(b.datum||'').localeCompare(String(a.datum||'')));
+  return alle[0]||null;
+}
+
+function controlePunten(){
+  const uit=[];
+  const t1=laatsteVan('temperatuur');
+  if(!t1||t1.datum!==vandaag())
+    uit.push({h:'temp', n:'Temperatuur meten', s:(S.meetpunten||[]).map(m=>m.naam).join(' en ')||'koeling',
+      w:t1?kort(new Date(t1.datum)):'nooit', laat:!t1});
+  const s1=laatsteVan('schoonmaak');
+  if(!s1||s1.datum!==vandaag())
+    uit.push({h:'schoon', n:'Schoonmaak', s:'wat je hebt gereinigd',
+      w:s1?kort(new Date(s1.datum)):'nooit', laat:!s1});
+  if(controleOver('ongedierte')){
+    const c=laatsteControle('ongedierte');
+    uit.push({h:'ongedierte', n:'Ongediertecontrole', s:'elke 3 maanden',
+      w:c?kort(new Date(c.datum)):'nooit', laat:true});
+  }
+  if(!laatsteIjking())
+    uit.push({h:'ijking', n:'Thermometer ijken', s:'elke 6 maanden', w:'nooit', laat:true});
+  if(controleOver('recall')){
+    const c=laatsteControle('recall');
+    uit.push({h:'recall', n:'Terugroepoefening', s:'elk jaar',
+      w:c?kort(new Date(c.datum)):'nooit', laat:true});
+  }
+  return uit;
+}
+
+function controleKaartHTML(){
+  const punten=controlePunten();
+  if(!punten.length) return '';
+  const rondeDag=new Date().getDay()===(typeof S.controleDag==='number'?S.controleDag:0);
+  const teLaat=punten.filter(x=>x.laat);
+  /* buiten je rondedag alleen storen als er iets echt over tijd is */
+  const toon=rondeDag?punten:teLaat;
+  if(!toon.length) return '';
+  return `<div class="werkkaart rondekaart">
+    <div class="wkkop"><span class="eyebrow">${rondeDag?'Je ronde van vandaag':'Loopt achter'}</span>
+      <b>${toon.length} ${toon.length===1?'controle':'controles'} open</b></div>
+    <div class="veld" style="margin-bottom:0">${toon.map(x=>`
+      <button class="arij" data-h="${x.h}">
+        <span class="bol" ${x.laat?'style="border-color:var(--amber);background:var(--amber)"':'style="border-color:var(--lijn)"'}></span>
+        <span class="naam">${esc(x.n)}<small>${esc(x.s)}</small></span>
+        <span class="waarde">${esc(x.w)}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
+  </div>`;
+}
 
 function werkKaartHTML(){
   const n=nuAanHetWerk();
