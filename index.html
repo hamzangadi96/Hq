@@ -3529,7 +3529,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v587 · 7 sep 2026';
+const APPVERSIE='v588 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4972,6 +4972,12 @@ function klokWidgetHTML(){
 
 function klokbalkHTML(){
   const k=S.klus; if(!k) return '';
+  /* ═══════════ niet twee keer hetzelfde ═══════════
+     Deze balk staat op elk scherm zodat je overal ziet dat je klok loopt.
+     Maar op het dashboard staat de klokkaart er al, met dezelfde klus én
+     meer: je totale werktijd, de ring en de knoppen om te wisselen. Twee
+     keer dezelfde regel onder elkaar is geen herinnering meer, dat is ruis. */
+  if(S.tab==='dashboard') return '';
   const so=klusSoort(k.soort);
   return `<button class="tijdbalk klokbalk" id="klokbalk">
     <span class="tp"></span>
