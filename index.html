@@ -3549,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v600 · 7 sep 2026';
+const APPVERSIE='v601 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17637,6 +17637,17 @@ function terugpunt(velden){
     .forEach(v=>{ if(S[v]!==undefined) kopie[v]=JSON.parse(JSON.stringify(S[v])) });
   return ()=>{ Object.keys(kopie).forEach(v=>{S[v]=kopie[v]}); bewaarNu(); render() };
 }
+/* ═══════════ een tijdstempel is geen tijd ═══════════
+   In het batchrapport stond bij "Gestart" een getal van dertien cijfers: het
+   ruwe moment uit de opslag, zoals de computer het bewaart. In een document
+   dat je aan een controleur geeft hoort daar gewoon een tijd te staan. */
+function tijdVan(ms){
+  const d=new Date(Number(ms)||0);
+  if(isNaN(d.getTime())||!ms) return '—';
+  return kort(d)+' '+String(d.getHours()).padStart(2,'0')+':'
+         +String(d.getMinutes()).padStart(2,'0');
+}
+
 function bLog(b,o){b.logs.push(Object.assign({id:uid(),datum:vandaag(),tijd:nu(),status:'ok'},o))}
 
 /* ═══════════ niet alles hangt aan een batch ═══════════
@@ -20279,8 +20290,10 @@ function batchRapportHTML(b){
   h+=`<h3>Batchgegevens</h3><div class="paar">
     <div><div class="rij"><span>Batchcode</span><b>${b.code}</b></div>
       <div class="rij"><span>Datum</span><b>${kort(S.datum)}</b></div>
-      <div class="rij"><span>Gestart</span><b>${b.gestart}</b></div>
-      <div class="rij"><span>Afgerond</span><b>${b.eind||'loopt nog'}</b></div></div>
+      <div class="rij"><span>Gestart</span><b>${
+        b.gestart?tijdVan(b.gestart):'—'}</b></div>
+      <div class="rij"><span>Afgerond</span><b>${
+        b.eind?tijdVan(b.eind):'loopt nog'}</b></div></div>
     <div><div class="rij"><span>Chocolade</span><b>${chocNaam(b.chocolade)}</b></div>
       <div class="rij"><span>Mallen</span><b>${mallen}</b></div>
       <div class="rij"><span>Aantal bonbons</span><b>${tot}</b></div>
@@ -20367,7 +20380,9 @@ function batchRapportHTML(b){
     ${perAct.map(x=>`<tr><td>${esc(x.act)}</td><td class="n">${duurKort(x.sec)}</td>
       <td class="n">${getal(x.sec/(totSec||1)*100)}%</td></tr>`).join('')}
     <tr><td><b>Totaal</b></td><td class="n"><b>${duurKort(totSec)}</b></td>
-      <td class="n">${tot?getal(totSec/tot)+' sec per bonbon':''}</td></tr></table>`
+      <td class="n"><b>100%</b></td></tr></table>
+    ${tot?`<div class="leeg" style="text-align:left">Dat is ${
+      getal(totSec/tot)} seconde per bonbon over ${getal(tot)} stuks.</div>`:''}`
     :rLeeg('Geen tijd geregistreerd.');
 
   h+=`<h3>Resultaat</h3>`;
