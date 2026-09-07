@@ -1057,6 +1057,15 @@ header .hbtn.zoek{display:none}
 /* de volgende stap als knop naast de klok: één tik in plaats van drie */
 /* De wisselknoppen onder de klok: even hoog als een chip, horizontaal
    scrollbaar zodat een lange naam de rij niet uit elkaar duwt. */
+/* De kaart met wat bij je werk hoort: zelfde vorm als de andere kaarten,
+   zodat hij er niet als een los blok bij hangt. */
+.werkkaart{background:var(--card);border-radius:18px;padding:16px;margin:0 0 14px;
+  box-shadow:0 1px 3px rgba(24,24,27,.06)}
+.werkkaart .wkkop{margin-bottom:12px}
+.werkkaart .wkkop b{display:block;font-size:17px;font-weight:700;letter-spacing:-.02em}
+.werkkaart .veld{margin-bottom:0}
+.werkkaart .prim{margin-top:12px}
+.werkkaart .melding{margin:12px 0 0}
 .wisselrij{display:flex;gap:8px;overflow-x:auto;margin:-6px 0 14px;padding-bottom:2px;
   -webkit-overflow-scrolling:touch;scrollbar-width:none}
 .wisselrij::-webkit-scrollbar{display:none}
@@ -3529,7 +3538,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v588 · 7 sep 2026';
+const APPVERSIE='v590 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3787,7 +3796,7 @@ const soorten=()=>branche().soorten||CHOCSTANDAARD;
 const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
-  malGrootte:24, tempReserve:1500,
+  malGrootte:24, tempReserve:1500, schoonNu:null,
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
@@ -3832,7 +3841,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -4967,7 +4976,7 @@ function klokWidgetHTML(){
             duurTekst(Date.now()-S.dienst.start)}</span> loopt zonder categorie</i>`)}</span>
     ${springKnop?'':svg(I.pijl,'2')}
     </button>${springKnop}
-  </div>${wisselRijHTML()}`;
+  </div>${wisselRijHTML()}${werkKaartHTML()}`;
 }
 
 function klokbalkHTML(){
@@ -16960,6 +16969,35 @@ function bind(){
     toast(nu2?nu2.naam+' loopt.':'Gestart.',
       ()=>{ herstelStand(vorige); bewaarNu(); render() });
   });
+  /* Afvinken schrijft meteen in de opslag: het dashboard tekent vaker
+     opnieuw dan je denkt, en een vinkje dat alleen in het scherm zat zou
+     dan verdwijnen terwijl je nog bezig bent. */
+  $$('[data-szone]').forEach(x=>x.onclick=()=>{
+    sluitToetsenbord();
+    if(!S.schoonNu) return;
+    const z=x.dataset.szone, aan=S.schoonNu.zones||{};
+    if(aan[z]) delete aan[z]; else aan[z]=true;
+    S.schoonNu.zones=aan; bewaarNu(); render();
+  });
+  if($('#szAlles')) $('#szAlles').onclick=()=>{
+    sluitToetsenbord();
+    if(!S.schoonNu) return;
+    const alles=(S.zones||[]).every(z=>(S.schoonNu.zones||{})[z]);
+    const nieuw={};
+    if(!alles) (S.zones||[]).forEach(z=>{nieuw[z]=true});
+    S.schoonNu.zones=nieuw; bewaarNu(); render();
+  };
+  if($('#szOk')) $('#szOk').onclick=veilig('schoonmaak vastleggen',()=>{
+    const b2=batch(); if(!b2) return;
+    const z=(S.zones||[]).filter(x=>(S.schoonNu.zones||{})[x]);
+    if(!z.length) return toast('Vink aan wat je hebt gereinigd.');
+    const moment=S.schoonNu.moment||'Voor productie';
+    bLog(b2,{type:'schoonmaak',soort:moment,
+      titel:moment+' · '+z.length+(z.length===1?' onderdeel':' onderdelen'),
+      sub:z.join(', ')});
+    S.schoonNu=null; bewaarNu(); render();
+    toast(z.length+(z.length===1?' onderdeel':' onderdelen')+' vastgelegd.');
+  });
   $$('[data-kwstap2]').forEach(x=>x.onclick=kwWissel(()=>{
     const b2=(S.batches||[]).find(y=>y.status==='bezig'||y.status==='loopt');
     if(b2) startWerk(b2,x.dataset.kwstap2);
@@ -19309,6 +19347,50 @@ function wisselKeuzes(max){
   return uit.slice(0,max);
 }
 
+/* ═══════════ het dashboard laat zien wat je nú doet ═══════════
+   Je klokte in op "Schoonmaken voor productie" en daarna deed het dashboard
+   niets: je moest zelf naar het schoonmaakscherm om je zones af te vinken.
+   Terwijl de app precies weet waar je mee bezig bent. Kies je werk waar een
+   lijst bij hoort, dan staat die lijst er meteen.
+   Deze opzet is bewust uitbreidbaar: elke werkzaamheid kan hier zijn eigen
+   kaart krijgen. Nu is de schoonmaak de eerste. */
+function schoonMoment(naam){
+  const k=String(naam||'').toLowerCase();
+  if(k.includes('voor')) return 'Voor productie';
+  if(k.includes('na ')||k.endsWith('na')) return 'Na productie';
+  if(k.includes('tussen')) return 'Tussendoor';
+  return 'Voor productie';
+}
+function isSchoonWerk(naam){ return /schoonmaa?k/i.test(String(naam||'')) }
+
+function werkKaartHTML(){
+  const n=nuAanHetWerk();
+  if(!n||!S.dienst) return '';
+  if(!isSchoonWerk(n.naam)) return '';
+  if(!(S.zones||[]).length) return '';
+
+  /* de stand hoort bij dit moment; wissel je van moment, dan begin je opnieuw */
+  const moment=schoonMoment(n.naam);
+  if(!S.schoonNu||S.schoonNu.moment!==moment) S.schoonNu={moment:moment, zones:{}};
+  const aan=S.schoonNu.zones||{};
+  const af=S.zones.filter(z=>aan[z]).length;
+  const b=batch();
+
+  return `<div class="werkkaart">
+    <div class="wkkop"><span class="eyebrow">${esc(moment)}</span>
+      <b>${af} van ${S.zones.length} gereinigd</b></div>
+    <button type="button" class="allesok" id="szAlles">${svg(I.vink,'2.4')}${
+      af===S.zones.length?'Alles uitvinken':'Alles aanvinken'}</button>
+    <div class="veld">${S.zones.map(z=>`
+      <button type="button" class="tog${aan[z]?' aan':''}" data-szone="${esc(z)}">
+        <span class="tbox">${svg(I.vink,'2.4')}</span>
+        <span class="tekst">${esc(z)}</span></button>`).join('')}</div>
+    ${b ? `<button class="prim" id="szOk">${af?af+(af===1?' onderdeel':' onderdelen')+' vastleggen':'Schoonmaak vastleggen'}</button>`
+        : `<div class="melding amber">Je vinkjes blijven staan. Ze worden pas
+             vastgelegd bij een batch — start er een als je gaat produceren.</div>`}
+  </div>`;
+}
+
 function wisselRijHTML(){
   if(!S.dienst) return '';
   const k=wisselKeuzes(4);
@@ -20652,7 +20734,7 @@ function sheetReceptForm(id,voorChoc){
   const best=id?S.recepten.find(x=>x.id===id):null;
   R.id=id||null;
   R.naam=best?best.naam:'';
-  R.chocolade=best?best.chocolade:(voorChoc||'melk');
+  R.chocolade=best?best.chocolade:(voorChoc||vaakChoc()||'melk');
   R.tht=best?best.tht:(vaakTht()||14);
   R.onderdelen=best?JSON.parse(JSON.stringify(best.onderdelen||[])):[];
   R.stappen=best?(best.stappen||[]).slice():[];
@@ -21187,6 +21269,17 @@ function vaakTht(){
   (S.recepten||[]).forEach(r=>{const d=parseInt(r.tht); if(d>0) tel[d]=(tel[d]||0)+1});
   const l=Object.keys(tel).sort((a,b)=>tel[b]-tel[a]);
   return l.length?parseInt(l[0]):0;
+}
+
+/* ═══════════ de chocolade die je bijna altijd gebruikt ═══════════
+   Elke nieuwe smaak begon op melk, ook als je twaalf witte smaken hebt. Dan
+   koos je dus twaalf keer wit. Net als bij de houdbaarheid: de app kijkt naar
+   wat je het vaakst maakt en zet dat klaar. Iets anders is één tik. */
+function vaakChoc(){
+  const tel={};
+  (S.recepten||[]).forEach(r=>{ if(r.chocolade&&!r.archief) tel[r.chocolade]=(tel[r.chocolade]||0)+1 });
+  const l=Object.keys(tel).sort((a,b)=>tel[b]-tel[a]);
+  return l.length?l[0]:'';
 }
 
 /* de schelp die je bij een eerdere smaak van deze chocoladesoort al uitwerkte */
