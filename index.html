@@ -3511,7 +3511,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v580 · 7 sep 2026';
+const APPVERSIE='v581 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20706,18 +20706,42 @@ function zoekIng(termen, niet, bezet){
   return '';
 }
 
-/* de vrucht halen we uit de naam van de smaak: heet hij "Framboos & tonka" en
-   heb jij frambozenpuree op voorraad, dan is dat hem. Zo niet, dan blijft de
-   regel open — een vrucht raden is erger dan hem niet invullen. */
+/* De vrucht halen we uit de naam van de smaak: heet hij "Framboos & tonka" en
+   heb jij frambozen op voorraad, dan is dat hem. Zo niet, dan blijft de regel
+   open — een vrucht raden is erger dan hem niet invullen.
+
+   We vergelijken op de eerste letters, niet op het hele woord: jouw smaak heet
+   "Framboos" en je ingrediënt "Frambozen - AH". Dat is hetzelfde fruit met een
+   andere uitgang, en op het hele woord zou het nooit matchen. */
+const vruchtStam=w=>String(w||'').toLowerCase().slice(0,5);
+function lijktOpVrucht(ingNaam, woord){
+  const k=String(ingNaam||'').toLowerCase(), s=vruchtStam(woord);
+  return s.length>=4 && k.includes(s);
+}
+function smaakWoorden(naam){
+  return String(naam||'').toLowerCase().split(/[^a-zà-ÿ]+/).filter(w=>w.length>3);
+}
 function zoekVrucht(){
   const alle=(alleIngredienten()||[]).filter(n=>!ingGearchiveerd(n));
-  const woorden=String(R.naam||'').toLowerCase()
-    .split(/[^a-zà-ÿ]+/).filter(w=>w.length>3);
+  const woorden=smaakWoorden(R.naam);
   for(let i=0;i<woorden.length;i++){
-    const hit=alle.find(n=>String(n).toLowerCase().includes(woorden[i]));
+    const hit=alle.find(n=>lijktOpVrucht(n, woorden[i]));
     if(hit) return hit;
   }
   return '';
+}
+
+/* Welke regel in deze laag is de vrucht? Bij een laag die met de rollen is
+   gemaakt staat het er gewoon bij. Bij een oudere laag zoeken we het terug:
+   het ingrediënt dat op de naam van díé smaak lijkt, was de vrucht. */
+function vruchtRegel(laag, bronSmaak){
+  const ing = laag.ing || [];
+  const opRol = ing.findIndex(x => x.rol === 'vrucht');
+  if(opRol >= 0) return opRol;
+  const rollen = LAAGBASIS[(ondSoort(laag.naam)||{}).k];
+  if(!rollen || !rollen.some(r => r.uitSmaak)) return -1;
+  const woorden = smaakWoorden(bronSmaak);
+  return ing.findIndex(x => woorden.some(w => lijktOpVrucht(x.naam, w)));
 }
 
 function basisIng(soortKey){
@@ -20931,6 +20955,20 @@ function nieuweLaag(naam){
   if(v){
     const k = JSON.parse(JSON.stringify(v.o));
     k.naam = naam; k._van = v.smaak;
+    /* ═══════════ de vrucht is van deze smaak, niet van de vorige ═══════════
+       Zonder dit kreeg "Aardbei & basilicum" de frambozen van je vorige gelei
+       mee, compleet met verhouding. Je maakt dan aardbeiengelei terwijl de app
+       frambozen afboekt: verkeerde prijs, verkeerd lotnummer, verkeerde
+       allergenen — en je ziet het pas als je het zoekt. Alles wat niet aan de
+       smaak hangt (suiker, pectine, zuur) blijft gewoon staan.
+       Vindt de app de nieuwe vrucht niet, dan maakt hij de regel leeg. Zelf
+       een vrucht kiezen kost één tik; de verkeerde vrucht kost een batch. */
+    const i = vruchtRegel(k, v.smaak);
+    if(i >= 0){
+      const nieuw = zoekVrucht();
+      k.ing[i].naam = nieuw;
+      if(!k.ing[i].rol) k.ing[i].rol = 'vrucht';
+    }
     return k;
   }
   const s0 = ondSoort(naam);
