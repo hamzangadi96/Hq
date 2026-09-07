@@ -3511,7 +3511,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v581 · 7 sep 2026';
+const APPVERSIE='v582 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20744,6 +20744,24 @@ function vruchtRegel(laag, bronSmaak){
   return ing.findIndex(x => woorden.some(w => lijktOpVrucht(x.naam, w)));
 }
 
+/* ═══════════ niets meer te vragen, dus vragen we niets ═══════════
+   Maak je je tweede gelei, dan kent de app het hele recept al: de vrucht uit
+   je nieuwe smaaknaam, en suiker, pectine en zuur met dezelfde verhouding als
+   de vorige keer. Toch liep je nog drie schermen door — gewicht, ingrediënten,
+   werkwijze — en tikte je drie keer Volgende zonder iets in te vullen. Bij
+   dertien smaken met meerdere lagen loopt dat op tot ver over de tachtig
+   tikken door je eigen recept heen.
+   Is er niets meer te beslissen, dan staat de laag er meteen. Ontbreekt er
+   iets — een vrucht die de app niet kent, een gram die nog leeg is — dan
+   opent de wizard gewoon, want dan is er wél iets te vragen. */
+function laagCompleet(k){
+  if(!k || !k._van) return false;                    /* niet overgenomen: eerst invullen */
+  if(!k.gram && k.gram !== 0) return false;
+  const ing = k.ing || [];
+  if(!ing.length) return false;
+  return ing.every(x => x.naam && String(x.deel||'').trim());
+}
+
 function basisIng(soortKey){
   const rollen=LAAGBASIS[soortKey];
   if(!rollen) return [{naam:'',deel:''}];
@@ -21059,13 +21077,31 @@ function smaakStap3(){
          <button class="chip nieuw breed" data-nieuwond="">${svg(I.plus)}Andere laag</button></div></div>`,
     `<button class="prim" style="margin-top:0" id="sw3">${R.onderdelen.length?'Volgende':'Overslaan'}</button>
      <button class="sec" id="sw3T">Terug</button>`,'Stap 3 van 4');
-  $$('[data-ond]').forEach(b=>b.onclick=()=>{R.wizard=3;sheetOnderdeel(parseInt(b.dataset.ond))});
+  /* Het vraagteken rechtsboven gebruikt hetzelfde woord voor iets anders:
+     data-ond="smaak" is het hulponderwerp, niet een onderdeelnummer. Die
+     kwam hier binnen als parseInt('smaak') — en dat is geen getal, dus
+     opende de app een onderdeel dat niet bestaat en klapte de sheet er stil
+     uit. Alleen echte nummers horen hier thuis. */
+  $$('[data-ond]').forEach(b=>b.onclick=()=>{
+    const i=parseInt(b.dataset.ond);
+    if(isNaN(i) || !(R.onderdelen||[])[i]) return;
+    R.wizard=3; sheetOnderdeel(i);
+  });
   /* Koos je hier al een laag, dan is de eerste vraag van de onderdeelwizard
      al beantwoord. Die sloegen we niet over: je kreeg precies dezelfde vraag
      nog een keer, met de teller weer op 1. Nu spring je meteen naar het
      gewicht. Alleen "Andere laag" begint bij het begin. */
   $$('[data-nieuwond]').forEach(b=>b.onclick=()=>{
     R.wizard=3; R.voorstel=b.dataset.nieuwond;
+    if(b.dataset.nieuwond){
+      const k=nieuweLaag(b.dataset.nieuwond);
+      if(laagCompleet(k)){
+        const van=k._van; delete k._van;
+        R.onderdelen=R.onderdelen||[]; R.onderdelen.push(k);
+        bewaarSmaak(); bewaarNu(); sheetSmaakWizard(3);
+        return toast(k.naam+' overgenomen van '+van+' · tik erop om aan te passen');
+      }
+    }
     sheetOnderdeel(null, b.dataset.nieuwond?1:0);
   });
   $('#sw3T').onclick=()=>sheetSmaakWizard(2);
@@ -21474,7 +21510,8 @@ function sheetOnderdeel(idx,stap){
   const o = ONDERDEELBUF ? ONDERDEELBUF
           : nieuw ? (()=>{ const k=nieuweLaag(R.voorstel||'');
                            overVan=k._van||''; delete k._van; return k })()
-                  : JSON.parse(JSON.stringify(R.onderdelen[idx]));
+                  : JSON.parse(JSON.stringify(R.onderdelen[idx] || {naam:'',gram:'',
+                      ing:[{naam:'',deel:''}], werkwijze:[], stap:''}));
   ONDERDEELBUF=null;
   if(overVan) setTimeout(()=>toast('Overgenomen van '+overVan+' · pas aan wat anders is'),350);
   if(nieuw) R.voorstel='';
