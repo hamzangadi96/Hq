@@ -3538,7 +3538,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v590 · 7 sep 2026';
+const APPVERSIE='v592 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3796,7 +3796,7 @@ const soorten=()=>branche().soorten||CHOCSTANDAARD;
 const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
-  malGrootte:24, tempReserve:1500, schoonNu:null,
+  malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[],
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
@@ -3841,7 +3841,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -16520,7 +16520,33 @@ function sheetHaccp(){
   if(open.length) h+=`<div class="melding amber" style="margin-bottom:20px">${svg(I.alarm,'2')}
     <span>${open.join(' en ')} ${open.length>1?'zijn':'is'} nog niet op orde. De NVWA vraagt hier standaard naar.</span></div>`;
 
-  h+=`<div class="blokkop"><span class="eyebrow">Periodiek</span></div><div class="paneel">
+  /* Deze twee horen bij elke dag dat je in je keuken staat, of je nu
+     produceert of niet. Ze stonden alleen in de batchroute, dus op een dag
+     zonder batch kwam je er niet bij. */
+  const tLaatst=(()=>{
+    const alle=[];
+    (S.batches||[]).forEach(b2=>(b2.logs||[]).forEach(l=>{if(l.type==='temperatuur')alle.push(l)}));
+    alsLijst(S.losLog).forEach(l=>{if(l.type==='temperatuur')alle.push(l)});
+    alle.sort((a,b2)=>String(b2.datum||'').localeCompare(String(a.datum||'')));
+    return alle[0];
+  })();
+  const sLaatst=(()=>{
+    const alle=[];
+    (S.batches||[]).forEach(b2=>(b2.logs||[]).forEach(l=>{if(l.type==='schoonmaak')alle.push(l)}));
+    alsLijst(S.losLog).forEach(l=>{if(l.type==='schoonmaak')alle.push(l)});
+    alle.sort((a,b2)=>String(b2.datum||'').localeCompare(String(a.datum||'')));
+    return alle[0];
+  })();
+  h+=`<div class="blokkop"><span class="eyebrow">Elke dag</span></div><div class="paneel">
+    ${rij('temp','Temperatuur meten','koeling en klimaatkast',
+      tLaatst?(tLaatst.datum===vandaag()?'vandaag':kort(new Date(tLaatst.datum))):'nooit',
+      !tLaatst||tLaatst.datum!==vandaag())}
+    ${rij('schoon','Schoonmaak','wat je hebt gereinigd',
+      sLaatst?(sLaatst.datum===vandaag()?'vandaag':kort(new Date(sLaatst.datum))):'nooit',
+      !sLaatst||sLaatst.datum!==vandaag())}
+  </div>`;
+
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Periodiek</span></div><div class="paneel">
     ${rij('ongedierte','Ongediertecontrole','elke 3 maanden',
       og?kort(new Date(og.datum)):'nooit',!!controleOver('ongedierte'))}
     ${rij('ijking','Thermometer ijken','elke 6 maanden',
@@ -16988,13 +17014,19 @@ function bind(){
     S.schoonNu.zones=nieuw; bewaarNu(); render();
   };
   if($('#szOk')) $('#szOk').onclick=veilig('schoonmaak vastleggen',()=>{
-    const b2=batch(); if(!b2) return;
     const z=(S.zones||[]).filter(x=>(S.schoonNu.zones||{})[x]);
     if(!z.length) return toast('Vink aan wat je hebt gereinigd.');
     const moment=S.schoonNu.moment||'Voor productie';
-    bLog(b2,{type:'schoonmaak',soort:moment,
+    const log={type:'schoonmaak',soort:moment,
       titel:moment+' · '+z.length+(z.length===1?' onderdeel':' onderdelen'),
-      sub:z.join(', ')});
+      sub:z.join(', ')};
+    /* ═══════════ reiniging hoort ook op een dag zonder batch ═══════════
+       De registratie hing aan een batch, dus schoonmaken zonder productie
+       verdween in het niets. Bij een controle wordt naar je reiniging
+       gevraagd, niet naar je batches. Loopt er een batch, dan hoort het
+       daarbij; loopt er geen, dan komt het los in je dagrapport en je
+       HACCP-dossier terecht. */
+    legVast(log);
     S.schoonNu=null; bewaarNu(); render();
     toast(z.length+(z.length===1?' onderdeel':' onderdelen')+' vastgelegd.');
   });
@@ -17263,6 +17295,8 @@ function bind(){
     if(k==='storingen') return sheetStoringen();
     if(k==='ontvangst') return sheetOntvangst();
     if(k==='dagrapport') return sheetRapport('dag',null,vandaag());
+    if(k==='temp') return sheetTemp();
+    if(k==='schoon') return sheetSchoonmaak();
     sheetControles(k==='klacht'?'klacht':k);
   });
   $$('[data-etiket]').forEach(b=>b.onclick=()=>sheetVoorraadLabel(S.batchId,b.dataset.etiket));
@@ -17518,6 +17552,21 @@ function terugpunt(velden){
   return ()=>{ Object.keys(kopie).forEach(v=>{S[v]=kopie[v]}); bewaarNu(); render() };
 }
 function bLog(b,o){b.logs.push(Object.assign({id:uid(),datum:vandaag(),tijd:nu(),status:'ok'},o))}
+
+/* ═══════════ niet alles hangt aan een batch ═══════════
+   De koeling moet elke dag gemeten worden, ook op een zondag waarop je niets
+   maakt. Schoonmaken doe je ook zonder productie. Toch kon je die dingen
+   alleen vastleggen als er een batch liep — deed je ze op een andere dag, dan
+   verdwenen ze. Bij een controle wordt naar je metingen gevraagd, niet naar
+   je batches. Loopt er een batch, dan hoort het daarbij; loopt er geen, dan
+   komt het hier terecht en verschijnt het net zo goed in je dagrapport. */
+function legVast(o){
+  const b=batch();
+  if(b){ bLog(b,o); return 'batch' }
+  S.losLog=alsLijst(S.losLog);
+  S.losLog.push(Object.assign({id:uid(),datum:vandaag(),tijd:nu(),status:'ok'},o));
+  return 'los';
+}
 
 /* ================= vegen om te verwijderen =================
    Eén rij tegelijk staat open. Vegen op een andere sluit de vorige,
@@ -18135,8 +18184,8 @@ function vorigeMeting(mpId){
   return m?Math.round(((m.min+m.max)/2)*10)/10:4;
 }
 function sheetTemp(voor,bij){
-  const b=batch(); if(!b) return;
-  startStap(b,'Temperatuur meten');
+  const b=batch();
+  if(b) startStap(b,'Temperatuur meten');
   if(!S.meetpunten.length){
     sheet('Temperatuur',
       `<p class="hint">Je hebt nog geen meetpunten. Voeg je koelkast, vriezer of werkruimte toe met de grenzen die jij aanhoudt.</p>
@@ -18206,7 +18255,7 @@ function sheetTemp(voor,bij){
     const v=getalIn($('#tV').value); if(isNaN(v)) return toast('Vul een temperatuur in.');
     const ok=v>=m.min&&v<=m.max, a=$('#tA').value.trim();
     if(!ok&&!a) return toast('Buiten norm: noteer welke actie je nam.');
-    bLog(b,{type:'temperatuur',titel:`${m.naam} · ${komma(v)} °C`,mpId:m.id,waarde:v,
+    legVast({type:'temperatuur',titel:`${m.naam} · ${komma(v)} °C`,mpId:m.id,waarde:v,
       sub:`Norm ${komma(m.min)} – ${komma(m.max)} °C`+(a?' — actie: '+a:''),status:ok?'ok':'fout'});
     klaarSheet(ok?'Meting opgeslagen.':'Afwijking vastgelegd — staat nu op je dashboard.');
   };
@@ -19385,9 +19434,9 @@ function werkKaartHTML(){
       <button type="button" class="tog${aan[z]?' aan':''}" data-szone="${esc(z)}">
         <span class="tbox">${svg(I.vink,'2.4')}</span>
         <span class="tekst">${esc(z)}</span></button>`).join('')}</div>
-    ${b ? `<button class="prim" id="szOk">${af?af+(af===1?' onderdeel':' onderdelen')+' vastleggen':'Schoonmaak vastleggen'}</button>`
-        : `<div class="melding amber">Je vinkjes blijven staan. Ze worden pas
-             vastgelegd bij een batch — start er een als je gaat produceren.</div>`}
+    <button class="prim" id="szOk">${af?af+(af===1?' onderdeel':' onderdelen')+' vastleggen':'Schoonmaak vastleggen'}</button>
+    ${b?'':`<div class="melding" style="background:var(--bg);color:var(--grijs);margin:10px 0 0">
+      Er loopt geen batch, dus dit komt los in je dagrapport te staan.</div>`}
   </div>`;
 }
 
@@ -20154,6 +20203,9 @@ function dagRapportHTML(datum){
   alle.forEach(b=>b.logs.filter(l=>l.datum===dag).forEach(l=>logs.push(Object.assign({code:b.code},l))));
   (S.ontvangsten||[]).filter(x=>x.datum===dag).forEach(x=>logs.push({code:'—',tijd:x.tijd,
     titel:x.leverancier+' · '+x.product,sub:'Lot '+x.lot+(x.tht?' · THT '+kort(new Date(x.tht)):''),status:'ok'}));
+  /* wat je zonder batch vastlegde hoort hier net zo goed thuis */
+  alsLijst(S.losLog).filter(x=>x.datum===dag).forEach(x=>logs.push(
+    Object.assign({code:'—'},x)));
   logs.sort((a,b)=>a.tijd.localeCompare(b.tijd));
   const opDag=b=>b.eindDatum===dag;
   const goed=alle.filter(opDag).reduce((s,b)=>s+(b.resultaat?b.resultaat.goed:0),0);
