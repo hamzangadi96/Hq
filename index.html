@@ -2928,7 +2928,12 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .hk2badge.terug{display:inline-flex;align-items:center;gap:5px}
 .hk2badge.terug svg{width:13px;height:13px;opacity:.75}
 .hk2badge{flex:none;padding:6px 14px;border-radius:99px;font-size:12px;
-  font-weight:600;letter-spacing:-.01em;background:rgba(255,255,255,.14);color:#f5ece5}
+  font-weight:600;letter-spacing:-.01em;background:rgba(255,255,255,.14);color:#f5ece5;
+  position:relative}
+/* Twee pixels te laag om betrouwbaar te raken. Het knopje blijft er even
+   klein uitzien; alleen het gebied dat je kunt aantikken wordt groter. */
+.hk2badge::after{content:'';position:absolute;left:0;right:0;top:50%;
+  transform:translateY(-50%);height:48px}
 /* De ring staat tegenover de hele rechterkolom, niet alleen tegenover de
    titel. Vandaar center op dit niveau en niet op de tekst zelf. */
 .hk2lijf{display:flex;align-items:center;gap:18px}
@@ -3538,7 +3543,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v595 · 7 sep 2026';
+const APPVERSIE='v597 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17004,6 +17009,18 @@ function bind(){
   /* Afvinken schrijft meteen in de opslag: het dashboard tekent vaker
      opnieuw dan je denkt, en een vinkje dat alleen in het scherm zat zou
      dan verdwijnen terwijl je nog bezig bent. */
+  /* De notitie gaat mee zodra je het veld verlaat, niet bij elke toets: anders
+     zou het dashboard onder je vingers opnieuw tekenen terwijl je typt. */
+  if($('#knT')) $('#knT').onchange=()=>{
+    if(!S.klus) return;
+    S.klus.tekst=String($('#knT').value||'').slice(0,80).trim();
+    bewaarNu(); render();
+  };
+  $$('[data-kntekst]').forEach(x=>x.onclick=()=>{
+    sluitToetsenbord();
+    if(!S.klus) return;
+    S.klus.tekst=x.dataset.kntekst; bewaarNu(); render();
+  });
   $$('[data-szone]').forEach(x=>x.onclick=()=>{
     sluitToetsenbord();
     if(!S.schoonNu) return;
@@ -19489,11 +19506,39 @@ function controleKaartHTML(){
   </div>`;
 }
 
+/* ═══════════ waar was je die uren mee bezig? ═══════════
+   Bij schoonmaken hoort een lijst; bij coderen of administratie hoort niets —
+   daar doet de klok het werk al. Op één ding na: je urenstaat zegt straks
+   alleen "Coderen · 3,5 uur". Dat is lastiger aannemelijk te maken dan
+   "Coderen · batchmodule afgemaakt", en je weet zelf over een maand ook niet
+   meer wat het was. Het notitieveld bestond al, maar alleen bij het starten —
+   en dan weet je vaak nog niet wat je gaat doen. Nu kan het terwijl je bezig
+   bent, met wat je bij deze klus eerder noteerde als suggestie. */
+function klusNotitieHTML(){
+  const n=nuAanHetWerk();
+  if(!n||n.soort!=='klus'||!S.klus) return '';
+  const so=klusSoort(S.klus.soort);
+  const eerder=[];
+  alsLijst(S.klussen).slice().reverse().forEach(k=>{
+    if(k.soort===S.klus.soort&&k.tekst&&eerder.indexOf(k.tekst)<0&&eerder.length<3)
+      eerder.push(k.tekst);
+  });
+  return `<div class="werkkaart notitiekaart">
+    <div class="wkkop"><span class="eyebrow">${esc(so?so.n:'Waar je mee bezig bent')}</span>
+      <b>Waar werk je aan?</b></div>
+    <input class="inp" id="knT" type="text" maxlength="80"
+      placeholder="Kort, voor je urenstaat" value="${esc(S.klus.tekst||'')}">
+    ${eerder.length?`<div class="wisselrij" style="margin:10px 0 0">${eerder.map(x=>
+      `<button type="button" class="wchip" data-kntekst="${esc(x)}">
+        <span>${esc(x)}</span></button>`).join('')}</div>`:''}
+  </div>`;
+}
+
 function werkKaartHTML(){
   const n=nuAanHetWerk();
   if(!n||!S.dienst) return '';
-  if(!isSchoonWerk(n.naam)) return '';
-  if(!(S.zones||[]).length) return '';
+  if(!isSchoonWerk(n.naam)) return klusNotitieHTML();
+  if(!(S.zones||[]).length) return klusNotitieHTML();
 
   /* de stand hoort bij dit moment; wissel je van moment, dan begin je opnieuw */
   const moment=schoonMoment(n.naam);
