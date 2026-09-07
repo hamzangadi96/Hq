@@ -1692,10 +1692,15 @@ textarea.inp{height:88px;padding:16px;line-height:1.5;resize:none;font-size:16px
 
 /* Overslaan links, hoofdactie rechts — één donkere knop per scherm. */
 .wzknoppen{display:flex;gap:10px;align-items:center}
+/* Als deze rij in een bladvoet staat, is hij één flexkind en werd hij zo breed
+   als zijn inhoud — een smalle knoppenrij midden op het scherm. Volle breedte
+   opeisen, dan verdelen de knoppen erbinnen zich zoals bedoeld. */
+.sheetvoet .wzknoppen{flex:1 1 100%}
 .wzknoppen .prim{margin-top:0;flex:1}
-.wzknoppen .sec.plat{margin-top:0;flex:none;width:auto;padding:0 16px;border:none;
+.sheetvoet .sec.plat,.wzknoppen .sec.plat{margin-top:0;padding:0 16px;border:none;
   background:transparent;color:var(--grijs);font-size:14.5px}
-.wzknoppen .sec.plat:active{color:var(--ink);background:transparent}
+.sheetvoet .sec.plat:active,.wzknoppen .sec.plat:active{color:var(--ink);background:transparent}
+.sheetvoet .sec.plat{height:38px;font-size:13.5px}
 
 /* plakvak in een stap */
 .wzplak{margin:0 0 20px}
@@ -3209,8 +3214,12 @@ button.hoofdkaart.hk2:active{transform:scale(.985);
 .sheetvoet .prim ~ .prim:active,
 .sheetvoet .prim ~ .knop2:active{background:var(--markeer);
   border-color:var(--choco-licht);color:var(--choco)}
-.sheetvoet .sec{background:none;border:none;color:var(--grijs);
-  font-size:14px;height:44px}
+.sheetvoet .sec{background:var(--bg);border:none;color:var(--grijs);
+  font-size:14px;height:46px}
+/* Deze regel maakte de tweede knop plat en 44 hoog, naast een hoofdknop van
+   46 met een eigen vorm. Twee knoppen naast elkaar horen even hoog te zijn en
+   allebei een zichtbaar raakvlak te hebben — met chocolade aan je handen mik
+   je op een vlak, niet op een woord. */
 .sheetvoet .sec:active{background:var(--markeer);color:var(--choco)}
 
 /* ── 1b. ook in het scherm zelf: knoppen naast elkaar ──
@@ -3502,7 +3511,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v577 · 6 sep 2026';
+const APPVERSIE='v579 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20651,6 +20660,74 @@ const ONDERDEELSOORTEN=[
 ];
 const ANDERSVOORSTEL=['Karamel','Crunch','Croustillant','Marsepein'];
 
+/* ═══════════ een gelei is altijd vrucht, suiker, pectine en zuur ═══════════
+   Bij een nieuwe laag stond er één lege regel en moest je zelf bedenken wat
+   erin hoort. Terwijl dat per soort vastligt: een gelei heeft een vrucht, een
+   ganache heeft room en chocolade. Die regels staan er nu meteen, en waar het
+   kan met de naam uit je eigen ingrediëntenlijst erbij — anders zoekt de app
+   iets bij elkaar wat je niet hebt. Vindt hij niets, dan blijft de regel leeg
+   met de rol erin, zodat je ziet wat er hoort te komen.
+   De grammen vullen we niet in: dat is jouw recept, niet het onze. */
+const LAAGBASIS={
+  schelp:  [{rol:'chocolade',  zoek:['chocolade','callebaut','couverture','choc']}],
+  ganache: [{rol:'room',       zoek:['slagroom','room'], niet:['boter','ijs']},
+            {rol:'chocolade',  zoek:['chocolade','callebaut','couverture','choc']},
+            {rol:'boter',      zoek:['roomboter','boter']},
+            {rol:'glucose',    zoek:['glucose','dextrose']}],
+  gelei:   [{rol:'vrucht',     zoek:[], uitSmaak:true},
+            {rol:'suiker',     zoek:['kristalsuiker','suiker'], niet:['stroop','glucose']},
+            {rol:'pectine',    zoek:['pectine']},
+            {rol:'citroensap', zoek:['citroensap','citroenzuur','citroen']}],
+  praline: [{rol:'noten',      zoek:['hazelnoot','amandel','pistache','noten','noot']},
+            {rol:'suiker',     zoek:['kristalsuiker','suiker']},
+            {rol:'chocolade',  zoek:['chocolade','callebaut','couverture','choc']}]
+};
+
+/* Het eerste ingrediënt uit je eigen lijst dat op een van deze termen lijkt.
+   Met twee vangnetten: "room" zit ook in "roomboter", dus een rol kan woorden
+   uitsluiten. En wat al een regel hierboven vult, kan niet nog een tweede rol
+   vullen — anders staat je boter er twee keer in. */
+function zoekIng(termen, niet, bezet){
+  const alle=(alleIngredienten()||[]).filter(n=>!ingGearchiveerd(n));
+  const uit=(niet||[]), al=(bezet||[]);
+  for(let i=0;i<termen.length;i++){
+    const t=termen[i];
+    const hit=alle.find(n=>{
+      const k=String(n).toLowerCase();
+      if(al.indexOf(n)>=0) return false;
+      if(uit.some(u=>k.includes(u))) return false;
+      return k.includes(t);
+    });
+    if(hit) return hit;
+  }
+  return '';
+}
+
+/* de vrucht halen we uit de naam van de smaak: heet hij "Framboos & tonka" en
+   heb jij frambozenpuree op voorraad, dan is dat hem. Zo niet, dan blijft de
+   regel open — een vrucht raden is erger dan hem niet invullen. */
+function zoekVrucht(){
+  const alle=(alleIngredienten()||[]).filter(n=>!ingGearchiveerd(n));
+  const woorden=String(R.naam||'').toLowerCase()
+    .split(/[^a-zà-ÿ]+/).filter(w=>w.length>3);
+  for(let i=0;i<woorden.length;i++){
+    const hit=alle.find(n=>String(n).toLowerCase().includes(woorden[i]));
+    if(hit) return hit;
+  }
+  return '';
+}
+
+function basisIng(soortKey){
+  const rollen=LAAGBASIS[soortKey];
+  if(!rollen) return [{naam:'',deel:''}];
+  const bezet=[];
+  return rollen.map(r=>{
+    const naam = r.uitSmaak ? zoekVrucht() : zoekIng(r.zoek, r.niet, bezet);
+    if(naam) bezet.push(naam);
+    return {naam:naam, deel:'', rol:r.rol};
+  });
+}
+
 /* ═══════════ handelingen die je kunt aantikken ═══════════
    De eerste versie had vijf algemene regels per soort. Te weinig: een echte
    ganache splits je in delen, laat je trekken, giet je over de druppels en
@@ -20854,7 +20931,8 @@ function nieuweLaag(naam){
     return k;
   }
   const s0 = ondSoort(naam);
-  return {naam:naam||'', gram:s0?s0.gram:'', ing:[{naam:'',deel:''}],
+  return {naam:naam||'', gram:s0?s0.gram:'',
+          ing: s0 ? basisIng(s0.k) : [{naam:'',deel:''}],
           werkwijze:s0?(s0.ww||[]).slice():[], stap:s0?s0.stap:''};
 }
 
@@ -20876,7 +20954,7 @@ function schelpVoor(chocKey){
   const v=schelpVoorbeeld(chocKey);
   if(v) return JSON.parse(JSON.stringify(v));
   const s0=schelpSoort();
-  return {naam:s0.n, gram:s0.gram, ing:[{naam:'',deel:''}],
+  return {naam:s0.n, gram:s0.gram, ing:basisIng('schelp'),
           werkwijze:(s0.ww||[]).slice(), stap:s0.stap||''};
 }
 
@@ -21447,7 +21525,7 @@ function sheetOnderdeel(idx,stap){
     const pr=i.naam?ingPrijs(i.naam):null;
     return `<div class="ingrij">
     <button class="nm kies${i.naam?'':' leeg'}" data-inkies="${n}" data-naam="${esc(i.naam||'')}">
-      <span>${i.naam?esc(i.naam):'Kies een ingrediënt'}</span>
+      <span>${i.naam?esc(i.naam):(i.rol?'Kies je '+esc(i.rol):'Kies een ingrediënt')}</span>
       ${i.naam&&pr===null?`<i class="geenprijs">geen prijs</i>`:''}
     </button>
     <input class="hv" data-id2 type="text" inputmode="decimal" value="${esc(i.deel||'')}" placeholder="gram">
@@ -21500,14 +21578,21 @@ function sheetOnderdeel(idx,stap){
   /* De stapteller stond zowel in de kop als in de voortgangsbalk. Naast de
      "Stap 3 van 4" van de smaakwizard leverde dat twee tellers op één scherm
      op. De balk laat het al zien, dus de kop houdt het bij de titel. */
+  /* ═══════════ terug hoort naast volgende, niet eronder ═══════════
+     De knoppen zaten in een eigen omhulsel. Daardoor zag de voet één kind in
+     plaats van twee knoppen, gaf hij de rij geen breedte — hij werd 150 pixels
+     en ging in het midden staan — en viel "Vorige" als los kind op een regel
+     eronder. De voet heeft daar al een systeem voor: een tweede knop links,
+     de hoofdactie rechts. Zonder omhulsel doet hij dat vanzelf, en scheelt
+     het meteen een halve knophoogte aan voethoogte.
+     De overnemen-knop krijgt een eigen regel: die tekst is te lang om naast
+     twee knoppen te passen. */
   sheet('Onderdeel',
     body,
-    `<div class="wzknoppen">
-       ${over?`<button class="sec plat" id="oOver">${over}</button>`:''}
-       <button class="prim" id="oOk">${hoofd}</button></div>
-     ${stap>0?`<button class="sec terug" id="oTerug">${svg(I.terug,'2')}Vorige</button>`
-              :`<button class="sec terug" id="oTerug">${svg(I.terug,'2')}Terug naar smaak</button>`}
-     ${nieuw||stap>0?'':`<button class="sec" id="oWis">Onderdeel verwijderen</button>`}`);
+    `${over?`<button class="sec breed plat" id="oOver">${over}</button>`:''}
+     <button class="sec" id="oTerug">${svg(I.terug,'2')}${stap>0?'Vorige':'Terug naar smaak'}</button>
+     <button class="prim" id="oOk">${hoofd}</button>
+     ${nieuw||stap>0?'':`<button class="sec breed" id="oWis">Onderdeel verwijderen</button>`}`);
 
   /* ═══════════ stap 1: soort kiezen ═══════════ */
   if(st.k==='soort'){
