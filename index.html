@@ -2580,6 +2580,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
   background:var(--markeer);border-color:var(--choco-licht);color:var(--choco)}
 button.arij:active,.menurij:active,.orij:active,.rrij:active,.crij:active,
 .item:active{background:var(--markeer)}
+/* ═══════════ wat oplicht, moet ook iets doen ═══════════
+   Drieënnegentig rijen in de app zijn informatie: een gewicht, een bedrag, een
+   product dat van je voorraad afgaat. Ze zagen eruit als de rijen waar je wél
+   op kunt tikken én ze lichtten op onder je vinger — dus tikte je, gebeurde er
+   niets, en tikte je nog eens. Deze rijen blijven nu stil. Licht een rij op,
+   dan gebeurt er ook echt iets. */
+.arij.stil:active,.rrij.stil:active,.crij.stil:active,.item.stil:active{background:transparent}
 .duo button:active,.duo3 button:active{background:var(--markeer);color:var(--choco)}
 
 /* binnen de donkere hoofdkaart moet de druk juist oplichten, niet verdonkeren */
@@ -3511,7 +3518,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v582 · 7 sep 2026';
+const APPVERSIE='v583 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5301,10 +5308,10 @@ function sheetBeheer(){
 
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Gebruikers</span>${wacht}</div>
      <div class="paneel">
-       <div class="arij" style="cursor:default"><span class="naam">Actief deze week
+       <div class="arij stil"><span class="naam">Actief deze week
          <small>hoeveel mensen de app echt gebruiken</small></span>
          <span class="waarde">—</span></div>
-       <div class="arij" style="cursor:default"><span class="naam">Vastgelopen bij inrichten
+       <div class="arij stil"><span class="naam">Vastgelopen bij inrichten
          <small>begonnen maar niet afgemaakt</small></span>
          <span class="waarde">—</span></div>
        <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Nieuw deze maand
@@ -5313,7 +5320,7 @@ function sheetBeheer(){
 
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Support</span>${wacht}</div>
      <div class="paneel">
-       <div class="arij" style="cursor:default"><span class="naam">Open vragen
+       <div class="arij stil"><span class="naam">Open vragen
          <small>via de hulpknop in de app</small></span><span class="waarde">—</span></div>
        <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Langst wachtend
          <small></small></span><span class="waarde">—</span></div>
@@ -5321,9 +5328,9 @@ function sheetBeheer(){
 
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Abonnementen</span>${wacht}</div>
      <div class="paneel">
-       <div class="arij" style="cursor:default"><span class="naam">Betalend
+       <div class="arij stil"><span class="naam">Betalend
          <small></small></span><span class="waarde">—</span></div>
-       <div class="arij" style="cursor:default"><span class="naam">In proefperiode
+       <div class="arij stil"><span class="naam">In proefperiode
          <small></small></span><span class="waarde">—</span></div>
        <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Achterstallig
          <small></small></span><span class="waarde">—</span></div>
@@ -6194,7 +6201,7 @@ function dashboardHTML(){
     if(dek.length){
       h+=`<div class="blokkop"><span class="eyebrow">Kom je tekort</span>
           <span class="tel let">${dek.length}</span></div>
-        <div class="paneel">${dek.map(x=>`<div class="arij" style="cursor:default">
+        <div class="paneel">${dek.map(x=>`<div class="arij stil">
           <span class="ivak ${x.onbekend?'amber':'rood'}">${svg(I.doos)}</span>
           <span class="naam">${esc(x.naam)}<small>${x.onbekend?'staat niet in je voorraad'
             :'nodig '+toonHoeveel(x.nodig,'g')+' · aanwezig '+toonHoeveel(x.op,'g')}</small></span>
@@ -6271,7 +6278,7 @@ function dashboardHTML(){
             const ink=inkoopVan(x.product);
             const hoev=ink&&x.gram>0?Math.max(1,Math.ceil(x.gram/ink.basis))+' × '+inkoopTekst(ink)
               :(x.gram>0?toonHoeveel(x.gram,v?v.basis:'g'):'aanvullen');
-            return `<div class="arij" style="cursor:default">
+            return `<div class="arij stil">
               <span class="ivak amber">${svg(I.doos)}</span>
               <span class="naam">${esc(x.product)}<small>${v?'nu '+toonHoeveel(v.saldo,v.basis):'niet op voorraad'}</small></span>
               <span class="waarde gevuld">${hoev}</span></div>`}).join('')}</div>`;
@@ -6291,7 +6298,7 @@ function dashboardHTML(){
           :'vandaag op de rol')}</div>
       <button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button></div>
       <div class="blokkop"><span class="eyebrow">Vandaag</span><span class="tel">${taken.length}</span></div>
-      <div class="paneel">${taken.map(x=>`<div class="arij" style="cursor:default">
+      <div class="paneel">${taken.map(x=>`<div class="arij stil">
         <span class="ivak" style="background:${DAGSOORT[x.soort].kleur}22;color:${DAGSOORT[x.soort].kleur}">
           ${svg(I[DAGSOORT[x.soort].ico])}</span>
         <span class="naam">${esc(x.tekst)}<small>${DAGSOORT[x.soort].n.toLowerCase()}${
@@ -6312,7 +6319,7 @@ function dashboardHTML(){
     if(dek.length){
       h+=`<div class="blokkop"><span class="eyebrow">Nog te halen</span>
           <span class="tel ${bn!==null&&bn<=1?'let':''}">${dek.length}</span></div>
-        <div class="paneel">${dek.map(x=>`<div class="arij" style="cursor:default">
+        <div class="paneel">${dek.map(x=>`<div class="arij stil">
           <span class="ivak amber">${svg(I.doos)}</span>
           <span class="naam">${esc(x.naam)}<small>${x.onbekend?'staat niet in je voorraad'
             :'aanwezig '+toonHoeveel(x.op,'g')+' van '+toonHoeveel(x.nodig,'g')}</small></span>
@@ -7825,7 +7832,7 @@ function sheetUrenJaar(){
      <div class="paneel">${mnd.map(m=>{
        const d=new Date(m+'-01'), r=maandRegel(m);
        const g=geklokt[m]?urenGetal(geklokt[m]):0;
-       return `<div class="arij" style="cursor:default">
+       return `<div class="arij stil">
          <span class="naam">${MND[d.getMonth()]}${g?`<small>${komma(g)} uur geklokt</small>`:''}</span>
          <span class="qty"><input class="lotinp" style="width:84px" data-um="${m}" type="text"
            inputmode="decimal" placeholder="0" value="${r?komma(urenGetal(r.sec)):''}"></span>
@@ -8118,7 +8125,7 @@ function sheetHoeveel(){
          ${marktBalk(prijs,'bonbon')}</div>
 
        <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Per productiedag</span></div>
-       <div class="paneel">${r.map(x=>`<div class="arij" style="cursor:default">
+       <div class="paneel">${r.map(x=>`<div class="arij stil">
          <span class="naam">${x.perDag} bonbons${x.huidig?' \u00b7 nu':''}
            <small${x.past?'':' style="color:var(--amber)"'}>${
              komma(Math.round(x.dagUur*10)/10)} uur${x.past?'':' \u2014 past niet op \u00e9\u00e9n dag'} \u00b7 kostprijs ${euro(x.variabel)}${
@@ -8759,17 +8766,17 @@ Te betalen: ${euro(teBetalen)}`;
 
        <div class="blokkop"><span class="eyebrow">Omzet 9% — producten</span></div>
        <div class="paneel">
-         <div class="arij" style="cursor:default"><span class="naam">Exclusief btw</span>
+         <div class="arij stil"><span class="naam">Exclusief btw</span>
            <span class="waarde gevuld">${euro(sp.laagExcl)}</span></div>
-         <div class="arij" style="cursor:default"><span class="naam">Btw 9%</span>
+         <div class="arij stil"><span class="naam">Btw 9%</span>
            <span class="waarde gevuld">${euro(sp.laagBtw)}</span></div>
        </div>
 
        <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Omzet 21% — verzending en kado</span></div>
        <div class="paneel">
-         <div class="arij" style="cursor:default"><span class="naam">Exclusief btw</span>
+         <div class="arij stil"><span class="naam">Exclusief btw</span>
            <span class="waarde ${sp.hoogExcl?'gevuld':''}">${euro(sp.hoogExcl)}</span></div>
-         <div class="arij" style="cursor:default"><span class="naam">Btw 21%</span>
+         <div class="arij stil"><span class="naam">Btw 21%</span>
            <span class="waarde ${sp.hoogBtw?'gevuld':''}">${euro(sp.hoogBtw)}</span></div>
        </div>
        ${om.mist?`<div class="melding amber" style="margin-top:12px">${svg(I.alarm,'2')}
@@ -8778,13 +8785,13 @@ Te betalen: ${euro(teBetalen)}`;
 
        <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Voorbelasting</span></div>
        <div class="paneel">
-         <div class="arij" style="cursor:default"><span class="naam">Bonnen<small>${bns.length} stuks · ${euro(bonBedrag)}</small></span>
+         <div class="arij stil"><span class="naam">Bonnen<small>${bns.length} stuks · ${euro(bonBedrag)}</small></span>
            <span class="waarde gevuld">${euro(voorbelasting)}</span></div>
        </div>
 
        <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Ook aftrekbaar</span></div>
        <div class="paneel">
-         <div class="arij" style="cursor:default"><span class="naam">Zakelijke kilometers<small>${
+         <div class="arij stil"><span class="naam">Zakelijke kilometers<small>${
            getal(Math.round(kmKw))} km · geen btw, wel van de winst af</small></span>
            <span class="waarde gevuld">${euro(kmKw*kmTarief())}</span></div>
        </div>
@@ -8969,7 +8976,7 @@ function sheetAfspraak(klantId){
 
         <div class="blokkop"><span class="eyebrow">Lijstprijs excl. btw</span>
           <span class="tel">${lijst.length}</span></div>
-        <div class="paneel">${lijst.map(r=>`<div class="arij" style="cursor:default">
+        <div class="paneel">${lijst.map(r=>`<div class="arij stil">
           <span class="naam">${esc(r.naam)}<small>${euro(a.prijzen[r.id]*inh)} per ${inh}</small></span>
           <span class="waarde gevuld">${euro(a.prijzen[r.id])}</span></div>`).join('')}</div>
 
@@ -8980,13 +8987,13 @@ function sheetAfspraak(klantId){
           if(!dz.length) return '';
           return `<div class="blokkop" style="margin-top:24px">
               <span class="eyebrow">Doosjes excl. btw</span><span class="tel">${dz.length}</span></div>
-            <div class="paneel">${dz.map(d=>`<div class="arij" style="cursor:default">
+            <div class="paneel">${dz.map(d=>`<div class="arij stil">
               <span class="naam">${esc(d.naam)}${d.aantal?`<small>${d.aantal} bonbons</small>`:''}</span>
               <span class="waarde gevuld">${euro(d.prijs)}</span></div>`).join('')}</div>`;
         })()}
 
         <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Staffel</span></div>
-        <div class="paneel">${staffel().map(t=>`<div class="arij" style="cursor:default">
+        <div class="paneel">${staffel().map(t=>`<div class="arij stil">
           <span class="naam">Vanaf ${t.van} stuks</span>
           <span class="waarde gevuld">${t.pct?t.pct+'%':'—'}</span></div>`).join('')}</div>
 
@@ -9107,14 +9114,14 @@ ${B2B_AAN?`     <div class="blokkop" style="margin-top:26px"><span class="eyebro
          const kost=gemKost;
          const bx=(kost===null||b2bMarge()>=100)?null:mooiePrijs(kost/(1-b2bMarge()/100),0.05);
          const o=marktOordeel(bx,'zakelijk');
-         return `<div class="arij" style="cursor:default">
+         return `<div class="arij stil">
            <span class="naam">Per bonbon in bulk<small>${bx!==null
              ?'excl. btw'+(o?' \u00b7 '+o.kort:''):'kostprijs onvolledig'}</small></span>
            ${o?`<span class="stip ${o.klas}"></span>`:''}
            <span class="waarde gevuld">${bx!==null?euro(bx):''}</span></div>`})()}
        ${dozen.filter(d=>doosjeKosten(d).b2bExcl!==null).map(d=>{
          const k=doosjeKosten(d);
-         return `<div class="arij" style="cursor:default">
+         return `<div class="arij stil">
            <span class="naam">${esc(d.naam||'Doosje')}<small>${
              k.b2bAfnemer!==null?'winkel houdt '+k.b2bAfnemer+'% over':'excl. btw'}</small></span>
            ${k.b2bAfnemer!==null?`<span class="stip ${k.b2bAfnemer<40?'amber':'groen'}"></span>`:''}
@@ -9207,7 +9214,7 @@ function sheetPrijzenConsument(){
 
      ${lijst.length?`<div class="paneel">${met.map(x=>{
        const st=subVoor(x.a,x.eigen);
-       return `<div class="arij" style="cursor:default">
+       return `<div class="arij stil">
          <span class="naam">${esc(x.r.naam)}<small data-vksub="${x.r.id}"${
            st.kleur?` style="color:var(--${st.kleur})"`:''}>${st.tekst}</small></span>
          <span class="qty"><input class="lotinp" style="width:92px" data-vk="${x.r.id}" type="number"
@@ -9302,7 +9309,7 @@ function sheetB2B(){
         <span class="naam">${l}${extra?`<small>${extra}</small>`:''}</span>
         <span class="waarde gevuld">${w}</span>
         <span class="p">${svg(I.pijl,'2')}</span></button>`
-    : `<div class="arij" style="cursor:default">
+    : `<div class="arij stil">
         <span class="naam">${l}${extra?`<small>${extra}</small>`:''}</span>
         <span class="waarde gevuld">${w}</span></div>`;
 
@@ -10067,7 +10074,7 @@ function sheetKleurMogelijk(){
        <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Niet te maken</span>
          <span class="tel let">${mist.length}</span></div>
        <div class="paneel">${mist.map(m=>`
-         <div class="arij" style="cursor:default">
+         <div class="arij stil">
            <span class="ivak" style="background:${m.hex};color:transparent">.</span>
            <span class="naam">${esc(m.naam)}<small>${m.hulp
              ? 'lukt wel met '+esc(m.hulp)+' erbij' : 'ook met een extra kleur lastig'}</small></span>
@@ -10123,7 +10130,7 @@ function sheetKleurZoek(){
            <div><span class="vlak" style="background:${a.hex}"></span><em>wat eruit komt</em></div>
          </div>
          <div class="paneel" style="margin-top:14px">${a.delen.map(d=>`
-           <div class="arij" style="cursor:default">
+           <div class="arij stil">
              <span class="ivak" style="background:${esc(d.kleur.hex)};color:transparent">.</span>
              <span class="naam">${esc(d.kleur.naam)}<small>${
                d.kleur.enr?esc(d.kleur.enr):'geen E-nummer ingevuld'}</small></span>
@@ -10224,7 +10231,7 @@ function sheetKleur(idx){
            Welke tint eruit komt bepaal je zelf met een proefje — de app rekent de
            grammen, de kosten en de E-nummers uit.</p>
          <div class="paneel">${(k.delen||[]).length?(k.delen||[]).map((d,i)=>`
-           <div class="arij" style="cursor:default">
+           <div class="arij stil">
              <span class="naam">${esc((kleurVan(d.id)||{}).naam||'onbekend')}</span>
              <span class="pveld" style="max-width:110px"><input class="inp mini" data-mg="${i}"
                type="text" inputmode="decimal" value="${esc(d.gram)}"
@@ -10388,11 +10395,11 @@ function sheetKleurReken(){
 
        <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Wat je nodig hebt</span></div>
        <div class="paneel">
-         <div class="arij" style="cursor:default">
+         <div class="arij stil">
            <span class="naam"><b>Gekleurde boter</b><small>${
              komma(Math.round(r.perBonbon*1000)/1000)} g per bonbon</small></span>
            <span class="waarde gevuld">${komma(Math.round(r.nodig*10)/10)} g</span></div>
-         <div class="arij" style="cursor:default">
+         <div class="arij stil">
            <span class="naam">Cacaoboter</span>
            <span class="waarde gevuld">${komma(Math.round(r.boter*10)/10)} g</span></div>
          <div class="arij" style="cursor:default;border-bottom:0">
@@ -10408,7 +10415,7 @@ function sheetKleurReken(){
            const bron=kleurVan(d.id); if(!bron) return '';
            const bi=kleurInhoud(bron); const bp=bi.boter+bi.kleur;
            const aandeel=r.potje?(parseFloat(d.gram)/r.potje)*r.nodig:0;
-           return `<div class="arij" style="cursor:default">
+           return `<div class="arij stil">
              <span class="naam">${esc(bron.naam)}<small>${komma(d.gram)} g per potje</small></span>
              <span class="waarde gevuld">${komma(Math.round(aandeel*10)/10)} g</span></div>`}).join('')}</div>`:''}
        ${r.enrs.length?`<div class="melding" style="margin-top:12px">${svg(I.klembord,'2')}
@@ -10501,7 +10508,7 @@ function sheetGrondstofJaar(jaar){
      <div class="blokkop"><span class="eyebrow">Per grondstof</span>
        <span class="tel">${g.lijst.length}</span></div>
      <div class="paneel">${g.lijst.map(x=>`
-       <div class="arij" style="cursor:default">
+       <div class="arij stil">
          <span class="naam">${esc(x.naam)}<small>${komma((x.gram/1000).toFixed(3))} kg${
            g.grond?' · '+Math.round(x.euro/g.grond*100)+'% van je grondstofkosten':''}</small></span>
          <span class="waarde gevuld">${euro(x.euro)}</span></div>`).join('')}</div>
@@ -10708,16 +10715,16 @@ function sheetDoos(id){
        </div>
 
        <div class="paneel" style="margin-top:6px">
-         <div class="arij" style="cursor:default"><span class="naam">Verpakking<small>${
+         <div class="arij stil"><span class="naam">Verpakking<small>${
            k.regels.length? k.regels.map(x=>x.artikel+(x.aantal>1?' ×'+x.aantal:'')).join(', ')
            :'nog niets gekozen'}</small></span>
            <span class="waarde gevuld">${euro(k.verp)}</span></div>
-         <div class="arij" style="cursor:default"><span class="naam">${k.bonbons||0} bonbons<small>${
+         <div class="arij stil"><span class="naam">${k.bonbons||0} bonbons<small>${
            k.perBonbon===null?'nog geen kostprijs per bonbon'
            :euro(k.perBonbon)+' per stuk · '+esc(k.bron)}</small></span>
            <span class="waarde ${k.inhoud===null?'let':'gevuld'}">${
              k.inhoud===null?'—':euro(k.inhoud)}</span></div>
-         ${k.afTotaal>0?`<div class="arij" style="cursor:default" data-doosaf>
+         ${k.afTotaal>0?`<div class="arij stil" data-doosaf>
            <span class="naam">Niet gebruikte verpakking<small>${
              k.afLijst.map(x=>esc(x.naam)).join(', ')} \u00b7 ${euro(k.afTotaal)} betaald${
              k.afOnbekend?'' : ' \u00b7 over '+getal(getalIn0(S.doosPerJaar))+' dozen per jaar'}</small></span>
@@ -10742,7 +10749,7 @@ function sheetDoos(id){
            placeholder="Bijv. 14,50"></div>
        ${pr?`<div class="paneel">
          ${['b2c','b2b'].map(kk=>{const x=pr[kk]; if(!x) return '';
-           return `<div class="arij" style="cursor:default">
+           return `<div class="arij stil">
              <span class="naam">${kk==='b2c'?'Consument':'Zakelijk'}<small>${
                euro(x.prijs)} ${kk==='b2c'?'exclusief btw':'exclusief btw'} \u00b7 kostprijs ${euro(k.totaal)}</small></span>
              <span class="waarde" style="color:${x.marge<=0?'var(--rood)':x.pct<40?'var(--amber)':'var(--groen)'}">
@@ -10854,10 +10861,10 @@ function sheetOfferte(){
          <small>${stuks} ${stuks===1?'doos':'dozen'} · ${getal(bonbons)} bonbons</small>
        </div>
        <div class="paneel" style="margin-top:14px">
-         <div class="arij" style="cursor:default"><span class="naam">Wat het je kost<small>${
+         <div class="arij stil"><span class="naam">Wat het je kost<small>${
            kostOnbekend?'niet compleet — vul de ontbrekende prijzen in':'verpakking, bonbons en afschrijving'}</small></span>
            <span class="waarde ${kostOnbekend?'let':'gevuld'}">${kostOnbekend?'—':euro(kost)}</span></div>
-         <div class="arij" style="cursor:default"><span class="naam">Zakelijk, exclusief btw<small>${
+         <div class="arij stil"><span class="naam">Zakelijk, exclusief btw<small>${
            b2bOnbekend?'niet elke doos heeft een zakelijke prijs':'wat je factureert'}</small></span>
            <span class="waarde ${b2bOnbekend?'let':'gevuld'}">${b2bOnbekend?'—':euro(b2b)}</span></div>
          ${(!kostOnbekend&&!b2bOnbekend)?`
@@ -10991,15 +10998,15 @@ function sheetKostprijzen(){
 
       <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Je productie</span></div>
       ${pr.batches?`<div class="paneel">
-        <div class="arij" style="cursor:default"><span class="naam">Afgeronde batches<small>${
+        <div class="arij stil"><span class="naam">Afgeronde batches<small>${
           pr.batches===1?'één batch':pr.batches+' batches'} \u00b7 ${getal(Math.round(pr.perBatch))} bonbons gemiddeld</small></span>
           <span class="waarde gevuld">${getal(pr.goed)}</span></div>
-        <div class="arij" style="cursor:default"><span class="naam">Grondstof per bonbon<small>uit wat je werkelijk verbruikt hebt</small></span>
+        <div class="arij stil"><span class="naam">Grondstof per bonbon<small>uit wat je werkelijk verbruikt hebt</small></span>
           <span class="waarde gevuld">${pr.grondPerStuk!==null?euro(pr.grondPerStuk):'—'}</span></div>
-        <div class="arij" style="cursor:default"><span class="naam">Afkeur<small>${
+        <div class="arij stil"><span class="naam">Afkeur<small>${
           pr.afkeur} van ${getal(pr.goed+pr.afkeur)} stuks</small></span>
           <span class="waarde ${pr.dervingPct>10?'let':'gevuld'}">${komma(getal(pr.dervingPct))}%</span></div>
-        ${pr.urenPerStuk?`<div class="arij" style="cursor:default">
+        ${pr.urenPerStuk?`<div class="arij stil">
           <span class="naam">Tijd per bonbon<small>${komma(getal(pr.uren))} uur over ${pr.batches} batches</small></span>
           <span class="waarde gevuld">${komma(getal(pr.urenPerStuk))} min</span></div>`:''}
       </div>`
@@ -11027,7 +11034,7 @@ function sheetKostenbasis(){
 
      <div class="blokkop"><span class="eyebrow">Vaste lasten</span>
        <span class="tel">${maand?euro(maand)+' per maand':'nog niets'}</span></div>
-     <div class="paneel">${posten.length?posten.map((x,i)=>`<div class="arij" style="cursor:default">
+     <div class="paneel">${posten.length?posten.map((x,i)=>`<div class="arij stil">
        <span class="naam">${esc(x.naam)}<small>${x.per==='jaar'?'per jaar':'per maand'}</small></span>
        <span class="waarde gevuld">${euro(parseFloat(x.bedrag)||0)}</span>
        <button class="wisbtn" data-vlwis="${i}">${svg(I.kruis,'2')}</button>
@@ -11047,7 +11054,7 @@ function sheetKostenbasis(){
          Verwijderen doe je met het kruisje bij de post.</div></div>
 
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Waar smeer je dat over uit</span></div>
-     <div class="paneel"><div class="arij" style="cursor:default">
+     <div class="paneel"><div class="arij stil">
        <span class="naam">Bonbons per maand<small>${
          p.bron==='maanden'
            ? p.som+' over '+p.maanden+(p.maanden===1?' maand':' maanden')+
@@ -11091,7 +11098,7 @@ function sheetKostenbasis(){
              : 'Blijft netjes binnen de perken.')}</span></div>`:''}
 
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Derving</span></div>
-     <div class="paneel"><div class="arij" style="cursor:default">
+     <div class="paneel"><div class="arij stil">
        <span class="naam">Wat sneuvelt er<small>${
          d.bron==='gemeten'?'gemeten uit '+d.batches+' '+(d.batches===1?'batch':'batches')+
            ' · '+d.afkeur+' afkeur op '+(d.goed+d.afkeur)
@@ -11379,7 +11386,7 @@ function sheetOpenstaand(){
 function sheetWinst(){
   const teken=(jaar,kw)=>{
     const w=winstVan(jaar,kw);
-    const rij=(l,b,sub)=>`<div class="arij" style="cursor:default">
+    const rij=(l,b,sub)=>`<div class="arij stil">
       <span class="naam">${l}${sub?`<small>${sub}</small>`:''}</span>
       <span class="waarde gevuld">${b<0?'−':''}${euro(Math.abs(b))}</span></div>`;
     sheet('Winst en verlies',
@@ -11444,13 +11451,13 @@ function sheetUurtarief(){
           <span class="naam">Bonbons dit jaar<small>ingevuld en gemeten samen</small></span>
           <span class="waarde gevuld">${r.stuks}</span>
           <span class="p">${svg(I.pijl,'2')}</span></button>
-        ${r.prodUren!==null?`<div class="arij" style="cursor:default">
+        ${r.prodUren!==null?`<div class="arij stil">
           <span class="naam">Daarvan produceren<small>${pct}% van je tijd</small></span>
           <span class="waarde gevuld">${komma(Math.round(r.prodUren*10)/10)} uur</span></div>
-        <div class="arij" style="cursor:default">
+        <div class="arij stil">
           <span class="naam">Komt neer op<small>productie-uren \u00f7 je bonbons</small></span>
           <span class="waarde gevuld" style="font-weight:700">${euro(r.perStukProd)}</span></div>`
-        :`<div class="arij" style="cursor:default">
+        :`<div class="arij stil">
           <span class="naam">Zou neerkomen op<small>al je uren \u00f7 al je bonbons</small></span>
           <span class="waarde gevuld" style="font-weight:700">${euro(r.perStuk)}</span></div>`}
       </div>
@@ -11483,7 +11490,7 @@ function sheetUurtarief(){
       .filter((v,i,a)=>v>0&&a.indexOf(v)===i);
     return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Als je meer op een dag maakt</span></div>
       <div class="paneel">${rijen.map(k=>{const x=arbeidModel(k);
-        return `<div class="arij" style="cursor:default">
+        return `<div class="arij stil">
           <span class="naam">${k} bonbons<small>${komma(Math.round(x.dagUur*10)/10)} uur werk</small></span>
           <span class="waarde gevuld"${k===m.stuks?' style="font-weight:700"':''}>${euro(x.perStuk)}</span>
         </div>`}).join('')}</div>
@@ -11526,23 +11533,23 @@ function sheetUurtarief(){
        ? `<div class="melding groen">${svg(I.vink,'2')}<span>Je hebt ${ap.batches}
            ${ap.batches===1?'batch':'batches'} afgerond; de app rekent met je gemeten tijd
            en negeert de schatting hierboven.</span></div>
-          <div class="paneel"><div class="arij" style="cursor:default">
+          <div class="paneel"><div class="arij stil">
             <span class="naam">Arbeid per bonbon<small>${komma(ap.uren)} uur over ${ap.stuks}
               bonbons</small></span>
             <span class="waarde gevuld">${euro(ap.perStuk)}</span></div></div>`
        : (m
          ? `<div class="paneel">
-              <div class="arij" style="cursor:default">
+              <div class="arij stil">
                 <span class="naam">Je tempo<small>${n} in ${komma(Math.round((dag-vast)*10)/10)}
                   uur maken</small></span>
                 <span class="waarde gevuld">${Math.round(tempo)} per uur</span></div>
-              ${vast?`<div class="arij" style="cursor:default">
+              ${vast?`<div class="arij stil">
                 <span class="naam">Vaste dagtijd<small>${komma(vast)} uur \u00f7 ${m.stuks} bonbons</small></span>
                 <span class="waarde gevuld">${euro(m.vastDeel)}</span></div>`:''}
-              <div class="arij" style="cursor:default">
+              <div class="arij stil">
                 <span class="naam">Maken<small>${euro(t)} \u00f7 ${Math.round(tempo)} per uur</small></span>
                 <span class="waarde gevuld">${euro(m.tempoDeel)}</span></div>
-              <div class="arij" style="cursor:default">
+              <div class="arij stil">
                 <span class="naam">Arbeid per bonbon<small>dag van ${komma(Math.round(m.dagUur*10)/10)} uur</small></span>
                 <span class="waarde gevuld" style="font-weight:700">${euro(m.perStuk)}</span></div>
             </div>
@@ -11740,7 +11747,7 @@ function sheetFactuur(id){
            wettelijk op moeten staan. Zonder die gegevens is hij ongeldig en kan je klant
            de btw niet aftrekken.</span></div>
        <div class="paneel" style="margin-top:14px">${mist.map(m=>`
-         <div class="arij" style="cursor:default">
+         <div class="arij stil">
            <span class="ivak rood">${svg(I.alarm)}</span>
            <span class="naam">${esc(m[0].toUpperCase()+m.slice(1))}</span></div>`).join('')}</div>`,
       `<button class="prim" style="margin-top:0" id="fcNaar">Bedrijfsprofiel invullen</button>`),
@@ -12241,13 +12248,13 @@ function geldHTML(){
   }
 
   h+=`<div class="paneel">
-      <div class="arij" style="cursor:default">
+      <div class="arij stil">
         <span class="naam">Dit kwartaal<small>Q${kw0} · ${komma(kmTarief())} per km</small></span>
         <span class="waarde ${kwK?'gevuld':''}">${getal(Math.round(kwK))} km · ${euro(kwK*kmTarief())}</span></div>
-      <div class="arij" style="cursor:default">
+      <div class="arij stil">
         <span class="naam">Dit jaar<small>aftrekbaar van je winst</small></span>
         <span class="waarde ${zak?'gevuld':''}">${getal(Math.round(zak))} km · ${euro(zak*kmTarief())}</span></div>
-      ${autoVanDeZaak()?`<div class="arij" style="cursor:default">
+      ${autoVanDeZaak()?`<div class="arij stil">
         <span class="naam">Privé dit jaar<small>${pri>500
           ?'meer dan 500 km — je ontkomt niet aan bijtelling'
           :'nog '+getal(Math.round(500-pri))+' km tot de grens van 500'}</small></span>
@@ -13086,7 +13093,7 @@ function sheetKlant(id){
        <span class="tel">${open.length?open.length+' open':orders.length||'geen'}</span></div>
      <div class="paneel">${orders.length?orders.slice(0,8).map(o=>{
        const n=(o.regels||[]).reduce((m,rg)=>m+(rg.aantal||0),0);
-       return `<div class="arij" style="cursor:default">
+       return `<div class="arij stil">
          <span class="naam">${esc(o.nummer||'order')}<small>${n} ${n===1?'bonbon':'bonbons'}${
            o.leverdatum?' · '+kort(new Date(o.leverdatum)):''}</small></span>
          <span class="waarde ${o.status==='nieuw'?'gevuld':''}">${o.status==='nieuw'?'open':'klaar'}</span>
@@ -13736,11 +13743,11 @@ function sheetGrondstof(product,deel){
      ${(()=>{const pl=(S.lots||[]).filter(x=>gKey(x.product)===gKey(product)&&x.plek)
         .map(x=>x.plek); const uniek=[...new Set(pl)];
        return uniek.length?`<div class="blokkop"><span class="eyebrow">Opslag</span></div>
-         <div class="paneel"><div class="arij" style="cursor:default">
+         <div class="paneel"><div class="arij stil">
            <span class="naam">${esc(uniek.join(' · '))}<small>waar je het bij ontvangst hebt neergelegd</small></span>
          </div></div>`:''})()}
      ${regels.length?`<div class="blokkop"><span class="eyebrow">Historie</span></div>
-       <div class="paneel">${regels.slice(0,10).map(m=>`<div class="arij" style="cursor:default">
+       <div class="paneel">${regels.slice(0,10).map(m=>`<div class="arij stil">
          <span class="naam">${esc(m.reden||'Mutatie')}<small>${kort(new Date(m.datum))} ${esc(m.tijd)}${m.lot?' · lot '+esc(m.lot):''}</small></span>
          <span class="waarde gevuld">${m.aantal<0?'−':'+'}${toonHoeveel(Math.abs(naarBasis(m.aantal,m.eenheid)),basis)}</span>
        </div>`).join('')}</div>`:''}
@@ -14013,7 +14020,7 @@ function dekkingBlok(regels,receptenBron){
     : `<div class="melding groen" style="margin-bottom:12px">${svg(I.vink,'2')}
         <span>Je hebt alles in huis voor deze batch.</span></div>`;
   return `${kop}<div class="blokkop"><span class="eyebrow">Dekking grondstoffen</span></div>
-    <div class="paneel">${d.map(x=>`<div class="arij" style="cursor:default">
+    <div class="paneel">${d.map(x=>`<div class="arij stil">
       <span class="naam">${esc(x.naam)}<small>${x.onbekend?'niet in voorraad'
         :'nodig '+toonHoeveel(x.nodig,'g')+' · aanwezig '+toonHoeveel(x.op,'g')}</small></span>
       ${x.tekort?`<span class="stip ${x.onbekend?'amber':'rood'}"></span>`:''}
@@ -14730,7 +14737,7 @@ function sheetPlanning(){
            if(t.soort==='haccp'&&t.check)
              return `<button class="arij" data-haccpdoe="${t.check.doe}">${binnen}
                <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
-           return `<div class="arij" style="cursor:default">${binnen}
+           return `<div class="arij stil">${binnen}
              ${t.los?`<button class="wisbtn" data-taakwis="${t.los.id}">${svg(I.kruis,'2')}</button>`:''}
              ${t.verzend&&t.verzend.o?`<button class="miniknop" data-verzonden="${t.verzend.o.id}">Verzonden</button>`:''}
            </div>`}).join('')}
@@ -14862,7 +14869,7 @@ function sheetPlanDetail(id){
 
      <div class="blokkop"><span class="eyebrow">Voorbereiding</span>
        <span class="tel">${stappen.length}</span></div>
-     <div class="paneel">${stappen.length?stappen.map((s,i)=>`<div class="arij" style="cursor:default">
+     <div class="paneel">${stappen.length?stappen.map((s,i)=>`<div class="arij stil">
        <span class="naam">${esc(s.tekst)}<small>${kort(new Date(s.datum))}</small></span>
        ${s.vast?`<span class="waarde">volgt uit de levertijd</span>`
          :`<button class="wisbtn" data-stapwis="${i}">${svg(I.kruis,'2')}</button>`}
@@ -14968,7 +14975,7 @@ function sheetVooruit(){
           const hoe=ink&&nodig>0
             ? Math.max(1,Math.ceil(nodig/ink.basis))+' × '+inkoopTekst(ink)
             : toonHoeveel(nodig,basis);
-          return `<div class="arij" style="cursor:default">
+          return `<div class="arij stil">
             <span class="naam">${esc(x.naam)}<small>tekort ${toonHoeveel(x.tekort,basis)}</small></span>
             <span class="waarde gevuld">${esc(hoe)}</span></div>`}).join('')}</div>`).join('')}`,
     r.per.length?`<button class="prim" style="margin-top:0" id="vuOp">Alles op mijn lijst zetten</button>
@@ -15047,7 +15054,7 @@ function sheetKlaar(){
      ${af.length?`<div class="blokkop" style="margin-top:24px">
          <span class="eyebrow">Staat goed</span><span class="tel">${af.length}</span></div>
        <div class="paneel">${af.map(x=>`
-         <div class="arij" style="cursor:default">
+         <div class="arij stil">
            <span class="ivak groen">${svg(I.vink)}</span>
            <span class="naam">${esc(x.titel)}</span></div>`).join('')}</div>`:''}`,'');
 
@@ -15099,7 +15106,7 @@ function sheetBoodschappen(){
            <div class="paneel">${per[g].map(x=>{
              const h=hoeveel(x);
              const v=grondVoorraad().find(y=>gKey(y.product)===gKey(x.product));
-             return `<div class="arij" style="cursor:default">
+             return `<div class="arij stil">
                <span class="ivak ${x.reden==='batch'?'amber':''}">${svg(x.reden==='batch'?I.vorm:I.doos)}</span>
                <span class="naam">${esc(x.product)}<small>${
                  x.reden==='batch'?'nodig voor een batch':'onder je drempel'}${
@@ -15245,7 +15252,7 @@ function sheetTHT(){
      ${!lijst.length?`<div class="paneel"><div class="rustig"><div class="ico">${svg(I.vink,'2.2')}</div>
        <p>Niets loopt af.<br>Alles heeft nog meer dan twee weken.</p></div></div>`:''}
      <div class="blokkop" style="margin-top:26px"><span class="eyebrow">Derving ${jaar}</span></div>
-     <div class="paneel"><div class="arij" style="cursor:default">
+     <div class="paneel"><div class="arij stil">
        <span class="naam">Weggegooid dit jaar<small>alleen wat je met prijs hebt vastgelegd</small></span>
        <span class="waarde gevuld">${euro(bedrag)}</span></div></div>`,
     over.length?`<button class="prim" style="margin-top:0" id="thtAlles">Alles over datum afboeken</button>`:'');
@@ -15385,7 +15392,7 @@ function sheetWaardering(){
          (SOORTEN[k]||{naam:k}).naam}</span><span class="tel">${euro(perSoort[k].w)}</span></div>
          <div class="paneel">${lijst.filter(v=>v.soort===k).map(v=>{
            const pr=gPrijs(v.product);
-           return `<div class="arij" style="cursor:default">
+           return `<div class="arij stil">
              <span class="naam">${esc(v.product)}<small>${toonHoeveel(v.saldo,v.basis)}${
                pr===null?' · geen inkoopprijs':''}</small></span>
              <span class="waarde ${pr===null?'':'gevuld'}">${pr===null?'—':euro(v.saldo*pr)}</span></div>`}).join('')}</div>`).join('')}`,
@@ -15575,7 +15582,7 @@ function sheetTrace(vooraf){
       const klanten=[...new Set(bs.flatMap(b=>ordersMetBatch(b.code).map(o=>klantNaam(o.klantId))))];
       if(klanten.length) body+=`<div class="blokkop"><span class="eyebrow">Uiteindelijk naar</span>
         <span class="tel">${klanten.length}</span></div>
-        <div class="paneel">${klanten.map(k=>`<div class="arij" style="cursor:default">
+        <div class="paneel">${klanten.map(k=>`<div class="arij stil">
           <span class="naam">${esc(k)}</span></div>`).join('')}</div>`;
     }
 
@@ -15589,7 +15596,7 @@ function sheetTrace(vooraf){
 
       body+=`<div class="blokkop"><span class="eyebrow">Eén stap terug — wat erin zat</span>
         <span class="tel">${gs.length}</span></div>`;
-      body+=gs.length?`<div class="paneel">${gs.map(g=>`<div class="arij" style="cursor:default">
+      body+=gs.length?`<div class="paneel">${gs.map(g=>`<div class="arij stil">
         <span class="naam">${esc(g.naam)}<small>${g.lots.map(l=>
           'lot '+esc(l.lot)+(l.leverancier?' · '+esc(l.leverancier):'')+
           (l.tht?' · THT '+kort(new Date(l.tht)):'')).join('<br>')}</small></span></div>`).join('')}</div>`
@@ -15609,7 +15616,7 @@ function sheetTrace(vooraf){
 
       const oms=omstandighedenVan(b);
       body+=`<div class="blokkop"><span class="eyebrow">Onder welke omstandigheden</span></div>
-        <div class="paneel">${oms.map(x=>`<div class="arij" style="cursor:default">
+        <div class="paneel">${oms.map(x=>`<div class="arij stil">
           <span class="naam" style="${x.let?'':''}">${esc(x.titel)}<small>${esc(x.onder)}</small></span>
           <span class="waarde gevuld" ${x.let?'style="color:var(--amber)"':''}>${x.t}</span></div>`).join('')}</div>`;
 
@@ -15632,7 +15639,7 @@ function sheetTrace(vooraf){
           <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')).join('')}</div>`
        :`<div class="paneel"><div class="geen">Nog niet ingepakt, dus nog geen batches gekoppeld.</div></div>`;
       if(o.verpakking&&o.verpakking.length) body+=`<div class="blokkop"><span class="eyebrow">Verpakking</span></div>
-        <div class="paneel">${o.verpakking.map(v=>`<div class="arij" style="cursor:default">
+        <div class="paneel">${o.verpakking.map(v=>`<div class="arij stil">
           <span class="naam">${esc(v.product)}</span><span class="waarde gevuld">${v.aantal} st</span></div>`).join('')}</div>`;
     }
 
@@ -15915,10 +15922,10 @@ function sheetInkoop(id){
        </div>
 
        <div class="paneel" style="margin-top:8px">
-         <div class="arij" style="cursor:default"><span class="naam">Goederen<small>${
+         <div class="arij stil"><span class="naam">Goederen<small>${
            k.regels.length} ${k.regels.length===1?'regel':'regels'}</small></span>
            <span class="waarde gevuld">${t(k.goed)}</span></div>
-         ${k.vracht?`<div class="arij" style="cursor:default"><span class="naam">Vracht<small>${
+         ${k.vracht?`<div class="arij stil"><span class="naam">Vracht<small>${
            getal(k.opslag*100)}% over de goederen verdeeld</small></span>
            <span class="waarde gevuld">${t(k.vracht)}</span></div>`:''}
          <div class="arij" style="cursor:default;background:var(--bg)">
@@ -15932,7 +15939,7 @@ function sheetInkoop(id){
        ${k.compleet?`
        <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Wat het per stuk wordt</span></div>
        <div class="paneel">${k.regels.map(r=>`
-         <div class="arij" style="cursor:default">
+         <div class="arij stil">
            <span class="naam">${esc(r.artikel)}<small>${getal(r.aantal)} × ${
              t(r.prijs)} + vracht</small></span>
            <span class="waarde gevuld">${euro(r.perStuk)}<small style="display:block;font-size:11px">${
@@ -16224,7 +16231,7 @@ function sheetVerpakkingNieuw(){
     const lijst=maak();
     $('#vVoor').innerHTML=lijst.length
       ? `<div class="blokkop"><span class="eyebrow">Wordt aangemaakt</span><span class="tel">${lijst.length}</span></div>
-         <div class="paneel">${lijst.slice(0,14).map(x=>`<div class="arij" style="cursor:default">
+         <div class="paneel">${lijst.slice(0,14).map(x=>`<div class="arij stil">
            <span class="naam">${esc(x.naam)}</span></div>`).join('')}
            ${lijst.length>14?`<div class="geen">en nog ${lijst.length-14}…</div>`:''}</div>`
       : '';
@@ -16603,11 +16610,11 @@ function agendaHTML(){
     const so=DAGSOORT[t.soort]||{n:'Overig',kleur:'var(--grijs)',ico:'klembord'};
     const w=wacht(t);
     /* een klus kun je afvinken; dan schuift hij niet meer mee */
-    if(t.los) return `<div class="arij${w?' telaat':''}" style="cursor:default">
+    if(t.los) return `<div class="arij stil${w?' telaat':''}">
       <button class="taakvink" data-taakaf="${esc(t.los.id)}" aria-label="Afvinken"></button>
       <span class="naam">${esc(t.tekst||so.n)}<small>${w?'<b>'+esc(w)+'</b>':so.n.toLowerCase()}${
         t.tijd?' · '+esc(t.tijd):''}</small></span></div>`;
-    return `<div class="arij" style="cursor:default">
+    return `<div class="arij stil">
       <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
       <span class="naam">${esc(t.tekst||so.n)}<small>${so.n.toLowerCase()}${
         t.tijd?' · '+esc(t.tijd):''}</small></span></div>`;
@@ -18474,7 +18481,7 @@ function sheetAfronden(){
        const rijen=Object.values(per).sort((a,b2)=>b2.gram-a.gram);
        const nogniet=rijen.filter(r=>r.onbekend);
        return `<div class="veld"><label>Gaat van je voorraad af</label>
-         <div class="paneel">${rijen.map(r=>`<div class="arij" style="cursor:default">
+         <div class="paneel">${rijen.map(r=>`<div class="arij stil">
            <span class="naam">${esc(r.product)}${r.onbekend?'<small>staat nog niet in je voorraad</small>':''}</span>
            <span class="waarde gevuld">−${toonHoeveel(r.gram,'g')}</span></div>`).join('')}</div>
          ${nogniet.length?`<div class="geen" style="padding-top:8px">Voor ${
@@ -21115,7 +21122,7 @@ function smaakStap4(){
     `<p class="hint">Schrijf per stap wat je doet. Tijdens het maken krijg je ze vanzelf te zien,
       met timer als je een tijd noemt. Mag ook leeg blijven.</p>
      ${(R.stappen||[]).length?`<div class="paneel" style="margin-bottom:12px">${
-       R.stappen.map((x,i)=>`<div class="arij" style="cursor:default">
+       R.stappen.map((x,i)=>`<div class="arij stil">
          <span class="ivak">${svg(I.doc)}</span>
          <span class="naam">${esc(insT(x))}<small>${insB(x)?esc(insB(x).toLowerCase()):'niet aan een stap gekoppeld'}</small></span>
          <button class="wisbtn" data-wisins="${i}">${svg(I.kruis,'2')}</button></div>`).join('')}</div>`:''}
@@ -22704,15 +22711,15 @@ function sheetData(){
     `<p class="hint">Een bestand met al je gegevens. Bewaar het ergens veilig, of gebruik
        het om alles naar een ander toestel te halen.</p>
      <div class="paneel" style="margin-bottom:16px">
-       <div class="arij" style="cursor:default"><span class="naam">Smaken</span>
+       <div class="arij stil"><span class="naam">Smaken</span>
          <span class="waarde gevuld">${(S.recepten||[]).length}</span></div>
-       <div class="arij" style="cursor:default"><span class="naam">Batches</span>
+       <div class="arij stil"><span class="naam">Batches</span>
          <span class="waarde gevuld">${(S.batches||[]).length}</span></div>
-       <div class="arij" style="cursor:default"><span class="naam">Orders</span>
+       <div class="arij stil"><span class="naam">Orders</span>
          <span class="waarde gevuld">${(S.orders||[]).length}</span></div>
-       <div class="arij" style="cursor:default"><span class="naam">Partijen en lotnummers</span>
+       <div class="arij stil"><span class="naam">Partijen en lotnummers</span>
          <span class="waarde gevuld">${(S.lots||[]).length}</span></div>
-       <div class="arij" style="cursor:default"><span class="naam">Foto's</span>
+       <div class="arij stil"><span class="naam">Foto's</span>
          <span class="waarde gevuld">${fotoIds.length}</span></div>
        <div class="arij" style="cursor:default;border-bottom:0"><span class="naam">Grootte zonder foto's</span>
          <span class="waarde gevuld">${kb} kB</span></div>
@@ -23612,7 +23619,7 @@ function ingHistBinden(){
          .concat(lijst).map((x,i,alles)=>{
            const vorig=alles[i+1];
            const pct=(vorig&&vorig.kilo)?Math.round((x.kilo-vorig.kilo)/vorig.kilo*100):null;
-           return `<div class="arij" style="cursor:default">
+           return `<div class="arij stil">
              <span class="naam">${x.datum?kort(new Date(x.datum)):'\u2014'}${
                x.nu?'<small>staat nu ingevuld</small>':''}</span>
              <span class="waarde gevuld">${euro(x.kilo)}<em>/kg</em>${
@@ -23897,7 +23904,7 @@ function sheetProductieJaar(){
 
      <div class="paneel">${mnd.map(m=>{
        const d=new Date(m+'-01'), v=pm[m];
-       return `<div class="arij" style="cursor:default">
+       return `<div class="arij stil">
          <span class="naam">${MND[d.getMonth()]}${gemeten[m]?`<small>${gemeten[m]} uit batches</small>`:''}</span>
          <span class="qty"><input class="lotinp" style="width:92px" data-pm="${m}" type="number"
            inputmode="numeric" placeholder="${gemeten[m]||''}"
@@ -25384,10 +25391,10 @@ function sheetVerpakking(naam,terug){
       : 'Hier haal ik niets uit. Staat de tabel er wel bij?';
     $('#vpVoor').innerHTML=ok?`<div class="paneel" style="margin-top:14px">
       ${VOEDING.filter(x=>gevonden.vw[x.k]!==undefined).map(x=>`
-        <div class="arij" style="cursor:default">
+        <div class="arij stil">
           <span class="naam">${x.n}${x.in?' ':''}</span>
           <span class="waarde gevuld">${komma(getal(gevonden.vw[x.k]))} ${x.e}</span></div>`).join('')}
-      ${gevonden.al.length?`<div class="arij" style="cursor:default">
+      ${gevonden.al.length?`<div class="arij stil">
         <span class="naam">Allergenen</span>
         <span class="waarde gevuld">${gevonden.al.map(alNaam).join(', ')}</span></div>`:''}
       ${gevonden.ing.length?`<div class="arij" style="cursor:default;align-items:flex-start">
@@ -27061,7 +27068,7 @@ function sheetStoringen(){
     lijst.length
       ? `<p class="hint">Wat er misging terwijl je aan het werk was. Stuur deze
           lijst door als iets niet werkt zoals het hoort.</p>
-         <div class="paneel">${lijst.map(x=>`<div class="arij" style="cursor:default">
+         <div class="paneel">${lijst.map(x=>`<div class="arij stil">
            <span class="naam">${esc(x.fout)}<small>${esc(x.waar)} · ${esc(x.tijd)}${
              /* De stapel stond wel in de kopieertekst maar niet op het scherm,
                 dus je moest hem eerst kopiëren en ergens plakken om te zien
@@ -27098,7 +27105,7 @@ function sheetBackup(){
       :`<div class="melding amber">${svg(I.alarm,'2')}
         <span>Je hebt nog nooit een back-up gemaakt.</span></div>`}
      <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Wat erin komt</span></div>
-     <div class="paneel"><div class="arij" style="cursor:default">
+     <div class="paneel"><div class="arij stil">
        <span class="naam">Je hele administratie<small>${esc(backupTekst(nu2))}</small></span>
      </div></div>
      <p class="hint" style="margin-top:16px">Bewaar het bestand ergens buiten je
@@ -27152,10 +27159,10 @@ function sheetBackup(){
       const t=backupTellen(d);
       const gemaakt=d._backup&&d._backup.gemaakt?kort(new Date(d._backup.gemaakt)):'onbekend';
       $('#buVoor').innerHTML=`<div class="paneel" style="margin-top:14px">
-        <div class="arij" style="cursor:default">
+        <div class="arij stil">
           <span class="naam">Back-up van ${esc(gemaakt)}<small>${esc(backupTekst(t))}</small></span>
         </div>
-        <div class="arij" style="cursor:default">
+        <div class="arij stil">
           <span class="naam">Wat er nu in de app staat<small>${esc(backupTekst(nu2))}</small></span>
         </div></div>
         <div class="melding amber" style="margin-top:12px">${svg(I.alarm,'2')}
