@@ -3538,7 +3538,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v594 · 7 sep 2026';
+const APPVERSIE='v595 · 7 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16976,15 +16976,19 @@ function bind(){
   $$('[data-meldingen]').forEach(b=>b.onclick=()=>sheetMeldingen());
   $$('[data-account]').forEach(b=>b.onclick=()=>sheetJij());
   if($('#klokWidget')) $('#klokWidget').onclick=()=>{ sluitToetsenbord(); sheetInklok() };
-  /* Inklokken zonder scherm. Ging het per ongeluk, dan draai je het meteen
-     terug met de knop in de melding — geen vraag vooraf. */
+  /* ═══════════ inklokken en meteen kiezen ═══════════
+     Eerst zette deze knop alleen de klok aan; waar je aan ging werken koos je
+     daarna op de kaart. Dat waren drie handelingen voor één moment: inklokken,
+     kaart aantikken, kiezen. Nu loopt je klok én staat de vraag er meteen, dus
+     kies je in één tik verder. Wil je nog niet kiezen, dan sluit je het blad
+     en loopt je tijd gewoon door — daar verandert niets aan.
+     Het weggooien van een dienst die per ongeluk startte, staat op datzelfde
+     blad; daarom hoeft er geen melding met ongedaan-knop meer overheen. */
   if($('#kwInklok')) $('#kwInklok').onclick=veilig('inklokken',()=>{
     sluitToetsenbord();
     if(S.dienst) return;
     dienstStart(); bewaarNu(); render();
-    toast('Ingeklokt om '+nu()+'.', ()=>{
-      S.dienst=null; bewaarNu(); render();
-    });
+    sheetInklok();
   });
   /* Wisselen van werk vanaf het dashboard. Dezelfde afhandeling als op het
      inklokscherm: wat liep wordt netjes afgesloten, en gaat het mis dan zet
