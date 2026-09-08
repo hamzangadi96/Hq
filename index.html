@@ -3549,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v604 · 8 sep 2026';
+const APPVERSIE='v605 · 8 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3807,7 +3807,7 @@ const soorten=()=>branche().soorten||CHOCSTANDAARD;
 const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
-  malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[], controleDag:0, ingEtiket:{},
+  malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[], controleDag:0, ingEtiket:{}, eigenWw:[],
   recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
@@ -3852,7 +3852,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket'];
+  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -21582,6 +21582,27 @@ const WERKWIJZEROUTE={
    Bewaard als lijst van paren, niet als object met de zin als sleutel —
    Firebase weigert sleutels met een punt of haakje erin, en handelingen zijn
    vrije tekst. */
+/* ═══════════ wat je typt, hoef je maar één keer te typen ═══════════
+   Je eigen handelingen kwamen pas terug nadat je de smaak had opgeslagen, en
+   dan alleen bij dezelfde laagsoort. Typte je "Slagroom afwegen" bij een
+   ganache, dan stond hij er bij je karamel niet. Alles wat je zelf schrijft
+   komt nu meteen in je eigen lijst, en die staat bij elke laag klaar — de
+   nieuwste bovenaan, want dat is meestal waar je mee bezig bent. */
+function eigenWwLijst(){
+  if(!Array.isArray(S.eigenWw)) S.eigenWw=[];
+  return S.eigenWw;
+}
+function eigenWwZet(tekst){
+  const t=String(tekst||'').trim();
+  if(!t) return;
+  const l=eigenWwLijst();
+  const i=l.findIndex(x=>String(x||'').toLowerCase()===t.toLowerCase());
+  if(i>=0) l.splice(i,1);
+  l.unshift(t);
+  if(l.length>150) l.length=150;   /* geen eindeloze lijst */
+  bewaarNu();
+}
+
 function wwCorrecties(){
   if(!Array.isArray(S.wwEigen)) S.wwEigen=[];
   return S.wwEigen;
@@ -22647,6 +22668,10 @@ function sheetOnderdeel(idx,stap){
       /* eerst wat je zelf al eens hebt opgeschreven bij dezelfde soort */
       const eigen=nieuw2(ondEigenWw(o.naam));
       if(eigen.length) uit+=groep('ZOALS JE HET EERDER DEED',eigen,true);
+      /* alles wat je ooit zelf hebt getypt, bij welke laag dan ook */
+      const mijn=nieuw2(eigenWwLijst().filter(x=>
+        !eigen.some(e=>String(e).toLowerCase()===String(x).toLowerCase())));
+      if(mijn.length) uit+=groep('JOUW HANDELINGEN',mijn,!eigen.length);
 
       const groepen=wwBib(s&&s.k, o.naam);
       let eersteOpen=!eigen.length;
@@ -22730,6 +22755,7 @@ function sheetOnderdeel(idx,stap){
         }
       }
       else o.werkwijze.push(t);
+      eigenWwZet(t);
       $('#wwIn').value='';
       wwKnop(); modeToon(); wwTeken(); wwVoor();
       $('#wwIn').focus();
