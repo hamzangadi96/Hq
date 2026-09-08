@@ -3549,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v603 · 8 sep 2026';
+const APPVERSIE='v604 · 8 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21386,25 +21386,51 @@ function basisIng(soortKey, laagNaam){
    mix je kort — dat typte je allemaal zelf. Dit is de volledige gang van
    zaken, gegroepeerd op moment, zodat je hem in volgorde kunt aantikken.
    Wat je zelf al eerder hebt getypt komt er bovenop en staat bovenaan. */
+/* Karamel, crunch, croustillant en marsepein komen binnen als "anders" en
+   hebben dus geen eigen soortsleutel. Ze hebben wél een eigen lijst; die
+   zoeken we op de naam die je koos. */
+function wwBib(soortK, naam){
+  if(soortK && WERKWIJZEBIB[soortK]) return WERKWIJZEBIB[soortK];
+  const k=String(naam||'').toLowerCase().replace(/[^a-z]/g,'');
+  return WERKWIJZEBIB[k] || WERKWIJZEBIB.algemeen;
+}
+
 const WERKWIJZEBIB={
+  /* ═══════════ een bibliotheek, geen recept ═══════════
+     Hier stond één manier van werken: die van de matcha, met de room gesplitst
+     in 80 en 20 procent. Bij elke andere ganache kloppen die stappen niet, en
+     dan sta je toch weer zelf te typen. Daarom staan er nu meerdere manieren
+     naast elkaar. Je klapt open wat bij díé smaak hoort en laat de rest dicht.
+     Wat je zelf toevoegt komt er als eigen handeling bij; deze lijst is het
+     startpunt, niet de grens. */
   schelp:[
-    {k:'Mal voorbereiden', v:['Mallen poetsen met watten','Mal verven met cacaoboter',
+    {k:'Mal voorbereiden', v:['Mallen poetsen met watten','Mal controleren op krassen',
+      'Mal op temperatuur laten komen','Mal verven met cacaoboter',
+      'Spikkels aanbrengen met een spons','Twee kleuren over elkaar',
       'Verf laten uitharden 10 min']},
     {k:'Tempereren', v:['Chocolade smelten tot 45 °C','Afkoelen tot 27 °C',
-      'Opwarmen tot 31 °C','Tempertest doen op een mesje']},
+      'Opwarmen tot 31 °C','Melkchocolade opwarmen tot 30 °C',
+      'Witte chocolade opwarmen tot 29 °C','Enten met callets',
+      'Tempertest doen op een mesje','Machine op temperatuur laten komen']},
     {k:'Gieten', v:['Mallen volgieten','Afkloppen tegen de rand',
-      'Omkeren en laten uitlopen','Afschrapen met een paletmes']},
+      'Trillen op de trilplaat','Omkeren en laten uitlopen',
+      'Afschrapen met een paletmes','Randen schoonmaken']},
     {k:'Uitharden', v:['Ondersteboven laten uitlekken 5 min',
-      'Laten uitharden 20 min op 16 °C']}
+      'Laten uitharden 20 min op 16 °C','In de koeling 10 min',
+      'Tot de mal loslaat']},
+    {k:'Afsluiten', v:['Rand verwarmen met een föhn','Deksel gieten',
+      'Afschrapen tot de mal schoon is','Laten uitharden 30 min',
+      'Uitkloppen op een doek']}
   ],
-  /* Een ganache is geen rechte lijn: je splitst de room, doet met elk deel
-     iets anders, en pas bij de chocolade komen ze samen. Stonden de suikers
-     en de matcha in één lijst "Verwarmen" en "Smaak erin", dan zag je niet
-     meer bij wélk deel een handeling hoorde. Nu heet elke stap zijn eigen
-     deel bij naam. */
   ganache:[
-    {k:'Voorbereiden', v:['Witte chocolade afwegen in een rvs kom',
-      'Room afwegen en splitsen — 80% en 20%']},
+    {k:'Voorbereiden', v:['Chocolade afwegen in een rvs kom',
+      'Witte chocolade afwegen in een rvs kom','Chocolade smelten tot 40 °C',
+      'Room afwegen','Room afwegen en splitsen — 80% en 20%']},
+    /* de klassieke manier: alles in één keer */
+    {k:'Room verwarmen', v:['Room aan de kook brengen','Room verwarmen tot 80 °C',
+      'Glucosestroop bij de room','Invertsuiker bij de room',
+      'Room van het vuur halen']},
+    /* de gesplitste manier, zoals bij de matcha */
     {k:'Deel 1 · de 80% room', v:['Glucosestroop, invertsuiker en roomboter bij de 80% room',
       'Glucosestroop bij de 80% room','Invertsuiker bij de 80% room',
       'Roomboter bij de 80% room','80% room 40 sec in de magnetron',
@@ -21414,30 +21440,91 @@ const WERKWIJZEBIB={
       'Roeren tot een glad papje zonder klontjes',
       'Papje 10 min laten trekken','Puree bij de 20% room',
       'Papje door een zeef halen']},
-    {k:'Samenvoegen', v:['Beide delen over de chocolade gieten',
+    /* met fruit in plaats van room */
+    {k:'Met puree', v:['Puree verwarmen tot 45 °C','Puree en room samen verwarmen',
+      'Glucosestroop bij de puree','Puree door een zeef halen',
+      'Zuurgraad opvangen met een snufje zout']},
+    {k:'Smaak toevoegen', v:['Notenpasta door de ganache',
+      'Praliné door de ganache','Zeste van een citrusvrucht',
+      'Kruiden of thee laten trekken in de warme room','Trekken en daarna zeven',
+      'Likeur of alcohol erdoor op 35 °C','Vanille uitschrapen en meewarmen',
+      'Zout of peper afmaken op smaak']},
+    {k:'Samenvoegen', v:['Room over de chocolade gieten',
+      'Beide delen over de chocolade gieten','1 min laten staan',
       '3 min laten staan','Vanuit het midden roeren tot de callets weg zijn',
-      'Kort mixen met de staafmixer — niet te lang']},
-    {k:'Afwerken', v:['Afkoelen tot 30 °C','In een spuitzak overdoen',
-      'Spuiten tot 2 mm onder de rand','Roomboter erdoor op 35 °C']}
+      'Roeren tot een glanzende emulsie','Kort mixen met de staafmixer — niet te lang',
+      'Mixer schuin houden zodat er geen lucht in komt']},
+    {k:'Afwerken', v:['Afkoelen tot 35 °C','Roomboter erdoor op 35 °C',
+      'Afkoelen tot 30 °C','Afkoelen tot spuittemperatuur',
+      'In een spuitzak overdoen','Spuiten tot 2 mm onder de rand',
+      'Laten kristalliseren 12 uur op 16 °C','Afdekken met folie op de ganache']}
   ],
   gelei:[
-    {k:'Verwarmen', v:['Puree verwarmen tot 40 °C','Glucosestroop toevoegen']},
-    {k:'Binden', v:['Suiker en pectine droog mengen','Al kloppend toevoegen',
-      'Aan de kook brengen','Koken tot 104 °C']},
-    {k:'Afwerken', v:['Citroenzuur toevoegen','Direct uitgieten',
-      'Laten opstijven 1 uur']}
+    {k:'Verwarmen', v:['Puree verwarmen tot 40 °C','Puree en suiker samen verwarmen',
+      'Glucosestroop toevoegen','Water en suiker aan de kook brengen']},
+    {k:'Binden met pectine', v:['Suiker en pectine droog mengen',
+      'Al kloppend toevoegen','Aan de kook brengen','Koken tot 104 °C',
+      'Koken tot 106 °C voor een stevigere gelei','Brix meten']},
+    {k:'Binden met agar', v:['Agar door de koude puree kloppen',
+      'Aan de kook brengen en 2 min doorkoken','Laten opstijven en opnieuw mixen']},
+    {k:'Binden met gelatine', v:['Gelatine 10 min weken in koud water',
+      'Uitknijpen en oplossen in de warme massa','Niet meer laten koken']},
+    {k:'Afwerken', v:['Citroenzuur toevoegen','Citroensap toevoegen',
+      'Direct uitgieten','Uitgieten in een kader','Laten opstijven 1 uur',
+      'Een nacht laten staan','Snijden op maat']}
   ],
   praline:[
-    {k:'Roosteren', v:['Noten roosteren 12 min op 160 °C','Laten afkoelen']},
-    {k:'Karamel', v:['Suiker karamelliseren tot amber','Noten door de karamel scheppen',
-      'Uitstorten op een siliconenmat','Grof breken']},
-    {k:'Malen', v:['Fijnmalen tot een pasta','Cacaoboter toevoegen',
-      'Snufje zout toevoegen']}
+    {k:'Roosteren', v:['Noten roosteren 12 min op 160 °C',
+      'Noten roosteren tot ze geuren','Vliesjes eraf wrijven','Laten afkoelen']},
+    {k:'Karamel', v:['Suiker karamelliseren tot amber',
+      'Suiker en water koken tot 118 °C','Noten door de karamel scheppen',
+      'Blijven roeren tot de suiker zandt en weer smelt',
+      'Uitstorten op een siliconenmat','Laten afkoelen','Grof breken']},
+    {k:'Malen', v:['Grof malen in de cutter','Fijnmalen tot een pasta',
+      'Malen tot de pasta warm en vloeibaar wordt','Cacaoboter toevoegen',
+      'Snufje zout toevoegen','Door een zeef halen']}
+  ],
+  karamel:[
+    {k:'Suiker', v:['Suiker droog karamelliseren tot amber',
+      'Suiker en glucose koken tot 160 °C','In delen toevoegen en laten smelten',
+      'Niet roeren maar zwenken']},
+    {k:'Blussen', v:['Warme room in delen toevoegen — pas op voor spatten',
+      'Roomboter erdoor','Vanille meewarmen','Doorkoken tot 108 °C voor zacht',
+      'Doorkoken tot 118 °C voor stevig']},
+    {k:'Afwerken', v:['Zeezout toevoegen','Van het vuur halen','Laten afkoelen tot 30 °C',
+      'Door een zeef halen','In een spuitzak overdoen','Een nacht laten rusten']}
+  ],
+  crunch:[
+    {k:'Mengen', v:['Chocolade smelten tot 40 °C','Feuilletine erdoor scheppen',
+      'Gepofte rijst erdoor','Gehakte noten erdoor','Voorzichtig omscheppen — niet breken']},
+    {k:'Vormen', v:['Uitrollen tussen twee vellen','Uitrollen op 3 mm',
+      'Laten uitharden 20 min','Snijden op maat','In de bonbon drukken']}
+  ],
+  croustillant:[
+    {k:'Mengen', v:['Praliné en gesmolten chocolade mengen',
+      'Feuilletine erdoor scheppen','Snufje zout toevoegen',
+      'Op temperatuur brengen — 26 °C']},
+    {k:'Vormen', v:['Dun uitstrijken in de schelp','Uitrollen tussen twee vellen',
+      'Laten uitharden 20 min','Snijden op maat']}
+  ],
+  marsepein:[
+    {k:'Kneden', v:['Amandelmeel en poedersuiker mengen',
+      'Bindmiddel toevoegen tot het samenkomt','Kneden tot een gladde massa',
+      'Niet te lang kneden — dan komt de olie eruit']},
+    {k:'Op smaak brengen', v:['Rozenwater toevoegen','Amandelextract toevoegen',
+      'Kleur doorkneden','Zeste erdoor']},
+    {k:'Vormen', v:['Uitrollen op 5 mm','Uitsteken','Laten drogen 12 uur',
+      'Onderdompelen in chocolade']}
   ],
   algemeen:[
-    {k:'Handelingen', v:['Afwegen','Verwarmen tot 40 °C','Mengen tot een gladde massa',
-      'Door een zeef halen','Laten afkoelen','In een spuitzak overdoen',
-      'Laten opstijven 1 uur']}
+    {k:'Wegen en meten', v:['Afwegen','Temperatuur meten','Weegschaal op nul zetten']},
+    {k:'Verwarmen en koelen', v:['Verwarmen tot 40 °C','Au bain-marie verwarmen',
+      'In de magnetron in stappen van 30 sec','Laten afkoelen',
+      'In de koeling zetten','Op kamertemperatuur laten komen']},
+    {k:'Mengen', v:['Mengen tot een gladde massa','Door een zeef halen',
+      'Kort mixen met de staafmixer','Voorzichtig omscheppen']},
+    {k:'Afwerken', v:['In een spuitzak overdoen','Laten opstijven 1 uur',
+      'Afdekken met folie','Etiketteren met datum en lot','Schoonmaken en opruimen']}
   ]
 };
 
@@ -22561,7 +22648,7 @@ function sheetOnderdeel(idx,stap){
       const eigen=nieuw2(ondEigenWw(o.naam));
       if(eigen.length) uit+=groep('ZOALS JE HET EERDER DEED',eigen,true);
 
-      const groepen=WERKWIJZEBIB[(s&&s.k)||'algemeen']||WERKWIJZEBIB.algemeen;
+      const groepen=wwBib(s&&s.k, o.naam);
       let eersteOpen=!eigen.length;
       groepen.forEach(g=>{
         /* per zin onthouden hoe hij oorspronkelijk heette */
