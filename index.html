@@ -3549,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v605 · 8 sep 2026';
+const APPVERSIE='v606 · 8 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3831,8 +3831,13 @@ const S={
 const WERKOUD=['Voorbereiden en afwegen','Tempereren','Schelpen gieten','Vulling maken',
   'Vullen','Afsluiten','Uitstorten en sorteren','Verpakken','Schoonmaken','Pauze'];
 /* de volgorde van een echte productiedag */
-const WERKVOORSTELLEN=['Afwassen','Tussentijds schoonmaken','Schoonmaken voor productie',
-  'Eindschoonmaak','Verpakken','Overleg en administratie','Pauze'];
+/* Mallen wassen stond alleen in het werkplan van een batch, terwijl je het
+   ook los doet: een uur mallen poetsen op een dag zonder productie is gewoon
+   werk en hoort in je uren. Nieuwe namen in deze lijst schuiven vanzelf bij
+   je bestaande werkzaamheden aan; wat je zelf hebt aangepast blijft staan. */
+const WERKVOORSTELLEN=['Afwassen','Mallen wassen','Tussentijds schoonmaken',
+  'Schoonmaken voor productie','Eindschoonmaak','Verpakken',
+  'Overleg en administratie','Pauze'];
 /* de volgorde waarin je een batch daadwerkelijk maakt */
 const WERKPLAN=['Mallen wassen','Gelei maken','Tempereermachine aanzetten','Chocolade tempereren',
   'Ganache maken','Mallen verven','Schelpen gieten','Schelpen vullen','Afdichten','Uitstorten'];
