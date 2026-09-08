@@ -3549,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v606 · 8 sep 2026';
+const APPVERSIE='v607 · 8 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20521,17 +20521,38 @@ function dagRapportHTML(datum){
       <td class="n">${b.resultaat?b.resultaat.goed+' goed · '+b.resultaat.afkeur+' afkeur':'liep nog'}</td></tr>`).join('')}</table>`
     :rLeeg('Geen batches op deze dag.');
 
+  /* ═══════════ ook de uren buiten een batch ═══════════
+     Hier stond alleen het werk binnen een batch. Draaide je die dag geen
+     productie, dan bleef dit blok leeg terwijl je dashboard netjes "4u 33
+     gewerkt" meldde — de uren voor de website, de administratie en het mallen
+     wassen telden nergens mee. Nu staat je hele dag hier, en klopt het totaal
+     met wat je op je dashboard ziet. */
   const dagAct={};
   alle.forEach(b=>(b.werk||[]).forEach(w=>{
     const d2=iso(new Date(w.start));
     if(d2===dag) dagAct[w.act]=(dagAct[w.act]||0)+seconden(w);
   }));
+  const klusNaam=k=>{
+    const so=klusSoort(k.soort);
+    return (so?so.n:'Overig')+(k.tekst?' · '+k.tekst:'');
+  };
+  alsLijst(S.klussen).forEach(k=>{
+    if(!k||!k.start) return;
+    if(iso(new Date(k.start))!==dag) return;
+    dagAct[klusNaam(k)]=(dagAct[klusNaam(k)]||0)+seconden(k);
+  });
+  /* wat op dit moment nog loopt telt mee tot nu toe */
+  if(S.klus&&S.klus.start&&iso(new Date(S.klus.start))===dag){
+    const n2=klusNaam(S.klus);
+    dagAct[n2]=(dagAct[n2]||0)+Math.round((Date.now()-S.klus.start)/1000);
+  }
   const dagSec=Object.values(dagAct).reduce((a,c)=>a+c,0);
   if(dagSec){
     h+=`<h3>Tijdsbesteding</h3><table><tr><th>Werkzaamheid</th><th>Tijd</th><th>Aandeel</th></tr>
       ${Object.keys(dagAct).sort((a,b)=>dagAct[b]-dagAct[a]).map(a=>`<tr><td>${esc(a)}</td>
         <td class="n">${duurKort(dagAct[a])}</td><td class="n">${getal(dagAct[a]/dagSec*100)}%</td></tr>`).join('')}
-      <tr><td><b>Totaal</b></td><td class="n"><b>${duurKort(dagSec)}</b></td><td></td></tr></table>`;
+      <tr><td><b>Totaal</b></td><td class="n"><b>${duurKort(dagSec)}</b></td>
+        <td class="n"><b>100%</b></td></tr></table>`;
   }
 
   h+=`<h3>Alle registraties</h3>`;
