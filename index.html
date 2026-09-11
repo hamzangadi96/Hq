@@ -3549,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v607 · 8 sep 2026';
+const APPVERSIE='v608 · 12 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12928,15 +12928,60 @@ function sheetKoppelingen(){
        ${rij('myparcel','MyParcel','voor je verzendlabels')}
        ${rij('bonscan','Bonnen scannen','leest je kassabonnen uit')}
      </div>
+     ${k.shopify?`<div class="paneel" style="margin-top:12px">
+       <button class="arij" id="kpVoorraadKnop">
+         <span class="bol">${svg(I.doos,'2')}</span>
+         <span class="naam">Voorraad<small>bijwerken en naar de site sturen</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
+     </div>`:''}
      ${(S.werk||{}).laatstOpgehaald?`<div class="geen" style="padding-top:12px">
        Laatst opgehaald ${kort(new Date(S.werk.laatstOpgehaald))} om
        ${new Date(S.werk.laatstOpgehaald).toTimeString().slice(0,5)}.</div>`:''}`,
     `${k.shopify?`<button class="prim" style="margin-top:0" id="kpHaal">Orders ophalen</button>`:''}`);
   $$('[data-kop]').forEach(x=>x.onclick=()=>sheetKoppel(x.dataset.kop));
+  if($('#kpVoorraadKnop')) $('#kpVoorraadKnop').onclick=()=>sheetVoorraadShopify();
   if($('#kpHaal')) $('#kpHaal').onclick=async()=>{
     $('#kpHaal').disabled=true; $('#kpHaal').textContent='Bezig…';
     try{ const r=await roep('haalOrders'); toast(r.aantal+' orders opgehaald.'); dicht(); render(); }
     catch(e){ toast(fout(e)); $('#kpHaal').disabled=false; $('#kpHaal').textContent='Orders ophalen'; }
+  };
+}
+
+/* Voorraad die je hier invult gaat direct naar Shopify en overschrijft wat
+   daar staat. Geen aparte koppel-stap nodig: we tonen gewoon de producten
+   die Shopify zelf teruggeeft. */
+async function sheetVoorraadShopify(){
+  sheet('Voorraad naar Shopify','<div class="geen">Bezig met ophalen…</div>','');
+  let regels;
+  try{ const r=await roep('shopifyVoorraadOphalen'); regels=r.regels||[]; }
+  catch(e){ return sheet('Voorraad naar Shopify',`<div class="geen">${esc(fout(e))}</div>`,''); }
+
+  if(!regels.length){
+    return sheet('Voorraad naar Shopify','<div class="geen">Geen actieve producten gevonden in je winkel.</div>','');
+  }
+
+  const rijHTML=r=>`<div class="item" data-inv="${r.inventoryItemId}">
+    <span class="b">${esc(r.titel)}${r.variantTitel?'<em>'+esc(r.variantTitel)+'</em>':''}</span>
+    <input class="inp" type="number" inputmode="numeric" min="0"
+      style="width:76px;text-align:right;flex:none" value="${r.aantal}"></div>`;
+
+  sheet('Voorraad naar Shopify',
+    `<p class="hint">Wat je hier invult, gaat direct naar je webshop en overschrijft
+      wat daar nu staat.</p>
+     <div class="paneel">${regels.map(rijHTML).join('')}</div>`,
+    `<button class="prim" style="margin-top:0" id="kpVoorraadOk">Opslaan naar Shopify</button>`);
+
+  $('#kpVoorraadOk').onclick=async()=>{
+    const knop=$('#kpVoorraadOk'); knop.disabled=true; knop.textContent='Bezig…';
+    try{
+      const wijzigingen=$$('.item[data-inv]').map(el=>({
+        inventoryItemId:el.dataset.inv,
+        aantal:Number(el.querySelector('input').value)
+      })).filter(w=>Number.isFinite(w.aantal)&&w.aantal>=0);
+      for(const w of wijzigingen) await roep('shopifyVoorraadZetten',w);
+      toast('Voorraad bijgewerkt in Shopify.');
+      dicht();
+    }catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Opslaan naar Shopify'; }
   };
 }
 const fout=e=>((e&&e.message)||'Er ging iets mis.').replace(/^[A-Z_]+:\s*/,'');
