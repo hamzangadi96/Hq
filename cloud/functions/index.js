@@ -137,6 +137,39 @@ async function shopifyPagina(uid, pad) {
   return { gegevens: await r.json(), volgende: m ? m[1] : null };
 }
 
+/* Voor voorraad moet je schrijven, niet alleen lezen. Zelfde token, maar
+   dan met een POST en een JSON-lijf erbij. */
+async function shopifySchrijf(uid, pad, lijf) {
+  const { winkel, token: t } = await token(uid);
+  const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/' + pad, {
+    method: 'POST',
+    headers: {
+      'X-Shopify-Access-Token': t, 'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(lijf)
+  });
+  if (r.status === 401 || r.status === 403) {
+    await geheimRef(uid).child('shopify/token').remove();
+    throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+  }
+  if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+  return r.json();
+}
+
+/* Elke winkel heeft minstens één locatie en voorraad hangt daaraan vast.
+   Bij een eenmanszaak is dat er meestal precies één; die pakken we en
+   onthouden 'm, zodat je niet bij elke aanpassing opnieuw hoeft te wachten. */
+async function shopifyLocatie(uid) {
+  const bekend = await leesGeheim(uid, 'shopify');
+  if (bekend && bekend.locatie_id) return bekend.locatie_id;
+  const d = await shopify(uid, 'locations.json');
+  const loc = (d.locations || [])[0];
+  if (!loc) throw new HttpsError('failed-precondition', 'Shopify geeft geen locatie terug.');
+  await geheimRef(uid).child('shopify/locatie_id').set(loc.id);
+  return loc.id;
+}
+
 /* ─────────── van een Shopify-order naar wat de app mag zien ─────────── */
 
 const AFHALEN = /afhal|afhaal|pickup|ophal/i;
@@ -541,6 +574,60 @@ exports.haalOrders = onCall(async req => {
 
   const open = orders.filter(o => !(o.fulfillment_status === 'fulfilled' || o.cancelled_at || o.closed_at));
   return { aantal: orders.length, open: open.length };
+});
+
+/* ─────── voorraad die jij invult in HQ, leidend voor de webshop ─────── */
+
+exports.shopifyVoorraadOphalen = onCall(async req => {
+  const uid = wieBenJe(req);
+  const locatieId = await shopifyLocatie(uid);
+
+  const producten = [];
+  let pad = 'products.json?status=active&limit=250';
+  for (let ronde = 0; ronde < 4; ronde++) {
+    const { gegevens, volgende } = await shopifyPagina(uid, pad);
+    (gegevens.products || []).forEach(p => producten.push(p));
+    if (!volgende) break;
+    pad = 'products.json?limit=250&page_info=' + encodeURIComponent(volgende);
+  }
+
+  const regels = [];
+  producten.forEach(p => {
+    (p.variants || []).forEach(v => {
+      regels.push({
+        inventoryItemId: v.inventory_item_id,
+        titel: p.title,
+        variantTitel: v.title === 'Default Title' ? '' : v.title,
+        aantal: v.inventory_quantity
+      });
+    });
+  });
+
+  return { locatieId, regels };
+});
+
+exports.shopifyVoorraadZetten = onCall(async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const inventoryItemId = Number(d.inventoryItemId);
+  const aantal = Number(d.aantal);
+  if (!inventoryItemId) throw new HttpsError('invalid-argument', 'Welk product?');
+  if (!Number.isFinite(aantal) || aantal < 0) throw new HttpsError('invalid-argument', 'Vul een geldig aantal in.');
+
+  const locatieId = await shopifyLocatie(uid);
+  await shopifySchrijf(uid, 'inventory_levels/set.json', {
+    location_id: locatieId,
+    inventory_item_id: inventoryItemId,
+    available: aantal
+  });
+
+  /* bewaren wat je hebt ingevuld, zodat je het terugziet zonder opnieuw
+     bij Shopify te hoeven vragen */
+  await werkRef(uid).child('voorraadShopify/' + inventoryItemId).set({
+    aantal, bijgewerkt: Date.now()
+  });
+
+  return { ok: true };
 });
 
 /* Een order bij Shopify opzoeken, op id of op ordernummer. */
