@@ -3549,7 +3549,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v609 · 12 sep 2026';
+const APPVERSIE='v610 · 12 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12991,6 +12991,7 @@ function sheetKoppel(welke){
        <div class="veld"><label>API-sleutel</label>
          <input class="inp" id="kpS" placeholder="je MyParcel-sleutel" autocapitalize="off"></div>`,
     `<button class="prim" style="margin-top:0" id="kpOk">Koppelen en uitproberen</button>
+     ${shop&&k.shopify?`<button class="sec" id="kpVers">Rechten net aangepast in Shopify? Ververs</button>`:''}
      ${k[welke]?`<button class="sec" id="kpWeg" style="color:var(--rood)">Koppeling verwijderen</button>`:''}`);
   $('#kpOk').onclick=async()=>{
     const knop=$('#kpOk'); knop.disabled=true; knop.textContent='Uitproberen…';
@@ -13006,6 +13007,11 @@ function sheetKoppel(welke){
       }
       render(); klaarSheet('Gekoppeld en getest.');
     }catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Koppelen en uitproberen'; }
+  };
+  if($('#kpVers')) $('#kpVers').onclick=async()=>{
+    const knop=$('#kpVers'); knop.disabled=true; knop.textContent='Bezig…';
+    try{ await roep('shopifyTokenVersen'); klaarSheet('Nieuw token opgehaald.'); }
+    catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Rechten net aangepast in Shopify? Ververs'; }
   };
   if($('#kpWeg')) $('#kpWeg').onclick=async()=>{
     if(!confirm('Koppeling verwijderen?')) return;
