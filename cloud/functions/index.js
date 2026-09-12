@@ -595,7 +595,7 @@ exports.shopifyVoorraadOphalen = onCall(async req => {
   const locatieId = await shopifyLocatie(uid);
 
   const producten = [];
-  let pad = 'products.json?status=active&limit=250';
+  let pad = 'products.json?status=active,draft&limit=250';
   for (let ronde = 0; ronde < 4; ronde++) {
     const { gegevens, volgende } = await shopifyPagina(uid, pad);
     (gegevens.products || []).forEach(p => producten.push(p));
