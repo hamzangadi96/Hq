@@ -526,6 +526,18 @@ exports.zetKoppeling = onCall(async req => {
   throw new HttpsError('invalid-argument', 'Ik weet niet wat ik moet koppelen.');
 });
 
+/* Voor als je net rechten hebt bijgezet in het Dev Dashboard en niet tot
+   de volgende automatische ververdag wil wachten. Klant-ID en Geheim
+   staan al bij ons, dus daar hoef je niets voor over te typen. */
+exports.shopifyTokenVersen = onCall(async req => {
+  const uid = wieBenJe(req);
+  const g = await leesGeheim(uid, 'shopify');
+  if (!g) throw new HttpsError('failed-precondition', 'Shopify is nog niet gekoppeld.');
+  const vers = await versToken(g.winkel, g.klant_id, g.geheim);
+  await geheimRef(uid).child('shopify').update(vers);
+  return { ok: true };
+});
+
 exports.wisKoppeling = onCall(async req => {
   const uid = wieBenJe(req);
   const welke = String((req.data || {}).welke || '');
