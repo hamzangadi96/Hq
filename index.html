@@ -7800,7 +7800,27 @@ function sheetUren(){
   const jaar=urenPeriode(jaarBegin(),jaarEind());
   const norm=S.urennorm||1225, gedaan=urenGetal(jaar.totaalSec);
   const pct=Math.min(100,Math.round(gedaan/norm*100));
-  const lopend=S.klus;
+  const n=nuAanHetWerk();
+  const bActief=(S.batches||[]).find(x=>x.status==='bezig'||x.status==='loopt');
+
+  /* dezelfde samenvoeging als het inklokscherm: werkvloer-activiteiten plus
+     klussoorten, één keer ontdubbeld op naam. Bewust hier herhaald in plaats
+     van gedeeld met sheetInklok — dat scherm heeft zijn eigen tegel-opmaak en
+     undo-toast, en dit blijft klein genoeg om apart te onderhouden. */
+  const werkTegels=(()=>{
+    const lijst=[], gezien={};
+    (S.activiteiten||[]).forEach(a=>{
+      const k=gKey(a); if(gezien[k]) return; gezien[k]=1;
+      lijst.push({l:a, attr:`data-inkact="${esc(a)}"`, i:'klembord', kleur:'',
+        sec:vandaagPer(a), nu:n&&n.naam===a});
+    });
+    klusSoorten().forEach(s=>{
+      const k=gKey(s.n); if(gezien[k]) return; gezien[k]=1;
+      lijst.push({l:s.n, attr:`data-inkklus="${esc(s.k)}"`, i:s.ico, kleur:s.kleur,
+        sec:vandaagPer(s.n,s.k), nu:n&&n.soort==='klus'&&S.klus.soort===s.k});
+    });
+    return lijst;
+  })();
 
   /* dashboard-cijfers: alles hieronder is afgeleid, dus geen los datamodel;
      verander je iets aan hoe klussen of diensten worden bijgehouden, dan
@@ -7851,22 +7871,20 @@ function sheetUren(){
      }).join(''):`<p class="uitleg">Nog niets geregistreerd deze week.</p>`}
 
      ${(()=>{
-       /* Deze keuze-balk hoort inhoudelijk bij het dashboard hierboven, maar
-          verdient geen plek vóór het dashboard: het is een grote lijst met
-          zeven knoppen die je alleen gebruikt als je vanaf dit scherm wilt
-          starten \u2014 dat kan sneller via de inklokknop op het hoofdscherm. Wie
-          "Uren" opent wil eerst zíen hoe de week ervoor staat. */
-       return lopend?`<div class="kiesbalk" style="background:var(--ink);margin-top:24px">
-         <span class="kt">${esc(klusSoort(lopend.soort).n)}${lopend.tekst?' · '+esc(lopend.tekst):''}
-           <br><small style="opacity:.7;font-weight:500">sinds ${lopend.tijd}</small></span>
-         <button id="ukOms">${lopend.tekst?'Wijzig':'Waaraan?'}</button>
+       /* Deze keuze hoort inhoudelijk bij het dashboard hierboven, maar
+          verdient geen plek vóór het dashboard: wie "Uren" opent wil eerst
+          zíen hoe de week ervoor staat, en pas daarna eventueel starten. */
+       return n?`<div class="kiesbalk" style="background:var(--ink);margin-top:24px">
+         <span class="kt">${esc(n.naam)}
+           <br><small style="opacity:.7;font-weight:500">sinds ${pad(new Date(n.start).getHours())}:${pad(new Date(n.start).getMinutes())}</small></span>
+         ${n.soort==='klus'?`<button id="ukOms">${S.klus.tekst?'Wijzig':'Waaraan?'}</button>`:''}
          <button class="weg" id="ukStop">Stoppen</button></div>`
         :`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Waar ga je aan werken?</span></div>
           <p class="uitleg" style="margin-top:-6px">Tik een soort om de klok te starten.</p>
-          <div class="paneel">${klusSoorten().map(so=>`<button class="arij" data-ustart="${so.k}">
-            <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
-            <span class="naam">${esc(so.n)}</span>
-            <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`})()}
+          <div class="fasetegels">${werkTegels.map(y=>`<button type="button" class="fasetegel ${y.nu?'nu':''}" ${y.attr}>
+            <span class="ftico" ${y.kleur?`style="color:${y.kleur}"`:''}>${svg(I[y.i]||I.klembord)}</span>
+            <span class="ftn">${esc(y.l)}</span>
+            ${y.nu?'<i class="ftt bezig">bezig</i>':(y.sec?`<i class="ftt">${duurKort(y.sec)}</i>`:'')}</button>`).join('')}</div>`})()}
 
      <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Urencriterium ${jr}</span>
        <span class="tel">${pct}%</span></div>
@@ -7914,16 +7932,28 @@ function sheetUren(){
      <button class="sec" id="uWkRapport">${svg(I.doc)}Weekrapport downloaden</button>
      <button class="sec" id="uStaat">${svg(I.doc)}Jaarurenstaat printen</button>`);
 
-  $$('[data-ustart]').forEach(b=>b.onclick=()=>{
-    klusStart(b.dataset.ustart,'');
+  $$('[data-inkact]').forEach(b=>b.onclick=()=>{
+    if(bActief) startWerk(bActief,b.dataset.inkact); else klusStart('overig',b.dataset.inkact);
+    bewaarNu(); sheetUren(); render();
+    toast('Klok loopt · '+b.dataset.inkact);
+  });
+  $$('[data-inkklus]').forEach(b=>b.onclick=()=>{
+    klusStart(b.dataset.inkklus,'');
     sheetUren(); render();
-    toast('Klok loopt · '+klusSoort(b.dataset.ustart).n);
+    toast('Klok loopt · '+klusSoort(b.dataset.inkklus).n);
   });
   if($('#ukOms')) $('#ukOms').onclick=()=>sheetKlusOms();
   if($('#ukStop')) $('#ukStop').onclick=()=>{
-    const k=klusStop();
-    sheetUren(); render();
-    toast(k&&k.sec>=30?'Gestopt · '+urenTekst(k.sec)+' geregistreerd.':'Gestopt, te kort om te bewaren.');
+    const huidig=nuAanHetWerk();
+    if(huidig&&huidig.soort==='batch'){
+      stopWerk(huidig.batch);
+      bewaarNu(); sheetUren(); render();
+      toast('Gestopt.');
+    } else {
+      const k=klusStop();
+      sheetUren(); render();
+      toast(k&&k.sec>=30?'Gestopt · '+urenTekst(k.sec)+' geregistreerd.':'Gestopt, te kort om te bewaren.');
+    }
   };
   if($('#uWkVorig')) $('#uWkVorig').onclick=()=>{ uWkOffset--; sheetUren() };
   if($('#uWkVolgend')) $('#uWkVolgend').onclick=()=>{ if(uWkOffset<0){ uWkOffset++; sheetUren() } };
