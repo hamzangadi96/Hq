@@ -7816,18 +7816,7 @@ function sheetUren(){
     (b.datum+(b.tijd||'')).localeCompare(a.datum+(a.tijd||'')));
 
   sheet('Uren',
-    `${lopend?`<div class="kiesbalk" style="background:var(--ink)">
-       <span class="kt">${esc(klusSoort(lopend.soort).n)}${lopend.tekst?' · '+esc(lopend.tekst):''}
-         <br><small style="opacity:.7;font-weight:500">sinds ${lopend.tijd}</small></span>
-       <button id="ukOms">${lopend.tekst?'Wijzig':'Waaraan?'}</button>
-       <button class="weg" id="ukStop">Stoppen</button></div>`
-      :`<p class="uitleg">Waar ga je aan werken? Tik een soort om de klok te starten.</p>
-        <div class="paneel">${klusSoorten().map(so=>`<button class="arij" data-ustart="${so.k}">
-          <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
-          <span class="naam">${esc(so.n)}</span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`}
-
-     <div class="wekkop" style="margin-top:24px">
+    `<div class="wekkop">
        <button class="wekpijl" id="uWkVorig" aria-label="Vorige week">${svg(I.terug,'2.2')}</button>
        <b>${weekLabel(van,volledig)}</b>
        <button class="wekpijl" id="uWkVolgend" aria-label="Volgende week"
@@ -7860,6 +7849,24 @@ function sheetUren(){
          <b>${urenTekst(cats[k])} · ${pctC}%</b></div>
          <div class="cspoor"><div class="cvul" style="width:${pctC}%;background:${kleur}"></div></div></div>`;
      }).join(''):`<p class="uitleg">Nog niets geregistreerd deze week.</p>`}
+
+     ${(()=>{
+       /* Deze keuze-balk hoort inhoudelijk bij het dashboard hierboven, maar
+          verdient geen plek vóór het dashboard: het is een grote lijst met
+          zeven knoppen die je alleen gebruikt als je vanaf dit scherm wilt
+          starten \u2014 dat kan sneller via de inklokknop op het hoofdscherm. Wie
+          "Uren" opent wil eerst zíen hoe de week ervoor staat. */
+       return lopend?`<div class="kiesbalk" style="background:var(--ink);margin-top:24px">
+         <span class="kt">${esc(klusSoort(lopend.soort).n)}${lopend.tekst?' · '+esc(lopend.tekst):''}
+           <br><small style="opacity:.7;font-weight:500">sinds ${lopend.tijd}</small></span>
+         <button id="ukOms">${lopend.tekst?'Wijzig':'Waaraan?'}</button>
+         <button class="weg" id="ukStop">Stoppen</button></div>`
+        :`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Waar ga je aan werken?</span></div>
+          <p class="uitleg" style="margin-top:-6px">Tik een soort om de klok te starten.</p>
+          <div class="paneel">${klusSoorten().map(so=>`<button class="arij" data-ustart="${so.k}">
+            <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
+            <span class="naam">${esc(so.n)}</span>
+            <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`})()}
 
      <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Urencriterium ${jr}</span>
        <span class="tel">${pct}%</span></div>
