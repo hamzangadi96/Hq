@@ -3679,7 +3679,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v620 · 14 sep 2026';
+const APPVERSIE='v621 · 14 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17389,6 +17389,10 @@ const CBVIDS=[
  steek:['vorig jaar viel alles stil','nu vooraf besloten','wat er wel kan in de hitte','geen verdwijning'],
  toon:['besluitvaardig'],niet:['beloven wat je niet waarmaakt'],shots:['autopraat','loop']}
 ];
+/* Datums in CBMIJL zijn tekst. HQ's eigen iso() en dagenTot() werken met een
+   Date-object, dus hier twee kleine hulpjes die tekst aankunnen. */
+const cbDatumK=s=>{const d=new Date(s+'T12:00:00');return d.getDate()+' '+MNDK[d.getMonth()]};
+const cbDagenTot=s=>Math.ceil((new Date(s+'T12:00:00')-new Date())/86400000);
 const CBMIJL=[
  ['2026-10-05','Smaken vast en inkoop'],['2026-10-12','Productie start'],
  ['2026-11-01','Heropening webshop'],['2027-03-09','Suikerfeest'],['2027-05-16','Offerfeest']];
@@ -17598,8 +17602,8 @@ function cbStartHTML(){
     +'<div class="cbtk">gepost</div></div>';
   h+=mij
     ? '<div class="cbt" onclick="cbView=\'tijd\';cbZoom=\'jaar\';render()"><div class="cbtl">Volgende</div>'
-      +'<div class="cbtg">'+esc(mij[1])+'</div><div class="cbtk">'+datumKort(mij[0])+' &middot; '
-      +dagenTot(mij[0])+' dagen</div></div>'
+      +'<div class="cbtg">'+esc(mij[1])+'</div><div class="cbtk">'+cbDatumK(mij[0])+' &middot; '
+      +cbDagenTot(mij[0])+' dagen</div></div>'
     : '<div class="cbt"><div class="cbtl">Volgende</div><div class="cbtg">Geen</div></div>';
   h+='</div>';
 
