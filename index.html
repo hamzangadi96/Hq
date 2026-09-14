@@ -1272,7 +1272,12 @@ nav#tabbar{view-transition-name:tabbalk}
   gap:9px;font-size:15px;margin-bottom:10px;cursor:pointer}
 .cbsd{width:10px;height:10px;border-radius:50%;background:#18181b;flex:none}
 .cbsp{margin-left:auto;font-size:13px;color:#a1a1aa;flex:none}
-.cbduo{display:flex;gap:9px}
+.cbgs{font-size:14px;color:#71717a;margin-top:6px}
+.cbdaarna{font-size:13px;color:#a1a1aa;padding:0 6px 12px;line-height:1.4}
+.cbbol{display:flex;gap:6px;margin:8px 0 2px}
+.cbbol span{width:9px;height:9px;border-radius:50%;background:#e4e4e7}
+.cbbol span.vol{background:#18181b}
+.cbduo{display:flex;gap:9px;margin-bottom:104px}
 .cbduo button{flex:1;height:52px;border:none;border-radius:15px;background:#fff;color:#18181b;
   font-family:inherit;font-size:15px;font-weight:500;cursor:pointer}
 .cbfilm h2{font-size:24px;font-weight:600;letter-spacing:-0.4px;margin:6px 0 16px;line-height:1.2}
@@ -3679,7 +3684,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v623 · 14 sep 2026';
+const APPVERSIE='v624 · 15 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17615,6 +17620,12 @@ function cbWeekGepost(){
   const m=new Date(); m.setDate(m.getDate()-((m.getDay()+6)%7)); m.setHours(0,0,0,0);
   return Object.values(S.contentPost).filter(d=>new Date(d)>=m).length;
 }
+function cbLaatst(){
+  S.contentPost=S.contentPost||{};
+  const l=Object.values(S.contentPost); if(!l.length) return null;
+  const laatste=l.sort().pop();
+  return Math.floor((new Date()-new Date(laatste+'T12:00:00'))/86400000);
+}
 function cbVolgende(){
   const n=new Date();
   return CBMIJL.find(m=>new Date(m[0])>=n)||null;
@@ -17648,14 +17659,18 @@ function cbStartHTML(){
   let h='';
   if(v){
     const st=cbStat(v.id);
-    h+='<div class="cbgroot"><div class="cbgt">'+esc(v.t)+'</div>'
-      +(v.steek.length?'<ul class="cblijst" style="margin-top:12px">'
-        +v.steek.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')
-      +'<button class="knopz" style="width:100%;margin-top:16px" onclick="'
+    const open=v.shots.filter((k,i)=>!cbIsAf('vid|'+v.id+'|'+i)).length;
+    h+='<div class="cbgroot" onclick="cbVidSheet(\''+v.id+'\')"><div class="cbgt">'+esc(v.t)+'</div>'
+      +'<div class="cbgs">'+v.spoor+' &middot; fase '+v.fase
+      +(st==='idee'?' &middot; '+open+' shots te gaan':' &middot; '+st)+'</div>'
+      +'<button class="knopz" style="width:100%;margin-top:14px" onclick="event.stopPropagation();'
       +(st==='idee'?'cbFilm(\''+v.id+'\',0)':'cbDoor(\''+v.id+'\')')+'">'
-      +CBDOE[st]+(st==='idee'?' ('+v.shots.length+')':'')+'</button>'
-      +'<div class="cbdoor" onclick="cbSchuifDoor(\''+v.id+'\')">Vandaag niet, schuif door</div>'
+      +CBDOE[st]+(st==='idee'?' ('+open+')':'')+'</button>'
+      +'<div class="cbdoor" onclick="event.stopPropagation();cbSchuifDoor(\''+v.id+'\')">Vandaag niet, schuif door</div>'
       +'</div>';
+    const rest=cbAlle().filter(x=>cbStat(x.id)!=='gepost'&&x.id!==v.id)
+      .sort((a,b)=>a.fase-b.fase).slice(0,2);
+    if(rest.length) h+='<div class="cbdaarna">Daarna: '+rest.map(x=>esc(x.t)).join(' &middot; ')+'</div>';
   } else {
     h+='<div class="cbgroot"><div class="cbgt">Alles gepost</div></div>';
   }
@@ -17670,10 +17685,14 @@ function cbStartHTML(){
         +' handelingen &middot; '+shots.length+' shots</div>'
       : '<div class="cbtg">Niet ingevuld</div><div class="cbtk">Kies wat je doet</div>')+'</div>';
   h+='<div class="cbt'+(plank<3?' let':'')+'" onclick="cbView=\'video\';render()">'
-    +'<div class="cbtl">Op de plank</div><div class="cbtn">'+plank+'</div>'
-    +'<div class="cbtk">'+(plank<3?'te weinig, plan een filmdag':'video\u2019s klaar')+'</div></div>';
-  h+='<div class="cbt"><div class="cbtl">Deze week</div><div class="cbtn">'+gepost+'<span>/3</span></div>'
-    +'<div class="cbtk">gepost</div></div>';
+    +'<div class="cbtl">Ritme</div>'
+    +'<div class="cbbol">'+[0,1,2].map(i=>'<span class="'+(i<gepost?'vol':'')+'"></span>').join('')+'</div>'
+    +'<div class="cbtg" style="font-size:15px">'+gepost+' van 3 deze week</div>'
+    +'<div class="cbtk">'+plank+(plank<3?' op de plank, te weinig':' klaar op de plank')+'</div></div>';
+  const dag=cbLaatst();
+  h+='<div class="cbt'+(dag!==null&&dag>2?' let':'')+'"><div class="cbtl">Laatst gepost</div>'
+    +'<div class="cbtg">'+(dag===null?'nog nooit':(dag===0?'vandaag':dag+' dagen geleden'))+'</div>'
+    +'<div class="cbtk">'+(dag===null?'de eerste is de zwaarste':'je ritme is om de dag')+'</div></div>';
   h+=mij
     ? '<div class="cbt" onclick="cbView=\'tijd\';cbZoom=\'jaar\';render()"><div class="cbtl">Volgende</div>'
       +'<div class="cbtg">'+esc(mij[1])+'</div><div class="cbtk">'+cbDatumK(mij[0])+' &middot; '
