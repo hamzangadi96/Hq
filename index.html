@@ -3679,7 +3679,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v622 · 14 sep 2026';
+const APPVERSIE='v623 · 14 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17171,29 +17171,91 @@ const CBREGELS=['30 tot 90 seconden, om de dag posten','Elke taak een eigen vide
  'Prive: wel benoemen dat, nooit wat'];
 
 /* Wat je op een dag doet, en welke beelden daaruit volgen. */
+/* Alles wat je doet, per soort, met de handelingen die eronder vallen en de
+   beelden die je er die dag uit haalt. Kies je meerdere soorten op een dag,
+   dan worden de handelingen en de shots samengevoegd. */
 const CBACT=[
- {g:'Productie',k:'productie',n:'Productiedag',shots:['deur','bak','handen','uitslaan']},
- {g:'Productie',k:'voorbereiding',n:'Noten en gelei',shots:['handen','detail','lapse']},
- {g:'Productie',k:'schoonmaak',n:'Schoonmaak',shots:['ba','lapse']},
- {g:'Productie',k:'inkoop',n:'Inkoop',shots:['autorij','handen']},
- {g:'Productie',k:'voorraad',n:'Voorraad tellen',shots:['vast','handen','detail']},
- {g:'Productie',k:'haccp',n:'HACCP en registratie',shots:['deur','handen','detail']},
- {g:'Verkoop',k:'live',n:'Live',shots:['vast','detail']},
- {g:'Verkoop',k:'restock',n:'Restockdag',shots:['vast','detail','handen']},
- {g:'Verkoop',k:'verzenden',n:'Verzenden',shots:['handen','lapse']},
- {g:'Verkoop',k:'fotos',n:'Productfoto\u2019s',shots:['vast','detail']},
- {g:'Verkoop',k:'klanten',n:'Klantberichten',shots:['vast']},
- {g:'Content',k:'filmdag',n:'Filmdag',shots:['loop','ba','vast']},
- {g:'Content',k:'editen',n:'Editen',shots:['vast']},
- {g:'Content',k:'posten',n:'Posten en plannen',shots:[]},
- {g:'Kantoor',k:'website',n:'Website',shots:['vast','detail']},
- {g:'Kantoor',k:'show',n:'Bonbon Live bouwen',shots:['vast','detail']},
- {g:'Kantoor',k:'admin',n:'Administratie',shots:['vast']},
- {g:'Overig',k:'dubbel',n:'Dubbele dag',shots:['trein','autopraat','deur']},
- {g:'Overig',k:'denhaag',n:'Den Haag',shots:['trein','autopraat']},
- {g:'Overig',k:'vrij',n:'Vrij',shots:[]}
+{g:'Productie',k:'productie',n:'Productiedag',shots:['deur','bak','handen','uitslaan'],
+ taken:['HACCP-check','chocolade afwegen en machine aan','bijgooien in fases','vullingen maken',
+ 'kleurstoffen en mallen inkleuren','schelpen gieten','vullen en afdichten','koeling','uitslaan en tellen']},
+{g:'Productie',k:'notengelei',n:'Noten en gelei',shots:['handen','detail','lapse'],
+ taken:['noten roosteren','notenpasta draaien','gelei koken','afgieten','laten afkoelen']},
+{g:'Productie',k:'recepten',n:'Recepten en proeven',shots:['handen','detail','vast'],
+ taken:['nieuwe smaak uitproberen','proefbatch','smaak bijstellen','recept vastleggen in HQ',
+ 'houdbaarheidstest opzetten']},
+{g:'Productie',k:'voorraad',n:'Voorraad',shots:['vast','handen','detail'],
+ taken:['tellen','inboeken in HQ','houdbaarheid checken','opruimen in de kast',
+ 'verpakkingen aanvullen','doosjes vouwen op voorraad']},
+{g:'Productie',k:'kostprijs',n:'Kostprijs berekenen',shots:['vast'],
+ taken:['inkoopprijzen bijwerken','kostprijs per bonbon','verkoopprijs bepalen']},
+
+{g:'Werkplaats',k:'schoonmaken',n:'Schoonmaken',shots:['ba','lapse'],
+ taken:['werkbanken','vloer','koeling','klimaatkast','machine','grote schoonmaak na productie']},
+{g:'Werkplaats',k:'afwassen',n:'Afwassen',shots:['handen','lapse','detail'],
+ taken:['mallen','voorraadbakjes','gereedschap','kommen en spatels','afdrogen en terugzetten']},
+{g:'Werkplaats',k:'afval',n:'Afval weggooien',shots:['afval','autorij'],
+ taken:['bakken legen','dozen plat maken','rit naar de stort','afgekeurde batches']},
+{g:'Werkplaats',k:'onderhoud',n:'Onderhoud en reparatie',shots:['detail','handen'],
+ taken:['machine ontkalken','thermometer ijken','mallen keuren en afkeuren',
+ 'gereedschap vervangen','lampen en apparatuur']},
+{g:'Werkplaats',k:'inrichten',n:'Inrichten en verbouwen',shots:['ba','loop','lapse'],
+ taken:['spullen verplaatsen','planken ophangen','werkplek anders indelen']},
+{g:'Werkplaats',k:'haccp',n:'HACCP en registratie',shots:['deur','handen','detail'],
+ taken:['openingscheck','temperaturen noteren','batchregistratie','ingredienten vastleggen']},
+
+{g:'Inkoop en rijden',k:'boodschappen',n:'Boodschappen',shots:['autorij','handen'],
+ taken:['chocolade bestellen','noten en suiker','verpakking','online bestellen','levering aannemen']},
+{g:'Inkoop en rijden',k:'leveranciers',n:'Naar leveranciers rijden',shots:['autorij','autopraat','handen'],
+ taken:['ophalen','km-stand noteren','bon bewaren','onderweg terug']},
+{g:'Inkoop en rijden',k:'bezorgen',n:'Bezorgen',shots:['autorij','handen'],
+ taken:['lokale bestelling wegbrengen','afspraak met de klant','km registreren']},
+
+{g:'Verkoop',k:'live',n:'Live',shots:['vast','detail'],
+ taken:['voorraad klaarzetten','live gaan','in beeld inpakken','bestellingen noteren']},
+{g:'Verkoop',k:'restock',n:'Restockdag',shots:['vast','detail','handen'],
+ taken:['voorraad online zetten','aankondiging','bestellingen binnen','inpakken']},
+{g:'Verkoop',k:'verzenden',n:'Verzenden',shots:['handen','lapse'],
+ taken:['verzenddozen vullen','labels printen','adressen controleren','naar PostNL']},
+{g:'Verkoop',k:'orders',n:'Bestellingen verwerken',shots:['vast'],
+ taken:['orders nakijken','wijzigingen','retouren','een fout rechtzetten']},
+{g:'Verkoop',k:'klanten',n:'Klantcontact',shots:['vast'],
+ taken:['berichten beantwoorden','vragen voor de bestelling','klachten','bedankjes']},
+{g:'Verkoop',k:'b2b',n:'B2B en zakelijk',shots:['vast','detail'],
+ taken:['offertes','bedrijven benaderen','proefdoosjes sturen','relatiegeschenken']},
+{g:'Verkoop',k:'kado',n:'Kadoservice',shots:['handen','detail'],
+ taken:['kaartjes schrijven','inpakken als cadeau','persoonlijke boodschap']},
+
+{g:'Content',k:'filmen',n:'Filmen',shots:['loop','ba','vast'],
+ taken:['shots schieten tijdens het werk','losse beelden','praatvideo in de auto']},
+{g:'Content',k:'editen',n:'Editen',shots:['vast'],
+ taken:['knippen','voice-over inspreken','ondertitels','exporteren']},
+{g:'Content',k:'posten',n:'Posten',shots:[],
+ taken:['uploaden','omschrijving schrijven','inplannen','reacties beantwoorden']},
+{g:'Content',k:'fotos',n:'Productfoto\u2019s',shots:['vast','detail'],
+ taken:['bonbons fotograferen','doosjes en verpakking fotograferen','bewerken','naar Shopify']},
+
+{g:'Bouwen',k:'coderen',n:'Coderen',shots:['vast','detail'],
+ taken:['HQ','Bonbon Live','Studio','patches uploaden','testen']},
+{g:'Bouwen',k:'website',n:'Website',shots:['vast','detail'],
+ taken:['Shopify-thema','teksten','prijzen','doos-configurator','productpaginas']},
+
+{g:'Kantoor',k:'admin',n:'Administratie boekhouding',shots:['vast'],
+ taken:['bonnen invoeren','facturen maken','btw-aangifte','km-registratie','bankafschriften controleren']},
+{g:'Kantoor',k:'branding',n:'Branding',shots:['vast','detail'],
+ taken:['logo en huisstijl','verpakking ontwerpen','etiketten','naamgeving smaken']},
+{g:'Kantoor',k:'marketing',n:'Marketing',shots:['vast','autopraat'],
+ taken:['contentplan bijwerken','aankondigingen schrijven','samenwerkingen','positionering']},
+{g:'Kantoor',k:'leren',n:'Leren en uitzoeken',shots:['vast'],
+ taken:['techniek opzoeken','nieuwe methode leren','regelgeving nalezen']},
+{g:'Kantoor',k:'planning',n:'Planning',shots:['vast'],
+ taken:['week vooruit plannen','productie inplannen','deze app bijwerken']},
+
+{g:'Overig',k:'dubbel',n:'Dubbele dag',shots:['trein','autopraat','deur'],
+ taken:['trein naar Den Haag','s avonds de werkplaats in']},
+{g:'Overig',k:'denhaag',n:'Den Haag',shots:['trein','autopraat'],taken:['juridisch werk']},
+{g:'Overig',k:'vrij',n:'Vrij',shots:[],taken:[]}
 ];
-const CBGROEP=['Productie','Verkoop','Content','Kantoor','Overig'];
+const CBGROEP=['Productie','Werkplaats','Inkoop en rijden','Verkoop','Content','Kantoor','Bouwen','Overig'];
 const cbAct=k=>CBACT.find(a=>a.k===k);
 
 /* Hoe je elk shot schiet. Kort genoeg om te lezen met de camera in je hand. */
@@ -17604,7 +17666,8 @@ function cbStartHTML(){
   h+='<div class="cbt" onclick="cbDagSheet(\''+vand+'\')"><div class="cbtl">Vandaag</div>'
     +(acts.length
       ? '<div class="cbtg">'+acts.map(k=>(cbAct(k)||{n:k}).n).join(', ')+'</div>'
-        +'<div class="cbtk">'+shots.length+' shots</div>'
+        +'<div class="cbtk">'+acts.reduce((n,k)=>n+((cbAct(k)||{taken:[]}).taken||[]).length,0)
+        +' handelingen &middot; '+shots.length+' shots</div>'
       : '<div class="cbtg">Niet ingevuld</div><div class="cbtk">Kies wat je doet</div>')+'</div>';
   h+='<div class="cbt'+(plank<3?' let':'')+'" onclick="cbView=\'video\';render()">'
     +'<div class="cbtl">Op de plank</div><div class="cbtn">'+plank+'</div>'
@@ -17778,11 +17841,19 @@ function cbDagSheet(s){
       +CBACT.filter(a=>a.g===g).map(a=>'<button class="'+(acts.indexOf(a.k)>=0?'aan':'')
         +'" onclick="cbZet(\''+s+'\',\''+a.k+'\')">'+esc(a.n)+'</button>').join('')+'</div>';
   });
+  /* handelingen van alles wat je hebt aangevinkt */
+  acts.forEach(k=>{
+    const a=cbAct(k); if(!a||!a.taken||!a.taken.length) return;
+    h+='<div class="cbsheetkop">'+esc(a.n)+' ('+cbTel(s+'|t'+k+'|',a.taken.length)
+      +' van '+a.taken.length+')</div>'
+      +a.taken.map((x,i)=>cbAfRij(s+'|t'+k+'|'+i,x)).join('');
+  });
+  /* en de beelden die eruit volgen */
   const shots=[];
-  acts.forEach(k=>{const a=cbAct(k); if(a) a.shots.forEach(x=>{if(!shots.includes(x))shots.push(x)})});
+  acts.forEach(k=>{const a=cbAct(k); if(a) a.shots.forEach(x=>{if(shots.indexOf(x)<0)shots.push(x)})});
   h+='<div class="cbsheetkop">Beelden die je die dag schiet ('
     +cbTel(s+'|s|',shots.length)+' van '+shots.length+')</div>';
-  h+=shots.length?shots.map((x,i)=>cbAfRij(s+'|s|'+i,x)).join('')
+  h+=shots.length?shots.map((x,i)=>cbAfRij(s+'|s|'+i,(CBSHOTS[x]||[x])[0])).join('')
     :'<div style="font-size:15px;color:#71717a">Kies eerst wat je doet.</div>';
   sheet(DAG[dt.getDay()]+' '+dt.getDate()+' '+MND[dt.getMonth()], h, '');
 }
