@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cacaoboetiek HQ · Content</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --zwart:#18181b;
+  --bg:#f4f4f5;
+  --lijn:#ececee;
+  --grijs:#71717a;
+  --grijs2:#a1a1aa;
+  --groen:#15803d;
+  --amber:#b45309;
+  --rood:#c0392b;
+  --wit:#ffffff;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--bg);color:var(--zwart);
+  font-size:15px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.app{
+  max-width:440px;margin:0 auto;height:100dvh;
+  display:flex;flex-direction:column;background:var(--bg);
+  position:relative;overflow:hidden;
+}
+.kop{
+  padding:18px 18px 10px;display:flex;align-items:center;gap:10px;flex:none;
+}
+.kop h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-0.2px}
+.kop .sub{font-size:13px;color:var(--grijs);margin-top:2px}
+.terug{
+  background:none;border:none;padding:6px 8px 6px 0;font-size:16px;
+  color:var(--zwart);cursor:pointer;font-family:inherit;
+}
+#scherm{flex:1;overflow-y:auto;padding:0 14px 24px;-webkit-overflow-scrolling:touch}
+.kaart{background:var(--wit);border-radius:18px;padding:16px;margin-bottom:10px}
+.kaart.tap{cursor:pointer}
+.kaart.tap:active{background:#fafafa}
+.rij{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.titel{font-weight:600;font-size:16px;letter-spacing:-0.1px}
+.meta{font-size:13px;color:var(--grijs);margin-top:3px}
+.meta b{font-weight:600;color:var(--zwart)}
+.klein{font-size:12px;color:var(--grijs2)}
+.sectie{
+  font-size:13px;color:var(--grijs);font-weight:500;
+  margin:18px 4px 8px;
+}
+
+/* statusstip */
+.stip{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.s-idee{background:#d4d4d8}
+.s-opgenomen{background:var(--amber)}
+.s-gemonteerd{background:var(--groen)}
+.s-gepost{background:var(--zwart)}
+
+/* voortgangsbolletjes */
+.bollen{display:flex;gap:6px;align-items:center}
+.bol{width:10px;height:10px;border-radius:50%;background:#e4e4e7}
+.bol.vol{background:var(--zwart)}
+
+/* knoppen */
+.knoppen{display:flex;gap:10px;margin-top:14px}
+.knop{
+  flex:1;height:50px;border-radius:14px;border:none;font-family:inherit;
+  font-size:15px;font-weight:600;cursor:pointer;
+}
+.knop.licht{background:#f4f4f5;color:var(--zwart)}
+.knop.donker{background:var(--zwart);color:#fff}
+.knop:active{opacity:.75}
+.actieknop{
+  border:none;background:var(--zwart);color:#fff;border-radius:12px;
+  height:40px;padding:0 16px;font-family:inherit;font-size:14px;font-weight:600;
+  cursor:pointer;flex:none;
+}
+.actieknop.zacht{background:#f4f4f5;color:var(--zwart)}
+
+/* week header */
+.weekkop{background:var(--wit);border-radius:18px;padding:18px;margin-bottom:10px}
+.weekkop .groot{font-size:19px;font-weight:600;letter-spacing:-0.2px}
+.weekkop .teller{font-size:13px;color:var(--grijs);margin-top:2px}
+.weekkop .balk{display:flex;align-items:center;gap:10px;margin-top:14px}
+
+/* tempo */
+.tempo{background:var(--wit);border-radius:18px;padding:16px;margin-bottom:10px}
+.tempo .waarde{font-size:15px;font-weight:600}
+.tempo.let .waarde{color:var(--amber)}
+.advies{background:#fffbeb;border-radius:14px;padding:14px;margin-top:12px;font-size:14px}
+.advies b{display:block;margin-bottom:4px}
+
+/* plank */
+.plank{display:flex;align-items:center;justify-content:space-between;gap:12px}
+
+/* filters */
+.filters{display:flex;gap:8px;margin:4px 0 12px;overflow-x:auto;padding-bottom:2px}
+.filter{
+  flex:none;height:34px;padding:0 14px;border-radius:12px;border:none;
+  background:var(--wit);color:var(--grijs);font-family:inherit;font-size:13px;
+  font-weight:500;cursor:pointer;
+}
+.filter.aan{background:var(--zwart);color:#fff}
+
+/* wachtrij-regel */
+.regel{
+  background:var(--wit);border-radius:14px;padding:13px 14px;margin-bottom:7px;
+  display:flex;align-items:center;gap:12px;cursor:pointer;
+}
+.regel:active{background:#fafafa}
+.regel .nr{font-size:13px;color:var(--grijs2);width:18px;flex:none;font-variant-numeric:tabular-nums}
+.regel .tk{flex:1;min-width:0}
+.regel .tk .t{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.regel .tk .m{font-size:12px;color:var(--grijs);margin-top:1px}
+.greep{
+  width:36px;height:36px;border-radius:10px;background:#f4f4f5;border:none;
+  color:var(--grijs);font-size:15px;cursor:pointer;flex:none;
+}
+.verplaatsknop{
+  width:40px;height:40px;border-radius:12px;background:#f4f4f5;border:none;
+  font-size:17px;cursor:pointer;flex:none;font-family:inherit;color:var(--zwart);
+}
+
+/* bottom sheet */
+.overlay{
+  position:absolute;inset:0;background:rgba(24,24,27,.35);
+  opacity:0;pointer-events:none;transition:opacity .18s;z-index:40;
+}
+.overlay.open{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:50;
+  background:var(--wit);border-radius:22px 22px 0 0;
+  transform:translateY(100%);transition:transform .22s cubic-bezier(.32,.72,0,1);
+  max-height:88%;display:flex;flex-direction:column;
+}
+.sheet.open{transform:translateY(0)}
+.greepje{width:38px;height:4px;background:#e4e4e7;border-radius:2px;margin:10px auto 4px;flex:none}
+.sheetinhoud{overflow-y:auto;padding:8px 18px 18px}
+.sheetvoet{padding:0 18px calc(18px + env(safe-area-inset-bottom));flex:none}
+
+/* steekwoorden */
+.blok{margin-top:16px}
+.blok .bkop{font-size:13px;color:var(--grijs);font-weight:500;margin-bottom:6px}
+.blok ul{margin:0;padding-left:18px}
+.blok li{margin-bottom:4px;font-size:15px}
+.blok.niet li{color:var(--rood)}
+
+/* shots */
+.shot{
+  display:flex;gap:12px;padding:12px 0;cursor:pointer;
+}
+.shot + .shot{box-shadow:inset 0 1px 0 var(--lijn)}
+.vink{
+  width:26px;height:26px;border-radius:9px;background:#f4f4f5;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent;
+}
+.vink.aan{background:var(--groen);color:#fff}
+.shot .st{flex:1;min-width:0}
+.shot .st .sn{font-weight:500}
+.shot .st .si{font-size:13px;color:var(--grijs);margin-top:3px;line-height:1.4}
+.shot .st .si span{display:block}
+
+/* invoer */
+.invoer{
+  width:100%;border:none;background:#f4f4f5;border-radius:14px;
+  padding:14px;font-family:inherit;font-size:16px;color:var(--zwart);
+  resize:none;
+}
+.invoer:focus{outline:2px solid var(--zwart);outline-offset:-2px}
+
+/* mijlpaal */
+.mijl{display:flex;align-items:baseline;gap:12px;padding:11px 0}
+.mijl + .mijl{box-shadow:inset 0 1px 0 var(--lijn)}
+.mijl .d{font-size:13px;color:var(--grijs);width:58px;flex:none;font-variant-numeric:tabular-nums}
+.mijl .n{flex:1;font-weight:500}
+.mijl .r{font-size:13px;color:var(--grijs);font-variant-numeric:tabular-nums}
+.mijl.hard .n{font-weight:600}
+
+/* toast */
+.toast{
+  position:absolute;left:14px;right:14px;bottom:88px;z-index:60;
+  background:var(--zwart);color:#fff;border-radius:14px;padding:13px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:14px;transform:translateY(140%);transition:transform .2s;
+}
+.toast.open{transform:translateY(0)}
+.toast button{
+  background:none;border:none;color:#fff;font-family:inherit;font-size:14px;
+  font-weight:600;text-decoration:underline;cursor:pointer;padding:0;
+}
+
+/* tabbalk */
+.tabs{
+  flex:none;background:var(--wit);display:flex;
+  padding:8px 4px calc(8px + env(safe-area-inset-bottom));
+  box-shadow:0 -1px 0 var(--lijn);
+}
+.tab{
+  flex:1;background:none;border:none;padding:6px 0;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-family:inherit;font-size:11px;color:var(--grijs2);
+}
+.tab.aan{color:var(--zwart);font-weight:600}
+.tab svg{width:22px;height:22px;stroke-width:1.7}
+.leeg{text-align:center;color:var(--grijs);padding:40px 20px;font-size:15px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="kop" id="kop"></div>
+  <div id="scherm"></div>
+
+  <div class="toast" id="toast">
+    <span id="toasttekst"></span>
+    <button onclick="ongedaan()">Ongedaan maken</button>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="overlay" id="overlay" onclick="sluit()"></div>
+  <div class="sheet" id="sheet">
+    <div class="greepje"></div>
+    <div class="sheetinhoud" id="sheetinhoud"></div>
+    <div class="sheetvoet" id="sheetvoet"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CACAOBOETIEK HQ — CONTENT
+   Losse module. In-memory state, geen localStorage.
+   ============================================================ */
+
+/* ---------- Shotbibliotheek: hoe je elk shot filmt ---------- */
+const SHOTS = {
+  deur:{n:'Openingsshot: deur werkplaats',
+    pos:'Camera op de pet',bew:'Lopend naar de deur, niet stoppen',duur:'6 sec vasthouden na openen',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Alleen omgeving, voice-over achteraf',
+    let:'Altijd hetzelfde punt — dit wordt je vaste opening'},
+  povhanden:{n:'POV handen aan het werk',
+    pos:'Camera op de borst',bew:'Stilstaand, handen middenin beeld',duur:'min. 5 sec per handeling',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Werkgeluid mee opnemen',
+    let:'Niet meepraten — dit wordt voice-over'},
+  povafval:{n:'POV afval weggooien',
+    pos:'Camera op de pet',bew:'Lopend, kijk náár wat je weggooit',duur:'5 sec op de bak blijven kijken',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Omgeving',
+    let:'Laat zien wát je weggooit, anders zegt het niets'},
+  autorijdend:{n:'Auto rijdend, door de voorruit',
+    pos:'Camera op het dashboard',bew:'Vast, recht vooruit',duur:'10 sec, later inkorten',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Alleen als je praat',
+    let:'Overdag filmen, in het donker wordt het ruis'},
+  autopraat:{n:'Auto, recht in de camera',
+    pos:'Camera op het dashboard, ooghoogte',bew:'Vast',duur:'In één keer doorpraten, niet overnieuw',
+    kader:'9:16 · 4K 25fps · 1/50 · witbalans handmatig',geluid:'Ter plekke praten',
+    let:'Haperingen laten staan. Auto stil, niet tijdens het rijden'},
+  vastpunt:{n:'Vast standpunt op de werkbank',
+    pos:'Camera vastgeplakt, bv. aan de koelkast',bew:'Stil, jij loopt in en uit beeld',duur:'Laat lopen, knip achteraf',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Omgeving',
+    let:'Markeer het punt — je hebt het nog nodig voor de after-shot'},
+  beforeafter:{n:'Before/after vanaf hetzelfde punt',
+    pos:'Vast standpunt, exact dezelfde plek',bew:'Stil',duur:'5 sec voor, 5 sec na',
+    kader:'9:16 · 4K 25fps · 1/50 · zelfde witbalans',geluid:'Geen',
+    let:'Zonder exact hetzelfde punt werkt de overgang niet'},
+  detail:{n:'Detail-close-up',
+    pos:'Camera in de hand, dichtbij',bew:'Heel langzaam invliegen',duur:'6 sec',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Geen',
+    let:'Zoek de glans — draai naar het licht toe'},
+  loop:{n:'Loop-shot door de ruimte',
+    pos:'Camera meegedragen op borsthoogte',bew:'Rustig doorlopen, niet draaien',duur:'8 tot 12 sec, in één keer',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Omgeving',
+    let:'Eén keer goed is beter dan drie keer half'},
+  timelapse:{n:'Timelapse',
+    pos:'Vast standpunt, camera vastgezet',bew:'Geen',duur:'Minimaal 10 minuten laten staan',
+    kader:'9:16 · 4K 25fps',geluid:'Geen',
+    let:'Niet aanraken tussendoor, anders springt het beeld'},
+  trein:{n:'Trein en station',
+    pos:'Camera op de borst of in de hand',bew:'Lopend op het perron, stil in de trein',duur:'5 sec per shot',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Omgeving',
+    let:'Geen gezichten van anderen herkenbaar in beeld'},
+  uitslaan:{n:'Uitslaan uit de mal',
+    pos:'Vast standpunt schuin boven de werkbank',bew:'Stil',duur:'Hele handeling in één take',
+    kader:'9:16 · 4K 25fps · 1/50',geluid:'Het tikken mee opnemen',
+    let:'Dit is je eindshot — licht van opzij voor de glans'}
+};
+
+/* ---------- Ideeën: de wachtrij ---------- */
+let ideeen = [
+ {id:'i1',titel:'Comeback — waar ben ik geweest',spoor:'serie',fase:1,status:'opgenomen',
+  steek:['vier maanden weg','verbouwing','hete zomer','privé — wel dát, niet wát','ik ben er weer'],
+  toon:['rustig, geen excuus','niet uitleggen, gewoon vertellen'],
+  niet:['inhoud privé','spelletjes'],
+  shots:[{k:'autopraat',g:true},{k:'deur',g:false}]},
+
+ {id:'i2',titel:'De verbouwing — systeemplafond',spoor:'serie',fase:1,status:'idee',
+  steek:['was kaal beton','systeemplafond erin','meer licht','hygiënischer werken'],
+  toon:['laten zien, weinig praten'],
+  niet:['kosten noemen'],
+  shots:[{k:'beforeafter',g:false},{k:'loop',g:false},{k:'detail',g:false}]},
+
+ {id:'i3',titel:'Opruimen en de rit naar de stort',spoor:'serie',fase:2,status:'gemonteerd',
+  steek:['alles eruit','verlopen grondstoffen','rit naar de stort','reset begint hier'],
+  toon:['nuchter, geen drama'],
+  niet:['klagen over rommel'],
+  shots:[{k:'povafval',g:true},{k:'autorijdend',g:true},{k:'beforeafter',g:true}]},
+
+ {id:'i4',titel:'Grondstoffen checken op houdbaarheid',spoor:'serie',fase:2,status:'opgenomen',
+  steek:['alles uit de kast','datum voor datum','verlopen gaat weg','niks twijfelachtigs blijft'],
+  toon:['precies, professioneel'],
+  niet:['merknamen van leveranciers'],
+  shots:[{k:'povhanden',g:true},{k:'detail',g:true},{k:'vastpunt',g:false}]},
+
+ {id:'i5',titel:'Mallen wassen',spoor:'serie',fase:2,status:'idee',
+  steek:['elke mal met de hand','geen kras erin','glans is het bewijs','saai maar bepalend'],
+  toon:['rustig, ambachtelijk'],
+  niet:['zeggen dat het vervelend is'],
+  shots:[{k:'povhanden',g:false},{k:'detail',g:false},{k:'beforeafter',g:false}]},
+
+ {id:'i6',titel:'Voorraadbakjes wassen',spoor:'serie',fase:2,status:'idee',
+  steek:['stapel bakjes','alles droog terug','voorraad kan weer in'],
+  toon:['kort, ritmisch'],
+  niet:[],
+  shots:[{k:'timelapse',g:false},{k:'povhanden',g:false}]},
+
+ {id:'i7',titel:'Dozen aanvullen',spoor:'serie',fase:2,status:'idee',
+  steek:['voorraad verpakking','aantallen kloppen','klaar voor productie'],
+  toon:['praktisch'],
+  niet:['prijzen van verpakking'],
+  shots:[{k:'vastpunt',g:false},{k:'detail',g:false}]},
+
+ {id:'i8',titel:'Productieruimte herinrichten',spoor:'serie',fase:2,status:'idee',
+  steek:['looplijnen kloppen nu','alles binnen handbereik','schoon te houden'],
+  toon:['laten zien waarom, niet alleen dát'],
+  niet:[],
+  shots:[{k:'beforeafter',g:false},{k:'loop',g:false},{k:'timelapse',g:false}]},
+
+ {id:'i9',titel:'Kantoortje herinrichten',spoor:'serie',fase:2,status:'idee',
+  steek:['administratie hoort erbij','hier komt de HQ-app','werk en papier gescheiden'],
+  toon:['licht, bijna terloops'],
+  niet:['klantgegevens in beeld'],
+  shots:[{k:'beforeafter',g:false},{k:'vastpunt',g:false}]},
+
+ {id:'i10',titel:'De beurs in mei en wat ik fout deed',spoor:'les',fase:2,status:'opgenomen',
+  steek:['eerste beurs ooit','20 graden, verkeerd gegokt','2100 bonbons over','les: het weer bepaalt verkoop'],
+  toon:['eerlijk, geen guru','fout eerst, les daarna'],
+  niet:['opscheppen','anderen de schuld geven'],
+  shots:[{k:'autopraat',g:true},{k:'vastpunt',g:false}]},
+
+ {id:'i11',titel:'De houdbaarheidstest',spoor:'les',fase:2,status:'idee',
+  steek:['bewust bewaard, nieuwe smaken','test op houdbaarheid','gaat niet de deur uit','ook niet weggeven','geen risico met wat mensen eten'],
+  toon:['voedselveiligheid, geen weggooi-video'],
+  niet:['zonde zeggen','om meningen vragen'],
+  shots:[{k:'detail',g:false},{k:'povhanden',g:false},{k:'vastpunt',g:false}]},
+
+ {id:'i12',titel:'Voor iedereen met een baan én iets eigens',spoor:'les',fase:2,status:'idee',
+  steek:['thuiskomen en dan nog beginnen','het is loodzwaar','en tóch doe je het','je bouwt aan iets van jezelf'],
+  toon:['erkenning eerst, aanmoediging daarna','geen motivatiepraat'],
+  niet:['guru-toon','cijfers over omzet'],
+  shots:[{k:'autopraat',g:false},{k:'povhanden',g:false},{k:'trein',g:false}]},
+
+ {id:'i13',titel:'Wat er in die 25 euro zit',spoor:'les',fase:2,status:'idee',
+  steek:['geen woord over de prijs','uren van één week in beeld','notenpasta, gelei, verven, gieten','inpakken en verzenden','mensen rekenen zelf'],
+  toon:['niet verdedigen, niet geïrriteerd','één rustige slotzin'],
+  niet:['reageren op commentaar','marges noemen'],
+  shots:[{k:'vastpunt',g:false},{k:'detail',g:false}]},
+
+ {id:'i14',titel:'De website opnieuw opbouwen',spoor:'website',fase:2,status:'idee',
+  steek:['alles opnieuw','zelf gebouwd','waarom het anders moet'],
+  toon:['kort, tussendoor'],
+  niet:['spelletjes','technische termen'],
+  shots:[{k:'vastpunt',g:false},{k:'detail',g:false}]},
+
+ {id:'i15',titel:'Nieuwe smaken bepalen',spoor:'smaken',fase:3,status:'idee',
+  steek:['wat sloeg vorig jaar aan','waar denk ik aan','wat willen jullie'],
+  toon:['hardop denken, publiek erbij'],
+  niet:['beloven wat er komt'],
+  shots:[{k:'autopraat',g:false},{k:'povhanden',g:false}]},
+
+ {id:'i16',titel:'De doos-configurator',spoor:'website',fase:3,status:'idee',
+  steek:['zelf je doos samenstellen','hoe het werkt','klaar voor 1 november'],
+  toon:['laten zien op het scherm'],
+  niet:['bugs tonen'],
+  shots:[{k:'vastpunt',g:false},{k:'detail',g:false}]},
+
+ {id:'i17',titel:'Aftellen naar 1 november',spoor:'serie',fase:3,status:'idee',
+  steek:['datum noemen','wat er klaar is','wat er nog moet','zondagavond open'],
+  toon:['opbouwend, kort'],
+  niet:['overbeloven'],
+  shots:[{k:'deur',g:false},{k:'autopraat',g:false}]}
+];
+
+/* ---------- Beeldenbak ---------- */
+let beelden = [
+ {id:'b1',titel:'Trein naar Den Haag, ochtend',shot:'trein',video:'Dubbele dag'},
+ {id:'b2',titel:'Deur van de werkplaats, avond',shot:'deur',video:null}
+];
+
+/* ---------- Mijlpalen ---------- */
+const mijlpalen = [
+ {d:'2026-10-05',n:'Smaken vast en inkoop besteld',type:'intern',hard:true},
+ {d:'2026-10-12',n:'Productie start',type:'intern',hard:true},
+ {d:'2026-11-01',n:'Heropening webshop en show',type:'verhaal',hard:true},
+ {d:'2026-11-17',n:'Eerste restockdag',type:'commercieel',hard:false},
+ {d:'2027-03-09',n:'Suikerfeest',type:'commercieel',hard:true},
+ {d:'2027-05-16',n:'Offerfeest',type:'commercieel',hard:true}
+];
+const terugrekening = [
+ {d:'2027-01-11',n:'Inkoop'},{d:'2027-01-25',n:'Productie'},{d:'2027-02-07',n:'Content-aanloop'}
+];
+const regels = [
+ '30 tot 90 seconden, om de dag posten',
+ 'Elke taak een eigen video',
+ 'Geen feestdagthema’s — wel het ambacht',
+ 'Geen woord over de spelletjes vóór 1 november',
+ 'Privé: wel dát, nooit wát'
+];
+
+/* ---------- Volgorde en status ---------- */
+const VOLGORDE=['idee','opgenomen','gemonteerd','gepost'];
+const ACTIE={idee:'filmen',opgenomen:'monteren',gemonteerd:'posten',gepost:'klaar'};
+const FASENAAM={1:'Opnieuw kennismaken',2:'Reset en eerlijke lessen',3:'Opbouw naar de heropening',4:'Na 1 november'};
+const FASE2_DEADLINE=new Date('2026-10-19');
+const HEROPENING=new Date('2026-11-01');
+
+let state={tab:'vandaag',filter:'alle',verplaats:null};
+let laatste=null;
+let toastTimer=null;
+
+/* ---------- Hulp ---------- */
+const $=id=>document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function nu(){return new Date()}
+function dagenTot(d){return Math.ceil((new Date(d)-nu())/86400000)}
+function datumKort(d){
+  const dt=new Date(d),m=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  return dt.getDate()+' '+m[dt.getMonth()];
+}
+function weeknr(){
+  const d=new Date(nu());d.setHours(0,0,0,0);
+  d.setDate(d.getDate()+3-((d.getDay()+6)%7));
+  const week1=new Date(d.getFullYear(),0,4);
+  return 1+Math.round(((d-week1)/86400000-3+((week1.getDay()+6)%7))/7);
+}
+function wekenTot(d){return Math.max(1,Math.ceil((new Date(d)-nu())/604800000))}
+function idee(id){return ideeen.find(i=>i.id===id)}
+
+/* ---------- Weekselectie: bovenste 3 uit de rij ---------- */
+function dezeWeek(){
+  const open=ideeen.filter(i=>i.status!=='gepost'&&i.fase<=huidigeFase());
+  const gekozen=[];let website=0;
+  for(const i of open){
+    if(gekozen.length>=3)break;
+    if(i.spoor==='website'){if(website>=1)continue;website++}
+    gekozen.push(i);
+  }
+  return gekozen;
+}
+function huidigeFase(){
+  if(ideeen.some(i=>i.fase===1&&i.status!=='gepost'))return 1;
+  if(ideeen.some(i=>i.fase===2&&i.status!=='gepost'))return 2;
+  return 3;
+}
+function gepostDezeWeek(){
+  const start=new Date(nu());start.setDate(start.getDate()-((start.getDay()+6)%7));start.setHours(0,0,0,0);
+  return ideeen.filter(i=>i.gepostOp&&new Date(i.gepostOp)>=start).length;
+}
+function opDePlank(){return ideeen.filter(i=>i.status==='gemonteerd').length}
+function nogInRij(){return ideeen.filter(i=>i.status!=='gepost').length}
+function tempoNodig(){
+  const open=ideeen.filter(i=>i.status!=='gepost'&&i.fase<=2).length;
+  return open/wekenTot(FASE2_DEADLINE);
+}
+
+/* ---------- Status doorzetten ---------- */
+function zetDoor(id){
+  const i=idee(id);if(!i||i.status==='gepost')return;
+  laatste={id:id,status:i.status,gepostOp:i.gepostOp||null};
+  i.status=VOLGORDE[VOLGORDE.indexOf(i.status)+1];
+  if(i.status==='gepost')i.gepostOp=nu().toISOString();
+  toon(i.titel+' · '+i.status);
+  render();
+}
+function ongedaan(){
+  if(!laatste)return;
+  const i=idee(laatste.id);
+  i.status=laatste.status;i.gepostOp=laatste.gepostOp;
+  laatste=null;verbergToast();render();
+}
+function toon(t){
+  $('toasttekst').textContent=t;
+  $('toast').classList.add('open');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(verbergToast,4000);
+}
+function verbergToast(){$('toast').classList.remove('open')}
+
+/* ============================================================
+   ADVIES — waar hoort een nieuw idee in de tijdlijn
+   ============================================================ */
+const PROCES=[
+ {w:['ganache','vulling','vullingen'],stap:'Vullingen maken (stap 3)',video:'Productiedag',fase:4,shots:['povhanden','detail','vastpunt']},
+ {w:['notenpasta','noten','pistache','praline'],stap:'Voorbereidingsdag',video:'Notenpasta’s maken',fase:4,shots:['povhanden','detail']},
+ {w:['gelei','gelei’s','fruit'],stap:'Voorbereidingsdag',video:'Gelei’s maken',fase:4,shots:['povhanden','detail']},
+ {w:['tempereer','tempereren','druppels','machine'],stap:'Chocolade in de machine (stap 2)',video:'Productiedag',fase:4,shots:['vastpunt','detail']},
+ {w:['kleurstof','verven','inkleuren','cacaoboter'],stap:'Mallen inkleuren (stap 5)',video:'Productiedag',fase:4,shots:['povhanden','detail']},
+ {w:['gieten','schelp'],stap:'Schelp gieten (stap 6)',video:'Productiedag',fase:4,shots:['vastpunt','detail']},
+ {w:['afdichten','dichten'],stap:'Schelp afdichten (stap 8)',video:'Productiedag',fase:4,shots:['povhanden']},
+ {w:['koeling','shock','koelkast'],stap:'Koeling (stap 9)',video:'Productiedag',fase:4,shots:['detail']},
+ {w:['uitslaan','meetellen','tellen'],stap:'Uitslaan en meetellen (stap 10)',video:'Productiedag',fase:4,shots:['uitslaan','detail']},
+ {w:['haccp','check','controle'],stap:'HACCP-check (vast openingsmoment)',video:'Productiedag',fase:4,shots:['deur','povhanden']},
+ {w:['afwas','schoonmaak','schoonmaken','poetsen'],stap:'Reset na productie',video:'Schoonmaakdag',fase:4,shots:['timelapse','beforeafter']},
+ {w:['foto','fotograferen','editen'],stap:'Na de productie',video:'Productfoto’s maken',fase:4,shots:['vastpunt','detail']},
+ {w:['inpakken','verzenden','verzenddoos','pakket'],stap:'Verzendritme woensdag en vrijdag',video:'Verzenddag',fase:4,shots:['povhanden','timelapse']}
+];
+const RESET=[
+ {w:['mal','mallen'],id:'i5'},{w:['voorraadbak','bakjes'],id:'i6'},
+ {w:['doos','dozen','verpakking'],id:'i7'},{w:['opruimen','stort','afval'],id:'i3'},
+ {w:['grondstof','houdbaarheid','datum'],id:'i4'},{w:['herinricht','inrichten','ruimte'],id:'i8'},
+ {w:['kantoor','kantoortje','administratie'],id:'i9'},{w:['uren','urenregistratie','prijs','euro'],id:'i13'}
+];
+const WEBSITE=['website','webshop','shopify','configurator','teksten','prijzen invoeren','widget'];
+const GEBLOKKEERD=['spel','spelletje','spelletjes','game','show','quiz','live show'];
+
+function adviseer(tekst){
+  const t=tekst.toLowerCase();
+  const raak=lijst=>lijst.some(w=>t.includes(w));
+
+  if(raak(GEBLOKKEERD)){
+    return {type:'blok',kop:'Nog niet',
+      regels:[['Positie','Fase 4, na 1 november'],['Nu filmen','Ja, bewaren']],
+      waarom:'Vóór 1 november geen woord over de spelletjes. Beeld mag je wel alvast maken.',
+      shots:['vastpunt','detail'],fase:4,spoor:'serie'};
+  }
+  for(const p of PROCES){
+    if(raak(p.w))return {type:'beeld',kop:'Beeld, geen eigen video',
+      regels:[['Hoort bij',p.video+' — '+p.stap],['Positie','Fase 4, na 1 november'],['Nu filmen','Ja, bewaren']],
+      waarom:'Productie-content hoort na de heropening. Fase '+huidigeFase()+' is nog niet dicht, dus dit gaat naar de beeldenbak.',
+      shots:p.shots,fase:4,video:p.video};
+  }
+  for(const r of RESET){
+    if(raak(r.w)){
+      const i=idee(r.id);
+      return {type:'bestaat',kop:'Hoort bij een bestaande video',
+        regels:[['Video',i.titel],['Positie','Fase '+i.fase+', staat al in de rij'],['Nu filmen','Ja, direct']],
+        waarom:'Deze video staat al gepland. Voeg het als shot toe in plaats van een nieuwe video te maken.',
+        shots:i.shots.map(s=>s.k),fase:i.fase,koppel:i.id};
+    }
+  }
+  if(raak(WEBSITE)){
+    return {type:'nieuw',kop:'Nieuwe video, websitespoor',
+      regels:[['Spoor','Website'],['Positie','Achteraan fase '+huidigeFase()],['Nu filmen','Ja, direct']],
+      waarom:'Het websitespoor loopt naast de serie. Maximaal één per week, anders breekt de chronologie.',
+      shots:['vastpunt','detail'],fase:huidigeFase(),spoor:'website'};
+  }
+  return {type:'nieuw',kop:'Nieuwe video',
+    regels:[['Spoor','Serie'],['Positie','Achteraan fase '+huidigeFase()],['Nu filmen','Ja, direct']],
+    waarom:'Ik herken er geen vaste processtap in, dus hij gaat achteraan de huidige fase. Verplaats hem als dat niet klopt.',
+    shots:['vastpunt','povhanden'],fase:huidigeFase(),spoor:'serie'};
+}
+
+/* ============================================================
+   SCHERMEN
+   ============================================================ */
+function render(){
+  const s=$('scherm');
+  if(state.tab==='vandaag'){kop('Vandaag','maandag 14 september · dubbele dag');s.innerHTML=vandaagHTML()}
+  if(state.tab==='week'){kop('Content','week '+weeknr()+' · fase '+huidigeFase());s.innerHTML=weekHTML()}
+  if(state.tab==='rij'){kop('Wachtrij',nogInRij()+' te gaan');s.innerHTML=rijHTML()}
+  if(state.tab==='beelden'){kop('Beelden',beelden.length+' opnames bewaard');s.innerHTML=beeldenHTML()}
+  if(state.tab==='plan'){kop('Plan','mijlpalen en regels');s.innerHTML=planHTML()}
+  tabs();
+}
+function kop(t,sub){
+  $('kop').innerHTML='<div><h1>'+esc(t)+'</h1><div class="sub">'+esc(sub)+'</div></div>';
+}
+
+/* ----- Vandaag: de contentstrip ----- */
+function vandaagHTML(){
+  const w=dezeWeek();const eerste=w[0];
+  const gepost=gepostDezeWeek();
+  let h='<div class="klein" style="margin:6px 4px 10px">Zo ziet het blok eruit onder je productietaken.</div>';
+  if(!eerste){
+    h+='<div class="kaart"><div class="titel">Content</div><div class="meta">Klaar deze week</div></div>';
+  }else{
+    h+='<div class="kaart tap" onclick="zetDoor(\''+eerste.id+'\')">'+
+       '<div class="rij"><div class="titel">Content</div>'+bollenHTML(gepost,3)+'</div>'+
+       '<div style="margin-top:12px"><div class="titel" style="font-size:15px">'+esc(eerste.titel)+'</div>'+
+       '<div class="meta" style="color:var(--zwart);font-weight:600;margin-top:4px">'+ACTIE[eerste.status]+'</div></div>'+
+       '<div class="meta" style="margin-top:10px">'+esc(eerste.steek.slice(0,2).join(' · '))+'</div>'+
+       '</div>';
+    h+='<div class="kaart tap" onclick="opendIdee(\''+eerste.id+'\')"><div class="rij"><div>'+
+       '<div class="titel" style="font-size:15px">Steekwoorden en shots</div>'+
+       '<div class="meta">'+eerste.shots.filter(s=>!s.g).length+' shots nog te filmen</div></div>'+
+       '<div class="klein">openen</div></div></div>';
+  }
+  h+='<div class="sectie">Vandaag is een dubbele dag</div>';
+  h+='<div class="kaart"><div class="meta" style="margin:0 0 10px">Voorstel: 3 shots</div>'+
+     ['trein','autopraat','deur'].map(k=>'<div class="shot" style="cursor:default"><div class="vink">✓</div>'+
+     '<div class="st"><div class="sn">'+esc(SHOTS[k].n)+'</div><div class="si">'+esc(SHOTS[k].pos)+'</div></div></div>').join('')+
+     '<div class="knoppen"><button class="knop donker" onclick="toon(\'Shots overgenomen in vandaag\')">Overnemen</button></div></div>';
+  h+='<div class="kaart"><div class="meta">Loopt het uit? Deze twee halen de dag:<br><b>trein en station</b> · <b>auto, recht in de camera</b></div></div>';
+  return h;
+}
+function bollenHTML(n,t){
+  let h='<div class="bollen">';
+  for(let i=0;i<t;i++)h+='<div class="bol'+(i<n?' vol':'')+'"></div>';
+  return h+'<span class="klein" style="margin-left:4px">'+n+' van '+t+'</span></div>';
+}
+
+/* ----- Week ----- */
+function weekHTML(){
+  const w=dezeWeek(),gepost=gepostDezeWeek(),tempo=tempoNodig(),plank=opDePlank();
+  let h='<div class="weekkop">'+
+    '<div class="groot">Week '+weeknr()+'</div>'+
+    '<div class="teller">'+FASENAAM[huidigeFase()]+' · '+dagenTot(HEROPENING)+' dagen tot de heropening</div>'+
+    '<div class="balk">'+bollenHTML(gepost,3)+'</div></div>';
+
+  h+='<div class="sectie">Deze week</div>';
+  if(!w.length)h+='<div class="leeg">De rij is leeg. Voeg een idee toe in de wachtrij.</div>';
+  w.forEach(i=>{
+    h+='<div class="kaart tap" onclick="zetDoor(\''+i.id+'\')">'+
+       '<div class="rij"><div style="flex:1;min-width:0">'+
+       '<div class="titel">'+esc(i.titel)+'</div>'+
+       '<div class="meta"><span class="stip s-'+i.status+'"></span> '+i.spoor+' · '+i.status+' → <b>'+ACTIE[i.status]+'</b></div>'+
+       '</div><button class="actieknop zacht" onclick="event.stopPropagation();opendIdee(\''+i.id+'\')">Open</button></div></div>';
+  });
+
+  h+='<div class="sectie">Tempo</div>';
+  const krap=tempo>3;
+  h+='<div class="tempo'+(krap?' let':'')+'">'+
+     '<div class="rij"><span class="meta">Nog in de rij</span><span class="waarde">'+nogInRij()+'</span></div>'+
+     '<div class="rij" style="margin-top:8px"><span class="meta">Nodig per week</span><span class="waarde">'+tempo.toFixed(1)+'</span></div>';
+  if(krap){
+    h+='<div class="advies"><b>Fase 2 moet dicht op 19 oktober</b>'+
+       'Dit tempo haal je niet naast je werk. Advies: voeg “Voorraadbakjes wassen” samen met “Dozen aanvullen”.'+
+       '<div class="knoppen"><button class="knop licht" onclick="toon(\'Blijft staan\')">Laat staan</button>'+
+       '<button class="knop donker" onclick="voegSamen()">Samenvoegen</button></div></div>';
+  }
+  h+='</div>';
+
+  h+='<div class="sectie">Op de plank</div>';
+  h+='<div class="kaart"><div class="plank"><div>'+
+     '<div class="titel">'+plank+' video’s klaar</div>'+
+     '<div class="meta">'+(plank*2)+' dagen vooruit'+(plank<3?' · onder de drie, plan een filmdag':'')+'</div>'+
+     '</div>'+bollenHTML(plank,6)+'</div></div>';
+  return h;
+}
+function voegSamen(){
+  const a=idee('i6'),b=idee('i7');
+  if(!a||!b)return;
+  a.titel='Voorraadbakjes wassen en dozen aanvullen';
+  a.steek=['stapel bakjes','alles droog terug','verpakking aangevuld','klaar voor productie'];
+  a.shots=[{k:'timelapse',g:false},{k:'povhanden',g:false},{k:'vastpunt',g:false}];
+  ideeen=ideeen.filter(i=>i.id!=='i7');
+  toon('Samengevoegd tot één video');render();
+}
+
+/* ----- Wachtrij ----- */
+function rijHTML(){
+  let h='<div class="filters">'+['alle','serie','les','website','smaken'].map(f=>
+    '<button class="filter'+(state.filter===f?' aan':'')+'" onclick="state.filter=\''+f+'\';render()">'+f+'</button>').join('')+'</div>';
+  h+='<div class="kaart tap" onclick="nieuwIdee()"><div class="rij">'+
+     '<div><div class="titel">Nieuw idee</div><div class="meta">Ik zeg waar het in de tijdlijn hoort</div></div>'+
+     '<div class="actieknop">+</div></div></div>';
+
+  [1,2,3].forEach(f=>{
+    const lijst=ideeen.filter(i=>i.fase===f&&(state.filter==='alle'||i.spoor===state.filter));
+    if(!lijst.length)return;
+    h+='<div class="sectie">Fase '+f+' · '+FASENAAM[f]+(f===2?' · dicht op 19 okt':'')+'</div>';
+    lijst.forEach((i,n)=>{
+      const bezig=state.verplaats===i.id;
+      h+='<div class="regel" onclick="'+(bezig?'':'opendIdee(\''+i.id+'\')')+'">'+
+         '<span class="nr">'+(n+1)+'</span>'+
+         '<span class="stip s-'+i.status+'"></span>'+
+         '<div class="tk"><div class="t">'+esc(i.titel)+'</div>'+
+         '<div class="m">'+i.spoor+' · '+i.status+'</div></div>';
+      if(bezig){
+        h+='<button class="verplaatsknop" onclick="event.stopPropagation();schuif(\''+i.id+'\',-1)">▲</button>'+
+           '<button class="verplaatsknop" onclick="event.stopPropagation();schuif(\''+i.id+'\',1)">▼</button>'+
+           '<button class="verplaatsknop" onclick="event.stopPropagation();state.verplaats=null;render()">✓</button>';
+      }else{
+        h+='<button class="greep" onclick="event.stopPropagation();state.verplaats=\''+i.id+'\';render()">⠿</button>';
+      }
+      h+='</div>';
+    });
+  });
+  return h;
+}
+function schuif(id,r){
+  const a=ideeen.findIndex(i=>i.id===id),b=a+r;
+  if(b<0||b>=ideeen.length)return;
+  if(ideeen[b].fase!==ideeen[a].fase)return;
+  [ideeen[a],ideeen[b]]=[ideeen[b],ideeen[a]];
+  render();
+}
+
+/* ----- Beelden ----- */
+function beeldenHTML(){
+  let h='<div class="klein" style="margin:6px 4px 10px">Beeld dat je geschoten hebt zonder dat er al een video voor is.</div>';
+  if(!beelden.length)return h+'<div class="leeg">Nog niets bewaard. Alles wat je onderweg filmt komt hier terecht.</div>';
+  beelden.forEach(b=>{
+    h+='<div class="kaart"><div class="rij"><div style="flex:1;min-width:0">'+
+       '<div class="titel">'+esc(b.titel)+'</div>'+
+       '<div class="meta">'+(b.video?'hoort bij <b>'+esc(b.video)+'</b>':'nog niet toegewezen')+'</div></div>'+
+       '<button class="actieknop zacht" onclick="koppel(\''+b.id+'\')">'+(b.video?'Wijzig':'Koppel')+'</button>'+
+       '</div></div>';
+  });
+  return h;
+}
+function koppel(id){
+  const b=beelden.find(x=>x.id===id);
+  b.video=b.video?null:'Productiedag';
+  toon(b.video?'Gekoppeld aan Productiedag':'Koppeling verwijderd');
+  render();
+}
+
+/* ----- Plan ----- */
+function planHTML(){
+  let h='<div class="sectie">Mijlpalen</div><div class="kaart">';
+  mijlpalen.forEach(m=>{
+    h+='<div class="mijl'+(m.hard?' hard':'')+'"><span class="d">'+datumKort(m.d)+'</span>'+
+       '<span class="n">'+esc(m.n)+'</span><span class="r">'+dagenTot(m.d)+'d</span></div>';
+  });
+  h+='</div>';
+  h+='<div class="sectie">Terugrekening · Suikerfeest</div><div class="kaart">';
+  terugrekening.forEach(t=>{
+    h+='<div class="mijl"><span class="d">'+datumKort(t.d)+'</span><span class="n">'+esc(t.n)+'</span>'+
+       '<span class="r">'+dagenTot(t.d)+'d</span></div>';
+  });
+  h+='</div>';
+  h+='<div class="sectie">Regels</div><div class="kaart"><div class="blok" style="margin:0"><ul>'+
+     regels.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul></div></div>';
+  return h;
+}
+
+/* ============================================================
+   BOTTOM SHEETS
+   ============================================================ */
+function open(inhoud,voet){
+  $('sheetinhoud').innerHTML=inhoud;
+  $('sheetvoet').innerHTML=voet||'';
+  $('overlay').classList.add('open');$('sheet').classList.add('open');
+}
+function sluit(){$('overlay').classList.remove('open');$('sheet').classList.remove('open')}
+
+function opendIdee(id){
+  const i=idee(id);if(!i)return;
+  let h='<div class="titel" style="font-size:19px">'+esc(i.titel)+'</div>'+
+        '<div class="meta">'+i.spoor+' · fase '+i.fase+' · '+i.status+'</div>';
+  h+=blokHTML('Niet vergeten',i.steek);
+  h+=blokHTML('Toon',i.toon);
+  if(i.niet.length)h+=blokHTML('Niet zeggen',i.niet,'niet');
+  h+='<div class="blok"><div class="bkop">Shots</div>';
+  i.shots.forEach((s,n)=>{
+    const d=SHOTS[s.k];
+    h+='<div class="shot" onclick="vinkShot(\''+id+'\','+n+')">'+
+       '<div class="vink'+(s.g?' aan':'')+'">✓</div><div class="st">'+
+       '<div class="sn">'+esc(d.n)+'</div><div class="si">'+
+       '<span>'+esc(d.pos)+' · '+esc(d.bew)+'</span>'+
+       '<span>'+esc(d.duur)+'</span>'+
+       '<span>'+esc(d.kader)+'</span>'+
+       '<span>'+esc(d.geluid)+'</span>'+
+       '<span style="color:var(--amber)">'+esc(d.let)+'</span>'+
+       '</div></div></div>';
+  });
+  h+='</div>';
+  const volgende=i.status==='gepost'?'':'<button class="knop donker" onclick="zetDoor(\''+id+'\');sluit()">'+
+    ACTIE[i.status].charAt(0).toUpperCase()+ACTIE[i.status].slice(1)+'</button>';
+  open(h,'<div class="knoppen"><button class="knop licht" onclick="sluit()">Sluiten</button>'+volgende+'</div>');
+}
+function blokHTML(kop,lijst,cls){
+  if(!lijst||!lijst.length)return '';
+  return '<div class="blok '+(cls||'')+'"><div class="bkop">'+kop+'</div><ul>'+
+    lijst.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul></div>';
+}
+function vinkShot(id,n){
+  const i=idee(id);i.shots[n].g=!i.shots[n].g;
+  if(i.shots.every(s=>s.g)&&i.status==='idee'){
+    laatste={id:id,status:i.status,gepostOp:null};
+    i.status='opgenomen';toon(i.titel+' · opgenomen');
+  }
+  opendIdee(id);render();
+}
+
+/* ----- Nieuw idee ----- */
+function nieuwIdee(){
+  open('<div class="titel" style="font-size:19px">Nieuw idee</div>'+
+    '<div class="meta" style="margin-bottom:14px">Eén regel. Bijvoorbeeld: vandaag ganache maken.</div>'+
+    '<textarea class="invoer" id="ideeinvoer" rows="2" placeholder="Wat ga je doen of filmen?"></textarea>',
+    '<div class="knoppen"><button class="knop licht" onclick="sluit()">Annuleren</button>'+
+    '<button class="knop donker" onclick="vraagAdvies()">Advies</button></div>');
+  setTimeout(()=>$('ideeinvoer').focus(),250);
+}
+function vraagAdvies(){
+  const t=($('ideeinvoer').value||'').trim();
+  if(!t)return;
+  const a=adviseer(t);
+  let h='<div class="klein">"'+esc(t)+'"</div>'+
+        '<div class="titel" style="font-size:19px;margin-top:6px">'+esc(a.kop)+'</div>';
+  h+='<div class="kaart" style="background:#f4f4f5;margin-top:14px;padding:14px">';
+  a.regels.forEach(r=>{h+='<div class="rij" style="padding:5px 0"><span class="meta">'+esc(r[0])+'</span>'+
+    '<span style="font-weight:600;font-size:14px;text-align:right">'+esc(r[1])+'</span></div>'});
+  h+='</div>';
+  h+='<div class="blok"><div class="bkop">Waarom</div><div style="font-size:15px">'+esc(a.waarom)+'</div></div>';
+  h+='<div class="blok"><div class="bkop">Shots</div>';
+  a.shots.forEach(k=>{const d=SHOTS[k];
+    h+='<div class="shot" style="cursor:default"><div class="vink"></div><div class="st">'+
+       '<div class="sn">'+esc(d.n)+'</div><div class="si"><span>'+esc(d.pos)+' · '+esc(d.bew)+'</span>'+
+       '<span>'+esc(d.duur)+'</span><span style="color:var(--amber)">'+esc(d.let)+'</span></div></div></div>'});
+  h+='</div>';
+  window._advies={t:t,a:a};
+  open(h,'<div class="knoppen"><button class="knop licht" onclick="nieuwIdee()">Anders plaatsen</button>'+
+    '<button class="knop donker" onclick="neemOver()">Oké</button></div>');
+}
+function neemOver(){
+  const {t,a}=window._advies;
+  if(a.type==='beeld'||a.type==='blok'){
+    beelden.push({id:'b'+Date.now(),titel:t,shot:a.shots[0],video:a.video||null});
+    toon('Bewaard in de beeldenbak');
+  }else if(a.type==='bestaat'){
+    const i=idee(a.koppel);
+    i.shots.push({k:a.shots[0]||'vastpunt',g:false});
+    toon('Shot toegevoegd aan '+i.titel);
+  }else{
+    const laatsteVanFase=ideeen.map((x,n)=>x.fase===a.fase?n:-1).filter(n=>n>=0).pop();
+    const nieuw={id:'i'+Date.now(),titel:t.charAt(0).toUpperCase()+t.slice(1),spoor:a.spoor||'serie',
+      fase:a.fase,status:'idee',steek:[],toon:[],niet:[],shots:a.shots.map(k=>({k:k,g:false}))};
+    ideeen.splice(laatsteVanFase+1,0,nieuw);
+    toon('Toegevoegd achteraan fase '+a.fase);
+  }
+  sluit();render();
+}
+
+/* ---------- Tabbalk ---------- */
+const ICO={
+ vandaag:'<path d="M3 9h18M7 3v3M17 3v3"/><rect x="3" y="5" width="18" height="16" rx="3"/>',
+ week:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ rij:'<path d="M4 7h16M4 12h16M4 17h10"/>',
+ beelden:'<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M9 6V4h6v2"/><circle cx="12" cy="12.5" r="3"/>',
+ plan:'<path d="M4 20V6a2 2 0 012-2h12a2 2 0 012 2v14"/><path d="M8 9h8M8 13h5"/>'
+};
+function tabs(){
+  const lijst=[['vandaag','Vandaag'],['week','Week'],['rij','Wachtrij'],['beelden','Beelden'],['plan','Plan']];
+  $('tabs').innerHTML=lijst.map(([k,n])=>
+    '<button class="tab'+(state.tab===k?' aan':'')+'" onclick="state.tab=\''+k+'\';state.verplaats=null;render()">'+
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">'+ICO[k]+'</svg>'+n+'</button>').join('');
+}
+
+render();
+</script>
+</body>
+</html>
