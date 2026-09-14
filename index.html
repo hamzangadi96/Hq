@@ -1254,6 +1254,9 @@ nav#tabbar{view-transition-name:tabbalk}
 .cbstat.s-gemonteerd{background:#15803d}
 .cbstat.s-gepost{background:#18181b}
 .cbrood li{color:#c0392b}
+.cbwan{display:flex;gap:10px;margin-top:12px}
+.cbwan div{flex:1;background:#f4f4f5;border-radius:13px;padding:11px 12px;font-size:15px}
+.cbwan span{display:block;font-size:12px;color:#71717a;margin-bottom:2px}
 .knopz{height:52px;border:none;border-radius:15px;background:#18181b;color:#fff;
   font-family:inherit;font-size:16px;font-weight:600;cursor:pointer}
 .cbaf{display:flex;gap:13px;align-items:flex-start;padding:13px 0;cursor:pointer}
@@ -3652,7 +3655,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v616 · 14 sep 2026';
+const APPVERSIE='v618 · 14 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17109,11 +17112,11 @@ const CBJAAR=[
  werk:['opruimen en rit naar de stort','grondstoffen op houdbaarheid','mallen en voorraadbakjes wassen',
        'productieruimte en kantoortje herinrichten','ingredienten registreren in HQ','smaken bepalen met publiek'],
  vids:['stort','grondstoffen','mallen','bakjes','dozen','ruimte','kantoor',
-       'houdbaarheid','baan','euro25','website','tempereerfout']},
+       'houdbaarheid','baan','euro25','website','tempereerfout','weggedaan','kantoor23','denkendoe','trein647','ruimte7en23','zondersysteem']},
 {k:'per',van:'2026-10-01',tot:'2026-10-31',tt:'Okt',label:'opbouw',
  werk:['5 okt smaken vast en inkoop besteld','12-17 okt eerste productiecyclus',
        '19-24 okt tweede cyclus','laatste week webshop vullen en aftellen'],
- vids:['smaken','configurator','aftellen']},
+ vids:['smaken','configurator','deadlines','alleenwerken','legewerkbank','eerstebonbon','vaakstevraag','aftellen']},
 {k:'piek',van:'2026-11-01',tot:'2026-11-01',dt:'1 november 2026',tt:'Heropening en show',
  sb:'webshop open, spelletjes mogen genoemd',
  werk:['webshop live','Bonbon Live live','voorraad klaar'],vids:[]},
@@ -17121,23 +17124,23 @@ const CBJAAR=[
  drukte:'Sinterklaas en Kerst',
  werk:['weekritme gaat draaien','restockdag ongeveer elke drie weken',
        'voorraad klaar eind november','december drukste chocolademaand'],
- vids:['achtuur','openingscheck']},
+ vids:['eerstebestelling','achtuur','openingscheck','notenpasta','inkleuren','kapot','inpakken','halal','avondervoor','narestock','koud','vorst','klanten','machine','geluid','voorbestellen','zenuwachtig','verkeerdverstuurd','doosjekost','driekeer','weggooi','kerstboom']},
 {k:'per',van:'2027-01-01',tot:'2027-03-08',tt:'Jan en feb',label:'opbouw',
  drukte:'Valentijn',
  werk:['11 jan inkoop voor het Suikerfeest','25 jan productie starten',
-       '7 feb Ramadan begint','opschalen richting de piek'],vids:[]},
+       '7 feb Ramadan begint','opschalen richting de piek'],vids:['ramadan']},
 {k:'piek',van:'2027-03-09',tot:'2027-03-09',dt:'9 maart 2027',tt:'Suikerfeest',
  sb:'grootste piek van het jaar',
  werk:['voorraad en verzending ruim vooraf geregeld'],vids:[]},
 {k:'per',van:'2027-03-10',tot:'2027-04-30',tt:'Apr',label:'rust',
  drukte:'Pasen',
- werk:['terugkijken op het Suikerfeest','nieuwe smaken ontwikkelen','voorraad opbouwen voor mei'],vids:[]},
+ werk:['terugkijken op het Suikerfeest','nieuwe smaken ontwikkelen','voorraad opbouwen voor mei'],vids:['jaarnabeurs']},
 {k:'piek',van:'2027-05-16',tot:'2027-05-16',dt:'16 mei 2027',tt:'Offerfeest',
  sb:'afsluiter, Moederdag in dezelfde maand',
  werk:['precies een jaar na het vorige Offerfeest'],vids:[]},
 {k:'per',van:'2027-06-01',tot:'2027-06-30',tt:'Jun',label:'zomer',
  werk:['zomerplan maken voor het warm wordt','verzenden bij warmte oplossen',
-       'content vooruit opnemen','rustperiode vooraf aankondigen'],vids:[]}
+       'content vooruit opnemen','rustperiode vooraf aankondigen'],vids:['zomerplan']}
 ];
 const CBREGELS=['30 tot 90 seconden, om de dag posten','Elke taak een eigen video',
  'Drukke feestdagen: wel verkopen, geen thema','Geen woord over de spelletjes voor 1 november',
@@ -17220,6 +17223,25 @@ const CBVIDS=[
 {id:'tempereerfout',t:'De fout die me uren kostte',spoor:'les',fase:2,
  steek:['45 graden, dan 1/3 erbij','alles tegelijk laat alles meesmelten','blijft op 40 hangen','koude druppels zijn je koeling'],
  toon:['geen les geven, gewoon vertellen'],niet:['merk van de machine'],shots:['bak','vast','autopraat']},
+{id:'weggedaan',t:'Alles wat er niet meer is',spoor:'serie',fase:2,
+ steek:['verlopen grondstoffen','oude verpakking','bewust weggedaan','opnieuw beginnen'],
+ toon:['nuchter, geen spijt'],niet:['bedragen noemen'],shots:['afval','ba','autorij']},
+{id:'kantoor23',t:'Mijn kantoortje om 23:00',spoor:'les',fase:2,
+ steek:['net terug uit Den Haag','licht aan, administratie','dit hoort er ook bij'],
+ toon:['stil, laat op de avond'],niet:['klagen','klantgegevens in beeld'],shots:['deur','vast','autopraat']},
+{id:'denkendoe',t:'Wat mensen denken dat ik doe versus wat ik doe',spoor:'les',fase:2,
+ steek:['chocolade gieten is het leuke deel','wassen, tellen, inpakken, administratie','het echte werk is saai'],
+ toon:['licht, zelfspot'],niet:['zeuren'],shots:['detail','handen','lapse']},
+{id:'trein647',t:'De trein van 6:47',spoor:'serie',fase:2,
+ steek:['pak aan, laptop open','gisteravond om een uur nog staan gieten','twee levens, een dag'],
+ toon:['droog, geen medelijden'],niet:['werkgever noemen','gezichten van medereizigers'],
+ shots:['trein','autopraat','deur']},
+{id:'ruimte7en23',t:'De ruimte om 7 uur en om 23 uur',spoor:'serie',fase:2,
+ steek:['zelfde kader, twee keer','ochtend leeg en stil','avond vol en warm'],
+ toon:['geen tekst nodig'],niet:[],shots:['ba','vast','detail']},
+{id:'zondersysteem',t:'Toen ik dacht dat ik het kon zonder systeem',spoor:'les',fase:2,
+ steek:['briefjes en mijn hoofd','wat er misging','waarom ik nu alles vastleg'],
+ toon:['zelfspot, geen promotie'],niet:['klantgegevens in beeld'],shots:['vast','handen','autopraat']},
 {id:'website',t:'De website opnieuw opbouwen',spoor:'website',fase:2,
  steek:['alles opnieuw','zelf gebouwd'],toon:['kort, tussendoor'],niet:['spelletjes'],shots:['vast','detail']},
 {id:'smaken',t:'Welke smaken wil jij',spoor:'smaken',fase:3,
@@ -17228,6 +17250,21 @@ const CBVIDS=[
 {id:'configurator',t:'De doos-configurator',spoor:'website',fase:3,
  steek:['zelf je doos samenstellen','klaar voor 1 november'],
  toon:['op het scherm laten zien'],niet:['bugs tonen'],shots:['vast','detail']},
+{id:'deadlines',t:'Twee soorten deadlines',spoor:'les',fase:3,
+ steek:['een zitting en een restockdag','allebei hard','totaal andere spanning'],
+ toon:['nuchter vergelijken'],niet:['zaakinhoud','clienten','werkgever'],shots:['trein','autopraat','vast']},
+{id:'alleenwerken',t:'Wat ik hoor als ik alleen werk',spoor:'serie',fase:3,
+ steek:['de machine','de koeling','verder niets'],
+ toon:['geen stem, alleen geluid'],niet:['muziek eroverheen'],shots:['bak','loop','detail']},
+{id:'legewerkbank',t:'De laatste lege werkbank',spoor:'serie',fase:3,
+ steek:['nog niks geproduceerd','morgen begint het','hoe stil het nu is'],
+ toon:['rustig, bijna plechtig'],niet:['overdrijven'],shots:['loop','vast','detail']},
+{id:'eerstebonbon',t:'De eerste bonbon van het seizoen',spoor:'serie',fase:3,
+ steek:['een stuk','uitslaan, stil','vier maanden hier naartoe'],
+ toon:['geen woord te veel'],niet:['smaak aanprijzen'],shots:['uitslaan','detail']},
+{id:'vaakstevraag',t:'De vraag die ik het vaakst krijg',spoor:'les',fase:3,
+ steek:['een vraag, een antwoord','kort en duidelijk'],
+ toon:['geduldig, niet geirriteerd'],niet:['namen van vragenstellers'],shots:['autopraat','handen']},
 {id:'aftellen',t:'Aftellen naar 1 november',spoor:'serie',fase:3,
  steek:['datum noemen','wat er klaar is','zondagavond open'],
  toon:['opbouwend, kort'],niet:['overbeloven'],shots:['deur','autopraat']},
@@ -17236,9 +17273,120 @@ const CBVIDS=[
  toon:['rustig, ritme laten zien'],niet:[],shots:['bak','lapse','handen']},
 {id:'openingscheck',t:'De openingscheck, elke dag hetzelfde rondje',spoor:'proces',fase:4,
  steek:['vaste ronde voor je begint','kleding, ruimte, mallen','koelkast en klimaatkast meten'],
- toon:['professioneel, kort'],niet:['met de vinger wijzen'],shots:['deur','handen','detail']}
+ toon:['professioneel, kort'],niet:['met de vinger wijzen'],shots:['deur','handen','detail']},
+{id:'eerstebestelling',t:'De eerste bestelling na vier maanden',spoor:'serie',fase:4,
+ steek:['de melding komt binnen','vier maanden niets','meteen inpakken'],
+ toon:['echt, geen acteren'],niet:['klantgegevens in beeld'],shots:['vast','handen']},
+{id:'notenpasta',t:'Waarom notenpasta een eigen dag krijgt',spoor:'proces',fase:4,
+ steek:['eigen dag, niets anders','moet afkoelen','haast gaat je opbreken'],
+ toon:['uitleggend, rustig'],niet:['recept weggeven'],shots:['handen','detail','lapse']},
+{id:'inkleuren',t:'60 mallen inkleuren',spoor:'proces',fase:4,
+ steek:['twee tot drie uur','kleurstof met cacaoboter','dit bepaalt hoe hij eruitziet'],
+ toon:['ritme, weinig praten'],niet:[],shots:['lapse','handen','detail']},
+{id:'kapot',t:'Wat er kapot gaat',spoor:'les',fase:4,
+ steek:['mislukte schelpen','wat het kost','gaat niet de deur uit'],
+ toon:['plat, geen drama'],niet:['goedpraten'],shots:['detail','vast','handen']},
+{id:'inpakken',t:'Een doosje inpakken van begin tot eind',spoor:'proces',fase:4,
+ steek:['een doosje, een take','elke handeling','dit doe ik honderd keer'],
+ toon:['stil, ambachtelijk'],niet:['prijs noemen'],shots:['vast','handen','detail']},
+{id:'halal',t:'Is dit halal',spoor:'les',fase:4,
+ steek:['een keer goed uitleggen','wat er wel en niet in gaat','daarna verwijs ik hiernaar'],
+ toon:['feitelijk, geen preek'],niet:['anderen beoordelen'],shots:['autopraat','detail']},
+{id:'avondervoor',t:'De avond voor een restockdag',spoor:'serie',fase:4,
+ steek:['alles klaarzetten','hoeveel er is','morgen om die tijd'],
+ toon:['spanning opbouwen, niet overdrijven'],niet:['aantallen beloven'],shots:['vast','loop','detail']},
+{id:'narestock',t:'Wat er overblijft na een restockdag',spoor:'les',fase:4,
+ steek:['wat er weg is','wat er over is','plat de cijfers'],
+ toon:['eerlijk, ook als het tegenvalt'],niet:['omzet noemen'],shots:['vast','detail']},
+{id:'koud',t:'Hoe koud het is in de werkplaats',spoor:'proces',fase:4,
+ steek:['winter in de ruimte','chocolade houdt van koel','wat dat met je handen doet'],
+ toon:['droog, met humor'],niet:['klagen'],shots:['deur','detail','handen']},
+{id:'vorst',t:'Verzenden bij vorst',spoor:'proces',fase:4,
+ steek:['hoe je het inpakt','wat er misgaat bij min vijf','waarom ik dagen kies'],
+ toon:['praktisch'],niet:['vervoerder afvallen'],shots:['handen','lapse','autorij']},
+{id:'klanten',t:'Terugkerende klanten',spoor:'les',fase:4,
+ steek:['dezelfde namen','wat dat betekent','waarom ik het onthoud'],
+ toon:['dankbaar, kort'],niet:['namen','gezichten','bestelgegevens'],shots:['vast','detail']},
+{id:'machine',t:'Mijn duurste aankoop',spoor:'les',fase:4,
+ steek:['de tempereermachine','14 kg','wat hij gekost heeft in uren werk','of hij het waard was'],
+ toon:['eerlijk afwegen, geen reclame'],niet:['merk','exacte prijs'],shots:['bak','detail','autopraat']},
+{id:'geluid',t:'Het geluid van een goede bonbon',spoor:'proces',fase:4,
+ steek:['alleen de tik','geen stem'],toon:['stil, kort'],niet:['uitleggen wat je hoort'],
+ shots:['uitslaan','detail']},
+{id:'voorbestellen',t:'Wat mensen vragen vlak voor ze bestellen',spoor:'les',fase:4,
+ steek:['steeds dezelfde drie vragen','kort antwoord per vraag'],
+ toon:['geduldig'],niet:['namen','schermafbeeldingen met gegevens'],shots:['autopraat','vast']},
+{id:'zenuwachtig',t:'De bestelling waar ik zenuwachtig van werd',spoor:'serie',fase:4,
+ steek:['groot of bijzonder','wat er door je heen gaat','hoe het afliep'],
+ toon:['open, niet stoer'],niet:['klantnaam','bedrag'],shots:['vast','handen','autopraat']},
+{id:'verkeerdverstuurd',t:'De bestelling die ik verkeerd verstuurde',spoor:'les',fase:4,
+ steek:['wat er misging','hoe ik het oploste','wat ik erna veranderde'],
+ toon:['fout toegeven, geen excuus'],niet:['klantgegevens','vervoerder afvallen'],
+ shots:['handen','vast','autopraat']},
+{id:'doosjekost',t:'Hoeveel een doosje mij kost',spoor:'les',fase:4,
+ steek:['chocolade, noten, verpakking','verzending','uren'],
+ toon:['plat optellen, mensen rekenen zelf'],niet:['marge noemen','verdedigen'],
+ shots:['vast','detail','handen']},
+{id:'driekeer',t:'Dezelfde bonbon, drie keer opnieuw',spoor:'proces',fase:4,
+ steek:['eerste klopt niet','tweede ook niet','derde wel','waarom ik doorga'],
+ toon:['geduld laten zien'],niet:['perfectie prediken'],shots:['uitslaan','detail','handen']},
+{id:'weggooi',t:'Wat ik weggooi voor jij iets ziet',spoor:'les',fase:4,
+ steek:['afgekeurde schelpen','waarom ze niet verkocht worden','dit hoort bij de prijs'],
+ toon:['feitelijk, geen drama'],niet:['zonde zeggen','weggeven suggereren'],
+ shots:['afval','detail','vast']},
+{id:'kerstboom',t:'Waarom ik geen kerstboom in beeld zet',spoor:'les',fase:4,
+ steek:['iedereen doet thema','ik verkoop gewoon door','dit is een keuze','ambacht boven feestdag'],
+ toon:['rustig uitleggen, niemand afvallen'],niet:['anderen veroordelen','religie uitleggen'],
+ shots:['autopraat','vast']},
+{id:'ramadan',t:'Ramadan in een chocoladewerkplaats',spoor:'serie',fase:4,
+ steek:['werken terwijl je vast','ruiken maar niet proeven','waar ik naartoe bouw'],
+ toon:['persoonlijk, niet zwaar'],niet:['anderen voorschrijven'],shots:['handen','bak','autopraat']},
+{id:'jaarnabeurs',t:'Een jaar na de beurs',spoor:'les',fase:4,
+ steek:['vorig jaar 2000 over','wat ik anders doe','het weer is de baas'],
+ toon:['terugkijkend, niet triomfantelijk'],niet:['opscheppen'],shots:['autopraat','vast','detail']},
+{id:'zomerplan',t:'De zomer die ik dit keer wel gepland heb',spoor:'les',fase:4,
+ steek:['vorig jaar viel alles stil','nu vooraf besloten','wat er wel kan in de hitte','geen verdwijning'],
+ toon:['besluitvaardig'],niet:['beloven wat je niet waarmaakt'],shots:['autopraat','loop']}
 ];
 const cbVid=id=>CBVIDS.find(v=>v.id===id);
+/* Wanneer je hem schiet en wanneer hij online gaat. Filmen en posten
+   vallen vaak niet samen: beeld dat nu gebeurt, post je soms pas weken later. */
+const CBWANNEER={
+ comeback:['gefilmd 14 sep','nu'],verbouwing:['oude beelden','deze week'],
+ stort:['gefilmd','deze week'],grondstoffen:['gefilmd','deze week'],
+ mallen:['nu, tijdens het wassen','direct erna'],bakjes:['bij het wassen','direct erna'],
+ dozen:['bij het aanvullen','fase 2'],ruimte:['tijdens herinrichten','fase 2'],
+ kantoor:['tijdens herinrichten','fase 2'],
+ beurs:['gefilmd 14 sep','na de reset-serie'],'6500':['losse beelden','na de beursles'],
+ houdbaarheid:['bij het beoordelen','na de beursles'],
+ baan:['willekeurige avond','fase 2, tussendoor'],euro25:['week met veel uren','fase 2, laat'],
+ tempereerfout:['eerste productiedag','fase 2, als les'],
+ website:['als je eraan werkt','tussendoor, max 1 per week'],
+ weggedaan:['nu, voor het weg is','fase 2'],kantoor23:['maandagavond laat','fase 2'],
+ denkendoe:['verzamel losse beelden','fase 2'],
+ smaken:['als je knoopt doorhakt','begin okt'],configurator:['bij het bouwen','half okt'],
+ legewerkbank:['11 okt, voor cyclus 1','laatste week okt'],
+ eerstebonbon:['eerste uitslagmoment','eind okt'],
+ vaakstevraag:['zodra de vragen komen','fase 3'],
+ aftellen:['laatste week okt','laatste week okt'],
+ achtuur:['eerste productiedag','na 1 nov'],openingscheck:['elke productiedag','na 1 nov'],
+ eerstebestelling:['1 nov, bij de melding','direct'],
+ notenpasta:['voorbereidingsdag','nov'],inkleuren:['productiedag','nov'],
+ kapot:['zodra het misgaat','nov'],inpakken:['tijdens inpakken','week van een restock'],
+ halal:['rustig moment','nov'],avondervoor:['avond voor restock','dezelfde avond'],
+ narestock:['dag na restock','dag erna'],
+ koud:['koude ochtend','dec'],vorst:['bij vorst','dec'],klanten:['doorlopend','dec'],
+ kerstboom:['rustig moment','half dec'],
+ ramadan:['tijdens Ramadan','feb'],jaarnabeurs:['begin mei','begin mei 2027'],
+ zomerplan:['als je het plan maakt','juni 2027'],
+ trein647:['maandagochtend','fase 2'],ruimte7en23:['een dag, twee momenten','fase 2'],
+ zondersysteem:['nu, rustig moment','fase 2'],
+ deadlines:['week met allebei','fase 3'],alleenwerken:['avond in de werkplaats','fase 3'],
+ machine:['bij de machine','nov'],geluid:['productiedag, bij uitslaan','nov'],
+ voorbestellen:['verzamel de vragen','nov'],zenuwachtig:['als het gebeurt','nov'],
+ verkeerdverstuurd:['als het gebeurt','nov, later'],doosjekost:['na een hele cyclus','eind nov'],
+ driekeer:['productiedag','dec'],weggooi:['productiedag','dec']
+};
 const CBSTAT=['idee','opgenomen','gemonteerd','gepost'];
 const CBDOE={idee:'Filmen',opgenomen:'Monteren',gemonteerd:'Posten',gepost:'Klaar'};
 const CBFASE={1:'Kennismaken',2:'Reset en lessen',3:'Opbouw',4:'Na 1 november'};
@@ -17271,6 +17419,9 @@ function cbVidsHTML(){
 function cbVidSheet(id){
   const v=cbVid(id), st=cbStat(id);
   let h='<div class="cbsheetkop">'+v.spoor+' &middot; fase '+v.fase+' &middot; '+st+'</div>';
+  const w=CBWANNEER[v.id];
+  if(w) h+='<div class="cbwan"><div><span>Filmen</span>'+esc(w[0])+'</div>'
+    +'<div><span>Posten</span>'+esc(w[1])+'</div></div>';
   h+='<div class="cbsheetkop">Niet vergeten</div><ul class="cblijst">'
     +v.steek.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
   h+='<div class="cbsheetkop">Toon</div><ul class="cblijst">'
