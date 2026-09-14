@@ -1222,6 +1222,37 @@ nav#tabbar{view-transition-name:tabbalk}
 .cbpiekkaart .cbdt{font-size:12px;color:#a1a1aa}
 .cbpiekkaart .cbtt{font-size:19px;font-weight:600;letter-spacing:-0.3px;margin-top:3px}
 .cbpiekkaart .cbsb{font-size:14px;color:#d4d4d8;margin-top:5px}
+.cbzoom{display:flex;gap:6px;background:#fff;border-radius:14px;padding:5px;margin:2px 0 12px}
+.cbzoom button{flex:1;height:40px;border:none;border-radius:10px;background:none;color:#71717a;
+  font-family:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.cbzoom button.aan{background:#18181b;color:#fff}
+.cbnav{display:flex;align-items:center;justify-content:space-between;margin:0 4px 10px}
+.cbnav b{font-size:17px;font-weight:600}
+.cbnav button{width:40px;height:40px;border:none;border-radius:12px;background:#fff;
+  font-family:inherit;font-size:17px;color:#18181b;cursor:pointer}
+.cbdicht{display:flex;align-items:center;gap:10px}
+.cbdicht .cbmaand{flex:1;min-width:0}
+.cbtel{font-size:12px;color:#a1a1aa;flex:none}
+.cbchip{display:inline-block;font-size:12px;background:#f4f4f5;color:#18181b;border-radius:8px;
+  padding:3px 8px;margin:3px 4px 0 0}
+.cbchip.aan{background:#18181b;color:#fff}
+.cbdagrij{background:#fff;border-radius:14px;padding:13px 14px;margin-bottom:7px;display:flex;
+  align-items:center;gap:12px;cursor:pointer}
+.cbdagrij.vandaag{box-shadow:inset 0 0 0 2px #18181b}
+.cbdagrij .dnaam{width:74px;flex:none;font-size:14px;color:#71717a}
+.cbdagrij .dinh{flex:1;min-width:0;font-size:15px}
+.cbdagrij .dinh span{color:#a1a1aa}
+.cbrooster{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cbcel{background:#fff;border-radius:11px;padding:7px 2px;text-align:center;cursor:pointer;min-height:50px}
+.cbcel .dn{font-size:14px;font-weight:500}
+.cbcel .dp{width:6px;height:6px;border-radius:50%;background:#18181b;margin:4px auto 0}
+.cbcel.leeg{background:transparent}
+.cbcel.vandaag{box-shadow:inset 0 0 0 2px #18181b}
+.cbcel.buiten .dn{color:#d4d4d8}
+.cbkies{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.cbkies button{border:none;border-radius:12px;background:#f4f4f5;color:#18181b;font-family:inherit;
+  font-size:15px;padding:11px 14px;cursor:pointer}
+.cbkies button.aan{background:#18181b;color:#fff}
 .cbsheetkop{font-size:13px;color:#71717a;margin:16px 0 6px}
 .cbsheetkop:first-child{margin-top:2px}
 .cblijst{margin:0;padding-left:18px}
@@ -3607,7 +3638,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v613 · 14 sep 2026';
+const APPVERSIE='v614 · 14 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3871,6 +3902,9 @@ const S={
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
   gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
+  /* Content: wat je op een dag doet. Sleutel is de datum, waarde de
+     activiteiten. Hieruit volgt welke beelden je die dag moet schieten. */
+  contentDagen:{},
   /* je baan naast Cacaoboetiek: een vaste week, plus losse afwijkingen.
      Zonder dit weet de app niet wanneer je uberhaupt kunt produceren. */
   werkweek:null, werkafwijk:{},
@@ -3914,7 +3948,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -17093,26 +17127,62 @@ const CBREGELS=['30 tot 90 seconden, om de dag posten','Elke taak een eigen vide
  'Drukke feestdagen: wel verkopen, geen thema','Geen woord over de spelletjes voor 1 november',
  'Prive: wel benoemen dat, nooit wat'];
 
+/* Wat je op een dag doet, en welke beelden daaruit volgen. */
+const CBACT=[
+ {k:'productie',n:'Productiedag',shots:['Openingsshot: deur werkplaats','De bak in de tempereermachine','POV handen aan het werk','Uitslaan uit de mal']},
+ {k:'voorbereiding',n:'Voorbereiding',shots:['POV handen aan het werk','Detail close-up']},
+ {k:'schoonmaak',n:'Schoonmaak',shots:['Before en after, zelfde punt','Timelapse']},
+ {k:'inkoop',n:'Inkoop',shots:['Auto rijdend, door de voorruit','POV handen aan het werk']},
+ {k:'live',n:'Live',shots:['Vast standpunt werkbank','Detail close-up']},
+ {k:'verzenden',n:'Verzenden',shots:['POV handen aan het werk','Timelapse']},
+ {k:'website',n:'Website',shots:['Vast standpunt werkbank','Detail close-up']},
+ {k:'dubbel',n:'Dubbele dag',shots:['Trein en station','Auto, recht in de camera','Openingsshot: deur werkplaats']},
+ {k:'filmdag',n:'Filmdag',shots:['Loop-shot door de ruimte','Before en after, zelfde punt']},
+ {k:'vrij',n:'Vrij',shots:[]}
+];
+const cbAct=k=>CBACT.find(a=>a.k===k);
+let cbZoom='jaar', cbOpen=-1, cbAnker=new Date();
+
 function cbStatus(b){
   const n=new Date();
   if(new Date(b.tot)<n) return 'cbklaar';
   if(new Date(b.van)<=n&&n<=new Date(b.tot)) return 'cbnu';
   return '';
 }
+function cbHuidig(){ return CBJAAR.findIndex(b=>cbStatus(b)==='cbnu') }
+function cbDagen(){ S.contentDagen=S.contentDagen||{}; return S.contentDagen }
+function cbDag(d){ return cbDagen()[d]||[] }
+
 function contentHTML(){
+  if(cbOpen===-1) cbOpen=cbHuidig();
+  let h='<div class="cbzoom">'
+    +['jaar','maand','week'].map(z=>'<button class="'+(cbZoom===z?'aan':'')
+      +'" onclick="cbZoom=\''+z+'\';cbAnker=new Date();render()">'
+      +z.charAt(0).toUpperCase()+z.slice(1)+'</button>').join('')
+    +'</div>';
+  if(cbZoom==='jaar') return h+cbJaarHTML();
+  if(cbZoom==='maand') return h+cbMaandHTML();
+  return h+cbWeekHTML();
+}
+
+/* ── jaar: alles dicht, alleen waar je bent staat open ── */
+function cbJaarHTML(){
   let h='<div class="cbjaar">';
   CBJAAR.forEach((b,n)=>{
-    const st=cbStatus(b);
-    h+='<div class="cbblok '+(b.k==='piek'?'cbpiek ':'')+st+'" onclick="cbBlok('+n+')">'
+    const st=cbStatus(b), open=(cbOpen===n);
+    h+='<div class="cbblok '+(b.k==='piek'?'cbpiek ':'')+st+'" onclick="cbVouw('+n+')">'
       +'<span class="cbstip"></span>';
     if(b.k==='piek'){
       h+='<div class="cbpiekkaart"><div class="cbdt">'+esc(b.dt)+'</div>'
-        +'<div class="cbtt">'+esc(b.tt)+'</div><div class="cbsb">'+esc(b.sb)+'</div></div>';
+        +'<div class="cbtt">'+esc(b.tt)+'</div>'
+        +(open?'<div class="cbsb">'+esc(b.sb)+'</div>':'')+'</div>';
     } else {
-      h+='<div class="cbper"><div class="cbbk"><span class="cbmaand">'+esc(b.tt)+'</span>'
+      h+='<div class="cbper"><div class="cbdicht">'
+        +'<span class="cbmaand">'+esc(b.tt)+'</span>'
+        +'<span class="cbtel">'+b.werk.length+' werk &middot; '+(b.vids||[]).length+' video</span>'
         +'<span class="cblabel">'+esc(b.label)+'</span></div>'
-        +'<div class="cbwerk">'+b.werk.slice(0,3).map(esc).join('<br>')+'</div>'
-        +(b.drukte?'<div class="cbdrukte">drukte: '+esc(b.drukte)+' &middot; verkopen, niet vieren</div>':'')
+        +(open?'<div class="cbwerk">'+b.werk.map(esc).join('<br>')+'</div>':'')
+        +(open&&b.drukte?'<div class="cbdrukte">drukte: '+esc(b.drukte)+' &middot; verkopen, niet vieren</div>':'')
         +(st==='cbnu'?'<div class="cbnulabel">Je bent hier</div>':'')
         +'</div>';
     }
@@ -17124,6 +17194,84 @@ function contentHTML(){
     +CBREGELS.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul></div>';
   return h;
 }
+function cbVouw(n){
+  if(cbOpen===n){ cbBlok(n); return }
+  cbOpen=n; render();
+}
+
+/* ── maand ── */
+function cbMaandHTML(){
+  const a=new Date(cbAnker.getFullYear(),cbAnker.getMonth(),1);
+  const vandaag=iso(new Date());
+  let h='<div class="cbnav"><button onclick="cbSchuif(-1)">&#8249;</button>'
+    +'<b>'+MND[a.getMonth()]+' '+a.getFullYear()+'</b>'
+    +'<button onclick="cbSchuif(1)">&#8250;</button></div>';
+  h+='<div class="cbrooster">'+['ma','di','wo','do','vr','za','zo']
+    .map(d=>'<div style="text-align:center;font-size:11px;color:#a1a1aa">'+d+'</div>').join('')+'</div>';
+  h+='<div class="cbrooster" style="margin-top:5px">';
+  const voor=(a.getDay()+6)%7;
+  for(let i=0;i<voor;i++) h+='<div class="cbcel leeg"></div>';
+  const laatste=new Date(a.getFullYear(),a.getMonth()+1,0).getDate();
+  for(let d=1;d<=laatste;d++){
+    const dt=new Date(a.getFullYear(),a.getMonth(),d), s=iso(dt);
+    const acts=cbDag(s);
+    h+='<div class="cbcel'+(s===vandaag?' vandaag':'')+'" onclick="cbDagSheet(\''+s+'\')">'
+      +'<div class="dn">'+d+'</div>'
+      +(acts.length?'<div class="dp"></div>':'')+'</div>';
+  }
+  h+='</div>';
+  const geteld=Object.keys(cbDagen()).filter(k=>k.slice(0,7)===iso(a).slice(0,7)&&cbDag(k).length).length;
+  h+='<div class="cbsheetkop" style="margin-left:4px">'+geteld+' dagen ingevuld</div>';
+  return h;
+}
+function cbSchuif(r){
+  if(cbZoom==='maand') cbAnker=new Date(cbAnker.getFullYear(),cbAnker.getMonth()+r,1);
+  else cbAnker=new Date(cbAnker.getFullYear(),cbAnker.getMonth(),cbAnker.getDate()+r*7);
+  render();
+}
+
+/* ── week ── */
+function cbWeekHTML(){
+  const a=new Date(cbAnker); a.setDate(a.getDate()-((a.getDay()+6)%7));
+  const vandaag=iso(new Date());
+  const eind=new Date(a); eind.setDate(eind.getDate()+6);
+  let h='<div class="cbnav"><button onclick="cbSchuif(-1)">&#8249;</button>'
+    +'<b>'+a.getDate()+' '+MNDK[a.getMonth()]+' &ndash; '+eind.getDate()+' '+MNDK[eind.getMonth()]+'</b>'
+    +'<button onclick="cbSchuif(1)">&#8250;</button></div>';
+  for(let i=0;i<7;i++){
+    const dt=new Date(a); dt.setDate(a.getDate()+i);
+    const s=iso(dt), acts=cbDag(s);
+    const tekst=acts.length
+      ? acts.map(k=>(cbAct(k)||{n:k}).n).join(', ')
+      : '<span>niets ingevuld</span>';
+    h+='<div class="cbdagrij'+(s===vandaag?' vandaag':'')+'" onclick="cbDagSheet(\''+s+'\')">'
+      +'<span class="dnaam">'+DAG[dt.getDay()].slice(0,2)+' '+dt.getDate()+' '+MNDK[dt.getMonth()]+'</span>'
+      +'<span class="dinh">'+tekst+'</span></div>';
+  }
+  return h;
+}
+
+/* ── dag: activiteit kiezen, shots volgen ── */
+function cbDagSheet(s){
+  const dt=new Date(s+'T12:00:00'), acts=cbDag(s);
+  let h='<div class="cbsheetkop">Wat doe je deze dag</div><div class="cbkies">'
+    +CBACT.map(a=>'<button class="'+(acts.includes(a.k)?'aan':'')
+      +'" onclick="cbZet(\''+s+'\',\''+a.k+'\')">'+esc(a.n)+'</button>').join('')+'</div>';
+  const shots=[];
+  acts.forEach(k=>{const a=cbAct(k); if(a) a.shots.forEach(x=>{if(!shots.includes(x))shots.push(x)})});
+  h+='<div class="cbsheetkop">Beelden die je die dag schiet</div>';
+  h+=shots.length?'<ul class="cblijst">'+shots.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>'
+    :'<div style="font-size:15px;color:#71717a">Kies eerst wat je doet.</div>';
+  sheet(DAG[dt.getDay()]+' '+dt.getDate()+' '+MND[dt.getMonth()], h, '');
+}
+function cbZet(s,k){
+  const d=cbDagen(); const l=(d[s]||[]).slice();
+  const i=l.indexOf(k);
+  if(i>=0) l.splice(i,1); else l.push(k);
+  if(l.length) d[s]=l; else delete d[s];
+  bewaar(); cbDagSheet(s); render();
+}
+
 function cbBlok(n){
   const b=CBJAAR[n];
   let h='<div class="cbsheetkop">Werkzaamheden</div><ul class="cblijst">'
