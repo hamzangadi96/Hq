@@ -3679,7 +3679,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v621 · 14 sep 2026';
+const APPVERSIE='v622 · 14 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17172,17 +17172,28 @@ const CBREGELS=['30 tot 90 seconden, om de dag posten','Elke taak een eigen vide
 
 /* Wat je op een dag doet, en welke beelden daaruit volgen. */
 const CBACT=[
- {k:'productie',n:'Productiedag',shots:['Openingsshot: deur werkplaats','De bak in de tempereermachine','POV handen aan het werk','Uitslaan uit de mal']},
- {k:'voorbereiding',n:'Voorbereiding',shots:['POV handen aan het werk','Detail close-up']},
- {k:'schoonmaak',n:'Schoonmaak',shots:['Before en after, zelfde punt','Timelapse']},
- {k:'inkoop',n:'Inkoop',shots:['Auto rijdend, door de voorruit','POV handen aan het werk']},
- {k:'live',n:'Live',shots:['Vast standpunt werkbank','Detail close-up']},
- {k:'verzenden',n:'Verzenden',shots:['POV handen aan het werk','Timelapse']},
- {k:'website',n:'Website',shots:['Vast standpunt werkbank','Detail close-up']},
- {k:'dubbel',n:'Dubbele dag',shots:['Trein en station','Auto, recht in de camera','Openingsshot: deur werkplaats']},
- {k:'filmdag',n:'Filmdag',shots:['Loop-shot door de ruimte','Before en after, zelfde punt']},
- {k:'vrij',n:'Vrij',shots:[]}
+ {g:'Productie',k:'productie',n:'Productiedag',shots:['deur','bak','handen','uitslaan']},
+ {g:'Productie',k:'voorbereiding',n:'Noten en gelei',shots:['handen','detail','lapse']},
+ {g:'Productie',k:'schoonmaak',n:'Schoonmaak',shots:['ba','lapse']},
+ {g:'Productie',k:'inkoop',n:'Inkoop',shots:['autorij','handen']},
+ {g:'Productie',k:'voorraad',n:'Voorraad tellen',shots:['vast','handen','detail']},
+ {g:'Productie',k:'haccp',n:'HACCP en registratie',shots:['deur','handen','detail']},
+ {g:'Verkoop',k:'live',n:'Live',shots:['vast','detail']},
+ {g:'Verkoop',k:'restock',n:'Restockdag',shots:['vast','detail','handen']},
+ {g:'Verkoop',k:'verzenden',n:'Verzenden',shots:['handen','lapse']},
+ {g:'Verkoop',k:'fotos',n:'Productfoto\u2019s',shots:['vast','detail']},
+ {g:'Verkoop',k:'klanten',n:'Klantberichten',shots:['vast']},
+ {g:'Content',k:'filmdag',n:'Filmdag',shots:['loop','ba','vast']},
+ {g:'Content',k:'editen',n:'Editen',shots:['vast']},
+ {g:'Content',k:'posten',n:'Posten en plannen',shots:[]},
+ {g:'Kantoor',k:'website',n:'Website',shots:['vast','detail']},
+ {g:'Kantoor',k:'show',n:'Bonbon Live bouwen',shots:['vast','detail']},
+ {g:'Kantoor',k:'admin',n:'Administratie',shots:['vast']},
+ {g:'Overig',k:'dubbel',n:'Dubbele dag',shots:['trein','autopraat','deur']},
+ {g:'Overig',k:'denhaag',n:'Den Haag',shots:['trein','autopraat']},
+ {g:'Overig',k:'vrij',n:'Vrij',shots:[]}
 ];
+const CBGROEP=['Productie','Verkoop','Content','Kantoor','Overig'];
 const cbAct=k=>CBACT.find(a=>a.k===k);
 
 /* Hoe je elk shot schiet. Kort genoeg om te lezen met de camera in je hand. */
@@ -17761,9 +17772,12 @@ function cbWeekHTML(){
 function cbDagSheet(s){
   cbSheetDag=s; cbSheetBlok=null; cbSheetVid=null;
   const dt=new Date(s+'T12:00:00'), acts=cbDag(s);
-  let h='<div class="cbsheetkop">Wat doe je deze dag</div><div class="cbkies">'
-    +CBACT.map(a=>'<button class="'+(acts.includes(a.k)?'aan':'')
-      +'" onclick="cbZet(\''+s+'\',\''+a.k+'\')">'+esc(a.n)+'</button>').join('')+'</div>';
+  let h='';
+  CBGROEP.forEach(g=>{
+    h+='<div class="cbsheetkop">'+g+'</div><div class="cbkies">'
+      +CBACT.filter(a=>a.g===g).map(a=>'<button class="'+(acts.indexOf(a.k)>=0?'aan':'')
+        +'" onclick="cbZet(\''+s+'\',\''+a.k+'\')">'+esc(a.n)+'</button>').join('')+'</div>';
+  });
   const shots=[];
   acts.forEach(k=>{const a=cbAct(k); if(a) a.shots.forEach(x=>{if(!shots.includes(x))shots.push(x)})});
   h+='<div class="cbsheetkop">Beelden die je die dag schiet ('
