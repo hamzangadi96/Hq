@@ -1199,6 +1199,34 @@ main{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
    dus de witte pil blijft gewoon schuiven. */
 ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:.22s}
 nav#tabbar{view-transition-name:tabbalk}
+/* ══════════ Content: de jaartijdlijn ══════════
+   Mei 2026 tot juni 2027. Vier pieken, de periodes ertussen, en de drukke
+   momenten in de markt die je wel verkoopt maar niet viert. */
+.cbjaar{position:relative;padding-left:22px;margin-top:4px}
+.cbjaar:before{content:'';position:absolute;left:5px;top:16px;bottom:16px;width:2px;background:#ececee}
+.cbblok{position:relative;margin-bottom:9px;cursor:pointer}
+.cbstip{position:absolute;left:-22px;top:22px;width:12px;height:12px;border-radius:50%;
+  background:#f4f4f5;border:2.5px solid #d4d4d8;box-sizing:border-box}
+.cbblok.cbpiek .cbstip,.cbblok.cbnu .cbstip{background:#18181b;border-color:#18181b}
+.cbper{background:#fff;border-radius:18px;padding:16px}
+.cbper .cbbk{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.cbmaand{font-size:17px;font-weight:600;letter-spacing:-0.2px}
+.cblabel{font-size:12px;color:#71717a;background:#f4f4f5;border-radius:8px;padding:4px 9px;flex:none}
+.cbwerk{font-size:14px;color:#71717a;margin-top:8px;line-height:1.5}
+.cbdrukte{font-size:13px;color:#b45309;margin-top:8px}
+.cbblok.cbklaar .cbper{background:#fafafa}
+.cbblok.cbklaar .cbmaand,.cbblok.cbklaar .cbwerk{color:#a1a1aa}
+.cbblok.cbnu .cbper{box-shadow:inset 0 0 0 2px #18181b}
+.cbnulabel{font-size:12px;font-weight:600;margin-top:9px}
+.cbpiekkaart{background:#18181b;color:#fff;border-radius:18px;padding:17px}
+.cbpiekkaart .cbdt{font-size:12px;color:#a1a1aa}
+.cbpiekkaart .cbtt{font-size:19px;font-weight:600;letter-spacing:-0.3px;margin-top:3px}
+.cbpiekkaart .cbsb{font-size:14px;color:#d4d4d8;margin-top:5px}
+.cbsheetkop{font-size:13px;color:#71717a;margin:16px 0 6px}
+.cbsheetkop:first-child{margin-top:2px}
+.cblijst{margin:0;padding-left:18px}
+.cblijst li{margin-bottom:5px;font-size:16px}
+
 #tabbar .tab.actief{view-transition-name:actieveTab}
 
 .overlay{position:absolute;inset:0;background:rgba(24,24,27,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
@@ -3579,7 +3607,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v612 · 13 sep 2026';
+const APPVERSIE='v613 · 14 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5364,7 +5392,8 @@ const TABS=[
   {key:'shopify',label:'Shopify',icon:I.vracht,klaar:true},
   {key:'voorraad',label:'Voorraad',icon:I.doos,klaar:true},
   {key:'geld',label:'Financiën',icon:I.euro,klaar:true},
-  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true}
+  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true},
+  {key:'content',label:'Content',icon:I.camera,klaar:true}
 ];
 /* alles wat je in de balk kunt zetten, en alles wat in het meer-paneel staat */
 const SNELITEMS=[
@@ -5374,6 +5403,7 @@ const SNELITEMS=[
   {key:'voorraad',label:'Voorraad',icon:'doos',soort:'tab'},
   {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
   {key:'agenda',label:'Agenda',icon:'klok',soort:'tab'},
+  {key:'content',label:'Content',icon:'camera',soort:'tab'},
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
@@ -5673,7 +5703,8 @@ function renderNu(){
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
     S.tab==='shopify'?shopifyHTML():
-    S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():straksHTML(S.tab));
+    S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():
+    S.tab==='content'?contentHTML():straksHTML(S.tab));
   if(gewisseld){
     const el=$('#scherm');
     el.classList.remove('schermIn');
@@ -7826,10 +7857,8 @@ function sheetUren(){
      verander je iets aan hoe klussen of diensten worden bijgehouden, dan
      klopt dit vanzelf mee */
   const dagen=urenPerDag(van,tot);
-  const maxDag=Math.max(1,...dagen.map(d=>d.sec));
   const gewerkteDagen=dagen.filter(d=>d.sec>=900).length;
   const weekKlussen=(S.klussen||[]).filter(x=>x.datum>=van&&x.datum<=tot&&x.bron!=='maandtotaal');
-  const langste=weekKlussen.reduce((m,x)=>klusSec(x)>klusSec(m||{})?x:m,null);
   const cats=Object.assign({},weekPeriode.klus);
   if(weekPeriode.prodSec) cats['Productie']=weekPeriode.prodSec;
   const weekSessies=weekKlussen.slice().sort((a,b)=>
@@ -7847,18 +7876,7 @@ function sheetUren(){
        <div class="kpichip"><b>${urenTekst(weekPeriode.totaalSec)}</b><span>deze week</span>
          ${uDelta(vergelijk.huidigSec,vergelijk.vorigeSec)}</div>
        <div class="kpichip"><b>${gewerkteDagen} / ${dagen.length}</b><span>dagen gewerkt</span></div>
-       <div class="kpichip"><b>${langste?urenTekst(klusSec(langste)):'—'}</b>
-         <span>${langste?esc(klusSoort(langste.soort).n):'langste sessie'}</span></div>
-       <div class="kpichip"><b>${gewerkteDagen?urenTekst(Math.round(weekPeriode.totaalSec/gewerkteDagen)):'—'}</b>
-         <span>gem. per werkdag</span></div>
      </div>
-
-     <div class="blokkop"><span class="eyebrow">Uren per dag</span></div>
-     <div class="dagbalk">${dagen.map(d=>{
-       const dt=new Date(d.datum), vd2=d.datum===vandaag();
-       return `<div class="dkol${vd2?' vandaag':''}">
-         <div class="dstaaf" style="height:${Math.max(3,Math.round(d.sec/maxDag*82))}px"></div>
-         <span class="dlabel">${DAG[dt.getDay()].slice(0,2).toUpperCase()}</span></div>`}).join('')}</div>
 
      <div class="blokkop"><span class="eyebrow">Verdeling per categorie</span></div>
      ${Object.keys(cats).length?Object.keys(cats).sort((a,b)=>cats[b]-cats[a]).slice(0,6).map(k=>{
@@ -7894,16 +7912,9 @@ function sheetUren(){
          <div class="seg" style="flex:${100-pct};${pct>=100?'display:none':''}"></div></div>
        <div class="stap" style="margin:0">${komma(gedaan)} van ${norm} uur
          ${pct>=100?' · gehaald':' · nog '+komma(Math.round((norm-gedaan)*10)/10)+' uur te gaan'}</div>
-       <p class="uitleg" style="margin:10px 0 0">Haal je 1225 uur, dan kom je in aanmerking voor
-         zelfstandigenaftrek. Productie-uren tellen automatisch mee. Dit is een hulpmiddel,
-         geen belastingadvies — leg het naast je eigen administratie.</p>
      </div>
 
      ${(()=>{
-       /* De klok telt vanaf de dag dat je hem in gebruik nam. Alles daarvóór
-          ontbreekt, en juist hier — onder een teller die op 2% staat — wil je
-          dat kunnen aanvullen. Als voetknop stond hij naast twee andere op
-          390 pixels; dan brak de tekst en zag je hem niet eens. */
        const inge=(S.klussen||[]).filter(x=>x.bron==='maandtotaal').length;
        return `<button class="arij" id="uNaarJaar" style="margin-top:10px">
          <span class="naam">Uren van eerder dit jaar${
@@ -7913,18 +7924,14 @@ function sheetUren(){
 
      ${weekSessies.length?`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Sessies deze week</span>
        <span class="tel">${weekSessies.length}</span></div>
-       <div class="paneel">${weekSessies.map(x=>{const so=klusSoort(x.soort);
-         /* Wegvegen kon al, corrigeren niet. Terwijl je juist bij een getal dat
-            je zelf hebt ingeschat wilt kunnen bijstellen zonder het eerst weg
-            te gooien. De hervat-chip staat als span in de knop; een knop in
-            een knop is ongeldige HTML en breekt de kaart, dus die tik stopt
-            zijn eigen bubbel voordat hij de rij-tik (bewerken) kan triggeren. */
+       <div class="paneel">${weekSessies.slice(0,5).map(x=>{const so=klusSoort(x.soort);
          return veegRij(`<button class="arij" data-ubew="${x.id}">
            <span class="ivak" style="background:${so.kleur}1f;color:${so.kleur}">${svg(I[so.ico])}</span>
            <span class="naam">${esc(so.n)}${x.tekst?' · '+esc(x.tekst):''}
              <small>${kort(new Date(x.datum))}${x.tijd?' · '+x.tijd:''} · ${urenTekst(klusSec(x))}</small></span>
            <span class="hervatchip" data-uhervat="${x.id}">${svg(I.speel)}Hervat</span></button>`,
-           'data-uwis="'+x.id+'"')}).join('')}</div>`
+           'data-uwis="'+x.id+'"')}).join('')}</div>
+       ${weekSessies.length>5?`<p class="uitleg" style="margin-top:6px">+${weekSessies.length-5} meer — zie het weekrapport voor het volledige overzicht.</p>`:''}`
       :`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Sessies deze week</span></div>
         <div class="paneel"><div class="rij"><span>Nog geen losse sessies deze week</span></div></div>`}`,
 
@@ -7934,12 +7941,12 @@ function sheetUren(){
 
   $$('[data-inkact]').forEach(b=>b.onclick=()=>{
     if(bActief) startWerk(bActief,b.dataset.inkact); else klusStart('overig',b.dataset.inkact);
-    bewaarNu(); sheetUren(); render();
+    bewaarNu(); dicht(); render();
     toast('Klok loopt · '+b.dataset.inkact);
   });
   $$('[data-inkklus]').forEach(b=>b.onclick=()=>{
     klusStart(b.dataset.inkklus,'');
-    sheetUren(); render();
+    dicht(); render();
     toast('Klok loopt · '+klusSoort(b.dataset.inkklus).n);
   });
   if($('#ukOms')) $('#ukOms').onclick=()=>sheetKlusOms();
@@ -7962,7 +7969,7 @@ function sheetUren(){
     const x=(S.klussen||[]).find(k=>k.id===b.dataset.uhervat);
     if(!x) return;
     klusStart(x.soort,x.tekst||'');
-    sheetUren(); render();
+    dicht(); render();
     toast('Klok loopt · '+klusSoort(x.soort).n);
   });
   $$('[data-uwis]').forEach(b=>b.onclick=()=>{
@@ -17028,6 +17035,109 @@ function maandRasterHtml(perDag){
     <div class="agdagen">${['ma','di','wo','do','vr','za','zo']
       .map(x=>`<span>${x}</span>`).join('')}</div>
     <div class="agraster">${cellen}</div>`;
+}
+
+/* ══════════ Content ══════════
+   Eerste stap: de jaartijdlijn. Werk bepaalt de content, dus staat het werk
+   per periode erin. De video's volgen in een volgende stap.
+
+   PIEK = moment waar je naartoe bouwt en dat je ook benoemt.
+   drukte = de markt is druk (Sinterklaas, Kerst, Valentijn, Pasen, Moederdag).
+   Daar verkoop je gewoon, maar je maakt er geen thema-content over. */
+const CBJAAR=[
+{k:'piek',van:'2026-05-01',tot:'2026-05-31',dt:'mei 2026',tt:'Beurs en Offerfeest',
+ sb:'6500 gemaakt, 4500 verkocht',
+ werk:['productie vanaf half april','beurs eerste weekend mei, 2000 verkocht',
+       'Offerfeest 27 mei, 2500 verkocht','ruim 2000 over'],
+ vids:['De beurs in mei en wat ik fout deed','6500 bonbons, waar gaan die heen']},
+{k:'per',van:'2026-06-01',tot:'2026-08-14',tt:'Jun t/m aug',label:'stil',
+ werk:['verbouwing, systeemplafond','hete zomer','prive'],
+ vids:['Comeback, waar ben ik geweest','De verbouwing, systeemplafond']},
+{k:'per',van:'2026-08-15',tot:'2026-09-30',tt:'Sep',label:'reset',
+ werk:['opruimen en rit naar de stort','grondstoffen op houdbaarheid','mallen en voorraadbakjes wassen',
+       'productieruimte en kantoortje herinrichten','ingredienten registreren in HQ','smaken bepalen met publiek'],
+ vids:['Opruimen en de rit naar de stort','Grondstoffen op houdbaarheid','Mallen wassen',
+       'Voorraadbakjes wassen','Dozen aanvullen','Productieruimte herinrichten','Kantoortje herinrichten',
+       'De houdbaarheidstest','Voor iedereen met een baan en iets eigens','Wat er in die 25 euro zit',
+       'De website opnieuw opbouwen','De fout die me uren kostte']},
+{k:'per',van:'2026-10-01',tot:'2026-10-31',tt:'Okt',label:'opbouw',
+ werk:['5 okt smaken vast en inkoop besteld','12-17 okt eerste productiecyclus',
+       '19-24 okt tweede cyclus','laatste week webshop vullen en aftellen'],
+ vids:['Welke smaken wil jij','De doos-configurator','Aftellen naar 1 november']},
+{k:'piek',van:'2026-11-01',tot:'2026-11-01',dt:'1 november 2026',tt:'Heropening en show',
+ sb:'webshop open, spelletjes mogen genoemd',
+ werk:['webshop live','Bonbon Live live','voorraad klaar'],vids:[]},
+{k:'per',van:'2026-11-02',tot:'2026-12-31',tt:'Nov en dec',label:'ritme',
+ drukte:'Sinterklaas en Kerst',
+ werk:['weekritme gaat draaien','restockdag ongeveer elke drie weken',
+       'voorraad klaar eind november','december drukste chocolademaand'],
+ vids:['Acht uur wachten op chocolade','De openingscheck, elke dag hetzelfde rondje']},
+{k:'per',van:'2027-01-01',tot:'2027-03-08',tt:'Jan en feb',label:'opbouw',
+ drukte:'Valentijn',
+ werk:['11 jan inkoop voor het Suikerfeest','25 jan productie starten',
+       '7 feb Ramadan begint','opschalen richting de piek'],vids:[]},
+{k:'piek',van:'2027-03-09',tot:'2027-03-09',dt:'9 maart 2027',tt:'Suikerfeest',
+ sb:'grootste piek van het jaar',
+ werk:['voorraad en verzending ruim vooraf geregeld'],vids:[]},
+{k:'per',van:'2027-03-10',tot:'2027-04-30',tt:'Apr',label:'rust',
+ drukte:'Pasen',
+ werk:['terugkijken op het Suikerfeest','nieuwe smaken ontwikkelen','voorraad opbouwen voor mei'],vids:[]},
+{k:'piek',van:'2027-05-16',tot:'2027-05-16',dt:'16 mei 2027',tt:'Offerfeest',
+ sb:'afsluiter, Moederdag in dezelfde maand',
+ werk:['precies een jaar na het vorige Offerfeest'],vids:[]},
+{k:'per',van:'2027-06-01',tot:'2027-06-30',tt:'Jun',label:'zomer',
+ werk:['zomerplan maken voor het warm wordt','verzenden bij warmte oplossen',
+       'content vooruit opnemen','rustperiode vooraf aankondigen'],vids:[]}
+];
+const CBREGELS=['30 tot 90 seconden, om de dag posten','Elke taak een eigen video',
+ 'Drukke feestdagen: wel verkopen, geen thema','Geen woord over de spelletjes voor 1 november',
+ 'Prive: wel benoemen dat, nooit wat'];
+
+function cbStatus(b){
+  const n=new Date();
+  if(new Date(b.tot)<n) return 'cbklaar';
+  if(new Date(b.van)<=n&&n<=new Date(b.tot)) return 'cbnu';
+  return '';
+}
+function contentHTML(){
+  let h='<div class="cbjaar">';
+  CBJAAR.forEach((b,n)=>{
+    const st=cbStatus(b);
+    h+='<div class="cbblok '+(b.k==='piek'?'cbpiek ':'')+st+'" onclick="cbBlok('+n+')">'
+      +'<span class="cbstip"></span>';
+    if(b.k==='piek'){
+      h+='<div class="cbpiekkaart"><div class="cbdt">'+esc(b.dt)+'</div>'
+        +'<div class="cbtt">'+esc(b.tt)+'</div><div class="cbsb">'+esc(b.sb)+'</div></div>';
+    } else {
+      h+='<div class="cbper"><div class="cbbk"><span class="cbmaand">'+esc(b.tt)+'</span>'
+        +'<span class="cblabel">'+esc(b.label)+'</span></div>'
+        +'<div class="cbwerk">'+b.werk.slice(0,3).map(esc).join('<br>')+'</div>'
+        +(b.drukte?'<div class="cbdrukte">drukte: '+esc(b.drukte)+' &middot; verkopen, niet vieren</div>':'')
+        +(st==='cbnu'?'<div class="cbnulabel">Je bent hier</div>':'')
+        +'</div>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div class="cbsheetkop" style="margin-left:4px">Vaste regels</div>'
+    +'<div class="cbper" style="margin-bottom:10px"><ul class="cblijst">'
+    +CBREGELS.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul></div>';
+  return h;
+}
+function cbBlok(n){
+  const b=CBJAAR[n];
+  let h='<div class="cbsheetkop">Werkzaamheden</div><ul class="cblijst">'
+    +b.werk.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul>';
+  if(b.drukte){
+    h+='<div class="cbsheetkop">Drukte in de markt</div>'
+      +'<div style="font-size:16px">'+esc(b.drukte)+'</div>'
+      +'<div style="font-size:13px;color:#71717a;margin-top:4px">Wel extra posten, geen thema-content.</div>';
+  }
+  h+='<div class="cbsheetkop">Content uit deze periode ('+(b.vids||[]).length+')</div>';
+  h+=(b.vids&&b.vids.length)
+    ? '<ul class="cblijst">'+b.vids.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ul>'
+    : '<div style="font-size:15px;color:#71717a">Nog niet uitgewerkt.</div>';
+  sheet(b.tt, h, '');
 }
 
 function agendaHTML(){
