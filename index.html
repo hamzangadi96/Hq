@@ -1249,6 +1249,13 @@ nav#tabbar{view-transition-name:tabbalk}
 .cbcel.leeg{background:transparent}
 .cbcel.vandaag{box-shadow:inset 0 0 0 2px #18181b}
 .cbcel.buiten .dn{color:#d4d4d8}
+.cbstat{width:10px;height:10px;border-radius:50%;flex:none;background:#d4d4d8}
+.cbstat.s-opgenomen{background:#b45309}
+.cbstat.s-gemonteerd{background:#15803d}
+.cbstat.s-gepost{background:#18181b}
+.cbrood li{color:#c0392b}
+.knopz{height:52px;border:none;border-radius:15px;background:#18181b;color:#fff;
+  font-family:inherit;font-size:16px;font-weight:600;cursor:pointer}
 .cbaf{display:flex;gap:13px;align-items:flex-start;padding:13px 0;cursor:pointer}
 .cbaf+.cbaf{box-shadow:inset 0 1px 0 #ececee}
 .cbvk{width:26px;height:26px;border-radius:9px;background:#f4f4f5;flex:none;display:flex;
@@ -3645,7 +3652,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v615 · 14 sep 2026';
+const APPVERSIE='v616 · 14 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3914,6 +3921,8 @@ const S={
   contentDagen:{},
   /* wat je hebt afgevinkt: werkzaamheden, video's en shots per dag */
   contentAf:{},
+  /* status per video: idee, opgenomen, gemonteerd, gepost */
+  contentStatus:{},
   /* je baan naast Cacaoboetiek: een vaste week, plus losse afwijkingen.
      Zonder dit weet de app niet wanneer je uberhaupt kunt produceren. */
   werkweek:null, werkafwijk:{},
@@ -3957,7 +3966,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -17092,21 +17101,19 @@ const CBJAAR=[
  sb:'6500 gemaakt, 4500 verkocht',
  werk:['productie vanaf half april','beurs eerste weekend mei, 2000 verkocht',
        'Offerfeest 27 mei, 2500 verkocht','ruim 2000 over'],
- vids:['De beurs in mei en wat ik fout deed','6500 bonbons, waar gaan die heen']},
+ vids:['beurs','6500']},
 {k:'per',van:'2026-06-01',tot:'2026-08-14',tt:'Jun t/m aug',label:'stil',
  werk:['verbouwing, systeemplafond','hete zomer','prive'],
- vids:['Comeback, waar ben ik geweest','De verbouwing, systeemplafond']},
+ vids:['comeback','verbouwing']},
 {k:'per',van:'2026-08-15',tot:'2026-09-30',tt:'Sep',label:'reset',
  werk:['opruimen en rit naar de stort','grondstoffen op houdbaarheid','mallen en voorraadbakjes wassen',
        'productieruimte en kantoortje herinrichten','ingredienten registreren in HQ','smaken bepalen met publiek'],
- vids:['Opruimen en de rit naar de stort','Grondstoffen op houdbaarheid','Mallen wassen',
-       'Voorraadbakjes wassen','Dozen aanvullen','Productieruimte herinrichten','Kantoortje herinrichten',
-       'De houdbaarheidstest','Voor iedereen met een baan en iets eigens','Wat er in die 25 euro zit',
-       'De website opnieuw opbouwen','De fout die me uren kostte']},
+ vids:['stort','grondstoffen','mallen','bakjes','dozen','ruimte','kantoor',
+       'houdbaarheid','baan','euro25','website','tempereerfout']},
 {k:'per',van:'2026-10-01',tot:'2026-10-31',tt:'Okt',label:'opbouw',
  werk:['5 okt smaken vast en inkoop besteld','12-17 okt eerste productiecyclus',
        '19-24 okt tweede cyclus','laatste week webshop vullen en aftellen'],
- vids:['Welke smaken wil jij','De doos-configurator','Aftellen naar 1 november']},
+ vids:['smaken','configurator','aftellen']},
 {k:'piek',van:'2026-11-01',tot:'2026-11-01',dt:'1 november 2026',tt:'Heropening en show',
  sb:'webshop open, spelletjes mogen genoemd',
  werk:['webshop live','Bonbon Live live','voorraad klaar'],vids:[]},
@@ -17114,7 +17121,7 @@ const CBJAAR=[
  drukte:'Sinterklaas en Kerst',
  werk:['weekritme gaat draaien','restockdag ongeveer elke drie weken',
        'voorraad klaar eind november','december drukste chocolademaand'],
- vids:['Acht uur wachten op chocolade','De openingscheck, elke dag hetzelfde rondje']},
+ vids:['achtuur','openingscheck']},
 {k:'per',van:'2027-01-01',tot:'2027-03-08',tt:'Jan en feb',label:'opbouw',
  drukte:'Valentijn',
  werk:['11 jan inkoop voor het Suikerfeest','25 jan productie starten',
@@ -17150,6 +17157,140 @@ const CBACT=[
  {k:'vrij',n:'Vrij',shots:[]}
 ];
 const cbAct=k=>CBACT.find(a=>a.k===k);
+
+/* Hoe je elk shot schiet. Kort genoeg om te lezen met de camera in je hand. */
+const CBSHOTS={
+ deur:['Openingsshot: deur werkplaats','Camera op de pet, lopend naar de deur, 6 sec vasthouden','Altijd hetzelfde punt'],
+ handen:['POV handen aan het werk','Camera op de borst, stil, min. 5 sec per handeling','Niet meepraten, wordt voice-over'],
+ afval:['POV afval weggooien','Camera op de pet, kijk naar de bak, 5 sec blijven kijken','Laat zien wat je weggooit'],
+ autorij:['Auto rijdend, door de voorruit','Camera op het dashboard, recht vooruit, 10 sec','Overdag filmen'],
+ autopraat:['Auto, recht in de camera','Dashboard op ooghoogte, in een keer doorpraten','Auto stil. Haperingen laten staan'],
+ vast:['Vast standpunt werkbank','Camera vastgeplakt, jij loopt in en uit beeld','Markeer de plek voor de after-shot'],
+ ba:['Before en after, zelfde punt','Exact dezelfde plek, 5 sec voor en 5 sec na','Zelfde witbalans'],
+ detail:['Detail close-up','Camera in de hand, langzaam invliegen, 6 sec','Draai naar het licht voor de glans'],
+ loop:['Loop-shot door de ruimte','Op borsthoogte meegedragen, 8 tot 12 sec','Een keer goed, niet drie keer half'],
+ lapse:['Timelapse','Camera vastgezet, minimaal 10 minuten','Niet aanraken tussendoor'],
+ trein:['Trein en station','Camera op de borst, 5 sec per shot','Geen herkenbare gezichten'],
+ uitslaan:['Uitslaan uit de mal','Schuin boven de werkbank, hele handeling in een take','Licht van opzij voor de glans'],
+ bak:['De bak in de tempereermachine','Van boven, stil, 5 sec, vier keer op de dag','Zelfde hoek, zodat je de laag ziet zakken']
+};
+
+/* Alle video's: wat erin moet, hoe je hem brengt, wat je niet zegt, welke shots. */
+const CBVIDS=[
+{id:'comeback',t:'Comeback, waar ben ik geweest',spoor:'serie',fase:1,
+ steek:['vier maanden weg','verbouwing','hete zomer','prive, wel dat niet wat'],
+ toon:['rustig, geen excuus'],niet:['inhoud prive','spelletjes'],shots:['autopraat','deur']},
+{id:'verbouwing',t:'De verbouwing, systeemplafond',spoor:'serie',fase:1,
+ steek:['was kaal beton','systeemplafond erin','meer licht','hygienischer'],
+ toon:['laten zien, weinig praten'],niet:['kosten noemen'],shots:['ba','loop','detail']},
+{id:'stort',t:'Opruimen en de rit naar de stort',spoor:'serie',fase:2,
+ steek:['alles eruit','verlopen spul weg','rit naar de stort'],
+ toon:['nuchter, geen drama'],niet:['klagen'],shots:['afval','autorij','ba']},
+{id:'grondstoffen',t:'Grondstoffen op houdbaarheid',spoor:'serie',fase:2,
+ steek:['alles uit de kast','datum voor datum','verlopen gaat weg'],
+ toon:['precies'],niet:['leveranciers noemen'],shots:['handen','detail','vast']},
+{id:'mallen',t:'Mallen wassen',spoor:'serie',fase:2,
+ steek:['elke mal met de hand','geen kras erin','glans is het bewijs'],
+ toon:['rustig, ambachtelijk'],niet:['zeggen dat het vervelend is'],shots:['handen','detail','ba']},
+{id:'bakjes',t:'Voorraadbakjes wassen',spoor:'serie',fase:2,
+ steek:['stapel bakjes','alles droog terug'],toon:['kort, ritmisch'],niet:[],shots:['lapse','handen']},
+{id:'dozen',t:'Dozen aanvullen',spoor:'serie',fase:2,
+ steek:['voorraad verpakking','aantallen kloppen'],toon:['praktisch'],niet:['prijzen'],shots:['vast','detail']},
+{id:'ruimte',t:'Productieruimte herinrichten',spoor:'serie',fase:2,
+ steek:['looplijnen kloppen','alles binnen handbereik'],toon:['laten zien waarom'],niet:[],shots:['ba','loop','lapse']},
+{id:'kantoor',t:'Kantoortje herinrichten',spoor:'serie',fase:2,
+ steek:['administratie hoort erbij','hier staat de app'],toon:['licht, terloops'],
+ niet:['klantgegevens in beeld'],shots:['ba','vast']},
+{id:'beurs',t:'De beurs in mei en wat ik fout deed',spoor:'les',fase:2,
+ steek:['6500 gemaakt','2000 op de beurs','2500 met het Offerfeest','het geld kwam van eid'],
+ toon:['geen mislukking, wel een les','getallen plat noemen'],niet:['naam van de beurs','opscheppen'],
+ shots:['autopraat','vast']},
+{id:'6500',t:'6500 bonbons, waar gaan die heen',spoor:'les',fase:2,
+ steek:['6500 stuks','hoeveel mallen, hoeveel dagen','hoeveel kilo chocolade'],
+ toon:['plat getallen tonen, mensen rekenen zelf'],niet:['omzet noemen'],shots:['vast','detail','lapse']},
+{id:'houdbaarheid',t:'De houdbaarheidstest',spoor:'les',fase:2,
+ steek:['bewust bewaard','test op houdbaarheid','gaat niet de deur uit','ook niet weggeven'],
+ toon:['voedselveiligheid, geen weggooi-video'],niet:['zonde zeggen'],shots:['detail','handen','vast']},
+{id:'baan',t:'Voor iedereen met een baan en iets eigens',spoor:'les',fase:2,
+ steek:['thuiskomen en dan nog beginnen','het is loodzwaar','en toch doe je het'],
+ toon:['erkenning eerst, aanmoediging daarna'],niet:['guru-toon','omzet noemen'],shots:['autopraat','trein']},
+{id:'euro25',t:'Wat er in die 25 euro zit',spoor:'les',fase:2,
+ steek:['geen woord over de prijs','uren van een week in beeld','mensen rekenen zelf'],
+ toon:['niet verdedigen, een rustige slotzin'],niet:['reageren op commentaar','marges'],shots:['vast','detail']},
+{id:'tempereerfout',t:'De fout die me uren kostte',spoor:'les',fase:2,
+ steek:['45 graden, dan 1/3 erbij','alles tegelijk laat alles meesmelten','blijft op 40 hangen','koude druppels zijn je koeling'],
+ toon:['geen les geven, gewoon vertellen'],niet:['merk van de machine'],shots:['bak','vast','autopraat']},
+{id:'website',t:'De website opnieuw opbouwen',spoor:'website',fase:2,
+ steek:['alles opnieuw','zelf gebouwd'],toon:['kort, tussendoor'],niet:['spelletjes'],shots:['vast','detail']},
+{id:'smaken',t:'Welke smaken wil jij',spoor:'smaken',fase:3,
+ steek:['wat sloeg aan','waar denk ik aan','wat willen jullie'],
+ toon:['hardop denken, publiek erbij'],niet:['beloven'],shots:['autopraat','handen']},
+{id:'configurator',t:'De doos-configurator',spoor:'website',fase:3,
+ steek:['zelf je doos samenstellen','klaar voor 1 november'],
+ toon:['op het scherm laten zien'],niet:['bugs tonen'],shots:['vast','detail']},
+{id:'aftellen',t:'Aftellen naar 1 november',spoor:'serie',fase:3,
+ steek:['datum noemen','wat er klaar is','zondagavond open'],
+ toon:['opbouwend, kort'],niet:['overbeloven'],shots:['deur','autopraat']},
+{id:'achtuur',t:'Acht uur wachten op chocolade',spoor:'proces',fase:4,
+ steek:['14 kg, 6 tot 8 uur','bijgooien als er ruimte is','ondertussen ganache en mallen'],
+ toon:['rustig, ritme laten zien'],niet:[],shots:['bak','lapse','handen']},
+{id:'openingscheck',t:'De openingscheck, elke dag hetzelfde rondje',spoor:'proces',fase:4,
+ steek:['vaste ronde voor je begint','kleding, ruimte, mallen','koelkast en klimaatkast meten'],
+ toon:['professioneel, kort'],niet:['met de vinger wijzen'],shots:['deur','handen','detail']}
+];
+const cbVid=id=>CBVIDS.find(v=>v.id===id);
+const CBSTAT=['idee','opgenomen','gemonteerd','gepost'];
+const CBDOE={idee:'Filmen',opgenomen:'Monteren',gemonteerd:'Posten',gepost:'Klaar'};
+const CBFASE={1:'Kennismaken',2:'Reset en lessen',3:'Opbouw',4:'Na 1 november'};
+function cbStat(id){ S.contentStatus=S.contentStatus||{}; return S.contentStatus[id]||'idee' }
+function cbDoor(id){
+  const st=cbStat(id); if(st==='gepost') return;
+  S.contentStatus[id]=CBSTAT[CBSTAT.indexOf(st)+1];
+  bewaar(); cbVidSheet(id); render();
+}
+
+/* ── lijst met alle video's ── */
+function cbVidsHTML(){
+  let h='';
+  [1,2,3,4].forEach(f=>{
+    const l=CBVIDS.filter(v=>v.fase===f);
+    if(!l.length) return;
+    const af=l.filter(v=>cbStat(v.id)==='gepost').length;
+    h+='<div class="cbsheetkop" style="margin-left:4px">Fase '+f+' &middot; '+CBFASE[f]
+      +' &middot; '+af+'/'+l.length+' gepost</div>';
+    l.forEach(v=>{
+      const st=cbStat(v.id);
+      h+='<div class="cbdagrij" onclick="cbVidSheet(\''+v.id+'\')">'
+        +'<span class="cbstat s-'+st+'"></span>'
+        +'<span class="dinh">'+esc(v.t)+'<br><span style="font-size:13px">'+v.spoor+' &middot; '+st+'</span></span>'
+        +'<span class="cbtel">'+CBDOE[st]+'</span></div>';
+    });
+  });
+  return h;
+}
+function cbVidSheet(id){
+  const v=cbVid(id), st=cbStat(id);
+  let h='<div class="cbsheetkop">'+v.spoor+' &middot; fase '+v.fase+' &middot; '+st+'</div>';
+  h+='<div class="cbsheetkop">Niet vergeten</div><ul class="cblijst">'
+    +v.steek.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  h+='<div class="cbsheetkop">Toon</div><ul class="cblijst">'
+    +v.toon.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(v.niet.length) h+='<div class="cbsheetkop">Niet zeggen</div><ul class="cblijst cbrood">'
+    +v.niet.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  h+='<div class="cbsheetkop">Shots ('+cbTel('vid|'+id+'|',v.shots.length)+' van '+v.shots.length+')</div>';
+  v.shots.forEach((k,i)=>{
+    const s=CBSHOTS[k], key='vid|'+id+'|'+i, af=cbIsAf(key);
+    h+='<div class="cbaf'+(af?' gedaan':'')+'" onclick="cbVinkUit(\''+key+'\')">'
+      +'<span class="cbvk'+(af?' aan':'')+'">&#10003;</span><span class="cbtx">'+esc(s[0])
+      +'<br><span style="font-size:13px;color:#71717a">'+esc(s[1])+'</span>'
+      +'<br><span style="font-size:13px;color:#b45309">'+esc(s[2])+'</span></span></div>';
+  });
+  cbSheetVid=id; cbSheetDag=null; cbSheetBlok=null;
+  const knop = st==='gepost' ? '' :
+    '<button class="knopz" style="width:100%" onclick="cbDoor(\''+id+'\')">'+CBDOE[st]+' afronden</button>';
+  sheet(v.t, h, knop);
+}
+
 /* Afvinken. De sleutel is de naam van het blok plus een volgnummer, zodat een
    vinkje blijft staan ook als er iets bij komt. */
 function cbAfLijst(){ S.contentAf=S.contentAf||{}; return S.contentAf }
@@ -17167,9 +17308,11 @@ function cbAfRij(k,tekst){
 }
 function cbTel(pre,n){let a=0;for(let i=0;i<n;i++)if(cbIsAf(pre+i))a++;return a}
 let cbZoom='jaar', cbOpen=-1, cbAnker=new Date();
-let cbSheetBlok=null, cbSheetDag=null;
+let cbSheetBlok=null, cbSheetDag=null, cbSheetVid=null;
 function cbVinkUit(k){
-  cbVink(k, ()=>{ if(cbSheetDag) cbDagSheet(cbSheetDag); else if(cbSheetBlok!==null) cbBlok(cbSheetBlok); });
+  cbVink(k, ()=>{ if(cbSheetVid) cbVidSheet(cbSheetVid);
+    else if(cbSheetDag) cbDagSheet(cbSheetDag);
+    else if(cbSheetBlok!==null) cbBlok(cbSheetBlok); });
 }
 
 function cbStatus(b){
@@ -17185,12 +17328,13 @@ function cbDag(d){ return cbDagen()[d]||[] }
 function contentHTML(){
   if(cbOpen===-1) cbOpen=cbHuidig();
   let h='<div class="cbzoom">'
-    +['jaar','maand','week'].map(z=>'<button class="'+(cbZoom===z?'aan':'')
+    +['jaar','maand','week','video'].map(z=>'<button class="'+(cbZoom===z?'aan':'')
       +'" onclick="cbZoom=\''+z+'\';cbAnker=new Date();render()">'
-      +z.charAt(0).toUpperCase()+z.slice(1)+'</button>').join('')
+      +(z==='video'?"Video's":z.charAt(0).toUpperCase()+z.slice(1))+'</button>').join('')
     +'</div>';
   if(cbZoom==='jaar') return h+cbJaarHTML();
   if(cbZoom==='maand') return h+cbMaandHTML();
+  if(cbZoom==='video') return h+cbVidsHTML();
   return h+cbWeekHTML();
 }
 
@@ -17282,7 +17426,7 @@ function cbWeekHTML(){
 
 /* ── dag: activiteit kiezen, shots volgen ── */
 function cbDagSheet(s){
-  cbSheetDag=s; cbSheetBlok=null;
+  cbSheetDag=s; cbSheetBlok=null; cbSheetVid=null;
   const dt=new Date(s+'T12:00:00'), acts=cbDag(s);
   let h='<div class="cbsheetkop">Wat doe je deze dag</div><div class="cbkies">'
     +CBACT.map(a=>'<button class="'+(acts.includes(a.k)?'aan':'')
@@ -17305,7 +17449,7 @@ function cbZet(s,k){
 
 function cbBlok(n){
   const b=CBJAAR[n];
-  cbSheetBlok=n; cbSheetDag=null;
+  cbSheetBlok=n; cbSheetDag=null; cbSheetVid=null;
   let h='<div class="cbsheetkop">Werkzaamheden ('+cbTel(b.tt+'|w|',b.werk.length)+' van '+b.werk.length+')</div>'
     +b.werk.map((w,i)=>cbAfRij(b.tt+'|w|'+i,w)).join('');
   if(b.drukte){
@@ -17315,7 +17459,7 @@ function cbBlok(n){
   }
   const vd=b.vids||[];
   h+='<div class="cbsheetkop">Content uit deze periode ('+cbTel(b.tt+'|v|',vd.length)+' van '+vd.length+' gepost)</div>';
-  h+=vd.length ? vd.map((v,i)=>cbAfRij(b.tt+'|v|'+i,v)).join('')
+  h+=vd.length ? vd.map((x,i)=>cbAfRij(b.tt+'|v|'+i,(cbVid(x)||{t:x}).t)).join('')
     : '<div style="font-size:15px;color:#71717a">Nog niet uitgewerkt.</div>';
   sheet(b.tt, h, '');
 }
