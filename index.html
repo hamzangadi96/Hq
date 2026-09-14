@@ -1255,6 +1255,14 @@ nav#tabbar{view-transition-name:tabbalk}
 .cbstat.s-gepost{background:#18181b}
 .cbrood li{color:#c0392b}
 .cblijst li.cbn{color:#c0392b}
+.cbstap{font-size:13px;font-weight:600;color:#71717a;letter-spacing:.02em;margin-bottom:8px}
+.cbuit{background:#18181b;color:#fff;border-radius:18px;padding:18px;margin-bottom:10px}
+.cbut{font-size:17px;font-weight:600;margin-bottom:10px}
+.cbuo{margin:0;padding-left:20px;font-size:15px;color:#d4d4d8;line-height:1.5}
+.cbuo li{margin-bottom:5px}
+.cbuit .cbdoor{color:#fff;font-weight:600}
+.cbplus{font-size:15px;color:#71717a;padding:10px 2px 2px;cursor:pointer}
+.cbweg{color:#c0392b;padding:0 6px;font-size:18px;cursor:pointer}
 .cbterug{display:flex;align-items:center;gap:8px;font-size:15px;color:#71717a;
   padding:4px 4px 12px;cursor:pointer}
 .cbterug span{font-size:20px;color:#18181b}
@@ -3689,7 +3697,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v628 · 15 sep 2026';
+const APPVERSIE='v630 · 15 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -3960,6 +3968,8 @@ const S={
   contentAf:{},
   /* status per video: idee, opgenomen, gemonteerd, gepost */
   contentStatus:{}, contentPost:{}, contentEigen:[],
+  /* regels die je zelf bij een video zet: steekwoorden, let op, extra shots */
+  contentExtra:{}, contentUitleg:false,
   /* je baan naast Cacaoboetiek: een vaste week, plus losse afwijkingen.
      Zonder dit weet de app niet wanneer je uberhaupt kunt produceren. */
   werkweek:null, werkafwijk:{},
@@ -4003,7 +4013,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -17564,17 +17574,54 @@ function cbVidsHTML(){
   });
   return h+'<div style="height:100px"></div>';
 }
+/* Firebase maakt van een lijst soms een kaart met nummers als sleutel.
+   Dus alles wat uit contentExtra komt eerst door dit hulpje. */
+function cbLijst(x){ return Array.isArray(x)?x:(x&&typeof x==='object'?Object.keys(x).sort().map(k=>x[k]):[]) }
+function cbExtra(id,veld){
+  S.contentExtra=S.contentExtra||{};
+  const e=S.contentExtra[id]||{};
+  return cbLijst(e[veld]);
+}
+function cbExtraBij(id,veld,tekst){
+  S.contentExtra=S.contentExtra||{};
+  const e=S.contentExtra[id]||(S.contentExtra[id]={});
+  const l=cbLijst(e[veld]); l.push(tekst); e[veld]=l; bewaar();
+}
+function cbExtraWeg(id,veld,i){
+  const e=(S.contentExtra||{})[id]; if(!e) return;
+  const l=cbLijst(e[veld]); l.splice(i,1); e[veld]=l; bewaar(); cbVidSheet(id);
+}
+function cbRegelErbij(id,veld,kop){
+  sheet(kop,
+    '<textarea id="cbRegel" rows="2" style="width:100%;border:none;background:#f4f4f5;'
+    +'border-radius:15px;padding:16px;font-family:inherit;font-size:17px;resize:none"></textarea>',
+    '<button class="knopz" style="width:100%" onclick="cbRegelOk(\''+id+'\',\''+veld+'\')">Toevoegen</button>');
+  setTimeout(()=>{const e=document.getElementById('cbRegel'); if(e) e.focus()},250);
+}
+function cbRegelOk(id,veld){
+  const e=document.getElementById('cbRegel'); const tx=(e&&e.value||'').trim();
+  if(tx) cbExtraBij(id,veld,tx);
+  cbVidSheet(id);
+}
 function cbVidSheet(id){
   const v=cbVid(id), st=cbStat(id);
   let h='<div class="cbsheetkop">'+v.spoor+' &middot; fase '+v.fase+' &middot; '+st+'</div>';
   const w=CBWANNEER[v.id]||(v.film?[v.film,v.post]:null);
   if(w) h+='<div class="cbwan"><div><span>Filmen</span>'+esc(w[0])+'</div>'
     +'<div><span>Posten</span>'+esc(w[1])+'</div></div>';
+  const eigenS=cbExtra(id,'steek');
   h+='<div class="cbsheetkop">Niet vergeten</div><ul class="cblijst">'
-    +v.steek.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
-  if(v.toon.length||v.niet.length) h+='<div class="cbsheetkop">Let op</div><ul class="cblijst">'
+    +v.steek.map(x=>'<li>'+esc(x)+'</li>').join('')
+    +eigenS.map((x,i)=>'<li>'+esc(x)+' <span class="cbweg" onclick="cbExtraWeg(\''+id
+      +'\',\'steek\','+i+')">&times;</span></li>').join('')+'</ul>'
+    +'<div class="cbplus" onclick="cbRegelErbij(\''+id+'\',\'steek\',\'Niet vergeten\')">+ regel</div>';
+  const eigenL=cbExtra(id,'toon');
+  h+='<div class="cbsheetkop">Let op</div><ul class="cblijst">'
     +v.toon.map(x=>'<li>'+esc(x)+'</li>').join('')
-    +v.niet.map(x=>'<li class="cbn">niet: '+esc(x)+'</li>').join('')+'</ul>';
+    +v.niet.map(x=>'<li class="cbn">niet: '+esc(x)+'</li>').join('')
+    +eigenL.map((x,i)=>'<li>'+esc(x)+' <span class="cbweg" onclick="cbExtraWeg(\''+id
+      +'\',\'toon\','+i+')">&times;</span></li>').join('')+'</ul>'
+    +'<div class="cbplus" onclick="cbRegelErbij(\''+id+'\',\'toon\',\'Let op\')">+ regel</div>';
   h+='<div class="cbsheetkop">Shots ('+cbTel('vid|'+id+'|',v.shots.length)+' van '+v.shots.length+')</div>';
   v.shots.forEach((k,i)=>{
     const s=CBSHOTS[k], key='vid|'+id+'|'+i, af=cbIsAf(key);
@@ -17672,16 +17719,28 @@ function cbStartHTML(){
 
   /* 1. nu doen */
   let h='';
+  if(!S.contentUitleg){
+    h+='<div class="cbuit"><div class="cbut">Zo werkt deze tab</div>'
+      +'<ol class="cbuo"><li>Bovenaan staat een video. Meer hoef je niet te weten.</li>'
+      +'<li>Tik de zwarte knop: filmen, monteren, posten.</li>'
+      +'<li>Klaar? Dan staat de volgende er vanzelf.</li></ol>'
+      +'<div class="cbdoor" style="padding-bottom:0" onclick="S.contentUitleg=true;bewaar();render()">Begrepen</div></div>';
+  }
   if(v){
     const st=cbStat(v.id);
     const open=v.shots.filter((k,i)=>!cbIsAf('vid|'+v.id+'|'+i)).length;
-    h+='<div class="cbgroot" onclick="cbVidSheet(\''+v.id+'\')"><div class="cbgt">'+esc(v.t)+'</div>'
-      +'<div class="cbgs">'+v.spoor+' &middot; fase '+v.fase
-      +(st==='idee'?' &middot; '+open+' shots te gaan':' &middot; '+st)+'</div>'
-      +'<button class="knopz" style="width:100%;margin-top:14px" onclick="event.stopPropagation();'
-      +(st==='idee'?'cbFilm(\''+v.id+'\',0)':'cbDoor(\''+v.id+'\')')+'">'
-      +CBDOE[st]+(st==='idee'?' ('+open+')':'')+'</button>'
-      +'<div class="cbdoor" onclick="event.stopPropagation();cbSchuifDoor(\''+v.id+'\')">Vandaag niet, schuif door</div>'
+    const O={
+      idee:['Nu filmen', open+' shots. Ik loop ze een voor een met je door.','Start met filmen'],
+      opgenomen:['Nu monteren','Het beeld staat klaar. Monteer hem, tik daarna op de knop.','Klaar met monteren'],
+      gemonteerd:['Nu posten','Hij is af. Zet hem online, tik daarna op de knop.','Hij staat online']
+    }[st]||['Klaar','','Klaar'];
+    h+='<div class="cbgroot" onclick="cbVidSheet(\''+v.id+'\')">'
+      +'<div class="cbstap">'+O[0]+'</div>'
+      +'<div class="cbgt">'+esc(v.t)+'</div>'
+      +'<div class="cbgs">'+esc(O[1])+'</div>'
+      +'<button class="knopz" style="width:100%;margin-top:16px" onclick="event.stopPropagation();'
+      +(st==='idee'?'cbFilm(\''+v.id+'\',0)':'cbDoor(\''+v.id+'\')')+'">'+O[2]+'</button>'
+      +'<div class="cbdoor" onclick="event.stopPropagation();cbSchuifDoor(\''+v.id+'\')">Deze nu even niet</div>'
       +'</div>';
     const rest=cbAlle().filter(x=>cbStat(x.id)!=='gepost'&&x.id!==v.id)
       .sort((a,b)=>a.fase-b.fase).slice(0,2);
@@ -17698,13 +17757,14 @@ function cbStartHTML(){
     +(acts.length
       ? '<div class="cbtg">'+acts.map(k=>(cbAct(k)||{n:k}).n).join(', ')+'</div>'
         +'<div class="cbtk">'+shots.length+' shots</div>'
-      : '<div class="cbtg">Niet ingevuld</div><div class="cbtk">Kies wat je doet</div>')+'</div>';
-  h+='<div class="cbt'+(plank<3||(dag!==null&&dag>2)?' let':'')+'" onclick="cbView=\'video\';render()">'
+      : '<div class="cbtg">Wat doe je vandaag?</div><div class="cbtk">Tik om te kiezen</div>')+'</div>';
+  h+='<div class="cbt'+(dag!==null&&dag>2?' let':'')+'" onclick="cbView=\'video\';render()">'
     +'<div class="cbtl">Ritme</div>'
     +'<div class="cbbol">'+[0,1,2].map(i=>'<span class="'+(i<gepost?'vol':'')+'"></span>').join('')+'</div>'
     +'<div class="cbtg" style="font-size:15px">'
     +(dag===null?'nog niets gepost':(dag===0?'vandaag gepost':dag+' dagen geleden'))+'</div>'
-    +'<div class="cbtk">'+plank+(plank<3?' klaar, te weinig':' klaar op de plank')+'</div></div>';
+    +'<div class="cbtk">'+(dag===null?'begin met de video hierboven'
+      :plank+(plank<3?' klaar, plan een filmdag':' klaar op de plank'))+'</div></div>';
   h+='</div>';
 
   if(hier) h+='<div class="cbstrook" onclick="cbView=\'tijd\';cbZoom=\'jaar\';render()">'
