@@ -1256,6 +1256,11 @@ nav#tabbar{view-transition-name:tabbalk}
 .cbrood li{color:#c0392b}
 .cblijst li.cbn{color:#c0392b}
 .cbstap{font-size:13px;font-weight:600;color:#71717a;letter-spacing:.02em;margin-bottom:8px}
+.cbtwee{display:flex;gap:10px;padding-top:14px}
+.cbtwee span{flex:1;text-align:center;color:#71717a;font-size:15px;cursor:pointer}
+.cbsnel{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cbsnel button{border:none;border-radius:10px;background:#f4f4f5;color:#18181b;font-family:inherit;
+  font-size:13px;padding:8px 10px;cursor:pointer}
 .cbuit{background:#18181b;color:#fff;border-radius:18px;padding:18px;margin-bottom:10px}
 .cbut{font-size:17px;font-weight:600;margin-bottom:10px}
 .cbuo{margin:0;padding-left:20px;font-size:15px;color:#d4d4d8;line-height:1.5}
@@ -3697,7 +3702,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v630 · 15 sep 2026';
+const APPVERSIE='v631 · 15 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17740,8 +17745,10 @@ function cbStartHTML(){
       +'<div class="cbgs">'+esc(O[1])+'</div>'
       +'<button class="knopz" style="width:100%;margin-top:16px" onclick="event.stopPropagation();'
       +(st==='idee'?'cbFilm(\''+v.id+'\',0)':'cbDoor(\''+v.id+'\')')+'">'+O[2]+'</button>'
-      +'<div class="cbdoor" onclick="event.stopPropagation();cbSchuifDoor(\''+v.id+'\')">Deze nu even niet</div>'
-      +'</div>';
+      +'<div class="cbtwee">'
+      +'<span onclick="event.stopPropagation();cbAlGedaan(\''+v.id+'\')">Al gedaan</span>'
+      +'<span onclick="event.stopPropagation();cbSchuifDoor(\''+v.id+'\')">Deze niet</span>'
+      +'</div></div>';
     const rest=cbAlle().filter(x=>cbStat(x.id)!=='gepost'&&x.id!==v.id)
       .sort((a,b)=>a.fase-b.fase).slice(0,2);
     if(rest.length) h+='<div class="cbdaarna">Daarna: '+rest.map(x=>esc(x.t)).join(' &middot; ')+'</div>';
@@ -17757,7 +17764,10 @@ function cbStartHTML(){
     +(acts.length
       ? '<div class="cbtg">'+acts.map(k=>(cbAct(k)||{n:k}).n).join(', ')+'</div>'
         +'<div class="cbtk">'+shots.length+' shots</div>'
-      : '<div class="cbtg">Wat doe je vandaag?</div><div class="cbtk">Tik om te kiezen</div>')+'</div>';
+      : '<div class="cbsnel">'+cbVoorstel(vand,[]).slice(0,3).map(k=>
+          '<button onclick="event.stopPropagation();cbZet(\''+vand+'\',\''+k+'\');sluitSheetStil()">'
+          +esc(cbAct(k).n)+'</button>').join('')+'</div>'
+        +'<div class="cbtk">of tik voor de rest</div>')+'</div>';
   h+='<div class="cbt'+(dag!==null&&dag>2?' let':'')+'" onclick="cbView=\'video\';render()">'
     +'<div class="cbtl">Ritme</div>'
     +'<div class="cbbol">'+[0,1,2].map(i=>'<span class="'+(i<gepost?'vol':'')+'"></span>').join('')+'</div>'
@@ -17777,6 +17787,28 @@ function cbStartHTML(){
     +'<button onclick="cbView=\'video\';render()">Alle video\u2019s</button>'
     +'<button onclick="cbNieuw()">Nieuw idee</button></div>';
   return h;
+}
+/* Soms heb je iets al gefilmd of zelfs al gepost voordat de app het weet.
+   Hiermee zet je de stand recht zonder door de hele flow te hoeven. */
+function cbAlGedaan(id){
+  const v=cbVid(id);
+  sheet('Waar staat hij?',
+    '<div class="cbkies" style="margin-top:2px">'
+    +[['opgenomen','Gefilmd'],['gemonteerd','Gemonteerd'],['gepost','Gepost']]
+      .map(x=>'<button onclick="cbZetStand(\''+id+'\',\''+x[0]+'\')">'+x[1]+'</button>').join('')
+    +'</div>','');
+}
+function cbZetStand(id,st){
+  S.contentStatus=S.contentStatus||{};
+  S.contentStatus[id]=st;
+  if(st==='gepost'){ S.contentPost=S.contentPost||{}; S.contentPost[id]=iso(new Date()) }
+  if(st!=='idee'){ const v=cbVid(id); S.contentAf=S.contentAf||{};
+    v.shots.forEach((k,i)=>{ S.contentAf['vid|'+id+'|'+i]=true }) }
+  bewaar(); sluitSheetStil(); toast(cbVid(id).t+' &middot; '+st); render();
+}
+function sluitSheetStil(){
+  const k=document.getElementById('sheetSluit');
+  if(k&&k.click) k.click();
 }
 function cbSchuifDoor(id){
   S.contentStatus=S.contentStatus||{};
