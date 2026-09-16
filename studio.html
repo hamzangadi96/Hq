@@ -1436,6 +1436,146 @@ body.werkt #werkscherm{display:flex}
 }
 #stal video{width:1px;height:1px}
 #voorbeeld video{width:100%;height:100%;object-fit:contain}
+
+/* ================= CLIPS BEKIJKEN =================
+   De nieuwe ingang: je zet je eigen geknipte clips erin en Studio bekijkt ze.
+   Uitpluizen en de bank staan niet meer op het startscherm. De code blijft
+   staan, via de montage kom je nog bij de bank. */
+#videokiezer, #analysekiezer{display:none}
+#projectscherm #bankstrip{display:none !important}
+
+#analysescherm{
+  display:none;
+  position:absolute;
+  inset:0;
+  background:var(--achtergrond);
+  flex-direction:column;
+  z-index:12;
+}
+body.analyseert #analysescherm{display:flex}
+#analyseterug{
+  width:44px;height:44px;flex:0 0 auto;
+  background:none;border:none;
+  display:flex;align-items:center;justify-content:center;
+}
+#analysetitel{font-size:17px;font-weight:600;letter-spacing:-.01em}
+#analysetelling{margin-left:auto;font-size:13px;color:var(--zacht);padding-right:6px}
+#analysestand{flex:0 0 auto;padding:2px 16px 12px}
+#analysespoor{height:6px;border-radius:3px;background:var(--druk);overflow:hidden}
+#analysevoortgang{height:100%;width:0;background:var(--inkt);border-radius:3px;transition:width .25s ease}
+#analysetekst{font-size:13px;color:var(--zacht);margin-top:8px}
+#analysewakker{font-size:12px;color:var(--zachter);margin-top:2px}
+#analysewakker:empty{display:none}
+#analysemelding{
+  flex:0 0 auto;
+  margin:0 16px 12px;
+  min-height:52px;
+  padding:12px 14px 12px 16px;
+  border:0;border-radius:14px;
+  background:var(--kaart);color:var(--inkt);
+  font:600 14px Inter,system-ui,sans-serif;
+  text-align:left;line-height:1.4;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  cursor:pointer;
+}
+#analysemelding svg{flex:0 0 auto}
+#analyserol{flex:1 1 auto;overflow-y:auto;padding:0 16px 20px;-webkit-overflow-scrolling:touch}
+#analyserol .scankop:first-child{margin-top:4px}
+.analyseleeg{font-size:14px;color:var(--zacht);text-align:center;padding:48px 24px;line-height:1.5}
+#analysebalk{
+  flex:0 0 auto;
+  background:var(--kaart);
+  border-top:1px solid var(--lijn);
+  padding:12px 16px calc(env(safe-area-inset-bottom) + 12px);
+}
+.clipkaart{
+  background:var(--kaart);
+  border-radius:var(--rond);
+  padding:10px 12px 10px 10px;
+  min-height:82px;
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:8px;
+  cursor:pointer;
+}
+.clipkaart:active{background:var(--druk)}
+.clipkaart .kliptitel{
+  line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.clipkaart.wacht .kliptitel{color:var(--zacht);font-weight:500}
+.merk{
+  display:inline-block;
+  font-size:11px;font-weight:600;
+  border-radius:6px;padding:2px 6px;margin-left:6px;
+  background:var(--druk);color:var(--zacht);
+  vertical-align:1px;
+}
+.merk.opener{background:rgba(74,222,128,.16);color:var(--groen)}
+.fouttekst, .klipmeta .fouttekst{color:var(--rood)}
+.clipcijfer{
+  flex:0 0 auto;
+  width:36px;height:36px;border-radius:18px;
+  background:var(--druk);color:var(--inkt);
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;
+}
+.clipcijfer.hoog{color:var(--groen)}
+.clipcijfer.laag{color:var(--zachter)}
+
+#analysevoorbeeld{
+  position:relative;
+  height:34dvh;
+  background:var(--letterbox);
+  border-radius:14px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:14px;
+  cursor:pointer;
+}
+#analysevoorbeeld video{max-width:100%;max-height:100%;display:block}
+.geluidpil{
+  position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
+  background:rgba(0,0,0,.62);color:#fff;
+  font-size:12px;font-weight:600;
+  border-radius:10px;padding:5px 10px;
+  pointer-events:none;white-space:nowrap;
+}
+#analysewat{margin-bottom:6px}
+#analysefeiten{font-size:14px;color:var(--zacht);line-height:1.55;margin-bottom:18px}
+#analysefeiten .zegt{color:var(--inkt);margin-top:8px}
+#analysefeiten .fouttekst{display:block;margin-top:6px}
+#analyseopnieuw{
+  display:block;margin-top:10px;
+  min-height:44px;padding:0 16px;
+  border:0;border-radius:12px;
+  background:var(--druk);color:var(--inkt);
+  font:600 14px Inter,system-ui,sans-serif;cursor:pointer;
+}
+#fasekeuze{
+  display:grid;grid-template-columns:repeat(3, 1fr);gap:4px;
+  background:var(--achtergrond);border-radius:14px;padding:4px;
+  margin-bottom:18px;
+}
+.fasechip{
+  min-height:44px;
+  border:0;border-radius:11px;
+  background:transparent;color:var(--zacht);
+  font:600 13px Inter,system-ui,sans-serif;
+  padding:4px 6px;line-height:1.2;
+  cursor:pointer;
+}
+.fasechip.aan{background:var(--kaart);color:var(--inkt);box-shadow:0 1px 3px rgba(24,24,27,.12)}
+@media (min-width: 900px){
+  #analyserol{
+    display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
+    gap:10px;align-content:start;
+    padding-left:24px;padding-right:24px;
+  }
+  #analyserol .scankop, #analyserol .analyseleeg{grid-column:1 / -1}
+  .clipkaart{margin-bottom:0}
+  #analysestand{padding-left:24px;padding-right:24px}
+  #analysebalk{padding-left:24px;padding-right:24px}
+  #analysebalk #knoprij{max-width:520px;margin-left:auto}
+}
 </style>
 </head>
 <body>
@@ -1450,7 +1590,7 @@ body.werkt #werkscherm{display:flex}
   <div id="projectscherm">
     <header>
       <h1>Studio</h1>
-      <button id="bankknop" aria-label="Bank">
+      <button id="bankknop" class="verborgen" aria-label="Bank">
         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="var(--zacht)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/>
         </svg>
@@ -1470,7 +1610,7 @@ body.werkt #werkscherm{display:flex}
         </svg>
       </div>
       <h2>Nog geen projecten</h2>
-      <p>Begin een nieuw project en voeg je opnames toe. Je werk blijft bewaard op deze telefoon.</p>
+      <p>Tik op <b>Maak een video</b> en kies je geknipte clips. Studio bekijkt ze en zet ze op volgorde. Je werk blijft bewaard op deze telefoon.</p>
     </div>
 
     <!-- Wat er in de bank ligt is werk dat al gedaan is. Dat hoort niet
@@ -1483,13 +1623,16 @@ body.werkt #werkscherm{display:flex}
     </div>
 
     <div id="balk">
-      <!-- Je komt hier na een draaidag met opnames op je telefoon. Uitpluizen
-           is dus wat je wil, en een leeg project aanmaken de uitzondering.
-           Daarom is uitpluizen de enige donkere knop, en staat hij rechts. -->
+      <!-- Je knipt je clips nu zelf. Een video laten maken van die clips is
+           dus wat je wil, en een leeg project de uitzondering. Daarom is dat
+           de enige donkere knop, en staat hij rechts. Uitpluizen blijft in de
+           code staan maar hoort hier niet meer. -->
       <div id="knoprij">
         <button class="knop stil" id="nieuwproject">Leeg project</button>
-        <button class="knop vol" id="pluisdirect">Opnames uitpluizen</button>
+        <button class="knop vol verborgen" id="pluisdirect">Opnames uitpluizen</button>
+        <button class="knop vol" id="maakvideo">Maak een video</button>
       </div>
+      <input type="file" id="videokiezer" accept="video/*" multiple>
     </div>
   </div>
 
@@ -1509,9 +1652,7 @@ body.werkt #werkscherm{display:flex}
       </svg>
     </div>
     <h2>Nog geen clips</h2>
-    <p>Tik onderin op <b>Uitpluizen</b> om een opname te laten doorzoeken, of op
-      <b>Clips toevoegen</b> als je zelf wil kiezen. Uit je bank halen kan ook,
-      via het pictogram rechts in de gereedschapsbalk.</p>
+    <p>Tik onderin op <b>Clips toevoegen</b> om je geknipte clips erin te zetten.</p>
     <p id="status"></p>
   </div>
 
@@ -1557,7 +1698,7 @@ body.werkt #werkscherm{display:flex}
     </div>
     <div id="voegrij">
       <button class="knop stil" id="voegclips">Clips toevoegen</button>
-      <button class="knop stil" id="voegscan">Uitpluizen</button>
+      <button class="knop stil verborgen" id="voegscan">Uitpluizen</button>
     </div>
     <div id="soorten">
       <button class="chip aan" data-soort="productie">Productie</button>
@@ -1626,6 +1767,49 @@ body.werkt #werkscherm{display:flex}
       <div id="knoprij">
         <button class="knop vol" id="scanvoegtoe" disabled>Voeg stukken toe</button>
       </div>
+    </div>
+  </div>
+
+  <div id="analysescherm">
+    <header class="werkkop">
+      <button id="analyseterug" aria-label="Terug naar projecten">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--inkt)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div id="analysetitel">Je clips</div>
+      <span id="analysetelling"></span>
+    </header>
+
+    <div id="analysestand" class="verborgen">
+      <div id="analysespoor"><div id="analysevoortgang"></div></div>
+      <div id="analysetekst"></div>
+      <div id="analysewakker"></div>
+    </div>
+
+    <!-- Kan Studio niet verder, dan zegt deze regel wat er ontbreekt. Tik
+         erop en je komt precies waar je het oplost. -->
+    <button id="analysemelding" class="verborgen"></button>
+
+    <div id="analyserol"></div>
+
+    <div id="analysebalk">
+      <div id="knoprij">
+        <button class="knop stil" id="analysevoeg">Clips toevoegen</button>
+        <button class="knop vol" id="analyseklaar" disabled>Naar de montage</button>
+      </div>
+      <input type="file" id="analysekiezer" accept="video/*" multiple>
+    </div>
+  </div>
+
+  <div class="blad" id="analyseblad">
+    <div class="grip"></div>
+    <div id="analysevoorbeeld"></div>
+    <h2 class="bladtitel" id="analysewat">Clip</h2>
+    <div id="analysefeiten"></div>
+    <span class="veldkop">Waar hoort dit bij</span>
+    <div id="fasekeuze"></div>
+    <div id="knoprij">
+      <button class="knop stil" id="analyseweg">Haal eruit</button>
+      <button class="knop vol" id="analysebladklaar">Klaar</button>
     </div>
   </div>
 
@@ -1939,7 +2123,7 @@ body.werkt #werkscherm{display:flex}
 </div>
 
 <script>
-const APPVERSIE = 'studio v77';
+const APPVERSIE = 'studio v78';
 document.getElementById('versie').textContent = APPVERSIE;
 
 /* De verhoudingen als breuk. De echte maat komt uit de korte zijde die je
@@ -2097,7 +2281,10 @@ async function bewaarNu(){
     uitgeknipt: !!c.uitgeknipt,
     tekst: c.tekst || '', tekstplek: c.tekstplek || 'onder',
     ondertitels: c.ondertitels || null,
-    kader: c.kader || {x: .5, y: .5}
+    kader: c.kader || {x: .5, y: .5},
+    // een analyse die nog loopt bewaren we niet: bij openen begint hij opnieuw
+    analyse: c.analyse && !c.analyse.bezig ? c.analyse : null,
+    handFase: c.handFase || null
   }));
   huidigProject.muziek = muziek
     ? {bestandId: muziek.bestandId, naam: muziek.naam, duur: muziek.duur,
@@ -2155,7 +2342,9 @@ async function openProject(id){
       uitgeknipt: !!m.uitgeknipt,
       tekst: m.tekst || '', tekstplek: m.tekstplek || 'onder',
       ondertitels: m.ondertitels || null,
-      kader: m.kader || {x: .5, y: .5}
+      kader: m.kader || {x: .5, y: .5},
+      analyse: m.analyse || null,
+      handFase: m.handFase || null
     });
   }
 
@@ -2184,7 +2373,9 @@ async function openProject(id){
     } catch(fout){}
   }
 
-  naarWerkscherm();
+  // was je nog aan het nakijken, dan kom je daar weer terug
+  if(pr.stap === 'bekijken') naarAnalyse();
+  else naarWerkscherm();
 }
 
 function naarWerkscherm(){
@@ -3285,6 +3476,7 @@ function sluitTrim(){
 }
 
 el('waas').addEventListener('click', () => {
+  if(el('analyseblad').classList.contains('aan')){ sluitAnalyseBlad(); return; }
   if(el('exportblad').classList.contains('aan')){ sluitExportblad(); return; }
   if(el('muziekblad').classList.contains('aan')){ sluitMuziekblad(); return; }
   if(el('ondertitelblad').classList.contains('aan')){ sluitOndertitel(); return; }
@@ -5389,6 +5581,12 @@ function openInstel(){
 function sluitInstel(){
   el('waas').classList.remove('aan');
   el('instelblad').classList.remove('aan');
+  // kwam je hier via de melding op het nakijkscherm, dan meteen verder
+  if(document.body.classList.contains('analyseert') &&
+     ['login', 'sleutel', 'geweigerd'].includes(analyseMelding)){
+    analyseMelding = null;
+    setTimeout(analyseerAlles, 250);
+  }
 }
 
 function tekenInstel(){
@@ -8796,6 +8994,629 @@ el('sleutelbewaar').addEventListener('click', koppelSleutel);
 el('sleutelontkoppel').addEventListener('click', ontkoppelSleutel);
 
 window.addEventListener('resize', werkTrimBij);
+
+/* ================== CLIPS BEKIJKEN ==================
+
+   De nieuwe manier van werken. Je knipt je clips zelf en zet ze erin. Studio
+   bekijkt elke clip: wat gebeurt er, bij welk onderdeel van het werk hoort
+   het, en hoe sterk is het shot. Pas als dat klopt bouwen we er een video van.
+
+   Per clip gebeuren drie dingen:
+     1  een paar beelden eruit halen, verspreid over de clip
+     2  laten verstaan wat je zegt (dezelfde motor als de ondertitels)
+     3  Claude laten kijken, via de Cloud Function analyseerClip
+
+   Wat je zegt bewaren we bij de analyse en niet als ondertitel. Anders staan
+   er ineens ondertitels in je video die je niet gevraagd hebt.
+
+   De onderdelen staan hier en niet in de Cloud Function. Wil je er een
+   bijzetten of een naam veranderen, dan pas je alleen dit lijstje aan. De
+   volgorde van het lijstje is de volgorde van je werkdag. */
+
+const FASES = [
+  {code: 'onderweg',     naam: 'Onderweg',
+   uitleg: 'in de auto, inkopen doen, aankomen bij de werkplaats'},
+  {code: 'voorbereiden', naam: 'Voorbereiden',
+   uitleg: 'werkplek klaarzetten, ingredienten afwegen, vullingen maken zoals ganache, gelei, karamel of notenpasta'},
+  {code: 'tempereren',   naam: 'Tempereren',
+   uitleg: 'chocolade smelten en op temperatuur brengen, de tempereermachine, temperatuur meten'},
+  {code: 'kleuren',      naam: 'Mallen kleuren',
+   uitleg: 'gekleurde cacaoboter in of op de lege mallen aanbrengen met kwast, spons, vinger of spuitpistool'},
+  {code: 'schelpen',     naam: 'Schelpen gieten',
+   uitleg: 'mallen vol chocolade gieten, omkeren, laten uitlekken, afschrapen'},
+  {code: 'vullen',       naam: 'Vullen',
+   uitleg: 'vulling met een spuitzak in de chocoladeschelpen spuiten'},
+  {code: 'sluiten',      naam: 'Sluiten',
+   uitleg: 'chocolade over de gevulde mal gieten om de bonbons dicht te maken, afschrapen'},
+  {code: 'ontvormen',    naam: 'Ontvormen',
+   uitleg: 'mal omkeren of uittikken zodat de bonbons eruit vallen'},
+  {code: 'inpakken',     naam: 'Inpakken',
+   uitleg: 'bonbons in doosjes leggen, dozen vouwen, bestellingen klaarmaken en verzenden'},
+  {code: 'resultaat',    naam: 'Resultaat',
+   uitleg: 'het eindproduct in beeld: close-ups van bonbons, een doorsnede, proeven, de volle doos'},
+  {code: 'vertellen',    naam: 'Vertellen',
+   uitleg: 'hij praat in de camera zonder dat er een duidelijke handeling te zien is'},
+  {code: 'overig',       naam: 'Overig',
+   uitleg: 'past echt nergens anders bij, zoals schoonmaken of iets buiten het werk'}
+];
+
+let analyseBezig = false;
+let analyseStop = false;
+let analyseMelding = null;     // 'los', 'login', 'sleutel', 'geweigerd' of 'weg'
+let analyseClip = null;        // de clip die open staat in het blad
+let inlezenBezig = false;
+let inleesTekst = '';
+let inleesDeel = 0;
+let veiligTot = Infinity;      // tijdens inlezen: vanaf deze plek is een clip nog niet klaar
+let spraakUit = false;
+let klaarBijStart = 0;
+let beeldSlot = Promise.resolve();
+
+const MELDINGEN = {
+  los:       'Clips bekijken werkt alleen als je Studio opent via cacaoboetiek-hq.web.app',
+  login:     'Log in bij HQ, dan kan Studio je clips bekijken',
+  sleutel:   'Koppel je Claude-sleutel, dan kan Studio je clips bekijken',
+  geweigerd: 'Je Claude-sleutel wordt niet meer geaccepteerd. Tik om een nieuwe te koppelen',
+  weg:       'Studio kan Claude nu niet bereiken. Tik om het opnieuw te proberen'
+};
+
+function faseVan(code){ return FASES.find(f => f.code === code) || null; }
+
+// Wat jij aantikt wint van wat Claude dacht. Een code die we niet (meer)
+// kennen valt onder overig, anders verdwijnt de clip uit beeld.
+function faseVanClip(c){
+  const code = c.handFase || (c.analyse && c.analyse.fase) || '';
+  if(!code) return '';
+  return faseVan(code) ? code : 'overig';
+}
+
+function duurTekst(n){
+  const s = Math.round(n || 0);
+  if(s < 60) return s + ' s';
+  return Math.floor(s / 60) + ' min ' + (s % 60) + ' s';
+}
+
+/* Een video springt maar naar een plek tegelijk. Twee clips tegelijk laten
+   verstaan en bekijken mag, maar beelden eruit halen doen we een voor een:
+   iOS geeft anders zwarte beelden terug. */
+function metBeeldSlot(taak){
+  const p = beeldSlot.then(taak, taak);
+  beeldSlot = p.catch(() => {});
+  return p;
+}
+
+async function beeldenVoorAnalyse(v, duur){
+  if(!v || !(duur > 0)) return [];
+  if(v.readyState < 2) await ontgrendel(v);
+  // korte clip: drie beelden, lange clip: hoogstens zes
+  const n = Math.max(3, Math.min(6, Math.round(duur / 2.5)));
+  const doek = document.createElement('canvas');
+  const ctx = doek.getContext('2d');
+  const uit = [];
+  for(let k = 0; k < n; k++){
+    const t = Math.min(Math.max(0, duur - .05), duur * (k + .5) / n);
+    try {
+      await zoekNaar(v, t);
+      const bw = v.videoWidth || 640, bh = v.videoHeight || 360;
+      const schaal = Math.min(1, 512 / Math.max(bw, bh));
+      doek.width = Math.max(2, Math.round(bw * schaal));
+      doek.height = Math.max(2, Math.round(bh * schaal));
+      ctx.drawImage(v, 0, 0, doek.width, doek.height);
+      if(isZwart(ctx, doek.width, doek.height)) continue;
+      const d = doek.toDataURL('image/jpeg', .62);
+      const komma = d.indexOf(',');
+      if(komma > 0) uit.push({t: Math.round(t * 10) / 10, data: d.slice(komma + 1)});
+    } catch(fout){}
+  }
+  return uit;
+}
+
+// na het heropenen van een project staat het bestand niet meer in het geheugen
+async function zorgVoorBestand(c){
+  if(c.bestand) return c.bestand;
+  try {
+    const rec = await haalUit('bestanden', c.bestandId);
+    if(rec && rec.blob) c.bestand = rec.blob;
+  } catch(fout){}
+  return c.bestand || null;
+}
+
+async function verstaVoorAnalyse(c){
+  if(spraakUit || !(c.duur >= 1)) return [];
+  try {
+    const blob = await zorgVoorBestand(c);
+    if(!blob) return [];
+    // een losse kopie meegeven: de echte clip krijgt geen ondertitels
+    const regels = await vraagOndertitels({bestand: blob, start: 0, eind: c.duur, duur: c.duur});
+    return regels.map(r => ({
+      van: Math.round(r.van * 10) / 10,
+      tot: Math.round(r.tot * 10) / 10,
+      tekst: r.tekst
+    }));
+  } catch(fout){
+    // Kwam de fout van de server, dan werkt verstaan nu helemaal niet. Dan
+    // niet bij elke clip opnieuw proberen en daarop wachten. Een clip zonder
+    // geluidsspoor geeft een fout hier op het toestel, en die slaan we over.
+    if(fout && typeof fout.code === 'string' && fout.code.indexOf('functions/') === 0) spraakUit = true;
+    return [];
+  }
+}
+
+async function vraagAnalyse(c, beelden, spraak){
+  const roep = vuur.fn.httpsCallable('analyseerClip');
+  const pakket = {
+    beelden,
+    duur: Math.round(c.duur * 10) / 10,
+    spraak,
+    fases: FASES.map(f => ({code: f.code, naam: f.naam, uitleg: f.uitleg}))
+  };
+  try {
+    return (await roep(pakket)).data || {};
+  } catch(fout){
+    // te druk: even ademhalen en nog een keer
+    if(fout && fout.code === 'functions/resource-exhausted'){
+      await new Promise(k => setTimeout(k, 6000));
+      return (await roep(pakket)).data || {};
+    }
+    throw fout;
+  }
+}
+
+// Sommige fouten gelden voor elke clip. Dan stoppen we en zeggen we wat er
+// ontbreekt, in plaats van twaalf keer dezelfde fout op twaalf kaarten.
+function stopSoort(fout){
+  const code = fout && fout.code;
+  if(code === 'functions/unauthenticated') return 'login';
+  if(code === 'functions/failed-precondition') return 'sleutel';
+  if(code === 'functions/permission-denied') return 'geweigerd';
+  if(code === 'functions/not-found' || code === 'functions/unavailable') return 'weg';
+  return '';
+}
+
+async function analyseerEen(c){
+  c.analyse = {bezig: true};
+  tekenAnalyse();
+
+  const beelden = await metBeeldSlot(() => beeldenVoorAnalyse(c.video, c.duur));
+  if(!beelden.length) throw new Error('Geen beeld uit deze clip te halen');
+
+  const spraak = await verstaVoorAnalyse(c);
+  const a = await vraagAnalyse(c, beelden, spraak);
+
+  c.analyse = {
+    wat: String(a.wat || ''),
+    fase: String(a.fase || 'overig'),
+    cijfer: Math.max(1, Math.min(10, Number(a.cijfer) || 5)),
+    opener: a.opener === true,
+    sterkste: a.sterkste || null,
+    zegt: String(a.zegt || ''),
+    spraak: spraak.length ? spraak : null,
+    klaar: Date.now()
+  };
+
+  // De rest van Studio kent label, cijfer en rol al. De tijdlijn en de reel
+  // gebruiken ze dus meteen, zonder dat daar iets aan hoeft te veranderen.
+  if(c.analyse.wat) c.label = c.analyse.wat;
+  c.cijfer = c.analyse.cijfer;
+  if(c.analyse.opener && !c.rol) c.rol = 'haak';
+}
+
+async function analyseerAlles(){
+  if(analyseBezig) return;
+  if(!clips.some(c => !c.analyse)){ tekenAnalyse(); return; }
+  const project = huidigProject;
+
+  // Firebase meldt je login pas na een tel. Eerst even wachten, anders zeggen
+  // we dat je niet ingelogd bent terwijl je dat gewoon bent.
+  if(!firebaseKlaar()){
+    analyseBezig = true;
+    tekenAnalyse();
+    const begin = Date.now();
+    while(!firebaseKlaar() && vuur && Date.now() - begin < 6000){
+      await new Promise(k => setTimeout(k, 250));
+    }
+    analyseBezig = false;
+    if(!firebaseKlaar()){
+      analyseMelding = vuur ? 'login' : 'los';
+      tekenAnalyse();
+      return;
+    }
+  }
+  if(huidigProject !== project) return;
+
+  analyseMelding = null;
+  analyseBezig = true;
+  analyseStop = false;
+  spraakUit = false;
+  klaarBijStart = clips.filter(c => c.analyse && (c.analyse.klaar || c.analyse.fout)).length;
+  klusBegin();
+  await wakker(true);
+  tekenAnalyse();
+
+  const volgende = () => clips.find((c, i) => !c.analyse && i < veiligTot);
+
+  const werker = async () => {
+    while(!analyseStop && huidigProject === project){
+      const c = volgende();
+      if(!c){
+        // er komen nog clips binnen: wachten in plaats van stoppen
+        if(inlezenBezig){ await new Promise(k => setTimeout(k, 400)); continue; }
+        return;
+      }
+      try {
+        await analyseerEen(c);
+      } catch(fout){
+        const soort = stopSoort(fout);
+        if(soort){
+          analyseStop = true;
+          analyseMelding = soort;
+          c.analyse = null;
+        } else {
+          const tekst = fout && fout.message ? String(fout.message) : 'onbekende fout';
+          c.analyse = {fout: tekst.slice(0, 140)};
+        }
+      }
+      if(huidigProject !== project) return;
+      tekenAnalyse();
+      bewaarStraks();
+    }
+  };
+
+  await Promise.all([werker(), werker()]);
+
+  analyseBezig = false;
+  await wakker(false);
+  if(huidigProject !== project) return;
+  tekenAnalyse();
+  bewaarStraks();
+
+  // kwam er tijdens het afronden nog een clip bij, dan die ook
+  if(!analyseStop && clips.some(c => !c.analyse)) analyseerAlles();
+}
+
+/* ---------- inlezen ---------- */
+
+async function leesClipsIn(bestanden){
+  if(!bestanden.length) return;
+  if(inlezenBezig){ toon('Even wachten, er komen nog clips binnen'); return; }
+  const project = huidigProject;
+  inlezenBezig = true;
+  const vanaf = clips.length;
+  let mislukt = 0;
+
+  for(let i = 0; i < bestanden.length; i++){
+    if(huidigProject !== project) break;
+    veiligTot = clips.length;
+    inleesTekst = 'Clip ' + (i + 1) + ' van ' + bestanden.length + ' inlezen\u2026';
+    inleesDeel = i / bestanden.length;
+    tekenAnalyse();
+    try { await voegToe(bestanden[i]); }
+    catch(fout){ mislukt++; }
+    veiligTot = clips.length;
+  }
+
+  // Foto's levert clips in willekeurige volgorde aan. Op opnametijd zetten,
+  // net als bij Clips toevoegen in de montage.
+  const nieuw = clips.length - vanaf;
+  if(huidigProject === project && nieuw > 1){
+    const gesorteerd = opTijdVolgorde(clips.slice(vanaf));
+    clips.splice(vanaf, nieuw);
+    gesorteerd.forEach(c => clips.push(c));
+  }
+
+  inlezenBezig = false;
+  veiligTot = Infinity;
+  if(huidigProject !== project) return;
+
+  bewaarStraks();
+  tekenAnalyse();
+  if(mislukt){
+    toon(mislukt === 1 ? '1 clip kon niet ingelezen worden'
+                       : mislukt + ' clips konden niet ingelezen worden');
+  }
+  analyseerAlles();
+}
+
+/* ---------- volgorde ----------
+
+   Op volgorde van je werkdag, en binnen een onderdeel op opnametijd. Clips
+   die nog niet bekeken zijn of niet lukten gaan achteraan. Dit is nog niet
+   de regie: dat is de volgende stap. */
+function analyseVolgorde(){
+  const rang = c => {
+    const f = faseVanClip(c);
+    if(!f) return FASES.length + 1;
+    return FASES.findIndex(x => x.code === f);
+  };
+  const plek = new Map(clips.map((c, i) => [c, i]));
+  return clips.slice().sort((a, b) =>
+    (rang(a) - rang(b)) ||
+    ((a.opname || Infinity) - (b.opname || Infinity)) ||
+    (plek.get(a) - plek.get(b)));
+}
+
+/* ---------- tekenen ---------- */
+
+const PIJLRECHTS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--zacht)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+
+function analyseKaart(c){
+  const a = c.analyse || {};
+  const f = faseVanClip(c);
+  const k = document.createElement('div');
+  k.className = 'clipkaart';
+
+  let titel = '', meta = secs(c.duur);
+  if(a.klaar){
+    titel = veiligeTekst(a.wat || (faseVan(f) || {}).naam || 'Bekeken');
+    if(a.spraak) meta += '<span class="merk">praat</span>';
+    if(a.opener) meta += '<span class="merk opener">opener</span>';
+  } else if(a.bezig){
+    titel = 'Wordt bekeken\u2026';
+    k.classList.add('wacht');
+  } else if(a.fout){
+    titel = f ? veiligeTekst(faseVan(f).naam) : 'Niet bekeken';
+    meta += ' \u00b7 <span class="fouttekst">niet gelukt</span>';
+  } else if(f){
+    titel = veiligeTekst(faseVan(f).naam);
+  } else {
+    titel = 'Wacht op zijn beurt';
+    k.classList.add('wacht');
+  }
+
+  const cijfer = a.klaar
+    ? '<b class="clipcijfer' + (a.cijfer >= 8 ? ' hoog' : a.cijfer <= 4 ? ' laag' : '') + '">' + a.cijfer + '</b>'
+    : '';
+
+  k.innerHTML =
+    (c.duim ? '<img class="duim" src="' + c.duim + '" alt="">' : '<div class="duim"></div>') +
+    '<div class="klipinfo"><div class="kliptitel">' + titel + '</div>' +
+    '<div class="klipmeta">' + meta + '</div></div>' + cijfer;
+  k.addEventListener('click', () => openAnalyseBlad(c));
+  return k;
+}
+
+function tekenAnalyse(){
+  if(!document.body.classList.contains('analyseert')) return;
+
+  const totaal = clips.reduce((s, c) => s + (c.duur || 0), 0);
+  el('analysetelling').textContent = clips.length
+    ? clips.length + (clips.length === 1 ? ' clip \u00b7 ' : ' clips \u00b7 ') + duurTekst(totaal)
+    : '';
+
+  // voortgang
+  const stand = el('analysestand');
+  const bezig = inlezenBezig || analyseBezig;
+  stand.classList.toggle('verborgen', !bezig);
+  if(bezig){
+    let tekst, deel;
+    if(inlezenBezig){
+      tekst = inleesTekst; deel = inleesDeel;
+    } else if(!firebaseKlaar()){
+      tekst = 'Verbinden met HQ\u2026'; deel = 0;
+    } else {
+      const klaar = clips.filter(c => c.analyse && (c.analyse.klaar || c.analyse.fout)).length;
+      deel = clips.length ? klaar / clips.length : 0;
+      const sindsStart = Math.max(1, clips.length - klaarBijStart);
+      tekst = klaar + ' van ' + clips.length + ' bekeken' +
+              restTekst((klaar - klaarBijStart) / sindsStart);
+    }
+    el('analysetekst').textContent = tekst;
+    el('analysevoortgang').style.width = Math.round(Math.max(0, Math.min(1, deel)) * 100) + '%';
+    el('analysewakker').textContent = analyseBezig && !inlezenBezig ? wakkerRegel() : '';
+  }
+
+  // melding
+  const melding = el('analysemelding');
+  melding.classList.toggle('verborgen', !analyseMelding);
+  if(analyseMelding){
+    melding.innerHTML = '<span>' + veiligeTekst(MELDINGEN[analyseMelding] || '') + '</span>' +
+                        (analyseMelding === 'los' ? '' : PIJLRECHTS);
+  }
+
+  // kaarten, per onderdeel
+  const rol = el('analyserol');
+  rol.innerHTML = '';
+  if(!clips.length){
+    if(!inlezenBezig){
+      const leeg = document.createElement('div');
+      leeg.className = 'analyseleeg';
+      leeg.innerHTML = 'Nog geen clips. Tik onderin op <b>Clips toevoegen</b>.';
+      rol.appendChild(leeg);
+    }
+  } else {
+    const volgorde = analyseVolgorde();
+    const groepen = [];
+    const mis = volgorde.filter(c => c.analyse && c.analyse.fout && !faseVanClip(c));
+    if(mis.length) groepen.push({naam: 'Niet gelukt', lijst: mis});
+    FASES.forEach(f => {
+      const lijst = volgorde.filter(c => faseVanClip(c) === f.code);
+      if(lijst.length) groepen.push({naam: f.naam, lijst});
+    });
+    const wacht = volgorde.filter(c => !faseVanClip(c) && !(c.analyse && c.analyse.fout));
+    if(wacht.length) groepen.push({naam: 'Nog te bekijken', lijst: wacht});
+
+    groepen.forEach(g => {
+      const kop = document.createElement('div');
+      kop.className = 'scankop';
+      kop.textContent = g.naam;
+      rol.appendChild(kop);
+      g.lijst.forEach(c => rol.appendChild(analyseKaart(c)));
+    });
+  }
+
+  el('analyseklaar').disabled = bezig || !clips.length;
+  if(el('analyseblad').classList.contains('aan')) tekenAnalyseBlad();
+}
+
+/* ---------- het blad van een clip ---------- */
+
+function openAnalyseBlad(c){
+  analyseClip = c;
+  const vak = el('analysevoorbeeld');
+  vak.innerHTML = '';
+  const v = document.createElement('video');
+  v.src = c.url;
+  v.muted = true;
+  v.loop = true;
+  v.playsInline = true;
+  v.setAttribute('playsinline', '');
+  vak.appendChild(v);
+  const pil = document.createElement('span');
+  pil.className = 'geluidpil';
+  pil.textContent = 'Tik voor geluid';
+  vak.appendChild(pil);
+  vak.onclick = () => {
+    v.muted = !v.muted;
+    pil.textContent = v.muted ? 'Tik voor geluid' : 'Geluid aan';
+    try { const p = v.play(); if(p && p.catch) p.catch(() => {}); } catch(fout){}
+  };
+  try { const p = v.play(); if(p && p.catch) p.catch(() => {}); } catch(fout){}
+
+  tekenAnalyseBlad();
+  el('waas').classList.add('aan');
+  el('analyseblad').classList.add('aan');
+}
+
+function sluitAnalyseBlad(){
+  const v = el('analysevoorbeeld').querySelector('video');
+  if(v){ try { v.pause(); } catch(fout){} v.removeAttribute('src'); try { v.load(); } catch(fout){} }
+  el('analysevoorbeeld').innerHTML = '';
+  analyseClip = null;
+  el('waas').classList.remove('aan');
+  el('analyseblad').classList.remove('aan');
+}
+
+function tekenAnalyseBlad(){
+  const c = analyseClip;
+  if(!c) return;
+  const a = c.analyse || {};
+
+  el('analysewat').textContent =
+    a.klaar ? (a.wat || 'Bekeken') :
+    a.bezig ? 'Wordt bekeken\u2026' :
+    a.fout  ? 'Niet bekeken' : 'Nog niet bekeken';
+
+  const feiten = el('analysefeiten');
+  let html = secs(c.duur);
+  if(a.klaar){
+    html += ' \u00b7 cijfer <b>' + a.cijfer + '</b> van 10';
+    if(a.opener) html += '<span class="merk opener">opener</span>';
+    if(a.spraak) html += '<span class="merk">praat</span>';
+    if(a.spraak){
+      const gezegd = a.spraak.map(r => r.tekst).join(' ');
+      html += '<div class="zegt">\u201c' + veiligeTekst(gezegd.length > 180 ? gezegd.slice(0, 177) + '\u2026' : gezegd) + '\u201d</div>';
+    }
+  }
+  if(a.fout){
+    html += '<span class="fouttekst">' + veiligeTekst(a.fout) + '</span>' +
+            '<button id="analyseopnieuw">Opnieuw bekijken</button>';
+  }
+  feiten.innerHTML = html;
+  const opnieuw = el('analyseopnieuw');
+  if(opnieuw){
+    opnieuw.addEventListener('click', () => {
+      c.analyse = null;
+      sluitAnalyseBlad();
+      tekenAnalyse();
+      analyseerAlles();
+    });
+  }
+
+  const keuze = el('fasekeuze');
+  keuze.innerHTML = '';
+  const nu = faseVanClip(c);
+  FASES.forEach(f => {
+    const b = document.createElement('button');
+    b.className = 'fasechip' + (f.code === nu ? ' aan' : '');
+    b.textContent = f.naam;
+    b.addEventListener('click', () => {
+      // kies je wat Claude al dacht, dan is er niets met de hand veranderd
+      c.handFase = (a.fase && f.code === a.fase) ? null : f.code;
+      tekenAnalyse();
+      tekenAnalyseBlad();
+      bewaarStraks();
+    });
+    keuze.appendChild(b);
+  });
+}
+
+function haalAnalyseClipEruit(){
+  const c = analyseClip;
+  if(!c) return;
+  const plek = clips.indexOf(c);
+  if(plek < 0) return;
+  sluitAnalyseBlad();
+  clips.splice(plek, 1);
+  tekenAnalyse();
+  bewaarStraks();
+  toon('Clip eruit gehaald', true, () => {
+    clips.splice(Math.min(plek, clips.length), 0, c);
+    tekenAnalyse();
+    bewaarStraks();
+    if(!c.analyse) analyseerAlles();
+  });
+}
+
+/* ---------- schermen ---------- */
+
+function naarAnalyse(){
+  document.body.classList.add('analyseert');
+  tekenAnalyse();
+  if(clips.some(c => !c.analyse)) analyseerAlles();
+}
+
+/* Maak een video. De kiezer gaat eerst open, want iOS opent hem alleen als het
+   direct op je tik volgt. Het project maken we pas als er clips gekozen zijn:
+   klik je de kiezer weg, dan blijft er ook geen leeg project achter. */
+el('maakvideo').addEventListener('click', () => el('videokiezer').click());
+
+el('videokiezer').addEventListener('change', async e => {
+  const bestanden = Array.from(e.target.files || []);
+  e.target.value = '';
+  if(!bestanden.length) return;
+  await nieuwProject();
+  huidigProject.stap = 'bekijken';
+  naarAnalyse();
+  await leesClipsIn(bestanden);
+});
+
+el('analysevoeg').addEventListener('click', () => el('analysekiezer').click());
+el('analysekiezer').addEventListener('change', async e => {
+  const bestanden = Array.from(e.target.files || []);
+  e.target.value = '';
+  await leesClipsIn(bestanden);
+});
+
+el('analysemelding').addEventListener('click', () => {
+  if(analyseMelding === 'los') return;
+  if(analyseMelding === 'weg'){
+    analyseMelding = null;
+    analyseerAlles();
+    return;
+  }
+  openInstel();
+});
+
+el('analyseterug').addEventListener('click', async () => {
+  analyseStop = true;
+  sluitAnalyseBlad();
+  document.body.classList.remove('analyseert');
+  await naarProjecten();
+});
+
+el('analyseklaar').addEventListener('click', async () => {
+  if(analyseBezig || inlezenBezig || !clips.length) return;
+  const nieuw = analyseVolgorde();
+  clips.length = 0;
+  Array.prototype.push.apply(clips, nieuw);
+  huidigProject.stap = 'monteren';
+  document.body.classList.remove('analyseert');
+  await bewaarNu();
+  naarWerkscherm();
+});
+
+el('analyseweg').addEventListener('click', haalAnalyseClipEruit);
+el('analysebladklaar').addEventListener('click', sluitAnalyseBlad);
 
 startFirebase();
 
