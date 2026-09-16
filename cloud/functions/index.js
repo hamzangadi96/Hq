@@ -796,3 +796,6 @@ Object.assign(exports, require('./beoordeelCode'));
 /* Clips bekijken voor de nieuwe videoflow in Studio: wat gebeurt er, bij welk
    onderdeel hoort het, hoe sterk is het shot. Ook apart, om dezelfde reden. */
 Object.assign(exports, require('./analyseerClip'));
+
+/* De regie: van bekeken clips een montageplan maken. Ook apart. */
+Object.assign(exports, require('./maakRegie'));
