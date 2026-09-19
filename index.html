@@ -3790,7 +3790,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v638 · 19 sep 2026';
+const APPVERSIE='v639 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5364,8 +5364,12 @@ function klokWidgetHTML(){
         ? `<i class="kwsub">hier <span class="acttikker">${
             n?werkTijd(Date.now()-n.start):'nog geen minuut'}</span></i>`
         : (n?`<i class="kwsub"><span class="dienstikker">${
-            werkTijd(Date.now()-S.dienst.start)}</span> aan het werk · hier <span
-            class="acttikker">${werkTijd(Date.now()-n.start)}</span></i>`
+            werkTijd(Date.now()-S.dienst.start)}</span> aan het werk${
+            /* Ben je nog niet gewisseld, dan zijn "aan het werk" en "hier"
+               hetzelfde getal en staat er twee keer 1 u 11. */
+            (n.start-S.dienst.start)>90000
+              ? ` · hier <span class="acttikker">${werkTijd(Date.now()-n.start)}</span>`
+              : ''}</i>`
           :`<i class="kwsub"><span class="dienstikker">${
             werkTijd(Date.now()-S.dienst.start)}</span> aan het werk · nog geen werkzaamheid</i>`)}</span>
     ${springKnop?'':svg(I.pijl,'2')}
@@ -6003,6 +6007,14 @@ function weekstripHTML(dagenVooruit){
     .push({soort:'productie',tekst:'batch onderweg'});
   /* je baan naast het bedrijf stond hier ook in; die functie is eruit gehaald */
 
+  /* ═════ zeven lege vakjes ═════
+     Staat er de hele strook niets op, dan is dit een kalender die je vertelt
+     dat er geen kalender nodig is. Inplannen doe je dan via de knop onder
+     Productie; zodra er één ding op de week staat, is de strook er weer. */
+  let ietsGepland=false;
+  for(let i=0;i<n;i++) if((perDag[datumPlus(vandaag(),i)]||[]).length) ietsGepland=true;
+  if(!ietsGepland) return '';
+
   let uit=`<div class="weekstrip">`;
   for(let i=0;i<n;i++){
     const d=datumPlus(vandaag(),i), dt=new Date(d);
@@ -6219,6 +6231,12 @@ function kpiHTML(){
     return `<span class="kpid ${op?'pos':'neg'}">${op?'\u25B2':'\u25BC'} ${
       op?'+':'\u2212'}${Math.abs(d)}${eenheid||''}</span>`;
   };
+  /* ═════ nul is geen cijfer om te tonen ═════
+     Op een dag zonder batches, bonbons en orders stonden hier drie nullen
+     naast elkaar. Dat is een blok van je scherm om te melden dat er niets
+     te melden valt — dezelfde regel waarom lege waarden elders ook wegvallen.
+     Zodra er één cijfer boven nul komt, staat de hele rij er weer. */
+  if(!bN&&!sN&&!open.length) return '';
   return `<div class="kpirij">
     <div class="kpichip"><b>${bN}</b><span>batches</span>${delta(bN,bG)}</div>
     <div class="kpichip"><b>${sN}</b><span>bonbons</span>${delta(sN,sG)}</div>
@@ -7089,14 +7107,18 @@ function dashboardHTML(){
   }
 
   else {
+    /* ═════ een leegte mag niet het luidst zijn ═════
+       Dit was een groot gevuld vlak onderaan je dashboard — het opvallendste
+       blok op het scherm — om te melden dat er niets gepland staat, met twee
+       knoppen voor iets waar je op dat moment niet mee bezig bent. Nu twee
+       rustige knoppen op een regel, zonder kaart eromheen. Je voorraad staat
+       erbij als je die hebt; anders staat er niets. */
     const vw=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
-    h+=`<div class="hoofdkaart">
-      <div class="vinkje">${svg(I.vink,'2.2')}</div>
-      <h2 style="text-align:center">Niets op de rol</h2>
-      <div class="sub" style="text-align:center">${vw?vw+' bonbons op voorraad. ':''}Plan een batch
-        of begin er meteen een.</div>
-      <button class="prim" data-sheet="nieuwbatch">${svg(I.plus)}Nieuwe batch</button>
-      <button class="knop2" data-planning style="margin-top:8px">${svg(I.klok)}Batch inplannen</button></div>`;
+    h+=`<div class="blokkop"><span class="eyebrow">Productie</span>${
+      vw?`<span class="tel">${vw} op voorraad</span>`:''}</div>
+      <div class="tdorde" style="margin:0">
+        <button class="knop2" data-sheet="nieuwbatch">${svg(I.plus,'2.2')}Nieuwe batch</button>
+        <button class="knop2" data-planning>${svg(I.klok,'2.2')}Inplannen</button></div>`;
   }
 
   /* Hier stonden vier tegels: voorraad, orders, openstaand en vandaag. Ze
@@ -21406,9 +21428,10 @@ function controleKaartHTML(){
    meer wat het was. Het notitieveld bestond al, maar alleen bij het starten —
    en dan weet je vaak nog niet wat je gaat doen. Nu kan het terwijl je bezig
    bent, met wat je bij deze klus eerder noteerde als suggestie. */
-function klusNotitieHTML(){
+function klusNotitieHTML(alleenGevuld){
   const n=nuAanHetWerk();
   if(!n||n.soort!=='klus'||!S.klus) return '';
+  if(alleenGevuld&&!(S.klus.tekst||'').trim()) return '';
   const so=klusSoort(S.klus.soort);
   const eerder=[];
   alsLijst(S.klussen).slice().reverse().forEach(k=>{
@@ -21429,8 +21452,14 @@ function klusNotitieHTML(){
 function werkKaartHTML(){
   const n=nuAanHetWerk();
   if(!n||!S.dienst) return '';
-  if(!isSchoonWerk(n.naam)) return klusNotitieHTML();
-  if(!(S.zones||[]).length) return klusNotitieHTML();
+  /* ═════ een leeg invoerveld is geen dashboard ═════
+     "Waar werk je aan?" met een leeg tekstvak nam een kwart scherm in — elke
+     dag, of je er nu iets in zette of niet. Het is een notitie bij je
+     urenstaat, geen overzicht. Hij staat nu in het klokpaneel, precies het
+     scherm dat al zo heet. Staat er wel iets in, dan blijft hij hier: dan
+     heeft hij iets te melden. */
+  if(!isSchoonWerk(n.naam)) return klusNotitieHTML(true);
+  if(!(S.zones||[]).length) return klusNotitieHTML(true);
 
   /* de stand hoort bij dit moment; wissel je van moment, dan begin je opnieuw */
   const moment=schoonMoment(n.naam);
@@ -21559,7 +21588,7 @@ function sheetInklok(){
 
   const d=S.dienst?new Date(S.dienst.start):null;
   const stand = !S.dienst ? ''
-    : `<div class="ikregel">
+    : klusNotitieHTML()+`<div class="ikregel">
          <span class="ikrt"><b class="dienstikker">${werkTijd(Date.now()-S.dienst.start)}</b>
            aan het werk sinds ${pad(d.getHours())}:${pad(d.getMinutes())}</span>
          ${n?`<i>nu: ${esc(n.naam)} · <span class="acttikker">${
