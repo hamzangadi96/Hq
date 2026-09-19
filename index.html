@@ -795,9 +795,13 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 /* Status als stip: vier toestanden lees je op kleur, niet op een woord. */
 .vidstip{width:10px;height:10px;border-radius:99px;flex:none;margin:0 6px 0 4px;
   background:var(--grijs3);box-shadow:0 0 0 3px var(--bg)}
+.vidstip.s-uitgewerkt{background:var(--grijs2)}
 .vidstip.s-opgenomen{background:var(--amber)}
-.vidstip.s-gemonteerd{background:var(--choco)}
+.vidstip.s-klaar{background:var(--choco)}
 .vidstip.s-gepost{background:var(--groen)}
+.segrij .segknop b{font-weight:700;opacity:.65;margin-left:2px}
+.segrij .segknop.aan b{opacity:.85}
+textarea.inp{min-height:76px}
 .tdcam{display:inline-grid;place-items:center;width:17px;height:17px;
   vertical-align:-3px;margin-left:5px;color:var(--choco)}
 .tdcam svg{width:15px;height:15px}
@@ -3803,7 +3807,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v648 · 19 sep 2026';
+const APPVERSIE='v649 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4079,6 +4083,8 @@ const S={
   /* Je eigen volgorde van de video's: een rij met id's. Wat er niet in staat
      komt er in fase-volgorde achteraan. */
   videoVolgorde:[],
+  /* De nieuwe Content-tab: één lijst video's die door vier bakken schuift. */
+  vids:[],
   /* je baan naast Cacaoboetiek: een vaste week, plus losse afwijkingen.
      Zonder dit weet de app niet wanneer je uberhaupt kunt produceren. */
   werkweek:null, werkafwijk:{},
@@ -4122,7 +4128,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -5624,7 +5630,8 @@ const TABS=[
   {key:'shopify',label:'Shopify',icon:I.vracht,klaar:true},
   {key:'voorraad',label:'Voorraad',icon:I.doos,klaar:true},
   {key:'geld',label:'Financiën',icon:I.euro,klaar:true},
-  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true}
+  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true},
+  {key:'content',label:'Content',icon:I.camera,klaar:true}
 ];
 /* ═══════════ Content eruit ═══════════
    Deze tab hield 63 kant-en-klare video-ideeën bij, met fases, sporen en
@@ -5643,6 +5650,7 @@ const SNELITEMS=[
   {key:'voorraad',label:'Voorraad',icon:'doos',soort:'tab'},
   {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
   {key:'agenda',label:'Agenda',icon:'klok',soort:'tab'},
+  {key:'content',label:'Content',icon:'camera',soort:'tab'},
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
@@ -5949,7 +5957,7 @@ function renderNu(){
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
     S.tab==='shopify'?shopifyHTML():
     S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():
-    straksHTML(S.tab));
+    S.tab==='content'?cwHTML():straksHTML(S.tab));
   if(gewisseld){
     const el=$('#scherm');
     el.classList.remove('schermIn');
@@ -18996,6 +19004,9 @@ function bind(){
   });
   $$('[data-tdopen]').forEach(b=>b.onclick=()=>sheetTedoen(b.dataset.tdopen));
   $$('[data-tdnieuw]').forEach(b=>b.onclick=()=>sheetTedoenNieuw());
+  $$('[data-cwbak]').forEach(b=>b.onclick=()=>{ cwBak=b.dataset.cwbak; render() });
+  $$('[data-cwopen]').forEach(b=>b.onclick=()=>sheetCw(b.dataset.cwopen));
+  $$('[data-cwnieuw]').forEach(b=>b.onclick=()=>sheetCwNieuw());
   $$('[data-vidopen]').forEach(b=>b.onclick=()=>cbVidSheet(b.dataset.vidopen));
   $$('[data-vidbieb]').forEach(b=>b.onclick=()=>{
     S.tab='content'; S.batchId=null; cbView='video'; render(); $('#scherm').scrollTop=0;
@@ -21875,6 +21886,196 @@ function sheetInklok(){
     S.dienst=null;
     bewaarNu(); dicht(); render(); toast('Weggegooid.');
   };
+}
+
+/* ══════════════ Content: een lopende band ══════════════
+   Bedenken doe je 's avonds rustig, filmen met chocolade aan je handen,
+   monteren achter je laptop, posten in dertig seconden. Vier momenten die
+   fysiek niets met elkaar te maken hebben — dus geen één scherm dat ze
+   alle vier tegelijk bedient, maar vier bakken waar een video doorheen
+   schuift. Je ziet standaard de bak waar je nu in werkt. */
+const CWBAK=[
+  {k:'idee',       n:'Idee',       doe:'Is uitgewerkt', kort:'uitwerken'},
+  {k:'uitgewerkt', n:'Uitgewerkt', doe:'Gefilmd',       kort:'filmen'},
+  {k:'opgenomen',  n:'Opgenomen',  doe:'Gemonteerd',    kort:'monteren'},
+  {k:'klaar',      n:'Klaar',      doe:'Gepost',        kort:'posten'}
+];
+let cwBak='idee';
+const cwLijst=()=>(S.vids||[]);
+const cwIn=b=>cwLijst().filter(v=>(v.bak||'idee')===b);
+const cwVid=id=>cwLijst().find(v=>v.id===id);
+const cwGepost=()=>cwLijst().filter(v=>v.bak==='gepost').length;
+const cwVeld=(v,k)=>Array.isArray(v[k])?v[k]:[];
+
+function cwNieuw(titels){
+  S.vids=S.vids||[];
+  titels.forEach(x=>S.vids.push({id:uid(),titel:x.slice(0,140),kern:'',
+    zeggen:[],niet:[],shots:[],bak:'idee',gemaakt:Date.now()}));
+  bewaarNu();
+}
+function cwSchuif(id,vooruit){
+  const v=cwVid(id); if(!v) return;
+  const orde=CWBAK.map(x=>x.k).concat(['gepost']);
+  const i=orde.indexOf(v.bak||'idee');
+  const n=Math.max(0,Math.min(orde.length-1,i+(vooruit?1:-1)));
+  if(n===i) return;
+  const herstel=terugpunt(['vids']);
+  v.bak=orde[n];
+  if(v.bak==='gepost') v.gepostOp=iso(new Date());
+  bewaarNu(); cwBak=v.bak==='gepost'?'klaar':v.bak; render();
+  if(v.bak==='gepost'){ dicht(); toast('Gepost. ' +cwIn('klaar').length+' nog op de plank.',herstel) }
+  else { sheetCw(id); toast('Staat nu bij '+(CWBAK.find(x=>x.k===v.bak)||{n:'gepost'}).n.toLowerCase()+'.',herstel) }
+}
+
+function cwHTML(){
+  let h=`<div class="blokkop" style="margin-top:4px"><span class="eyebrow">Je video's</span>
+    <button class="kopknop" data-cwnieuw>${svg(I.plus)}Idee</button></div>
+    <div class="segrij" style="grid-template-columns:repeat(4,1fr)">${CWBAK.map(b=>{
+      const n=cwIn(b.k).length;
+      return `<button class="segknop${cwBak===b.k?' aan':''}" data-cwbak="${b.k}">${
+        b.n}${n?' <b>'+n+'</b>':''}</button>`}).join('')}</div>`;
+
+  const bak=CWBAK.find(x=>x.k===cwBak)||CWBAK[0];
+  const l=cwIn(cwBak);
+  if(!l.length){
+    h+=`<p class="klein" style="margin:18px 2px 0;color:var(--grijs2)">${
+      cwBak==='idee'?'Nog geen idee\u00ebn. Tik op Idee en zet ze erin — een hele lijst plakken mag ook.'
+      :'Niets in deze bak. Wat je bij '+(CWBAK[CWBAK.indexOf(bak)-1]||{n:''}).n.toLowerCase()
+        +' afrondt komt hier vanzelf terecht.'}</p>`;
+  } else {
+    h+='<div class="paneel" style="margin-top:14px">'+l.map((v,i)=>{
+      const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
+      const onder = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
+        : v.bak==='idee' ? (v.kern?esc(v.kern).slice(0,60):'nog niet uitgewerkt')
+        : (v.kern?esc(v.kern).slice(0,60):'');
+      return `<div class="arij stil tdrij">
+        <span class="vidstip s-${v.bak}"></span>
+        <button class="tdnaam" data-cwopen="${v.id}"><span class="tdnr">${i+1}</span>${esc(v.titel)}${
+          onder?`<small>${onder}</small>`:''}</button>
+        <span class="pijl" data-cwopen="${v.id}">${svg(I.pijl,'2')}</span></div>`}).join('')+'</div>';
+  }
+  if(cwGepost()) h+=`<p class="klein" style="margin:20px 2px 0;color:var(--grijs3)">${
+    cwGepost()} gepost.</p>`;
+  return h;
+}
+
+/* één bouwsteen voor Zeggen, Niet doen en Shots: dezelfde vorm, andere inhoud */
+function cwRegelsHTML(v,veld,kop,plaats,vink){
+  const l=cwVeld(v,veld);
+  return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">${kop}</span>${
+    l.length?`<span class="tel">${vink?l.filter(x=>x.klaar).length+' van '+l.length:l.length}</span>`:''}</div>
+    ${l.length?`<div class="paneel">${l.map((x,i)=>`<div class="arij stil">
+      ${vink?`<button class="tdvink" data-cwvink="${veld}|${i}" aria-label="Afvinken">
+        <span class="bol ${x.klaar?'af':''}">${x.klaar?svg(I.vink,'2.6'):''}</span></button>`:''}
+      <span class="naam" style="${vink&&x.klaar?'color:var(--grijs3);text-decoration:line-through':''}">${
+        esc(vink?x.tekst:x)}</span>
+      <button class="wisbtn" data-cwweg="${veld}|${i}" aria-label="Weghalen">${svg(I.kruis,'2')}</button>
+    </div>`).join('')}</div>`:''}
+    <div class="veld" style="margin-top:10px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <input class="inp" data-cwbij="${veld}" placeholder="${esc(plaats)}" style="flex:1">
+        <button class="knop2" data-cwbijok="${veld}" aria-label="Toevoegen"
+          style="width:48px;flex:none;padding:0">${svg(I.plus)}</button></div></div>`;
+}
+
+function sheetCw(id){
+  const v=cwVid(id); if(!v) return;
+  const bak=CWBAK.find(x=>x.k===v.bak)||CWBAK[0];
+  const i=CWBAK.indexOf(bak);
+  sheet(v.titel,
+    `<p class="hint">Waar gaat deze video over, wat moet erin, en hoe schiet je hem.
+      De knop onderaan schuift hem naar de volgende bak.</p>
+     <div class="veld"><label>Waar gaat het over</label>
+       <textarea class="inp" id="cwKern" rows="2"
+         placeholder="Eén of twee zinnen">${esc(v.kern||'')}</textarea></div>
+     <div class="veld"><label>Titel</label>
+       <input class="inp" id="cwTitel" value="${esc(v.titel)}"></div>
+     ${cwRegelsHTML(v,'zeggen','Zeggen','Bijv. vier maanden weg geweest',false)}
+     ${cwRegelsHTML(v,'niet','Niet doen','Bijv. inhoud prive',false)}
+     ${cwRegelsHTML(v,'shots','Shots','Bijv. POV handen aan het werk',true)}
+     <div class="tdorde" style="margin:26px 0 0">
+       <button class="knop2" id="cwTerug"${i<=0?' disabled':''}>${
+         svg(I.terug,'2.2')}Terug</button>
+       <button class="knop2" id="cwWeg">${svg(I.prul,'2.2')}Weghalen</button></div>`,
+    `<button class="prim" style="margin-top:0" id="cwDoor">${bak.doe}</button>`);
+
+  const opslaan=()=>{
+    const tl=$('#cwTitel'), kr=$('#cwKern');
+    if(tl){ const x=(tl.value||'').trim(); if(x&&x!==v.titel) v.titel=x }
+    if(kr){ const x=(kr.value||'').trim(); if(x!==(v.kern||'')) v.kern=x }
+    bewaarNu();
+  };
+  bijSluiten=opslaan;
+
+  const bij=veld=>{
+    const el=document.querySelector('[data-cwbij="'+veld+'"]');
+    const tx=(el?el.value:'').trim(); if(!tx) return;
+    opslaan();
+    v[veld]=cwVeld(v,veld).concat([veld==='shots'?{tekst:tx.slice(0,140),klaar:false}:tx.slice(0,140)]);
+    bewaarNu(); render(); sheetCw(id);
+    setTimeout(()=>{const n=document.querySelector('[data-cwbij="'+veld+'"]'); if(n) n.focus()},60);
+  };
+  $$('[data-cwbijok]').forEach(b=>b.onclick=()=>bij(b.dataset.cwbijok));
+  $$('[data-cwbij]').forEach(el=>{
+    el.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); bij(el.dataset.cwbij) } };
+    el.addEventListener('paste',e=>{
+      const ruw=(e.clipboardData||window.clipboardData).getData('text')||'';
+      const r=ruw.split(/\r?\n/).map(x=>x.replace(/^\s*(?:[-*\u2022\u2013]|\d+[.)])\s*/,'').trim())
+        .filter(Boolean).map(x=>x.slice(0,140));
+      if(r.length<2) return;
+      e.preventDefault(); opslaan();
+      const veld=el.dataset.cwbij;
+      v[veld]=cwVeld(v,veld).concat(veld==='shots'?r.map(x=>({tekst:x,klaar:false})):r);
+      bewaarNu(); render(); sheetCw(id); toast(r.length+' regels erbij.');
+    });
+  });
+  $$('[data-cwweg]').forEach(b=>b.onclick=()=>{
+    const d=b.dataset.cwweg.split('|'); opslaan();
+    const herstel=terugpunt(['vids']);
+    v[d[0]]=cwVeld(v,d[0]).filter((x,n)=>n!==+d[1]);
+    bewaarNu(); render(); sheetCw(id); toast('Weggehaald.',herstel);
+  });
+  $$('[data-cwvink]').forEach(b=>b.onclick=()=>{
+    const d=b.dataset.cwvink.split('|'); opslaan();
+    const s=cwVeld(v,d[0])[+d[1]]; if(!s) return;
+    s.klaar=!s.klaar; bewaarNu(); render(); sheetCw(id);
+  });
+  $('#cwDoor').onclick=()=>{ opslaan(); bijSluiten=null; cwSchuif(id,true) };
+  if($('#cwTerug')) $('#cwTerug').onclick=()=>{ opslaan(); bijSluiten=null; cwSchuif(id,false) };
+  $('#cwWeg').onclick=()=>{
+    const herstel=terugpunt(['vids']);
+    bijSluiten=null;
+    S.vids=cwLijst().filter(x=>x.id!==id);
+    bewaarNu(); dicht(); render(); toast('Video weggehaald.',herstel);
+  };
+}
+
+function sheetCwNieuw(){
+  sheet('Nieuw idee',
+    `<p class="hint">Alleen de titel. Uitwerken doe je daarna — waar het over gaat,
+      wat erin moet en welke shots je nodig hebt.</p>
+     <div class="veld"><label>Waar gaat de video over</label>
+       <input class="inp" id="cwN" placeholder="Bijv. waarom ik vier maanden weg was"></div>
+     <p class="klein" style="margin:-10px 2px 0;color:var(--grijs2)">
+       Plak een lijst en elke regel wordt een idee.</p>`,
+    '<button class="prim" style="margin-top:0" id="cwNOk">Toevoegen</button>');
+  const klaar=n=>{ dicht(); cwBak='idee'; render();
+    toast(n===1?'Idee toegevoegd.':n+' idee\u00ebn toegevoegd.') };
+  const doe=()=>{
+    const x=($('#cwN')?$('#cwN').value:'').trim();
+    if(!x) return toast('Schrijf er even bij waar het over gaat.');
+    cwNieuw([x]); klaar(1);
+  };
+  $('#cwNOk').onclick=doe;
+  $('#cwN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); doe() } };
+  $('#cwN').addEventListener('paste',e=>{
+    const ruw=(e.clipboardData||window.clipboardData).getData('text')||'';
+    const r=ruw.split(/\r?\n/).map(x=>x.replace(/^\s*(?:[-*\u2022\u2013]|\d+[.)])\s*/,'').trim())
+      .filter(Boolean);
+    if(r.length<2) return;
+    e.preventDefault(); cwNieuw(r); klaar(r.length);
+  });
+  setTimeout(()=>{const el=$('#cwN'); if(el) el.focus()},260);
 }
 
 /* ================= productiestappen ================= */
