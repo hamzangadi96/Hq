@@ -3802,7 +3802,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v643 · 19 sep 2026';
+const APPVERSIE='v644 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18110,12 +18110,12 @@ function videoKaartHTML(){
     open.length?`<span class="tel${klaarOmTePosten?'':' let'}">${
       klaarOmTePosten?klaarOmTePosten+' klaar om te posten':teFilmen+' te filmen'}</span>`:''}
     <button class="kopknop" data-vidnieuw>${svg(I.plus)}Idee</button></div>`;
-  const bieb=vidBiebAantal()
-    ? `<button class="meer" data-vidbieb>Of kies uit ${vidBiebAantal()} ideeën</button>` : '';
-  if(!open.length)
-    return h+`<div class="paneel"><button class="meer" data-vidnieuw
-      style="border-top:none;padding:18px 16px">Nog geen video's op de rol. Zet er een idee in.</button>
-      ${bieb}</div>`;
+  /* Leeg stond hier als een gestippeld vak met een zin erin, met daaronder
+     nog een gestippeld vak naar de bibliotheek. Twee spookknoppen onder
+     elkaar om te melden dat er niets is — en de to-do erboven eindigde ook
+     al in zo'n vak. Leeg is nu de kopregel en verder niets: de knop rechts
+     is de ingang, en die staat er toch al. */
+  if(!open.length) return h;
   const zicht=vidAlles?open:open.slice(0,4);
   h+='<div class="paneel">'+zicht.map((v,i)=>{
     const st=cbStat(v.id);
@@ -18130,7 +18130,7 @@ function videoKaartHTML(){
     h+=`<button class="meer" data-vidmeer>Nog ${open.length-zicht.length} video's</button>`;
   else if(vidAlles&&open.length>4)
     h+='<button class="meer" data-vidmeer>Minder tonen</button>';
-  return h+bieb+'</div>';
+  return h+'</div>';
 }
 let vidAlles=false;
 
@@ -18142,7 +18142,9 @@ function sheetVidNieuw(){
      <div class="veld"><label>Waar gaat de video over</label>
        <input class="inp" id="vidN" placeholder="Bijv. waarom ik geen alcohol gebruik"></div>
      <p class="klein" style="margin:-10px 2px 0;color:var(--grijs2)">
-       Plak een lijst en elke regel wordt een idee.</p>`,
+       Plak een lijst en elke regel wordt een idee.</p>
+     ${vidBiebAantal()?`<button class="knop2" id="vidBieb" style="margin-top:22px">${
+       svg(I.boek,'2.2')}Kies uit ${vidBiebAantal()} ideeën</button>`:''}`,
     '<button class="prim" style="margin-top:0" id="vidNOk">Toevoegen</button>');
   const erbij=titels=>{
     S.contentEigen=S.contentEigen||[];
@@ -18160,6 +18162,9 @@ function sheetVidNieuw(){
     const v=($('#vidN')?$('#vidN').value:'').trim();
     if(!v) return toast('Schrijf er even bij waar het over gaat.');
     erbij([v.slice(0,120)]);
+  };
+  if($('#vidBieb')) $('#vidBieb').onclick=()=>{
+    dicht(); S.tab='content'; S.batchId=null; render(); $('#scherm').scrollTop=0;
   };
   $('#vidNOk').onclick=doe;
   $('#vidN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); doe() } };
@@ -18958,9 +18963,6 @@ function bind(){
   $$('[data-vidopen]').forEach(b=>b.onclick=()=>cbVidSheet(b.dataset.vidopen));
   $$('[data-vidnieuw]').forEach(b=>b.onclick=()=>sheetVidNieuw());
   $$('[data-vidmeer]').forEach(b=>b.onclick=()=>{ vidAlles=!vidAlles; render() });
-  $$('[data-vidbieb]').forEach(b=>b.onclick=()=>{
-    S.tab='content'; S.batchId=null; render(); $('#scherm').scrollTop=0;
-  });
   $$('[data-tdmeer]').forEach(b=>b.onclick=()=>{ tdAlles=!tdAlles; render() });
   $$('[data-toast]').forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
