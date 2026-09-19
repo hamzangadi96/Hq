@@ -792,6 +792,18 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .tdorde .knop2{height:44px;font-size:13.5px;gap:6px}
 .tdorde .knop2[disabled]{opacity:.4}
 .tdorde .knop2 svg{width:14px;height:14px}
+/* Status als stip: vier toestanden lees je op kleur, niet op een woord. */
+.vidstip{width:10px;height:10px;border-radius:99px;flex:none;margin:0 6px 0 4px;
+  background:var(--grijs3);box-shadow:0 0 0 3px var(--bg)}
+.vidstip.s-opgenomen{background:var(--amber)}
+.vidstip.s-gemonteerd{background:var(--choco)}
+.vidstip.s-gepost{background:var(--groen)}
+.tdcam{display:inline-grid;place-items:center;width:17px;height:17px;
+  vertical-align:-3px;margin-left:5px;color:var(--choco)}
+.tdcam svg{width:15px;height:15px}
+.wisbtn.tdfilm{color:var(--grijs3)}
+.wisbtn.tdfilm.aan{background:var(--markeer);color:var(--choco)}
+.knop2.tdfilmT.aan{background:var(--markeer);border-color:var(--choco-licht);color:var(--choco)}
 .tdorde .knop2:first-child svg{transform:rotate(90deg)}
 .tdorde .knop2:last-child svg{transform:rotate(90deg)}
 
@@ -3790,7 +3802,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v639 · 19 sep 2026';
+const APPVERSIE='v643 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4063,6 +4075,9 @@ const S={
   contentStatus:{}, contentPost:{}, contentEigen:[],
   /* regels die je zelf bij een video zet: steekwoorden, let op, extra shots */
   contentExtra:{}, contentUitleg:false,
+  /* Je eigen volgorde van de video's: een rij met id's. Wat er niet in staat
+     komt er in fase-volgorde achteraan. */
+  videoVolgorde:[],
   /* je baan naast Cacaoboetiek: een vaste week, plus losse afwijkingen.
      Zonder dit weet de app niet wanneer je uberhaupt kunt produceren. */
   werkweek:null, werkafwijk:{},
@@ -4106,7 +4121,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -6632,6 +6647,13 @@ const tdOpen=()=>tdLijst().filter(x=>!x.klaar);
 const tdStappen=t=>(t&&t.stappen)||[];
 const tdAf=t=>tdStappen(t).filter(s=>s.klaar).length;
 const tdVolgende=t=>tdStappen(t).find(s=>!s.klaar)||null;
+/* ═══════════ taak én video ═══════════
+   Uit je contentplan: elke taak is een eigen video. Dat betekent dat je geen
+   tweede lijst nodig hebt met video's erin — je moet bij het werk dat je
+   toéh doet kunnen zetten dat er beeld van komt. Dan zie je op je dashboard
+   in één blik welke taken van vandaag ook je content zijn. */
+const tdFilms=t=>tdStappen(t).filter(s=>s.film).length;
+const tdHeeftFilm=t=>!!(t&&(t.film||tdFilms(t)));
 
 function tdToevoegen(titel){
   const tekst=String(titel||'').trim();
@@ -6649,14 +6671,17 @@ function tdRegelHTML(t,nr){
      te zetten". Bij zes regels stond die zin zes keer onder elkaar: ruis die
      niets zegt, en het maakte elke regel een halve kop hoger. Geen stappen is
      geen waarde, dus staat er niets. */
+  const films=tdFilms(t);
   const onder = klaar ? 'afgevinkt · tik het rondje om terug te zetten'
     : st.length ? (v?esc(v.tekst):'alle stappen gedaan')+' · '+af+' van '+st.length
-    : '';
+        +(films?' · '+films+' met beeld':'')
+    : (t.film?'hier komt beeld van':'');
   return `<div class="arij stil tdrij${klaar?' af':''}">
     <button class="tdvink" data-tdaf="${t.id}"
       aria-label="${klaar?'Terugzetten':'Afvinken'}"><span class="bol ${
       klaar?'af':''}">${klaar?svg(I.vink,'2.6'):''}</span></button>
     <button class="tdnaam" data-tdopen="${t.id}"><span class="tdnr">${nr}</span>${esc(t.titel)}${
+      tdHeeftFilm(t)&&!klaar?` <i class="tdcam">${svg(I.camera,'2.2')}</i>`:''}${
       onder?`<small>${onder}</small>`:''}</button>
     <span class="pijl" data-tdopen="${t.id}">${svg(I.pijl,'2')}</span></div>`;
 }
@@ -6697,8 +6722,9 @@ function tdHeroHTML(t,daarna){
       <button class="tdvink" data-tdstap="${t.id}|${v?v.id:''}"${v?'':' disabled'}
         aria-label="${v?'Stap afvinken':'Alles gedaan'}"><span class="bol${
         v?'':' af'}">${v?'':svg(I.vink,'2.6')}</span></button>
-      <span class="tdvolgT">${v?esc(v.tekst):'Alle stappen gedaan'}
-        <small>${v?'stap '+(st.indexOf(v)+1)+' van '+st.length
+      <span class="tdvolgT">${v?esc(v.tekst):'Alle stappen gedaan'}${
+        v&&v.film?` <i class="tdcam">${svg(I.camera,'2.2')}</i>`:''}
+        <small>${v?(v.film?'camera mee · ':'')+'stap '+(st.indexOf(v)+1)+' van '+st.length
                  :'vink de taak hierboven af'}</small></span></div>`:''}
   </div>`;
 }
@@ -6774,13 +6800,22 @@ function sheetTedoen(id){
           <span class="bol ${s.klaar?'af':''}">${s.klaar?svg(I.vink,'2.6'):''}</span></button>
         <span class="naam" style="${s.klaar
           ?'color:var(--grijs3);text-decoration:line-through':''}">${esc(s.tekst)}</span>
+        <button class="wisbtn tdfilm${s.film?' aan':''}" data-tdfilm="${s.id}"
+          aria-label="${s.film?'Geen beeld van deze stap':'Hier komt beeld van'}">${svg(I.camera,'2')}</button>
         <button class="wisbtn" data-tdswis="${s.id}" aria-label="Stap weghalen">${svg(I.kruis,'2')}</button>
       </div>`).join('')}</div>`:''}
+     ${st.length?'':`<button class="knop2 tdfilmT${t.film?' aan':''}" id="tdFilmT"
+       style="margin-bottom:20px">${svg(I.camera,'2.2')}${
+       t.film?'Hier komt beeld van':'Komt hier beeld van?'}</button>`}
      <div class="veld" style="margin-top:22px"><label>Stap toevoegen</label>
        <div style="display:flex;gap:10px;align-items:center">
          <input class="inp" id="tdSt" placeholder="Bijv. productfoto's maken" style="flex:1">
          <button class="knop2" id="tdStOk" aria-label="Toevoegen"
-           style="width:48px;flex:none;padding:0">${svg(I.plus)}</button></div></div>
+           style="width:48px;flex:none;padding:0">${svg(I.plus)}</button></div>
+       ${''/* Zestien stappen één voor één intypen op een telefoon is geen doen.
+            Plak je een lijst met regels, dan wordt elke regel een stap. */}
+       <p class="klein" style="margin:9px 2px 0;color:var(--grijs2)">
+         Plak een lijst en elke regel wordt een stap.</p></div>
      <button class="meer" id="tdWeg" style="border-top:none">Van je lijst halen</button>`,
     '<button class="prim" style="margin-top:0" id="tdKlaar">Klaar</button>');
 
@@ -6803,6 +6838,21 @@ function sheetTedoen(id){
   };
   $('#tdStOk').onclick=voegToe;
   $('#tdSt').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); voegToe() } };
+  /* Een lijst plakken: elke regel een stap. Een enkele regel gaat gewoon in
+     het veld, zodat je hem nog kunt bijschaven voor je hem toevoegt. */
+  $('#tdSt').addEventListener('paste',e=>{
+    const ruw=(e.clipboardData||window.clipboardData).getData('text')||'';
+    const regels=ruw.split(/\r?\n/)
+      .map(r=>r.replace(/^\s*(?:[-*\u2022\u2013]|\d+[.)])\s*/,'').trim())
+      .filter(Boolean);
+    if(regels.length<2) return;
+    e.preventDefault();
+    titelOp();
+    const herstel=terugpunt(['tedoen']);
+    t.stappen=tdStappen(t).concat(regels.map(r=>({id:uid(),tekst:r.slice(0,120),klaar:false})));
+    bewaarNu(); render(); sheetTedoen(id);
+    toast(regels.length+' stappen toegevoegd.',herstel);
+  });
 
   $$('[data-tdsaf]').forEach(b=>b.onclick=()=>{
     const s=tdStappen(t).find(x=>x.id===b.dataset.tdsaf); if(!s) return;
@@ -6843,6 +6893,14 @@ function sheetTedoen(id){
   };
   if($('#tdEerst')) $('#tdEerst').onclick=verzet(true);
   if($('#tdLaatst')) $('#tdLaatst').onclick=verzet(false);
+
+  $$('[data-tdfilm]').forEach(b=>b.onclick=()=>{
+    const s=tdStappen(t).find(x=>x.id===b.dataset.tdfilm); if(!s) return;
+    titelOp(); s.film=!s.film; bewaarNu(); render(); sheetTedoen(id);
+  });
+  if($('#tdFilmT')) $('#tdFilmT').onclick=()=>{
+    titelOp(); t.film=!t.film; bewaarNu(); render(); sheetTedoen(id);
+  };
 }
 
 function sheetTedoenNieuw(){
@@ -6874,7 +6932,7 @@ function dashboardHTML(){
   /* Draait er een batch, dan is die het belangrijkste op dit scherm en komt
      je lijst eronder. Draait er niets, dan is je lijst juist het antwoord op
      "wat nu" en staat hij bovenaan. */
-  const tdKaart=tedoenKaartHTML();
+  const tdKaart=tedoenKaartHTML()+videoKaartHTML();
   let h=begroetingHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()
     +(t.soort==='bezig'?'':tdKaart)+controleKaartHTML();
 
@@ -18016,6 +18074,106 @@ function cbRegelOk(id,veld){
   if(tx) cbExtraBij(id,veld,tx);
   cbVidSheet(id);
 }
+/* ═══════════ jouw volgorde ═══════════
+   De video's stonden op fase, en een fase is een periode van weken. Welke
+   video er morgen als eerste uit moet, staat daar niet in. Dit is een eigen
+   rij die je zelf schikt; alles wat je nog niet hebt geschikt sluit in
+   fase-volgorde achteraan aan. */
+/* De app heeft 61 kant-en-klare ideeën. Die allemaal op je dashboard zetten
+   is precies de berg waar je niet doorheen kijkt. Hier staat alleen jouw
+   eigen rij: wat je zelf hebt toegevoegd of geschikt, plus alles waar je al
+   aan begonnen bent. De rest blijft een bibliotheek om uit te kiezen. */
+function vidRij(){
+  S.videoVolgorde=S.videoVolgorde||[];
+  const alle=cbAlle();
+  const mijn=S.videoVolgorde.map(x=>alle.find(v=>v.id===x)).filter(Boolean);
+  const bezig=alle.filter(v=>cbStat(v.id)!=='idee'&&S.videoVolgorde.indexOf(v.id)<0)
+    .sort((a,b)=>(a.fase||9)-(b.fase||9));
+  return mijn.concat(bezig);
+}
+function vidOpen(){ return vidRij().filter(v=>cbStat(v.id)!=='gepost') }
+const vidBiebAantal=()=>cbAlle().filter(v=>cbStat(v.id)==='idee'
+  &&(S.videoVolgorde||[]).indexOf(v.id)<0).length;
+function vidVerzet(id,naarVoren){
+  const rij=vidRij().map(v=>v.id).filter(x=>x!==id);
+  if(naarVoren) rij.unshift(id); else rij.push(id);
+  S.videoVolgorde=rij; bewaarNu(); render(); cbVidSheet(id);
+  toast(naarVoren?'Staat vooraan.':'Naar achteren geschoven.');
+}
+
+/* de kaart op je dashboard */
+function videoKaartHTML(){
+  const open=vidOpen();
+  const teFilmen=open.filter(v=>cbStat(v.id)==='idee').length;
+  const klaarOmTePosten=open.filter(v=>cbStat(v.id)==='gemonteerd').length;
+  let h=`<div class="blokkop"><span class="eyebrow">Video's</span>${
+    open.length?`<span class="tel${klaarOmTePosten?'':' let'}">${
+      klaarOmTePosten?klaarOmTePosten+' klaar om te posten':teFilmen+' te filmen'}</span>`:''}
+    <button class="kopknop" data-vidnieuw>${svg(I.plus)}Idee</button></div>`;
+  const bieb=vidBiebAantal()
+    ? `<button class="meer" data-vidbieb>Of kies uit ${vidBiebAantal()} ideeën</button>` : '';
+  if(!open.length)
+    return h+`<div class="paneel"><button class="meer" data-vidnieuw
+      style="border-top:none;padding:18px 16px">Nog geen video's op de rol. Zet er een idee in.</button>
+      ${bieb}</div>`;
+  const zicht=vidAlles?open:open.slice(0,4);
+  h+='<div class="paneel">'+zicht.map((v,i)=>{
+    const st=cbStat(v.id);
+    return `<div class="arij stil tdrij">
+      <span class="vidstip s-${st}" aria-hidden="true"></span>
+      <button class="tdnaam" data-vidopen="${esc(v.id)}"><span class="tdnr">${i+1}</span>${esc(v.t)}
+        <small>${st==='idee'?'idee · nog filmen'
+          :st==='opgenomen'?'opgenomen · nog monteren'
+          :st==='gemonteerd'?'gemonteerd · klaar om te posten':esc(st)}</small></button>
+      <span class="pijl" data-vidopen="${esc(v.id)}">${svg(I.pijl,'2')}</span></div>`}).join('');
+  if(open.length>zicht.length)
+    h+=`<button class="meer" data-vidmeer>Nog ${open.length-zicht.length} video's</button>`;
+  else if(vidAlles&&open.length>4)
+    h+='<button class="meer" data-vidmeer>Minder tonen</button>';
+  return h+bieb+'</div>';
+}
+let vidAlles=false;
+
+/* een idee erbij — één regel, of een hele lijst geplakt */
+function sheetVidNieuw(){
+  sheet('Nieuw video-idee',
+    `<p class="hint">Alleen de titel. Uitwerken doe je daarna: steekwoorden, shots
+      en waar je op moet letten.</p>
+     <div class="veld"><label>Waar gaat de video over</label>
+       <input class="inp" id="vidN" placeholder="Bijv. waarom ik geen alcohol gebruik"></div>
+     <p class="klein" style="margin:-10px 2px 0;color:var(--grijs2)">
+       Plak een lijst en elke regel wordt een idee.</p>`,
+    '<button class="prim" style="margin-top:0" id="vidNOk">Toevoegen</button>');
+  const erbij=titels=>{
+    S.contentEigen=S.contentEigen||[];
+    S.videoVolgorde=S.videoVolgorde||[];
+    titels.forEach(x=>{
+      const id='e'+Date.now()+Math.random().toString(36).slice(2,6);
+      S.contentEigen.push({id,t:x.charAt(0).toUpperCase()+x.slice(1),spoor:'serie',
+        fase:3,steek:[],toon:[],niet:[],shots:[]});
+      S.videoVolgorde.push(id);
+    });
+    bewaarNu(); dicht(); render();
+    toast(titels.length===1?'Idee toegevoegd.':titels.length+" ideeën toegevoegd.");
+  };
+  const doe=()=>{
+    const v=($('#vidN')?$('#vidN').value:'').trim();
+    if(!v) return toast('Schrijf er even bij waar het over gaat.');
+    erbij([v.slice(0,120)]);
+  };
+  $('#vidNOk').onclick=doe;
+  $('#vidN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); doe() } };
+  $('#vidN').addEventListener('paste',e=>{
+    const ruw=(e.clipboardData||window.clipboardData).getData('text')||'';
+    const regels=ruw.split(/\r?\n/)
+      .map(r=>r.replace(/^\s*(?:[-*\u2022\u2013]|\d+[.)])\s*/,'').trim())
+      .filter(Boolean).map(r=>r.slice(0,120));
+    if(regels.length<2) return;
+    e.preventDefault(); erbij(regels);
+  });
+  setTimeout(()=>{const el=$('#vidN'); if(el) el.focus()},260);
+}
+
 function cbVidSheet(id){
   const v=cbVid(id), st=cbStat(id);
   let h='<div class="cbsheetkop">'+v.spoor+' &middot; fase '+v.fase+' &middot; '+st+'</div>';
@@ -18043,6 +18201,15 @@ function cbVidSheet(id){
       +'<br><span style="font-size:13px;color:#71717a">'+esc(s[1])+'</span>'
       +'<br><span style="font-size:13px;color:#b45309">'+esc(s[2])+'</span></span></div>';
   });
+  /* schikken kan hier, want hier zit je toch al als je over deze video
+     nadenkt — en niet in een aparte sorteerstand */
+  const rij=vidOpen().map(x=>x.id);
+  h+='<div class="cbsheetkop">Volgorde</div>'
+    +'<div class="tdorde" style="margin:0 0 4px">'
+    +'<button class="knop2"'+(rij[0]===id?' disabled':'')
+      +' onclick="vidVerzet(\''+id+'\',true)">'+svg(I.terug,'2.2')+'Naar voren</button>'
+    +'<button class="knop2"'+(rij[rij.length-1]===id?' disabled':'')
+      +' onclick="vidVerzet(\''+id+'\',false)">'+svg(I.pijl,'2.2')+'Naar achteren</button></div>';
   cbSheetVid=id; cbSheetDag=null; cbSheetBlok=null;
   const knop = st==='gepost' ? '' :
     '<button class="knopz" style="width:100%" onclick="cbDoor(\''+id+'\')">'+CBDOE[st]+' afronden</button>';
@@ -18788,6 +18955,12 @@ function bind(){
   });
   $$('[data-tdopen]').forEach(b=>b.onclick=()=>sheetTedoen(b.dataset.tdopen));
   $$('[data-tdnieuw]').forEach(b=>b.onclick=()=>sheetTedoenNieuw());
+  $$('[data-vidopen]').forEach(b=>b.onclick=()=>cbVidSheet(b.dataset.vidopen));
+  $$('[data-vidnieuw]').forEach(b=>b.onclick=()=>sheetVidNieuw());
+  $$('[data-vidmeer]').forEach(b=>b.onclick=()=>{ vidAlles=!vidAlles; render() });
+  $$('[data-vidbieb]').forEach(b=>b.onclick=()=>{
+    S.tab='content'; S.batchId=null; render(); $('#scherm').scrollTop=0;
+  });
   $$('[data-tdmeer]').forEach(b=>b.onclick=()=>{ tdAlles=!tdAlles; render() });
   $$('[data-toast]').forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   $$('[data-naar]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.naar;S.batchId=null;render()});
