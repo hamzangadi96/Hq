@@ -3803,7 +3803,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v647 · 19 sep 2026';
+const APPVERSIE='v648 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5624,9 +5624,17 @@ const TABS=[
   {key:'shopify',label:'Shopify',icon:I.vracht,klaar:true},
   {key:'voorraad',label:'Voorraad',icon:I.doos,klaar:true},
   {key:'geld',label:'Financiën',icon:I.euro,klaar:true},
-  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true},
-  {key:'content',label:'Content',icon:I.camera,klaar:true}
+  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true}
 ];
+/* ═══════════ Content eruit ═══════════
+   Deze tab hield 63 kant-en-klare video-ideeën bij, met fases, sporen en
+   statussen. Een heel systeem naast het contentplan dat je buiten de app
+   bijhoudt — en daardoor twee plekken die allebei half klopten.
+
+   De ideeën zelf zijn niet weg: die staan in video-ideeen.md, met hun
+   steekwoorden, toon en shots. De tab is uit beeld gehaald; de code eronder
+   staat er nog en raakt niets aan. Zo kunnen we er later één keer goed op
+   terugkomen in plaats van hem half te laten staan. */
 /* alles wat je in de balk kunt zetten, en alles wat in het meer-paneel staat */
 const SNELITEMS=[
   {key:'productie',label:'Productie',icon:'vorm',soort:'tab'},
@@ -5635,7 +5643,6 @@ const SNELITEMS=[
   {key:'voorraad',label:'Voorraad',icon:'doos',soort:'tab'},
   {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
   {key:'agenda',label:'Agenda',icon:'klok',soort:'tab'},
-  {key:'content',label:'Content',icon:'camera',soort:'tab'},
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
@@ -5930,6 +5937,9 @@ function renderNu(){
   /* Je afgevinkte regels blijven staan zolang je op het dashboard bent, en
      zijn weg zodra je ergens anders heen gaat. */
   if(S.tab!=='dashboard'&&tdNetAf.size) tdNetAf.clear();
+  /* Stond je op de Content-tab toen die verdween, dan zou je op een leeg
+     scherm blijven staan zonder te weten waarom. */
+  if(!TABS.some(x=>x.key===S.tab)) S.tab='dashboard';
   const schermKenmerk=S.tab+(inBatch?':'+S.batchId:'');
   const gewisseld=vorigScherm!==null&&schermKenmerk!==vorigScherm;
   vorigScherm=schermKenmerk;
@@ -5939,7 +5949,7 @@ function renderNu(){
     S.tab==='voorraad'?voorraadHTML(): S.tab==='orders'?ordersHTML():
     S.tab==='shopify'?shopifyHTML():
     S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():
-    S.tab==='content'?contentHTML():straksHTML(S.tab));
+    straksHTML(S.tab));
   if(gewisseld){
     const el=$('#scherm');
     el.classList.remove('schermIn');
@@ -6933,7 +6943,9 @@ function dashboardHTML(){
   /* Draait er een batch, dan is die het belangrijkste op dit scherm en komt
      je lijst eronder. Draait er niets, dan is je lijst juist het antwoord op
      "wat nu" en staat hij bovenaan. */
-  const tdKaart=tedoenKaartHTML()+videoKaartHTML();
+  /* De kaart "Op de rol" hing aan de Content-tab: zonder die tab heeft hij
+     geen bron meer. Weg tot we het opnieuw opbouwen. */
+  const tdKaart=tedoenKaartHTML();
   let h=begroetingHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()
     +(t.soort==='bezig'?'':tdKaart)+controleKaartHTML();
 
