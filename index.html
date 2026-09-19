@@ -799,6 +799,14 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .vidstip.s-opgenomen{background:var(--amber)}
 .vidstip.s-klaar{background:var(--choco)}
 .vidstip.s-gepost{background:var(--groen)}
+.greep{width:22px;height:22px;flex:none;display:grid;place-items:center;
+  color:var(--grijs3);transform:rotate(90deg)}
+.greep svg{width:16px;height:16px}
+.cwrij{transition:transform .18s cubic-bezier(.32,.72,0,1)}
+.cwrij.sleept{transition:none;position:relative;z-index:5;
+  box-shadow:0 2px 6px rgba(24,24,27,.10),0 22px 34px -18px rgba(24,24,27,.42);
+  border-color:var(--choco-licht)}
+body.sleepbezig{-webkit-user-select:none;user-select:none;touch-action:none}
 .segrij .segknop b{font-weight:700;opacity:.65;margin-left:2px}
 .segrij .segknop.aan b{opacity:.85}
 textarea.inp{min-height:76px}
@@ -3807,7 +3815,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v649 · 20 sep 2026';
+const APPVERSIE='v651 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4128,7 +4136,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -19005,7 +19013,15 @@ function bind(){
   $$('[data-tdopen]').forEach(b=>b.onclick=()=>sheetTedoen(b.dataset.tdopen));
   $$('[data-tdnieuw]').forEach(b=>b.onclick=()=>sheetTedoenNieuw());
   $$('[data-cwbak]').forEach(b=>b.onclick=()=>{ cwBak=b.dataset.cwbak; render() });
-  $$('[data-cwopen]').forEach(b=>b.onclick=()=>sheetCw(b.dataset.cwopen));
+  $$('[data-cwopen]').forEach(b=>b.onclick=()=>{
+    if(Date.now()-cwGesleept<320) return;   /* net gesleept, niet openen */
+    sheetCw(b.dataset.cwopen);
+  });
+  $$('[data-cwaf]').forEach(b=>b.onclick=()=>{
+    if(Date.now()-cwGesleept<320) return;
+    cwSchuifStil(b.dataset.cwaf);
+  });
+  cwSleepBinden();
   $$('[data-cwnieuw]').forEach(b=>b.onclick=()=>sheetCwNieuw());
   $$('[data-vidopen]').forEach(b=>b.onclick=()=>cbVidSheet(b.dataset.vidopen));
   $$('[data-vidbieb]').forEach(b=>b.onclick=()=>{
@@ -21901,6 +21917,37 @@ const CWBAK=[
   {k:'klaar',      n:'Klaar',      doe:'Gepost',        kort:'posten'}
 ];
 let cwBak='idee';
+
+/* ═════ de reis, op volgorde ═════
+   Eenmalig gezet zodat je niet vijfentwintig regels hoeft te typen. Gooi je
+   ze weg, dan komen ze niet terug — de vlag onthoudt dat ze er geweest zijn. */
+const CWSTART=[
+ 'Comebackvideo — waarom ik zo lang weg was',
+ 'De verbouwing',
+ 'Opruimvideo',
+ 'De rit naar de stort',
+ 'Schoonmaakvideo',
+ 'Mallen wassen',
+ 'Voorraadbakjes wassen',
+ 'Grondstoffen checken op houdbaarheid',
+ 'Treinvideo — hoe mijn dag eruitziet',
+ 'Dozen aanvullen',
+ 'Productieruimte herinrichten',
+ 'Kantoortje herinrichten',
+ 'Avondvideo — werken om 23:00',
+ 'Waarom ik dit doe — voor mijn kinderen',
+ 'Beursvideo — wat ik fout deed in mei',
+ 'Inkoopvideo — wat er binnenkomt',
+ 'Smaken bepalen',
+ 'Prijsvideo — wat er in 25 euro zit',
+ 'Eerste productiedag',
+ 'Mallen inkleuren',
+ 'Bonbon doorsnijden',
+ 'Uitslaan uit de mal',
+ 'Aftelvideo — nog twee weken',
+ 'Alles klaar voor de opening',
+ 'Openingsvideo — webshop is open'
+];
 const cwLijst=()=>(S.vids||[]);
 const cwIn=b=>cwLijst().filter(v=>(v.bak||'idee')===b);
 const cwVid=id=>cwLijst().find(v=>v.id===id);
@@ -21912,6 +21959,19 @@ function cwNieuw(titels){
   titels.forEach(x=>S.vids.push({id:uid(),titel:x.slice(0,140),kern:'',
     zeggen:[],niet:[],shots:[],bak:'idee',gemaakt:Date.now()}));
   bewaarNu();
+}
+/* vanaf de lijst: doorschuiven zonder een scherm te openen */
+function cwSchuifStil(id){
+  const v=cwVid(id); if(!v) return;
+  const orde=CWBAK.map(x=>x.k).concat(['gepost']);
+  const i=orde.indexOf(v.bak||'idee');
+  if(i>=orde.length-1) return;
+  const herstel=terugpunt(['vids']);
+  v.bak=orde[i+1];
+  if(v.bak==='gepost') v.gepostOp=iso(new Date());
+  bewaarNu(); render();
+  const naam=(CWBAK.find(x=>x.k===v.bak)||{n:'gepost'}).n.toLowerCase();
+  toast(v.bak==='gepost'?'Gepost.':'Staat nu bij '+naam+'.',herstel);
 }
 function cwSchuif(id,vooruit){
   const v=cwVid(id); if(!v) return;
@@ -21927,7 +21987,96 @@ function cwSchuif(id,vooruit){
   else { sheetCw(id); toast('Staat nu bij '+(CWBAK.find(x=>x.k===v.bak)||{n:'gepost'}).n.toLowerCase()+'.',herstel) }
 }
 
+/* De nieuwe volgorde van één bak, terug in de grote lijst. Video's uit de
+   andere bakken blijven staan waar ze staan. */
+function cwOrde(ids){
+  const lijst=cwLijst();
+  const verzet=ids.map(x=>lijst.find(v=>v.id===x)).filter(Boolean);
+  if(verzet.length<2) return;
+  const set=new Set(ids);
+  let n=0;
+  S.vids=lijst.map(v=>set.has(v.id)?verzet[n++]:v);
+  bewaarNu(); render();
+}
+
+/* ═════ slepen met je duim ═════
+   Ingedrukt houden tilt de balk op; daarna schuif je hem tussen de andere
+   door. Losgelaten is opgeslagen. Een gewone tik blijft gewoon openen, want
+   pas na ruim een derde seconde gaat de sleepstand aan. */
+let cwSleep=null, cwStartY=0, cwTimer=null, cwGesleept=0, cwDocGebonden=false;
+const cwY=e=>e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY;
+function cwRijen(){
+  const p=document.getElementById('cwLijst');
+  return p?Array.from(p.querySelectorAll('.cwrij')):[];
+}
+function cwLos(){
+  clearTimeout(cwTimer); cwTimer=null;
+  if(!cwSleep) return;
+  cwSleep.style.transform=''; cwSleep.classList.remove('sleept');
+  document.body.classList.remove('sleepbezig');
+  cwSleep=null; cwGesleept=Date.now();
+  cwOrde(cwRijen().map(x=>x.dataset.id));
+}
+function cwBeweeg(e){
+  if(!cwSleep){
+    if(cwTimer&&Math.abs(cwY(e)-cwStartY)>9){ clearTimeout(cwTimer); cwTimer=null }
+    return;
+  }
+  if(e.cancelable) e.preventDefault();
+  const y=cwY(e), dy=y-cwStartY;
+  cwSleep.style.transform='translateY('+dy+'px)';
+
+  /* Eerst keek dit of het midden van de balk íín een andere balk zat en koos
+     het daarna voor of na. Sleep je omhoog en zit je in de onderste helft,
+     dan kwam hij achter diezelfde balk — precies waar hij al stond. Niks
+     verschoof, en omdat het startpunt wel opnieuw werd gezet bleef de sleep
+     hangen. Nu bepaalt de richting waar hij heen gaat: omhoog betekent
+     ervóór, omlaag erna. */
+  const mid=cwSleep.getBoundingClientRect(); const m=mid.top+mid.height/2;
+  const omhoog=dy<0;
+  for(const x of cwRijen()){
+    if(x===cwSleep) continue;
+    const b=x.getBoundingClientRect(), xm=b.top+b.height/2;
+    const ervoor=!!(cwSleep.compareDocumentPosition(x)&Node.DOCUMENT_POSITION_PRECEDING);
+    if(omhoog ? (ervoor && m < xm) : (!ervoor && m > xm)){
+      const was=cwSleep.getBoundingClientRect().top;
+      x.parentNode.insertBefore(cwSleep, omhoog ? x : x.nextSibling);
+      /* De balk staat nu ergens anders in de rij. Schuif het startpunt mee,
+         anders springt hij onder je vinger weg. */
+      cwStartY += cwSleep.getBoundingClientRect().top - was;
+      cwSleep.style.transform='translateY('+(y-cwStartY)+'px)';
+      break;
+    }
+  }
+}
+function cwSleepBinden(){
+  cwRijen().forEach(r=>{
+    const pak=e=>{
+      if(cwSleep) return;
+      cwStartY=cwY(e);
+      clearTimeout(cwTimer);
+      cwTimer=setTimeout(()=>{
+        cwSleep=r; r.classList.add('sleept');
+        document.body.classList.add('sleepbezig');
+        if(navigator.vibrate) try{ navigator.vibrate(12) }catch(x){}
+      },380);
+    };
+    r.addEventListener('touchstart',pak,{passive:true});
+    r.addEventListener('mousedown',pak);
+  });
+  if(cwDocGebonden) return;
+  cwDocGebonden=true;
+  document.addEventListener('touchmove',cwBeweeg,{passive:false});
+  document.addEventListener('touchend',cwLos);
+  document.addEventListener('touchcancel',cwLos);
+  document.addEventListener('mousemove',cwBeweeg);
+  document.addEventListener('mouseup',cwLos);
+}
+
 function cwHTML(){
+  if(!S.vidsGezet&&!cwLijst().length){
+    cwNieuw(CWSTART); S.vidsGezet=true; bewaarNu();
+  }
   let h=`<div class="blokkop" style="margin-top:4px"><span class="eyebrow">Je video's</span>
     <button class="kopknop" data-cwnieuw>${svg(I.plus)}Idee</button></div>
     <div class="segrij" style="grid-template-columns:repeat(4,1fr)">${CWBAK.map(b=>{
@@ -21943,16 +22092,20 @@ function cwHTML(){
       :'Niets in deze bak. Wat je bij '+(CWBAK[CWBAK.indexOf(bak)-1]||{n:''}).n.toLowerCase()
         +' afrondt komt hier vanzelf terecht.'}</p>`;
   } else {
-    h+='<div class="paneel" style="margin-top:14px">'+l.map((v,i)=>{
+    /* Het vinkje schuift hem naar de volgende bak — dezelfde stap als de
+       zwarte knop in het detailscherm, maar dan zonder scherm te openen.
+       Lang indrukken en je kunt hem slepen. */
+    h+='<div class="paneel" id="cwLijst" style="margin-top:14px">'+l.map((v,i)=>{
       const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
       const onder = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
         : v.bak==='idee' ? (v.kern?esc(v.kern).slice(0,60):'nog niet uitgewerkt')
         : (v.kern?esc(v.kern).slice(0,60):'');
-      return `<div class="arij stil tdrij">
-        <span class="vidstip s-${v.bak}"></span>
+      return `<div class="arij stil tdrij cwrij" data-id="${v.id}">
+        <button class="tdvink" data-cwaf="${v.id}" aria-label="${esc(bak.doe)}">
+          <span class="bol"></span></button>
         <button class="tdnaam" data-cwopen="${v.id}"><span class="tdnr">${i+1}</span>${esc(v.titel)}${
           onder?`<small>${onder}</small>`:''}</button>
-        <span class="pijl" data-cwopen="${v.id}">${svg(I.pijl,'2')}</span></div>`}).join('')+'</div>';
+        <span class="greep" aria-hidden="true">${svg(I.meer,'2')}</span></div>`}).join('')+'</div>';
   }
   if(cwGepost()) h+=`<p class="klein" style="margin:20px 2px 0;color:var(--grijs3)">${
     cwGepost()} gepost.</p>`;
