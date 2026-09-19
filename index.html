@@ -816,6 +816,17 @@ header .hbtn.zoek{display:none}
 .tdvlak{width:62px;height:62px;flex:none;border-radius:20px;display:grid;place-items:center;
   background:var(--markeer);color:var(--choco)}
 .tdvlak svg{width:24px;height:24px;stroke-width:1.8}
+/* De volgende stap zit in een eigen vlak: geen streep nodig om hem van de
+   kaart te scheiden, en meteen duidelijk dat dit het stukje werk is en niet
+   de hele taak. */
+.tdvolg{display:flex;align-items:center;gap:10px;background:var(--bg);
+  border-radius:16px;padding:11px 14px}
+.tdvolg .tdvink{margin:-9px 0 -9px -5px}
+.tdvolg .tdvink[disabled] .bol{background:var(--choco);border-color:var(--choco);color:#fff}
+.tdvolgT{flex:1;min-width:0;font-size:15px;font-weight:550;letter-spacing:-.015em;
+  overflow:hidden;text-overflow:ellipsis}
+.tdvolgT small{display:block;font-size:11px;font-weight:700;color:var(--grijs2);
+  margin-top:4px;letter-spacing:.11em;text-transform:uppercase}
 .tdrij .pijl{cursor:pointer}
 
 /* ── de Nu-kaart ──
@@ -3763,7 +3774,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v635 · 19 sep 2026';
+const APPVERSIE='v636 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6615,12 +6626,24 @@ function tdHeroHTML(t){
           : `<span class="tdvlak">${svg(I.lijst)}</span>`}
         <span class="tdheroT"><h2>${esc(t.titel)}</h2>
           <div class="sub">${st.length
-            ? (v?'Volgende: '+esc(v.tekst):'Alle stappen gedaan — vink hem af')
+            ? af+' van '+st.length+' stappen af'
             : 'Waar bestaat dit uit? Tik om de stappen erin te zetten.'}</div></span>
       </span>
       ${st.length>1?`<span class="balk top" style="margin:0">${st.map(s=>
         `<span class="seg${s.klaar?' vol':''}"></span>`).join('')}</span>`:''}
-    </button></div>`;
+    </button>
+    ${''/* De volgende stap stond alleen als tekst in de kaart: om hem af te
+         vinken moest je het paneel openen, scrollen en weer terug — terwijl
+         dat de handeling is die je het vaakst doet. Nu staat hij onderin de
+         kaart met zijn eigen rondje: één tik en de ring loopt door. */}
+    ${st.length?`<div class="tdvolg">
+      <button class="tdvink" data-tdstap="${t.id}|${v?v.id:''}"${v?'':' disabled'}
+        aria-label="${v?'Stap afvinken':'Alles gedaan'}"><span class="bol${
+        v?'':' af'}">${v?'':svg(I.vink,'2.6')}</span></button>
+      <span class="tdvolgT">${v?esc(v.tekst):'Alle stappen gedaan'}
+        <small>${v?'stap '+(st.indexOf(v)+1)+' van '+st.length
+                 :'vink de taak hierboven af'}</small></span></div>`:''}
+  </div>`;
 }
 
 function tedoenKaartHTML(){
@@ -18662,6 +18685,16 @@ function bind(){
     }
     t.klaar=vandaag(); tdNetAf.add(t.id); bewaarNu(); render();
     toast('Afgevinkt \u2014 tik het rondje nog eens om hem terug te zetten.');
+  });
+  $$('[data-tdstap]').forEach(b=>b.onclick=()=>{
+    const d=String(b.dataset.tdstap).split('|');
+    const tk=tdLijst().find(x=>x.id===d[0]); if(!tk||!d[1]) return;
+    const s=tdStappen(tk).find(x=>x.id===d[1]); if(!s) return;
+    const herstel=terugpunt(['tedoen']);
+    s.klaar=true; bewaarNu(); render();
+    const over=tdStappen(tk).filter(x=>!x.klaar).length;
+    toast(over? 'Stap af — nog '+over+' te gaan.'
+              : 'Alle stappen af. Vink de taak nu af.', herstel);
   });
   $$('[data-tdopen]').forEach(b=>b.onclick=()=>sheetTedoen(b.dataset.tdopen));
   $$('[data-tdnieuw]').forEach(b=>b.onclick=()=>sheetTedoenNieuw());
