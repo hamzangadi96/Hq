@@ -774,6 +774,14 @@ header .hbtn.zoek{display:none}
 .tdnaam small{display:block;font-size:12.5px;font-weight:500;color:var(--grijs3);
   margin-top:3px;letter-spacing:0;text-transform:none;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Het nummer maakt de volgorde zichtbaar: deze lijst is een keten, geen
+   verzameling. Zonder nummer moet je elke keer opnieuw bedenken wat eerst was. */
+.tdnaam .tdnr{display:inline-block;min-width:17px;margin-right:9px;color:var(--grijs3);
+  font-weight:600;font-variant-numeric:tabular-nums}
+.tdrij.af .tdnaam{color:var(--grijs3);text-decoration:line-through;
+  text-decoration-color:var(--grijs3)}
+.tdrij.af .tdnaam small{text-decoration:none;display:block}
+.tdrij.af{opacity:.72}
 .tdrij .pijl{cursor:pointer}
 
 /* ── de Nu-kaart ──
@@ -3721,7 +3729,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v633 · 19 sep 2026';
+const APPVERSIE='v634 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5818,6 +5826,9 @@ function renderNu(){
      anders vergeet je hem juist op het tabblad waar je toevallig bent */
   /* alleen bij een echte schermwissel animeren; niet na elke opslag,
      want dan flikkert de hele app bij het minste wat je doet */
+  /* Je afgevinkte regels blijven staan zolang je op het dashboard bent, en
+     zijn weg zodra je ergens anders heen gaat. */
+  if(S.tab!=='dashboard'&&tdNetAf.size) tdNetAf.clear();
   const schermKenmerk=S.tab+(inBatch?':'+S.batchId:'');
   const gewisseld=vorigScherm!==null&&schermKenmerk!==vorigScherm;
   vorigScherm=schermKenmerk;
@@ -6515,6 +6526,8 @@ function sheetMeldingen(){
    stappen wat je er vandaag aan doet — op het dashboard zie je alleen de
    eerstvolgende, want meer dan dat hoef je nu niet te weten. */
 let tdAlles=false;
+/* wat je op dit scherm net hebt afgevinkt: blijft staan tot je weggaat */
+let tdNetAf=new Set();
 const tdLijst=()=>(S.tedoen||[]);
 const tdOpen=()=>tdLijst().filter(x=>!x.klaar);
 const tdStappen=t=>(t&&t.stappen)||[];
@@ -6530,30 +6543,58 @@ function tdToevoegen(titel){
   return t;
 }
 
+function tdRegelHTML(t,nr){
+  const st=tdStappen(t), af=tdAf(t), v=tdVolgende(t);
+  const klaar=!!t.klaar;
+  /* Een regel zonder stappen kreeg hier "nog geen stappen — tik om ze erin
+     te zetten". Bij zes regels stond die zin zes keer onder elkaar: ruis die
+     niets zegt, en het maakte elke regel een halve kop hoger. Geen stappen is
+     geen waarde, dus staat er niets. */
+  const onder = klaar ? 'afgevinkt · tik het rondje om terug te zetten'
+    : st.length ? (v?esc(v.tekst):'alle stappen gedaan')+' · '+af+' van '+st.length
+    : '';
+  return `<div class="arij stil tdrij${klaar?' af':''}">
+    <button class="tdvink" data-tdaf="${t.id}"
+      aria-label="${klaar?'Terugzetten':'Afvinken'}"><span class="bol ${
+      klaar?'af':''}">${klaar?svg(I.vink,'2.6'):''}</span></button>
+    <button class="tdnaam" data-tdopen="${t.id}"><span class="tdnr">${nr}</span>${esc(t.titel)}${
+      onder?`<small>${onder}</small>`:''}</button>
+    <span class="pijl" data-tdopen="${t.id}">${svg(I.pijl,'2')}</span></div>`;
+}
+
 function tedoenKaartHTML(){
   const open=tdOpen();
-  const zie=tdAlles?open:open.slice(0,5);
+  /* Vink je iets af, dan verdween de regel op slag onder je vinger. Dat voelt
+     als werk kwijtraken, zeker als je er per ongeluk op tikt. Nu blijft hij
+     staan met een vinkje erin en haal je hem met dezelfde tik weer terug. Pas
+     als je het dashboard verlaat is hij weg — en onder "alles tonen" staat
+     hij dan nog steeds, om terug te kunnen zetten. */
+  const net=tdLijst().filter(x=>x.klaar&&tdNetAf.has(x.id));
+  const rest=tdLijst().filter(x=>x.klaar&&!tdNetAf.has(x.id));
+  const nummer={}; tdLijst().filter(x=>!x.klaar).forEach((x,i)=>{nummer[x.id]=i+1});
+  const zicht=tdAlles?open:open.slice(0,5);
+
   let h=`<div class="blokkop"><span class="eyebrow">Te doen</span>${
     open.length?`<span class="tel">${open.length}</span>`:''}
     <button class="kopknop" data-tdnieuw>${svg(I.plus)}Toevoegen</button></div>`;
 
-  if(!open.length)
+  if(!open.length&&!net.length&&!rest.length)
     return h+`<div class="paneel"><button class="meer" data-tdnieuw
       style="border-top:none;padding:18px 16px">Je lijst is leeg. Zet erop wat er moet gebeuren.</button></div>`;
 
-  h+='<div class="paneel">'+zie.map(t=>{
-    const st=tdStappen(t), af=tdAf(t), v=tdVolgende(t);
-    return `<div class="arij stil tdrij">
-      <button class="tdvink" data-tdaf="${t.id}" aria-label="Afvinken"><span class="bol"></span></button>
-      <button class="tdnaam" data-tdopen="${t.id}">${esc(t.titel)}${
-        st.length
-          ? `<small>${v?esc(v.tekst):'alle stappen gedaan'} · ${af} van ${st.length}</small>`
-          : '<small>nog geen stappen — tik om ze erin te zetten</small>'}</button>
-      <span class="pijl" data-tdopen="${t.id}">${svg(I.pijl,'2')}</span></div>`}).join('');
-  if(open.length>zie.length)
-    h+=`<button class="meer" data-tdmeer>Nog ${open.length-zie.length} op je lijst</button>`;
-  else if(tdAlles&&open.length>5)
-    h+='<button class="meer" data-tdmeer>Minder tonen</button>';
+  h+='<div class="paneel">'
+    +zicht.map(x=>tdRegelHTML(x,nummer[x.id])).join('')
+    +net.map(x=>tdRegelHTML(x,'\u2713')).join('');
+
+  const verborgen=open.length-zicht.length;
+  if(verborgen>0)
+    h+=`<button class="meer" data-tdmeer>Nog ${verborgen} op je lijst</button>`;
+  else if(tdAlles){
+    h+=rest.map(x=>tdRegelHTML(x,'\u2713')).join('');
+    if(open.length>5||rest.length) h+='<button class="meer" data-tdmeer>Minder tonen</button>';
+  }
+  else if(rest.length)
+    h+=`<button class="meer" data-tdmeer>${rest.length} afgevinkt</button>`;
   return h+'</div>';
 }
 
@@ -18545,9 +18586,12 @@ function bind(){
   });
   $$('[data-tdaf]').forEach(b=>b.onclick=()=>{
     const t=tdLijst().find(x=>x.id===b.dataset.tdaf); if(!t) return;
-    const herstel=terugpunt(['tedoen']);
-    t.klaar=vandaag(); bewaarNu(); render();
-    toast('Afgevinkt.',herstel);
+    if(t.klaar){
+      t.klaar=false; tdNetAf.delete(t.id); bewaarNu(); render();
+      return toast('Weer op je lijst.');
+    }
+    t.klaar=vandaag(); tdNetAf.add(t.id); bewaarNu(); render();
+    toast('Afgevinkt \u2014 tik het rondje nog eens om hem terug te zetten.');
   });
   $$('[data-tdopen]').forEach(b=>b.onclick=()=>sheetTedoen(b.dataset.tdopen));
   $$('[data-tdnieuw]').forEach(b=>b.onclick=()=>sheetTedoenNieuw());
