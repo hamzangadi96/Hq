@@ -782,6 +782,18 @@ header .hbtn.zoek{display:none}
   text-decoration-color:var(--grijs3)}
 .tdrij.af .tdnaam small{text-decoration:none;display:block}
 .tdrij.af{opacity:.72}
+/* Elke regel was honderd pixels hoog voor één woord: met acht taken scrol je
+   twee schermen. Het rondje blijft even groot om te raken — alleen de lucht
+   eromheen gaat eruit. */
+main .paneel>.arij.tdrij{padding:8px 14px}
+.tdrij .tdvink{margin:-8px 0 -8px -6px}
+.tdrij .pijl{margin-left:2px}
+.tdorde{display:flex;gap:10px;margin:-8px 0 20px}
+.tdorde .knop2{height:44px;font-size:13.5px;gap:6px}
+.tdorde .knop2[disabled]{opacity:.4}
+.tdorde .knop2 svg{width:14px;height:14px}
+.tdorde .knop2:first-child svg{transform:rotate(90deg)}
+.tdorde .knop2:last-child svg{transform:rotate(90deg)}
 
 /* ── wat nu aan de beurt is ──
    Zes identieke witte regels onder elkaar vertellen niet waar je moet kijken.
@@ -3778,7 +3790,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v637 · 19 sep 2026';
+const APPVERSIE='v638 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5283,7 +5295,9 @@ function werkTijd(ms){
   return u+' u '+pad(m);
 }
 function klokKort(sec){
-  if(sec<60) return 'nu';
+  /* Nog niet ingeklokt is niet hetzelfde als net begonnen: daar hoort een
+     nul te staan, geen "nu". */
+  if(sec<60) return sec? 'nu' : '0m';
   if(sec<3600) return Math.round(sec/60)+'m';
   const u=Math.floor(sec/3600), m=Math.round(sec%3600/60);
   if(m===60) return (u+1)+'u';
@@ -6629,7 +6643,7 @@ function tdRegelHTML(t,nr){
     <span class="pijl" data-tdopen="${t.id}">${svg(I.pijl,'2')}</span></div>`;
 }
 
-function tdHeroHTML(t){
+function tdHeroHTML(t,daarna){
   const st=tdStappen(t), af=tdAf(t), v=tdVolgende(t);
   const pct=st.length?Math.round(af/st.length*100):0;
   const omtrek=2*Math.PI*28;
@@ -6647,12 +6661,15 @@ function tdHeroHTML(t){
               </svg><b>${af}/${st.length}</b></span>`
           : `<span class="tdvlak">${svg(I.lijst)}</span>`}
         <span class="tdheroT"><h2>${esc(t.titel)}</h2>
+          ${''/* Hier stond "0 van 4 stappen af". Dat staat al in de ring
+               ernaast, en de streepjesbalk eronder zei het een derde keer —
+               drie keer hetzelfde getal, en bij nul af was die balk ook nog
+               eens onzichtbaar: vandaar dat gat in de kaart. Nu staat er wat
+               je nog niet wist: wat er hierna komt. */}
           <div class="sub">${st.length
-            ? af+' van '+st.length+' stappen af'
+            ? (daarna?'daarna: '+esc(daarna):'laatste op je lijst')
             : 'Waar bestaat dit uit? Tik om de stappen erin te zetten.'}</div></span>
       </span>
-      ${st.length>1?`<span class="balk top" style="margin:0">${st.map(s=>
-        `<span class="seg${s.klaar?' vol':''}"></span>`).join('')}</span>`:''}
     </button>
     ${''/* De volgende stap stond alleen als tekst in de kaart: om hem af te
          vinken moest je het paneel openen, scrollen en weer terug — terwijl
@@ -6694,7 +6711,7 @@ function tedoenKaartHTML(){
   /* De eerste open regel is geen regel maar de kaart erboven. */
   const hero=zicht[0]&&!zicht[0].klaar?zicht[0]:null;
   const rij=hero?zicht.slice(1):zicht;
-  if(hero) h+=tdHeroHTML(hero);
+  if(hero) h+=tdHeroHTML(hero,(open.find(x=>x!==hero)||{}).titel||'');
   if(rij.length||net.length)
     h+='<div class="paneel">'
       +rij.map(x=>tdRegelHTML(x,nummer[x.id])).join('')
@@ -6722,6 +6739,16 @@ function sheetTedoen(id){
       waarin je ze doet. Op je dashboard zie je alleen de eerstvolgende.</p>
      <div class="veld"><label>Wat moet er gebeuren</label>
        <input class="inp" id="tdTitel" value="${esc(t.titel)}"></div>
+     ${''/* Je zet je lijst één keer op volgorde en daarna verandert het
+          werk. Zonder deze twee knoppen kon je alleen alles wissen en
+          opnieuw typen. Geen slepen: dat is op een telefoon met natte
+          handen geen doen. */}
+     ${tdOpen().length>1&&!t.klaar?`<div class="tdorde">
+       <button class="knop2" id="tdEerst"${tdOpen()[0]===t?' disabled':''}>${
+         svg(I.terug,'2.2')}Eerst doen</button>
+       <button class="knop2" id="tdLaatst"${
+         tdOpen()[tdOpen().length-1]===t?' disabled':''}>${
+         svg(I.pijl,'2.2')}Naar achteren</button></div>`:''}
      ${st.length?`<div class="blokkop" style="margin-top:24px">
         <span class="eyebrow">Stappen</span><span class="tel">${af} van ${st.length}</span></div>
       <div class="paneel">${st.map(s=>`<div class="arij stil">
@@ -6736,7 +6763,7 @@ function sheetTedoen(id){
          <input class="inp" id="tdSt" placeholder="Bijv. productfoto's maken" style="flex:1">
          <button class="knop2" id="tdStOk" aria-label="Toevoegen"
            style="width:48px;flex:none;padding:0">${svg(I.plus)}</button></div></div>
-     <button class="meer" id="tdWeg" style="border-top:none;color:var(--rood)">Van je lijst halen</button>`,
+     <button class="meer" id="tdWeg" style="border-top:none">Van je lijst halen</button>`,
     '<button class="prim" style="margin-top:0" id="tdKlaar">Klaar</button>');
 
   const titelOp=()=>{
@@ -6779,6 +6806,25 @@ function sheetTedoen(id){
     toast('Van je lijst gehaald.',herstel);
   };
   $('#tdKlaar').onclick=()=>{ titelOp(); bijSluiten=null; dicht(); render() };
+
+  /* verplaatsen binnen de open regels; afgevinkte tellen niet mee */
+  const verzet=naarVoren=>()=>{
+    titelOp();
+    const herstel=terugpunt(['tedoen']);
+    const rest=tdLijst().filter(x=>x!==t);
+    if(naarVoren){
+      const eerste=rest.findIndex(x=>!x.klaar);
+      rest.splice(eerste<0?0:eerste,0,t);
+    } else {
+      let laatste=-1;
+      rest.forEach((x,i)=>{ if(!x.klaar) laatste=i });
+      rest.splice(laatste+1,0,t);
+    }
+    S.tedoen=rest; bewaarNu(); render(); sheetTedoen(id);
+    toast(naarVoren?'Staat nu bovenaan.':'Naar achteren geschoven.',herstel);
+  };
+  if($('#tdEerst')) $('#tdEerst').onclick=verzet(true);
+  if($('#tdLaatst')) $('#tdLaatst').onclick=verzet(false);
 }
 
 function sheetTedoenNieuw(){
