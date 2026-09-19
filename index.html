@@ -1147,6 +1147,10 @@ header .hbtn.zoek{display:none}
   box-shadow:0 1px 2px rgba(24,24,27,.05)}
 .wchip svg{width:14px;height:14px;flex:none;color:var(--wc,var(--grijs2))}
 .wchip:active{background:var(--markeer)}
+/* De stopchip is geen categorie maar een afsluiting: chocoladekleur, zodat je
+   hem niet aanziet voor nog een ding om op over te stappen. */
+.wchip.wstop{background:var(--markeer);color:var(--choco);font-weight:650}
+.wchip.wstop svg{color:var(--choco)}
 .kwnext{flex:none;display:flex;align-items:center;gap:5px;max-width:126px;
   background:var(--ink);color:#fff;border-radius:12px;padding:9px 11px;
   font-size:12.5px;font-weight:600;letter-spacing:-.015em}
@@ -3774,7 +3778,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v636 · 19 sep 2026';
+const APPVERSIE='v637 · 19 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5261,11 +5265,29 @@ function urenVandaag(){
 
 /* In een ring van 54 pixels past geen 4:00:00. Twee tekens is genoeg om te
    zien hoe ver je bent; de precieze tijd staat op het inklokscherm. */
+/* ═══════════ tijd op één manier ═══════════
+   Op één scherm stonden vier schrijfwijzen van bijna hetzelfde getal: "0m"
+   in de ring, "00:28" in de regel eronder, "00:27" in het paneel en "00:25"
+   bij de activiteit. Die dubbele punt leest als uren en minuten, terwijl het
+   minuten en seconden waren — je denkt dus een half uur te hebben gewerkt
+   terwijl je een halve minuut bezig bent.
+
+   Seconden horen bij een kooktimer, niet bij een werkdag. Vanaf hier schrijft
+   de app werktijd overal hetzelfde, in minuten en uren, en nergens meer met
+   een dubbele punt. */
+function werkTijd(ms){
+  const s=Math.max(0,Math.floor(ms/1000));
+  if(s<60) return 'nog geen minuut';
+  const u=Math.floor(s/3600), m=Math.floor(s%3600/60);
+  if(!u) return m+' min';
+  return u+' u '+pad(m);
+}
 function klokKort(sec){
-  if(sec<60) return '0m';
+  if(sec<60) return 'nu';
   if(sec<3600) return Math.round(sec/60)+'m';
-  const u=sec/3600;
-  return (u<10?(Math.round(u*10)/10+'').replace('.',','):Math.round(u))+'u';
+  const u=Math.floor(sec/3600), m=Math.round(sec%3600/60);
+  if(m===60) return (u+1)+'u';
+  return m? u+'u'+pad(m) : u+'u';
 }
 function klokWidgetHTML(){
   const n=nuAanHetWerk();
@@ -5325,13 +5347,13 @@ function klokWidgetHTML(){
       ${springKnop
         /* Met de springknop ernaast is er geen ruimte voor een lange derde
            regel; je totale werktijd staat al in de ring. */
-        ? `<i class="kwsub">al <span class="acttikker">${
-            n?duurTekst(Date.now()-n.start):'00:00'}</span> bezig</i>`
+        ? `<i class="kwsub">hier <span class="acttikker">${
+            n?werkTijd(Date.now()-n.start):'nog geen minuut'}</span></i>`
         : (n?`<i class="kwsub"><span class="dienstikker">${
-            duurTekst(Date.now()-S.dienst.start)}</span> aan het werk · hier al <span
-            class="acttikker">${duurTekst(Date.now()-n.start)}</span></i>`
+            werkTijd(Date.now()-S.dienst.start)}</span> aan het werk · hier <span
+            class="acttikker">${werkTijd(Date.now()-n.start)}</span></i>`
           :`<i class="kwsub"><span class="dienstikker">${
-            duurTekst(Date.now()-S.dienst.start)}</span> loopt zonder categorie</i>`)}</span>
+            werkTijd(Date.now()-S.dienst.start)}</span> aan het werk · nog geen werkzaamheid</i>`)}</span>
     ${springKnop?'':svg(I.pijl,'2')}
     </button>${springKnop}
   </div>${wisselRijHTML()}${werkKaartHTML()}`;
@@ -18849,6 +18871,14 @@ function bind(){
     if(b2) startWerk(b2,x.dataset.kwact); else klusStart('overig',x.dataset.kwact);
   }));
   $$('[data-kwklus]').forEach(x=>x.onclick=kwWissel(()=>klusStart(x.dataset.kwklus,'')));
+  $$('[data-kwstop]').forEach(x=>x.onclick=veilig('werkzaamheid stoppen',()=>{
+    const vorige=standNu(), n2=nuAanHetWerk();
+    if(!n2) return;
+    if(n2.soort==='klus') klusStop(); else stopWerk(n2.batch);
+    bewaarNu(); render();
+    toast(n2.naam+' gestopt — je klok loopt door.',
+      ()=>{ herstelStand(vorige); bewaarNu(); render() });
+  }));
   $$('[data-kwstap]').forEach(x=>x.onclick=veilig('volgende stap',()=>{
     const b2=(S.batches||[]).find(y=>y.status==='bezig'||y.status==='loopt');
     if(!b2) return;
@@ -21385,7 +21415,12 @@ function wisselRijHTML(){
   const attr=x=> x.soort==='klus' ? `data-kwklus="${esc(x.key)}"`
               : x.soort==='stap' ? `data-kwstap2="${esc(x.l)}"`
               : `data-kwact="${esc(x.l)}"`;
-  return `<div class="wisselrij">${k.map(x=>`<button type="button" class="wchip" ${attr(x)}
+  /* Loopt er iets, dan hoort "ik ben hier klaar mee" net zo bereikbaar te
+     zijn als overschakelen naar iets anders: één tik, vanaf het dashboard. */
+  const nw=nuAanHetWerk();
+  const stopChip=nw?`<button type="button" class="wchip wstop" data-kwstop>${
+    svg(I.vink,'2.2')}<span>Klaar hiermee</span></button>`:'';
+  return `<div class="wisselrij">${stopChip}${k.map(x=>`<button type="button" class="wchip" ${attr(x)}
     ${x.kleur?`style="--wc:${x.kleur}"`:''}>${svg(I[x.ico]||I.klembord,'2.2')}
     <span>${esc(x.l)}</span></button>`).join('')}</div>`;
 }
@@ -21479,10 +21514,17 @@ function sheetInklok(){
   const d=S.dienst?new Date(S.dienst.start):null;
   const stand = !S.dienst ? ''
     : `<div class="ikregel">
-         <span class="ikrt"><b class="dienstikker">${duurTekst(Date.now()-S.dienst.start)}</b>
+         <span class="ikrt"><b class="dienstikker">${werkTijd(Date.now()-S.dienst.start)}</b>
            aan het werk sinds ${pad(d.getHours())}:${pad(d.getMinutes())}</span>
          ${n?`<i>nu: ${esc(n.naam)} · <span class="acttikker">${
-           duurTekst(Date.now()-n.start)}</span></i>`:'<i>nog niets gekozen</i>'}</div>`;
+           werkTijd(Date.now()-n.start)}</span></i>`:'<i>nog geen werkzaamheid</i>'}</div>`
+       /* ═════ klaar met dit, nog niet klaar met werken ═════
+          Er stonden twee uitwegen: Weggooien en Uitklokken. Allebei beëindigen
+          ze je hele werkdag. Wilde je alleen stoppen met waar je op dat moment
+          mee bezig was — klaar met coderen, maar nog lang niet klaar — dan kon
+          dat alleen door iets anders te kiezen dat je niet ging doen. */
+       +(n?`<button class="knop2" id="ikActStop" style="margin-top:14px">${
+         svg(I.vink,'2.2')}Klaar met ${esc(n.naam.toLowerCase())}</button>`:'');
 
   sheet('Waar werk je aan?',
     `${stand}${stapTegels}${ander}`,
@@ -21527,6 +21569,14 @@ function sheetInklok(){
     if(n2&&n2.soort==='klus') klusStop(); else if(n2) stopWerk(n2.batch);
     dienstStop();
     bewaarNu(); dicht(); render(); toast('Uitgeklokt — '+urenTekst(urenVandaag())+' vandaag.');
+  });
+  if($('#ikActStop')) $('#ikActStop').onclick=veilig('werkzaamheid stoppen',()=>{
+    const vorige=standNu(), n2=nuAanHetWerk();
+    if(!n2) return;
+    if(n2.soort==='klus') klusStop(); else stopWerk(n2.batch);
+    bewaarNu(); dicht(); render();
+    toast(n2.naam+' gestopt — je klok loopt door.',
+      ()=>{ herstelStand(vorige); bewaarNu(); render() });
   });
   if($('#ikWeg')) $('#ikWeg').onclick=()=>{
     if(!confirm('Deze tijd niet meetellen?')) return;
@@ -30354,7 +30404,7 @@ setInterval(()=>{
      De ring hoort bij de dienst, niet bij die ene tekstregel. */
   const dt=document.querySelector('.dienstikker');
   if(S.dienst){
-    const t=duurTekst(Date.now()-S.dienst.start);
+    const t=werkTijd(Date.now()-S.dienst.start);
     if(dt&&dt.textContent!==t) dt.textContent=t;
     /* de ring vult mee, zonder het hele scherm opnieuw te tekenen */
     const sec2=Math.round((Date.now()-S.dienst.start)/1000);
@@ -30372,7 +30422,7 @@ setInterval(()=>{
   const at=document.querySelector('.acttikker');
   if(at){
     const n=nuAanHetWerk();
-    if(n){ const t=duurTekst(Date.now()-n.start); if(at.textContent!==t) at.textContent=t }
+    if(n){ const t=werkTijd(Date.now()-n.start); if(at.textContent!==t) at.textContent=t }
   }
 },1000);
 
