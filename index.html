@@ -803,7 +803,10 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .cwstrook{background:var(--card);border-radius:20px;padding:16px 18px;margin:4px 0 6px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -24px rgba(24,24,27,.26)}
 .cwsk .eyebrow{color:var(--choco)}
-.cwsk b{display:block;margin-top:5px;font-size:17px;font-weight:650;letter-spacing:-.025em}
+.cwsk b{display:block;margin-top:6px;font-size:19px;font-weight:650;letter-spacing:-.03em;
+  line-height:1.2}
+.cwsk b.let{color:var(--amber)}
+.cwsu{display:block;margin-top:6px;font-style:normal;font-size:13px;color:var(--grijs)}
 .cwsr{display:flex;align-items:baseline;gap:12px;margin-top:11px;
   padding-top:11px;border-top:1px solid var(--lijn)}
 /* Deze regel pakte ook de pijl in de Hierna-knop, die daardoor 106 pixels
@@ -839,6 +842,7 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .cwgn svg{width:15px;height:15px;flex:none;color:var(--choco)}
 .cwgd{flex:none;font-size:12px;color:var(--grijs2);letter-spacing:-.01em}
 .cwgt{flex:none;min-width:22px;text-align:right;font-size:13px;font-weight:700;color:var(--grijs2)}
+.cwgt em{font-style:normal;font-weight:600;opacity:.55}
 .cwgroep .pijl{transition:transform .22s cubic-bezier(.32,.72,0,1)}
 .cwgroep.open .pijl{transform:rotate(90deg)}
 .cwvak{margin-top:10px}
@@ -850,7 +854,7 @@ main .paneel>.arij.tdrij{padding:8px 14px}
   box-shadow:0 2px 6px rgba(24,24,27,.10),0 22px 34px -18px rgba(24,24,27,.42);
   border-color:var(--choco-licht)}
 body.sleepbezig{-webkit-user-select:none;user-select:none;touch-action:none}
-.segrij .segknop b{font-weight:700;opacity:.65;margin-left:2px}
+.segrij .segknop b{font-weight:700;opacity:.55;margin-left:5px;font-size:12.5px}
 .segrij .segknop.aan b{opacity:.85}
 textarea.inp{min-height:76px}
 .tdcam{display:inline-grid;place-items:center;width:17px;height:17px;
@@ -3860,7 +3864,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v657 · 20 sep 2026';
+const APPVERSIE='v658 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4181,7 +4185,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -22249,16 +22253,26 @@ function cwStrookHTML(){
   const plank=cwLijst().filter(v=>v.bak==='klaar').length;
   const fase=cwFaseVan(nu?dat[nu.id]:vandaag())||cwFaseVan(vandaag());
   const totOpen=cwDagenTot(CWOPEN);
+  /* ═════ één ding groot ═════
+     Hier stonden drie regels die alle drie over tijd gingen: hoeveel dagen
+     tot 1 november, wat de volgende post is, en hoeveel er op de plank
+     staat. Drie datums in één kaart, alle drie even hard.
+
+     Wat je nu moet doen is maar één ding. Staat je plank onder de vijf, dan
+     is dat filmen — posten kan pas als er iets ligt. Ligt er genoeg, dan is
+     het de eerstvolgende post. Dat ene ding staat groot; de rest is kleiner
+     of staat er niet. */
+  const moetFilmen=plank<5;
   return `<div class="cwstrook">
     <div class="cwsk"><span class="eyebrow">${fase
       ? 'Fase '+(CWFASES.indexOf(fase)+1)+' · '+esc(fase.n)
-      : 'Campagne'}</span>
-      <b>${totOpen>0?'nog '+totOpen+(totOpen===1?' dag':' dagen')+' tot 1 november'
-        :totOpen===0?'vandaag gaat de webshop open':'de webshop is open'}</b></div>
-    <div class="cwsr"><span>Volgende post</span>
-      <b>${nu?cwDatumKort(dat[nu.id])+' · '+esc(nu.titel.split(' — ')[0]):'niets ingepland'}</b></div>
-    <div class="cwsr"><span>Op de plank</span>
-      <b class="${plank<5?'let':''}">${plank}${plank<5?' — onder de vijf, eerst filmen':''}</b></div>
+      : 'Campagne'}${totOpen>0?' · nog '+totOpen+' dagen':''}</span>
+      <b class="${moetFilmen?'let':''}">${moetFilmen
+        ? 'Eerst filmen — '+plank+' op de plank'
+        : (nu?cwDatumKort(dat[nu.id])+' · '+esc(nu.titel.split(' — ')[0]):'niets ingepland')}</b>
+      <i class="cwsu">${moetFilmen
+        ? (nu?'volgende post '+cwDatumKort(dat[nu.id])+' · '+esc(nu.titel.split(' — ')[0]):'niets ingepland')
+        : plank+' op de plank'}</i></div>
     ${(()=>{
       const h2=cwHierna(); if(!h2) return '';
       const totAanloop=cwDagenTot(h2.a), totMoment=cwDagenTot(h2.d);
@@ -22301,6 +22315,22 @@ function cwHTML(){
   if(!S.vidsSerie){
     cwNieuw(CWSTART2,CWSERIE1); S.vidsSerie=true; bewaarNu();
   }
+  /* ═════ de volgorde alsnog rechttrekken ═════
+     De vijfentwintig stonden in de volgorde van v651, van vóór de vijf fases.
+     Daardoor kwam de openingsvideo op 29 november en stond "De verbouwing" in
+     Wie ben ik. Dit zet ze één keer in de fasevolgorde. Video's die je zelf
+     hebt toegevoegd of hernoemd blijven staan waar ze staan, achteraan. */
+  if(!S.vidsOrde2&&cwLijst().length){
+    const reis=cwLijst().filter(v=>!v.serie);
+    const rest=cwLijst().filter(v=>v.serie);
+    const op=[];
+    CWSTART.forEach(titel=>{
+      const i=reis.findIndex(v=>v.titel===titel);
+      if(i>=0) op.push(reis.splice(i,1)[0]);
+    });
+    S.vids=op.concat(reis).concat(rest);
+    S.vidsOrde2=true; bewaarNu();
+  }
   let h=cwStrookHTML()
     +`<div class="blokkop"><span class="eyebrow">Je video's</span>
     <button class="kopknop" data-cwblauw>${svg(I.boek)}Blauwdruk</button>
@@ -22310,14 +22340,9 @@ function cwHTML(){
       return `<button class="segknop${cwBak===b.k?' aan':''}" data-cwbak="${b.k}">${
         b.n}${n?' <b>'+n+'</b>':''}</button>`}).join('')}</div>`;
 
-  /* De serieknoppen staan onder de bakken: eerst waar je in het proces zit,
-     daarna welk soort video je bedoelt. */
-  const sers=cwSeries();
-  if(sers.length) h+=`<div class="wisselrij" style="margin:12px 0 0">
-    <button class="wchip${!cwSerie?' aan':''}" data-cwserie="">Alles</button>
-    <button class="wchip${cwSerie==='los'?' aan':''}" data-cwserie="los">Losse vlogs</button>
-    ${sers.map(s=>`<button class="wchip${cwSerie===s?' aan':''}" data-cwserie="${esc(s)}">${
-      svg(I.speel,'2.2')}<span>${esc(s)}</span></button>`).join('')}</div>`;
+  /* Hier stond nog een filterrij voor de series. Sinds de lijst per fase
+     groepeert heeft elke serie al een eigen kop met eigen teller — twee
+     manieren om hetzelfde te doen, boven elkaar. Eén rij minder. */
 
   const bak=CWBAK.find(x=>x.k===cwBak)||CWBAK[0];
   const l=cwIn(cwBak);
@@ -22349,16 +22374,24 @@ function cwHTML(){
       cwGroep=(nu||gevuld[0]).k;
     }
 
+    /* In de bak Idee telde de kop alleen de ideeën: fase 1 zei "3" terwijl er
+       vier video's in zitten — eentje stond al bij Uitgewerkt. Nu staat er
+       hoeveel er in deze bak zitten van het totaal in die fase. */
+    const heel={};
+    CWFASES.forEach((f,i)=>heel['f'+i]=cwLijst()
+      .filter(v=>!v.serie&&dat[v.id]&&cwFaseVan(dat[v.id])===f).length);
+    cwSeries().forEach(s=>heel['s:'+s]=cwLijst().filter(v=>v.serie===s).length);
     h+=gevuld.map(g=>{
       const open=cwGroep===g.k;
-      const af=g.items.filter(v=>v.bak==='gepost').length;
+      const totaal=heel[g.k]||g.items.length;
       const eerste=g.items[0]&&dat[g.items[0].id];
       const laatste=g.items[g.items.length-1]&&dat[g.items[g.items.length-1].id];
       return `<button class="cwgroep${open?' open':''}" data-cwgroep="${esc(g.k)}">
         <span class="cwgn">${g.serie?svg(I.speel,'2.2'):'<b>'+g.nr+'</b>'}${esc(g.n)}</span>
         <span class="cwgd">${eerste?cwDatumKort(eerste).replace(/^\w+ /,'')
           +(laatste&&laatste!==eerste?' – '+cwDatumKort(laatste).replace(/^\w+ /,''):''):''}</span>
-        <span class="cwgt">${g.items.length}</span>
+        <span class="cwgt">${g.items.length===totaal
+          ? g.items.length : g.items.length+'<em>/'+totaal+'</em>'}</span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button>`
         +(open?'<div class="paneel cwvak" id="cwLijst" data-orde="cw">'
           +g.items.map(v=>cwRegelHTML(v,dat)).join('')+'</div>':'');
