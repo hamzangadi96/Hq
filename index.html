@@ -806,7 +806,11 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .cwsk b{display:block;margin-top:5px;font-size:17px;font-weight:650;letter-spacing:-.025em}
 .cwsr{display:flex;align-items:baseline;gap:12px;margin-top:11px;
   padding-top:11px;border-top:1px solid var(--lijn)}
-.cwsr span{font-size:12.5px;color:var(--grijs2);flex:none;width:106px}
+/* Deze regel pakte ook de pijl in de Hierna-knop, die daardoor 106 pixels
+   breed werd. Alleen het label, niet alles wat toevallig een span is. */
+.cwsr>span:first-child{font-size:12.5px;color:var(--grijs2);flex:none;width:100px}
+.cwsp{flex:none;width:14px;height:14px;color:var(--grijs3);display:grid;place-items:center}
+.cwsp svg{width:14px;height:14px}
 .cwsr b{flex:1;font-size:14px;font-weight:600;letter-spacing:-.015em}
 .cwsr b.let{color:var(--amber)}
 .cwsr b i{display:block;font-style:normal;font-size:12.5px;font-weight:500;
@@ -822,6 +826,22 @@ main .paneel>.arij.tdrij{padding:8px 14px}
   vertical-align:1px;background:var(--grijs3)}
 .cwt.s-gebeurtenis{background:var(--choco)}
 .cwt.s-verhaal{background:var(--grijs3);box-shadow:inset 0 0 0 1.5px var(--grijs2)}
+/* de fasekop: dicht is één regel, open klapt de video's eronder uit */
+.cwgroep{width:100%;display:flex;align-items:center;gap:10px;margin-top:10px;
+  padding:13px 16px;border-radius:16px;background:var(--card);border:1px solid var(--lijn);
+  text-align:left;box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
+.cwgroep.open{background:var(--markeer);border-color:var(--choco-licht)}
+.cwgn{flex:1;font-size:15px;font-weight:600;letter-spacing:-.015em;
+  display:flex;align-items:center;gap:8px;min-width:0}
+.cwgn b{width:20px;height:20px;border-radius:99px;background:var(--bg);flex:none;
+  display:grid;place-items:center;font-size:11.5px;font-weight:700;color:var(--grijs2)}
+.cwgroep.open .cwgn b{background:var(--choco);color:#fff}
+.cwgn svg{width:15px;height:15px;flex:none;color:var(--choco)}
+.cwgd{flex:none;font-size:12px;color:var(--grijs2);letter-spacing:-.01em}
+.cwgt{flex:none;min-width:22px;text-align:right;font-size:13px;font-weight:700;color:var(--grijs2)}
+.cwgroep .pijl{transition:transform .22s cubic-bezier(.32,.72,0,1)}
+.cwgroep.open .pijl{transform:rotate(90deg)}
+.cwvak{margin-top:10px}
 .greep{width:22px;height:22px;flex:none;display:grid;place-items:center;
   color:var(--grijs3);transform:rotate(90deg)}
 .greep svg{width:16px;height:16px}
@@ -3840,7 +3860,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v656 · 20 sep 2026';
+const APPVERSIE='v657 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19026,8 +19046,11 @@ function bind(){
   });
   $$('[data-tdopen]').forEach(b=>b.onclick=()=>sheetTedoen(b.dataset.tdopen));
   $$('[data-tdnieuw]').forEach(b=>b.onclick=()=>sheetTedoenNieuw());
-  $$('[data-cwbak]').forEach(b=>b.onclick=()=>{ cwBak=b.dataset.cwbak; render() });
-  $$('[data-cwserie]').forEach(b=>b.onclick=()=>{ cwSerie=b.dataset.cwserie; render() });
+  $$('[data-cwbak]').forEach(b=>b.onclick=()=>{ cwBak=b.dataset.cwbak; cwGroep=null; render() });
+  $$('[data-cwgroep]').forEach(b=>b.onclick=()=>{
+    cwGroep=cwGroep===b.dataset.cwgroep?'':b.dataset.cwgroep; render();
+  });
+  $$('[data-cwserie]').forEach(b=>b.onclick=()=>{ cwSerie=b.dataset.cwserie; cwGroep=null; render() });
   $$('[data-cwopen]').forEach(b=>b.onclick=()=>{
     if(Date.now()-cwGesleept<320) return;   /* net gesleept, niet openen */
     sheetCw(b.dataset.cwopen);
@@ -21933,37 +21956,45 @@ const CWBAK=[
   {k:'opgenomen',  n:'Opgenomen',  doe:'Gemonteerd',    kort:'monteren'},
   {k:'klaar',      n:'Klaar',      doe:'Gepost',        kort:'posten'}
 ];
-let cwBak='idee';
+let cwBak='idee', cwGroep=null;
 
 /* ═════ de reis, op volgorde ═════
    Eenmalig gezet zodat je niet vijfentwintig regels hoeft te typen. Gooi je
    ze weg, dan komen ze niet terug — de vlag onthoudt dat ze er geweest zijn. */
+/* De volgorde volgt de vijf fases. De reis is chronologisch: opruimen kan
+   niet ná schoonmaken, en de openingsvideo hoort op 1 november — niet op de
+   laatste plek in de lijst. */
 const CWSTART=[
+ /* Wie ben ik — 1 t/m 6 okt */
  'Comebackvideo — waarom ik zo lang weg was',
- 'De verbouwing',
+ 'Waarom ik dit doe — voor mijn kinderen',
+ 'Treinvideo — hoe mijn dag eruitziet',
+ 'Avondvideo — werken om 23:00',
+ /* Leegmaken — 8 t/m 17 okt */
  'Opruimvideo',
  'De rit naar de stort',
  'Schoonmaakvideo',
  'Mallen wassen',
- 'Voorraadbakjes wassen',
+ /* Opbouwen — 22 t/m 27 okt */
  'Grondstoffen checken op houdbaarheid',
- 'Treinvideo — hoe mijn dag eruitziet',
- 'Dozen aanvullen',
+ 'Smaken bepalen',
+ 'Inkoopvideo — wat er binnenkomt',
+ /* Produceren — 29 en 31 okt */
+ 'Eerste productiedag',
+ 'Alles klaar voor de opening',
+ /* Verkopen — november */
+ 'Openingsvideo — webshop is open',
+ 'Uitslaan uit de mal',
+ 'Bonbon doorsnijden',
+ 'Mallen inkleuren',
+ 'Prijsvideo — wat er in 25 euro zit',
+ 'Beursvideo — wat ik fout deed in mei',
  'Productieruimte herinrichten',
  'Kantoortje herinrichten',
- 'Avondvideo — werken om 23:00',
- 'Waarom ik dit doe — voor mijn kinderen',
- 'Beursvideo — wat ik fout deed in mei',
- 'Inkoopvideo — wat er binnenkomt',
- 'Smaken bepalen',
- 'Prijsvideo — wat er in 25 euro zit',
- 'Eerste productiedag',
- 'Mallen inkleuren',
- 'Bonbon doorsnijden',
- 'Uitslaan uit de mal',
- 'Aftelvideo — nog twee weken',
- 'Alles klaar voor de opening',
- 'Openingsvideo — webshop is open'
+ 'Dozen aanvullen',
+ 'Voorraadbakjes wassen',
+ 'De verbouwing',
+ 'Aftelvideo — nog twee weken'
 ];
 
 /* ═════ een serie loopt náást je reis ═════
@@ -21980,9 +22011,9 @@ const CWSTART=[
    iets naar boven, dan schuift de datum mee. Zo is slepen meteen plannen en
    hoef je nergens een datumkiezer open te trekken. */
 const CWFASES=[
- {n:'Wie ben ik',  van:'2026-10-01', tot:'2026-10-06'},
- {n:'Leegmaken',   van:'2026-10-08', tot:'2026-10-17'},
- {n:'Opbouwen',    van:'2026-10-22', tot:'2026-10-27'},
+ {n:'Wie ben ik',  van:'2026-10-01', tot:'2026-10-07'},
+ {n:'Leegmaken',   van:'2026-10-08', tot:'2026-10-21'},
+ {n:'Opbouwen',    van:'2026-10-22', tot:'2026-10-28'},
  {n:'Produceren',  van:'2026-10-29', tot:'2026-10-31'},
  {n:'Verkopen',    van:'2026-11-01', tot:'2026-11-30'}
 ];
@@ -22234,12 +22265,33 @@ function cwStrookHTML(){
       const loopt=totAanloop<=0;
       return `<button class="cwsr cwjaarknop" data-cwjaar>
         <span>Hierna</span>
-        <b class="${loopt?'let':''}">${esc(h2.n)} ${cwDatumLang(h2.d)}
-          <i>${loopt?'aanloop loopt · nog '+totMoment+' dagen'
-                   :'aanloop vanaf '+cwDatumLang(h2.a)+' · over '+totAanloop+' dagen'}</i></b>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+        <b class="${loopt?'let':''}">${esc(h2.n)} · ${loopt
+          ? 'aanloop loopt, nog '+totMoment+' dagen'
+          : 'aanloop vanaf '+cwDatumLang(h2.a)}</b>
+        <i class="cwsp">${svg(I.pijl,'2')}</i></button>`;
     })()}
   </div>`;
+}
+
+/* één videoregel; de bak bepaalt of er een rondje voor staat
+   ═════ een vinkje mag niet liegen ═════
+   In de bakken ná Idee betekent het rondje: ik heb dit buiten de app gedaan
+   — gefilmd, gemonteerd, gepost. Dat meld je met één tik. Maar uítwerken doe
+   je in het scherm zelf, dus daar staat geen rondje dat kan beweren dat er
+   al iets staat. */
+function cwRegelHTML(v,dat){
+  const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
+  const bak=CWBAK.find(x=>x.k===(v.bak||'idee'))||CWBAK[0];
+  const kern = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
+    : (v.kern?esc(v.kern).slice(0,52):'');
+  return `<div class="arij stil tdrij cwrij sleeprij" data-id="${v.id}">
+    ${v.bak==='idee'?'':`<button class="tdvink" data-cwaf="${v.id}"
+      aria-label="${esc(bak.doe)}"><span class="bol"></span></button>`}
+    <button class="tdnaam" data-cwopen="${v.id}"><span class="cwdat">${
+      dat[v.id]?cwDatumKort(dat[v.id]):'—'}</span>${esc(v.titel)}${
+      v.type?`<i class="cwt s-${v.type}" title="${esc(v.type)}"></i>`:''}${
+      kern?`<small>${kern}</small>`:''}</button>
+    <span class="greep" aria-hidden="true">${svg(I.meer,'2')}</span></div>`;
 }
 
 function cwHTML(){
@@ -22279,29 +22331,38 @@ function cwHTML(){
        zwarte knop in het detailscherm, maar dan zonder scherm te openen.
        Lang indrukken en je kunt hem slepen. */
     const dat=cwDatums();
-    h+='<div class="paneel" id="cwLijst" data-orde="cw" style="margin-top:14px">'+l.map((v,i)=>{
-      const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
-      /* In de bak Idee is niets uitgewerkt — dan is "nog niet uitgewerkt"
-         onder elke regel dertig keer dezelfde mededeling. Staat er wel al een
-         kern, dan is dát het nieuws. */
-      const kern = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
-        : (v.kern?esc(v.kern).slice(0,52):'');
-      /* Filter je al op één serie, dan hoeft die naam er niet bij — dat weet je. */
-      const onder = (v.serie&&!cwSerie?esc(v.serie)+(kern?' · ':''):'')+kern;
-      /* ═════ een vinkje mag niet liegen ═════
-         In de andere bakken betekent het rondje: ik heb dit buiten de app
-         gedaan — gefilmd, gemonteerd, gepost. Dat kun je met één tik melden.
-         Maar uítwerken doe je híer, in het scherm zelf. Een tik in de lijst zou
-         dan beweren dat er een kern en shots staan terwijl het vakje leeg is.
-         Dus in Idee geen rondje: je tikt de regel aan en werkt hem uit. */
-      return `<div class="arij stil tdrij cwrij sleeprij" data-id="${v.id}">
-        ${v.bak==='idee'?'':`<button class="tdvink" data-cwaf="${v.id}"
-          aria-label="${esc(bak.doe)}"><span class="bol"></span></button>`}
-        <button class="tdnaam" data-cwopen="${v.id}"><span class="cwdat">${
-          dat[v.id]?cwDatumKort(dat[v.id]):'—'}</span>${esc(v.titel)}${
-          v.type?`<i class="cwt s-${v.type}" title="${esc(v.type)}"></i>`:''}${
-          onder?`<small>${onder}</small>`:''}</button>
-        <span class="greep" aria-hidden="true">${svg(I.meer,'2')}</span></div>`}).join('')+'</div>';
+    /* ═════ een lijst van 31 is geen overzicht ═════
+       Eenendertig identieke balken onder elkaar zijn vier schermen scrollen
+       waarin je nergens ziet waar je bent. Nu staat de reis in zijn vijf
+       fases en de serie apart, dichtgeklapt op één kop per groep. Alleen de
+       fase waar je nu in zit staat open; de rest is één tik ver. */
+    const groepen=[];
+    CWFASES.forEach((f,i)=>groepen.push({k:'f'+i, n:f.n, nr:i+1,
+      items:l.filter(v=>!v.serie&&dat[v.id]&&cwFaseVan(dat[v.id])===f)}));
+    cwSeries().forEach(s=>groepen.push({k:'s:'+s, n:s, serie:true,
+      items:l.filter(v=>v.serie===s)}));
+    const los=l.filter(v=>!v.serie&&(!dat[v.id]||!cwFaseVan(dat[v.id])));
+    if(los.length) groepen.push({k:'los', n:'Zonder datum', items:los});
+    const gevuld=groepen.filter(g=>g.items.length);
+    if(cwGroep===null||!gevuld.some(g=>g.k===cwGroep)){
+      const nu=gevuld.find(g=>g.items.some(v=>dat[v.id]&&dat[v.id]>=vandaag()));
+      cwGroep=(nu||gevuld[0]).k;
+    }
+
+    h+=gevuld.map(g=>{
+      const open=cwGroep===g.k;
+      const af=g.items.filter(v=>v.bak==='gepost').length;
+      const eerste=g.items[0]&&dat[g.items[0].id];
+      const laatste=g.items[g.items.length-1]&&dat[g.items[g.items.length-1].id];
+      return `<button class="cwgroep${open?' open':''}" data-cwgroep="${esc(g.k)}">
+        <span class="cwgn">${g.serie?svg(I.speel,'2.2'):'<b>'+g.nr+'</b>'}${esc(g.n)}</span>
+        <span class="cwgd">${eerste?cwDatumKort(eerste).replace(/^\w+ /,'')
+          +(laatste&&laatste!==eerste?' – '+cwDatumKort(laatste).replace(/^\w+ /,''):''):''}</span>
+        <span class="cwgt">${g.items.length}</span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`
+        +(open?'<div class="paneel cwvak" id="cwLijst" data-orde="cw">'
+          +g.items.map(v=>cwRegelHTML(v,dat)).join('')+'</div>':'');
+    }).join('');
   }
   if(cwGepost()) h+=`<p class="klein" style="margin:20px 2px 0;color:var(--grijs3)">${
     cwGepost()} gepost.</p>`;
