@@ -809,6 +809,12 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .cwsr span{font-size:12.5px;color:var(--grijs2);flex:none;width:106px}
 .cwsr b{flex:1;font-size:14px;font-weight:600;letter-spacing:-.015em}
 .cwsr b.let{color:var(--amber)}
+.cwsr b i{display:block;font-style:normal;font-size:12.5px;font-weight:500;
+  color:var(--grijs2);margin-top:3px;letter-spacing:-.01em}
+.cwsr b.let i{color:var(--amber)}
+.cwjaarknop{width:100%;text-align:left;background:transparent;align-items:center}
+.cwjaarknop:active{opacity:.6}
+.cwjaarknop .pijl{flex:none}
 /* datum voor de titel, in plaats van een volgnummer */
 .cwdat{display:inline-block;min-width:54px;margin-right:9px;color:var(--grijs2);
   font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
@@ -3834,7 +3840,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v655 · 20 sep 2026';
+const APPVERSIE='v656 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19033,6 +19039,7 @@ function bind(){
   cwSleepBinden();
   $$('[data-cwnieuw]').forEach(b=>b.onclick=()=>sheetCwNieuw());
   $$('[data-cwblauw]').forEach(b=>b.onclick=()=>sheetBlauwdruk());
+  $$('[data-cwjaar]').forEach(b=>b.onclick=()=>sheetJaar());
   $$('[data-vidopen]').forEach(b=>b.onclick=()=>cbVidSheet(b.dataset.vidopen));
   $$('[data-vidbieb]').forEach(b=>b.onclick=()=>{
     S.tab='content'; S.batchId=null; cbView='video'; render(); $('#scherm').scrollTop=0;
@@ -21991,6 +21998,37 @@ const CWREIS=['2026-10-01','2026-10-03','2026-10-04','2026-10-06',
  '2026-11-17','2026-11-19','2026-11-21','2026-11-26','2026-11-28','2026-11-29'];
 const CWOPEN='2026-11-01';
 
+/* ════════════ het jaar ════════════
+   Tien verkoopmomenten. Het enige wat je er vandaag van nodig hebt is de
+   aanloopdatum: elke piek heeft vier tot zes weken nodig, en begin je later
+   dan verkoop je aan mensen die je nog niet kennen. De rest is naslag en zit
+   achter de regel "Hierna".
+
+   Islamitische data schuiven elk jaar ongeveer elf dagen naar voren en
+   kunnen een dag afwijken door de maanwaarneming — in januari opnieuw
+   nakijken. */
+const CWJAAR=[
+ {n:'Heropening',     d:'2026-11-01', a:'2026-10-01', s:'particulier'},
+ {n:'Sinterklaas',    d:'2026-12-05', a:'2026-10-15', s:'particulier'},
+ {n:'Kerst',          d:'2026-12-25', a:'2026-11-01', s:'particulier + zakelijk'},
+ {n:'Ramadan',        d:'2027-02-08', a:'2027-01-15', s:'particulier', tot:'2027-03-08'},
+ {n:'Valentijn',      d:'2027-02-14', a:'2027-01-25', s:'particulier'},
+ {n:'Suikerfeest',    d:'2027-03-09', a:'2027-02-15', s:'particulier'},
+ {n:'Pasen',          d:'2027-03-28', a:'2027-03-01', s:'particulier'},
+ {n:'Moederdag',      d:'2027-05-09', a:'2027-04-01', s:'particulier'},
+ {n:'Offerfeest',     d:'2027-05-16', a:'2027-04-01', s:'particulier'},
+ {n:'Kerstpakketten', d:'2027-10-15', a:'2027-09-01', s:'zakelijk'}
+];
+/* het eerstvolgende moment ná de campagne die nu loopt */
+function cwHierna(){
+  const d=vandaag();
+  return CWJAAR.find(x=>x.d>d&&x.d!==CWOPEN)||null;
+}
+function cwDatumLang(d){
+  const x=new Date(d+'T12:00:00');
+  return x.getDate()+' '+CWMND[x.getMonth()]+(x.getFullYear()!==2026?" '"+String(x.getFullYear()).slice(2):'');
+}
+
 const CWTAAK=[
  {k:'binnenhalen', n:'Binnenhalen', u:'bereik bij mensen die je niet kennen'},
  {k:'binden',      n:'Binden',      u:'van kijker naar volger'},
@@ -22190,6 +22228,17 @@ function cwStrookHTML(){
       <b>${nu?cwDatumKort(dat[nu.id])+' · '+esc(nu.titel.split(' — ')[0]):'niets ingepland'}</b></div>
     <div class="cwsr"><span>Op de plank</span>
       <b class="${plank<5?'let':''}">${plank}${plank<5?' — onder de vijf, eerst filmen':''}</b></div>
+    ${(()=>{
+      const h2=cwHierna(); if(!h2) return '';
+      const totAanloop=cwDagenTot(h2.a), totMoment=cwDagenTot(h2.d);
+      const loopt=totAanloop<=0;
+      return `<button class="cwsr cwjaarknop" data-cwjaar>
+        <span>Hierna</span>
+        <b class="${loopt?'let':''}">${esc(h2.n)} ${cwDatumLang(h2.d)}
+          <i>${loopt?'aanloop loopt · nog '+totMoment+' dagen'
+                   :'aanloop vanaf '+cwDatumLang(h2.a)+' · over '+totAanloop+' dagen'}</i></b>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+    })()}
   </div>`;
 }
 
@@ -22431,6 +22480,12 @@ function sheetBlauwdruk(){
        'Twee keer vragen in de hele campagne — de aftelvideo en de openingsdag'
      ].map(x=>`<div class="arij stil"><span class="naam">${x}</span></div>`).join('')}</div>
 
+     <div class="blokkop"><span class="eyebrow">Het hele jaar</span></div>
+     <div class="hoofdkaart" style="margin:0"><div class="sub" style="margin:0">
+       Eén contentvorm: het ambacht. De mallen, het temperen, het doorsnijden, het inpakken.
+       Wat wisselt per moment is niet het beeld maar de timing en de zin eronder.
+       Geen symboliek in beeld — geen kerstbomen, hartjes of eieren.</div></div>
+
      <div class="blokkop"><span class="eyebrow">Vaste zin in oktober</span></div>
      <div class="hoofdkaart" style="margin:0"><div class="sub" style="margin:0">
        “1 november gaat de webshop open, laat je mail achter.”<br>
@@ -22440,6 +22495,45 @@ function sheetBlauwdruk(){
      <div class="hoofdkaart" style="margin:0"><div class="sub" style="margin:0">
        Tien klaar op 30 september. Zakt de plank onder de vijf: eerst filmen,
        dan pas verder posten.</div></div>`,
+    '<button class="prim" style="margin-top:0" onclick="dicht()">Klaar</button>');
+}
+
+function sheetJaar(){
+  const d=vandaag();
+  const rij=x=>{
+    const voorbij=x.d<d, loopt=x.a<=d&&!voorbij;
+    const tot=cwDagenTot(x.d), totA=cwDagenTot(x.a);
+    return `<div class="arij stil${voorbij?' af':''}">
+      <span class="vidstip ${voorbij?'s-gepost':loopt?'s-opgenomen':''}"></span>
+      <span class="naam">${esc(x.n)}${x.tot?' — '+cwDatumLang(x.tot):''}
+        <small class="gewoon">${cwDatumLang(x.d)} · ${esc(x.s)}${
+          voorbij?'' : loopt?' · aanloop loopt, nog '+tot+' dagen'
+                            :' · aanloop vanaf '+cwDatumLang(x.a)+', over '+totA+' dagen'}</small></span>
+    </div>`;
+  };
+  sheet('Het jaar',
+    `<p class="hint">Tien verkoopmomenten. Elke piek heeft vier tot zes weken aanloop nodig —
+      begin je later, dan verkoop je aan mensen die je nog niet kennen.</p>
+     <div class="paneel">${CWJAAR.map(rij).join('')}</div>
+
+     <div class="blokkop"><span class="eyebrow">Wat het jaar laat zien</span></div>
+     <div class="hoofdkaart" style="margin:0"><div class="sub" style="margin:0">
+       Drie grote pieken: <b>december, ramadan, offerfeest</b>. Daartussen telkens zes tot
+       acht weken stil — precies genoeg voor één opbouwcyclus. Elke stille periode is de
+       aanloop naar de volgende piek, nooit een gat.<br><br>
+       Juni tot en met augustus is de uitzondering: geen verkoop, want chocolade en warmte
+       gaan niet samen. Dat is geen mislukking maar het product. Die drie maanden zijn het
+       enige moment waarop je iets nieuws kunt bouwen zonder dat het omzet kost.</div></div>
+
+     <div class="blokkop"><span class="eyebrow">Per moment vastleggen</span></div>
+     <div class="paneel">${[
+       'Hoeveel voorraad','Hoeveel productiedagen en wanneer','Laatste besteldag',
+       'Aantal restockmomenten','Wanneer de content begint'
+     ].map(x=>`<div class="arij stil"><span class="naam">${x}</span></div>`).join('')}</div>
+     <p class="klein" style="margin:10px 2px 0;color:var(--grijs2)">
+       Invullen zodra het moment in zicht komt, niet eerder. Alleen de aanloopdata heb je
+       vandaag nodig. Islamitische data schuiven per jaar ongeveer elf dagen naar voren —
+       in januari opnieuw nakijken.</p>`,
     '<button class="prim" style="margin-top:0" onclick="dicht()">Klaar</button>');
 }
 
