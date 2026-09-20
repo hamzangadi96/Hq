@@ -823,29 +823,39 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .cwjaarknop:active{opacity:.6}
 .cwjaarknop .pijl{flex:none}
 /* datum voor de titel, in plaats van een volgnummer */
-.cwdat{display:inline-block;min-width:54px;margin-right:9px;color:var(--grijs2);
-  font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
+.cwnaam{display:block}
+.cwr1{display:flex;align-items:baseline;gap:9px;min-width:0}
+.cwdat{flex:none;width:46px;color:var(--grijs2);letter-spacing:-.01em;
+  font-weight:600;font-size:12.5px;font-variant-numeric:tabular-nums}
+.cwtitel{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cwnaam small{margin-left:55px;margin-top:2px}
 .cwt{display:inline-block;width:7px;height:7px;border-radius:99px;margin-left:7px;
   vertical-align:1px;background:var(--grijs3)}
 .cwt.s-gebeurtenis{background:var(--choco)}
 .cwt.s-verhaal{background:var(--grijs3);box-shadow:inset 0 0 0 1.5px var(--grijs2)}
-/* de fasekop: dicht is één regel, open klapt de video's eronder uit */
-.cwgroep{width:100%;display:flex;align-items:center;gap:10px;margin-top:10px;
-  padding:13px 16px;border-radius:16px;background:var(--card);border:1px solid var(--lijn);
-  text-align:left;box-shadow:0 1px 2px rgba(24,24,27,.04),0 8px 22px -16px rgba(24,24,27,.20)}
-.cwgroep.open{background:var(--markeer);border-color:var(--choco-licht)}
-.cwgn{flex:1;font-size:15px;font-weight:600;letter-spacing:-.015em;
-  display:flex;align-items:center;gap:8px;min-width:0}
-.cwgn b{width:20px;height:20px;border-radius:99px;background:var(--bg);flex:none;
-  display:grid;place-items:center;font-size:11.5px;font-weight:700;color:var(--grijs2)}
+/* de fasekop: een label boven de lijst, geen kaart. Zie cwHTML. */
+.cwgroep{width:100%;display:flex;align-items:center;gap:9px;margin:20px 0 7px;
+  padding:3px 4px;border-radius:9px;background:transparent;border:0;
+  text-align:left;box-shadow:none}
+.cwgroep:active{opacity:.55}
+.cwgn{flex:1;min-width:0;display:flex;align-items:center;gap:7px;
+  font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--grijs2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cwgroep.open .cwgn{color:var(--ink)}
+.cwgn b{width:17px;height:17px;border-radius:99px;background:#e6e6ea;flex:none;
+  display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--grijs2);
+  letter-spacing:0}
 .cwgroep.open .cwgn b{background:var(--choco);color:#fff}
-.cwgn svg{width:15px;height:15px;flex:none;color:var(--choco)}
-.cwgd{flex:none;font-size:12px;color:var(--grijs2);letter-spacing:-.01em}
-.cwgt{flex:none;min-width:22px;text-align:right;font-size:13px;font-weight:700;color:var(--grijs2)}
-.cwgt em{font-style:normal;font-weight:600;opacity:.55}
-.cwgroep .pijl{transition:transform .22s cubic-bezier(.32,.72,0,1)}
-.cwgroep.open .pijl{transform:rotate(90deg)}
-.cwvak{margin-top:10px}
+.cwgn svg{width:14px;height:14px;flex:none;color:var(--choco)}
+.cwgd{flex:none;font-size:11.5px;color:var(--grijs3);letter-spacing:-.01em}
+.cwgt{flex:none;min-width:20px;text-align:right;font-size:11.5px;font-weight:700;
+  color:var(--grijs3);font-variant-numeric:tabular-nums}
+.cwgt em{font-style:normal;font-weight:600;opacity:.6}
+.cwgroep .pijl{transition:transform .22s cubic-bezier(.32,.72,0,1);
+  color:var(--grijs3);opacity:.8}
+.cwgroep.open .pijl{transform:rotate(90deg);color:var(--choco);opacity:1}
+.cwgroep .pijl svg{width:15px;height:15px}
+.cwvak{margin-top:0}
 .greep{width:22px;height:22px;flex:none;display:grid;place-items:center;
   color:var(--grijs3);transform:rotate(90deg)}
 .greep svg{width:16px;height:16px}
@@ -856,6 +866,13 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 body.sleepbezig{-webkit-user-select:none;user-select:none;touch-action:none}
 .segrij .segknop b{font-weight:700;opacity:.55;margin-left:5px;font-size:12.5px}
 .segrij .segknop.aan b{opacity:.85}
+/* Vier bakken in een rij die op drie is gemaakt: op een telefoon van 390px
+   botsten "Uitgewerkt 7" en "Opgenomen" tegen elkaar. Iets kleiner en strakker
+   op elkaar, en het getal onder het woord in plaats van ernaast. */
+.segrij4{gap:3px}
+.segrij4 .segknop{flex-direction:column;gap:0;height:46px;font-size:12.5px;
+  letter-spacing:-.02em;padding:0 2px}
+.segrij4 .segknop b{margin:1px 0 0;font-size:11px;opacity:.6}
 textarea.inp{min-height:76px}
 .tdcam{display:inline-grid;place-items:center;width:17px;height:17px;
   vertical-align:-3px;margin-left:5px;color:var(--choco)}
@@ -3864,7 +3881,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v658 · 20 sep 2026';
+const APPVERSIE='v659 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -22298,13 +22315,28 @@ function cwRegelHTML(v,dat){
   const bak=CWBAK.find(x=>x.k===(v.bak||'idee'))||CWBAK[0];
   const kern = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
     : (v.kern?esc(v.kern).slice(0,52):'');
+  /* ═════ één regel is één regel ═════
+     De datum stond als "wo 1 okt" vóór de titel en duwde elke titel naar twee
+     regels. Dertig regels van twee regels is geen lijst meer, dat is een muur.
+     Nu: alleen "1 okt" in een vaste smalle kolom, titel op één regel met
+     puntjes als hij niet past, en wat na " — " komt zakt naar de kleine
+     regel eronder. De weekdag staat in de strook en in het detailscherm. */
+  const dl=String(v.titel||'').split(' — ');
+  /* In de bak Uitgewerkt is "1 van 3 shots" het werkende deel van de regel en
+     de ondertitel versiering. Die stond vooraan en duwde de shots weg achter
+     de puntjes. Bij Uitgewerkt dus eerst de shots, bij de rest eerst de tekst. */
+  const staart=dl.slice(1).join(' — ');
+  const onder=(v.bak==='uitgewerkt'?[kern,staart]:[staart,kern])
+    .filter(Boolean).join(' · ');
+  const d=dat[v.id]?cwDatumKort(dat[v.id]).replace(/^\S+\s/,''):'—';
   return `<div class="arij stil tdrij cwrij sleeprij" data-id="${v.id}">
     ${v.bak==='idee'?'':`<button class="tdvink" data-cwaf="${v.id}"
       aria-label="${esc(bak.doe)}"><span class="bol"></span></button>`}
-    <button class="tdnaam" data-cwopen="${v.id}"><span class="cwdat">${
-      dat[v.id]?cwDatumKort(dat[v.id]):'—'}</span>${esc(v.titel)}${
-      v.type?`<i class="cwt s-${v.type}" title="${esc(v.type)}"></i>`:''}${
-      kern?`<small>${kern}</small>`:''}</button>
+    <button class="tdnaam cwnaam" data-cwopen="${v.id}">
+      <span class="cwr1"><span class="cwdat">${d}</span>
+        <span class="cwtitel">${esc(dl[0])}</span>${
+        v.type?`<i class="cwt s-${v.type}" title="${esc(v.type)}"></i>`:''}</span>${
+      onder?`<small>${onder}</small>`:''}</button>
     <span class="greep" aria-hidden="true">${svg(I.meer,'2')}</span></div>`;
 }
 
@@ -22335,7 +22367,7 @@ function cwHTML(){
     +`<div class="blokkop"><span class="eyebrow">Je video's</span>
     <button class="kopknop" data-cwblauw>${svg(I.boek)}Blauwdruk</button>
     <button class="kopknop" data-cwnieuw>${svg(I.plus)}Idee</button></div>
-    <div class="segrij" style="grid-template-columns:repeat(4,1fr)">${CWBAK.map(b=>{
+    <div class="segrij segrij4" style="grid-template-columns:repeat(4,1fr)">${CWBAK.map(b=>{
       const n=cwIn(b.k).length;
       return `<button class="segknop${cwBak===b.k?' aan':''}" data-cwbak="${b.k}">${
         b.n}${n?' <b>'+n+'</b>':''}</button>`}).join('')}</div>`;
@@ -22386,8 +22418,13 @@ function cwHTML(){
       const totaal=heel[g.k]||g.items.length;
       const eerste=g.items[0]&&dat[g.items[0].id];
       const laatste=g.items[g.items.length-1]&&dat[g.items[g.items.length-1].id];
+      /* ═════ een kop hoort geen kaart te zijn ═════
+         Zes fasekoppen en dertig video's zagen er precies hetzelfde uit: wit,
+         zelfde ronding, zelfde schaduw. Daardoor werd het één brij en zag je
+         nergens waar een fase begon. De kop is nu een label boven de lijst —
+         klein, grijs, in hoofdletters — en alleen de video's zijn kaarten. */
       return `<button class="cwgroep${open?' open':''}" data-cwgroep="${esc(g.k)}">
-        <span class="cwgn">${g.serie?svg(I.speel,'2.2'):'<b>'+g.nr+'</b>'}${esc(g.n)}</span>
+        <span class="cwgn">${g.serie?svg(I.speel,'2.4'):'<b>'+g.nr+'</b>'}${esc(g.n)}</span>
         <span class="cwgd">${eerste?cwDatumKort(eerste).replace(/^\w+ /,'')
           +(laatste&&laatste!==eerste?' – '+cwDatumKort(laatste).replace(/^\w+ /,''):''):''}</span>
         <span class="cwgt">${g.items.length===totaal
