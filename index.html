@@ -3817,7 +3817,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v652 · 20 sep 2026';
+const APPVERSIE='v653 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -22132,14 +22132,22 @@ function cwHTML(){
        Lang indrukken en je kunt hem slepen. */
     h+='<div class="paneel" id="cwLijst" style="margin-top:14px">'+l.map((v,i)=>{
       const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
+      /* In de bak Idee is niets uitgewerkt — dan is "nog niet uitgewerkt"
+         onder elke regel dertig keer dezelfde mededeling. Staat er wel al een
+         kern, dan is dát het nieuws. */
       const kern = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
-        : v.bak==='idee' ? (v.kern?esc(v.kern).slice(0,52):'nog niet uitgewerkt')
         : (v.kern?esc(v.kern).slice(0,52):'');
       /* Filter je al op één serie, dan hoeft die naam er niet bij — dat weet je. */
       const onder = (v.serie&&!cwSerie?esc(v.serie)+(kern?' · ':''):'')+kern;
+      /* ═════ een vinkje mag niet liegen ═════
+         In de andere bakken betekent het rondje: ik heb dit buiten de app
+         gedaan — gefilmd, gemonteerd, gepost. Dat kun je met één tik melden.
+         Maar uítwerken doe je híer, in het scherm zelf. Een tik in de lijst zou
+         dan beweren dat er een kern en shots staan terwijl het vakje leeg is.
+         Dus in Idee geen rondje: je tikt de regel aan en werkt hem uit. */
       return `<div class="arij stil tdrij cwrij" data-id="${v.id}">
-        <button class="tdvink" data-cwaf="${v.id}" aria-label="${esc(bak.doe)}">
-          <span class="bol"></span></button>
+        ${v.bak==='idee'?'':`<button class="tdvink" data-cwaf="${v.id}"
+          aria-label="${esc(bak.doe)}"><span class="bol"></span></button>`}
         <button class="tdnaam" data-cwopen="${v.id}"><span class="tdnr">${i+1}</span>${esc(v.titel)}${
           onder?`<small>${onder}</small>`:''}</button>
         <span class="greep" aria-hidden="true">${svg(I.meer,'2')}</span></div>`}).join('')+'</div>';
@@ -22193,7 +22201,11 @@ function sheetCw(id){
        <button class="knop2" id="cwTerug"${i<=0?' disabled':''}>${
          svg(I.terug,'2.2')}Terug</button>
        <button class="knop2" id="cwWeg">${svg(I.prul,'2.2')}Weghalen</button></div>`,
-    `<button class="prim" style="margin-top:0" id="cwDoor">${bak.doe}</button>`);
+    /* Ook hier niet kunnen beweren dat iets uitgewerkt is terwijl er niets
+       staat: de knop komt vrij zodra er een kern of een shot is. */
+    (v.bak==='idee'&&!(v.kern||'').trim()&&!cwVeld(v,'shots').length
+      ? `<button class="prim" style="margin-top:0" disabled>Vul eerst in waar het over gaat</button>`
+      : `<button class="prim" style="margin-top:0" id="cwDoor">${bak.doe}</button>`));
 
   const opslaan=()=>{
     const tl=$('#cwTitel'), kr=$('#cwKern');
@@ -22215,7 +22227,13 @@ function sheetCw(id){
     opslaan(); v.serie=b.dataset.cwsz; bewaarNu(); render(); sheetCw(id);
   });
   if($('#cwSerieN')){
-    const zetSerie=()=>{
+    /* Typ je de kern, dan komt de knop vanzelf vrij — zonder dat je het
+     scherm hoeft te sluiten en opnieuw te openen. */
+  if($('#cwKern')) $('#cwKern').onblur=()=>{
+    const x=($('#cwKern').value||'').trim();
+    if(x&&!(v.kern||'').trim()){ v.kern=x; bewaarNu(); render(); sheetCw(id) }
+  };
+  const zetSerie=()=>{
       const x=($('#cwSerieN').value||'').trim();
       if(!x) return;
       opslaan(); v.serie=x.slice(0,40); bewaarNu(); render(); sheetCw(id);
@@ -22249,7 +22267,7 @@ function sheetCw(id){
     const s=cwVeld(v,d[0])[+d[1]]; if(!s) return;
     s.klaar=!s.klaar; bewaarNu(); render(); sheetCw(id);
   });
-  $('#cwDoor').onclick=()=>{ opslaan(); bijSluiten=null; cwSchuif(id,true) };
+  if($('#cwDoor')) $('#cwDoor').onclick=()=>{ opslaan(); bijSluiten=null; cwSchuif(id,true) };
   if($('#cwTerug')) $('#cwTerug').onclick=()=>{ opslaan(); bijSluiten=null; cwSchuif(id,false) };
   $('#cwWeg').onclick=()=>{
     const herstel=terugpunt(['vids']);
