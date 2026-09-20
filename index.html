@@ -1186,6 +1186,8 @@ textarea.inp{min-height:76px}
 .wchip:active{background:var(--markeer)}
 /* De stopchip is geen categorie maar een afsluiting: chocoladekleur, zodat je
    hem niet aanziet voor nog een ding om op over te stappen. */
+.wchip.aan{background:var(--choco);border-color:var(--choco);color:#fff}
+.wchip.aan svg{color:#fff}
 .wchip.wstop{background:var(--markeer);color:var(--choco);font-weight:650}
 .wchip.wstop svg{color:var(--choco)}
 .kwnext{flex:none;display:flex;align-items:center;gap:5px;max-width:126px;
@@ -3815,7 +3817,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v651 · 20 sep 2026';
+const APPVERSIE='v652 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4136,7 +4138,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -19013,6 +19015,7 @@ function bind(){
   $$('[data-tdopen]').forEach(b=>b.onclick=()=>sheetTedoen(b.dataset.tdopen));
   $$('[data-tdnieuw]').forEach(b=>b.onclick=()=>sheetTedoenNieuw());
   $$('[data-cwbak]').forEach(b=>b.onclick=()=>{ cwBak=b.dataset.cwbak; render() });
+  $$('[data-cwserie]').forEach(b=>b.onclick=()=>{ cwSerie=b.dataset.cwserie; render() });
   $$('[data-cwopen]').forEach(b=>b.onclick=()=>{
     if(Date.now()-cwGesleept<320) return;   /* net gesleept, niet openen */
     sheetCw(b.dataset.cwopen);
@@ -21948,18 +21951,38 @@ const CWSTART=[
  'Alles klaar voor de opening',
  'Openingsvideo — webshop is open'
 ];
+
+/* ═════ een serie loopt náást je reis ═════
+   Je reis gaat over wat je doet; een serie gaat over wie je allemaal moet
+   zijn. Elke aflevering opent hetzelfde: "Ik heb het budget er niet voor.
+   Dus doe ik het zelf." Die herhaling maakt er een serie van — daar komen
+   mensen voor terug. */
+const CWSERIE1='Twee petten';
+const CWSTART2=[
+ 'Fotograaf — hoe een productfoto tot stand komt',
+ 'Websitebouwer — waarom ik mijn webshop zelf bouw',
+ 'Editor — hoe ik deze video\u2019s in elkaar zet',
+ 'Inkoper — wat er binnenkomt en wat het kost',
+ 'Boekhouder — de avond dat ik bonnen invoer',
+ 'Bezorger — de rit naar het postkantoor'
+];
 const cwLijst=()=>(S.vids||[]);
-const cwIn=b=>cwLijst().filter(v=>(v.bak||'idee')===b);
+/* '' = alles, 'los' = zonder serie, anders de naam van de serie */
+let cwSerie='';
+const cwPast=v=> !cwSerie ? true : (cwSerie==='los' ? !v.serie : v.serie===cwSerie);
+const cwIn=b=>cwLijst().filter(v=>(v.bak||'idee')===b&&cwPast(v));
 const cwVid=id=>cwLijst().find(v=>v.id===id);
 const cwGepost=()=>cwLijst().filter(v=>v.bak==='gepost').length;
 const cwVeld=(v,k)=>Array.isArray(v[k])?v[k]:[];
 
-function cwNieuw(titels){
+function cwNieuw(titels,serie){
   S.vids=S.vids||[];
   titels.forEach(x=>S.vids.push({id:uid(),titel:x.slice(0,140),kern:'',
-    zeggen:[],niet:[],shots:[],bak:'idee',gemaakt:Date.now()}));
+    zeggen:[],niet:[],shots:[],bak:'idee',serie:serie||'',gemaakt:Date.now()}));
   bewaarNu();
 }
+/* welke series je in gebruik hebt */
+const cwSeries=()=>Array.from(new Set(cwLijst().map(v=>v.serie).filter(Boolean)));
 /* vanaf de lijst: doorschuiven zonder een scherm te openen */
 function cwSchuifStil(id){
   const v=cwVid(id); if(!v) return;
@@ -22077,12 +22100,24 @@ function cwHTML(){
   if(!S.vidsGezet&&!cwLijst().length){
     cwNieuw(CWSTART); S.vidsGezet=true; bewaarNu();
   }
+  if(!S.vidsSerie){
+    cwNieuw(CWSTART2,CWSERIE1); S.vidsSerie=true; bewaarNu();
+  }
   let h=`<div class="blokkop" style="margin-top:4px"><span class="eyebrow">Je video's</span>
     <button class="kopknop" data-cwnieuw>${svg(I.plus)}Idee</button></div>
     <div class="segrij" style="grid-template-columns:repeat(4,1fr)">${CWBAK.map(b=>{
       const n=cwIn(b.k).length;
       return `<button class="segknop${cwBak===b.k?' aan':''}" data-cwbak="${b.k}">${
         b.n}${n?' <b>'+n+'</b>':''}</button>`}).join('')}</div>`;
+
+  /* De serieknoppen staan onder de bakken: eerst waar je in het proces zit,
+     daarna welk soort video je bedoelt. */
+  const sers=cwSeries();
+  if(sers.length) h+=`<div class="wisselrij" style="margin:12px 0 0">
+    <button class="wchip${!cwSerie?' aan':''}" data-cwserie="">Alles</button>
+    <button class="wchip${cwSerie==='los'?' aan':''}" data-cwserie="los">Losse vlogs</button>
+    ${sers.map(s=>`<button class="wchip${cwSerie===s?' aan':''}" data-cwserie="${esc(s)}">${
+      svg(I.speel,'2.2')}<span>${esc(s)}</span></button>`).join('')}</div>`;
 
   const bak=CWBAK.find(x=>x.k===cwBak)||CWBAK[0];
   const l=cwIn(cwBak);
@@ -22097,9 +22132,11 @@ function cwHTML(){
        Lang indrukken en je kunt hem slepen. */
     h+='<div class="paneel" id="cwLijst" style="margin-top:14px">'+l.map((v,i)=>{
       const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
-      const onder = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
-        : v.bak==='idee' ? (v.kern?esc(v.kern).slice(0,60):'nog niet uitgewerkt')
-        : (v.kern?esc(v.kern).slice(0,60):'');
+      const kern = v.bak==='uitgewerkt'&&st.length ? af+' van '+st.length+' shots'
+        : v.bak==='idee' ? (v.kern?esc(v.kern).slice(0,52):'nog niet uitgewerkt')
+        : (v.kern?esc(v.kern).slice(0,52):'');
+      /* Filter je al op één serie, dan hoeft die naam er niet bij — dat weet je. */
+      const onder = (v.serie&&!cwSerie?esc(v.serie)+(kern?' · ':''):'')+kern;
       return `<div class="arij stil tdrij cwrij" data-id="${v.id}">
         <button class="tdvink" data-cwaf="${v.id}" aria-label="${esc(bak.doe)}">
           <span class="bol"></span></button>
@@ -22143,6 +22180,12 @@ function sheetCw(id){
          placeholder="Eén of twee zinnen">${esc(v.kern||'')}</textarea></div>
      <div class="veld"><label>Titel</label>
        <input class="inp" id="cwTitel" value="${esc(v.titel)}"></div>
+     <div class="veld"><label>Serie</label>
+       <div class="wisselrij" style="margin:0 0 10px">
+         <button class="wchip${!v.serie?' aan':''}" data-cwsz="">Losse vlog</button>
+         ${cwSeries().map(s=>`<button class="wchip${v.serie===s?' aan':''}"
+           data-cwsz="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+       <input class="inp" id="cwSerieN" placeholder="Of typ een nieuwe serie"></div>
      ${cwRegelsHTML(v,'zeggen','Zeggen','Bijv. vier maanden weg geweest',false)}
      ${cwRegelsHTML(v,'niet','Niet doen','Bijv. inhoud prive',false)}
      ${cwRegelsHTML(v,'shots','Shots','Bijv. POV handen aan het werk',true)}
@@ -22168,6 +22211,19 @@ function sheetCw(id){
     bewaarNu(); render(); sheetCw(id);
     setTimeout(()=>{const n=document.querySelector('[data-cwbij="'+veld+'"]'); if(n) n.focus()},60);
   };
+  $$('[data-cwsz]').forEach(b=>b.onclick=()=>{
+    opslaan(); v.serie=b.dataset.cwsz; bewaarNu(); render(); sheetCw(id);
+  });
+  if($('#cwSerieN')){
+    const zetSerie=()=>{
+      const x=($('#cwSerieN').value||'').trim();
+      if(!x) return;
+      opslaan(); v.serie=x.slice(0,40); bewaarNu(); render(); sheetCw(id);
+      toast('In de serie \u201c'+v.serie+'\u201d gezet.');
+    };
+    $('#cwSerieN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); zetSerie() } };
+    $('#cwSerieN').onblur=zetSerie;
+  }
   $$('[data-cwbijok]').forEach(b=>b.onclick=()=>bij(b.dataset.cwbijok));
   $$('[data-cwbij]').forEach(el=>{
     el.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); bij(el.dataset.cwbij) } };
