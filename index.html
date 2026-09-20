@@ -802,8 +802,8 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .greep{width:22px;height:22px;flex:none;display:grid;place-items:center;
   color:var(--grijs3);transform:rotate(90deg)}
 .greep svg{width:16px;height:16px}
-.cwrij{transition:transform .18s cubic-bezier(.32,.72,0,1)}
-.cwrij.sleept{transition:none;position:relative;z-index:5;
+.sleeprij{transition:transform .18s cubic-bezier(.32,.72,0,1)}
+.sleeprij.sleept{transition:none;position:relative;z-index:5;
   box-shadow:0 2px 6px rgba(24,24,27,.10),0 22px 34px -18px rgba(24,24,27,.42);
   border-color:var(--choco-licht)}
 body.sleepbezig{-webkit-user-select:none;user-select:none;touch-action:none}
@@ -825,7 +825,7 @@ textarea.inp{min-height:76px}
    De bovenste krijgt daarom een eigen kaart met een ring en zijn stappen: die
    één regel is je werk van vandaag, de rest is wat daarna komt. */
 .tdhero{background:var(--card);border-radius:22px;padding:18px 18px 16px;
-  display:flex;flex-direction:column;gap:14px;margin-bottom:10px;
+  display:flex;flex-direction:column;gap:14px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 18px 34px -24px rgba(24,24,27,.28)}
 .tdhero .tdkop{display:flex;align-items:center;gap:10px}
 .tdhero .tdkop .eyebrow{flex:1;color:var(--choco)}
@@ -3817,7 +3817,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v653 · 20 sep 2026';
+const APPVERSIE='v654 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6693,6 +6693,17 @@ function tdToevoegen(titel){
   return t;
 }
 
+/* De nieuwe volgorde van je to-do, met de afgevinkte op hun plek. */
+function tdOrde(ids){
+  const lijst=tdLijst();
+  const verzet=ids.map(x=>lijst.find(v=>v.id===x)).filter(Boolean);
+  if(verzet.length<2) return;
+  const set=new Set(ids);
+  let n=0;
+  S.tedoen=lijst.map(v=>set.has(v.id)?verzet[n++]:v);
+  bewaarNu(); render();
+}
+
 function tdRegelHTML(t,nr){
   const st=tdStappen(t), af=tdAf(t), v=tdVolgende(t);
   const klaar=!!t.klaar;
@@ -6705,7 +6716,7 @@ function tdRegelHTML(t,nr){
     : st.length ? (v?esc(v.tekst):'alle stappen gedaan')+' · '+af+' van '+st.length
         +(films?' · '+films+' met beeld':'')
     : (t.film?'hier komt beeld van':'');
-  return `<div class="arij stil tdrij${klaar?' af':''}">
+  return `<div class="arij stil tdrij sleeprij${klaar?' af':''}" data-id="${t.id}">
     <button class="tdvink" data-tdaf="${t.id}"
       aria-label="${klaar?'Terugzetten':'Afvinken'}"><span class="bol ${
       klaar?'af':''}">${klaar?svg(I.vink,'2.6'):''}</span></button>
@@ -6719,7 +6730,7 @@ function tdHeroHTML(t,daarna){
   const st=tdStappen(t), af=tdAf(t), v=tdVolgende(t);
   const pct=st.length?Math.round(af/st.length*100):0;
   const omtrek=2*Math.PI*28;
-  return `<div class="tdhero">
+  return `<div class="tdhero sleeprij" data-id="${t.id}">
     <div class="tdkop"><span class="eyebrow">Nu aan de beurt</span>
       <button class="tdvink" data-tdaf="${t.id}" aria-label="Afvinken"><span class="bol"></span></button>
       <span class="pijl" data-tdopen="${t.id}">${svg(I.pijl,'2')}</span></div>
@@ -6784,12 +6795,13 @@ function tedoenKaartHTML(){
   /* De eerste open regel is geen regel maar de kaart erboven. */
   const hero=zicht[0]&&!zicht[0].klaar?zicht[0]:null;
   const rij=hero?zicht.slice(1):zicht;
-  if(hero) h+=tdHeroHTML(hero,(open.find(x=>x!==hero)||{}).titel||'');
-  if(rij.length||net.length)
-    h+='<div class="paneel">'
-      +rij.map(x=>tdRegelHTML(x,nummer[x.id])).join('')
-      +net.map(x=>tdRegelHTML(x,'\u2713')).join('');
-  else h+='<div class="paneel" style="background:transparent;box-shadow:none">';
+  /* De kaart staat in dezelfde lijst als de regels eronder. Daardoor kun je
+     iets van plek zes helemaal naar boven slepen en wordt het vanzelf de
+     kaart — zonder een knop die dat voor je doet. */
+  h+='<div class="paneel" id="tdLijst" data-orde="td">'
+    +(hero?tdHeroHTML(hero,(open.find(x=>x!==hero)||{}).titel||''):'')
+    +rij.map(x=>tdRegelHTML(x,nummer[x.id])).join('')
+    +net.map(x=>tdRegelHTML(x,'\u2713')).join('');
 
   const verborgen=open.length-zicht.length;
   if(verborgen>0)
@@ -6812,16 +6824,11 @@ function sheetTedoen(id){
       waarin je ze doet. Op je dashboard zie je alleen de eerstvolgende.</p>
      <div class="veld"><label>Wat moet er gebeuren</label>
        <input class="inp" id="tdTitel" value="${esc(t.titel)}"></div>
-     ${''/* Je zet je lijst één keer op volgorde en daarna verandert het
-          werk. Zonder deze twee knoppen kon je alleen alles wissen en
-          opnieuw typen. Geen slepen: dat is op een telefoon met natte
-          handen geen doen. */}
-     ${tdOpen().length>1&&!t.klaar?`<div class="tdorde">
-       <button class="knop2" id="tdEerst"${tdOpen()[0]===t?' disabled':''}>${
-         svg(I.terug,'2.2')}Eerst doen</button>
-       <button class="knop2" id="tdLaatst"${
-         tdOpen()[tdOpen().length-1]===t?' disabled':''}>${
-         svg(I.pijl,'2.2')}Naar achteren</button></div>`:''}
+     ${''/* Hier stonden "Eerst doen" en "Naar achteren". Twee knoppen, twee
+          schermen diep, voor iets wat je met je duim wilt doen. Nu houd je
+          op je dashboard een regel ingedrukt en sleep je hem waar je hem
+          hebben wilt — de kaart bovenaan hoort bij diezelfde lijst, dus
+          je kunt ook iets naar plek één slepen. */}
      ${st.length?`<div class="blokkop" style="margin-top:24px">
         <span class="eyebrow">Stappen</span><span class="tel">${af} van ${st.length}</span></div>
       <div class="paneel">${st.map(s=>`<div class="arij stil">
@@ -6904,24 +6911,6 @@ function sheetTedoen(id){
   };
   $('#tdKlaar').onclick=()=>{ titelOp(); bijSluiten=null; dicht(); render() };
 
-  /* verplaatsen binnen de open regels; afgevinkte tellen niet mee */
-  const verzet=naarVoren=>()=>{
-    titelOp();
-    const herstel=terugpunt(['tedoen']);
-    const rest=tdLijst().filter(x=>x!==t);
-    if(naarVoren){
-      const eerste=rest.findIndex(x=>!x.klaar);
-      rest.splice(eerste<0?0:eerste,0,t);
-    } else {
-      let laatste=-1;
-      rest.forEach((x,i)=>{ if(!x.klaar) laatste=i });
-      rest.splice(laatste+1,0,t);
-    }
-    S.tedoen=rest; bewaarNu(); render(); sheetTedoen(id);
-    toast(naarVoren?'Staat nu bovenaan.':'Naar achteren geschoven.',herstel);
-  };
-  if($('#tdEerst')) $('#tdEerst').onclick=verzet(true);
-  if($('#tdLaatst')) $('#tdLaatst').onclick=verzet(false);
 
   $$('[data-tdfilm]').forEach(b=>b.onclick=()=>{
     const s=tdStappen(t).find(x=>x.id===b.dataset.tdfilm); if(!s) return;
@@ -22026,19 +22015,26 @@ function cwOrde(ids){
    Ingedrukt houden tilt de balk op; daarna schuif je hem tussen de andere
    door. Losgelaten is opgeslagen. Een gewone tik blijft gewoon openen, want
    pas na ruim een derde seconde gaat de sleepstand aan. */
+/* Dit werkt nu voor elke lijst die zijn rijen .sleeprij geeft en zijn
+   omhulsel een data-orde meegeeft. Zo sleep je met hetzelfde gebaar in je
+   to-do en in je video's, in plaats van hier slepen en daar een knop. */
 let cwSleep=null, cwStartY=0, cwTimer=null, cwGesleept=0, cwDocGebonden=false;
 const cwY=e=>e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY;
-function cwRijen(){
-  const p=document.getElementById('cwLijst');
-  return p?Array.from(p.querySelectorAll('.cwrij')):[];
+function cwRijen(p){
+  const vak=p||(cwSleep&&cwSleep.parentNode);
+  return vak?Array.from(vak.querySelectorAll('.sleeprij')):[];
 }
 function cwLos(){
   clearTimeout(cwTimer); cwTimer=null;
   if(!cwSleep) return;
+  const vak=cwSleep.parentNode;
   cwSleep.style.transform=''; cwSleep.classList.remove('sleept');
   document.body.classList.remove('sleepbezig');
   cwSleep=null; cwGesleept=Date.now();
-  cwOrde(cwRijen().map(x=>x.dataset.id));
+  const ids=cwRijen(vak).map(x=>x.dataset.id).filter(Boolean);
+  const welk=vak&&vak.dataset?vak.dataset.orde:'';
+  if(welk==='cw') cwOrde(ids);
+  else if(welk==='td') tdOrde(ids);
 }
 function cwBeweeg(e){
   if(!cwSleep){
@@ -22073,7 +22069,7 @@ function cwBeweeg(e){
   }
 }
 function cwSleepBinden(){
-  cwRijen().forEach(r=>{
+  Array.from(document.querySelectorAll('.sleeprij')).forEach(r=>{
     const pak=e=>{
       if(cwSleep) return;
       cwStartY=cwY(e);
@@ -22130,7 +22126,7 @@ function cwHTML(){
     /* Het vinkje schuift hem naar de volgende bak — dezelfde stap als de
        zwarte knop in het detailscherm, maar dan zonder scherm te openen.
        Lang indrukken en je kunt hem slepen. */
-    h+='<div class="paneel" id="cwLijst" style="margin-top:14px">'+l.map((v,i)=>{
+    h+='<div class="paneel" id="cwLijst" data-orde="cw" style="margin-top:14px">'+l.map((v,i)=>{
       const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
       /* In de bak Idee is niets uitgewerkt — dan is "nog niet uitgewerkt"
          onder elke regel dertig keer dezelfde mededeling. Staat er wel al een
@@ -22145,7 +22141,7 @@ function cwHTML(){
          Maar uítwerken doe je híer, in het scherm zelf. Een tik in de lijst zou
          dan beweren dat er een kern en shots staan terwijl het vakje leeg is.
          Dus in Idee geen rondje: je tikt de regel aan en werkt hem uit. */
-      return `<div class="arij stil tdrij cwrij" data-id="${v.id}">
+      return `<div class="arij stil tdrij cwrij sleeprij" data-id="${v.id}">
         ${v.bak==='idee'?'':`<button class="tdvink" data-cwaf="${v.id}"
           aria-label="${esc(bak.doe)}"><span class="bol"></span></button>`}
         <button class="tdnaam" data-cwopen="${v.id}"><span class="tdnr">${i+1}</span>${esc(v.titel)}${
