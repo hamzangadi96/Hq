@@ -799,6 +799,23 @@ main .paneel>.arij.tdrij{padding:8px 14px}
 .vidstip.s-opgenomen{background:var(--amber)}
 .vidstip.s-klaar{background:var(--choco)}
 .vidstip.s-gepost{background:var(--groen)}
+/* de strook bovenaan Content */
+.cwstrook{background:var(--card);border-radius:20px;padding:16px 18px;margin:4px 0 6px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -24px rgba(24,24,27,.26)}
+.cwsk .eyebrow{color:var(--choco)}
+.cwsk b{display:block;margin-top:5px;font-size:17px;font-weight:650;letter-spacing:-.025em}
+.cwsr{display:flex;align-items:baseline;gap:12px;margin-top:11px;
+  padding-top:11px;border-top:1px solid var(--lijn)}
+.cwsr span{font-size:12.5px;color:var(--grijs2);flex:none;width:106px}
+.cwsr b{flex:1;font-size:14px;font-weight:600;letter-spacing:-.015em}
+.cwsr b.let{color:var(--amber)}
+/* datum voor de titel, in plaats van een volgnummer */
+.cwdat{display:inline-block;min-width:54px;margin-right:9px;color:var(--grijs2);
+  font-weight:600;font-size:13px;font-variant-numeric:tabular-nums}
+.cwt{display:inline-block;width:7px;height:7px;border-radius:99px;margin-left:7px;
+  vertical-align:1px;background:var(--grijs3)}
+.cwt.s-gebeurtenis{background:var(--choco)}
+.cwt.s-verhaal{background:var(--grijs3);box-shadow:inset 0 0 0 1.5px var(--grijs2)}
 .greep{width:22px;height:22px;flex:none;display:grid;place-items:center;
   color:var(--grijs3);transform:rotate(90deg)}
 .greep svg{width:16px;height:16px}
@@ -3817,7 +3834,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v654 · 20 sep 2026';
+const APPVERSIE='v655 · 20 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19015,6 +19032,7 @@ function bind(){
   });
   cwSleepBinden();
   $$('[data-cwnieuw]').forEach(b=>b.onclick=()=>sheetCwNieuw());
+  $$('[data-cwblauw]').forEach(b=>b.onclick=()=>sheetBlauwdruk());
   $$('[data-vidopen]').forEach(b=>b.onclick=()=>cbVidSheet(b.dataset.vidopen));
   $$('[data-vidbieb]').forEach(b=>b.onclick=()=>{
     S.tab='content'; S.batchId=null; cbView='video'; render(); $('#scherm').scrollTop=0;
@@ -21946,6 +21964,66 @@ const CWSTART=[
    zijn. Elke aflevering opent hetzelfde: "Ik heb het budget er niet voor.
    Dus doe ik het zelf." Die herhaling maakt er een serie van — daar komen
    mensen voor terug. */
+/* ════════════ de campagne ════════════
+   Uit je contentstrategie. De vijf fases lopen chronologisch: opruimen kan
+   niet ná schoonmaken. De postdata liggen vast op donderdag, zaterdag en
+   zondag, plus vier dinsdagen.
+
+   De datum hangt niet aan een video maar aan zijn plek in de lijst. Sleep je
+   iets naar boven, dan schuift de datum mee. Zo is slepen meteen plannen en
+   hoef je nergens een datumkiezer open te trekken. */
+const CWFASES=[
+ {n:'Wie ben ik',  van:'2026-10-01', tot:'2026-10-06'},
+ {n:'Leegmaken',   van:'2026-10-08', tot:'2026-10-17'},
+ {n:'Opbouwen',    van:'2026-10-22', tot:'2026-10-27'},
+ {n:'Produceren',  van:'2026-10-29', tot:'2026-10-31'},
+ {n:'Verkopen',    van:'2026-11-01', tot:'2026-11-30'}
+];
+/* de zes zondagen van de serie */
+const CWZONDAG=['2026-10-11','2026-10-18','2026-10-25',
+                '2026-11-08','2026-11-15','2026-11-22'];
+/* de overige 25 postdagen, voor de reis */
+const CWREIS=['2026-10-01','2026-10-03','2026-10-04','2026-10-06',
+ '2026-10-08','2026-10-10','2026-10-15','2026-10-17',
+ '2026-10-22','2026-10-24','2026-10-27',
+ '2026-10-29','2026-10-31',
+ '2026-11-01','2026-11-03','2026-11-05','2026-11-07','2026-11-12','2026-11-14',
+ '2026-11-17','2026-11-19','2026-11-21','2026-11-26','2026-11-28','2026-11-29'];
+const CWOPEN='2026-11-01';
+
+const CWTAAK=[
+ {k:'binnenhalen', n:'Binnenhalen', u:'bereik bij mensen die je niet kennen'},
+ {k:'binden',      n:'Binden',      u:'van kijker naar volger'},
+ {k:'omzetten',    n:'Omzetten',    u:'van volger naar mailadres'}
+];
+const CWTYPE=[
+ {k:'gebeurtenis', n:'Gebeurtenis', u:'moet gefilmd worden wanneer het gebeurt'},
+ {k:'verhaal',     n:'Verhaal',     u:'vooruit te filmen, vrij te plaatsen'}
+];
+
+function cwFaseVan(d){
+  if(!d) return null;
+  return CWFASES.find(f=>d>=f.van&&d<=f.tot)||null;
+}
+/* welke datum hoort bij deze video, op grond van zijn plek */
+function cwDatums(){
+  const uit={};
+  let a=0,b=0;
+  cwLijst().forEach(v=>{
+    if(v.serie){ if(b<CWZONDAG.length) uit[v.id]=CWZONDAG[b++] }
+    else       { if(a<CWREIS.length)   uit[v.id]=CWREIS[a++] }
+  });
+  return uit;
+}
+const CWDAG=['zo','ma','di','wo','do','vr','za'];
+const CWMND=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+function cwDatumKort(d){
+  if(!d) return '';
+  const x=new Date(d+'T12:00:00');
+  return CWDAG[x.getDay()]+' '+x.getDate()+' '+CWMND[x.getMonth()];
+}
+const cwDagenTot=d=>Math.ceil((new Date(d+'T12:00:00')-new Date(vandaag()+'T12:00:00'))/86400000);
+
 const CWSERIE1='Twee petten';
 const CWSTART2=[
  'Fotograaf — hoe een productfoto tot stand komt',
@@ -22092,6 +22170,29 @@ function cwSleepBinden(){
   document.addEventListener('mouseup',cwLos);
 }
 
+/* Waar sta ik, wat gaat er als eerstvolgende uit, en heb ik genoeg op de
+   plank. Meer hoeft een contentscherm niet te zeggen. */
+function cwStrookHTML(){
+  const dat=cwDatums();
+  const wacht=cwLijst().filter(v=>v.bak!=='gepost'&&dat[v.id])
+    .sort((x,y)=>dat[x.id]<dat[y.id]?-1:1);
+  const nu=wacht[0];
+  const plank=cwLijst().filter(v=>v.bak==='klaar').length;
+  const fase=cwFaseVan(nu?dat[nu.id]:vandaag())||cwFaseVan(vandaag());
+  const totOpen=cwDagenTot(CWOPEN);
+  return `<div class="cwstrook">
+    <div class="cwsk"><span class="eyebrow">${fase
+      ? 'Fase '+(CWFASES.indexOf(fase)+1)+' · '+esc(fase.n)
+      : 'Campagne'}</span>
+      <b>${totOpen>0?'nog '+totOpen+(totOpen===1?' dag':' dagen')+' tot 1 november'
+        :totOpen===0?'vandaag gaat de webshop open':'de webshop is open'}</b></div>
+    <div class="cwsr"><span>Volgende post</span>
+      <b>${nu?cwDatumKort(dat[nu.id])+' · '+esc(nu.titel.split(' — ')[0]):'niets ingepland'}</b></div>
+    <div class="cwsr"><span>Op de plank</span>
+      <b class="${plank<5?'let':''}">${plank}${plank<5?' — onder de vijf, eerst filmen':''}</b></div>
+  </div>`;
+}
+
 function cwHTML(){
   if(!S.vidsGezet&&!cwLijst().length){
     cwNieuw(CWSTART); S.vidsGezet=true; bewaarNu();
@@ -22099,7 +22200,9 @@ function cwHTML(){
   if(!S.vidsSerie){
     cwNieuw(CWSTART2,CWSERIE1); S.vidsSerie=true; bewaarNu();
   }
-  let h=`<div class="blokkop" style="margin-top:4px"><span class="eyebrow">Je video's</span>
+  let h=cwStrookHTML()
+    +`<div class="blokkop"><span class="eyebrow">Je video's</span>
+    <button class="kopknop" data-cwblauw>${svg(I.boek)}Blauwdruk</button>
     <button class="kopknop" data-cwnieuw>${svg(I.plus)}Idee</button></div>
     <div class="segrij" style="grid-template-columns:repeat(4,1fr)">${CWBAK.map(b=>{
       const n=cwIn(b.k).length;
@@ -22126,6 +22229,7 @@ function cwHTML(){
     /* Het vinkje schuift hem naar de volgende bak — dezelfde stap als de
        zwarte knop in het detailscherm, maar dan zonder scherm te openen.
        Lang indrukken en je kunt hem slepen. */
+    const dat=cwDatums();
     h+='<div class="paneel" id="cwLijst" data-orde="cw" style="margin-top:14px">'+l.map((v,i)=>{
       const st=cwVeld(v,'shots'), af=st.filter(s=>s.klaar).length;
       /* In de bak Idee is niets uitgewerkt — dan is "nog niet uitgewerkt"
@@ -22144,7 +22248,9 @@ function cwHTML(){
       return `<div class="arij stil tdrij cwrij sleeprij" data-id="${v.id}">
         ${v.bak==='idee'?'':`<button class="tdvink" data-cwaf="${v.id}"
           aria-label="${esc(bak.doe)}"><span class="bol"></span></button>`}
-        <button class="tdnaam" data-cwopen="${v.id}"><span class="tdnr">${i+1}</span>${esc(v.titel)}${
+        <button class="tdnaam" data-cwopen="${v.id}"><span class="cwdat">${
+          dat[v.id]?cwDatumKort(dat[v.id]):'—'}</span>${esc(v.titel)}${
+          v.type?`<i class="cwt s-${v.type}" title="${esc(v.type)}"></i>`:''}${
           onder?`<small>${onder}</small>`:''}</button>
         <span class="greep" aria-hidden="true">${svg(I.meer,'2')}</span></div>`}).join('')+'</div>';
   }
@@ -22190,6 +22296,22 @@ function sheetCw(id){
          ${cwSeries().map(s=>`<button class="wchip${v.serie===s?' aan':''}"
            data-cwsz="${esc(s)}">${esc(s)}</button>`).join('')}</div>
        <input class="inp" id="cwSerieN" placeholder="Of typ een nieuwe serie"></div>
+     ${''/* Eén taak per video — kan hij geen van de drie, dan maak je hem niet.
+          En één soort: een gebeurtenis moet je filmen wanneer het gebeurt, een
+          verhaal kun je vooruit maken. Dat tweede is wat het mogelijk maakt
+          vaak te posten zonder vaak te filmen. */}
+     <div class="veld"><label>Wat moet deze video doen</label>
+       <div class="wisselrij" style="margin:0">${CWTAAK.map(x=>
+         `<button class="wchip${v.taak===x.k?' aan':''}" data-cwtaak="${x.k}">${
+           x.n}</button>`).join('')}</div>
+       ${v.taak?`<p class="klein" style="margin:8px 2px 0;color:var(--grijs2)">${
+         esc((CWTAAK.find(x=>x.k===v.taak)||{}).u||'')}</p>`:''}</div>
+     <div class="veld"><label>Soort</label>
+       <div class="wisselrij" style="margin:0">${CWTYPE.map(x=>
+         `<button class="wchip${v.type===x.k?' aan':''}" data-cwtype="${x.k}">${
+           x.n}</button>`).join('')}</div>
+       ${v.type?`<p class="klein" style="margin:8px 2px 0;color:var(--grijs2)">${
+         esc((CWTYPE.find(x=>x.k===v.type)||{}).u||'')}</p>`:''}</div>
      ${cwRegelsHTML(v,'zeggen','Zeggen','Bijv. vier maanden weg geweest',false)}
      ${cwRegelsHTML(v,'niet','Niet doen','Bijv. inhoud prive',false)}
      ${cwRegelsHTML(v,'shots','Shots','Bijv. POV handen aan het werk',true)}
@@ -22219,6 +22341,14 @@ function sheetCw(id){
     bewaarNu(); render(); sheetCw(id);
     setTimeout(()=>{const n=document.querySelector('[data-cwbij="'+veld+'"]'); if(n) n.focus()},60);
   };
+  $$('[data-cwtaak]').forEach(b=>b.onclick=()=>{
+    opslaan(); v.taak=v.taak===b.dataset.cwtaak?'':b.dataset.cwtaak;
+    bewaarNu(); render(); sheetCw(id);
+  });
+  $$('[data-cwtype]').forEach(b=>b.onclick=()=>{
+    opslaan(); v.type=v.type===b.dataset.cwtype?'':b.dataset.cwtype;
+    bewaarNu(); render(); sheetCw(id);
+  });
   $$('[data-cwsz]').forEach(b=>b.onclick=()=>{
     opslaan(); v.serie=b.dataset.cwsz; bewaarNu(); render(); sheetCw(id);
   });
@@ -22271,6 +22401,46 @@ function sheetCw(id){
     S.vids=cwLijst().filter(x=>x.id!==id);
     bewaarNu(); dicht(); render(); toast('Video weggehaald.',herstel);
   };
+}
+
+/* Alleen wat je vóór het filmen wilt herlezen. De rest van je strategie
+   staat in je document — wat je één keer per jaar leest hoort niet in je
+   broekzak. */
+function sheetBlauwdruk(){
+  sheet('Blauwdruk',
+    `<div class="hoofdkaart" style="margin:0">
+      <span class="eyebrow">Waarom</span>
+      <h2 style="font-size:18px;line-height:1.35;margin-top:8px">Ik ga door omdat ik mijn
+        kinderen geen baan kan nalaten, maar wel iets dat ik zelf heb opgebouwd.</h2>
+      <div class="sub">Chocolade is het onderwerp. Jij bent de reden.
+        Gunfactor, geen medelijden — laat het zware zien, praat er nooit zielig over.</div></div>
+
+     <div class="blokkop"><span class="eyebrow">Drie taken · één per video</span></div>
+     <div class="paneel">${CWTAAK.map(x=>`<div class="arij stil">
+       <span class="naam">${x.n}<small class="gewoon">${x.u}</small></span></div>`).join('')}</div>
+     <p class="klein" style="margin:10px 2px 0;color:var(--grijs2)">
+       Kan een video geen van de drie, dan maak je hem niet.</p>
+
+     <div class="blokkop"><span class="eyebrow">Spelregels</span></div>
+     <div class="paneel">${[
+       'Geen kosten, marges of omzetcijfers',
+       'Geen leveranciers, geen merknamen',
+       'Kinderen wel noemen, niet in beeld',
+       'Privé: wel dát er iets speelde, nooit wát',
+       'Alcoholvrij in product en in woord',
+       'Twee keer vragen in de hele campagne — de aftelvideo en de openingsdag'
+     ].map(x=>`<div class="arij stil"><span class="naam">${x}</span></div>`).join('')}</div>
+
+     <div class="blokkop"><span class="eyebrow">Vaste zin in oktober</span></div>
+     <div class="hoofdkaart" style="margin:0"><div class="sub" style="margin:0">
+       “1 november gaat de webshop open, laat je mail achter.”<br>
+       De meeste mensen zien maar één van je video's.</div></div>
+
+     <div class="blokkop"><span class="eyebrow">Voorraadregel</span></div>
+     <div class="hoofdkaart" style="margin:0"><div class="sub" style="margin:0">
+       Tien klaar op 30 september. Zakt de plank onder de vijf: eerst filmen,
+       dan pas verder posten.</div></div>`,
+    '<button class="prim" style="margin-top:0" onclick="dicht()">Klaar</button>');
 }
 
 function sheetCwNieuw(){
