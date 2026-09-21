@@ -846,6 +846,11 @@ main .paneel>.arij.tdrij{padding:8px 14px}
   display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--grijs2);
   letter-spacing:0}
 .cwgroep.open .cwgn b{background:var(--choco);color:#fff}
+/* De groep "Zonder datum" heeft geen fasenummer. Daar stond letterlijk
+   "undefined" in de kop zodra er meer video's waren dan postdata. Nu een
+   amberen uitroepteken: er past er eentje niet in je kalender. */
+.cwgn b.leeg{background:var(--amber);color:#fff}
+.cwgroep.open .cwgn b.leeg{background:var(--amber)}
 .cwgn svg{width:14px;height:14px;flex:none;color:var(--choco)}
 .cwgd{flex:none;font-size:11.5px;color:var(--grijs3);letter-spacing:-.01em}
 .cwgt{flex:none;min-width:20px;text-align:right;font-size:11.5px;font-weight:700;
@@ -3881,7 +3886,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v659 · 20 sep 2026';
+const APPVERSIE='v660 · 21 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4202,7 +4207,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -21986,9 +21991,13 @@ let cwBak='idee', cwGroep=null;
    niet ná schoonmaken, en de openingsvideo hoort op 1 november — niet op de
    laatste plek in de lijst. */
 const CWSTART=[
- /* Wie ben ik — 1 t/m 6 okt */
+ /* Wie ben ik — 1 t/m 6 okt
+    Fase 1 vertelt niet wie je bent, het laat situaties zien waaruit de kijker
+    dat zelf opmaakt. Vandaar: terug → dit maak ik → dit is mijn dag → dit
+    kost het me. "Voor mijn kinderen" hoeft er nooit uitgesproken te worden;
+    dat vult de kijker zelf in. Die video staat daarom in november. */
  'Comebackvideo — waarom ik zo lang weg was',
- 'Waarom ik dit doe — voor mijn kinderen',
+ 'Wat ik maak — alleen handen',
  'Treinvideo — hoe mijn dag eruitziet',
  'Avondvideo — werken om 23:00',
  /* Leegmaken — 8 t/m 17 okt */
@@ -22005,6 +22014,10 @@ const CWSTART=[
  'Alles klaar voor de opening',
  /* Verkopen — november */
  'Openingsvideo — webshop is open',
+ /* Hier is hij verdiend: wie vijf weken heeft meegekeken hoe je alles
+    leeghaalde en weer opbouwde, hoort deze zin als een klap in plaats van
+    als een verkooppraatje. */
+ 'Waarom ik dit doe — voor mijn kinderen',
  'Uitslaan uit de mal',
  'Bonbon doorsnijden',
  'Mallen inkleuren',
@@ -22113,6 +22126,27 @@ function cwDatumKort(d){
   return CWDAG[x.getDay()]+' '+x.getDate()+' '+CWMND[x.getMonth()];
 }
 const cwDagenTot=d=>Math.ceil((new Date(d+'T12:00:00')-new Date(vandaag()+'T12:00:00'))/86400000);
+
+/* ═════ de enige video die op dag drie al kijkwaardig is ═════
+   Na de comebackvideo is de eerste vraag "ja maar wát verkoop je dan". Jouw
+   verhaal houdt op dag drie nog niemand vast; chocola wel. Vandaar geen
+   gezicht, geen stem, alleen handen — en niets over de webshop, want die is
+   nog dicht. */
+const CWMAAKTITEL='Wat ik maak — alleen handen';
+const cwMaakVid=()=>({id:uid(),titel:CWMAAKTITEL,
+  kern:'Laten zien wat je verkoopt, zonder één woord.',
+  taak:'binnenhalen', type:'verhaal',
+  zeggen:['Geen stem. Één regel tekst in beeld, meer niet.',
+          'Laat het geluid van het werk staan: tikken, schrapen, kraken.'],
+  niet:['Praten of uitleggen',
+        'Je gezicht in beeld',
+        'Prijs of webshop noemen — die is nog dicht'],
+  shots:[{tekst:'Chocola die van de spatel valt, close en traag',klaar:false},
+         {tekst:'Mal vullen, van bovenaf',klaar:false},
+         {tekst:'Afschrapen met de spatel, één strakke haal',klaar:false},
+         {tekst:'Mal omkeren en aftikken',klaar:false},
+         {tekst:'Één bonbon eruit, glans in het licht draaien',klaar:false}],
+  bak:'idee', serie:'', gemaakt:Date.now()});
 
 const CWSERIE1='Twee petten';
 const CWSTART2=[
@@ -22363,6 +22397,31 @@ function cwHTML(){
     S.vids=op.concat(reis).concat(rest);
     S.vidsOrde2=true; bewaarNu();
   }
+  /* ═════ fase 1 rechtzetten ═════
+     "Waarom ik dit doe" stond op 3 oktober, video twee. Te vroeg: dan kent
+     niemand je en klinkt die zin als een verkooppraatje. Hij schuift naar
+     vlak na de opening. Op zijn plek komt "Wat ik maak". Titels die je zelf
+     hebt hernoemd worden niet gevonden en dus met rust gelaten. */
+  if(!S.vidsFase1&&cwLijst().length){
+    const l=S.vids||[];
+    const w=l.findIndex(v=>v.titel==='Waarom ik dit doe — voor mijn kinderen');
+    if(w>=0){
+      const v=l.splice(w,1)[0];
+      const na=l.findIndex(x=>x.titel==='Openingsvideo — webshop is open');
+      l.splice(na>=0?na+1:l.length,0,v);
+    }
+    /* Op een leeg toestel staat hij er al, maar kaal: de startlijst kent
+       alleen titels. Dan vullen we alsnog de kern en de shots aan, met
+       behoud van zijn id zodat een datum of vinkje niet verspringt. */
+    const m=l.find(v=>v.titel===CWMAAKTITEL);
+    if(!m){
+      const c=l.findIndex(v=>v.titel==='Comebackvideo — waarom ik zo lang weg was');
+      l.splice(c>=0?c+1:0,0,cwMaakVid());
+    } else if(!(m.shots||[]).length&&!m.kern){
+      Object.assign(m,cwMaakVid(),{id:m.id,bak:m.bak||'idee',gemaakt:m.gemaakt});
+    }
+    S.vids=l; S.vidsFase1=true; bewaarNu();
+  }
   let h=cwStrookHTML()
     +`<div class="blokkop"><span class="eyebrow">Je video's</span>
     <button class="kopknop" data-cwblauw>${svg(I.boek)}Blauwdruk</button>
@@ -22424,7 +22483,8 @@ function cwHTML(){
          nergens waar een fase begon. De kop is nu een label boven de lijst —
          klein, grijs, in hoofdletters — en alleen de video's zijn kaarten. */
       return `<button class="cwgroep${open?' open':''}" data-cwgroep="${esc(g.k)}">
-        <span class="cwgn">${g.serie?svg(I.speel,'2.4'):'<b>'+g.nr+'</b>'}${esc(g.n)}</span>
+        <span class="cwgn">${g.serie?svg(I.speel,'2.4')
+          :g.nr?'<b>'+g.nr+'</b>':'<b class="leeg">!</b>'}${esc(g.n)}</span>
         <span class="cwgd">${eerste?cwDatumKort(eerste).replace(/^\w+ /,'')
           +(laatste&&laatste!==eerste?' – '+cwDatumKort(laatste).replace(/^\w+ /,''):''):''}</span>
         <span class="cwgt">${g.items.length===totaal
