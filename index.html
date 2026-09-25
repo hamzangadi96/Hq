@@ -3886,7 +3886,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v663 · 25 sep 2026';
+const APPVERSIE='v664 · 25 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4207,7 +4207,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','vidsFase1b','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -22154,6 +22154,45 @@ const cwMaakVid=()=>({id:uid(),titel:CWMAAKTITEL,
    eigen veld, één groot tekstvak, dat je vlak voor het inspreken leest. */
 const CWSCRIPTCOMEBACK="🍫 shot 1 + 2\nIk heb vier maanden geen bonbon gemaakt. En dat is niet omdat ik gestopt ben. Kijk, ik ben geen chocolatier met een grote zaak. Overdag werk ik fulltime, en bonbons maak ik 's avonds en in het weekend.\n\n🚆 station, trein\nOverdag heb ik een baan die niks met chocolade te maken heeft. Daar ga ik 's ochtends heen, daar zit ik de hele dag, en pas als ik weer in de trein zit, begin ik aan chocolade te denken. En als ik uit de trein stap, ga ik eerst naar huis, naar mijn gezin, en daarna door naar de werkplaats. Daar gebeurt het, en elke bonbon die je hier ziet, gaat van begin tot eind door mijn eigen handen. Ik maak alles vers, omdat ik alleen wil verkopen waar ik zelf helemaal achter sta. En als de productie klaar is, begint het volgende deel: de productieruimte schoonmaken, foto's maken, de website bijwerken, live gaan op TikTok en daarna de bestellingen inpakken. Allemaal zelf.\n\nDus als er iets tussenkomt, ligt alles stil. En deze zomer kwam er van alles tussen. Het plafond moest eraan, het was te warm om met chocolade te werken, en privé speelde er iets.\n\nMaar nu ga ik weer beginnen. Met een klein budget, dus stap voor stap. En deze keer laat ik je alles zien, ook wat misgaat.";
 
+/* ═════ fase 1, zoals hij nu gepland is (25 sep) ═════
+   Comeback → eerste bonbon → deel 2 → zondag. De eerste bonbon eindigt op
+   een cliffhanger ("we moesten een naam bedenken"), dus deel 2 volgt de dag
+   erna — een open lus mag niet dagen blijven hangen. */
+const CWEERSTE='Mijn bonbons toen vs. nu';
+const CWDEEL2='Deel 2 — hoe we Cacaoboetiek opzetten';
+const CWZONDAGV='Zondag is mijn enige volle dag';
+const CWSCRIPTEERSTE="🍫 oude foto van je eerste bonbon\nDit was mijn eerste bonbon. November 2023. En eerlijk, ik vond hem echt mooi.\n\n💍 foto's uit die tijd, een wikkel of reep\nHet begon niet eens met bonbons. Mijn vrouw en ik wilden bedankjes maken: chocoladerepen inkopen en er onze eigen wikkels omheen doen. Maar kant-en-klare repen inkopen bleek duur. Dus zei ik: dan maken we het toch zelf.\n\n📦 starterspack en de marmeren plaat\nWe bestelden een starterspack. Zelfs de karamel zat er kant-en-klaar in, dus echt veel deden we nog niet. Op de marmeren plaat van mijn ouders hebben we onze eerste chocolade getempereerd.\n\n🔁 snelle wissel van oude foto's: karamel, pistache, gelei, kleur, airbrush\nDaarna elk weekend een paar mallen. De ene keer zelf karamel maken. Dan een pistacheganache. Dan een gelei, voor meerdere lagen. Een keer met kleur. Een keer met een airbrush. Het moest niet, maar ik kon er gewoon niet mee stoppen.\n\n🎁 oude foto van een volle doos of schaal\nWe gaven het aan familie en vrienden. En op een gegeven moment maakte ik er zo'n tweehonderd en nam ik ze mee naar mijn werk. Gewoon om te horen wat mensen ervan vonden.\n\n😏 close-up van jou, even stil\nNatuurlijk hoor je dan alleen de positieve reacties.\n\n✋ jij in de werkplaats\nMaar dat was wel het moment. We dachten: oké, we gaan er echt iets mee doen.\n\n✨ NU · de doos: lint, kaartje, deksel open, bonbons in het licht (traag, eerst alleen geluid)\nZo zien ze er nu uit. Nog steeds niet perfect. Maar wel van mij.\n\n✍️ leeg notitieblok of zwart beeld\nAlleen zit daartussen nog een heel verhaal. Om te beginnen: we moesten een naam bedenken.\n\n→ einde, overgang naar deel 2\n\nLET OP: tot aan het shot ✨ niets van nu in beeld — alleen oude foto's en jijzelf.";
+const cwFase1Nieuw=()=>[
+ {id:uid(),titel:CWEERSTE,
+  kern:'Chronologisch van toen naar nu, met de onthulling van nu aan het eind. Eindigt op een cliffhanger naar deel 2.',
+  taak:'binden', type:'verhaal', script:CWSCRIPTEERSTE,
+  zeggen:['Hook: “Dit was mijn eerste bonbon. November 2023. En ik vond hem echt mooi.”',
+          'Wending: “Natuurlijk hoor je dan alleen de positieve reacties.”'],
+  niet:['Iets van nu in beeld vóór de onthulling','Merknaam van de starterspack in beeld','Opscheppen of lesgeven','Vaste zin of webshop — de cliffhanger is het slot'],
+  shots:[{tekst:'Oude foto eerste bonbon',klaar:false},
+         {tekst:'Foto’s uit die tijd, wikkel of reep',klaar:false},
+         {tekst:'Starterspack en de marmeren plaat',klaar:false},
+         {tekst:'Oude foto’s: karamel, pistache, gelei, kleur, airbrush',klaar:false},
+         {tekst:'Oude foto volle doos of schaal',klaar:false},
+         {tekst:'Close-up van jezelf, even stil',klaar:false},
+         {tekst:'Jij in de werkplaats',klaar:false},
+         {tekst:'NU: doos met lint en kaartje, deksel open, traag',klaar:false},
+         {tekst:'Leeg notitieblok of zwart beeld',klaar:false}],
+  bak:'uitgewerkt', serie:'', gemaakt:Date.now()},
+ {id:uid(),titel:CWDEEL2,
+  kern:'Pakt de cliffhanger op: de naam bedenken en hoe Cacaoboetiek daarna vorm kreeg.',
+  taak:'binden', type:'verhaal', script:'',
+  zeggen:['Opent waar deel 1 eindigde: de naam'],
+  niet:['Kosten of bedragen','Leveranciers of merknamen'],
+  shots:[], bak:'idee', serie:'', gemaakt:Date.now()},
+ {id:uid(),titel:CWZONDAGV,
+  kern:'Een hele zondag in ±45 seconden, met de klok steeds in beeld.',
+  taak:'binden', type:'gebeurtenis', script:'',
+  zeggen:['Hook: de klok in beeld, vroeg in de ochtend'],
+  niet:['Kinderen in beeld of geluid — alleen het woord “gezin”','Zielig praten'],
+  shots:[], bak:'idee', serie:'', gemaakt:Date.now()}
+];
+
 const CWSERIE1='Twee petten';
 const CWSTART2=[
  'Fotograaf — hoe een productfoto tot stand komt',
@@ -22431,6 +22470,25 @@ function cwHTML(){
   /* ═════ het comebackscript erin ═════
      Eén keer. Staat er al een script, of heb je de video hernoemd tot iets
      zonder "comeback", dan blijft alles zoals het is. */
+  /* ═════ fase 1 volgens de planning van 25 september ═════
+     De drie nieuwe komen direct na de comeback. De drie die daar stonden
+     (Wat ik maak, Treinvideo, Avondvideo) gaan niet weg maar naar achteren,
+     zonder datum — met alles wat je erin had gezet. Omdat er evenveel
+     uitgaan als erin komen, houden alle andere video's hun datum. */
+  if(!S.vidsFase1b&&cwLijst().length){
+    const l=S.vids;
+    const oud=[CWMAAKTITEL,'Treinvideo — hoe mijn dag eruitziet','Avondvideo — werken om 23:00'];
+    const weg=[];
+    oud.forEach(t=>{ const i=l.findIndex(v=>v.titel===t&&!v.serie); if(i>=0) weg.push(l.splice(i,1)[0]) });
+    const nieuw=cwFase1Nieuw().filter(n=>!l.some(v=>v.titel===n.titel));
+    const c=l.findIndex(v=>v.titel==='Comebackvideo — waarom ik zo lang weg was')
+         ; const ci=c>=0?c:l.findIndex(v=>/comeback/i.test(v.titel||''));
+    l.splice(ci>=0?ci+1:0,0,...nieuw);
+    /* Hadden er minder oude gestaan dan er nieuwe bijkomen, dan zouden de
+       rest een plek opschuiven. Alleen verplaatsen wat er echt was. */
+    S.vids=l.concat(weg);
+    S.vidsFase1b=true; bewaarNu();
+  }
   if(!S.vidsScript1&&cwLijst().length){
     const c=cwLijst().find(v=>v.titel==='Comebackvideo — waarom ik zo lang weg was')
          ||cwLijst().find(v=>/comeback/i.test(v.titel||''));
