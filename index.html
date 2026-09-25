@@ -3886,7 +3886,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v664 · 25 sep 2026';
+const APPVERSIE='v665 · 25 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4207,7 +4207,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','vidsFase1b','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','vidsFase1b','vidsLeergeld1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -22056,7 +22056,7 @@ const CWZONDAG=['2026-10-11','2026-10-18','2026-10-25',
                 '2026-11-08','2026-11-15','2026-11-22'];
 /* de overige 25 postdagen, voor de reis */
 const CWREIS=['2026-10-01','2026-10-03','2026-10-04','2026-10-06',
- '2026-10-08','2026-10-10','2026-10-15','2026-10-17',
+ '2026-10-08','2026-10-10','2026-10-13','2026-10-15','2026-10-17',
  '2026-10-22','2026-10-24','2026-10-27',
  '2026-10-29','2026-10-31',
  '2026-11-01','2026-11-03','2026-11-05','2026-11-07','2026-11-12','2026-11-14',
@@ -22192,6 +22192,47 @@ const cwFase1Nieuw=()=>[
   niet:['Kinderen in beeld of geluid — alleen het woord “gezin”','Zielig praten'],
   shots:[], bak:'idee', serie:'', gemaakt:Date.now()}
 ];
+
+/* ═════ Leergeld ═════
+   Vier afleveringen, elk één dure fout en één les: naambescherming,
+   brandingbureau, illustraties, sleeves. Bewust als losse vlogs in je reis
+   en niet als serie — een serie krijgt in deze app de zondagen van Twee
+   petten. Bedragen mogen hier genoemd worden: een bewuste uitzondering op
+   de spelregel, alleen voor deze reeks. Nooit twee afleveringen kort na
+   elkaar, altijd iets lichts ertussen. */
+const CWLG1='Leergeld #1: Chocoture';
+const CWLG2='Leergeld #2: Het brandingbureau';
+const CWSCRIPTLG1="💸 jij, recht in de camera\nLeergeld. Dit heeft me tweeduizend euro gekost.\n\n📄 het woord op papier of in beeld: CHOCOTURE\nIk heb een woord laten beschermen. Chocoture.\n\n😏 close-up, even stil\nChocolade… en haute couture. Snap je hem?\n\n✍️ je logo, met ruimte eronder\nHet idee was dat dit onder onze naam kwam. Cacaoboetiek, en daaronder: Chocoture. Alsof je mijn bonbons kon vergelijken met een modehuis in Parijs.\n\n🤚 jij in de werkplaats\nMaar hoe langer ik ernaar keek, hoe minder het klopte. Ik maak bonbons 's avonds, in een kleine werkplaats. Die claim mag je pas maken als je chocolade echt het beste van het beste is. En zover ben ik nog niet.\n\n🎀 je logo met Raffinement eronder\nDus nu staat er Raffinement. Chocoture ligt in de la. Tot ik hem verdiend heb.\n\n✋ slot\nTweeduizend euro om te leren: laat eerst zien wat je maakt, voordat je er een groot woord op plakt.\n\n(optioneel) En dat was nog maar het begin.";
+const CWSCRIPTLG2="💸 jij, recht in de camera\nLeergeld. Dit heeft me tweeduizend euro gekost.\n\n📞 je telefoon of laptop, mails of een lijst bedrijven\nIk wilde een echte branding. Dus we hebben verschillende bureaus benaderd. Maar als je vertelt dat je bonbons maakt in je keuken, word je niet altijd serieus genomen.\n\n🤝 jij aan tafel, of een lege stoel tegenover je\nEén bureau wel. We hadden een goed gesprek. Zij adviseerden ons ook om Chocoture te laten registreren. Ook dat hebben we gedaan.\n\n⏳ wachten: klok, kalender of een lege tafel\nDaarna gingen ze aan de slag. Een logo, een huisstijl, doosjes. En toen gingen mijn vrouw en ik terug om het te zien.\n\n😶 close-up van jou, even stil\nHet was niet wat wij voor ogen hadden. Helemaal niet.\n\n✋ jij in de werkplaats\nWat ik ervan geleerd heb? Op een website zie je alleen het beste werk. Vraag in het gesprek om meer voorbeelden. Pas dan beslis je of je met ze in zee gaat.";
+const CWTOENOUD='Alleen zit daartussen nog een heel verhaal. Om te beginnen: we moesten een naam bedenken.';
+const CWTOENNIEUW='Dus we gingen het groots aanpakken. Te groots.';
+const cwLg1Velden=()=>({titel:CWLG1,
+  kern:'Tweeduizend euro om een woord te beschermen dat ik niet gebruik. Chocoture ligt in de la tot ik hem verdiend heb.',
+  taak:'binden', type:'verhaal', script:CWSCRIPTLG1,
+  zeggen:['Opening: \u201cLeergeld. Dit heeft me tweeduizend euro gekost.\u201d',
+          'Chocolade + haute couture = Chocoture. Snap je hem?',
+          'Die claim mag je pas maken als je chocolade echt het beste van het beste is.'],
+  niet:['Opscheppen','Lesgeven \u2014 het is jouw ervaring, geen cursus'],
+  shots:[{tekst:'Jij recht in de camera',klaar:false},
+         {tekst:'CHOCOTURE op papier of in beeld',klaar:false},
+         {tekst:'Close-up, even stil',klaar:false},
+         {tekst:'Logo met ruimte eronder',klaar:false},
+         {tekst:'Jij in de werkplaats',klaar:false},
+         {tekst:'Logo met Raffinement eronder',klaar:false}],
+  bak:'uitgewerkt', serie:''});
+const cwLg2Nieuw=()=>({id:uid(),titel:CWLG2,
+  kern:'Veel bureaus namen me niet serieus, \u00e9\u00e9n wel. Het resultaat was niet wat we voor ogen hadden. Les: vraag om meer voorbeelden.',
+  taak:'binden', type:'verhaal', script:CWSCRIPTLG2,
+  zeggen:['Opening: \u201cLeergeld. Dit heeft me tweeduizend euro gekost.\u201d',
+          'Callback naar #1: zij adviseerden Chocoture te registreren'],
+  niet:['Naam van het bureau noemen','Slecht over ze praten \u2014 \u201cniet wat wij voor ogen hadden\u201d'],
+  shots:[{tekst:'Jij recht in de camera',klaar:false},
+         {tekst:'Telefoon of laptop, mails of lijst bedrijven',klaar:false},
+         {tekst:'Jij aan tafel of lege stoel tegenover je',klaar:false},
+         {tekst:'Wachten: klok, kalender of lege tafel',klaar:false},
+         {tekst:'Close-up, even stil',klaar:false},
+         {tekst:'Jij in de werkplaats',klaar:false}],
+  bak:'uitgewerkt', serie:'', gemaakt:Date.now()});
 
 const CWSERIE1='Twee petten';
 const CWSTART2=[
@@ -22488,6 +22529,38 @@ function cwHTML(){
        rest een plek opschuiven. Alleen verplaatsen wat er echt was. */
     S.vids=l.concat(weg);
     S.vidsFase1b=true; bewaarNu();
+  }
+  /* ═════ Leergeld #1 en #2 (25 sep, avond) ═════
+     - Toen vs. nu krijgt zijn nieuwe slotzin; de naam bedenken is geschrapt.
+     - Op 4 oktober wordt het lege "Deel 2" Leergeld #1, met behoud van id.
+     - Leergeld #2 komt op dinsdag 13 oktober, een postdag die er nu bij is.
+       Eén postdag erbij en één video erbij op dezelfde plek: alle andere
+       video's houden hun datum. */
+  if(!S.vidsLeergeld1&&cwLijst().length){
+    const l=S.vids;
+    const tv=l.find(v=>v.titel===CWEERSTE);
+    if(tv){
+      if(typeof tv.script==='string'&&tv.script.indexOf(CWTOENOUD)>=0)
+        tv.script=tv.script.replace(CWTOENOUD,CWTOENNIEUW).replace('overgang naar deel 2','overgang naar Leergeld #1');
+      if(typeof tv.kern==='string') tv.kern=tv.kern.replace('cliffhanger naar deel 2','cliffhanger naar Leergeld #1');
+      if(Array.isArray(tv.shots)) tv.shots=tv.shots.filter(x=>!(x&&x.tekst==='Leeg notitieblok of zwart beeld'&&!x.klaar));
+    }
+    if(!l.some(v=>v.titel===CWLG1)){
+      const d2=l.find(v=>v.titel===CWDEEL2&&!(v.script||'').trim());
+      if(d2) Object.assign(d2,cwLg1Velden());
+      else {
+        const i=tv?l.indexOf(tv):-1;
+        l.splice(i>=0?i+1:l.length,0,Object.assign({id:uid(),gemaakt:Date.now()},cwLg1Velden()));
+      }
+    }
+    if(!l.some(v=>v.titel===CWLG2)){
+      /* direct na de video van zaterdag 10 oktober */
+      const dat=cwDatums();
+      const za=l.find(v=>!v.serie&&dat[v.id]==='2026-10-10');
+      const i=za?l.indexOf(za):-1;
+      l.splice(i>=0?i+1:l.length,0,cwLg2Nieuw());
+    }
+    S.vids=l; S.vidsLeergeld1=true; bewaarNu();
   }
   if(!S.vidsScript1&&cwLijst().length){
     const c=cwLijst().find(v=>v.titel==='Comebackvideo — waarom ik zo lang weg was')
