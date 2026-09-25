@@ -3886,7 +3886,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v660 · 21 sep 2026';
+const APPVERSIE='v663 · 25 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4207,7 +4207,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
-  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
+  'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
@@ -22148,6 +22148,12 @@ const cwMaakVid=()=>({id:uid(),titel:CWMAAKTITEL,
          {tekst:'Één bonbon eruit, glans in het licht draaien',klaar:false}],
   bak:'idee', serie:'', gemaakt:Date.now()});
 
+/* ═════ het uitgeschreven script ═════
+   Tot nu toe had een video alleen losse regels bij Zeggen, elk maximaal 140
+   tekens. Een voice-over is lopende tekst met shotkoppen ertussen — dus een
+   eigen veld, één groot tekstvak, dat je vlak voor het inspreken leest. */
+const CWSCRIPTCOMEBACK="🍫 shot 1 + 2\nIk heb vier maanden geen bonbon gemaakt. En dat is niet omdat ik gestopt ben. Kijk, ik ben geen chocolatier met een grote zaak. Overdag werk ik fulltime, en bonbons maak ik 's avonds en in het weekend.\n\n🚆 station, trein\nOverdag heb ik een baan die niks met chocolade te maken heeft. Daar ga ik 's ochtends heen, daar zit ik de hele dag, en pas als ik weer in de trein zit, begin ik aan chocolade te denken. En als ik uit de trein stap, ga ik eerst naar huis, naar mijn gezin, en daarna door naar de werkplaats. Daar gebeurt het, en elke bonbon die je hier ziet, gaat van begin tot eind door mijn eigen handen. Ik maak alles vers, omdat ik alleen wil verkopen waar ik zelf helemaal achter sta. En als de productie klaar is, begint het volgende deel: de productieruimte schoonmaken, foto's maken, de website bijwerken, live gaan op TikTok en daarna de bestellingen inpakken. Allemaal zelf.\n\nDus als er iets tussenkomt, ligt alles stil. En deze zomer kwam er van alles tussen. Het plafond moest eraan, het was te warm om met chocolade te werken, en privé speelde er iets.\n\nMaar nu ga ik weer beginnen. Met een klein budget, dus stap voor stap. En deze keer laat ik je alles zien, ook wat misgaat.";
+
 const CWSERIE1='Twee petten';
 const CWSTART2=[
  'Fotograaf — hoe een productfoto tot stand komt',
@@ -22422,6 +22428,15 @@ function cwHTML(){
     }
     S.vids=l; S.vidsFase1=true; bewaarNu();
   }
+  /* ═════ het comebackscript erin ═════
+     Eén keer. Staat er al een script, of heb je de video hernoemd tot iets
+     zonder "comeback", dan blijft alles zoals het is. */
+  if(!S.vidsScript1&&cwLijst().length){
+    const c=cwLijst().find(v=>v.titel==='Comebackvideo — waarom ik zo lang weg was')
+         ||cwLijst().find(v=>/comeback/i.test(v.titel||''));
+    if(c&&!(c.script||'').trim()) c.script=CWSCRIPTCOMEBACK;
+    S.vidsScript1=true; bewaarNu();
+  }
   let h=cwStrookHTML()
     +`<div class="blokkop"><span class="eyebrow">Je video's</span>
     <button class="kopknop" data-cwblauw>${svg(I.boek)}Blauwdruk</button>
@@ -22552,6 +22567,12 @@ function sheetCw(id){
            x.n}</button>`).join('')}</div>
        ${v.type?`<p class="klein" style="margin:8px 2px 0;color:var(--grijs2)">${
          esc((CWTYPE.find(x=>x.k===v.type)||{}).u||'')}</p>`:''}</div>
+     <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Script</span>${
+       (v.script||'').trim()?`<button class="kopknop" id="cwScriptKopie">Kopieer</button>`:''}</div>
+     <div class="veld"><textarea class="inp" id="cwScript" rows="14"
+       style="height:auto;min-height:260px;line-height:1.6;font-size:15.5px"
+       placeholder="De voice-over, uitgeschreven. Zet een shot tussen de alinea's, bijv. 🚆 station, trein">${
+       esc(v.script||'')}</textarea></div>
      ${cwRegelsHTML(v,'zeggen','Zeggen','Bijv. vier maanden weg geweest',false)}
      ${cwRegelsHTML(v,'niet','Niet doen','Bijv. inhoud prive',false)}
      ${cwRegelsHTML(v,'shots','Shots','Bijv. POV handen aan het werk',true)}
@@ -22566,9 +22587,10 @@ function sheetCw(id){
       : `<button class="prim" style="margin-top:0" id="cwDoor">${bak.doe}</button>`));
 
   const opslaan=()=>{
-    const tl=$('#cwTitel'), kr=$('#cwKern');
+    const tl=$('#cwTitel'), kr=$('#cwKern'), sc=$('#cwScript');
     if(tl){ const x=(tl.value||'').trim(); if(x&&x!==v.titel) v.titel=x }
     if(kr){ const x=(kr.value||'').trim(); if(x!==(v.kern||'')) v.kern=x }
+    if(sc){ const x=(sc.value||'').replace(/\s+$/,''); if(x!==(v.script||'')) v.script=x }
     bewaarNu();
   };
   bijSluiten=opslaan;
@@ -22608,6 +22630,13 @@ function sheetCw(id){
     $('#cwSerieN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); zetSerie() } };
     $('#cwSerieN').onblur=zetSerie;
   }
+  if($('#cwScript')) $('#cwScript').onblur=()=>opslaan();
+  if($('#cwScriptKopie')) $('#cwScriptKopie').onclick=()=>{
+    const x=($('#cwScript').value||'');
+    (navigator.clipboard?navigator.clipboard.writeText(x):Promise.reject())
+      .then(()=>toast('Script gekopieerd.'))
+      .catch(()=>{ const t=$('#cwScript'); t.focus(); t.select(); toast('Geselecteerd — kopieer met je vinger.') });
+  };
   $$('[data-cwbijok]').forEach(b=>b.onclick=()=>bij(b.dataset.cwbijok));
   $$('[data-cwbij]').forEach(el=>{
     el.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); bij(el.dataset.cwbij) } };
