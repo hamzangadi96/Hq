@@ -2581,6 +2581,11 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .fslijst{margin:0;padding:16px 18px 16px 40px;display:grid;gap:10px;font-size:15.5px;line-height:1.5}
 .fslijst li::marker{font-weight:700;color:var(--grijs2)}
 .fsaf{margin:0;font-size:14px;font-weight:600;color:var(--groen)}
+.fskopie{display:grid;gap:8px}
+.fskk{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.fskb{font:inherit;font-size:13px;font-weight:600;padding:7px 14px;border-radius:99px;border:0;background:var(--lijn);cursor:pointer}
+.fsku{margin:0;font-size:13px;color:var(--grijs2)}
+.fspre{margin:0;white-space:pre-wrap;word-break:break-word;font:13px/1.55 ui-monospace,Menlo,monospace;padding:14px 16px;border-radius:14px;border:1px solid var(--lijn);max-height:340px;overflow:auto}
 .weegrij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-bottom:1px solid var(--lijn);text-align:left}
 .weegrij:last-of-type{border-bottom:none}
 .weegrij .wgn{flex:1;font-size:15px;font-weight:450;letter-spacing:-.01em}
@@ -3936,7 +3941,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v672 · 27 sep 2026';
+const APPVERSIE='v674 · 27 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7189,187 +7194,236 @@ function filmdagOchtend27sep(){
   };
 }
 function filmdagWebsitebouwer(){
-  const VOLG=['Typ in ChatGPT: volgende. Wacht tot het antwoord helemaal klaar is.',
-    'Kopieer de nieuwe code. Staat er "vervang de hele sectie", dan selecteer je in Edit code alles in heropening-aanmelden.liquid (⌘A) en plak je eroverheen.',
-    'Klik op Save.',
-    'Ga naar het tabblad met de pagina en ververs met ⌘R.'];
+  const PROMPT="Je bent een ervaren Shopify-developer. Bouw voor mijn webshop een aanmeldpagina voor de heropening. Ik werk met een eigen Shopify-thema in Liquid, zonder page builders. Schrijf alles zelf in HTML, CSS en vanilla JavaScript, zonder externe libraries.\n\n## Doel van de pagina\nBezoekers laten hun e-mailadres achter zodat ze als eerste horen dat de webshop op 1 november 2026 weer opengaat. De pagina moet leuk en uniek zijn, geen standaard nieuwsbriefblok.\n\n## Belangrijk: de webshop staat achter een wachtwoordpagina\nTot 1 november staat mijn winkel op slot met Shopify-wachtwoordbeveiliging. Iedere bezoeker van cacaoboetiek.nl ziet dus de wachtwoordpagina. Die wachtwoordpagina moet deze heropeningspagina worden.\n- Maak de sectie sections/heropening-aanmelden.liquid.\n- Gebruik die sectie op de wachtwoordpagina: templates/password.json (of templates/password.liquid als mijn thema dat gebruikt).\n- Controleer layout/password.liquid: die moet {{ content_for_header }} en {{ content_for_layout }} bevatten. Geef een aangepaste versie als dat nodig is.\n- Zet onderaan een klein, onopvallend linkje \"Wachtwoord\". Dat opent een popup met {% form 'storefront_password' %}, zodat ik zelf nog in de winkel kan.\n- Na 1 november zet ik de wachtwoordbeveiliging uit. De afteller mag dan op 0 blijven staan.\n\n## Wat er op de pagina moet staan\n1. Kop en tekst\n   - Klein label bovenaan: \"Cacaoboetiek · Heropening\"\n   - Kop: \"Nog even, dan is de mal vol.\"\n   - Tekst: \"Op 1 november gaat de webshop weer open, met verse bonbons en meer. Vanaf die dag ben ik ook weer live op TikTok.\"\n\n2. Bonbons als animatie\n   - Drie bonbons naast de kop: een koepel van witte chocolade met een schuine streep melkchocolade, een ronde pure bonbon met glans, en een vierkante melkbonbon met lichte streepjes.\n   - Teken ze als inline SVG. Maak in de section-instellingen ook een image_picker per bonbon, zodat ik ze later kan vervangen door foto's van mijn echte bonbons.\n   - Ze deinen zachtjes op en neer. Om de paar seconden springt er één omhoog en draait een rondje. Bij een tik springt die bonbon ook.\n\n3. Laadbalk waar chocolade in wordt gegoten\n   - Een brede, afgeronde balk die eruitziet als een lege mal.\n   - Van links loopt de balk vol met vloeibare chocolade, met een bewegende glans op het oppervlak en een licht golvende voorkant.\n   - Boven de voorkant hangt een tuit waar een straal chocolade uit loopt, precies op de plek waar de balk vol is. Waar de straal de chocolade raakt, spatten kleine druppels op.\n   - De balk meet de tijd: van de sluitingsdatum (instelbaar) tot het openingsmoment (instelbaar). Hij loopt dus elke dag verder vol.\n   - Boven de balk: \"De mal loopt vol\" en rechts het percentage, bijvoorbeeld \"43% gegoten\".\n   - Onder de balk: links \"Webshop dicht\", rechts \"1 november · open\".\n\n4. Afteller\n   - Dagen, uren, minuten, seconden tot het openingsmoment, grote cijfers die elke seconde verspringen.\n   - Daaronder drie korte regels:\n     \"1 nov – De webshop gaat weer open\"\n     \"vers – Bonbons, gemaakt in de week van de opening\"\n     \"live – Weer op TikTok, met spelletjes\"\n\n5. Aanmeldformulier\n   - Gebruik het Shopify-klantformulier: {% form 'customer' %} met contact[email] en een verborgen veld contact[tags] met de waarde \"newsletter,heropening-nov\".\n   - Kop in het formulier: \"Laat je mail achter, dan hoor je het als eerste.\"\n   - Knop: \"Zet me op de lijst\"\n   - Kleine tekst: \"Je krijgt alleen mail als er echt iets te melden is.\"\n   - Controleer het mailadres met JavaScript. Foutmelding: \"Dat mailadres klopt nog niet helemaal. Kijk even of er een @ en een punt in staan.\"\n   - Na succesvol aanmelden (form.posted_successfully?): \"Je staat op de lijst. Op 1 november hoor je het als eerste.\" Laat dan kleine bonbons van boven naar beneden over het scherm regenen.\n   - Toon fouten van Shopify (form.errors) netjes in het Nederlands.\n\n## Stijl\n- Licht en rustig: witte of bijna-witte achtergrond, bijna-zwarte tekst. Geen warme beige of crèmetinten.\n- De enige echte kleur is de chocolade zelf: donkerbruin, melkbruin en wit-chocolade.\n- Niet alles gecentreerd onder elkaar. Op desktop staan kop en bonbons naast elkaar, daaronder de balk over de volle breedte, daaronder afteller en formulier naast elkaar. Op mobiel alles onder elkaar.\n- Werkt goed op telefoonbreedte (~375px), zonder horizontaal scrollen.\n- Respecteer prefers-reduced-motion: dan staan alle animaties stil en is alles gewoon leesbaar.\n- Toegankelijk: labels bij invoervelden, zichtbare focusrand, voldoende contrast.\n\n## Instellingen in de section-schema\n- Sluitingsdatum (tekst, formaat 2026-09-01T00:00)\n- Openingsmoment (tekst, formaat 2026-11-01T00:00)\n- Alle teksten hierboven aanpasbaar\n- Drie image_pickers voor de bonbons (optioneel, anders de SVG)\n\nVraag mij eerst welke bestanden er in mijn mappen templates en layout staan die met \"password\" beginnen, voordat je code geeft.\n\n## Wat ik terug wil\n1. De sectie en de aangepaste password-bestanden, compleet.\n2. Korte stappen om ze te plaatsen en om de pagina te bekijken zoals een bezoeker hem ziet.\n\nSchrijf de code in kleine stappen met korte uitleg per onderdeel. Ik film het bouwen voor een video, dus bouw in deze volgorde: eerst de opbouw van de pagina, dan de balk met de gietende chocolade, dan de bonbons, dan de afteller, en als laatste het formulier.\n\nGeef nu alleen stap 1. Wacht tot ik \"volgende\" typ voordat je verdergaat.";
+  const VO={"1": "Het is [elf uur] op zondag, en de mallen blijven vandaag in de kast.\nDeze keer zit ik achter het scherm.\nVorige week was het montage, vandaag is het de website.", "2": "Voor november heb ik één ding nodig dat nog niet bestaat.\nDat is een plek waar mensen hun mail achterlaten, zodat ze horen wanneer het zover is.\nDie pagina bouw ik vandaag.", "3": "Overdag heb ik een baan die niks met chocolade te maken heeft.\nWat je hier ziet, leer ik in de avonden en de weekenden.\nBij chocolade weet ik inmiddels wat ik doe.\nCode vraagt nog meer geduld, dus daar neem ik de tijd voor.", "4": "Hier liep ik vast, en het duurde [twintig minuten] voordat ik zag waarom.\nHet bleek [wat het echt was] te zijn.", "5": "Iets nieuws leren gaat nooit vanzelf.\nMijn manier is gewoon beginnen en onderweg uitzoeken hoe het moet.", "6": "En dan staat de pagina er ineens.\nHet is één vakje en één knop, maar het voelt als een stap vooruit.\nOp mijn telefoon doet hij het ook.", "7": "Het eerste adres dat erin staat, is dat van mijzelf.\n1 november gaat de webshop open, laat je mail achter.", "8": "Volgende week zet ik weer een andere pet op."};
+  const VOALLES="1 · HOOK\nHet is [elf uur] op zondag, en de mallen blijven vandaag in de kast.\nDeze keer zit ik achter het scherm.\nVorige week was het montage, vandaag is het de website.\n\n2 · WAAROM DEZE PAGINA\nVoor november heb ik één ding nodig dat nog niet bestaat.\nDat is een plek waar mensen hun mail achterlaten, zodat ze horen wanneer het zover is.\nDie pagina bouw ik vandaag.\n\n3 · BINDEN: TIJD EN GEDULD\nOverdag heb ik een baan die niks met chocolade te maken heeft.\nWat je hier ziet, leer ik in de avonden en de weekenden.\nBij chocolade weet ik inmiddels wat ik doe.\nCode vraagt nog meer geduld, dus daar neem ik de tijd voor.\n\n4 · FOUTMOMENT (ALLEEN ALS HET ECHT GEBEURDE)\nHier liep ik vast, en het duurde [twintig minuten] voordat ik zag waarom.\nHet bleek [wat het echt was] te zijn.\n\n5 · BRUG NAAR DE KIJKER\nIets nieuws leren gaat nooit vanzelf.\nMijn manier is gewoon beginnen en onderweg uitzoeken hoe het moet.\n\n6 · KLEINE OVERWINNING\nEn dan staat de pagina er ineens.\nHet is één vakje en één knop, maar het voelt als een stap vooruit.\nOp mijn telefoon doet hij het ook.\n\n7 · ZACHTE DUW\nHet eerste adres dat erin staat, is dat van mijzelf.\n1 november gaat de webshop open, laat je mail achter.\n\n8 · AFSLUITER, IN DE CAMERA\nVolgende week zet ik weer een andere pet op.";
+  const vo=n=>({titel:'Voice-over bij dit stuk (blok '+n+')',tekst:VO[n],uitleg:'Dit spreek je later in. Nu alleen lezen, zodat je weet wat je beelden moeten laten zien.'});
+  const VOLG=['Typ in ChatGPT het woord hieronder en druk op Enter.',
+    'Wacht tot het antwoord helemaal klaar is. Lees de korte uitleg van ChatGPT even mee.',
+    'Kopieer de nieuwe code met het kopieerknopje rechtsboven in het codeblok van ChatGPT.',
+    'Ga naar Code bewerken en open sections/heropening-aanmelden.liquid.',
+    'Zegt ChatGPT "vervang de hele sectie", selecteer dan alles (⌘A) en plak eroverheen. Zegt hij "voeg toe onder …", plak het dan precies op die plek.',
+    'Klik rechtsboven op Save. Zie je een rode foutmelding, kopieer die dan naar ChatGPT (zie de stap Vastgelopen).',
+    'Ga naar het privévenster met cacaoboetiek.nl en ververs met ⌘R.'];
+  const VOLGK={titel:'Typ dit in ChatGPT',tekst:'volgende'};
   return {
-    datum:'2026-09-27', id:'2026-09-27-web2',
+    datum:'2026-09-27', id:'2026-09-27-web3',
     titel:'Twee petten · De Websitebouwer',
     regels:[
       'Voor Twee petten #2, post zondag 18 oktober.',
-      'Je bouwt echt: de aanmeldpagina voor 1 november.',
+      'Je bouwt echt: de aanmeldpagina voor 1 november, op de wachtwoordpagina van cacaoboetiek.nl.',
       'Loopt er iets vast, laat de camera doorlopen. Niets naspelen.',
       'Geen logo\'s, bedragen, mails of klantnamen groot in beeld.',
+      'Webshop → Voorkeuren nooit filmen: daar staat je wachtwoord.',
       'Gezin blijft buiten beeld en buiten het geluid.'
     ],
     blokken:[
       {naam:'0 · Klaarzetten', items:[
-        ['Check: staat er een wachtwoordpagina op de winkel?','Op je pc',[
-          'Open Shopify en ga naar Online Store → Preferences.',
-          'Scroll naar Password protection.',
-          'Staat die aan, dan kan niemand een losse pagina zien. Stop hier en vraag in Claude om de prompt aan te passen, zodat de aanmelding op de wachtwoordpagina komt.',
-          'Staat die uit, vink dit af en ga door.']],
+        ['Wachtwoordpagina gecheckt: staat aan','Op je pc',[
+          'Gecheckt in Webshop → Voorkeuren: wachtwoordbeveiliging staat aan.',
+          'Dat betekent: iedere bezoeker van cacaoboetiek.nl ziet de wachtwoordpagina. Die maak je vandaag tot je aanmeldpagina.',
+          'Sluit het tabblad Voorkeuren nu, want daar staat je wachtwoord leesbaar.']],
         ['ChatGPT open in een nieuw gesprek','Op je pc',[
-          'Open ChatGPT in Safari en start een nieuw gesprek.',
-          'Zet de prompt voor de aanmeldpagina alvast klaar in je klembord of notities.',
-          'Nog niet plakken, dat doe je pas als de camera draait.']],
-        ['Tweede tab: Themes → ⋯ → Edit code','Op je pc',[
+          'Open ChatGPT in Safari en klik op Nieuwe chat.',
+          'Kopieer de prompt hieronder met de knop Kopieer. Nog niet plakken, dat doe je pas als de camera draait.',
+          'Lees hem één keer door. Klopt de sluitingsdatum (nu 1 september) en het openingsmoment (1 november 00:00)? Pas die dan in de prompt aan na het plakken.'],
+          [{titel:'De prompt voor ChatGPT',tekst:PROMPT}]],
+        ['Tweede tab: Code bewerken','Op je pc',[
           'Open een nieuw tabblad met Shopify.',
-          'Ga naar Online Store → Themes.',
-          'Klik bij je thema op de drie puntjes (⋯) en kies Edit code.',
+          'Ga naar Webshop → Thema\'s.',
+          'Klik bij je live thema op de drie puntjes (⋯) en kies Code bewerken.',
+          'Links zie je mappen: layout, templates, sections. Die heb je straks nodig.',
           'Laat dit tabblad openstaan.']],
-        ['Tabbladen met mail, orders en klanten dicht','Op je pc',[
-          'Sluit alles waar klantnamen, mailadressen of bedragen op staan.',
-          'Zet meldingen op je Mac even uit: klik rechtsboven op het maantje en kies Niet storen.']],
-        ['Camera over je schouder: scherm en handen','Camera',[
-          'Zet de camera op het statief, schuin achter je, op schouderhoogte.',
-          'In beeld: het scherm en je handen op het toetsenbord.',
+        ['Privévenster met cacaoboetiek.nl','Op je pc',[
+          'Open in Safari een privévenster (⇧⌘N).',
+          'Ga naar cacaoboetiek.nl. Je ziet nu de huidige wachtwoordpagina, precies zoals een bezoeker.',
+          'Dit is ook je voor-shot straks. Laat het venster open.']],
+        ['Alles met klantgegevens dicht, Niet storen aan','Op je pc',[
+          'Sluit tabbladen met mail, bestellingen, klanten en Voorkeuren.',
+          'Klik rechtsboven in de menubalk op het bedieningspaneel en zet Niet storen aan.',
+          'Zet je telefoon op stil, en ook uit beeld van de camera\'s.']],
+        ['Camera 1 over je schouder: scherm en handen','Camera',[
+          'Statief schuin achter je, op schouderhoogte.',
+          'In beeld: het iMac-scherm en je handen op het toetsenbord. Geen gezicht nodig.',
           'Zet de focus handmatig op het scherm, zodat hij niet heen en weer springt.',
-          'Druk op opnemen en laat hem doorlopen.']],
-        ['Camera van voren: gezicht in het schermlicht','Camera',[
+          'Stel de belichting af op het scherm, zodat de tekst niet uitbrandt.',
+          'Druk op opnemen en laat hem de hele sessie doorlopen.']],
+        ['Camera 2 van voren: gezicht in het schermlicht','Camera',[
           'Tweede camera of je telefoon naast de iMac, gericht op je gezicht.',
-          'Het scherm is je licht. Zet het plafondlicht eventueel uit voor sfeer.',
-          'Check dat de achtergrond rustig is en dat er niets privés in beeld staat.']],
+          'Het scherm is je licht. Zet het plafondlicht eventueel uit, dat geeft sfeer.',
+          'Check de achtergrond: rustig, niets privé, geen papieren met gegevens.',
+          'Druk op opnemen.']],
         ['Schermopname aan met QuickTime','Camera',[
           'Open QuickTime Player.',
           'Kies Archief → Nieuwe schermopname (of druk ⇧⌘5).',
           'Kies Neem hele scherm op en klik op Neem op.',
-          'Stoppen doe je straks via het stopknopje in de menubalk.']],
+          'Stoppen doe je aan het eind via het stopknopje in de menubalk.',
+          'Tip: klap één keer in je handen als alles loopt. Dan kun je bij het monteren alle beelden makkelijk gelijk zetten.']],
         ['Mic op en een testje terugluisteren','Camera',[
-          'Klip de mic op en zet hem aan.',
-          'Zeg een zin, stop de opname en luister terug.',
-          'Klinkt het goed, start dan beide camera\'s opnieuw en laat ze lopen.']]
+          'Klip de mic op je shirt, ongeveer een hand onder je kin.',
+          'Zeg een zin, stop, en luister terug met oortjes.',
+          'Klinkt het goed, start dan alles opnieuw en laat het lopen.']]
       ]},
-      {naam:'1 · Begin · voice-over 1', items:[
+      {naam:'1 · Begin', items:[
         ['Klok in beeld, 5 seconden','Filmen',[
-          'Film de klok op je scherm of je telefoon, 5 seconden stil.',
-          'Dit is het tijdstip dat je straks in de voice-over noemt. Onthoud het.']],
+          'Film de klok op je scherm of telefoon, 5 seconden stil.',
+          'Schrijf het tijdstip op. Dat komt in de eerste zin van je voice-over.'],
+          [vo(1)]],
         ['De schort over de stoel','Filmen',[
-          'Hang je schort over de stoel of haak.',
-          'Film hem 5 seconden, stil.',
-          'Dit shot zegt zonder woorden: vandaag geen chocolade.']],
-        ['Het lege scherm','Filmen',[
-          'Film het tabblad Edit code, waar nog niks van de nieuwe pagina staat.',
-          'Dit is je voor-shot. Aan het eind film je hetzelfde kader met de pagina af.']]
+          'Hang je schort over de stoel of een haak naast je.',
+          'Film hem 5 seconden, camera stil.',
+          'Dit shot vertelt zonder woorden: vandaag geen chocolade.']],
+        ['Het lege scherm (voor-shot)','Filmen',[
+          'Film het privévenster met de huidige wachtwoordpagina.',
+          'Onthoud het kader. Aan het eind film je precies hetzelfde kader met de nieuwe pagina.']]
       ]},
-      {naam:'2 · De prompt · voice-over 2', items:[
-        ['Prompt plakken, met "Geef nu alleen stap 1" eronder','Op je pc',[
-          'Ga naar ChatGPT en plak de prompt (⌘V).',
-          'Zet eronder: Geef nu alleen stap 1. Wacht tot ik "volgende" typ voordat je verdergaat.',
-          'Druk op Enter.']],
+      {naam:'2 · De prompt', items:[
+        ['Prompt plakken en versturen','Op je pc',[
+          'Ga naar ChatGPT.',
+          'Plak de prompt (⌘V). Onderaan staat al: Geef nu alleen stap 1.',
+          'Druk op Enter.'],
+          [{titel:'De prompt voor ChatGPT',tekst:PROMPT},vo(2)]],
+        ['ChatGPT vraagt naar je password-bestanden','Op je pc',[
+          'Ga naar Code bewerken.',
+          'Open de map templates. Kijk of er password.json of password.liquid staat.',
+          'Open de map layout. Kijk of er password.liquid staat.',
+          'Typ in ChatGPT wat je ziet, bijvoorbeeld het voorbeeld hieronder.'],
+          [{titel:'Voorbeeldantwoord (pas aan naar wat je ziet)',tekst:'In templates staat: password.json\nIn layout staat: password.liquid\nGa verder met stap 1.'}]],
         ['Handen die plakken en op Enter drukken','Filmen',[
-          'Dit komt van de schoudercamera, die loopt al.',
-          'Wil je een extra shot, doe dan een close-up van je vinger op Enter.']],
+          'Dit komt van camera 1, die loopt al.',
+          'Wil je een extra shot, pak dan de camera en doe een close-up van je vinger op Enter.']],
         ['Je gezicht terwijl het antwoord binnenkomt','Filmen',[
           'Kijk gewoon naar het scherm terwijl de code verschijnt.',
-          'Niet naar de camera kijken. De voorcamera vangt het.']]
+          'Niet naar de camera kijken. Camera 2 vangt het.']]
       ]},
-      {naam:'3 · Opbouw · voice-over 3', items:[
-        ['Sections → nieuwe sectie heropening-aanmelden → plakken → Save','Op je pc',[
-          'Ga naar het tabblad Edit code.',
-          'Klik links bij de map sections op Add a new section.',
-          'Naam: heropening-aanmelden. Kies Liquid.',
-          'Selecteer alles wat er standaard in staat (⌘A) en plak de code van ChatGPT eroverheen.',
-          'Klik op Save.']],
-        ['Templates → nieuw page-template heropening → plakken → Save','Op je pc',[
-          'Klik links bij templates op Add a new template.',
-          'Kies type page en JSON. Naam: heropening.',
-          'Vervang de inhoud door de JSON van ChatGPT.',
-          'Klik op Save.']],
-        ['Pages → pagina Heropening → template heropening → Save','Op je pc',[
-          'Ga in Shopify naar Online Store → Pages → Add page.',
-          'Titel: Heropening. De tekst mag leeg blijven.',
-          'Kies rechts bij Theme template: heropening.',
-          'Zet de pagina op Visible en klik op Save.',
-          'Klik op View page, zodat de pagina in een nieuw tabblad opent.']],
+      {naam:'3 · Opbouw', items:[
+        ['Nieuwe sectie: heropening-aanmelden','Op je pc',[
+          'Ga naar Code bewerken.',
+          'Klik bij de map sections op Een nieuwe sectie toevoegen (of het plusje).',
+          'Naam: heropening-aanmelden. Kies liquid als type.',
+          'Selecteer alles wat er standaard in staat (⌘A) en plak de sectiecode van ChatGPT eroverheen.',
+          'Klik op Save.'],
+          [vo(3)]],
+        ['templates/password aanpassen','Op je pc',[
+          'Open in de map templates het bestand password.json (of password.liquid).',
+          'Selecteer alles (⌘A) en plak de code van ChatGPT eroverheen.',
+          'Klik op Save.',
+          'Twijfel je? Vraag ChatGPT met de zin hieronder.'],
+          [{titel:'Als je twijfelt, typ in ChatGPT',tekst:'Moet ik de hele inhoud van templates/password.json vervangen, of alleen een deel? Laat me precies zien wat erin moet.'}]],
+        ['layout/password.liquid checken','Op je pc',[
+          'Open in de map layout het bestand password.liquid.',
+          'Geeft ChatGPT een aangepaste versie, selecteer dan alles (⌘A), plak eroverheen en klik op Save.',
+          'Zegt ChatGPT dat hij goed is, dan doe je niks.']],
         ['Schermopname van het plakken','Filmen',[
           'Die heb je al via QuickTime. Je hoeft niks extra te doen.',
-          'Let erop dat je tussendoor niet naar tabbladen met klantgegevens klikt.']],
+          'Let op: klik tussendoor niet naar tabbladen met klantgegevens.']],
         ['De pagina die voor het eerst verschijnt','Filmen',[
-          'Ververs het tabblad met de pagina.',
-          'Film de pagina 5 seconden. Hij is nog kaal, en dat is precies goed.']]
+          'Ga naar het privévenster met cacaoboetiek.nl en ververs met ⌘R.',
+          'Film de pagina 5 seconden. Hij is nog kaal, en dat is precies goed.',
+          'Zie je nog de oude wachtwoordpagina? Ververs met ⌥⌘R, of sluit het privévenster en open een nieuw.']]
       ]},
       {naam:'4 · De gietende chocolade', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['Balk bouwen: volgende → plakken → Save → verversen','Op je pc',VOLG,[VOLGK]],
         ['Chocolade die de balk in loopt, twee of drie keer','Filmen',[
-          'Dit is je sterkste shot. Pak de camera van het statief.',
-          'Film het scherm van dichtbij terwijl je de pagina ververst.',
-          'Doe dit twee of drie keer, zodat je bij het monteren kunt kiezen.']],
+          'Dit is je sterkste shot. Pak camera 1 van het statief.',
+          'Ga dicht op het scherm staan, zodat de balk het hele beeld vult.',
+          'Ververs de pagina en film hoe de chocolade erin loopt.',
+          'Doe dit twee of drie keer, dan kies je bij het monteren de mooiste.']],
         ['Je reactie van voren','Filmen',[
           'Werkt het, reageer dan zoals je echt reageert.',
-          'Niet overdoen voor de camera. Mag ook stil zijn.']]
+          'Niet overdoen voor de camera. Stil mag ook.']]
       ]},
       {naam:'5 · De bonbons', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['Bonbons bouwen: volgende → plakken → Save → verversen','Op je pc',VOLG,[VOLGK]],
         ['Een bonbon die springt als je erop tikt','Filmen',[
           'Film het scherm van dichtbij.',
-          'Klik op een bonbon, zodat hij springt.',
-          'Mooi extra: dezelfde pagina op je telefoon, met je vinger die tikt.']]
+          'Klik op een bonbon, zodat hij springt en een rondje draait.',
+          'Extra mooi: dezelfde pagina op je telefoon, met je vinger die tikt.'],
+          [vo(5)]]
       ]},
       {naam:'6 · De afteller', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['Afteller bouwen: volgende → plakken → Save → verversen','Op je pc',VOLG,[VOLGK]],
         ['Close-up van de secondes, 10 seconden','Filmen',[
-          'Film de afteller van dichtbij, 10 seconden stil.',
-          'Houd de camera rustig, alleen de cijfers bewegen.']]
+          'Film de afteller van dichtbij, 10 seconden.',
+          'Camera rustig, alleen de cijfers bewegen.']]
       ]},
       {naam:'7 · Het formulier', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['Formulier bouwen: volgende → plakken → Save → verversen','Op je pc',VOLG,[VOLGK]],
         ['De lege invulvakjes','Filmen',[
           'Film het formulier van dichtbij, nog leeg.',
           'Dit shot komt vlak voor het moment dat je jezelf aanmeldt.']],
-        ['Vastgelopen? Camera laten lopen · voice-over 4','Alleen als het echt gebeurt',[
-          'Gebeurt er ergens iets geks of werkt iets niet, laat de camera\'s dan gewoon doorlopen.',
-          'Kopieer de foutmelding en plak die in ChatGPT met: dit werkt niet, wat is er mis?',
-          'Noteer hoe lang het duurde en wat de oorzaak was. Dat gaat in het script.',
-          'Is er niks misgegaan, vink dit dan gewoon af.']]
+        ['Vastgelopen? Camera laten lopen','Alleen als het echt gebeurt',[
+          'Gebeurt er ergens iets geks of werkt iets niet, laat de camera\'s gewoon doorlopen.',
+          'Kopieer de foutmelding (of maak een schermafbeelding met ⇧⌘4).',
+          'Plak die in ChatGPT met de zin hieronder.',
+          'Noteer hoe lang het duurde en wat de oorzaak was. Dat komt in blok 4 van je voice-over.',
+          'Is er niks misgegaan, vink dit dan gewoon af en sla blok 4 over.'],
+          [{titel:'Typ in ChatGPT',tekst:'Dit werkt niet. Dit is de foutmelding of wat ik zie:\n\n[plak hier de foutmelding]\n\nWat is er mis, en welke code moet ik precies vervangen?'},vo(4)]]
       ]},
-      {naam:'8 · Het werkt · voice-over 6 en 7', items:[
+      {naam:'8 · Het werkt', items:[
         ['De pagina openen op je telefoon','Op je telefoon',[
-          'Open Safari op je telefoon.',
-          'Ga naar cacaoboetiek.nl/pages/heropening.',
-          'Check of alles goed staat: balk, bonbons, afteller, formulier.']],
+          'Open Safari op je telefoon in een privétabblad.',
+          'Ga naar cacaoboetiek.nl.',
+          'Check alles: de balk, de bonbons, de afteller, het formulier. Niets mag van het scherm af vallen.'],
+          [vo(6)]],
         ['Je eigen mail invullen en aanmelden','Op je telefoon',[
           'Vul je eigen mailadres in.',
           'Tik op Zet me op de lijst.',
-          'Zie je de bonbonregen en "Je staat op de lijst", dan werkt het.']],
-        ['Customers: sta je erin met de tag heropening-nov?','Op je pc',[
-          'Ga in Shopify naar Customers.',
+          'Zie je de bonbonregen en "Je staat op de lijst", dan werkt het.'],
+          [vo(7)]],
+        ['In Klanten: sta je erin met de tag heropening-nov?','Op je pc',[
+          'Ga in Shopify naar Klanten.',
           'Zoek je eigen mailadres.',
-          'Check of de tag heropening-nov erbij staat en of je bent aangemeld voor marketing.']],
+          'Check: de tag heropening-nov staat erbij en je bent aangemeld voor marketing.',
+          'Staat het er niet, typ dan in ChatGPT de zin hieronder.'],
+          [{titel:'Als de aanmelding niet in Klanten staat',tekst:'Ik heb me aangemeld via het formulier, maar ik zie mezelf niet terug in Klanten met de tag heropening-nov. Wat moet ik controleren?'}]],
         ['Telefoon in je hand met de bonbonregen','Filmen',[
-          'Meld je voor dit shot aan met een tweede mailadres, of maak de aanmelding in Customers weer ongedaan.',
-          'Film je telefoon in je hand terwijl je op de knop tikt.',
-          'De camera staat boven je schouder, zodat je het scherm goed ziet.']],
-        ['Jezelf in de klantenlijst, mailadres later blurren','Filmen',[
-          'Film de regel met jezelf in Customers, 3 seconden.',
-          'Zorg dat er geen andere klanten in beeld staan. Filter eventueel op je eigen naam.',
-          'Blur je mailadres bij het monteren.']]
+          'Meld je voor dit shot aan met een tweede mailadres.',
+          'Camera boven je schouder, zodat je het telefoonscherm goed ziet.',
+          'Film je duim die op de knop tikt en de bonbons die vallen.']],
+        ['Jezelf in de klantenlijst','Filmen',[
+          'Zoek in Klanten op je eigen naam, zodat er geen andere klanten in beeld staan.',
+          'Film die ene regel 3 seconden.',
+          'Blur je mailadres bij het monteren.']],
+        ['Het na-shot: zelfde kader als het begin','Filmen',[
+          'Zet de camera terug op de plek van het voor-shot.',
+          'Film het privévenster met de nieuwe pagina, 5 seconden.',
+          'In de montage zet je voor en na direct achter elkaar.']]
       ]},
-      {naam:'9 · Afsluiten · voice-over 8', items:[
+      {naam:'9 · Afsluiten', items:[
         ['De klok: hoe laat het nu is','Filmen',[
           'Film de klok, 5 seconden stil.',
-          'Noteer de tijd. Het verschil met het begin is de duur voor het script.']],
-        ['Praatmoment: "Volgende week zet ik weer een andere pet op."','Filmen',[
-          'Kijk in de voorcamera.',
-          'Zeg rustig: Volgende week zet ik weer een andere pet op.',
-          'Doe hem twee of drie keer, dan kies je later de beste.']],
-        ['Thumbnail: jij achter het scherm met de pagina open','Filmen',[
-          'Open de pagina groot op je scherm.',
-          'Ga ernaast zitten, gezicht naar de camera, goed licht.',
-          'Maak een paar foto\'s. Kies er later één voor de omslag.']]
+          'Schrijf de tijd op. Het verschil met het begin is de duur.']],
+        ['Praatmoment in de camera','Filmen',[
+          'Kijk in camera 2.',
+          'Zeg rustig de zin hieronder.',
+          'Doe hem twee of drie keer, dan kies je later de beste.'],
+          [vo(8)]],
+        ['Thumbnail: jij naast de pagina','Filmen',[
+          'Zet de nieuwe pagina groot op je scherm.',
+          'Ga ernaast zitten, gezicht naar de camera, goed licht op je gezicht.',
+          'Maak een paar foto\'s. Kies er later één voor de omslag.']],
+        ['Alle opnames stoppen','Camera',[
+          'Stop de QuickTime-schermopname via het stopknopje in de menubalk. Bewaar hem als websitebouwer-scherm.',
+          'Stop camera 1 en camera 2.',
+          'Zet Niet storen weer uit.']]
       ]},
       {naam:'10 · Na het filmen', items:[
-        ['Link in bio naar de nieuwe pagina','Op je pc',[
+        ['Link in bio checken','Op je pc',[
           'Open TikTok en ga naar je profiel.',
-          'Zet de link in je bio op cacaoboetiek.nl/pages/heropening.',
+          'Check dat de link in je bio gewoon cacaoboetiek.nl is. Iedereen komt nu direct op de aanmeldpagina.',
           'Doe hetzelfde op Instagram.']],
-        ['Tijdstip en minuten noteren voor het script','',[
-          'Vul in het script de [ ] in: hoe laat je begon, hoe lang het duurde, en wat er eventueel misging.']],
+        ['De [ ] in het script invullen','',[
+          'Blok 1: het tijdstip waarop je begon.',
+          'Blok 4: hoe lang je vastzat en wat het was. Niks misgegaan? Blok 4 valt weg.',
+          'Controleer daarna het hele script hieronder nog één keer.'],
+          [{titel:'Het hele script',tekst:VOALLES}]],
         ['Voice-over inspreken','',[
           'Zoek een stille plek en zet de mic dichtbij.',
           'Spreek het script blok voor blok in, elk blok twee keer.',
-          'Laat na elk blok een paar seconden stilte, dat maakt het monteren makkelijker.']]
+          'Laat na elk blok een paar seconden stilte, dat maakt het monteren makkelijker.',
+          'Rustig tempo. Het mag klinken zoals je praat, niet voorgelezen.'],
+          [{titel:'Het hele script',tekst:VOALLES}]]
       ]}
     ]
   };
@@ -7377,7 +7431,7 @@ function filmdagWebsitebouwer(){
 function filmdagItems(){
   const d=filmdagData(), uit=[];
   d.blokken.forEach((b,bi)=>b.items.forEach((x,i)=>uit.push({
-    id:(d.id||d.datum)+'-'+bi+'-'+i, tekst:x[0], voor:x[1], uitleg:x[2]||[], blok:b.naam})));
+    id:(d.id||d.datum)+'-'+bi+'-'+i, tekst:x[0], voor:x[1], uitleg:x[2]||[], kopie:x[3]||[], blok:b.naam})));
   return uit;
 }
 const filmAf=id=>!!((S.filmAf||{})[id]);
@@ -7442,6 +7496,10 @@ function filmStap(id){
       <div class="fsmeta"><span class="eyebrow">${esc(x.blok)}</span>${x.voor?`<span class="fschip">${esc(x.voor)}</span>`:''}</div>
       <h3 class="fstitel">${esc(x.tekst)}</h3>
       <ol class="paneel fslijst">${stappen.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>
+      ${(x.kopie||[]).map((k,ki)=>`<div class="fskopie">
+        <div class="fskk"><span class="eyebrow">${esc(k.titel)}</span><button type="button" class="fskb" data-kopie="${ki}">Kopieer</button></div>
+        ${k.uitleg?`<p class="fsku">${esc(k.uitleg)}</p>`:''}
+        <pre class="fspre" id="fspre${ki}">${esc(k.tekst)}</pre></div>`).join('')}
       ${aan?'<p class="fsaf">Deze stap heb je al gedaan.</p>':''}
     </div>`;
   const voet=`<button class="sec" id="fsLijst">Naar de lijst</button>`
@@ -7451,6 +7509,13 @@ function filmStap(id){
   bijSluiten=()=>{};
   const volgendeNa=()=>items.slice(n+1).find(y=>!filmAf(y.id))||items.find(y=>!filmAf(y.id));
   $('#fsLijst').onclick=()=>sheetFilmdag();
+  $$('[data-kopie]').forEach(k=>k.onclick=()=>{
+    const t=(x.kopie[+k.dataset.kopie]||{}).tekst||'';
+    const klaar=()=>{ k.textContent='Gekopieerd'; setTimeout(()=>{k.textContent='Kopieer'},1800); };
+    const selecteer=()=>{ const el=$('#fspre'+k.dataset.kopie); const r=document.createRange(); r.selectNodeContents(el);
+      const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('Tekst geselecteerd, druk op ⌘C.'); };
+    try{ navigator.clipboard.writeText(t).then(klaar,selecteer); }catch(e){ selecteer(); }
+  });
   if($('#fsGedaan')) $('#fsGedaan').onclick=()=>{
     S.filmAf=Object.assign({},S.filmAf||{}); S.filmAf[id]=true; bewaarNu();
     const v=volgendeNa();
