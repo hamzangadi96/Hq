@@ -2574,6 +2574,13 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .filmrij .fvoor{display:block;font-size:12px;font-weight:600;color:var(--grijs2);margin-top:3px}
 .filmregels{padding:12px 18px}
 .filmregels .fr{font-size:13.5px;padding:5px 0;color:var(--grijs2)}
+.fsstap{display:grid;gap:14px;padding-top:4px}
+.fsmeta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fschip{font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--lijn);color:var(--tekst,inherit)}
+.fstitel{font-size:22px;line-height:1.2;font-weight:700;letter-spacing:-.015em;margin:0;text-wrap:balance}
+.fslijst{margin:0;padding:16px 18px 16px 40px;display:grid;gap:10px;font-size:15.5px;line-height:1.5}
+.fslijst li::marker{font-weight:700;color:var(--grijs2)}
+.fsaf{margin:0;font-size:14px;font-weight:600;color:var(--groen)}
 .weegrij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-bottom:1px solid var(--lijn);text-align:left}
 .weegrij:last-of-type{border-bottom:none}
 .weegrij .wgn{flex:1;font-size:15px;font-weight:450;letter-spacing:-.01em}
@@ -3929,7 +3936,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v671 · 27 sep 2026';
+const APPVERSIE='v672 · 27 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7182,6 +7189,10 @@ function filmdagOchtend27sep(){
   };
 }
 function filmdagWebsitebouwer(){
+  const VOLG=['Typ in ChatGPT: volgende. Wacht tot het antwoord helemaal klaar is.',
+    'Kopieer de nieuwe code. Staat er "vervang de hele sectie", dan selecteer je in Edit code alles in heropening-aanmelden.liquid (⌘A) en plak je eroverheen.',
+    'Klik op Save.',
+    'Ga naar het tabblad met de pagina en ververs met ⌘R.'];
   return {
     datum:'2026-09-27', id:'2026-09-27-web2',
     titel:'Twee petten · De Websitebouwer',
@@ -7194,66 +7205,171 @@ function filmdagWebsitebouwer(){
     ],
     blokken:[
       {naam:'0 · Klaarzetten', items:[
-        ['Check: staat er een wachtwoordpagina op de winkel?','Op je pc'],
-        ['ChatGPT open in een nieuw gesprek','Op je pc'],
-        ['Tweede tab: Themes → ⋯ → Edit code','Op je pc'],
-        ['Tabbladen met mail, orders en klanten dicht','Op je pc'],
-        ['Camera over je schouder: scherm en handen','Camera'],
-        ['Camera van voren: gezicht in het schermlicht','Camera'],
-        ['Schermopname aan met QuickTime','Camera'],
-        ['Mic op en een testje terugluisteren','Camera']
+        ['Check: staat er een wachtwoordpagina op de winkel?','Op je pc',[
+          'Open Shopify en ga naar Online Store → Preferences.',
+          'Scroll naar Password protection.',
+          'Staat die aan, dan kan niemand een losse pagina zien. Stop hier en vraag in Claude om de prompt aan te passen, zodat de aanmelding op de wachtwoordpagina komt.',
+          'Staat die uit, vink dit af en ga door.']],
+        ['ChatGPT open in een nieuw gesprek','Op je pc',[
+          'Open ChatGPT in Safari en start een nieuw gesprek.',
+          'Zet de prompt voor de aanmeldpagina alvast klaar in je klembord of notities.',
+          'Nog niet plakken, dat doe je pas als de camera draait.']],
+        ['Tweede tab: Themes → ⋯ → Edit code','Op je pc',[
+          'Open een nieuw tabblad met Shopify.',
+          'Ga naar Online Store → Themes.',
+          'Klik bij je thema op de drie puntjes (⋯) en kies Edit code.',
+          'Laat dit tabblad openstaan.']],
+        ['Tabbladen met mail, orders en klanten dicht','Op je pc',[
+          'Sluit alles waar klantnamen, mailadressen of bedragen op staan.',
+          'Zet meldingen op je Mac even uit: klik rechtsboven op het maantje en kies Niet storen.']],
+        ['Camera over je schouder: scherm en handen','Camera',[
+          'Zet de camera op het statief, schuin achter je, op schouderhoogte.',
+          'In beeld: het scherm en je handen op het toetsenbord.',
+          'Zet de focus handmatig op het scherm, zodat hij niet heen en weer springt.',
+          'Druk op opnemen en laat hem doorlopen.']],
+        ['Camera van voren: gezicht in het schermlicht','Camera',[
+          'Tweede camera of je telefoon naast de iMac, gericht op je gezicht.',
+          'Het scherm is je licht. Zet het plafondlicht eventueel uit voor sfeer.',
+          'Check dat de achtergrond rustig is en dat er niets privés in beeld staat.']],
+        ['Schermopname aan met QuickTime','Camera',[
+          'Open QuickTime Player.',
+          'Kies Archief → Nieuwe schermopname (of druk ⇧⌘5).',
+          'Kies Neem hele scherm op en klik op Neem op.',
+          'Stoppen doe je straks via het stopknopje in de menubalk.']],
+        ['Mic op en een testje terugluisteren','Camera',[
+          'Klip de mic op en zet hem aan.',
+          'Zeg een zin, stop de opname en luister terug.',
+          'Klinkt het goed, start dan beide camera\'s opnieuw en laat ze lopen.']]
       ]},
       {naam:'1 · Begin · voice-over 1', items:[
-        ['Klok in beeld, 5 seconden','Filmen'],
-        ['De schort over de stoel','Filmen'],
-        ['Het lege scherm','Filmen']
+        ['Klok in beeld, 5 seconden','Filmen',[
+          'Film de klok op je scherm of je telefoon, 5 seconden stil.',
+          'Dit is het tijdstip dat je straks in de voice-over noemt. Onthoud het.']],
+        ['De schort over de stoel','Filmen',[
+          'Hang je schort over de stoel of haak.',
+          'Film hem 5 seconden, stil.',
+          'Dit shot zegt zonder woorden: vandaag geen chocolade.']],
+        ['Het lege scherm','Filmen',[
+          'Film het tabblad Edit code, waar nog niks van de nieuwe pagina staat.',
+          'Dit is je voor-shot. Aan het eind film je hetzelfde kader met de pagina af.']]
       ]},
       {naam:'2 · De prompt · voice-over 2', items:[
-        ['Prompt plakken, met "Geef nu alleen stap 1" eronder','Op je pc'],
-        ['Handen die plakken en op Enter drukken','Filmen'],
-        ['Je gezicht terwijl het antwoord binnenkomt','Filmen']
+        ['Prompt plakken, met "Geef nu alleen stap 1" eronder','Op je pc',[
+          'Ga naar ChatGPT en plak de prompt (⌘V).',
+          'Zet eronder: Geef nu alleen stap 1. Wacht tot ik "volgende" typ voordat je verdergaat.',
+          'Druk op Enter.']],
+        ['Handen die plakken en op Enter drukken','Filmen',[
+          'Dit komt van de schoudercamera, die loopt al.',
+          'Wil je een extra shot, doe dan een close-up van je vinger op Enter.']],
+        ['Je gezicht terwijl het antwoord binnenkomt','Filmen',[
+          'Kijk gewoon naar het scherm terwijl de code verschijnt.',
+          'Niet naar de camera kijken. De voorcamera vangt het.']]
       ]},
       {naam:'3 · Opbouw · voice-over 3', items:[
-        ['Sections → nieuwe sectie heropening-aanmelden → plakken → Save','Op je pc'],
-        ['Templates → nieuw page-template heropening → plakken → Save','Op je pc'],
-        ['Pages → pagina Heropening → template heropening → Save','Op je pc'],
-        ['Schermopname van het plakken','Filmen'],
-        ['De pagina die voor het eerst verschijnt','Filmen']
+        ['Sections → nieuwe sectie heropening-aanmelden → plakken → Save','Op je pc',[
+          'Ga naar het tabblad Edit code.',
+          'Klik links bij de map sections op Add a new section.',
+          'Naam: heropening-aanmelden. Kies Liquid.',
+          'Selecteer alles wat er standaard in staat (⌘A) en plak de code van ChatGPT eroverheen.',
+          'Klik op Save.']],
+        ['Templates → nieuw page-template heropening → plakken → Save','Op je pc',[
+          'Klik links bij templates op Add a new template.',
+          'Kies type page en JSON. Naam: heropening.',
+          'Vervang de inhoud door de JSON van ChatGPT.',
+          'Klik op Save.']],
+        ['Pages → pagina Heropening → template heropening → Save','Op je pc',[
+          'Ga in Shopify naar Online Store → Pages → Add page.',
+          'Titel: Heropening. De tekst mag leeg blijven.',
+          'Kies rechts bij Theme template: heropening.',
+          'Zet de pagina op Visible en klik op Save.',
+          'Klik op View page, zodat de pagina in een nieuw tabblad opent.']],
+        ['Schermopname van het plakken','Filmen',[
+          'Die heb je al via QuickTime. Je hoeft niks extra te doen.',
+          'Let erop dat je tussendoor niet naar tabbladen met klantgegevens klikt.']],
+        ['De pagina die voor het eerst verschijnt','Filmen',[
+          'Ververs het tabblad met de pagina.',
+          'Film de pagina 5 seconden. Hij is nog kaal, en dat is precies goed.']]
       ]},
       {naam:'4 · De gietende chocolade', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc'],
-        ['Chocolade die de balk in loopt, twee of drie keer','Filmen'],
-        ['Je reactie van voren','Filmen']
+        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['Chocolade die de balk in loopt, twee of drie keer','Filmen',[
+          'Dit is je sterkste shot. Pak de camera van het statief.',
+          'Film het scherm van dichtbij terwijl je de pagina ververst.',
+          'Doe dit twee of drie keer, zodat je bij het monteren kunt kiezen.']],
+        ['Je reactie van voren','Filmen',[
+          'Werkt het, reageer dan zoals je echt reageert.',
+          'Niet overdoen voor de camera. Mag ook stil zijn.']]
       ]},
       {naam:'5 · De bonbons', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc'],
-        ['Een bonbon die springt als je erop tikt','Filmen']
+        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['Een bonbon die springt als je erop tikt','Filmen',[
+          'Film het scherm van dichtbij.',
+          'Klik op een bonbon, zodat hij springt.',
+          'Mooi extra: dezelfde pagina op je telefoon, met je vinger die tikt.']]
       ]},
       {naam:'6 · De afteller', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc'],
-        ['Close-up van de secondes, 10 seconden','Filmen']
+        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['Close-up van de secondes, 10 seconden','Filmen',[
+          'Film de afteller van dichtbij, 10 seconden stil.',
+          'Houd de camera rustig, alleen de cijfers bewegen.']]
       ]},
       {naam:'7 · Het formulier', items:[
-        ['"volgende" → plakken → Save → verversen','Op je pc'],
-        ['De lege invulvakjes','Filmen'],
-        ['Vastgelopen? Camera laten lopen · voice-over 4','Alleen als het echt gebeurt']
+        ['"volgende" → plakken → Save → verversen','Op je pc',VOLG],
+        ['De lege invulvakjes','Filmen',[
+          'Film het formulier van dichtbij, nog leeg.',
+          'Dit shot komt vlak voor het moment dat je jezelf aanmeldt.']],
+        ['Vastgelopen? Camera laten lopen · voice-over 4','Alleen als het echt gebeurt',[
+          'Gebeurt er ergens iets geks of werkt iets niet, laat de camera\'s dan gewoon doorlopen.',
+          'Kopieer de foutmelding en plak die in ChatGPT met: dit werkt niet, wat is er mis?',
+          'Noteer hoe lang het duurde en wat de oorzaak was. Dat gaat in het script.',
+          'Is er niks misgegaan, vink dit dan gewoon af.']]
       ]},
       {naam:'8 · Het werkt · voice-over 6 en 7', items:[
-        ['De pagina openen op je telefoon','Op je telefoon'],
-        ['Je eigen mail invullen en aanmelden','Op je telefoon'],
-        ['Customers: sta je erin met de tag heropening-nov?','Op je pc'],
-        ['Telefoon in je hand met de bonbonregen','Filmen'],
-        ['Jezelf in de klantenlijst, mailadres later blurren','Filmen']
+        ['De pagina openen op je telefoon','Op je telefoon',[
+          'Open Safari op je telefoon.',
+          'Ga naar cacaoboetiek.nl/pages/heropening.',
+          'Check of alles goed staat: balk, bonbons, afteller, formulier.']],
+        ['Je eigen mail invullen en aanmelden','Op je telefoon',[
+          'Vul je eigen mailadres in.',
+          'Tik op Zet me op de lijst.',
+          'Zie je de bonbonregen en "Je staat op de lijst", dan werkt het.']],
+        ['Customers: sta je erin met de tag heropening-nov?','Op je pc',[
+          'Ga in Shopify naar Customers.',
+          'Zoek je eigen mailadres.',
+          'Check of de tag heropening-nov erbij staat en of je bent aangemeld voor marketing.']],
+        ['Telefoon in je hand met de bonbonregen','Filmen',[
+          'Meld je voor dit shot aan met een tweede mailadres, of maak de aanmelding in Customers weer ongedaan.',
+          'Film je telefoon in je hand terwijl je op de knop tikt.',
+          'De camera staat boven je schouder, zodat je het scherm goed ziet.']],
+        ['Jezelf in de klantenlijst, mailadres later blurren','Filmen',[
+          'Film de regel met jezelf in Customers, 3 seconden.',
+          'Zorg dat er geen andere klanten in beeld staan. Filter eventueel op je eigen naam.',
+          'Blur je mailadres bij het monteren.']]
       ]},
       {naam:'9 · Afsluiten · voice-over 8', items:[
-        ['De klok: hoe laat het nu is','Filmen'],
-        ['Praatmoment: "Volgende week zet ik weer een andere pet op."','Filmen'],
-        ['Thumbnail: jij achter het scherm met de pagina open','Filmen']
+        ['De klok: hoe laat het nu is','Filmen',[
+          'Film de klok, 5 seconden stil.',
+          'Noteer de tijd. Het verschil met het begin is de duur voor het script.']],
+        ['Praatmoment: "Volgende week zet ik weer een andere pet op."','Filmen',[
+          'Kijk in de voorcamera.',
+          'Zeg rustig: Volgende week zet ik weer een andere pet op.',
+          'Doe hem twee of drie keer, dan kies je later de beste.']],
+        ['Thumbnail: jij achter het scherm met de pagina open','Filmen',[
+          'Open de pagina groot op je scherm.',
+          'Ga ernaast zitten, gezicht naar de camera, goed licht.',
+          'Maak een paar foto\'s. Kies er later één voor de omslag.']]
       ]},
       {naam:'10 · Na het filmen', items:[
-        ['Link in bio naar de nieuwe pagina','Op je pc'],
-        ['Tijdstip en minuten noteren voor het script',''],
-        ['Voice-over inspreken','']
+        ['Link in bio naar de nieuwe pagina','Op je pc',[
+          'Open TikTok en ga naar je profiel.',
+          'Zet de link in je bio op cacaoboetiek.nl/pages/heropening.',
+          'Doe hetzelfde op Instagram.']],
+        ['Tijdstip en minuten noteren voor het script','',[
+          'Vul in het script de [ ] in: hoe laat je begon, hoe lang het duurde, en wat er eventueel misging.']],
+        ['Voice-over inspreken','',[
+          'Zoek een stille plek en zet de mic dichtbij.',
+          'Spreek het script blok voor blok in, elk blok twee keer.',
+          'Laat na elk blok een paar seconden stilte, dat maakt het monteren makkelijker.']]
       ]}
     ]
   };
@@ -7261,7 +7377,7 @@ function filmdagWebsitebouwer(){
 function filmdagItems(){
   const d=filmdagData(), uit=[];
   d.blokken.forEach((b,bi)=>b.items.forEach((x,i)=>uit.push({
-    id:(d.id||d.datum)+'-'+bi+'-'+i, tekst:x[0], voor:x[1], blok:b.naam})));
+    id:(d.id||d.datum)+'-'+bi+'-'+i, tekst:x[0], voor:x[1], uitleg:x[2]||[], blok:b.naam})));
   return uit;
 }
 const filmAf=id=>!!((S.filmAf||{})[id]);
@@ -7273,19 +7389,19 @@ function filmdagKaartHTML(){
   const pct=items.length?Math.round(af/items.length*100):0;
   return `<div class="blokkop"><span class="eyebrow">Filmdag</span>
       <span class="tel">${af} van ${items.length} af</span></div>
-    <button type="button" class="paneel filmkaart" data-sheet="filmdag">
+    <button type="button" class="paneel filmkaart" data-sheet="${volgende?'filmstap':'filmdag'}">
       <span class="fkbalk"><span style="width:${pct}%"></span></span>
-      <span class="fkkop">${volgende?'Volgende shot':'Alles gefilmd'}</span>
+      <span class="fkkop">${volgende?'Volgende stap':'Alles gedaan'}</span>
       <span class="fktekst">${volgende?esc(volgende.tekst):'Mooi werk. Stuur je beelden door, dan zetten we de vlog in elkaar.'}</span>
       ${volgende?`<span class="fkbij">${esc(volgende.blok)}${volgende.voor?' · '+esc(volgende.voor):''}</span>`:''}
-      <span class="fklink">Open draaiboek ${svg(I.pijl||I.plus)}</span>
+      <span class="fklink">${volgende?'Open deze stap':'Open draaiboek'} ${svg(I.pijl||I.plus)}</span>
     </button>`;
 }
 function sheetFilmdag(){
   const d=filmdagData(), items=filmdagItems();
   const af=items.filter(x=>filmAf(x.id)).length;
   let idx=0;
-  const body=`<p class="hint">Vink af wat je gefilmd hebt. Rechts staat voor welke video het shot is.</p>
+  const body=`<p class="hint">Tik op een stap om te lezen wat je moet doen. Daarna vink je hem af met Gedaan.</p>
     <div class="paneel filmregels">${d.regels.map(r=>`<div class="fr">${esc(r)}</div>`).join('')}</div>
     ${d.blokken.map(b=>{
       const eigen=items.slice(idx, idx+b.items.length); idx+=b.items.length;
@@ -7304,17 +7420,46 @@ function sheetFilmdag(){
   sheet(d.titel, body, af?`<button class="sec" id="filmLeeg">Alles weer open</button>`:'', af+' van '+items.length);
   if(wasOpen) $('#sheetBody').scrollTop=scroll;
   bijSluiten=()=>{};
-  $$('[data-film]').forEach(b=>b.onclick=()=>{
-    const id=b.dataset.film;
-    S.filmAf=Object.assign({},S.filmAf||{});
-    if(S.filmAf[id]) delete S.filmAf[id]; else S.filmAf[id]=true;
-    bewaarNu(); sheetFilmdag();
-  });
+  $$('[data-film]').forEach(b=>b.onclick=()=>filmStap(b.dataset.film));
   if($('#filmLeeg')) $('#filmLeeg').onclick=()=>{
     const pre=(d.id||d.datum)+'-';
     S.filmAf=Object.fromEntries(Object.entries(S.filmAf||{}).filter(([k])=>!k.startsWith(pre)));
     bewaarNu(); sheetFilmdag(); toast('Alles staat weer open.');
   };
+}
+/* Een stap openen: eerst lezen wat je moet doen, dan pas afvinken. Na
+   "Gedaan" ga je meteen door naar de volgende open stap. */
+function filmStapVolgende(){
+  const items=filmdagItems(), v=items.find(x=>!filmAf(x.id));
+  if(v) filmStap(v.id); else sheetFilmdag();
+}
+function filmStap(id){
+  const d=filmdagData(), items=filmdagItems();
+  const n=items.findIndex(x=>x.id===id); if(n<0){ sheetFilmdag(); return; }
+  const x=items[n], aan=filmAf(id), af=items.filter(y=>filmAf(y.id)).length;
+  const stappen=(x.uitleg&&x.uitleg.length)?x.uitleg:['Doe wat hierboven staat en vink het dan af.'];
+  const body=`<div class="fsstap">
+      <div class="fsmeta"><span class="eyebrow">${esc(x.blok)}</span>${x.voor?`<span class="fschip">${esc(x.voor)}</span>`:''}</div>
+      <h3 class="fstitel">${esc(x.tekst)}</h3>
+      <ol class="paneel fslijst">${stappen.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>
+      ${aan?'<p class="fsaf">Deze stap heb je al gedaan.</p>':''}
+    </div>`;
+  const voet=`<button class="sec" id="fsLijst">Naar de lijst</button>`
+    +(aan?`<button class="sec" id="fsOpen">Weer open</button><button class="prim" id="fsVerder">Volgende</button>`
+         :`<button class="prim" id="fsGedaan">Gedaan</button>`);
+  sheet('Stap '+(n+1)+' van '+items.length, body, voet, af+' van '+items.length+' af');
+  bijSluiten=()=>{};
+  const volgendeNa=()=>items.slice(n+1).find(y=>!filmAf(y.id))||items.find(y=>!filmAf(y.id));
+  $('#fsLijst').onclick=()=>sheetFilmdag();
+  if($('#fsGedaan')) $('#fsGedaan').onclick=()=>{
+    S.filmAf=Object.assign({},S.filmAf||{}); S.filmAf[id]=true; bewaarNu();
+    const v=volgendeNa();
+    if(v) filmStap(v.id); else { sheetFilmdag(); toast('Alles gedaan. Mooi werk.'); }
+  };
+  if($('#fsOpen')) $('#fsOpen').onclick=()=>{
+    S.filmAf=Object.assign({},S.filmAf||{}); delete S.filmAf[id]; bewaarNu(); filmStap(id);
+  };
+  if($('#fsVerder')) $('#fsVerder').onclick=()=>{ const v=volgendeNa(); if(v) filmStap(v.id); else sheetFilmdag(); };
 }
 function dashboardHTML(){
   const t=dashboardToestand();
@@ -19326,7 +19471,7 @@ function straksHTML(key){
 }
 
 /* ---------- binding ---------- */
-const SHEETS={filmdag:sheetFilmdag,pin:sheetPin,account:sheetAccount,nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
+const SHEETS={filmdag:sheetFilmdag,filmstap:filmStapVolgende,pin:sheetPin,account:sheetAccount,nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
   kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,vooruit:sheetVooruit,
   vraag:()=>sheetVraag(''),
   beheer:sheetBeheer,
