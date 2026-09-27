@@ -3929,7 +3929,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v668 · 27 sep 2026';
+const APPVERSIE='v669 · 27 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4786,9 +4786,15 @@ function fbConfig(){
   if(typeof firebaseConfig!=='undefined'&&firebaseConfig&&firebaseConfig.apiKey) return firebaseConfig;
   return null;
 }
+/* Waarom Firebase niet startte. Voorheen bleef dat stil: je zag alleen een
+   leeg venster "Synchronisatie" en kon niet inloggen, zonder te weten waarom. */
+let fbReden='';
 function firebaseStart(){
   const cfg=fbConfig();
-  if(!cfg||typeof firebase==='undefined') return;
+  if(typeof firebase==='undefined'){ fbReden='De inlogbestanden van Firebase zijn niet geladen.'; return }
+  if(!cfg){ fbReden='config.js is niet geladen of leeg.'; return }
+  if(fbKlaar) return;
+  fbReden='';
   fbStartTijd=Date.now();
   setTimeout(()=>{ if(!fbOnline&&typeof render==='function'&&startKlaar) render() },3200);
   try{
@@ -4846,7 +4852,31 @@ function firebaseStart(){
       },fout=>fbGeweigerd('cacaoboetiek',fout));
       render();
     });
-  }catch(e){ fbKlaar=false }
+  }catch(e){ fbKlaar=false; fbReden='Firebase gaf een fout bij het starten: '+(e&&e.message||e) }
+}
+
+/* Firebase opnieuw ophalen, buiten de cache om. Safari houdt soms een kapotte
+   of lege kopie vast; met een nieuw adres (?h=tijd) krijg je altijd een verse. */
+function laadScript(src){
+  return new Promise((ok,nee)=>{
+    const sc=document.createElement('script');
+    sc.src=src+(src.includes('?')?'&':'?')+'h='+Date.now();
+    sc.onload=ok; sc.onerror=()=>nee(new Error(src+' laadt niet'));
+    document.head.appendChild(sc);
+  });
+}
+async function firebaseHerstel(){
+  try{
+    if(typeof firebase==='undefined'){
+      await laadScript('firebase-app-compat.js');
+      await Promise.all(['firebase-auth-compat.js','firebase-database-compat.js',
+        'firebase-functions-compat.js'].map(laadScript));
+    }
+    if(!fbConfig()) await laadScript('config.js');
+  }catch(e){ var fout='Kan de inlogbestanden niet ophalen ('+e.message+'). Controleer je verbinding.' }
+  firebaseStart();
+  if(!fbKlaar&&fout) fbReden=fout;
+  return fbKlaar;
 }
 
 async function laden(){
@@ -4910,6 +4940,7 @@ async function laden(){
     },600);
   }
   firebaseStart();
+  if(!fbKlaar) firebaseHerstel().then(ok=>{ if(ok&&typeof render==='function') render() });
 }
 
 const nieuweCode=()=>{
@@ -26079,6 +26110,27 @@ function sheetAccount(stand){
   if(!fbKlaar){
     const cfg=fbConfig();
     const mist=cfg&&!cfg.databaseURL;
+    if(!mist){
+      sheet('Inloggen',
+        `<div class="veld"><div class="rrij"><div class="rinfo">
+           <div class="rnaam">Inloggen lukt nog niet op dit toestel</div>
+           <div class="rsub">${esc(fbReden||'Firebase is niet gestart.')}</div>
+         </div></div></div>
+         <div class="veld"><div class="rrij"><div class="rinfo">
+           <div class="rsub">Je werk blijft gewoon staan. Tik op opnieuw verbinden;
+             lukt het dan nog niet, laad de pagina opnieuw.</div>
+         </div></div></div>`,
+        `<div class="voetduo">
+           <button class="sec" id="acK">Sluiten</button>
+           <button class="prim" id="acOpn">Opnieuw verbinden</button></div>`);
+      $('#acK').onclick=dicht;
+      $('#acOpn').onclick=async()=>{
+        const b=$('#acOpn'); b.disabled=true; b.textContent='Bezig…';
+        if(await firebaseHerstel()){ render(); sheetAccount(stand) }
+        else { toast('Lukt nog niet. Laad de pagina opnieuw.'); sheetAccount(stand) }
+      };
+      return;
+    }
     return sheet('Synchronisatie',
       `<p class="hint">${mist
         ? 'Je gegevens zijn ingevuld, maar er ontbreekt een <b>databaseURL</b>. Dat betekent dat de Realtime Database nog niet bestond toen je de web-app aanmaakte. Maak eerst de database aan, kopieer daarna opnieuw je gegevens.'
