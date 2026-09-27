@@ -2563,6 +2563,17 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .uvkop .un small{display:block;font-size:12.5px;font-weight:500;opacity:.6;margin-top:2px}
 .uvkop .ut{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;flex:none}
 .uvsmaak{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--grijs2);margin:20px 0 8px}
+.paneel.filmkaart{display:block;width:100%;text-align:left;padding:16px 18px;margin-bottom:14px;background:var(--card);border-radius:22px;box-shadow:0 1px 2px rgba(24,24,27,.03),0 14px 30px -22px rgba(24,24,27,.22)}
+.filmkaart .fkbalk{display:block;height:6px;border-radius:99px;background:var(--lijn);overflow:hidden;margin-bottom:14px}
+.filmkaart .fkbalk span{display:block;height:100%;background:var(--groen);border-radius:99px}
+.filmkaart .fkkop{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--grijs2)}
+.filmkaart .fktekst{display:block;font-size:17px;font-weight:600;letter-spacing:-.01em;margin-top:4px}
+.filmkaart .fkbij{display:block;font-size:13px;color:var(--grijs2);margin-top:4px}
+.filmkaart .fklink{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:600;margin-top:12px}
+.filmkaart .fklink svg{width:14px;height:14px}
+.filmrij .fvoor{display:block;font-size:12px;font-weight:600;color:var(--grijs2);margin-top:3px}
+.filmregels{padding:12px 18px}
+.filmregels .fr{font-size:13.5px;padding:5px 0;color:var(--grijs2)}
 .weegrij{display:flex;align-items:center;gap:12px;width:100%;padding:16px 0;border-bottom:1px solid var(--lijn);text-align:left}
 .weegrij:last-of-type{border-bottom:none}
 .weegrij .wgn{flex:1;font-size:15px;font-weight:450;letter-spacing:-.01em}
@@ -3886,7 +3897,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v665 · 25 sep 2026';
+const APPVERSIE='v667 · 27 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4208,7 +4219,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','vidsFase1b','vidsLeergeld1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
+  'filmAf','kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -5730,6 +5741,7 @@ const SNELITEMS=[
   {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
   {key:'agenda',label:'Agenda',icon:'klok',soort:'tab'},
   {key:'content',label:'Content',icon:'camera',soort:'tab'},
+  {key:'filmdag',label:'Filmdag',icon:'camera',soort:'sheet',doe:()=>sheetFilmdag()},
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
@@ -7008,6 +7020,159 @@ function sheetTedoenNieuw(){
   setTimeout(()=>{const el=$('#tdN'); if(el) el.focus()},260);
 }
 
+/* ═══════════ Filmdag ═══════════
+   Een draaiboek voor een dag waarop je een vlog opneemt en tegelijk beelden
+   schiet voor andere video's. Per moment zie je wat je filmt en voor welke
+   video het is, en je vinkt af terwijl je bezig bent. Staat de dag van het
+   draaiboek op vandaag, dan komt hij bovenaan het dashboard. */
+function filmdagData(){
+  return {
+    datum:'2026-09-27',
+    titel:'Filmdag zondag 27 september',
+    regels:[
+      'Elk shot 5 tot 10 seconden, camera stil.',
+      'Alleen bonbons filmen die er al zijn, niets maken voor een shot.',
+      'Praten in de camera alleen als de auto stilstaat.',
+      'Gezin blijft buiten beeld en buiten het geluid.'
+    ],
+    blokken:[
+      {naam:'Meenemen', items:[
+        ['iMac, camera, statief en DJI-mic',''],
+        ['Opladers en een leeg geheugenkaartje',''],
+        ['Gewone kleren en je schort','Raad wat ik overdag doe'],
+        ['Sleeves en oude ontwerpen, als ze thuis liggen','Leergeld']
+      ]},
+      {naam:'1 · Thuis', items:[
+        ['Klok in beeld, het tijdstip dat je begint','Vlog'],
+        ['iMac inpakken: scherm uit, kabels oprollen, optillen','Petten #1 Editor'],
+        ['iMac naar de auto dragen','Petten #1 Editor']
+      ]},
+      {naam:'2 · Auto, stilstaand', items:[
+        ['Instappen, camera buiten de auto','Vlog'],
+        ['Praatmoment: wat staat er vandaag op de planning?','Vlog'],
+        ['Praatmoment: de vraag "Raad wat ik overdag doe"','Onderwerp'],
+        ['Praatmoment: één zin per Leergeld-aflevering','Leergeld'],
+        ['Contact aan, close-up van je hand','Vlog']
+      ]},
+      {naam:'3 · Onderweg, camera vast', items:[
+        ['POV door de voorruit, 10 seconden','B-roll'],
+        ['Handen aan het stuur','B-roll'],
+        ['Klok op het dashboard','Hook'],
+        ['iMac op de achterbank','Petten #1 Editor']
+      ]},
+      {naam:'4 · Supermarkt', items:[
+        ['Uitstappen en parkeren','Vlog'],
+        ['Mandje, je hand die iets pakt, zonder gezichten of merken','Vlog']
+      ]},
+      {naam:'5 · Aankomst werkplaats', items:[
+        ['Sleutel in het slot, met het geluid erbij','Vlog'],
+        ['Lege mal in de donkere werkplaats, vóór het licht aangaat','Toen vs. nu · zin 12'],
+        ['Licht aan','Vlog'],
+        ['Rondje door de werkplaats zoals hij nu is','Vier maanden dicht']
+      ]},
+      {naam:'6 · iMac opzetten en editen', items:[
+        ['iMac naar binnen dragen en opzetten','Petten #1 Editor'],
+        ['Scherm dat opstart','Petten #1 Editor'],
+        ['Editen: handen op het toetsenbord, gezicht in het schermlicht','Petten #1 Editor'],
+        ['Code of je webshop op het scherm','Petten #2 Websitebouwer'],
+        ['HQ-app en facturen in beeld, zonder bedragen','Petten #5 Boekhouder'],
+        ['Oude brandingontwerpen op het scherm','Leergeld #2']
+      ]},
+      {naam:'7 · Omkleden', items:[
+        ['Gewone kleren, harde cut, schort om','Raad wat ik overdag doe'],
+        ['Handschoenen aan, mouwen opstropen','B-roll']
+      ]},
+      {naam:'8 · Bonbons', items:[
+        ['Foto\'s maken: je setup, jij achter de camera, het resultaat','Petten #4 Fotograaf'],
+        ['Snijden: meerdere smaken, steeds hetzelfde standpunt','Doorsnede'],
+        ['Close-up: één bonbon in je hand','Toen vs. nu · zin 15']
+      ]},
+      {naam:'9 · Shots voor toen vs. nu', items:[
+        ['Lintje strikken om een doosje','Zin 6'],
+        ['Leeg doosje, stil in beeld','Zin 7'],
+        ['Chocolade die smelt, alleen als je sowieso tempereert','Zin 8'],
+        ['Starterkit of je oudste mallen','Zin 9'],
+        ['Een stapel doosjes van nu','Zin 13']
+      ]},
+      {naam:'10 · Overige series', items:[
+        ['Ongebruikte sleeves uit een doos halen','Leergeld #3'],
+        ['Registratiebewijs of mail, gegevens geblurd','Leergeld #1'],
+        ['Voorraadkast en een lijstje schrijven, zonder merken','Petten #3 Inkoper'],
+        ['Verzenddoos vouwen en tapen','Petten #6 Bezorger']
+      ]},
+      {naam:'11 · Geluiden, mic dichtbij', items:[
+        ['Lege mal die op tafel tikt','Geluid'],
+        ['Lint van de rol','Geluid'],
+        ['Doosdeksel dat dichtklikt','Geluid'],
+        ['Mes door een bonbon','Geluid']
+      ]},
+      {naam:'12 · Afsluiten', items:[
+        ['Thumbnails: je gezicht met een bonbon of doos, goed licht','Omslag'],
+        ['Licht uit, deur op slot','Vlog'],
+        ['Praatmoment in de auto: hoe ging de dag, eerlijk','Slot vlog'],
+        ['Praatmoment: het moment dat je bijna stopte (als je zin hebt)','Bijna stopte']
+      ]}
+    ]
+  };
+}
+function filmdagItems(){
+  const d=filmdagData(), uit=[];
+  d.blokken.forEach((b,bi)=>b.items.forEach((x,i)=>uit.push({
+    id:d.datum+'-'+bi+'-'+i, tekst:x[0], voor:x[1], blok:b.naam})));
+  return uit;
+}
+const filmAf=id=>!!((S.filmAf||{})[id]);
+function filmdagKaartHTML(){
+  const d=filmdagData();
+  if(d.datum!==vandaag()) return '';
+  const items=filmdagItems(), af=items.filter(x=>filmAf(x.id)).length;
+  const volgende=items.find(x=>!filmAf(x.id));
+  const pct=items.length?Math.round(af/items.length*100):0;
+  return `<div class="blokkop"><span class="eyebrow">Filmdag</span>
+      <span class="tel">${af} van ${items.length} af</span></div>
+    <button type="button" class="paneel filmkaart" data-sheet="filmdag">
+      <span class="fkbalk"><span style="width:${pct}%"></span></span>
+      <span class="fkkop">${volgende?'Volgende shot':'Alles gefilmd'}</span>
+      <span class="fktekst">${volgende?esc(volgende.tekst):'Mooi werk. Stuur je beelden door, dan zetten we de vlog in elkaar.'}</span>
+      ${volgende?`<span class="fkbij">${esc(volgende.blok)}${volgende.voor?' · '+esc(volgende.voor):''}</span>`:''}
+      <span class="fklink">Open draaiboek ${svg(I.pijl||I.plus)}</span>
+    </button>`;
+}
+function sheetFilmdag(){
+  const d=filmdagData(), items=filmdagItems();
+  const af=items.filter(x=>filmAf(x.id)).length;
+  let idx=0;
+  const body=`<p class="hint">Vink af wat je gefilmd hebt. Rechts staat voor welke video het shot is.</p>
+    <div class="paneel filmregels">${d.regels.map(r=>`<div class="fr">${esc(r)}</div>`).join('')}</div>
+    ${d.blokken.map(b=>{
+      const eigen=items.slice(idx, idx+b.items.length); idx+=b.items.length;
+      const n=eigen.filter(x=>filmAf(x.id)).length;
+      return `<div class="blokkop"><span class="eyebrow">${esc(b.naam)}</span>
+        <span class="tel">${n===eigen.length?'klaar':n+' van '+eigen.length}</span></div>
+        <div class="paneel" style="padding:0 18px">${eigen.map(x=>{
+          const aan=filmAf(x.id);
+          return `<button type="button" class="weegrij filmrij ${aan?'af':''}" data-film="${esc(x.id)}">
+            <span class="vinkknop ${aan?'aan':''}">${svg(I.vink,'2.4')}</span>
+            <span class="wgn">${esc(x.tekst)}${x.voor?`<small class="fvoor">${esc(x.voor)}</small>`:''}</span>
+          </button>`}).join('')}</div>`;
+    }).join('')}`;
+  const scroll=$('#sheetBody')?$('#sheetBody').scrollTop:0;
+  const wasOpen=sheetOpen;
+  sheet(d.titel, body, af?`<button class="sec" id="filmLeeg">Alles weer open</button>`:'', af+' van '+items.length);
+  if(wasOpen) $('#sheetBody').scrollTop=scroll;
+  bijSluiten=()=>{};
+  $$('[data-film]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.film;
+    S.filmAf=Object.assign({},S.filmAf||{});
+    if(S.filmAf[id]) delete S.filmAf[id]; else S.filmAf[id]=true;
+    bewaarNu(); sheetFilmdag();
+  });
+  if($('#filmLeeg')) $('#filmLeeg').onclick=()=>{
+    const pre=d.datum+'-';
+    S.filmAf=Object.fromEntries(Object.entries(S.filmAf||{}).filter(([k])=>!k.startsWith(pre)));
+    bewaarNu(); sheetFilmdag(); toast('Alles staat weer open.');
+  };
+}
 function dashboardHTML(){
   const t=dashboardToestand();
   const sig=signalen();
@@ -7022,7 +7187,7 @@ function dashboardHTML(){
   /* De kaart "Op de rol" hing aan de Content-tab: zonder die tab heeft hij
      geen bron meer. Weg tot we het opnieuw opbouwen. */
   const tdKaart=tedoenKaartHTML();
-  let h=begroetingHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()
+  let h=begroetingHTML()+filmdagKaartHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()
     +(t.soort==='bezig'?'':tdKaart)+controleKaartHTML();
 
   /* ── de hoofdkaart ── */
@@ -19018,7 +19183,7 @@ function straksHTML(key){
 }
 
 /* ---------- binding ---------- */
-const SHEETS={pin:sheetPin,account:sheetAccount,nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
+const SHEETS={filmdag:sheetFilmdag,pin:sheetPin,account:sheetAccount,nieuwbatch:sheetNieuweBatch,opening:sheetOpening,temp:sheetTemp,ontvangst:sheetOntvangst,productie:sheetProductie,
   kleurreken:sheetKleurReken,kleuren:sheetKleuren,kleurzoek:sheetKleurZoek,vooruit:sheetVooruit,
   vraag:()=>sheetVraag(''),
   beheer:sheetBeheer,
