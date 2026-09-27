@@ -3769,6 +3769,38 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
   .app:has(>.sheet.open) main,.app:has(>.sheet.open) header{transform:none}
 }
 </style>
+<style id="desktopstijl">
+/* ══ desktop v2 ══ staat bewust als laatste blok, zodat latere telefoonregels
+   (tabbalk-capsule, 640px-kaarten) de desktop niet meer kunnen overschrijven.
+   Onder de 900 pixels doet dit blok niets. */
+@media (min-width:900px){
+  body{background:var(--bg)}
+  .app{max-width:none;width:100%;margin:0;box-shadow:none;
+    grid-template-columns:240px minmax(0,1fr)}
+
+  /* zijbalk: volle hoogte, merknaam bovenaan, knoppen links uitgelijnd */
+  nav{padding:28px 14px 20px!important;background:var(--card);
+    border-right:1px solid var(--lijn);height:100dvh;box-sizing:border-box}
+  nav::before{content:"Cacaoboetiek HQ";display:block;padding:0 14px 26px;
+    font-size:16px;font-weight:650;letter-spacing:-.025em;color:var(--ink)}
+  nav .tabpil{border:0!important;background:none!important;box-shadow:none!important;
+    border-radius:0!important;padding:0!important;align-items:stretch!important;flex:1;
+    -webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  nav .tab,nav .tab.actief{width:100%;justify-content:flex-start;padding:10px 14px}
+  nav .tab span,nav .tab.actief span{max-width:none;font-size:14.5px}
+  nav .tab:not(.actief){color:var(--grijs)}
+  nav .tab:not(.actief):hover{color:var(--ink)}
+  nav .tabmeer{margin-top:auto}
+
+  /* inhoud: één rustige kolom van max. 920px, gecentreerd in de ruimte */
+  main{max-width:none;padding:40px max(48px,calc((100% - 920px) / 2)) 72px}
+  main .paneel,main .kaartje,main .hoofdkaart{max-width:none}
+}
+@media (min-width:1300px){
+  .app{grid-template-columns:260px minmax(0,1fr)}
+  header,nav{width:auto}
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -3897,7 +3929,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v667 · 27 sep 2026';
+const APPVERSIE='v668 · 27 sep 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
