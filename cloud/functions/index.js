@@ -577,6 +577,7 @@ async function telMailinglijstBinnen(req) {
   const { winkel, token: t } = await token(uid);
 
   let totaal = 0, nieuw = 0, nieuwVandaag = 0, na = null;
+  const perDag = {};
   for (let ronde = 0; ronde < 40; ronde++) {
     const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
       method: 'POST',
@@ -605,14 +606,14 @@ async function telMailinglijstBinnen(req) {
       if (!k.defaultEmailAddress || k.defaultEmailAddress.marketingState !== 'SUBSCRIBED') return;
       totaal++;
       const dag = nlDag(k.createdAt);
-      if (dag >= sinds) nieuw++;
+      if (dag >= sinds) { nieuw++; perDag[dag] = (perDag[dag] || 0) + 1; }
       if (dag === vandaag) nieuwVandaag++;
     });
     if (!c.pageInfo.hasNextPage) break;
     na = c.pageInfo.endCursor;
   }
 
-  const uit = { totaal, nieuw, vandaag: nieuwVandaag, sinds, bijgewerkt: Date.now() };
+  const uit = { totaal, nieuw, vandaag: nieuwVandaag, sinds, perDag, bijgewerkt: Date.now() };
   await werkRef(uid).child('mailinglijst').set(uit);
   return uit;
 }
