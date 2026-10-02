@@ -4032,7 +4032,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v685 · 2 okt 2026';
+const APPVERSIE='v686 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7590,12 +7590,13 @@ const MAILDOEL={sinds:'2026-10-01',tot:'2026-11-01',doel:250};
 let mailBezig=false, mailFout='', mailGroot=false;
 function mailVerversen(hand){
   const m=(S.werk||{}).mailinglijst;
-  if(mailBezig||!fbUser||!koppeling().shopify) return;
+  if(mailBezig||!fbUser) return;
   if(!hand&&mailFout) return;   // na een fout niet blijven proberen; tik om opnieuw
   if(!hand&&m&&m.sinds===MAILDOEL.sinds&&Date.now()-(m.bijgewerkt||0)<2*60*1000) return;
   mailBezig=true; if(hand&&S.tab==='dashboard') render();
   roep('telMailinglijst',{sinds:MAILDOEL.sinds}).then(r=>{
     S.werk=S.werk||{}; S.werk.mailinglijst=r; mailFout='';
+    try{ localStorage.setItem('hq-mailinglijst',JSON.stringify(r)) }catch(e){}
   }).catch(e=>{ mailFout=(e&&e.message)||'Tellen lukte niet.' })
     .finally(()=>{ mailBezig=false; if(S.tab==='dashboard') render() });
 }
@@ -7610,9 +7611,16 @@ setInterval(()=>{
 },2*60*1000+5000);
 function mailKaartHTML(){
   if(vandaag()>MAILDOEL.tot) return '';
-  const m=(S.werk||{}).mailinglijst;
+  /* De kaart staat er altijd: eerst met de laatst bekende telling (ook vlak
+     na het openen, voordat Firebase of Shopify iets terugzegt), en anders
+     met "tellen…" in dezelfde vorm. Hij verdwijnt nooit meer en springt niet. */
+  let m=(S.werk||{}).mailinglijst;
+  if(!m){ try{ m=JSON.parse(localStorage.getItem('hq-mailinglijst')||'null') }catch(e){ m=null } }
   setTimeout(()=>mailVerversen(false),0);
-  if(!m&&!mailFout) return '';
+  if(!m&&!mailFout) return `<div class="mlc" style="cursor:default">
+      <span class="mlcb"><span class="mlck"><b>Mailinglijst</b><em style="color:var(--grijs2)">tellen…</em></span>
+      <span class="mlcbalk"></span>
+      <span class="mlcs">nieuw sinds 1 okt · doel ${MAILDOEL.doel}</span></span></div>`;
   /* Nog nooit geteld en het lukte niet: geen nep-nul tonen, alleen de reden. */
   if(m&&!mailGroot){
     const lt=dagenTussen(MAILDOEL.sinds,MAILDOEL.tot);
