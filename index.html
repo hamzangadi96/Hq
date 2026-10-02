@@ -3941,7 +3941,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v674 · 27 sep 2026';
+const APPVERSIE='v675 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5834,6 +5834,50 @@ const SNELITEMS=[
   {key:'instellingen',label:'Instellingen',icon:'instel',soort:'sheet',doe:()=>sheetInstellingen()}
 ];
 const snelItem=k=>SNELITEMS.find(x=>x.key===k);
+
+/* ═══════════ Gebruiksteller ═══════════
+   Telt stil hoe vaak je elke tab en elk los scherm opent, zodat we over twee
+   weken op echte cijfers kunnen opruimen in plaats van op gevoel.
+
+   Staat los van je gewone data (werkvloer/<uid>/gebruik), want de hoofdopslag
+   wordt in z'n geheel overschreven bij elke bewaar-ronde — daar zou de teller
+   steeds gewist worden. Per onderdeel: n (keer geopend), dagen (aantal
+   verschillende dagen), eerst en laatst (datum). */
+let gebruikWacht=[], vorigTabGeteld=null;
+function telGebruik(sleutel){
+  gebruikWacht.push(sleutel);
+  if(!fbUser) return;          // nog niet ingelogd: bewaren tot het wel kan
+  const d=vandaag(), lijst=gebruikWacht; gebruikWacht=[];
+  lijst.forEach(k=>{
+    try{
+      firebase.database().ref('werkvloer/'+fbUser.uid+'/gebruik/'+k).transaction(c=>{
+        c=c||{n:0,dagen:0,eerst:d};
+        c.n=(c.n||0)+1;
+        if(c.laatst!==d){ c.dagen=(c.dagen||0)+1; c.laatst=d }
+        return c;
+      }).catch(()=>{});
+    }catch(e){}
+  });
+}
+function metTeller(sleutel,fn){
+  return function(){ telGebruik('scherm_'+sleutel); return fn.apply(this,arguments) };
+}
+sheetFilmdag=metTeller('filmdag',sheetFilmdag);
+sheetPlanning=metTeller('planning',sheetPlanning);
+sheetUren=metTeller('uren',sheetUren);
+sheetDoel=metTeller('doel',sheetDoel);
+sheetBoodschappen=metTeller('boodschappen',sheetBoodschappen);
+sheetNieuweBatch=metTeller('nieuwbatch',sheetNieuweBatch);
+sheetRecepten=metTeller('smaken',sheetRecepten);
+sheetHaccp=metTeller('haccp',sheetHaccp);
+sheetDossier=metTeller('dossier',sheetDossier);
+sheetWenskaart=metTeller('wenskaart',sheetWenskaart);
+sheetTrace=metTeller('traceren',sheetTrace);
+sheetPrijzen=metTeller('prijzen',sheetPrijzen);
+sheetOntvangst=metTeller('ontvangst',sheetOntvangst);
+sheetZoek=metTeller('zoeken',sheetZoek);
+sheetUitleg=metTeller('uitleg',sheetUitleg);
+sheetInstellingen=metTeller('instellingen',sheetInstellingen);
 const STANDAARDBALK=['productie','orders','voorraad','geld','agenda'];
 const balkKeuze=()=>{
   const eigen=(S.balk||[]).filter(k=>snelItem(k));
@@ -6117,6 +6161,7 @@ function renderNu(){
   const schermKenmerk=S.tab+(inBatch?':'+S.batchId:'');
   const gewisseld=vorigScherm!==null&&schermKenmerk!==vorigScherm;
   vorigScherm=schermKenmerk;
+  if(S.tab!==vorigTabGeteld){ vorigTabGeteld=S.tab; telGebruik('tab_'+S.tab) }
 
   $('#scherm').innerHTML = kopknoppenHTML() + klokbalkHTML() + (inBatch?batchHTML():
     S.tab==='dashboard'?dashboardHTML(): S.tab==='productie'?productieHTML():
