@@ -560,6 +560,17 @@ exports.wisKoppeling = onCall(async req => {
 const nlDag = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
 
 exports.telMailinglijst = onCall(async req => {
+  /* Elke fout die we niet zelf hebben voorzien, komt toch met uitleg terug —
+     anders maakt Firebase er een kale "internal" van en weet niemand iets. */
+  try { return await telMailinglijstBinnen(req); }
+  catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('telMailinglijst', e);
+    throw new HttpsError('internal', 'Tellen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+async function telMailinglijstBinnen(req) {
   const uid = wieBenJe(req);
   const sinds = /^\d{4}-\d{2}-\d{2}$/.test((req.data || {}).sinds || '') ? req.data.sinds : '2026-10-01';
   const vandaag = nlDag(Date.now());
@@ -604,7 +615,7 @@ exports.telMailinglijst = onCall(async req => {
   const uit = { totaal, nieuw, vandaag: nieuwVandaag, sinds, bijgewerkt: Date.now() };
   await werkRef(uid).child('mailinglijst').set(uit);
   return uit;
-});
+}
 
 exports.haalOrders = onCall(async req => {
   const uid = wieBenJe(req);
