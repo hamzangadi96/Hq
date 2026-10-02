@@ -4032,7 +4032,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v684 · 2 okt 2026';
+const APPVERSIE='v685 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7592,13 +7592,22 @@ function mailVerversen(hand){
   const m=(S.werk||{}).mailinglijst;
   if(mailBezig||!fbUser||!koppeling().shopify) return;
   if(!hand&&mailFout) return;   // na een fout niet blijven proberen; tik om opnieuw
-  if(!hand&&m&&m.sinds===MAILDOEL.sinds&&Date.now()-(m.bijgewerkt||0)<10*60*1000) return;
+  if(!hand&&m&&m.sinds===MAILDOEL.sinds&&Date.now()-(m.bijgewerkt||0)<2*60*1000) return;
   mailBezig=true; if(hand&&S.tab==='dashboard') render();
   roep('telMailinglijst',{sinds:MAILDOEL.sinds}).then(r=>{
     S.werk=S.werk||{}; S.werk.mailinglijst=r; mailFout='';
   }).catch(e=>{ mailFout=(e&&e.message)||'Tellen lukte niet.' })
     .finally(()=>{ mailBezig=false; if(S.tab==='dashboard') render() });
 }
+/* Vers houden zonder te tikken: zodra je de app weer voor je hebt, en elke
+   twee minuten zolang je op het dashboard kijkt. Shopify tellen kost maar
+   een paar tellen en er gaat alleen een getal heen en weer. */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&S.tab==='dashboard'){ mailFout=''; mailVerversen(false) }
+});
+setInterval(()=>{
+  if(document.visibilityState==='visible'&&S.tab==='dashboard') mailVerversen(false);
+},2*60*1000+5000);
 function mailKaartHTML(){
   if(vandaag()>MAILDOEL.tot) return '';
   const m=(S.werk||{}).mailinglijst;
