@@ -550,6 +550,62 @@ exports.wisKoppeling = onCall(async req => {
   return { ok: true };
 });
 
+/* ─────────────── mailinglijst tellen ───────────────
+   Telt hoeveel klanten in Shopify mail willen ontvangen. Er gaat ALLEEN een
+   getal terug — geen naam, geen e-mailadres. Dat blijft bij Shopify.
+
+   Meegegeven: sinds (YYYY-MM-DD) = start van de campagne. Terug: totaal op de
+   lijst, nieuw sinds die datum, en nieuw vandaag. Datums in Nederlandse tijd,
+   anders telt een aanmelding om 01:00 bij de verkeerde dag. */
+const nlDag = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
+
+exports.telMailinglijst = onCall(async req => {
+  const uid = wieBenJe(req);
+  const sinds = /^\d{4}-\d{2}-\d{2}$/.test((req.data || {}).sinds || '') ? req.data.sinds : '2026-10-01';
+  const vandaag = nlDag(Date.now());
+  const { winkel, token: t } = await token(uid);
+
+  let totaal = 0, nieuw = 0, nieuwVandaag = 0, na = null;
+  for (let ronde = 0; ronde < 40; ronde++) {
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt defaultEmailAddress{marketingState}} pageInfo{hasNextPage endCursor}}}',
+        variables: { na }
+      })
+    });
+    if (r.status === 401) {
+      await geheimRef(uid).child('shopify/token').remove();
+      throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+    }
+    if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+    const d = await r.json();
+    if (d.errors && d.errors.length) {
+      const tekst = JSON.stringify(d.errors);
+      if (/ACCESS_DENIED|read_customers|access/i.test(tekst)) {
+        throw new HttpsError('permission-denied',
+          'HQ mag nog geen klanten tellen. Zet in het Shopify Dev Dashboard bij je app de scope read_customers aan en installeer de app opnieuw.');
+      }
+      throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+    }
+    const c = d.data.customers;
+    c.nodes.forEach(k => {
+      if (!k.defaultEmailAddress || k.defaultEmailAddress.marketingState !== 'SUBSCRIBED') return;
+      totaal++;
+      const dag = nlDag(k.createdAt);
+      if (dag >= sinds) nieuw++;
+      if (dag === vandaag) nieuwVandaag++;
+    });
+    if (!c.pageInfo.hasNextPage) break;
+    na = c.pageInfo.endCursor;
+  }
+
+  const uit = { totaal, nieuw, vandaag: nieuwVandaag, sinds, bijgewerkt: Date.now() };
+  await werkRef(uid).child('mailinglijst').set(uit);
+  return uit;
+});
+
 exports.haalOrders = onCall(async req => {
   const uid = wieBenJe(req);
 
