@@ -3941,7 +3941,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v677 · 2 okt 2026';
+const APPVERSIE='v678 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7503,6 +7503,13 @@ function mailKaartHTML(){
   const m=(S.werk||{}).mailinglijst;
   setTimeout(()=>mailVerversen(false),0);
   if(!m&&!mailFout) return '';
+  /* Nog nooit geteld en het lukte niet: geen nep-nul tonen, alleen de reden. */
+  if(!m) return `<div class="blokkop"><span class="eyebrow">Mailinglijst</span></div>
+    <button type="button" class="paneel filmkaart" onclick="mailVerversen(true)">
+      <span class="fkkop">Nog niet geteld</span>
+      <span class="fktekst">${esc(mailFout)}</span>
+      <span class="fklink">${mailBezig?'Tellen…':'Tik om opnieuw te proberen'}</span>
+    </button>`;
   const nieuw=m?m.nieuw:0, pct=Math.min(100,Math.round(nieuw/MAILDOEL.doel*100));
   const rest=Math.max(0,MAILDOEL.doel-nieuw);
   const dagen=Math.max(1,dagenTussen(vandaag(),MAILDOEL.tot));
