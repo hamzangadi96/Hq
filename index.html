@@ -3941,7 +3941,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v675 · 2 okt 2026';
+const APPVERSIE='v677 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7480,6 +7480,44 @@ function filmdagItems(){
   return uit;
 }
 const filmAf=id=>!!((S.filmAf||{})[id]);
+/* ═══════════ Mailinglijst ═══════════
+   Doel van de heropening: 250 nieuwe adressen tussen 1 oktober en
+   1 november. De telling komt uit Shopify via de server; hier staat alleen
+   het getal, nooit wie. Vernieuwt vanzelf als hij ouder is dan 10 minuten,
+   of als je op de kaart tikt. */
+const MAILDOEL={sinds:'2026-10-01',tot:'2026-11-01',doel:250};
+let mailBezig=false, mailFout='';
+function mailVerversen(hand){
+  const m=(S.werk||{}).mailinglijst;
+  if(mailBezig||!fbUser||!koppeling().shopify) return;
+  if(!hand&&mailFout) return;   // na een fout niet blijven proberen; tik om opnieuw
+  if(!hand&&m&&m.sinds===MAILDOEL.sinds&&Date.now()-(m.bijgewerkt||0)<10*60*1000) return;
+  mailBezig=true; if(hand&&S.tab==='dashboard') render();
+  roep('telMailinglijst',{sinds:MAILDOEL.sinds}).then(r=>{
+    S.werk=S.werk||{}; S.werk.mailinglijst=r; mailFout='';
+  }).catch(e=>{ mailFout=(e&&e.message)||'Tellen lukte niet.' })
+    .finally(()=>{ mailBezig=false; if(S.tab==='dashboard') render() });
+}
+function mailKaartHTML(){
+  if(vandaag()>MAILDOEL.tot) return '';
+  const m=(S.werk||{}).mailinglijst;
+  setTimeout(()=>mailVerversen(false),0);
+  if(!m&&!mailFout) return '';
+  const nieuw=m?m.nieuw:0, pct=Math.min(100,Math.round(nieuw/MAILDOEL.doel*100));
+  const rest=Math.max(0,MAILDOEL.doel-nieuw);
+  const dagen=Math.max(1,dagenTussen(vandaag(),MAILDOEL.tot));
+  const perDag=Math.ceil(rest/dagen);
+  const tijd=m?new Date(m.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'';
+  return `<div class="blokkop"><span class="eyebrow">Mailinglijst</span>
+      <span class="tel">${m?(m.vandaag?'+'+m.vandaag+' vandaag':'vandaag nog niks'):''}</span></div>
+    <button type="button" class="paneel filmkaart" onclick="mailVerversen(true)">
+      <span class="fkbalk"><span style="width:${pct}%"></span></span>
+      <span class="fkkop">${nieuw} van ${MAILDOEL.doel} nieuw sinds 1 oktober</span>
+      <span class="fktekst">${rest?'Nog '+rest+' te gaan · ±'+perDag+' per dag':'Doel gehaald.'}</span>
+      <span class="fkbij">${mailFout?esc(mailFout):(m?m.totaal+' op je lijst in totaal · bijgewerkt '+tijd:'')}</span>
+      <span class="fklink">${mailBezig?'Tellen…':'Tik om te verversen'}</span>
+    </button>`;
+}
 function filmdagKaartHTML(){
   const d=filmdagData();
   if(d.datum!==vandaag()) return '';
@@ -7585,7 +7623,7 @@ function dashboardHTML(){
   /* De kaart "Op de rol" hing aan de Content-tab: zonder die tab heeft hij
      geen bron meer. Weg tot we het opnieuw opbouwen. */
   const tdKaart=tedoenKaartHTML();
-  let h=begroetingHTML()+filmdagKaartHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()
+  let h=begroetingHTML()+mailKaartHTML()+filmdagKaartHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()
     +(t.soort==='bezig'?'':tdKaart)+controleKaartHTML();
 
   /* ── de hoofdkaart ── */
@@ -30787,6 +30825,12 @@ function sheetMeer(){
     && x.key!=='instellingen' && x.key!=='zoeken');
   const tabs=rest.filter(x=>x.soort==='tab');
   const losse=rest.filter(x=>x.soort!=='tab');
+  /* Opgeruimd op 2 okt 2026: wat je hooguit een paar keer per jaar opent, ligt
+     in de la onder "Meer tonen". Niks is weg — één tik en het staat er weer.
+     De gebruiksteller laat rond 16 okt zien of deze indeling klopt. */
+  const MEER_LA=['smaken','uren','doel','dossier','traceren','b2b','wenskaart','uitleg'];
+  const losseLa=losse.filter(x=>MEER_LA.includes(x.key));
+  const losseVoor=losse.filter(x=>!MEER_LA.includes(x.key));
   /* wat context per onderdeel, zodat je ziet of er iets te doen is */
   const bij=it=>{
     if(it.key==='planning'){const n=(S.planning||[]).length+(S.taken||[]).length;
@@ -30825,17 +30869,19 @@ function sheetMeer(){
          <span class="ivak">${svg(I.loep)}</span>
          <span class="naam">Zoeken<small>smaak, batch, lot, klant of grondstof</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
-     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Snel bij de hand</span>
-       <button class="aanpasknop" id="meerKies">${svg(I.instel)}Aanpassen</button></div>
-     <div class="paneel">${balk.map(snelItem).filter(Boolean).map(it=>
-       `<button class="arij" data-meerdoe="${it.key}">
-         <span class="ivak">${svg(I[it.icon])}</span>
-         <span class="naam">${esc(it.label)}<small>${esc(bij(it))}</small></span>
-         <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
+     <div style="height:12px"></div>
      ${groep('Tabbladen',tabs)}
-     ${groep('Snelkoppelingen',losse)}
+     ${groep('Snelkoppelingen',losseVoor)}
+     ${losseLa.length?`<button class="arij" style="background:none;justify-content:center;color:#71717a"
+         onclick="const d=this.nextElementSibling;d.hidden=!d.hidden;
+           this.querySelector('span').textContent=d.hidden?'Meer tonen (${losseLa.length})':'Minder tonen'">
+         <span>Meer tonen (${losseLa.length})</span></button>
+       <div hidden>${groep('Zelden nodig',losseLa)}</div>`:''}
      <div class="blokkop"><span class="eyebrow">App</span></div>
      <div class="paneel">
+       <button class="arij" id="meerKies"><span class="ivak">${svg(I.instel)}</span>
+         <span class="naam">Tabbalk aanpassen<small>${balk.map(k=>(snelItem(k)||{}).label).filter(Boolean).join(' \u00b7 ')}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>
        <button class="arij" id="meerDeApp"><span class="ivak">${svg(I.ververs)}</span>
          <span class="naam">De app<small>versie ${APPVERSIE.split(' ')[0]} \u00b7 vernieuwen, back-up, accentkleur</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
