@@ -2566,6 +2566,26 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .paneel.filmkaart{display:block;width:100%;text-align:left;padding:16px 18px;margin-bottom:14px;background:var(--card);border-radius:22px;box-shadow:0 1px 2px rgba(24,24,27,.03),0 14px 30px -22px rgba(24,24,27,.22)}
 .filmkaart .fkbalk{display:block;height:6px;border-radius:99px;background:var(--lijn);overflow:hidden;margin-bottom:14px}
 .filmkaart .fkbalk span{display:block;height:100%;background:var(--groen);border-radius:99px}
+/* mailinglijst-kaart */
+.mlk{display:block;width:100%;text-align:left;padding:18px 18px 14px;margin-bottom:14px;background:var(--card);border-radius:22px;box-shadow:0 1px 2px rgba(24,24,27,.03),0 14px 30px -22px rgba(24,24,27,.22)}
+.mlk .mltop{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mlk .mlgetal{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--ink)}
+.mlk .mlgetal small{font-size:18px;font-weight:600;color:var(--grijs2);letter-spacing:0;margin-left:4px}
+.mlk .mlsub{font-size:13px;color:var(--grijs);margin-top:6px}
+.mlk .mlpil{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 10px;border-radius:99px;white-space:nowrap}
+.mlk .mlpil i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.mlk .mlpil.ok{color:var(--groen);background:#15803d14}
+.mlk .mlpil.achter{color:var(--amber);background:#b4530914}
+.mlk .mlbalk{display:block;position:relative;height:10px;border-radius:99px;background:var(--lijn);margin:16px 0 4px}
+.mlk .mlbalk>span{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--groen)}
+.mlk .mlbalk>b{position:absolute;top:-4px;bottom:-4px;width:2px;border-radius:2px;background:var(--ink);opacity:.35}
+.mlk .mlstaven{display:flex;align-items:flex-end;gap:3px;height:44px;margin-top:16px}
+.mlk .mlstaven span{flex:1;min-width:3px;border-radius:3px 3px 1px 1px;background:var(--grijs3)}
+.mlk .mlstaven span.nu{background:var(--ink)}
+.mlk .mlstaven span.later{background:var(--lijn)}
+.mlk .mlas{display:flex;justify-content:space-between;font-size:11px;color:var(--grijs2);margin-top:6px}
+.mlk .mlvoet{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;font-size:12.5px;color:var(--grijs)}
+.mlk .mlvoet strong{color:var(--ink);font-weight:600}
 .filmkaart .fkkop{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--grijs2)}
 .filmkaart .fktekst{display:block;font-size:17px;font-weight:600;letter-spacing:-.01em;margin-top:4px}
 .filmkaart .fkbij{display:block;font-size:13px;color:var(--grijs2);margin-top:4px}
@@ -3941,7 +3961,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v678 · 2 okt 2026';
+const APPVERSIE='v679 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7510,19 +7530,50 @@ function mailKaartHTML(){
       <span class="fktekst">${esc(mailFout)}</span>
       <span class="fklink">${mailBezig?'Tellen…':'Tik om opnieuw te proberen'}</span>
     </button>`;
-  const nieuw=m?m.nieuw:0, pct=Math.min(100,Math.round(nieuw/MAILDOEL.doel*100));
+
+  /* Schema: rechte lijn van 0 op de startdag naar het doel op de einddag.
+     Het streepje op de balk is waar je vandaag "zou moeten" zitten. */
+  const looptijd=dagenTussen(MAILDOEL.sinds,MAILDOEL.tot);
+  const verstreken=Math.min(looptijd,dagenTussen(MAILDOEL.sinds,vandaag())+1);
+  const verwacht=Math.round(MAILDOEL.doel*verstreken/looptijd);
+  const nieuw=m.nieuw, voor=nieuw-verwacht;
+  const pct=Math.min(100,nieuw/MAILDOEL.doel*100);
+  const schemaPct=Math.min(100,verwacht/MAILDOEL.doel*100);
   const rest=Math.max(0,MAILDOEL.doel-nieuw);
-  const dagen=Math.max(1,dagenTussen(vandaag(),MAILDOEL.tot));
-  const perDag=Math.ceil(rest/dagen);
-  const tijd=m?new Date(m.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'';
+  const dagenOver=Math.max(1,dagenTussen(vandaag(),MAILDOEL.tot));
+  const perDagNodig=Math.ceil(rest/dagenOver);
+  const tijd=new Date(m.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+
+  /* staafjes: één per dag vanaf de start tot en met vandaag */
+  let staven='';
+  if(m.perDag){
+    /* de hele campagne als strook: wat geweest is in grijs, vandaag zwart,
+       de dagen die nog komen als lichte stompjes — zo zie je ook hoeveel tijd er nog is */
+    const dagen=[]; let d=MAILDOEL.sinds;
+    for(let i=0;i<looptijd;i++){ dagen.push(d); d=iso(new Date(new Date(d+'T12:00:00').getTime()+864e5)) }
+    const max=Math.max(1,...dagen.map(x=>m.perDag[x]||0));
+    staven=`<span class="mlstaven">${dagen.map(x=>{const n=m.perDag[x]||0, later=x>vandaag();
+      return `<span class="${x===vandaag()?'nu':later?'later':''}" style="height:${
+        later?6:n?Math.max(8,Math.round(n/max*100)):6}%"></span>`}).join('')}</span>
+      <span class="mlas"><span>1 okt</span><span>1 nov</span></span>`;
+  }
+
   return `<div class="blokkop"><span class="eyebrow">Mailinglijst</span>
-      <span class="tel">${m?(m.vandaag?'+'+m.vandaag+' vandaag':'vandaag nog niks'):''}</span></div>
-    <button type="button" class="paneel filmkaart" onclick="mailVerversen(true)">
-      <span class="fkbalk"><span style="width:${pct}%"></span></span>
-      <span class="fkkop">${nieuw} van ${MAILDOEL.doel} nieuw sinds 1 oktober</span>
-      <span class="fktekst">${rest?'Nog '+rest+' te gaan · ±'+perDag+' per dag':'Doel gehaald.'}</span>
-      <span class="fkbij">${mailFout?esc(mailFout):(m?m.totaal+' op je lijst in totaal · bijgewerkt '+tijd:'')}</span>
-      <span class="fklink">${mailBezig?'Tellen…':'Tik om te verversen'}</span>
+      <span class="tel">doel 1 november</span></div>
+    <button type="button" class="mlk" onclick="mailVerversen(true)">
+      <span class="mltop">
+        <span class="mlgetal">${nieuw}<small>/ ${MAILDOEL.doel}</small></span>
+        ${rest?`<span class="mlpil ${voor>=0?'ok':'achter'}"><i></i>${
+          voor>=0?(voor?voor+' voor op schema':'op schema'):(-voor)+' achter'}</span>`
+          :`<span class="mlpil ok"><i></i>doel gehaald</span>`}
+      </span>
+      <span class="mlsub" style="display:block">nieuw sinds 1 okt${m.vandaag?' · <strong style="color:var(--groen)">+'+m.vandaag+' vandaag</strong>':''}</span>
+      <span class="mlbalk"><span style="width:${pct}%"></span>${rest?`<b style="left:${schemaPct}%"></b>`:''}</span>
+      ${staven}
+      <span class="mlvoet">
+        <span>${rest?`Nog <strong>${rest}</strong> · ±${perDagNodig} per dag`:'Alles erbij is bonus'} · ${m.totaal} op je lijst</span>
+        <span>${mailFout?'⚠ '+esc(mailFout):(mailBezig?'tellen…':tijd+' ↻')}</span>
+      </span>
     </button>`;
 }
 function filmdagKaartHTML(){
