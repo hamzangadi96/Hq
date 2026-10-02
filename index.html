@@ -3802,6 +3802,9 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 }
 </style>
 <style id="dashboard2">
+/* vandaag in de week: antraciet zoals in het ontwerp, niet de accentkleur */
+.weekstrip .wdag.nu,.weekstrip .wdag.nu.leeg,.weekstrip .wdag.nu.vol{background:var(--ink);border-color:var(--ink)}
+.weekstrip .wdag .wd{text-transform:lowercase}
 /* de kaart van vandaag wit, zoals in het gekozen ontwerp — bruin hoort
    alleen in het factuurdocument, niet in de app */
 .hoofdkaart{background:var(--card);color:var(--ink);border-radius:22px;padding:20px 18px 18px;
@@ -3833,7 +3836,7 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .hkklok svg{width:14px;height:14px}
 .hkklok.aan{color:var(--groen);background:#15803d14}
 .hkklok.aan i{width:7px;height:7px;border-radius:50%;background:var(--groen)}
-.morgen{font-size:13.5px;color:var(--grijs);margin:2px 4px 18px}
+.morgen{font-size:13.5px;color:var(--grijs);margin:2px 4px 18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .morgen b{color:var(--ink);font-weight:500}
 .morgen span{color:var(--grijs2)}
 .tdleeg{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 14px;padding:12px 4px;border:0;background:none;
@@ -4029,7 +4032,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v683 · 2 okt 2026';
+const APPVERSIE='v684 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8044,7 +8047,8 @@ function dashboardHTML(){
      openstaat. Wat hier overblijft gaat alleen nog over vandaag. */
   /* de klok als knopje in de kaart van vandaag (bij een batch staat hij erboven) */
   if(t.soort!=='bezig') h=h.replace('<div class="hoofdkaart">','<div class="hoofdkaart">'+hkKlokHTML());
-  return voorHeld+h+weekstripHTML(7)+morgenHTML()+tdKaart+mailKaartHTML()+kpiHTML()+controleKaartHTML();
+  const morgenAlInKaart=t.soort!=='bezig'&&h.indexOf('Volgende: <b style="color:var(--ink);font-weight:600">morgen')>=0;
+  return voorHeld+h+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+tdKaart+mailKaartHTML()+kpiHTML()+controleKaartHTML();
 }
 
 /* datum klein, groet groot, en de signalen die er nu toe doen eronder */
