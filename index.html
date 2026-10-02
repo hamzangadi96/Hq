@@ -3801,6 +3801,58 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
   .app:has(>.sheet.open) main,.app:has(>.sheet.open) header{transform:none}
 }
 </style>
+<style id="dashboard2">
+/* de kaart van vandaag wit, zoals in het gekozen ontwerp — bruin hoort
+   alleen in het factuurdocument, niet in de app */
+.hoofdkaart{background:var(--card);color:var(--ink);border-radius:22px;padding:20px 18px 18px;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 14px 30px -22px rgba(24,24,27,.22)}
+.hoofdkaart h2{font-size:25px;font-weight:700;letter-spacing:-.035em;line-height:1.15}
+.hoofdkaart h2,.hoofdkaart b,.hoofdkaart .getal,.hoofdkaart .ln,.hoofdkaart .lt{color:var(--ink)}
+.hoofdkaart .stap,.hoofdkaart .sub,.hoofdkaart .onder,.hoofdkaart .hkstappen{color:var(--grijs)}
+.hoofdkaart .eyebrow{color:var(--grijs2)}
+.hoofdkaart .dagenbadge{background:var(--bg);color:var(--ink2)}
+.hoofdkaart .dagenbadge.let{background:#b4530914;color:var(--amber)}
+.hoofdkaart .groteRing .baan{stroke:var(--lijn)}
+.hoofdkaart .groteRing .vul{stroke:var(--ink)}
+.hoofdkaart .groteRing.amber .vul{stroke:var(--amber)}
+.hoofdkaart .loopt{background:var(--bg)}
+.hoofdkaart .prim{background:var(--ink);color:#fff;height:52px;border-radius:16px}
+.hoofdkaart .prim:active{background:#000;color:#fff}
+.hoofdkaart .knop2{background:var(--bg);border-color:var(--lijn);color:var(--ink)}
+.hoofdkaart .miniknop{background:var(--ink);color:#fff}
+.hoofdkaart .stickerblok{background:var(--bg);border-color:var(--lijn)}
+.hoofdkaart .sbaant,.hoofdkaart .stickerblok>svg,.hoofdkaart .werkregel .wi{color:var(--grijs)}
+.hoofdkaart .vinkje{background:#15803d14;color:var(--groen)}
+.hoofdkaart+.weekstrip,.hoofdkaart+div .weekstrip{margin-top:16px}
+.dagkop{margin:4px 2px 16px}
+.dagkop h1{margin:4px 0 0;font-size:26px;font-weight:700;letter-spacing:-.035em;line-height:1.1}
+.hoofdkaart{position:relative}
+.hoofdkaart .stap{padding-right:132px;min-height:32px;display:flex;align-items:center}
+.hkklok{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
+  border-radius:99px;background:var(--bg);color:var(--ink2);font:600 12.5px Inter,system-ui,sans-serif;border:0}
+.hkklok svg{width:14px;height:14px}
+.hkklok.aan{color:var(--groen);background:#15803d14}
+.hkklok.aan i{width:7px;height:7px;border-radius:50%;background:var(--groen)}
+.morgen{font-size:13.5px;color:var(--grijs);margin:2px 4px 18px}
+.morgen b{color:var(--ink);font-weight:500}
+.morgen span{color:var(--grijs2)}
+.tdleeg{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 14px;padding:12px 4px;border:0;background:none;
+  color:var(--grijs);font:500 14px Inter,system-ui,sans-serif;text-align:left}
+.tdleeg svg{width:16px;height:16px}
+.mlc{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 16px;margin-bottom:14px;
+  background:var(--card);border-radius:18px;border:0;color:var(--ink);
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 14px 30px -22px rgba(24,24,27,.22)}
+.mlc>svg{width:16px;height:16px;color:var(--grijs2);flex:none}
+.mlcb{flex:1;min-width:0;display:block}
+.mlck{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mlck b{font-size:13.5px;font-weight:600}
+.mlck em{font-style:normal;font-size:12.5px;font-weight:600}
+.mlck em.ok{color:var(--groen)} .mlck em.achter{color:var(--amber)}
+.mlcbalk{display:block;height:6px;border-radius:99px;background:var(--lijn);margin-top:9px;overflow:hidden}
+.mlcbalk span{display:block;height:100%;background:var(--groen);border-radius:99px}
+.mlcs{display:block;font-size:12.5px;color:var(--grijs);margin-top:7px}
+.mlcs strong{color:var(--ink);font-weight:600}
+</style>
 <style id="tabnamen">
 /* ── elke tab met zijn naam eronder (2 okt 2026) ──
    Alleen-icoontjes zakte voor de vier-wekentest: na een tijdje niet gebruiken
@@ -3977,7 +4029,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v682 · 2 okt 2026';
+const APPVERSIE='v683 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6403,7 +6455,7 @@ function dashboardToestand(){
      hoort thuis onder "Een keer doen". Anders kaapt hij elke dag je scherm en
      verdringt hij een batch die je net hebt afgerond. */
   const vandaagTaken=allePlanTaken().filter(x=>x.datum===vandaag()
-    &&x.soort!=='productie'&&!(x.soort==='boodschappen'&&!x.los)
+    &&!(x.soort==='productie'&&!x.los)&&!(x.soort==='boodschappen'&&!x.los)
     &&!(x.soort==='haccp'&&x.eerste));
   if(vandaagTaken.length) return {soort:'taakdag',taken:vandaagTaken};
 
@@ -7026,8 +7078,7 @@ function tedoenKaartHTML(){
     <button class="kopknop" data-tdnieuw>${svg(I.plus)}Toevoegen</button></div>`;
 
   if(!open.length&&!net.length&&!rest.length)
-    return h+`<div class="paneel"><button class="meer" data-tdnieuw
-      style="border-top:none;padding:18px 16px">Je lijst is leeg. Zet erop wat er moet gebeuren.</button></div>`;
+    return `<button class="tdleeg" data-tdnieuw>${svg(I.plus,'2.2')}Iets op je lijst zetten</button>`;
 
   /* De eerste open regel is geen regel maar de kaart erboven. */
   const hero=zicht[0]&&!zicht[0].klaar?zicht[0]:null;
@@ -7533,7 +7584,7 @@ const filmAf=id=>!!((S.filmAf||{})[id]);
    het getal, nooit wie. Vernieuwt vanzelf als hij ouder is dan 10 minuten,
    of als je op de kaart tikt. */
 const MAILDOEL={sinds:'2026-10-01',tot:'2026-11-01',doel:250};
-let mailBezig=false, mailFout='';
+let mailBezig=false, mailFout='', mailGroot=false;
 function mailVerversen(hand){
   const m=(S.werk||{}).mailinglijst;
   if(mailBezig||!fbUser||!koppeling().shopify) return;
@@ -7551,6 +7602,17 @@ function mailKaartHTML(){
   setTimeout(()=>mailVerversen(false),0);
   if(!m&&!mailFout) return '';
   /* Nog nooit geteld en het lukte niet: geen nep-nul tonen, alleen de reden. */
+  if(m&&!mailGroot){
+    const lt=dagenTussen(MAILDOEL.sinds,MAILDOEL.tot);
+    const vs=Math.min(lt,dagenTussen(MAILDOEL.sinds,vandaag())+1);
+    const ver=Math.round(MAILDOEL.doel*vs/lt), voor=m.nieuw-ver;
+    return `<button type="button" class="mlc" onclick="mailGroot=true;render()">
+      <span class="mlcb"><span class="mlck"><b>Mailinglijst</b><em class="${voor>=0?'ok':'achter'}">${
+        m.nieuw>=MAILDOEL.doel?'doel gehaald':voor>=0?(voor?voor+' voor op schema':'op schema'):(-voor)+' achter'}</em></span>
+      <span class="mlcbalk"><span style="width:${Math.min(100,m.nieuw/MAILDOEL.doel*100)}%"></span></span>
+      <span class="mlcs"><strong>${m.nieuw}</strong> / ${MAILDOEL.doel} nieuw${m.vandaag?' · +'+m.vandaag+' vandaag':''}</span></span>
+      ${svg(I.pijl,'2')}</button>`;
+  }
   if(!m) return `<div class="blokkop"><span class="eyebrow">Mailinglijst</span></div>
     <button type="button" class="paneel filmkaart" onclick="mailVerversen(true)">
       <span class="fkkop">Nog niet geteld</span>
@@ -7586,7 +7648,7 @@ function mailKaartHTML(){
   }
 
   return `<div class="blokkop"><span class="eyebrow">Mailinglijst</span>
-      <span class="tel">doel 1 november</span></div>
+      <button class="kopknop" onclick="mailGroot=false;render()">Kleiner</button></div>
     <button type="button" class="mlk" onclick="mailVerversen(true)">
       <span class="mltop">
         <span class="mlgetal">${nieuw}<small>/ ${MAILDOEL.doel}</small></span>
@@ -7708,8 +7770,13 @@ function dashboardHTML(){
   /* De kaart "Op de rol" hing aan de Content-tab: zonder die tab heeft hij
      geen bron meer. Weg tot we het opnieuw opbouwen. */
   const tdKaart=tedoenKaartHTML();
-  let h=begroetingHTML()+mailKaartHTML()+filmdagKaartHTML()+klokWidgetHTML()+weekstripHTML(7)+kpiHTML()
-    +(t.soort==='bezig'?'':tdKaart)+controleKaartHTML();
+  /* ═══════════ nieuwe volgorde (2 okt 2026) ═══════════
+     Eén vraag: wat doe ik nu? Bovenaan de dag, dan de kaart van vandaag met
+     de klok erin, dan de week met wat er morgen komt, en pas daarna je lijst,
+     de mailinglijst en de controles. De held wordt hieronder per toestand
+     gebouwd in h; de rest zetten we er aan het eind omheen. */
+  const voorHeld=dagKopHTML()+filmdagKaartHTML()+(t.soort==='bezig'?klokWidgetHTML():'');
+  let h='';
 
   /* ── de hoofdkaart ── */
   if(t.soort==='bezig'){
@@ -7856,14 +7923,17 @@ function dashboardHTML(){
       <div class="sub">${taken.length>1?taken.length+' klussen vandaag'
         :(eerste.plan&&eerste.plan.datum?'voor de batch van '+kort(new Date(eerste.plan.datum))
           :'vandaag op de rol')}</div>
-      <button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button></div>
-      <div class="blokkop"><span class="eyebrow">Vandaag</span><span class="tel">${taken.length}</span></div>
-      <div class="paneel">${taken.map(x=>`<div class="arij stil">
+      ${eerste.soort==='boodschappen'
+        ?`<button class="prim" onclick="sheetOntvangst()">${svg(I.vracht)}Ontvangst invullen</button>`
+        :eerste.los?`<button class="prim" data-taakaf="${esc(eerste.los.id)}">${svg(I.vink,'2.4')}Klaar</button>`
+        :`<button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button>`}</div>
+      ${taken.length>1?`<div class="blokkop"><span class="eyebrow">Vandaag</span><span class="tel">${taken.length}</span></div>`:''}
+      ${taken.length<2?'':`<div class="paneel">${taken.map(x=>`<div class="arij stil">
         <span class="ivak" style="background:${DAGSOORT[x.soort].kleur}22;color:${DAGSOORT[x.soort].kleur}">
           ${svg(I[DAGSOORT[x.soort].ico])}</span>
         <span class="naam">${esc(x.tekst)}<small>${DAGSOORT[x.soort].n.toLowerCase()}${
           x.tijd?' · '+esc(x.tijd):''}${x.plan&&x.plan.datum?' · batch van '+kort(new Date(x.plan.datum)):''}</small></span>
-        </div>`).join('')}</div>`;
+        </div>`).join('')}</div>`}`;
   }
 
   else if(t.soort==='gepland'){
@@ -7946,12 +8016,15 @@ function dashboardHTML(){
        knoppen voor iets waar je op dat moment niet mee bezig bent. Nu twee
        rustige knoppen op een regel, zonder kaart eromheen. Je voorraad staat
        erbij als je die hebt; anders staat er niets. */
-    const vw=voorraadGereed().reduce((n,v)=>n+v.aantal,0);
-    h+=`<div class="blokkop"><span class="eyebrow">Productie</span>${
-      vw?`<span class="tel">${vw} op voorraad</span>`:''}</div>
-      <div class="tdorde" style="margin:0">
-        <button class="knop2" data-sheet="nieuwbatch">${svg(I.plus,'2.2')}Nieuwe batch</button>
-        <button class="knop2" data-planning>${svg(I.klok,'2.2')}Inplannen</button></div>`;
+    const volgende=allePlanTaken().filter(x=>x.datum>vandaag()).sort((a,b2)=>a.datum.localeCompare(b2.datum))[0];
+    const wanneer=d=>{const n=dagenTussen(vandaag(),d);
+      return n===1?'morgen':n<7?DAG[new Date(d+'T12:00:00').getDay()]:kort(new Date(d))};
+    h+=`<div class="hoofdkaart">
+      <div class="stap">Vandaag niks gepland</div>
+      <h2 style="margin-top:6px">Rustige dag</h2>
+      <div class="sub">${volgende?'Volgende: <b style="color:var(--ink);font-weight:600">'+wanneer(volgende.datum)
+        +'</b> · '+esc(volgende.tekst):'Er staat nog niks op je planning.'}</div>
+      <button class="prim" data-planning>${svg(I.plus)}Iets inplannen</button></div>`;
   }
 
   /* Hier stonden vier tegels: voorraad, orders, openstaand en vandaag. Ze
@@ -7969,8 +8042,32 @@ function dashboardHTML(){
      Alles wat je aandacht vraagt maar niet over de batch van vandaag gaat,
      zit nu op één plek: de bel rechtsboven, met een stipje als er iets
      openstaat. Wat hier overblijft gaat alleen nog over vandaag. */
-  if(t.soort==='bezig') h+=tdKaart;
-  return h;
+  /* de klok als knopje in de kaart van vandaag (bij een batch staat hij erboven) */
+  if(t.soort!=='bezig') h=h.replace('<div class="hoofdkaart">','<div class="hoofdkaart">'+hkKlokHTML());
+  return voorHeld+h+weekstripHTML(7)+morgenHTML()+tdKaart+mailKaartHTML()+kpiHTML()+controleKaartHTML();
+}
+
+/* datum klein, groet groot, en de signalen die er nu toe doen eronder */
+function dagKopHTML(){
+  const u=new Date().getHours();
+  const groet=u<6?'Goedenacht':u<12?'Goedemorgen':u<18?'Goedemiddag':'Goedenavond';
+  const datum=new Date().toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
+  const sig=begroetingHTML().replace('<div class="groet">','<div class="groet" style="margin:4px 0 0">');
+  return `<div class="dagkop"><div class="eyebrow">${esc(datum)}</div><h1>${groet}</h1></div>${
+    sig.indexOf('groetsub"></div>')>=0?'':sig}`;
+}
+function hkKlokHTML(){
+  if(!S.dienst) return `<button class="hkklok" id="kwInklok">${svg(I.klok,'2.2')}Inklokken</button>`;
+  const sec=Math.round((Date.now()-S.dienst.start)/1000);
+  return `<button class="hkklok aan" id="klokWidget"><i></i>Ingeklokt · ${klokKort(sec)}</button>`;
+}
+/* één regel onder de week: wat staat er morgen */
+function morgenHTML(){
+  const m=datumPlus(vandaag(),1);
+  const taken=allePlanTaken().filter(x=>x.datum===m);
+  if(!taken.length) return '';
+  return `<div class="morgen">Morgen · <b>${esc(taken[0].tekst)}</b>${
+    taken.length>1?' <span>+'+(taken.length-1)+'</span>':''}</div>`;
 }
 
 /* ---------- de dagcijfers in de donkere kopband ----------
