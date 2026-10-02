@@ -3977,7 +3977,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v681 · 2 okt 2026';
+const APPVERSIE='v682 · 2 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7163,9 +7163,20 @@ function sheetTedoenNieuw(){
     `<p class="hint">Eén regel per ding. Waar het uit bestaat zet je er daarna in —
       dat scherm opent vanzelf.</p>
      <div class="veld"><label>Omschrijving</label>
-       <input class="inp" id="tdN" placeholder="Bijv. website afmaken"></div>`,
-    '<button class="prim" style="margin-top:0" id="tdNOk">Op de lijst</button>');
+       <input class="inp" id="tdN" placeholder="Bijv. website afmaken"></div>
+     <p class="hint" style="margin-top:10px">Planning van Claude gekregen? Tik op Plakken,
+       of plak de link hierboven.</p>`,
+    '<button class="sec" style="margin-top:0" id="tdNPlak">Plakken</button><button class="prim" style="margin-top:0" id="tdNOk">Op de lijst</button>');
+  /* een geplakte planning-link wordt geen to-do maar een lijst taken */
+  const alsPlan=tekst=>{ const l=planLinkLees(tekst); if(!l||!l.length) return false;
+    dicht(); setTimeout(()=>planLinkToon(l),260); return true };
+  $('#tdNPlak').onclick=async()=>{
+    let tekst='';
+    try{ tekst=await navigator.clipboard.readText() }catch(e){}
+    if(!alsPlan(tekst)) toast('Geen planning gevonden. Kopieer eerst de link van Claude (lang drukken → Kopieer).');
+  };
   const doe=()=>{
+    if(alsPlan($('#tdN')?$('#tdN').value:'')) return;
     const t=tdToevoegen($('#tdN')?$('#tdN').value:'');
     if(!t) return toast('Schrijf er even bij wat het is.');
     dicht(); render();
@@ -16024,8 +16035,8 @@ const allePlanTaken=()=>haccpTaken().concat(planLijst().flatMap(planTaken))
    vraagt HQ of je ze wilt toevoegen — één tik. Zo hoef je een week niet zelf
    over te typen. Er gebeurt niks zonder jouw tik, en een taak die er al staat
    (zelfde dag, zelfde tekst) wordt overgeslagen. */
-function planLinkLees(){
-  const m=(location.hash||'').match(/^#plan=([A-Za-z0-9_-]+)/);
+function planLinkLees(tekst){
+  const m=String(tekst==null?(location.hash||''):tekst).match(/#plan=([A-Za-z0-9_-]+)/);
   if(!m) return null;
   try{
     const b=m[1].replace(/-/g,'+').replace(/_/g,'/');
