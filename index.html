@@ -3802,6 +3802,16 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 }
 </style>
 <style id="dashboard2">
+.halfmeter{display:flex;align-items:center;gap:14px;margin-top:16px;background:var(--bg);border-radius:16px;padding:14px 16px}
+.hmgetal{font-size:34px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink)}
+.hmgetal small{font-size:18px;font-weight:600;color:var(--grijs);margin-left:2px}
+.hmtekst{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.hmtekst b{font-size:13px;font-weight:600}
+.hmtekst>span{font-size:12.5px;color:var(--grijs);line-height:1.4}
+.halfstappen{display:flex;gap:5px;margin-top:16px}
+.halfstappen i{flex:1;height:5px;border-radius:99px;background:var(--lijn)}
+.halfstappen i.af{background:var(--ink)}
+.halfstappen i.nu{background:var(--ink);opacity:.35}
 /* vandaag in de week: antraciet zoals in het ontwerp, niet de accentkleur */
 .weekstrip .wdag.nu,.weekstrip .wdag.nu.leeg,.weekstrip .wdag.nu.vol{background:var(--ink);border-color:var(--ink)}
 .weekstrip .wdag .wd{text-transform:lowercase}
@@ -4032,7 +4042,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v686 · 2 okt 2026';
+const APPVERSIE='v687 · 3 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4291,7 +4301,7 @@ const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[], controleDag:0, ingEtiket:{}, eigenWw:[],
-  recepten:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
+  recepten:[], halfRecepten:[], halfBatches:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
   gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], tedoen:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
@@ -4348,7 +4358,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
-'samenstelling',
+'samenstelling','halfRecepten','halfBatches',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
@@ -5913,6 +5923,7 @@ const SNELITEMS=[
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
   {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
+  {key:'halffab',label:'Halffabricaten',icon:'vorm',soort:'sheet',doe:()=>sheetHalfLijst()},
   {key:'smaken',label:'Smaken',icon:'boek',soort:'sheet',doe:()=>sheetRecepten()},
   {key:'haccp',label:'HACCP',icon:'klembord',soort:'sheet',doe:()=>sheetHaccp()},
   {key:'dossier',label:'Dossier',icon:'doc',soort:'sheet',doe:()=>sheetDossier()},
@@ -7685,6 +7696,114 @@ function mailKaartHTML(){
       </span>
     </button>`;
 }
+/* ═══════════ Halffabricaten: karamel, gelei, notenpasta ═══════════
+   Een bonbonbatch had al stappen, timers en HACCP; een halffabricaat was
+   alleen een taak om af te vinken. Nu heeft het dezelfde werkstand: stap voor
+   stap, met de doeltemperatuur groot in beeld, hoe lang je al bezig bent, en
+   één knop. Aan het eind krijgt wat je maakte een eigen lotnummer (H…), zodat
+   je later kunt terugvinden welke karamel in welke bonbon zit. */
+const HALF_STANDAARD=[{id:'karamel',naam:'Gezouten karamel',stappen:[
+  {tekst:'Suiker droog karamelliseren tot diep amber'},
+  {tekst:'Room erbij'},
+  {tekst:'Boter erbij'},
+  {tekst:'Aan de kook brengen tot 112 °C',temp:112},
+  {tekst:'Zout erbij'},
+  {tekst:'Afkoelen tot 30 °C',temp:30}]}];
+const halfRecepten=()=>(S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD;
+const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
+const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
+  return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
+const klokMS=sec=>{const m=Math.floor(sec/60),s=sec%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s};
+function halfLot(){
+  const d=vandaag().replace(/-/g,'').slice(2);
+  const n=(S.halfBatches||[]).filter(x=>String(x.lot||'').indexOf('H'+d)===0).length+1;
+  return 'H'+d+'-'+n;
+}
+function halfStart(rid,taakId){
+  const al=halfBezig();
+  if(al) return toast('Rond eerst '+al.naam+' af.');
+  const r=halfRecepten().find(x=>x.id===rid); if(!r) return;
+  const herstel=terugpunt(['halfBatches','halfRecepten']);
+  if(!S.halfRecepten||!S.halfRecepten.length) S.halfRecepten=JSON.parse(JSON.stringify(HALF_STANDAARD));
+  S.halfBatches=S.halfBatches||[];
+  S.halfBatches.push({id:uid(),receptId:r.id,naam:r.naam,stappen:JSON.parse(JSON.stringify(r.stappen)),
+    stap:0,stapStart:Date.now(),start:Date.now(),datum:vandaag(),lot:halfLot(),taakId:taakId||'',log:[]});
+  S.tab='dashboard'; bewaarNu(); render(); toast(r.naam+' gestart.',herstel);
+}
+function halfStapKlaar(){
+  const b=halfBezig(); if(!b) return;
+  const herstel=terugpunt(['halfBatches','taken']);
+  b.log=b.log||[];
+  b.log.push({stap:b.stap,klaar:Date.now(),duur:Math.round((Date.now()-b.stapStart)/1000)});
+  b.stap++; b.stapStart=Date.now();
+  if(b.stap>=b.stappen.length){
+    b.klaar=Date.now();
+    const tk=(S.taken||[]).find(x=>x.id===b.taakId); if(tk) tk.klaar=vandaag();
+    bewaarNu(); render(); toast(b.naam+' klaar · lot '+b.lot,herstel); return;
+  }
+  bewaarNu(); render(); toast('Stap klaar.',herstel);
+}
+function halfHeldHTML(b){
+  const s=b.stappen[b.stap], volgende=b.stappen[b.stap+1];
+  const sec=Math.round((Date.now()-b.stapStart)/1000);
+  return `<div class="hoofdkaart">
+    <div class="stap">Halffabricaat · stap ${b.stap+1} van ${b.stappen.length}</div>
+    <h2 style="margin-top:6px">${esc(b.naam)}</h2>
+    <div class="sub">${esc(s.tekst)}</div>
+    <div class="halfmeter">
+      <div class="hmgetal">${s.temp?s.temp+'<small>°C</small>':`<span data-halfklok>${klokMS(sec)}</span>`}</div>
+      <div class="hmtekst"><b>${s.temp?'Doeltemperatuur':'Bezig met deze stap'}</b>
+        <span>${s.temp?'<span data-halfklok>'+klokMS(sec)+'</span> bezig · ':''}${
+          volgende?'Daarna: '+esc(volgende.tekst):'Dit is de laatste stap'}</span></div>
+    </div>
+    <div class="halfstappen">${b.stappen.map((x,i)=>`<i class="${i<b.stap?'af':i===b.stap?'nu':''}"></i>`).join('')}</div>
+    <button class="prim" onclick="halfStapKlaar()">${svg(I.vink,'2.4')}${volgende?'Stap klaar':'Klaar · lot '+esc(b.lot)}</button>
+  </div>`;
+}
+/* de klok in de kaart loopt door zonder dat het hele scherm opnieuw tekent */
+setInterval(()=>{
+  const b=halfBezig(); if(!b) return;
+  const sec=Math.round((Date.now()-b.stapStart)/1000);
+  document.querySelectorAll('[data-halfklok]').forEach(e=>e.textContent=klokMS(sec));
+},1000);
+
+function sheetHalfLijst(){
+  const klaar=(S.halfBatches||[]).filter(x=>x.klaar).slice(-5).reverse();
+  sheet('Halffabricaten',
+    `<div class="paneel">${halfRecepten().map(r=>`<div class="arij">
+       <button class="naam" style="text-align:left;background:none;border:0;padding:0;font:inherit;color:inherit"
+         data-n="${esc(r.naam)}" onclick="sheetHalfRecept(this.dataset.n)">${esc(r.naam)}
+         <small>${r.stappen.length} stappen · tik om aan te passen</small></button>
+       <button class="miniknop" data-r="${esc(r.id)}" onclick="dicht();halfStart(this.dataset.r)">Start</button>
+     </div>`).join('')}</div>
+     <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Laatst gemaakt</span></div>
+     <div class="paneel">${klaar.length?klaar.map(x=>`<div class="arij stil">
+       <span class="naam">${esc(x.naam)}<small>${esc(x.datum)} · lot ${esc(x.lot)}</small></span></div>`).join('')
+       :'<div class="arij stil"><span class="naam"><small>Nog niks gemaakt</small></span></div>'}</div>`,
+    `<button class="prim" style="margin-top:0" onclick="sheetHalfRecept('')">Nieuw halffabricaat</button>`);
+}
+function sheetHalfRecept(naam){
+  const r0=halfRecepten().find(r=>r.naam.toLowerCase()===String(naam||'').toLowerCase());
+  sheet(naam?naam:'Nieuw halffabricaat',
+    `<p class="hint">Eén stap per regel. Staat er een temperatuur in, zoals 112 °C, dan wordt dat het doel van die stap.</p>
+     <div class="veld"><label>Naam</label><input class="inp" id="hrN" value="${esc(naam||'')}" placeholder="Bijv. Gelei"></div>
+     <div class="veld"><label>Stappen</label>
+       <textarea class="inp" id="hrS" rows="8" style="min-height:190px;line-height:1.5">${
+         r0?esc(r0.stappen.map(s=>s.tekst).join('\n')):''}</textarea></div>`,
+    '<button class="prim" style="margin-top:0" id="hrOk">Bewaren</button>');
+  $('#hrOk').onclick=()=>{
+    const n=$('#hrN').value.trim();
+    const regels=$('#hrS').value.split('\n').map(x=>x.trim()).filter(Boolean);
+    if(!n||!regels.length) return toast('Vul een naam en minstens één stap in.');
+    const herstel=terugpunt(['halfRecepten']);
+    if(!S.halfRecepten||!S.halfRecepten.length) S.halfRecepten=JSON.parse(JSON.stringify(HALF_STANDAARD));
+    const stappen=regels.map(x=>{const m=x.match(/(\d{2,3})\s*°?\s*C(?![a-z])/i);
+      return m?{tekst:x,temp:+m[1]}:{tekst:x}});
+    const r=S.halfRecepten.find(x=>x.naam.toLowerCase()===(naam||n).toLowerCase());
+    if(r){ r.naam=n; r.stappen=stappen } else S.halfRecepten.push({id:uid(),naam:n,stappen});
+    bewaarNu(); dicht(); render(); toast('Stappen bewaard.',herstel);
+  };
+}
 function filmdagKaartHTML(){
   const d=filmdagData();
   if(d.datum!==vandaag()) return '';
@@ -7943,7 +8062,13 @@ function dashboardHTML(){
       <div class="sub">${taken.length>1?taken.length+' klussen vandaag'
         :(eerste.plan&&eerste.plan.datum?'voor de batch van '+kort(new Date(eerste.plan.datum))
           :'vandaag op de rol')}</div>
-      ${eerste.soort==='boodschappen'
+      ${eerste.soort==='half'&&eerste.los
+        ?(halfVoorTaak(eerste.tekst)
+          ?`<button class="prim" data-r="${esc(halfVoorTaak(eerste.tekst).id)}" data-t="${esc(eerste.los.id)}"
+              onclick="halfStart(this.dataset.r,this.dataset.t)">${svg(I.vorm)}Start</button>`
+          :`<button class="prim" data-n="${esc(eerste.tekst.replace(/\s+maken$/i,''))}"
+              onclick="sheetHalfRecept(this.dataset.n)">${svg(I.plus)}Stappen invullen</button>`)
+        :eerste.soort==='boodschappen'
         ?`<button class="prim" onclick="sheetOntvangst()">${svg(I.vracht)}Ontvangst invullen</button>`
         :eerste.los?`<button class="prim" data-taakaf="${esc(eerste.los.id)}">${svg(I.vink,'2.4')}Klaar</button>`
         :`<button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button>`}</div>
@@ -8062,6 +8187,8 @@ function dashboardHTML(){
      Alles wat je aandacht vraagt maar niet over de batch van vandaag gaat,
      zit nu op één plek: de bel rechtsboven, met een stipje als er iets
      openstaat. Wat hier overblijft gaat alleen nog over vandaag. */
+  const hb=t.soort!=='bezig'&&halfBezig();
+  if(hb) h=halfHeldHTML(hb);
   /* de klok als knopje in de kaart van vandaag (bij een batch staat hij erboven) */
   if(t.soort!=='bezig') h=h.replace('<div class="hoofdkaart">','<div class="hoofdkaart">'+hkKlokHTML());
   const morgenAlInKaart=t.soort!=='bezig'&&h.indexOf('Volgende: <b style="color:var(--ink);font-weight:600">morgen')>=0;
