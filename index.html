@@ -3802,6 +3802,19 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 }
 </style>
 <style id="dashboard2">
+.wdlijst{padding:2px 16px 6px}
+.wdgroep{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--grijs2);padding:12px 0 2px}
+.wdrij{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:9px 0;border:0;background:none;
+  font:inherit;color:var(--ink);min-height:48px}
+.wdrij .wdt{flex:1;font-size:14.5px;line-height:1.35}
+.wdrij .wdt small{display:block;font-size:12px;color:var(--grijs);margin-top:2px}
+.wdrij.af .wdt{color:var(--grijs2);text-decoration:line-through}
+.wdmis{width:100%;border:0;background:none;color:var(--grijs);font:500 13.5px Inter,system-ui,sans-serif;padding:10px 0 8px;text-align:left}
+.wdklaar{display:flex;align-items:center;gap:8px;width:100%;border:0;background:#15803d14;color:var(--groen);
+  border-radius:14px;padding:12px 14px;font:600 13.5px Inter,system-ui,sans-serif;margin:0 0 14px}
+.wdklaar svg{width:16px;height:16px}
+.hpregel{font-size:14px;line-height:1.5;padding:10px 0;border-bottom:1px solid var(--lijn)}
+.hpregel:last-child{border-bottom:0}
 .halfmeter{display:flex;align-items:center;gap:14px;margin-top:16px;background:var(--bg);border-radius:16px;padding:14px 16px}
 .hmgetal{font-size:34px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink)}
 .hmgetal small{font-size:18px;font-weight:600;color:var(--grijs);margin-left:2px}
@@ -4042,7 +4055,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v687 · 3 okt 2026';
+const APPVERSIE='v689 · 4 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4301,7 +4314,7 @@ const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[], controleDag:0, ingEtiket:{}, eigenWw:[],
-  recepten:[], halfRecepten:[], halfBatches:[], meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
+  recepten:[], halfRecepten:[], halfBatches:[], werkdag:{}, meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
   gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], tedoen:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
@@ -4358,7 +4371,7 @@ const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveran
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
-'samenstelling','halfRecepten','halfBatches',
+'samenstelling','halfRecepten','halfBatches','werkdag',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
@@ -7804,6 +7817,96 @@ function sheetHalfRecept(naam){
     bewaarNu(); dicht(); render(); toast('Stappen bewaard.',herstel);
   };
 }
+/* ═══════════ Hygiëne vandaag (uit het hygiëneplan) ═══════════
+   Het plan zegt wat je op een werkdag doet; deze kaart zet het op volgorde:
+   begin, tijdens, einde. Wat je meet (temperatuur, schoonmaak) vink je af door
+   het vast te leggen; wat je alleen controleert vink je met één tik af. De
+   kaart staat op je dashboard op elke dag dat je werkt, en klapt in tot één
+   groene regel zodra alles gedaan is. */
+const haccpLogVandaag=type=>{
+  const ok=l=>l&&l.type===type&&l.datum===vandaag();
+  return (S.batches||[]).some(b=>(b.logs||[]).some(ok))||alsLijst(S.losLog).some(ok);
+};
+function wdStaat(){
+  if(!S.werkdag||S.werkdag.datum!==vandaag()) S.werkdag={datum:vandaag(),af:{}};
+  S.werkdag.af=S.werkdag.af||{};
+  return S.werkdag;
+}
+function isWerkdag(){
+  return !!S.dienst||lopende().length>0||!!halfBezig()
+    ||allePlanTaken().some(x=>x.datum===vandaag()&&(x.los||x.plan));
+}
+function wdPunten(){
+  const af=(S.werkdag&&S.werkdag.datum===vandaag()&&S.werkdag.af)||{};
+  const kook=allePlanTaken().some(x=>x.datum===vandaag()&&x.soort==='half')
+    ||(S.halfBatches||[]).some(x=>x.datum===vandaag());
+  return [
+    {g:'Begin',k:'hand',t:'Handen gewassen, schone kleding, haarnet, sieraden af',af:!!af.hand},
+    {g:'Begin',k:'temp',t:'Temperatuur koeling en klimaatkast meten',af:haccpLogVandaag('temperatuur'),meet:true},
+    {g:'Begin',k:'ruimte',t:'Ruimte schoon, geen sporen van ongedierte',af:!!af.ruimte},
+    {g:'Tijdens',k:'allerg',t:'Noten en andere allergenen apart, gereedschap tussendoor schoon',af:!!af.allerg},
+    kook&&{g:'Tijdens',k:'kook',t:'Kooktemperatuur meten met de thermometer',
+      af:(S.halfBatches||[]).some(x=>x.datum===vandaag()&&x.klaar),auto:'Vinkt vanzelf af als je halffabricaat klaar is.'},
+    {g:'Einde',k:'schoon',t:'Werkbanken, gereedschap, mallen en vloer schoonmaken',af:haccpLogVandaag('schoonmaak'),meet:true},
+    {g:'Einde',k:'dicht',t:'Afval weg, bonbons gekoeld met productiedatum, koeling dicht',af:!!af.dicht}
+  ].filter(Boolean);
+}
+function wdKlik(k){
+  const x=wdPunten().find(y=>y.k===k); if(!x) return;
+  if(k==='temp') return sheetTemp();
+  if(k==='schoon') return sheetSchoonmaak();
+  if(x.auto) return toast(x.auto);
+  const w=wdStaat();
+  if(w.af[k]) delete w.af[k]; else w.af[k]=nu();
+  bewaarNu(); render();
+}
+function werkdagKaartHTML(){
+  if(!isWerkdag()) return '';
+  const p=wdPunten(), af=p.filter(x=>x.af).length;
+  if(af===p.length) return `<button type="button" class="wdklaar" onclick="sheetHaccp()">${svg(I.vink,'2.4')}Hygiëne vandaag: alles gedaan</button>`;
+  return `<div class="blokkop"><span class="eyebrow">Hygiëne vandaag</span><span class="tel">${af} van ${p.length}</span></div>
+    <div class="paneel wdlijst">${['Begin','Tijdens','Einde'].map(g=>{
+      const r=p.filter(x=>x.g===g); if(!r.length) return '';
+      return `<div class="wdgroep">${g}</div>`+r.map(x=>`<button type="button" class="wdrij ${x.af?'af':''}"
+        data-wd="${x.k}" onclick="wdKlik(this.dataset.wd)">
+        <span class="vinkknop ${x.af?'aan':''}">${svg(I.vink,'2.4')}</span>
+        <span class="wdt">${esc(x.t)}${!x.af&&x.meet?'<small>tik om vast te leggen</small>':''}</span></button>`).join('');
+    }).join('')}
+    <button type="button" class="wdmis" onclick="sheetAfwijking()">Er ging iets mis →</button></div>`;
+}
+
+/* het hygiëneplan zelf, kort, om te lezen of te laten zien */
+function sheetHygieneplan(){
+  const blok=(kop,regels)=>`<div class="blokkop" style="margin-top:18px"><span class="eyebrow">${kop}</span></div>
+    <div class="paneel" style="padding:4px 16px">${regels.map(r=>`<div class="hpregel">${r}</div>`).join('')}</div>`;
+  sheet('Mijn hygiëneplan',
+    `<p class="hint">Ik werk volgens de Hygiënecode voor de Brood- en Banketbakkerij, module chocolade en bonbons (§4.5).
+       Hieronder staat hoe dat er bij mij uitziet. Mijn registraties staan in deze app.</p>`
+    +blok('Elke werkdag',[
+      '<b>Begin</b> · handen wassen, schone kleding, haarnet, sieraden af; temperatuur koeling meten; ruimte controleren',
+      '<b>Tijdens</b> · allergenen gescheiden; vullingen koken tot de eindtemperatuur en meten',
+      '<b>Einde</b> · alles schoonmaken; afval weg; bonbons gekoeld met productiedatum'])
+    +blok('Waar het mis kan gaan',[
+      '<b>Koken vulling</b> · karamel tot <b>112 °C</b> met geijkte thermometer; niet gehaald → doorkoken',
+      '<b>Koel bewaren</b> · koeling ≤ 7 °C; bonbons gekoeld maximaal 2–3 weken',
+      '<b>Ontvangst</b> · gekoeld ≤ 7 °C, verpakking heel, THT ruim; anders weigeren',
+      '<b>Afkoelen</b> · snel en afgedekt naar 30 °C, daarna koelen',
+      '<b>Etiket</b> · allergenen, productiedatum en THT op elk doosje'])
+    +blok('Allergenen',[
+      'Melk, noten, soja (lecithine). Noten in dezelfde ruimte: <i>kan sporen van noten bevatten</i>',
+      'Halal en alcoholvrij: nieuwe grondstoffen controleer ik daarop bij inkoop'])
+    +blok('Periodiek',[
+      'Thermometer ijken · elke 6 maanden',
+      'Ongediertecontrole · elke 3 maanden',
+      'Terugroepoefening · elk jaar',
+      'Dit plan herzien · elk jaar, en bij een nieuw product of nieuwe apparatuur'])
+    +blok('Als er iets mis is met een product',[
+      '1 · verkoop van die batch stoppen',
+      '2 · bij Traceren zoeken op het lot: welke orders, welke klanten',
+      '3 · bij gevaar voor de gezondheid direct melden bij de NVWA en klanten informeren',
+      '4 · vastleggen wat er gebeurde en wat ik deed']),
+    '');
+}
 function filmdagKaartHTML(){
   const d=filmdagData();
   if(d.datum!==vandaag()) return '';
@@ -8192,7 +8295,7 @@ function dashboardHTML(){
   /* de klok als knopje in de kaart van vandaag (bij een batch staat hij erboven) */
   if(t.soort!=='bezig') h=h.replace('<div class="hoofdkaart">','<div class="hoofdkaart">'+hkKlokHTML());
   const morgenAlInKaart=t.soort!=='bezig'&&h.indexOf('Volgende: <b style="color:var(--ink);font-weight:600">morgen')>=0;
-  return voorHeld+h+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+tdKaart+mailKaartHTML()+kpiHTML()+controleKaartHTML();
+  return voorHeld+h+werkdagKaartHTML()+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+tdKaart+mailKaartHTML()+kpiHTML()+controleKaartHTML();
 }
 
 /* datum klein, groet groot, en de signalen die er nu toe doen eronder */
@@ -18563,6 +18666,10 @@ function sheetHaccp(){
     alle.sort((a,b2)=>String(b2.datum||'').localeCompare(String(a.datum||'')));
     return alle[0];
   })();
+  h+=`<div class="paneel" style="margin-bottom:20px"><button class="arij" onclick="sheetHygieneplan()">
+    <span class="ivak">${svg(I.doc||I.klembord)}</span>
+    <span class="naam">Mijn hygiëneplan<small>wat ik doe en waarom</small></span>
+    <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
   h+=`<div class="blokkop"><span class="eyebrow">Elke dag</span></div><div class="paneel">
     ${rij('temp','Temperatuur meten','koeling en klimaatkast',
       tLaatst?(tLaatst.datum===vandaag()?'vandaag':kort(new Date(tLaatst.datum))):'nooit',
@@ -21152,13 +21259,41 @@ const lotOver=l=>l.tht&&new Date(l.tht)<new Date(iso(S.datum));
    product, dan bood hij álle partijen aan. Bij slagroom stonden dan de lots
    van je cacaoboter als keuze, en één misklik zet een verkeerd lotnummer in
    je traceerbaarheid. Geen match hoort geen chips te geven. */
+/* ═══════════ halffabricaten in je bonbonbatch ═══════════
+   Je karamel van dinsdag heeft een eigen lot (H…). Bij het vastleggen van de
+   ingrediënten van een bonbonbatch kies je welke erin gaat, zodat je van een
+   bonbon terug kunt naar de karamel, en van de karamel naar room en boter. */
+function halfLotKies(lot){
+  const b=batch(); if(!b) return;
+  b.halfLots=b.halfLots||[];
+  const i=b.halfLots.indexOf(lot);
+  if(i>=0) b.halfLots.splice(i,1); else b.halfLots.push(lot);
+  bewaarNu();
+  const sb=$('#sheetBody'), sc=sb?sb.scrollTop:0;
+  sheetIngredienten();
+  if($('#sheetBody')) $('#sheetBody').scrollTop=sc;
+}
+function halfLotBlokHTML(b){
+  const rec=(S.halfBatches||[]).filter(x=>x.klaar&&dagenTussen(x.datum,vandaag())<=21).slice().reverse();
+  if(!rec.length) return '';
+  const aan=b.halfLots||[];
+  return `<div class="lotblok" style="margin-bottom:14px">
+    <div class="lotkop"><span class="n">Halffabricaten</span>
+      <span class="g ${aan.length?'goed':''}">${aan.length?aan.length+' gekozen':'tik wat erin gaat'}</span></div>
+    <div class="lotchips">${rec.map(x=>`<button type="button" class="lotchip ${aan.includes(x.lot)?'aan':''}"
+      data-hl="${esc(x.lot)}" onclick="halfLotKies(this.dataset.hl)">${esc(x.lot)}<em>${esc(x.naam)} · ${esc(x.datum.slice(8))}-${esc(x.datum.slice(5,7))}</em></button>`).join('')}</div>
+  </div>`;
+}
 function lotsVoor(naam){
   const n=String(naam||'').toLowerCase();
   if(!n) return [];
-  return (S.lots||[]).filter(l=>{
+  /* je eigen halffabricaten tellen ook als partij: zo vind je ze terug bij Traceren */
+  const eigen=(S.halfBatches||[]).filter(x=>x.klaar).map(x=>({lot:x.lot,product:x.naam,datum:x.datum,eigen:true}))
+    .filter(l=>{const p=l.product.toLowerCase();return p.includes(n)||n.includes(p)});
+  return eigen.concat((S.lots||[]).filter(l=>{
     const p=String(l.product||'').toLowerCase();
     return p && (p.includes(n)||n.includes(p));
-  });
+  }));
 }
 
 /* Je gebruikt bijna altijd dezelfde pot als de vorige keer. Dat is precies
@@ -21656,7 +21791,7 @@ function sheetIngredienten(){
       :'Van '+kort.length+' ingrediënten heb je te weinig'} voor deze batch.</span></div>`:'';
   const kentPartijen=lijst.some(i=>lotsVoor(i.naam).length);
   sheet('Ingrediënten',
-    `<p class="hint">Kies per ingrediënt de partij die je gebruikt — zo is deze
+    `${halfLotBlokHTML(b)}<p class="hint">Kies per ingrediënt de partij die je gebruikt — zo is deze
        batch één stap terug traceerbaar.${kentPartijen?'':' Je hebt nog geen partijen\
        vastgelegd, dus vul de lotnummers met de hand in.'}
        </p>
