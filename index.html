@@ -3802,6 +3802,11 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 }
 </style>
 <style id="dashboard2">
+.wdwat{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0 4px}
+.wdchip{border:1px solid var(--lijn);background:var(--card);color:var(--ink2);border-radius:99px;padding:8px 12px;
+  font:500 13px Inter,system-ui,sans-serif;min-height:36px}
+.wdchip.aan{background:var(--ink);border-color:var(--ink);color:#fff}
+.wdleeg{font-size:13.5px;color:var(--grijs);margin:8px 0 10px;line-height:1.45}
 .wdlijst{padding:2px 16px 6px}
 .wdgroep{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--grijs2);padding:12px 0 2px}
 .wdrij{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:9px 0;border:0;background:none;
@@ -4055,7 +4060,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v689 · 4 okt 2026';
+const APPVERSIE='v690 · 4 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7832,40 +7837,86 @@ function wdStaat(){
   S.werkdag.af=S.werkdag.af||{};
   return S.werkdag;
 }
+/* ═══════════ wat doe je vandaag? ═══════════
+   Welke hygiënepunten gelden hangt af van wat je doet: wie karamel kookt meet
+   de kooktemperatuur, wie inpakt controleert etiketten, wie alleen
+   administratie doet heeft niks. Bovenaan de kaart staan de werkzaamheden als
+   knopjes. Ze staan al aan op basis van je planning; één tik zet er een bij of
+   af, en de lijst eronder past zich meteen aan. */
+const WERKZAAMHEDEN=[
+  {k:'bonbons', n:'Bonbons maken'},
+  {k:'koken',   n:'Vulling koken'},
+  {k:'ontvangst',n:'Levering ontvangen'},
+  {k:'inpak',   n:'Inpakken & verzenden'},
+  {k:'schoon',  n:'Schoonmaken'},
+  {k:'kantoor', n:'Alleen kantoorwerk'}
+];
+function wdWatUitPlanning(){
+  const d=vandaag(), taak=allePlanTaken().filter(x=>x.datum===d);
+  const w=[];
+  if(lopende().length||taak.some(x=>x.soort==='productie')) w.push('bonbons');
+  if(halfBezig()||taak.some(x=>x.soort==='half')) w.push('koken');
+  if(taak.some(x=>x.soort==='boodschappen'&&x.los)) w.push('ontvangst');
+  if(taak.some(x=>x.soort==='verzenden')) w.push('inpak');
+  if(taak.some(x=>x.soort==='haccp'&&x.los)) w.push('schoon');
+  return w;
+}
+function wdWat(){
+  const w=S.werkdag&&S.werkdag.datum===vandaag()&&Array.isArray(S.werkdag.wat)?S.werkdag.wat:null;
+  return w||wdWatUitPlanning();
+}
+function wdWatTik(k){
+  const st=wdStaat();
+  let w=wdWat().slice();
+  if(k==='kantoor') w=w.indexOf('kantoor')>=0?[]:['kantoor'];
+  else { w=w.filter(x=>x!=='kantoor'); w=w.indexOf(k)>=0?w.filter(x=>x!==k):w.concat(k); }
+  st.wat=w; bewaarNu(); render();
+}
 function isWerkdag(){
   return !!S.dienst||lopende().length>0||!!halfBezig()
-    ||allePlanTaken().some(x=>x.datum===vandaag()&&(x.los||x.plan));
+    ||allePlanTaken().some(x=>x.datum===vandaag()&&(x.los||x.plan))
+    ||!!(S.werkdag&&S.werkdag.datum===vandaag()&&(S.werkdag.wat||[]).length);
 }
 function wdPunten(){
   const af=(S.werkdag&&S.werkdag.datum===vandaag()&&S.werkdag.af)||{};
-  const kook=allePlanTaken().some(x=>x.datum===vandaag()&&x.soort==='half')
-    ||(S.halfBatches||[]).some(x=>x.datum===vandaag());
+  const w=wdWat(), heeft=(...k)=>k.some(x=>w.indexOf(x)>=0);
+  const ontvVandaag=(S.ontvangsten||[]).some(o=>o.datum===vandaag())||haccpLogVandaag('ontvangst');
   return [
-    {g:'Begin',k:'hand',t:'Handen gewassen, schone kleding, haarnet, sieraden af',af:!!af.hand},
-    {g:'Begin',k:'temp',t:'Temperatuur koeling en klimaatkast meten',af:haccpLogVandaag('temperatuur'),meet:true},
-    {g:'Begin',k:'ruimte',t:'Ruimte schoon, geen sporen van ongedierte',af:!!af.ruimte},
-    {g:'Tijdens',k:'allerg',t:'Noten en andere allergenen apart, gereedschap tussendoor schoon',af:!!af.allerg},
-    kook&&{g:'Tijdens',k:'kook',t:'Kooktemperatuur meten met de thermometer',
+    heeft('bonbons','koken','inpak')&&{g:'Begin',k:'hand',t:'Handen gewassen, schone kleding, haarnet, sieraden af',af:!!af.hand},
+    heeft('bonbons','koken','inpak','ontvangst','schoon')&&{g:'Begin',k:'temp',t:'Temperatuur koeling en klimaatkast meten',af:haccpLogVandaag('temperatuur'),meet:true},
+    heeft('bonbons','koken')&&{g:'Begin',k:'ruimte',t:'Ruimte schoon, geen sporen van ongedierte',af:!!af.ruimte},
+    heeft('ontvangst')&&{g:'Tijdens',k:'ontv',t:'Levering controleren: temperatuur, verpakking, THT, lotnummer',af:ontvVandaag,meet:true},
+    heeft('bonbons','koken')&&{g:'Tijdens',k:'allerg',t:'Noten en andere allergenen apart, gereedschap tussendoor schoon',af:!!af.allerg},
+    heeft('koken')&&{g:'Tijdens',k:'kook',t:'Kooktemperatuur meten met de thermometer',
       af:(S.halfBatches||[]).some(x=>x.datum===vandaag()&&x.klaar),auto:'Vinkt vanzelf af als je halffabricaat klaar is.'},
-    {g:'Einde',k:'schoon',t:'Werkbanken, gereedschap, mallen en vloer schoonmaken',af:haccpLogVandaag('schoonmaak'),meet:true},
-    {g:'Einde',k:'dicht',t:'Afval weg, bonbons gekoeld met productiedatum, koeling dicht',af:!!af.dicht}
+    heeft('inpak')&&{g:'Tijdens',k:'etiket',t:'Elk doosje: allergenen, productiedatum en THT op het etiket',af:!!af.etiket},
+    heeft('inpak')&&{g:'Tijdens',k:'warm',t:'Weer gecheckt: bij warmte niet versturen of koelelement erbij',af:!!af.warm},
+    heeft('bonbons','koken','schoon')&&{g:'Einde',k:'schoon',t:'Werkbanken, gereedschap, mallen en vloer schoonmaken',af:haccpLogVandaag('schoonmaak'),meet:true},
+    heeft('bonbons','koken','schoon')&&{g:'Einde',k:'dicht',t:'Afval weg, producten gekoeld met datum, koeling dicht',af:!!af.dicht}
   ].filter(Boolean);
 }
 function wdKlik(k){
   const x=wdPunten().find(y=>y.k===k); if(!x) return;
   if(k==='temp') return sheetTemp();
   if(k==='schoon') return sheetSchoonmaak();
+  if(k==='ontv') return sheetOntvangst();
   if(x.auto) return toast(x.auto);
-  const w=wdStaat();
-  if(w.af[k]) delete w.af[k]; else w.af[k]=nu();
+  const st=wdStaat();
+  if(st.af[k]) delete st.af[k]; else st.af[k]=nu();
   bewaarNu(); render();
 }
 function werkdagKaartHTML(){
   if(!isWerkdag()) return '';
-  const p=wdPunten(), af=p.filter(x=>x.af).length;
+  const w=wdWat(), p=wdPunten(), af=p.filter(x=>x.af).length;
+  const chips=`<div class="wdwat">${WERKZAAMHEDEN.map(x=>`<button type="button"
+      class="wdchip ${w.indexOf(x.k)>=0?'aan':''}" data-wk="${x.k}" onclick="wdWatTik(this.dataset.wk)">${esc(x.n)}</button>`).join('')}</div>`;
+  if(!w.length) return `<div class="blokkop"><span class="eyebrow">Wat doe je vandaag?</span></div>
+    <div class="paneel wdlijst">${chips}<p class="wdleeg">Tik aan wat je gaat doen, dan zie je welke hygiënepunten erbij horen.</p></div>`;
+  if(!p.length) return `<div class="blokkop"><span class="eyebrow">Hygiëne vandaag</span></div>
+    <div class="paneel wdlijst">${chips}<p class="wdleeg">Geen voedsel vandaag, dus geen hygiënepunten.</p></div>`;
   if(af===p.length) return `<button type="button" class="wdklaar" onclick="sheetHaccp()">${svg(I.vink,'2.4')}Hygiëne vandaag: alles gedaan</button>`;
   return `<div class="blokkop"><span class="eyebrow">Hygiëne vandaag</span><span class="tel">${af} van ${p.length}</span></div>
-    <div class="paneel wdlijst">${['Begin','Tijdens','Einde'].map(g=>{
+    <div class="paneel wdlijst">${chips}${['Begin','Tijdens','Einde'].map(g=>{
       const r=p.filter(x=>x.g===g); if(!r.length) return '';
       return `<div class="wdgroep">${g}</div>`+r.map(x=>`<button type="button" class="wdrij ${x.af?'af':''}"
         data-wd="${x.k}" onclick="wdKlik(this.dataset.wd)">
