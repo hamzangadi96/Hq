@@ -3933,6 +3933,29 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vspknop{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;margin-top:14px;padding:12px;border:0;border-top:1px solid var(--lijn);
   background:none;font:inherit;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer}
 .vspknop small{font-size:12px;font-weight:400;color:var(--grijs)}
+.vbtitel{display:flex;flex-direction:column;margin:2px 0 14px}
+.vbtitel b{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.vbtitel span{font-size:13px;color:var(--grijs);margin-top:4px}
+.vbon{background:var(--bg);border-radius:16px;padding:6px 16px}
+.vbrij{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;font-size:15px}
+.vbrij span{color:var(--ink2)}
+.vbrij b{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vbrij.sub{border-top:1px solid #e4e4e7;font-weight:600}.vbrij.sub span{color:var(--ink);font-weight:600}
+.vbrij.totaal{border-top:2px solid var(--ink);margin-top:2px}
+.vbrij.totaal span{color:var(--ink);font-weight:700;font-size:16px}.vbrij.totaal b{font-size:20px;font-weight:800}
+.vbnoot{font-size:12.5px;color:var(--grijs);line-height:1.45;margin:8px 2px 0}
+.vbkop{display:flex;justify-content:space-between;align-items:baseline;margin:24px 2px 10px}
+.vbkop span{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--grijs)}
+.vbkop small{font-size:12px;color:var(--grijs)}
+.vbmaanden{position:relative;display:flex;flex-direction:column;gap:10px;padding-bottom:22px}
+.vbm{display:grid;grid-template-columns:56px minmax(0,1fr) 40px;column-gap:8px;align-items:center}
+.vbm .n{font-size:14px;font-weight:600}
+.vbm .bar{height:10px;border-radius:5px;background:var(--lijn);overflow:hidden}
+.vbm .bar i{display:block;height:100%;border-radius:5px;background:var(--ink)}
+.vbm b{font-size:15px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.vbm small{grid-column:2/4;font-size:11.5px;color:var(--grijs);margin-top:2px}
+.vbgem{position:absolute;top:-4px;bottom:0;width:0;border-left:2px dashed var(--groen)}
+.vbgem span{position:absolute;bottom:0;transform:translateX(-50%);font-size:11.5px;font-weight:600;color:var(--groen);white-space:nowrap;background:#fff;padding:0 6px;line-height:18px}
 .vsplagen{padding:4px 16px}
 .vsplaag{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--lijn)}
 .vsplaag:last-child{border-bottom:0}
@@ -4151,7 +4174,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v708 · 8 okt 2026';
+const APPVERSIE='v709 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7910,36 +7933,41 @@ function voorspelKaartHTML(a){
 }
 function voorspelSheetHTML(){
   const v=voorspelStand(), a=voorspelAdvies();
-  if(!v) return `<p class="wdleeg">${voorspelFout?esc(voorspelFout):'Voorspellen…'}</p>
+  if(!v||!a) return `<p class="wdleeg">${voorspelFout?esc(voorspelFout):'Voorspellen…'}</p>
     <button type="button" class="kopknop" onclick="voorspelFout='';voorspelVerversen(true)">Opnieuw</button>`;
-  const dag=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'long'});
-  const laag=(kop,getal,uitleg)=>`<div class="vsplaag"><span><b>${kop}</b><small>${uitleg}</small></span><em>${getal}</em></div>`;
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+  const r=(l,w,kl)=>`<div class="vbrij ${kl||''}"><span>${l}</span><b>${w}</b></div>`;
+  const dozen=a.d16+a.d25-(v.stempel16||0);
   const tijd=new Date(v.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
-  return `<div class="stpadvies">
-      <span class="eyebrow">Voorspelling voor november</span>
-      <b>Maak ±${a.bruto.toLocaleString('nl-NL')} bonbons</b>
-      <span class="stpdozen"><i><b>${a.d16}×</b>doos van 16</i><i><b>${a.d25}×</b>doos van 25</i><i><b>±${v.verwachtOrders}</b>bestellingen</i></span>
-      <small>Je doel is ${ORDERDOEL} bestellingen. ${v.verwachtOrders>=ORDERDOEL?'De cijfers zitten op of boven je doel.'
-        :'De cijfers zitten '+(ORDERDOEL-v.verwachtOrders)+' onder je doel — maak je voor je doel, reken dan op ±'+
-          Math.ceil(a.bruto*ORDERDOEL/Math.max(1,v.verwachtOrders)).toLocaleString('nl-NL')+' bonbons.'}</small>
-    </div>
-    <div class="blokkop" style="margin-top:18px"><span class="eyebrow">Zo komt het getal tot stand</span></div>
-    <div class="paneel vsplagen">
-      ${v.rustig&&v.druk?laag('Bandbreedte',v.rustig.orders+'–'+v.druk.orders,
-        `van je zwakste maand (${esc(v.rustig.naam)}) tot je sterkste (${esc(v.druk.naam)}); het advies is het gemiddelde`):''}
-      ${laag('Terugkerende klanten','±'+nlGetal(v.verwachtTerug),
-        `gemiddeld kwam ${v.terugPct}% van je klanten per maand terug; je hebt er nu ${v.bestaandNu}`)}
-      ${laag('Nieuwe klanten','±'+nlGetal(v.verwachtNieuw),
-        `gemiddeld zoveel nieuwe klanten per maand als er toen echt bijkwamen; je lijst (${v.abonneesNu}) kan dat nog opdrijven`)}
-      ${laag('Dozen per bestelling',nlGetal(v.dozenPerOrder),
-        `nieuwe klanten kozen ${v.aandeel25Nieuw}% de 25, je vaste klanten ${v.aandeel25Terug}%`)}
-      ${laag('Stempelkaarten','+'+a.stempels,`${v.stempel16}× gratis doos van 16 erbovenop; ${v.stempel25}× korting op de 25 zit al in de verkoop`)}
-      ${laag('Afkeur','+'+a.afkeur,a.afk.eigen?Math.round(a.afk.deel*100)+'% uit je eigen batches':'5% — nog te weinig batches om je eigen afkeur te meten')}
-    </div>
-    ${v.maanden&&v.maanden.length?`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">Als november gaat zoals…</span></div>
-    <div class="paneel vsplagen">${v.maanden.map(m=>laag(esc(m.naam),m.orders,
-      `${m.terugPct}% van je klanten kwam terug · ${m.nieuwToen} nieuwe klanten`)).join('')}</div>`:''}
-    <button type="button" class="kopknop" style="margin-top:16px" onclick="voorspelFout='';voorspelVerversen(true)">${
+
+  /* 1. de rekensom als kassabon */
+  const bon=`<div class="vbon">
+    ${r('Terugkerende klanten',g(v.verwachtTerug))}
+    ${r('Nieuwe klanten',g(v.verwachtNieuw))}
+    ${r('Bestellingen',g(v.verwachtOrders),'sub')}
+    ${r('× '+nlGetal(v.dozenPerOrder)+' doos per bestelling',g(dozen)+' dozen')}
+    ${v.stempel16?r('+ gratis dozen stempelkaart',v.stempel16+' dozen'):''}
+    ${r('In bonbons',g(a.netto),'sub')}
+    ${r('+ '+Math.round(a.afk.deel*100)+'% afkeur'+(a.afk.eigen?'':' (schatting)'),'+'+g(a.afkeur))}
+    ${r('Maken',g(a.bruto),'totaal')}
+  </div>
+  <p class="vbnoot">${a.d16}× doos van 16 en ${a.d25}× doos van 25${v.stempel25?' · '+v.stempel25+' kaarten als korting op de 25 zitten al in de verkoop':''}</p>`;
+
+  /* 2. de maanden als staafjes, met een lijn voor het gemiddelde */
+  const M=v.maanden||[];
+  const max=Math.max(ORDERDOEL,...M.map(m=>m.orders))*1.05||1;
+  const maanden=M.length?`<div class="vbkop"><span>Als november gaat zoals…</span><small>bestellingen</small></div>
+    <div class="vbmaanden">
+      ${M.map(m=>`<div class="vbm"><span class="n">${esc(m.naam.replace(/ 20(\d\d)$/,' ’$1'))}</span>
+        <span class="bar"><i style="width:${m.orders/max*100}%"></i></span><b>${m.orders}</b>
+        <small>${m.terugPct}% terug · ${m.nieuwToen} nieuw</small></div>`).join('')}
+      <div class="vbgem" style="left:calc(64px + (100% - 64px - 40px) * ${v.verwachtOrders/max})"><span>gem. ${v.verwachtOrders}</span></div>
+    </div>`:'';
+
+  return `<div class="vbtitel"><b>${g(a.bruto)}</b><span>bonbons voor november</span></div>
+    ${bon}${maanden}
+    <p class="vbnoot">Terugkerend: wat toen terugkwam, toegepast op je ${v.bestaandNu} klanten van nu. Nieuw: zoveel als er toen echt bijkwamen.</p>
+    <button type="button" class="kopknop" style="margin-top:14px" onclick="voorspelFout='';voorspelVerversen(true)">${
       voorspelBezig?'Voorspellen…':'Bijgewerkt '+tijd+' · opnieuw'}</button>`;
 }
 
