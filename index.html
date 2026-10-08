@@ -4077,7 +4077,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v691 · 8 okt 2026';
+const APPVERSIE='v693 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7738,9 +7738,19 @@ function mailKaartHTML(){
    uitgeklapt onder elkaar: vier schermen scrollen voor één blik. Nu is elk
    een tegel met het ene getal dat je moet weten; tik en de hele kaart opent
    als sheet. Afvinken in die sheet werkt precies als eerst. */
-let homeSheet=null;
+let homeSheet=null, homeDagTaken=[];
+/* De klussen uit je planning (na de eerste, die staat al in de grote kaart) */
+function homeDagLijstHTML(){
+  if(!homeDagTaken.length) return '';
+  return `<div class="blokkop"><span class="eyebrow">Na deze</span><span class="tel">${homeDagTaken.length}</span></div>
+    <div class="paneel">${homeDagTaken.map(x=>`<div class="arij stil">
+      <span class="ivak">${svg(I[DAGSOORT[x.soort].ico])}</span>
+      <span class="naam">${esc(x.tekst)}<small>${DAGSOORT[x.soort].n.toLowerCase()}${
+        x.tijd?' · '+esc(x.tijd):''}${x.plan&&x.plan.datum?' · batch van '+kort(new Date(x.plan.datum)):''}</small></span>
+      </div>`).join('')}</div>`;
+}
 const HOMESHEETS={
-  td:['Te doen',()=>tedoenKaartHTML().replace('<span class="eyebrow">Te doen</span>','<span class="eyebrow"></span>')],
+  td:['Vandaag',()=>homeDagLijstHTML()+(homeDagTaken.length?'<div style="height:18px"></div>':'')+tedoenKaartHTML()],
   hyg:['Hygiëne vandaag',()=>(werkdagKaartHTML()||'<p class="wdleeg">Vandaag is geen werkdag.</p>')
     .replace('<span class="eyebrow">Hygiëne vandaag</span>','<span class="eyebrow"></span>')],
   mail:['Mailinglijst',()=>{const o=mailGroot; mailGroot=true; const h=mailKaartHTML(); mailGroot=o;
@@ -7762,10 +7772,10 @@ function homeTegelsHTML(){
   const sub=s=>`<span class="hts">${s}</span>`;
 
   /* je lijst */
-  const tot=tdLijst().length, open=tdOpen().length;
-  const td=!tot?tg('td','Te doen','+',sub('iets op je lijst zetten'))
-    :open?tg('td','Te doen',String(open),sub(tot-open?(tot-open)+' van '+tot+' af':'te gaan'))
-    :tg('td','Te doen','Klaar',sub('alles af'),svg(I.vink,'2.4'),'var(--groen)');
+  const tot=tdLijst().length+homeDagTaken.length, open=tdOpen().length+homeDagTaken.length;
+  const td=!tot?tg('td','Vandaag','+',sub('iets op je lijst zetten'))
+    :open?tg('td','Vandaag',String(open),sub(open===1?'klus na deze':'klussen na deze'))
+    :tg('td','Vandaag','Klaar',sub('alles af'),svg(I.vink,'2.4'),'var(--groen)');
 
   /* hygiëne */
   let hyg;
@@ -8143,6 +8153,7 @@ function filmStap(id){
   if($('#fsVerder')) $('#fsVerder').onclick=()=>{ const v=volgendeNa(); if(v) filmStap(v.id); else sheetFilmdag(); };
 }
 function dashboardHTML(){
+  homeDagTaken=[];
   const t=dashboardToestand();
   const sig=signalen();
   /* Boven de weekstrip: het eerste wat je 's ochtends doet is inklokken, en
@@ -8302,11 +8313,15 @@ function dashboardHTML(){
   else if(t.soort==='taakdag'){
     const taken=t.taken;
     const eerste=taken[0];
+    /* Titels als "Grondstoffen binnen — Ontvangst invullen (lotnummer + THT)"
+       vulden drie regels. Het deel na het streepje is uitleg: dat gaat eronder. */
+    const tdeel=String(eerste.tekst).split(/\s+[—–-]\s+/);
+    homeDagTaken=taken.slice(1);
     h+=`<div class="hoofdkaart">
-      <div class="stap" style="color:${DAGSOORT[eerste.soort].kleur}">${
-        DAGSOORT[eerste.soort].n}${eerste.tijd?' · '+esc(eerste.tijd):''}</div>
-      <h2 style="margin-top:6px">${esc(eerste.tekst)}</h2>
-      <div class="sub">${taken.length>1?taken.length+' klussen vandaag'
+      <div class="stap" style="color:var(--grijs)">Nu · ${
+        DAGSOORT[eerste.soort].n.toLowerCase()}${eerste.tijd?' · '+esc(eerste.tijd):''}</div>
+      <h2 style="margin-top:6px">${esc(tdeel[0])}</h2>
+      <div class="sub">${tdeel.length>1?esc(tdeel.slice(1).join(' — '))
         :(eerste.plan&&eerste.plan.datum?'voor de batch van '+kort(new Date(eerste.plan.datum))
           :'vandaag op de rol')}</div>
       ${eerste.soort==='half'&&eerste.los
@@ -8319,13 +8334,7 @@ function dashboardHTML(){
         ?`<button class="prim" onclick="sheetOntvangst()">${svg(I.vracht)}Ontvangst invullen</button>`
         :eerste.los?`<button class="prim" data-taakaf="${esc(eerste.los.id)}">${svg(I.vink,'2.4')}Klaar</button>`
         :`<button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button>`}</div>
-      ${taken.length>1?`<div class="blokkop"><span class="eyebrow">Vandaag</span><span class="tel">${taken.length}</span></div>`:''}
-      ${taken.length<2?'':`<div class="paneel">${taken.map(x=>`<div class="arij stil">
-        <span class="ivak" style="background:${DAGSOORT[x.soort].kleur}22;color:${DAGSOORT[x.soort].kleur}">
-          ${svg(I[DAGSOORT[x.soort].ico])}</span>
-        <span class="naam">${esc(x.tekst)}<small>${DAGSOORT[x.soort].n.toLowerCase()}${
-          x.tijd?' · '+esc(x.tijd):''}${x.plan&&x.plan.datum?' · batch van '+kort(new Date(x.plan.datum)):''}</small></span>
-        </div>`).join('')}</div>`}`;
+`;
   }
 
   else if(t.soort==='gepland'){
@@ -8439,7 +8448,8 @@ function dashboardHTML(){
   /* de klok als knopje in de kaart van vandaag (bij een batch staat hij erboven) */
   if(t.soort!=='bezig') h=h.replace('<div class="hoofdkaart">','<div class="hoofdkaart">'+hkKlokHTML());
   const morgenAlInKaart=t.soort!=='bezig'&&h.indexOf('Volgende: <b style="color:var(--ink);font-weight:600">morgen')>=0;
-  return voorHeld+h+homeTegelsHTML()+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+kpiHTML();
+  /* De week bovenaan (8 okt): eerst zien waar je staat, dan wat je nu doet. */
+  return voorHeld+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+h+homeTegelsHTML()+kpiHTML();
 }
 
 /* datum klein, groet groot, en de signalen die er nu toe doen eronder */
