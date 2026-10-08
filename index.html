@@ -3895,6 +3895,16 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .stpkaart small{font-size:13px;color:var(--grijs)}
 .stpknoppen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .stpknoppen .kopknop{height:48px;justify-content:center;width:100%}
+.stpadvies{display:flex;flex-direction:column;gap:4px;background:var(--ink);color:#fff;border-radius:18px;padding:16px;margin-bottom:12px}
+.stpadvies .eyebrow{color:rgba(255,255,255,.6)}
+.stpadvies b{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:2px 0 4px}
+.stpadvies span:not(.eyebrow){font-size:14px;color:rgba(255,255,255,.88)}
+.stpadvies small{font-size:12px;color:rgba(255,255,255,.6);margin-top:4px}
+.stpkans{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px}
+.stpkans i{font-style:normal;display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.08);border-radius:10px;padding:6px 0;font-size:11px;color:rgba(255,255,255,.6)}
+.stpkans i b{font-size:15px;color:#fff;font-weight:700;margin:0}
+.stpkansklant{display:flex;flex-direction:column;gap:2px;margin-top:8px;font-size:15px;font-weight:600}
+.stpkansklant small{font-size:12px;font-weight:400;color:var(--grijs)}
 .stpgetallen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .stpgetallen>div{background:var(--bg);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px}
 .stpgetallen b{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
@@ -4106,7 +4116,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v698 · 8 okt 2026';
+const APPVERSIE='v700 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7820,13 +7830,24 @@ function stempelBonbonsNodig(){
   const s=stempelStand(); if(!s) return null;
   return S.stempelBonbons? s.open*S.stempelBonbons : null;
 }
+/* het advies: zeker (volle kaarten) + verwacht (bijna vol × herhaalkans) */
+function stempelAdvies(){
+  const s=stempelStand(); if(!s||!S.stempelBonbons) return null;
+  /* met kansberekening (v700): volle kaarten gewogen met de kans dat ze
+     gebruikt worden; zonder (oude telling) alle kaarten als zeker */
+  const vol=typeof s.verwachtVol==='number'?s.verwachtVol:s.open;
+  const nieuw=typeof s.verwachtNieuw==='number'?s.verwachtNieuw:(s.verwacht||0);
+  const kaarten=Math.ceil(vol+nieuw-1e-9);
+  return {zeker:Math.round(vol*S.stempelBonbons), verwacht:Math.round(nieuw*S.stempelBonbons),
+    totaal:kaarten*S.stempelBonbons, kaarten, vol, nieuw};
+}
 function stempelTegelHTML(tg,sub){
   setTimeout(()=>stempelVerversen(false),0);
   const s=stempelStand();
   if(!s) return tg('stp','Stempelkaarten','…',sub(stempelFout?'tik om te tellen':'tellen…'));
   const nodig=stempelBonbonsNodig();
   return tg('stp','Stempelkaarten',String(s.open),
-    sub(!s.open?'geen kaart vol':nodig!==null?nodig+' bonbons maken'
+    sub(!s.open&&!s.verwacht?'geen kaart vol':stempelAdvies()?stempelAdvies().totaal+' extra maken'
       :(s.open===1?'beloning klaar':'beloningen klaar')),
     s.bijna?`<em class="achter">+${s.bijna} bijna</em>`:'',s.open?'':'var(--grijs2)');
 }
@@ -7838,7 +7859,18 @@ function stempelSheetHTML(){
   const keus=[4,6,9,12,16].map(n=>`<button type="button" class="wdchip ${S.stempelBonbons===n?'aan':''}"
     onclick="stempelBonbonsZet(${n})">${n}</button>`).join('');
   const tijd=new Date(s.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
-  return `<div class="stpgetallen">
+  const adv=stempelAdvies();
+  const advies=adv?`<div class="stpadvies">
+      <span class="eyebrow">Advies voor je volgende productie</span>
+      <b>Maak ${adv.totaal} bonbons extra</b>
+      <span>±${String(adv.vol).replace('.',',')} van de ${s.open} volle ${s.open===1?'kaart wordt':'kaarten worden'} naar verwachting gebruikt</span>
+      <span>±${String(adv.nieuw).replace('.',',')} erbij van ${s.kandidaten||0} ${s.kandidaten===1?'klant':'klanten'} die één bestelling (±€${
+        String(Math.round(s.gemOrder||0))}) van een volle kaart zitten</span>
+      ${s.kansTabel?`<span class="stpkans">${s.kansTabel.map(x=>`<i><b>${x.pct}%</b>${x.n===5?'5+':x.n+'×'}</i>`).join('')}</span>
+      <small>Kans dat een klant opnieuw bestelt, naar hoe vaak hij al bestelde. Uit je eigen Shopify-cijfers.</small>`:''}
+      <small>Bovenop je gewone productie, zodat beloningen niet van je voorraad afgaan.</small>
+    </div>`:'';
+  return advies+`<div class="stpgetallen">
       <div><b>${s.open}</b><span>${s.open===1?'kaart vol':'kaarten vol'}</span><small>${s.klantenVol} ${s.klantenVol===1?'klant':'klanten'}</small></div>
       <div><b style="color:var(--amber)">${s.bijna}</b><span>bijna vol</span><small>nog 1 stempel</small></div>
       <div><b>${nodig!==null?nodig:'?'}</b><span>bonbons maken</span><small>${nodig!==null?'voor de volle kaarten':'stel hieronder in'}</small></div>
@@ -7860,7 +7892,7 @@ function stempelBolletjes(k,groot){
 function stempelRij(k){
   return `<button type="button" class="arij" onclick="stempelKlantOpen('${k.id}')">
     <span class="naam">${esc(k.naam)}<small>${k.open?(k.open===1?'kaart vol':k.open+' kaarten vol'):k.rest+' van 6'} · €${
-      String(k.saldo.toFixed(2)).replace('.',',')}</small></span>
+      String(k.saldo.toFixed(2)).replace('.',',')}${typeof k.kans==='number'?' · kans '+k.kans+'%':''}</small></span>
     ${stempelBolletjes(k)}<span class="pijl">${svg(I.pijl,'2')}</span></button>`;
 }
 function stempelLijstHTML(){
@@ -7896,6 +7928,8 @@ function stempelKlantHTML(k){
       ${stempelBolletjes(k,true)}
       <b>${k.open?(k.open===1?'Kaart vol':k.open+' kaarten vol'):k.rest+' van 6 stempels'}</b>
       <small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed · ${k.stempels} stempels totaal · ${k.ver} verzilverd</small>
+      ${typeof k.kans==='number'?`<span class="stpkansklant">${k.kans}% kans dat ${k.open?'deze kaart':'een volgende kaart'} gebruikt wordt<small>${
+        k.orders||1}× besteld · klanten zoals deze bestellen in ${k.kans}% van de gevallen opnieuw</small></span>`:''}
     </div>
     <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Stempels</span></div>
     <div class="stpknoppen">
@@ -8738,14 +8772,14 @@ function productieHTML(){
 
   /* volle stempelkaarten zijn ook werk voor je handen */
   const stp=stempelStand();
-  if(stp&&stp.open){
+  if(stp&&(stp.open||stp.verwacht)){
     const nodig=stempelBonbonsNodig();
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Stempelkaarten</span></div>
       <div class="paneel"><button class="arij" onclick="homeTegel('stp')">
         <span class="ivak amber">${svg(I.vorm)}</span>
-        <span class="naam">${stp.open} ${stp.open===1?'beloning':'beloningen'} klaar<small>${
-          nodig!==null?nodig+' bonbons meenemen in je volgende batch':'tik om in te stellen hoeveel bonbons per beloning'}${
-          stp.bijna?' · '+stp.bijna+' bijna vol':''}</small></span>
+        <span class="naam">${stempelAdvies()?'Maak '+stempelAdvies().totaal+' bonbons extra':stp.open+' '+(stp.open===1?'beloning':'beloningen')+' klaar'}<small>${
+          stempelAdvies()?stempelAdvies().zeker+' voor volle kaarten · '+stempelAdvies().verwacht+' verwacht · bovenop je gewone productie'
+            :'tik om in te stellen hoeveel bonbons per beloning'}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
   }
   if(temaken.length){
