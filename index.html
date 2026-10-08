@@ -3857,8 +3857,11 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .hoofdkaart+.weekstrip,.hoofdkaart+div .weekstrip{margin-top:16px}
 .dagkop{margin:4px 2px 16px}
 /* compacte kop (v694): groet tussen de knoppen, krappere week */
-.kopgroet{flex:1;min-width:0;font-size:22px;font-weight:700;letter-spacing:-.03em;color:var(--ink);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kopgroet{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* v696: op Home de groet links als titel, beide knoppen rechts */
+.kopknoppen.rechts{gap:8px}
+.kopknoppen.rechts .kopgroet{order:-1;margin:0 4px;font-size:24px;font-weight:700;letter-spacing:-.03em;color:var(--ink)}
+.kopknoppen.rechts .belknop.links{margin-right:0}
 .kopknoppen{margin-bottom:12px}
 .weekstrip{padding-bottom:6px}
 .weekstrip .wdag{height:44px}
@@ -4085,7 +4088,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v694 · 8 okt 2026';
+const APPVERSIE='v696 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6544,7 +6547,7 @@ function dashboardToestand(){
    op elk scherm dezelfde rij. */
 function kopknoppenHTML(){
   const meld=meldingen().length;
-  return `<div class="kopknoppen">
+  return `<div class="kopknoppen${S.tab==='dashboard'?' rechts':''}">
     <button class="belknop links" data-account aria-label="${
       fbUser?'Je account':'Account aanmaken of inloggen'}">${svg(I.persoon)}${
       fbUser?'':'<i class="stipje"></i>'}</button>${
