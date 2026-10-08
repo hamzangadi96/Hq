@@ -729,12 +729,36 @@ async function telStempelsBinnen(req) {
   const DOOS25 = 34.95;
   klanten.forEach(k => {
     const d = dozen[k.id];
-    if (d && (d.d16 || d.d25)) { k.doos = d.d25 > d.d16 ? 25 : 16; k.doosBron = 'historie'; }
-    else { k.doos = (k.orders ? k.saldo / k.orders : 0) >= DOOS25 * 0.9 ? 25 : 16; k.doosBron = 'besteding'; }
+    if (d && d.length) {
+      /* Een kans, geen harde keuze. Recente aankopen wegen zwaarder (laatste 1,
+         daarvoor 0,7, dan 0,49 …) maar het verleden telt mee: één afwijking
+         verschuift de kans, twee op rij draaien hem om. Met ½ won de laatste
+         bestelling altijd van alle eerdere samen — te kort door de bocht. */
+      let s16 = 0, s25 = 0, w = 1;
+      d.slice().sort((a, b) => String(b.datum).localeCompare(String(a.datum))).forEach(o => {
+        if (o.d25) s25 += w;
+        if (o.d16) s16 += w;
+        w *= 0.7;
+      });
+      const laatste = d.reduce((a, b) => String(a.datum) > String(b.datum) ? a : b);
+      k.kans25 = Math.round(s25 / (s25 + s16) * 100);
+      k.doos = k.kans25 >= 50 ? 25 : 16;
+      k.doosBron = 'historie';
+      k.doosLaatst = laatste.d25 && !laatste.d16 ? 25 : laatste.d16 && !laatste.d25 ? 16 : null;
+      k.doosVaak = d.filter(o => o.d25).length >= d.filter(o => o.d16).length ? 25 : 16;
+    }
+    else {
+      /* geen doos in zijn historie: een voorzichtige kans uit zijn besteding */
+      const gem = k.orders ? k.saldo / k.orders : 0;
+      k.kans25 = gem >= DOOS25 * 0.9 ? 70 : 30;
+      k.doos = k.kans25 >= 50 ? 25 : 16; k.doosBron = 'besteding';
+    }
   });
   let w16 = 0, w25 = 0;
-  klanten.forEach(k => { const w = k.open * kans(k); if (k.doos === 25) w25 += w; else w16 += w; });
-  kandidaatLijst.forEach(k => { const w = kans(k); if (k.doos === 25) w25 += w; else w16 += w; });
+  /* kansen optellen, niet keuzes: tien klanten met 60% op de 25 zijn
+     zes grote en vier kleine dozen, niet tien grote */
+  klanten.forEach(k => { const w = k.open * kans(k), p = k.kans25 / 100; w25 += w * p; w16 += w * (1 - p); });
+  kandidaatLijst.forEach(k => { const w = kans(k), p = k.kans25 / 100; w25 += w * p; w16 += w * (1 - p); });
   const kaartenTotaal = Math.ceil(w16 + w25 - 1e-9);
   /* afronden naar boven, en een overschot gaat naar de grote doos: liever
      negen bonbons over dan een klant die op zijn doos moet wachten */
@@ -752,7 +776,7 @@ async function telStempelsBinnen(req) {
   return Object.assign({ klanten }, uit);
 }
 
-/* telt per klant hoeveel dozen van 16 en van 25 hij ooit kocht */
+/* per klant de bestellingen met een doos erin: datum en welke doos */
 async function telDozenPerKlant(winkel, t) {
   const uit = {};
   let na = null;
@@ -762,7 +786,7 @@ async function telDozenPerKlant(winkel, t) {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          query: 'query($na:String){orders(first:250,after:$na){nodes{customer{id} lineItems(first:30){nodes{title quantity}}} pageInfo{hasNextPage endCursor}}}',
+          query: 'query($na:String){orders(first:250,after:$na){nodes{createdAt customer{id} lineItems(first:30){nodes{title quantity}}} pageInfo{hasNextPage endCursor}}}',
           variables: { na }
         })
       });
@@ -772,11 +796,12 @@ async function telDozenPerKlant(winkel, t) {
       d.data.orders.nodes.forEach(o => {
         if (!o.customer) return;
         const id = String(o.customer.id).split('/').pop();
-        const x = uit[id] || (uit[id] = { d16: 0, d25: 0 });
+        const x = { datum: o.createdAt, d16: 0, d25: 0 };
         o.lineItems.nodes.forEach(l => {
           if (/\b25\b/.test(l.title)) x.d25 += l.quantity || 1;
           else if (/\b16\b/.test(l.title)) x.d16 += l.quantity || 1;
         });
+        if (x.d16 || x.d25) (uit[id] = uit[id] || []).push(x);
       });
       if (!d.data.orders.pageInfo.hasNextPage) break;
       na = d.data.orders.pageInfo.endCursor;
