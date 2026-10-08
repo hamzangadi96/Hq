@@ -639,12 +639,13 @@ async function telStempelsBinnen(req) {
   const uid = wieBenJe(req);
   const { winkel, token: t } = await token(uid);
   let open = 0, klantenVol = 0, bijna = 0, deelnemers = 0, verzilverd = 0, na = null;
+  const klanten = [];
   for (let ronde = 0; ronde < 40; ronde++) {
     const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
       method: 'POST',
       headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({
-        query: 'query($na:String){customers(first:250,after:$na){nodes{s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
+        query: 'query($na:String){customers(first:250,after:$na){nodes{id displayName s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
         variables: { na }
       })
     });
@@ -669,6 +670,7 @@ async function telStempelsBinnen(req) {
       deelnemers++;
       const stempels = Math.floor(saldo / STEMPEL_EURO + 1e-9);
       const ver = k.v ? (parseInt(k.v.value, 10) || 0) : 0;
+      klanten.push(stempelKlant(k.id, k.displayName, saldo, ver));
       verzilverd += ver;
       const o = Math.max(0, Math.floor(stempels / STEMPELS_PER_KAART) - ver);
       if (o) { open += o; klantenVol++; }
@@ -679,8 +681,85 @@ async function telStempelsBinnen(req) {
   }
   const uit = { open, klantenVol, bijna, deelnemers, verzilverd,
     perStempel: STEMPEL_EURO, perKaart: STEMPELS_PER_KAART, bijgewerkt: Date.now() };
+  /* Alleen de getallen gaan de database in; de namenlijst komt alleen terug
+     naar het scherm dat erom vroeg en blijft verder bij Shopify. */
   await werkRef(uid).child('stempels').set(uit);
-  return uit;
+  return Object.assign({ klanten }, uit);
+}
+
+function stempelKlant(gid, naam, saldo, ver) {
+  const stempels = Math.floor(saldo / STEMPEL_EURO + 1e-9);
+  return {
+    id: String(gid).split('/').pop(), naam: naam || 'Klant zonder naam',
+    saldo: Math.round(saldo * 100) / 100, stempels, ver,
+    open: Math.max(0, Math.floor(stempels / STEMPELS_PER_KAART) - ver),
+    rest: stempels % STEMPELS_PER_KAART
+  };
+}
+
+/* Per klant bijstellen: stempels erbij of eraf (dat is €25 saldo per stempel,
+   zodat de website en HQ hetzelfde blijven tellen) en een kaart verzilveren
+   of dat terugdraaien. */
+exports.stempelAanpassen = onCall(async req => {
+  try { return await stempelAanpassenBinnen(req); }
+  catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('stempelAanpassen', e);
+    throw new HttpsError('internal', 'Aanpassen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+async function stempelAanpassenBinnen(req) {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const id = String(d.id || '');
+  if (!/^\d+$/.test(id)) throw new HttpsError('invalid-argument', 'Onbekende klant.');
+  const ds = Math.max(-6, Math.min(6, parseInt(d.stempels, 10) || 0));
+  const dk = Math.max(-1, Math.min(1, parseInt(d.kaarten, 10) || 0));
+  if (!ds && !dk) throw new HttpsError('invalid-argument', 'Niets om aan te passen.');
+  const { winkel, token: t } = await token(uid);
+
+  const gql = async (query, variables) => {
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables })
+    });
+    if (r.status === 401) {
+      await geheimRef(uid).child('shopify/token').remove();
+      throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+    }
+    if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+    const j = await r.json();
+    if (j.errors && j.errors.length) {
+      const tekst = JSON.stringify(j.errors);
+      if (/ACCESS_DENIED|write_customers|access/i.test(tekst)) {
+        throw new HttpsError('permission-denied',
+          'HQ mag nog geen klanten aanpassen. Zet in het Shopify Dev Dashboard bij je app de scope write_customers aan en installeer de app opnieuw.');
+      }
+      throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+    }
+    return j.data;
+  };
+
+  const gid = 'gid://shopify/Customer/' + id;
+  const c = (await gql('query($id:ID!){customer(id:$id){id displayName s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}}}', { id: gid })).customer;
+  if (!c) throw new HttpsError('not-found', 'Deze klant bestaat niet (meer) in Shopify.');
+  let saldo = c.s ? (parseFloat(c.s.value) || 0) : 0;
+  let ver = c.v ? (parseInt(c.v.value, 10) || 0) : 0;
+  saldo = Math.max(0, Math.round((saldo + ds * STEMPEL_EURO) * 100) / 100);
+  const vol = Math.floor(Math.floor(saldo / STEMPEL_EURO + 1e-9) / STEMPELS_PER_KAART);
+  if (dk > 0 && ver >= vol) throw new HttpsError('failed-precondition', 'Deze klant heeft geen volle kaart om te verzilveren.');
+  ver = Math.max(0, ver + dk);
+
+  const m = [];
+  if (ds) m.push({ ownerId: gid, namespace: 'cbx', key: 'spaarsaldo', type: 'number_decimal', value: saldo.toFixed(2) });
+  if (dk) m.push({ ownerId: gid, namespace: 'cbx', key: 'kaarten_verzilverd', type: 'number_integer', value: String(ver) });
+  const uit = (await gql('mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){metafields{key value} userErrors{field message}}}', { m })).metafieldsSet;
+  if (uit.userErrors && uit.userErrors.length) {
+    throw new HttpsError('internal', 'Shopify weigerde: ' + uit.userErrors.map(x => x.message).join(', ').slice(0, 200));
+  }
+  return stempelKlant(c.id, c.displayName, saldo, ver);
 }
 
 exports.haalOrders = onCall(async req => {
