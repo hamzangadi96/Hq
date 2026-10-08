@@ -3884,6 +3884,17 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 /* ═══ Home-tegels (v691): vier blokken worden tegels, details in een sheet ═══ */
 .htegels>.htegel:last-child:nth-child(odd){grid-column:1/-1;min-height:auto;flex-direction:row;align-items:center}
 .htegels>.htegel:last-child:nth-child(odd)>span:last-child{text-align:right}
+/* een sheet die ververst mag zijn rijen niet steeds opnieuw laten inschuiven */
+.geenin .paneel .arij{animation:none}
+.stpbol{display:flex;gap:4px;flex:none}
+.stpbol i{width:9px;height:9px;border-radius:50%;background:var(--lijn)}
+.stpbol i.aan{background:var(--ink)}
+.stpbol.groot{gap:8px}.stpbol.groot i{width:26px;height:26px}
+.stpkaart{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:18px 0 6px}
+.stpkaart b{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.stpkaart small{font-size:13px;color:var(--grijs)}
+.stpknoppen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.stpknoppen .kopknop{height:48px;justify-content:center;width:100%}
 .stpgetallen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .stpgetallen>div{background:var(--bg);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px}
 .stpgetallen b{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
@@ -4095,7 +4106,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v697 · 8 okt 2026';
+const APPVERSIE='v698 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6325,7 +6336,7 @@ function renderNu(){
     S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():
     S.tab==='content'?cwHTML():straksHTML(S.tab));
   if(homeSheet&&sheetOpen){const sb=$('#sheetBody'),st=sb.scrollTop;
-    sb.innerHTML=homeSheetBody(homeSheet); sb.scrollTop=st}
+    sb.classList.add('geenin'); sb.innerHTML=homeSheetBody(homeSheet); sb.scrollTop=st}
   if(gewisseld){
     const el=$('#scherm');
     el.classList.remove('schermIn');
@@ -7783,7 +7794,7 @@ function homeSheetBody(k){ return HOMESHEETS[k][1]() }
    Volle kaarten zijn bonbons die je moet maken. De website telt, de Cloud
    Function rekent om naar "zoveel beloningen klaar", en hier wordt dat
    bonbons — zodra je hebt ingesteld hoeveel er in één beloning zitten. */
-let stempelBezig=false, stempelFout='';
+let stempelBezig=false, stempelFout='', stempelKlanten=null, stempelZoek='', stempelNet={}, stempelWerkt=false;
 function stempelStand(){
   let s=(S.werk||{}).stempels;
   if(!s){ try{ s=JSON.parse(localStorage.getItem('hq-stempels')||'null') }catch(e){ s=null } }
@@ -7793,11 +7804,13 @@ function stempelVerversen(hand){
   const s=(S.werk||{}).stempels;
   if(stempelBezig||!fbUser) return;
   if(!hand&&stempelFout) return;
-  if(!hand&&s&&Date.now()-(s.bijgewerkt||0)<10*60*1000) return;
+  if(!hand&&s&&stempelKlanten&&Date.now()-(s.bijgewerkt||0)<10*60*1000) return;
   stempelBezig=true; if(hand) render();
   roep('telStempels',{}).then(r=>{
-    S.werk=S.werk||{}; S.werk.stempels=r; stempelFout='';
-    try{ localStorage.setItem('hq-stempels',JSON.stringify(r)) }catch(e){}
+    stempelKlanten=r.klanten||null;
+    const kaal=Object.assign({},r); delete kaal.klanten;
+    S.werk=S.werk||{}; S.werk.stempels=kaal; stempelFout='';
+    try{ localStorage.setItem('hq-stempels',JSON.stringify(kaal)) }catch(e){}
   }).catch(e=>{ stempelFout=(e&&e.message)||'Tellen lukte niet.' })
     .finally(()=>{ stempelBezig=false; render() });
 }
@@ -7835,7 +7848,86 @@ function stempelSheetHTML(){
     <p class="wdleeg" style="margin-top:14px">1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart.
       ${s.verzilverd?s.verzilverd+' kaarten al verzilverd.':'Nog geen kaart verzilverd.'}</p>
     <button type="button" class="kopknop" onclick="stempelFout='';stempelVerversen(true)">${
-      stempelBezig?'Tellen…':'Bijgewerkt '+tijd+' · opnieuw tellen'}</button>`;
+      stempelBezig?'Tellen…':'Bijgewerkt '+tijd+' · opnieuw tellen'}</button>
+    ${stempelLijstHTML()}`;
+}
+
+/* ── per klant ── */
+function stempelBolletjes(k,groot){
+  let h=''; for(let i=0;i<6;i++) h+=`<i class="${i<k.rest||k.open?'aan':''}"></i>`;
+  return `<span class="stpbol ${groot?'groot':''}">${h}</span>`;
+}
+function stempelRij(k){
+  return `<button type="button" class="arij" onclick="stempelKlantOpen('${k.id}')">
+    <span class="naam">${esc(k.naam)}<small>${k.open?(k.open===1?'kaart vol':k.open+' kaarten vol'):k.rest+' van 6'} · €${
+      String(k.saldo.toFixed(2)).replace('.',',')}</small></span>
+    ${stempelBolletjes(k)}<span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+}
+function stempelLijstHTML(){
+  if(!stempelKlanten) return `<p class="wdleeg" style="margin-top:18px">${stempelBezig?'Klanten ophalen…':'Tik op opnieuw tellen om je klanten te zien.'}</p>`;
+  const vol=stempelKlanten.filter(k=>k.open).sort((a,b)=>b.open-a.open||b.saldo-a.saldo);
+  const bijna=stempelKlanten.filter(k=>!k.open&&k.rest===5).sort((a,b)=>b.saldo-a.saldo);
+  const blok=(kop,l)=>!l.length?'':`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">${kop}</span><span class="tel">${l.length}</span></div>
+    <div class="paneel">${l.map(stempelRij).join('')}</div>`;
+  return blok('Kaart vol',vol)+blok('Bijna vol',bijna)+`
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Alle klanten</span><span class="tel">${stempelKlanten.length}</span></div>
+    <input class="inp" id="stpZoek" type="search" placeholder="Zoek op naam" value="${esc(stempelZoek)}"
+      oninput="stempelZoekNu(this.value)" autocomplete="off">
+    <div id="stpLijst" style="margin-top:8px">${stempelZoekHTML()}</div>`;
+}
+function stempelZoekHTML(){
+  const z=stempelZoek.trim().toLowerCase();
+  if(z.length<2) return '<p class="wdleeg">Typ minstens twee letters.</p>';
+  const l=stempelKlanten.filter(k=>k.naam.toLowerCase().indexOf(z)>=0).slice(0,20);
+  return l.length?`<div class="paneel">${l.map(stempelRij).join('')}</div>`:'<p class="wdleeg">Geen klant gevonden.</p>';
+}
+function stempelZoekNu(w){ stempelZoek=w; const el=$('#stpLijst'); if(el) el.innerHTML=stempelZoekHTML() }
+
+let stempelOpen=null;
+function stempelKlantOpen(id){
+  const k=(stempelKlanten||[]).find(x=>x.id===id); if(!k) return;
+  stempelOpen=id;
+  sheet(k.naam, stempelKlantHTML(k));
+  bijSluiten=()=>{ stempelOpen=null; setTimeout(()=>homeTegel('stp'),260) };
+}
+function stempelKlantHTML(k){
+  const net=stempelNet[k.id];
+  return `<div class="stpkaart">
+      ${stempelBolletjes(k,true)}
+      <b>${k.open?(k.open===1?'Kaart vol':k.open+' kaarten vol'):k.rest+' van 6 stempels'}</b>
+      <small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed · ${k.stempels} stempels totaal · ${k.ver} verzilverd</small>
+    </div>
+    <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Stempels</span></div>
+    <div class="stpknoppen">
+      <button type="button" class="kopknop" ${stempelWerkt||!k.stempels?'disabled':''} onclick="stempelPas('${k.id}',-1,0)">− 1 stempel</button>
+      <button type="button" class="kopknop" ${stempelWerkt?'disabled':''} onclick="stempelPas('${k.id}',1,0)">+ 1 stempel</button>
+    </div>
+    <p class="wdleeg" style="margin-top:8px">Eén stempel is €25 op het spaarsaldo. Gebruik dit voor een verkoop buiten de webshop.</p>
+    ${k.open?`<button type="button" class="prim" style="margin-top:18px;width:100%" ${stempelWerkt?'disabled':''}
+      onclick="stempelPas('${k.id}',0,1)">${svg(I.vink,'2.4')}Kaart verzilveren</button>`:''}
+    ${net?`<button type="button" class="kopknop" style="margin-top:12px" onclick="stempelPas('${k.id}',0,-1)">Verzilveren ongedaan maken</button>`:''}`;
+}
+function stempelPas(id,stempels,kaarten){
+  if(stempelWerkt) return;
+  stempelWerkt=true;
+  const k0=(stempelKlanten||[]).find(x=>x.id===id);
+  if(k0&&stempelOpen===id) $('#sheetBody').innerHTML=stempelKlantHTML(k0);
+  roep('stempelAanpassen',{id,stempels,kaarten}).then(k=>{
+    const i=stempelKlanten.findIndex(x=>x.id===id); if(i>=0) stempelKlanten[i]=k;
+    if(kaarten>0) stempelNet[id]=true; if(kaarten<0) delete stempelNet[id];
+    /* de getallen bovenaan meteen kloppend, zonder alles opnieuw te tellen */
+    const s=Object.assign({},stempelStand()||{});
+    s.open=stempelKlanten.reduce((n,x)=>n+x.open,0);
+    s.klantenVol=stempelKlanten.filter(x=>x.open).length;
+    s.bijna=stempelKlanten.filter(x=>x.rest===5).length;
+    s.verzilverd=stempelKlanten.reduce((n,x)=>n+x.ver,0);
+    S.werk=S.werk||{}; S.werk.stempels=s;
+    toast(kaarten>0?'Kaart verzilverd':kaarten<0?'Teruggedraaid':stempels>0?'Stempel erbij':'Stempel eraf');
+  }).catch(e=>toast((e&&e.message)||'Aanpassen lukte niet'))
+    .finally(()=>{ stempelWerkt=false;
+      const k=(stempelKlanten||[]).find(x=>x.id===id);
+      if(k&&stempelOpen===id){ $('#sheetTitel').textContent=k.naam; $('#sheetBody').innerHTML=stempelKlantHTML(k) }
+      render() });
 }
 function homeTegel(k){
   if(!HOMESHEETS[k]) return;
@@ -21006,7 +21098,7 @@ function grenzenZetten(waar){
 
 let sheetUitlegHtml=null;
 function sheet(t,b,v,stapLabel){
-  homeSheet=null;
+  homeSheet=null; $('#sheetBody').classList.remove('geenin');
   bijSluiten=null;
   $('#sheetTitel').textContent=t; $('#sheetStap').textContent=stapLabel||'';
   /* hulpknopje alleen tonen als er uitleg bij dit scherm hoort */
