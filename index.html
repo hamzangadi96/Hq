@@ -3886,6 +3886,10 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .htegels>.htegel:last-child:nth-child(odd)>span:last-child{text-align:right}
 /* een sheet die ververst mag zijn rijen niet steeds opnieuw laten inschuiven */
 .geenin .paneel .arij{animation:none}
+.stpterug{border:0;background:none;font:inherit;font-size:15px;font-weight:600;color:var(--grijs);padding:4px 0 8px;cursor:pointer}
+.stpdozen{display:flex;gap:6px;margin:2px 0 8px}
+.stpdozen i{font-style:normal;flex:1;display:flex;flex-direction:column;background:rgba(255,255,255,.1);border-radius:12px;padding:8px 10px;font-size:12px;color:rgba(255,255,255,.7)}
+.stpdozen i b{font-size:20px;color:#fff;font-weight:800;margin:0}
 .stpbol{display:flex;gap:4px;flex:none}
 .stpbol i{width:9px;height:9px;border-radius:50%;background:var(--lijn)}
 .stpbol i.aan{background:var(--ink)}
@@ -3905,7 +3909,7 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .stpkans i b{font-size:15px;color:#fff;font-weight:700;margin:0}
 .stpkansklant{display:flex;flex-direction:column;gap:2px;margin-top:8px;font-size:15px;font-weight:600}
 .stpkansklant small{font-size:12px;font-weight:400;color:var(--grijs)}
-.stpgetallen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stpgetallen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .stpgetallen>div{background:var(--bg);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px}
 .stpgetallen b{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
 .stpgetallen span{font-size:13px;font-weight:600}
@@ -4116,7 +4120,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v700 · 8 okt 2026';
+const APPVERSIE='v701 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4428,7 +4432,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['stempelBonbons','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -7831,7 +7835,22 @@ function stempelBonbonsNodig(){
   return S.stempelBonbons? s.open*S.stempelBonbons : null;
 }
 /* het advies: zeker (volle kaarten) + verwacht (bijna vol × herhaalkans) */
+/* Een volle kaart is €24,95 waard: de doos van 16, of korting op de doos van 25.
+   Hoe klanten kiezen weet je nog niet; tot er verzilveringen zijn zet je het
+   zelf, standaard half om half. Bij twijfel ronden we af naar de grote doos. */
+const STEMPELDOZEN={klein:16,groot:25};
+const STEMPELMIX={klein:['Vooral doos van 16',1],half:['Half om half',.5],groot:['Vooral korting op 25',0]};
 function stempelAdvies(){
+  const s=stempelStand(); if(!s) return null;
+  const vol0=typeof s.verwachtVol==='number'?s.verwachtVol:s.open;
+  const nieuw0=typeof s.verwachtNieuw==='number'?s.verwachtNieuw:(s.verwacht||0);
+  const kaarten0=Math.ceil(vol0+nieuw0-1e-9);
+  const f=(STEMPELMIX[S.stempelMix]||STEMPELMIX.half)[1];
+  const klein=Math.floor(kaarten0*f+1e-9), groot=kaarten0-klein;
+  return {vol:vol0, nieuw:nieuw0, kaarten:kaarten0, klein, groot,
+    totaal:klein*STEMPELDOZEN.klein+groot*STEMPELDOZEN.groot};
+}
+function stempelAdviesOud(){
   const s=stempelStand(); if(!s||!S.stempelBonbons) return null;
   /* met kansberekening (v700): volle kaarten gewogen met de kans dat ze
      gebruikt worden; zonder (oude telling) alle kaarten als zeker */
@@ -7847,7 +7866,7 @@ function stempelTegelHTML(tg,sub){
   if(!s) return tg('stp','Stempelkaarten','…',sub(stempelFout?'tik om te tellen':'tellen…'));
   const nodig=stempelBonbonsNodig();
   return tg('stp','Stempelkaarten',String(s.open),
-    sub(!s.open&&!s.verwacht?'geen kaart vol':stempelAdvies()?stempelAdvies().totaal+' extra maken'
+    sub(!s.open&&!s.verwacht?'geen kaart vol':stempelAdvies()?stempelAdvies().kaarten+' dozen · '+stempelAdvies().totaal+' bonbons'
       :(s.open===1?'beloning klaar':'beloningen klaar')),
     s.bijna?`<em class="achter">+${s.bijna} bijna</em>`:'',s.open?'':'var(--grijs2)');
 }
@@ -7856,16 +7875,17 @@ function stempelSheetHTML(){
   if(!s) return `<p class="wdleeg">${stempelFout?esc(stempelFout):'Tellen…'}</p>
     <button type="button" class="kopknop" onclick="stempelFout='';stempelVerversen(true)">Opnieuw tellen</button>`;
   const nodig=stempelBonbonsNodig();
-  const keus=[4,6,9,12,16].map(n=>`<button type="button" class="wdchip ${S.stempelBonbons===n?'aan':''}"
-    onclick="stempelBonbonsZet(${n})">${n}</button>`).join('');
+  const mix=S.stempelMix&&STEMPELMIX[S.stempelMix]?S.stempelMix:'half';
+  const keus=Object.keys(STEMPELMIX).map(k=>`<button type="button" class="wdchip ${mix===k?'aan':''}"
+    onclick="S.stempelMix='${k}';bewaarNu();render()">${STEMPELMIX[k][0]}</button>`).join('');
   const tijd=new Date(s.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
   const adv=stempelAdvies();
   const advies=adv?`<div class="stpadvies">
       <span class="eyebrow">Advies voor je volgende productie</span>
-      <b>Maak ${adv.totaal} bonbons extra</b>
-      <span>±${String(adv.vol).replace('.',',')} van de ${s.open} volle ${s.open===1?'kaart wordt':'kaarten worden'} naar verwachting gebruikt</span>
-      <span>±${String(adv.nieuw).replace('.',',')} erbij van ${s.kandidaten||0} ${s.kandidaten===1?'klant':'klanten'} die één bestelling (±€${
-        String(Math.round(s.gemOrder||0))}) van een volle kaart zitten</span>
+      <b>Zet ${adv.kaarten} ${adv.kaarten===1?'doos':'dozen'} extra klaar</b>
+      <span class="stpdozen">${adv.klein?`<i><b>${adv.klein}×</b>doos van 16</i>`:''}${adv.groot?`<i><b>${adv.groot}×</b>doos van 25</i>`:''}<i><b>${adv.totaal}</b>bonbons</i></span>
+      <span>±${String(adv.vol).replace('.',',')} van je ${s.open} volle ${s.open===1?'kaart wordt':'kaarten worden'} naar verwachting ingezet, en ±${
+        String(adv.nieuw).replace('.',',')} ${adv.nieuw===1?'kaart raakt':'kaarten raken'} binnenkort vol en ${adv.nieuw===1?'wordt':'worden'} ingezet.</span>
       ${s.kansTabel?`<span class="stpkans">${s.kansTabel.map(x=>`<i><b>${x.pct}%</b>${x.n===5?'5+':x.n+'×'}</i>`).join('')}</span>
       <small>Kans dat een klant opnieuw bestelt, naar hoe vaak hij al bestelde. Uit je eigen Shopify-cijfers.</small>`:''}
       <small>Bovenop je gewone productie, zodat beloningen niet van je voorraad afgaan.</small>
@@ -7873,11 +7893,11 @@ function stempelSheetHTML(){
   return advies+`<div class="stpgetallen">
       <div><b>${s.open}</b><span>${s.open===1?'kaart vol':'kaarten vol'}</span><small>${s.klantenVol} ${s.klantenVol===1?'klant':'klanten'}</small></div>
       <div><b style="color:var(--amber)">${s.bijna}</b><span>bijna vol</span><small>nog 1 stempel</small></div>
-      <div><b>${nodig!==null?nodig:'?'}</b><span>bonbons maken</span><small>${nodig!==null?'voor de volle kaarten':'stel hieronder in'}</small></div>
     </div>
-    <div class="blokkop" style="margin-top:18px"><span class="eyebrow">Bonbons per beloning</span></div>
+    <div class="blokkop" style="margin-top:18px"><span class="eyebrow">Hoe zetten klanten hun kaart in?</span></div>
     <div class="wdwat">${keus}</div>
-    <p class="wdleeg" style="margin-top:14px">1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart.
+    <p class="wdleeg" style="margin-top:14px">Een volle kaart is €24,95: de doos van 16, of korting op de doos van 25.
+      1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart.
       ${s.verzilverd?s.verzilverd+' kaarten al verzilverd.':'Nog geen kaart verzilverd.'}</p>
     <button type="button" class="kopknop" onclick="stempelFout='';stempelVerversen(true)">${
       stempelBezig?'Tellen…':'Bijgewerkt '+tijd+' · opnieuw tellen'}</button>
@@ -7920,11 +7940,12 @@ function stempelKlantOpen(id){
   const k=(stempelKlanten||[]).find(x=>x.id===id); if(!k) return;
   stempelOpen=id;
   sheet(k.naam, stempelKlantHTML(k));
-  bijSluiten=()=>{ stempelOpen=null; setTimeout(()=>homeTegel('stp'),260) };
+  bijSluiten=()=>{ stempelOpen=null };
 }
 function stempelKlantHTML(k){
   const net=stempelNet[k.id];
-  return `<div class="stpkaart">
+  return `<button type="button" class="stpterug" onclick="stempelOpen=null;homeTegel('stp')">‹ Alle klanten</button>
+    <div class="stpkaart">
       ${stempelBolletjes(k,true)}
       <b>${k.open?(k.open===1?'Kaart vol':k.open+' kaarten vol'):k.rest+' van 6 stempels'}</b>
       <small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed · ${k.stempels} stempels totaal · ${k.ver} verzilverd</small>
@@ -8777,9 +8798,8 @@ function productieHTML(){
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Stempelkaarten</span></div>
       <div class="paneel"><button class="arij" onclick="homeTegel('stp')">
         <span class="ivak amber">${svg(I.vorm)}</span>
-        <span class="naam">${stempelAdvies()?'Maak '+stempelAdvies().totaal+' bonbons extra':stp.open+' '+(stp.open===1?'beloning':'beloningen')+' klaar'}<small>${
-          stempelAdvies()?stempelAdvies().zeker+' voor volle kaarten · '+stempelAdvies().verwacht+' verwacht · bovenop je gewone productie'
-            :'tik om in te stellen hoeveel bonbons per beloning'}</small></span>
+        <span class="naam">${(a=>a?a.kaarten+' '+(a.kaarten===1?'doos':'dozen')+' extra · '+a.totaal+' bonbons':stp.open+' kaarten vol')(stempelAdvies())}<small>${
+          (a=>a?[a.klein?a.klein+'× doos van 16':'',a.groot?a.groot+'× doos van 25':''].filter(Boolean).join(' + ')+' · bovenop je gewone productie':'')(stempelAdvies())}</small></span>
         <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
   }
   if(temaken.length){
