@@ -4127,7 +4127,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v705 · 8 okt 2026';
+const APPVERSIE='v706 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7872,18 +7872,19 @@ function voorspelSheetHTML(){
     <div class="blokkop" style="margin-top:18px"><span class="eyebrow">Zo komt het getal tot stand</span></div>
     <div class="paneel vsplagen">
       ${v.rustig&&v.druk?laag('Bandbreedte',v.rustig.orders+'–'+v.druk.orders,
-        `rustig zoals ${esc(v.rustig.naam)} tot druk zoals ${esc(v.druk.naam)}; het advies neemt het midden`):''}
+        `van je zwakste maand (${esc(v.rustig.naam)}) tot je sterkste (${esc(v.druk.naam)}); het advies is het gemiddelde`):''}
       ${laag('Terugkerende klanten','±'+nlGetal(v.verwachtTerug),
-        v.rustig&&v.druk?`${v.rustig.terugPct}% tot ${v.druk.terugPct}% van je klanten kwam toen terug; je hebt er nu ${v.bestaandNu}`
-          :`${v.terugPct}% van je klanten kwam terug; je hebt er nu ${v.bestaandNu}`)}
+        `gemiddeld kwam ${v.terugPct}% van je klanten per maand terug; je hebt er nu ${v.bestaandNu}`)}
       ${laag('Nieuwe klanten','±'+nlGetal(v.verwachtNieuw),
-        v.rustig&&v.druk?`toen 21 tot 76 nieuw, en je mailinglijst is nu ${nlGetal(v.rustig.groei)}× tot ${nlGetal(v.druk.groei)}× zo groot (nu ${v.abonneesNu})`
-          :`toen ${v.nieuwToen} nieuw, en je mailinglijst is nu ${nlGetal(v.groei)}× zo groot`)}
+        `gemiddeld zoveel nieuwe klanten per maand als er toen echt bijkwamen; je lijst (${v.abonneesNu}) kan dat nog opdrijven`)}
       ${laag('Dozen per bestelling',nlGetal(v.dozenPerOrder),
         `nieuwe klanten kozen ${v.aandeel25Nieuw}% de 25, je vaste klanten ${v.aandeel25Terug}%`)}
       ${laag('Stempelkaarten','+'+a.stempels,`${v.stempel16}× doos van 16 + ${v.stempel25}× doos van 25, bovenop de rest`)}
       ${laag('Afkeur','+'+a.afkeur,a.afk.eigen?Math.round(a.afk.deel*100)+'% uit je eigen batches':'5% — nog te weinig batches om je eigen afkeur te meten')}
     </div>
+    ${v.maanden&&v.maanden.length?`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">Als november gaat zoals…</span></div>
+    <div class="paneel vsplagen">${v.maanden.map(m=>laag(esc(m.naam),m.orders,
+      `${m.terugPct}% van je klanten kwam terug · ${m.nieuwToen} nieuwe klanten`)).join('')}</div>`:''}
     <button type="button" class="kopknop" style="margin-top:16px" onclick="voorspelFout='';voorspelVerversen(true)">${
       voorspelBezig?'Voorspellen…':'Bijgewerkt '+tijd+' · opnieuw'}</button>`;
 }
