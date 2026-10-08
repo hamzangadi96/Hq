@@ -645,7 +645,7 @@ async function telStempelsBinnen(req) {
       method: 'POST',
       headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({
-        query: 'query($na:String){customers(first:250,after:$na){nodes{id displayName s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
+        query: 'query($na:String){customers(first:250,after:$na){nodes{id displayName numberOfOrders s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
         variables: { na }
       })
     });
@@ -670,7 +670,9 @@ async function telStempelsBinnen(req) {
       deelnemers++;
       const stempels = Math.floor(saldo / STEMPEL_EURO + 1e-9);
       const ver = k.v ? (parseInt(k.v.value, 10) || 0) : 0;
-      klanten.push(stempelKlant(k.id, k.displayName, saldo, ver));
+      const kl = stempelKlant(k.id, k.displayName, saldo, ver);
+      kl.orders = parseInt(k.numberOfOrders, 10) || 0;
+      klanten.push(kl);
       verzilverd += ver;
       const o = Math.max(0, Math.floor(stempels / STEMPELS_PER_KAART) - ver);
       if (o) { open += o; klantenVol++; }
@@ -679,7 +681,47 @@ async function telStempelsBinnen(req) {
     if (!c.pageInfo.hasNextPage) break;
     na = c.pageInfo.endCursor;
   }
+  /* ── voorspelling ──
+     Wie zit nog maar één gemiddelde bestelling van een volle kaart af, en hoe
+     groot is de kans dat zo iemand nog eens bestelt? Allebei uit je eigen
+     cijfers: de gemiddelde besteding per bestelling en je herhaalpercentage. */
+  const besteed = klanten.reduce((n, k) => n + k.saldo, 0);
+  const bestellingen = klanten.reduce((n, k) => n + k.orders, 0);
+  const gemOrder = bestellingen ? besteed / bestellingen : 0;
+  const metOrder = klanten.filter(k => k.orders >= 1).length;
+  const herhaal = metOrder ? klanten.filter(k => k.orders >= 2).length / metOrder : 0;
+  const kaartEuro = STEMPEL_EURO * STEMPELS_PER_KAART;
+
+  /* Gebruikt iemand zijn volle kaart? Dat doet hij als hij opnieuw bestelt.
+     De kans daarop lezen we af uit je eigen klanten: van iedereen met n
+     bestellingen, welk deel kwam terug voor een (n+1)e? Vanaf 5 bestellingen
+     samengenomen, anders zijn de groepjes te klein. Met een kleine demping
+     (+1/+2) zodat één klant in een groep geen 0% of 100% oplevert. */
+  const KAP = 5;
+  const kansBij = {};
+  for (let n = 1; n <= KAP; n++) {
+    const basis = klanten.filter(k => (n < KAP ? k.orders === n : k.orders >= n) || k.orders > n).length;
+    const verder = klanten.filter(k => k.orders > n).length;
+    kansBij[n] = (verder + 1) / (basis + 2);
+  }
+  const kans = k => kansBij[Math.max(1, Math.min(KAP, k.orders || 1))];
+  klanten.forEach(k => { k.kans = Math.round(kans(k) * 100); });
+
+  /* volle kaarten, gewogen met de kans dat ze gebruikt worden */
+  const verwachtVol = klanten.reduce((n, k) => n + k.open * kans(k), 0);
+  /* bijna-volle kaarten: wie één gemiddelde bestelling van vol zit en terugkomt,
+     heeft na die bestelling een volle kaart én is er dus om hem te gebruiken */
+  const kandidaatLijst = klanten.filter(k => {
+    const volgende = (Math.floor(k.stempels / STEMPELS_PER_KAART) + 1) * kaartEuro;
+    return volgende - k.saldo <= gemOrder;
+  });
+  const kandidaten = kandidaatLijst.length;
+  const verwachtNieuw = kandidaatLijst.reduce((n, k) => n + kans(k), 0);
+  const verwacht = Math.ceil(verwachtNieuw);
+  const kansTabel = Object.keys(kansBij).map(n => ({ n: +n, pct: Math.round(kansBij[n] * 100) }));
   const uit = { open, klantenVol, bijna, deelnemers, verzilverd,
+    kandidaten, verwacht, herhaalPct: Math.round(herhaal * 100), gemOrder: Math.round(gemOrder * 100) / 100,
+    verwachtVol: Math.round(verwachtVol * 10) / 10, verwachtNieuw: Math.round(verwachtNieuw * 10) / 10, kansTabel,
     perStempel: STEMPEL_EURO, perKaart: STEMPELS_PER_KAART, bijgewerkt: Date.now() };
   /* Alleen de getallen gaan de database in; de namenlijst komt alleen terug
      naar het scherm dat erom vroeg en blijft verder bij Shopify. */
