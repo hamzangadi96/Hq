@@ -4120,7 +4120,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v702 · 8 okt 2026';
+const APPVERSIE='v703 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7915,7 +7915,8 @@ function stempelBolletjes(k,groot){
 function stempelRij(k){
   return `<button type="button" class="arij" onclick="stempelKlantOpen('${k.id}')">
     <span class="naam">${esc(k.naam)}<small>${k.open?(k.open===1?'kaart vol':k.open+' kaarten vol'):k.rest+' van 6'} · €${
-      String(k.saldo.toFixed(2)).replace('.',',')}${typeof k.kans==='number'?' · kans '+k.kans+'%':''}${k.doos?' · doos van '+k.doos:''}</small></span>
+      String(k.saldo.toFixed(2)).replace('.',',')}${typeof k.kans==='number'?' · kans '+k.kans+'%':''}${
+        typeof k.kans25==='number'?' · '+(k.kans25>=50?k.kans25+'% de 25':(100-k.kans25)+'% de 16'):k.doos?' · doos van '+k.doos:''}</small></span>
     ${stempelBolletjes(k)}<span class="pijl">${svg(I.pijl,'2')}</span></button>`;
 }
 function stempelLijstHTML(){
@@ -7954,8 +7955,12 @@ function stempelKlantHTML(k){
       <small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed · ${k.stempels} stempels totaal · ${k.ver} verzilverd</small>
       ${typeof k.kans==='number'?`<span class="stpkansklant">${k.kans}% kans dat ${k.open?'deze kaart':'een volgende kaart'} gebruikt wordt<small>${
         k.orders||1}× besteld · klanten zoals deze bestellen in ${k.kans}% van de gevallen opnieuw</small></span>`:''}
-      ${k.doos?`<span class="stpkansklant">Kiest waarschijnlijk de doos van ${k.doos}<small>${
-        k.doosBron==='historie'?'op basis van de dozen die deze klant eerder kocht':'op basis van wat deze klant gemiddeld besteedt'}${
+      ${k.doos?`<span class="stpkansklant">${typeof k.kans25==='number'?
+        (k.kans25>=50?k.kans25+'% kans op de doos van 25':(100-k.kans25)+'% kans op de doos van 16')
+        :'Kiest waarschijnlijk de doos van '+k.doos}<small>${
+        k.doosBron!=='historie'?'op basis van wat deze klant gemiddeld besteedt'
+          :k.doosLaatst&&k.doosVaak&&k.doosLaatst!==k.doosVaak?'kocht meestal de '+k.doosVaak+', laatst de '+k.doosLaatst+' — dat schuift de kans, maar gooit hem niet om'
+          :'op basis van de dozen die deze klant eerder kocht, recente aankopen tellen zwaarder'}${
         k.doos===25?' · betaalt €10 bij':''}</small></span>`:''}
     </div>
     <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Stempels</span></div>
