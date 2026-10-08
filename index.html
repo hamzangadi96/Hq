@@ -3882,6 +3882,13 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
   color:var(--grijs);font:500 14px Inter,system-ui,sans-serif;text-align:left}
 .tdleeg svg{width:16px;height:16px}
 /* ═══ Home-tegels (v691): vier blokken worden tegels, details in een sheet ═══ */
+.htegels>.htegel:last-child:nth-child(odd){grid-column:1/-1;min-height:auto;flex-direction:row;align-items:center}
+.htegels>.htegel:last-child:nth-child(odd)>span:last-child{text-align:right}
+.stpgetallen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stpgetallen>div{background:var(--bg);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px}
+.stpgetallen b{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.stpgetallen span{font-size:13px;font-weight:600}
+.stpgetallen small{font-size:12px;color:var(--grijs)}
 .htegels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
 .htegel{display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-height:112px;padding:14px;
   border:0;border-radius:18px;background:var(--card);text-align:left;font:inherit;color:var(--ink);cursor:pointer;
@@ -4088,7 +4095,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v696 · 8 okt 2026';
+const APPVERSIE='v697 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4400,7 +4407,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['stempelBonbons','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -6317,7 +6324,7 @@ function renderNu(){
     S.tab==='shopify'?shopifyHTML():
     S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():
     S.tab==='content'?cwHTML():straksHTML(S.tab));
-  if(homeSheet&&sheetOpen&&S.tab==='dashboard'){const sb=$('#sheetBody'),st=sb.scrollTop;
+  if(homeSheet&&sheetOpen){const sb=$('#sheetBody'),st=sb.scrollTop;
     sb.innerHTML=homeSheetBody(homeSheet); sb.scrollTop=st}
   if(gewisseld){
     const el=$('#scherm');
@@ -7767,9 +7774,69 @@ const HOMESHEETS={
     .replace('<span class="eyebrow">Hygiëne vandaag</span>','<span class="eyebrow"></span>')],
   mail:['Mailinglijst',()=>{const o=mailGroot; mailGroot=true; const h=mailKaartHTML(); mailGroot=o;
     return h.replace(/<div class="blokkop"><span class="eyebrow">Mailinglijst<\/span>\s*<button class="kopknop"[^>]*>Kleiner<\/button><\/div>/,'')}],
-  ctl:['Controles',()=>controleKaartHTML()||'<p class="wdleeg">Alles is op tijd.</p>']
+  ctl:['Controles',()=>controleKaartHTML()||'<p class="wdleeg">Alles is op tijd.</p>'],
+  stp:['Stempelkaarten',()=>stempelSheetHTML()]
 };
 function homeSheetBody(k){ return HOMESHEETS[k][1]() }
+
+/* ═══════════ Stempelkaarten (v697) ═══════════
+   Volle kaarten zijn bonbons die je moet maken. De website telt, de Cloud
+   Function rekent om naar "zoveel beloningen klaar", en hier wordt dat
+   bonbons — zodra je hebt ingesteld hoeveel er in één beloning zitten. */
+let stempelBezig=false, stempelFout='';
+function stempelStand(){
+  let s=(S.werk||{}).stempels;
+  if(!s){ try{ s=JSON.parse(localStorage.getItem('hq-stempels')||'null') }catch(e){ s=null } }
+  return s;
+}
+function stempelVerversen(hand){
+  const s=(S.werk||{}).stempels;
+  if(stempelBezig||!fbUser) return;
+  if(!hand&&stempelFout) return;
+  if(!hand&&s&&Date.now()-(s.bijgewerkt||0)<10*60*1000) return;
+  stempelBezig=true; if(hand) render();
+  roep('telStempels',{}).then(r=>{
+    S.werk=S.werk||{}; S.werk.stempels=r; stempelFout='';
+    try{ localStorage.setItem('hq-stempels',JSON.stringify(r)) }catch(e){}
+  }).catch(e=>{ stempelFout=(e&&e.message)||'Tellen lukte niet.' })
+    .finally(()=>{ stempelBezig=false; render() });
+}
+function stempelBonbonsZet(n){ S.stempelBonbons=n; bewaarNu(); render() }
+/* hoeveel bonbons de volle kaarten samen kosten (null = nog niet ingesteld) */
+function stempelBonbonsNodig(){
+  const s=stempelStand(); if(!s) return null;
+  return S.stempelBonbons? s.open*S.stempelBonbons : null;
+}
+function stempelTegelHTML(tg,sub){
+  setTimeout(()=>stempelVerversen(false),0);
+  const s=stempelStand();
+  if(!s) return tg('stp','Stempelkaarten','…',sub(stempelFout?'tik om te tellen':'tellen…'));
+  const nodig=stempelBonbonsNodig();
+  return tg('stp','Stempelkaarten',String(s.open),
+    sub(!s.open?'geen kaart vol':nodig!==null?nodig+' bonbons maken'
+      :(s.open===1?'beloning klaar':'beloningen klaar')),
+    s.bijna?`<em class="achter">+${s.bijna} bijna</em>`:'',s.open?'':'var(--grijs2)');
+}
+function stempelSheetHTML(){
+  const s=stempelStand();
+  if(!s) return `<p class="wdleeg">${stempelFout?esc(stempelFout):'Tellen…'}</p>
+    <button type="button" class="kopknop" onclick="stempelFout='';stempelVerversen(true)">Opnieuw tellen</button>`;
+  const nodig=stempelBonbonsNodig();
+  const keus=[4,6,9,12,16].map(n=>`<button type="button" class="wdchip ${S.stempelBonbons===n?'aan':''}"
+    onclick="stempelBonbonsZet(${n})">${n}</button>`).join('');
+  const tijd=new Date(s.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+  return `<div class="stpgetallen">
+      <div><b>${s.open}</b><span>${s.open===1?'kaart vol':'kaarten vol'}</span><small>${s.klantenVol} ${s.klantenVol===1?'klant':'klanten'}</small></div>
+      <div><b style="color:var(--amber)">${s.bijna}</b><span>bijna vol</span><small>nog 1 stempel</small></div>
+      <div><b>${nodig!==null?nodig:'?'}</b><span>bonbons maken</span><small>${nodig!==null?'voor de volle kaarten':'stel hieronder in'}</small></div>
+    </div>
+    <div class="blokkop" style="margin-top:18px"><span class="eyebrow">Bonbons per beloning</span></div>
+    <div class="wdwat">${keus}</div>
+    <p class="wdleeg" style="margin-top:14px">1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart.
+      ${s.verzilverd?s.verzilverd+' kaarten al verzilverd.':'Nog geen kaart verzilverd.'}</p>
+    <button type="button" class="kopknop" onclick="stempelFout='';stempelVerversen(true)">${
+      stempelBezig?'Tellen…':'Bijgewerkt '+tijd+' · opnieuw tellen'}</button>`;
+}
 function homeTegel(k){
   if(!HOMESHEETS[k]) return;
   sheet(HOMESHEETS[k][0],homeSheetBody(k));
@@ -7826,7 +7893,7 @@ function homeTegelsHTML(){
         sub(toon.length===1?'controle open':'controles open'),'<i class="htstip"></i>','var(--amber)')
     :tg('ctl','Controles',svg(I.vink,'2.6').replace('<svg ','<svg width="30" height="30" '),sub('alles op tijd'),'','var(--groen)');
 
-  return `<div class="htegels">${td}${hyg}${mail}${ctl}</div>`;
+  return `<div class="htegels">${td}${hyg}${mail}${ctl}${stempelTegelHTML(tg,sub)}</div>`;
 }
 
 /* ═══════════ Halffabricaten: karamel, gelei, notenpasta ═══════════
@@ -8577,6 +8644,18 @@ function productieHTML(){
       ${tk?'<span class="stip amber"></span>':'<span class="stip groen"></span>'}
       <span class="pijl">${svg(I.pijl,'2')}</span></button>`};
 
+  /* volle stempelkaarten zijn ook werk voor je handen */
+  const stp=stempelStand();
+  if(stp&&stp.open){
+    const nodig=stempelBonbonsNodig();
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Stempelkaarten</span></div>
+      <div class="paneel"><button class="arij" onclick="homeTegel('stp')">
+        <span class="ivak amber">${svg(I.vorm)}</span>
+        <span class="naam">${stp.open} ${stp.open===1?'beloning':'beloningen'} klaar<small>${
+          nodig!==null?nodig+' bonbons meenemen in je volgende batch':'tik om in te stellen hoeveel bonbons per beloning'}${
+          stp.bijna?' · '+stp.bijna+' bijna vol':''}</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
+  }
   if(temaken.length){
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Te maken</span>
         <span class="tel">${temaken.length}</span></div>
