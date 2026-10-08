@@ -3870,6 +3870,23 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .tdleeg{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 14px;padding:12px 4px;border:0;background:none;
   color:var(--grijs);font:500 14px Inter,system-ui,sans-serif;text-align:left}
 .tdleeg svg{width:16px;height:16px}
+/* ═══ Home-tegels (v691): vier blokken worden tegels, details in een sheet ═══ */
+.htegels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.htegel{display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-height:112px;padding:14px;
+  border:0;border-radius:18px;background:var(--card);text-align:left;font:inherit;color:var(--ink);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:transform .12s}
+.htegel:active{transform:scale(.97)}
+.htk{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--grijs)}
+.htk svg{width:18px;height:18px;color:var(--groen);flex-shrink:0}
+.htk em{font-style:normal;font-size:12px;font-weight:700}
+.htk em.ok{color:var(--groen)}.htk em.achter{color:var(--amber)}
+.htk i.htstip{width:10px;height:10px;border-radius:50%;background:var(--amber);flex-shrink:0}
+.htg{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.htg small{font-size:16px;font-weight:600;color:var(--grijs2);margin-left:3px;letter-spacing:0}
+.hts{display:block;font-size:13px;color:var(--grijs);margin-top:6px}
+.htbalk{display:block;position:relative;height:6px;border-radius:3px;background:var(--lijn);margin-top:10px}
+.htbalk i{display:block;height:100%;border-radius:3px;background:var(--groen)}
+.htbalk b{position:absolute;top:-3px;width:2px;height:12px;border-radius:1px;background:var(--ink)}
 .mlc{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 16px;margin-bottom:14px;
   background:var(--card);border-radius:18px;border:0;color:var(--ink);
   box-shadow:0 1px 2px rgba(24,24,27,.03),0 14px 30px -22px rgba(24,24,27,.22)}
@@ -4060,7 +4077,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v690 · 4 okt 2026';
+const APPVERSIE='v691 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6289,6 +6306,8 @@ function renderNu(){
     S.tab==='shopify'?shopifyHTML():
     S.tab==='geld'?geldHTML(): S.tab==='agenda'?agendaHTML():
     S.tab==='content'?cwHTML():straksHTML(S.tab));
+  if(homeSheet&&sheetOpen&&S.tab==='dashboard'){const sb=$('#sheetBody'),st=sb.scrollTop;
+    sb.innerHTML=homeSheetBody(homeSheet); sb.scrollTop=st}
   if(gewisseld){
     const el=$('#scherm');
     el.classList.remove('schermIn');
@@ -7714,6 +7733,80 @@ function mailKaartHTML(){
       </span>
     </button>`;
 }
+/* ═══════════ Home-tegels (8 okt 2026) ═══════════
+   Hygiëne, je lijst, de mailinglijst en de controles stonden alle vier
+   uitgeklapt onder elkaar: vier schermen scrollen voor één blik. Nu is elk
+   een tegel met het ene getal dat je moet weten; tik en de hele kaart opent
+   als sheet. Afvinken in die sheet werkt precies als eerst. */
+let homeSheet=null;
+const HOMESHEETS={
+  td:['Te doen',()=>tedoenKaartHTML().replace('<span class="eyebrow">Te doen</span>','<span class="eyebrow"></span>')],
+  hyg:['Hygiëne vandaag',()=>(werkdagKaartHTML()||'<p class="wdleeg">Vandaag is geen werkdag.</p>')
+    .replace('<span class="eyebrow">Hygiëne vandaag</span>','<span class="eyebrow"></span>')],
+  mail:['Mailinglijst',()=>{const o=mailGroot; mailGroot=true; const h=mailKaartHTML(); mailGroot=o;
+    return h.replace(/<div class="blokkop"><span class="eyebrow">Mailinglijst<\/span>\s*<button class="kopknop"[^>]*>Kleiner<\/button><\/div>/,'')}],
+  ctl:['Controles',()=>controleKaartHTML()||'<p class="wdleeg">Alles is op tijd.</p>']
+};
+function homeSheetBody(k){ return HOMESHEETS[k][1]() }
+function homeTegel(k){
+  if(!HOMESHEETS[k]) return;
+  sheet(HOMESHEETS[k][0],homeSheetBody(k));
+  homeSheet=k; bind();
+}
+function homeTegelsHTML(){
+  const balk=(pct,merk)=>`<span class="htbalk"><i style="width:${Math.max(0,Math.min(100,pct))}%"></i>${
+    merk!=null?`<b style="left:${Math.max(0,Math.min(100,merk))}%"></b>`:''}</span>`;
+  const tg=(k,label,groot,onder,extra,kleur)=>`<button type="button" class="htegel" onclick="homeTegel('${k}')">
+    <span class="htk"><span>${label}</span>${extra||''}</span>
+    <span><span class="htg"${kleur?` style="color:${kleur}"`:''}>${groot}</span>${onder||''}</span></button>`;
+  const sub=s=>`<span class="hts">${s}</span>`;
+
+  /* je lijst */
+  const tot=tdLijst().length, open=tdOpen().length;
+  const td=!tot?tg('td','Te doen','+',sub('iets op je lijst zetten'))
+    :open?tg('td','Te doen',String(open),sub(tot-open?(tot-open)+' van '+tot+' af':'te gaan'))
+    :tg('td','Te doen','Klaar',sub('alles af'),svg(I.vink,'2.4'),'var(--groen)');
+
+  /* hygiëne */
+  let hyg;
+  if(!isWerkdag()) hyg=tg('hyg','Hygiëne','—',sub('geen werkdag'));
+  else{
+    const w=wdWat(), p=wdPunten(), af=p.filter(x=>x.af).length;
+    if(!w.length) hyg=tg('hyg','Hygiëne','?',sub('wat doe je vandaag?'),'<i class="htstip"></i>');
+    else if(!p.length) hyg=tg('hyg','Hygiëne','—',sub('geen voedsel vandaag'));
+    else hyg=tg('hyg','Hygiëne',af+'<small>/ '+p.length+'</small>',balk(af/p.length*100),
+      af===p.length?svg(I.vink,'2.4'):'',af===p.length?'var(--groen)':'');
+  }
+
+  /* mailinglijst */
+  let mail='';
+  if(vandaag()<=MAILDOEL.tot){
+    let m=(S.werk||{}).mailinglijst;
+    if(!m){ try{ m=JSON.parse(localStorage.getItem('hq-mailinglijst')||'null') }catch(e){ m=null } }
+    setTimeout(()=>mailVerversen(false),0);
+    if(!m) mail=tg('mail','Mailinglijst','…',sub(mailFout?'tik om te tellen':'tellen…'));
+    else{
+      const lt=dagenTussen(MAILDOEL.sinds,MAILDOEL.tot);
+      const vs=Math.min(lt,dagenTussen(MAILDOEL.sinds,vandaag())+1);
+      const ver=Math.round(MAILDOEL.doel*vs/lt), voor=m.nieuw-ver;
+      const kort=m.nieuw>=MAILDOEL.doel?'doel':voor>0?'+'+voor:voor===0?'op schema':'−'+(-voor);
+      mail=tg('mail','Mailinglijst',m.nieuw+'<small>/ '+MAILDOEL.doel+'</small>',
+        balk(m.nieuw/MAILDOEL.doel*100,ver/MAILDOEL.doel*100),
+        `<em class="${voor>=0?'ok':'achter'}">${kort}</em>`);
+    }
+  }
+
+  /* controles */
+  const toon=zichtbareControles();
+  const rondeDag=new Date().getDay()===(typeof S.controleDag==='number'?S.controleDag:0);
+  const ctl=toon.length
+    ?tg('ctl',rondeDag?'Ronde vandaag':'Loopt achter',String(toon.length),
+        sub(toon.length===1?'controle open':'controles open'),'<i class="htstip"></i>','var(--amber)')
+    :tg('ctl','Controles',svg(I.vink,'2.6').replace('<svg ','<svg width="30" height="30" '),sub('alles op tijd'),'','var(--groen)');
+
+  return `<div class="htegels">${td}${hyg}${mail}${ctl}</div>`;
+}
+
 /* ═══════════ Halffabricaten: karamel, gelei, notenpasta ═══════════
    Een bonbonbatch had al stappen, timers en HACCP; een halffabricaat was
    alleen een taak om af te vinken. Nu heeft het dezelfde werkstand: stap voor
@@ -8346,7 +8439,7 @@ function dashboardHTML(){
   /* de klok als knopje in de kaart van vandaag (bij een batch staat hij erboven) */
   if(t.soort!=='bezig') h=h.replace('<div class="hoofdkaart">','<div class="hoofdkaart">'+hkKlokHTML());
   const morgenAlInKaart=t.soort!=='bezig'&&h.indexOf('Volgende: <b style="color:var(--ink);font-weight:600">morgen')>=0;
-  return voorHeld+h+werkdagKaartHTML()+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+tdKaart+mailKaartHTML()+kpiHTML()+controleKaartHTML();
+  return voorHeld+h+homeTegelsHTML()+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+kpiHTML();
 }
 
 /* datum klein, groet groot, en de signalen die er nu toe doen eronder */
@@ -20810,6 +20903,7 @@ function grenzenZetten(waar){
 
 let sheetUitlegHtml=null;
 function sheet(t,b,v,stapLabel){
+  homeSheet=null;
   bijSluiten=null;
   $('#sheetTitel').textContent=t; $('#sheetStap').textContent=stapLabel||'';
   /* hulpknopje alleen tonen als er uitleg bij dit scherm hoort */
@@ -20838,7 +20932,7 @@ function sheet(t,b,v,stapLabel){
   if(hk) hk.classList.toggle('aan',!!(sheetUitlegHtml||hk.dataset.ond)&&t!=='Hoe werkt het?');
   $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true;
   if(window.__sheetPas) setTimeout(window.__sheetPas,60)}
-function dicht(){stopStap();plKies=null;sluitVeeg();let ververs=false;
+function dicht(){homeSheet=null;stopStap();plKies=null;sluitVeeg();let ververs=false;
   if(bijSluiten){try{bijSluiten();ververs=true}catch(e){console.error('bijSluiten:',e)};bijSluiten=null}
   if(ververs)setTimeout(render,0);
   hulpDicht(); ballonDicht(); rlStop();
