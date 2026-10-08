@@ -137,6 +137,39 @@ async function shopifyPagina(uid, pad) {
   return { gegevens: await r.json(), volgende: m ? m[1] : null };
 }
 
+/* Voor voorraad moet je schrijven, niet alleen lezen. Zelfde token, maar
+   dan met een POST en een JSON-lijf erbij. */
+async function shopifySchrijf(uid, pad, lijf) {
+  const { winkel, token: t } = await token(uid);
+  const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/' + pad, {
+    method: 'POST',
+    headers: {
+      'X-Shopify-Access-Token': t, 'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(lijf)
+  });
+  if (r.status === 401 || r.status === 403) {
+    await geheimRef(uid).child('shopify/token').remove();
+    throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+  }
+  if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+  return r.json();
+}
+
+/* Elke winkel heeft minstens één locatie en voorraad hangt daaraan vast.
+   Bij een eenmanszaak is dat er meestal precies één; die pakken we en
+   onthouden 'm, zodat je niet bij elke aanpassing opnieuw hoeft te wachten. */
+async function shopifyLocatie(uid) {
+  const bekend = await leesGeheim(uid, 'shopify');
+  if (bekend && bekend.locatie_id) return bekend.locatie_id;
+  const d = await shopify(uid, 'locations.json');
+  const loc = (d.locations || [])[0];
+  if (!loc) throw new HttpsError('failed-precondition', 'Shopify geeft geen locatie terug.');
+  await geheimRef(uid).child('shopify/locatie_id').set(loc.id);
+  return loc.id;
+}
+
 /* ─────────── van een Shopify-order naar wat de app mag zien ─────────── */
 
 const AFHALEN = /afhal|afhaal|pickup|ophal/i;
@@ -493,6 +526,18 @@ exports.zetKoppeling = onCall(async req => {
   throw new HttpsError('invalid-argument', 'Ik weet niet wat ik moet koppelen.');
 });
 
+/* Voor als je net rechten hebt bijgezet in het Dev Dashboard en niet tot
+   de volgende automatische ververdag wil wachten. Klant-ID en Geheim
+   staan al bij ons, dus daar hoef je niets voor over te typen. */
+exports.shopifyTokenVersen = onCall(async req => {
+  const uid = wieBenJe(req);
+  const g = await leesGeheim(uid, 'shopify');
+  if (!g) throw new HttpsError('failed-precondition', 'Shopify is nog niet gekoppeld.');
+  const vers = await versToken(g.winkel, g.klant_id, g.geheim);
+  await geheimRef(uid).child('shopify').update(vers);
+  return { ok: true };
+});
+
 exports.wisKoppeling = onCall(async req => {
   const uid = wieBenJe(req);
   const welke = String((req.data || {}).welke || '');
@@ -504,6 +549,218 @@ exports.wisKoppeling = onCall(async req => {
   if (welke === 'shopify') await werkRef(uid).child('orders').remove();
   return { ok: true };
 });
+
+/* ─────────────── mailinglijst tellen ───────────────
+   Telt hoeveel klanten in Shopify mail willen ontvangen. Er gaat ALLEEN een
+   getal terug — geen naam, geen e-mailadres. Dat blijft bij Shopify.
+
+   Meegegeven: sinds (YYYY-MM-DD) = start van de campagne. Terug: totaal op de
+   lijst, nieuw sinds die datum, en nieuw vandaag. Datums in Nederlandse tijd,
+   anders telt een aanmelding om 01:00 bij de verkeerde dag. */
+const nlDag = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
+
+exports.telMailinglijst = onCall(async req => {
+  /* Elke fout die we niet zelf hebben voorzien, komt toch met uitleg terug —
+     anders maakt Firebase er een kale "internal" van en weet niemand iets. */
+  try { return await telMailinglijstBinnen(req); }
+  catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('telMailinglijst', e);
+    throw new HttpsError('internal', 'Tellen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+async function telMailinglijstBinnen(req) {
+  const uid = wieBenJe(req);
+  const sinds = /^\d{4}-\d{2}-\d{2}$/.test((req.data || {}).sinds || '') ? req.data.sinds : '2026-10-01';
+  const vandaag = nlDag(Date.now());
+  const { winkel, token: t } = await token(uid);
+
+  let totaal = 0, nieuw = 0, nieuwVandaag = 0, na = null;
+  const perDag = {};
+  for (let ronde = 0; ronde < 40; ronde++) {
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt defaultEmailAddress{marketingState}} pageInfo{hasNextPage endCursor}}}',
+        variables: { na }
+      })
+    });
+    if (r.status === 401) {
+      await geheimRef(uid).child('shopify/token').remove();
+      throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+    }
+    if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+    const d = await r.json();
+    if (d.errors && d.errors.length) {
+      const tekst = JSON.stringify(d.errors);
+      if (/ACCESS_DENIED|read_customers|access/i.test(tekst)) {
+        throw new HttpsError('permission-denied',
+          'HQ mag nog geen klanten tellen. Zet in het Shopify Dev Dashboard bij je app de scope read_customers aan en installeer de app opnieuw.');
+      }
+      throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+    }
+    const c = d.data.customers;
+    c.nodes.forEach(k => {
+      if (!k.defaultEmailAddress || k.defaultEmailAddress.marketingState !== 'SUBSCRIBED') return;
+      totaal++;
+      const dag = nlDag(k.createdAt);
+      if (dag >= sinds) { nieuw++; perDag[dag] = (perDag[dag] || 0) + 1; }
+      if (dag === vandaag) nieuwVandaag++;
+    });
+    if (!c.pageInfo.hasNextPage) break;
+    na = c.pageInfo.endCursor;
+  }
+
+  const uit = { totaal, nieuw, vandaag: nieuwVandaag, sinds, perDag, bijgewerkt: Date.now() };
+  await werkRef(uid).child('mailinglijst').set(uit);
+  return uit;
+}
+
+/* ═══════════ Stempelkaarten ═══════════
+   De website houdt per klant bij hoeveel er besteed is sinds de start van de
+   spaarkaart (cbx.spaarsaldo, zonder verzendkosten) en hoeveel volle kaarten
+   al verzilverd zijn (cbx.kaarten_verzilverd). Hier rekenen we dat om naar
+   wat HQ nodig heeft voor de productie: hoeveel beloningen klaarliggen en
+   hoeveel kaarten bijna vol zijn. Alleen getallen, geen namen. */
+const STEMPEL_EURO = 25, STEMPELS_PER_KAART = 6;
+
+exports.telStempels = onCall(async req => {
+  try { return await telStempelsBinnen(req); }
+  catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('telStempels', e);
+    throw new HttpsError('internal', 'Stempels tellen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+async function telStempelsBinnen(req) {
+  const uid = wieBenJe(req);
+  const { winkel, token: t } = await token(uid);
+  let open = 0, klantenVol = 0, bijna = 0, deelnemers = 0, verzilverd = 0, na = null;
+  const klanten = [];
+  for (let ronde = 0; ronde < 40; ronde++) {
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        query: 'query($na:String){customers(first:250,after:$na){nodes{id displayName s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
+        variables: { na }
+      })
+    });
+    if (r.status === 401) {
+      await geheimRef(uid).child('shopify/token').remove();
+      throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+    }
+    if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+    const d = await r.json();
+    if (d.errors && d.errors.length) {
+      const tekst = JSON.stringify(d.errors);
+      if (/ACCESS_DENIED|read_customers|access/i.test(tekst)) {
+        throw new HttpsError('permission-denied',
+          'HQ mag nog geen klanten lezen. Zet in het Shopify Dev Dashboard bij je app de scope read_customers aan en installeer de app opnieuw.');
+      }
+      throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+    }
+    const c = d.data.customers;
+    c.nodes.forEach(k => {
+      const saldo = k.s ? parseFloat(k.s.value) : 0;
+      if (!(saldo > 0)) return;
+      deelnemers++;
+      const stempels = Math.floor(saldo / STEMPEL_EURO + 1e-9);
+      const ver = k.v ? (parseInt(k.v.value, 10) || 0) : 0;
+      klanten.push(stempelKlant(k.id, k.displayName, saldo, ver));
+      verzilverd += ver;
+      const o = Math.max(0, Math.floor(stempels / STEMPELS_PER_KAART) - ver);
+      if (o) { open += o; klantenVol++; }
+      if (stempels % STEMPELS_PER_KAART === STEMPELS_PER_KAART - 1) bijna++;
+    });
+    if (!c.pageInfo.hasNextPage) break;
+    na = c.pageInfo.endCursor;
+  }
+  const uit = { open, klantenVol, bijna, deelnemers, verzilverd,
+    perStempel: STEMPEL_EURO, perKaart: STEMPELS_PER_KAART, bijgewerkt: Date.now() };
+  /* Alleen de getallen gaan de database in; de namenlijst komt alleen terug
+     naar het scherm dat erom vroeg en blijft verder bij Shopify. */
+  await werkRef(uid).child('stempels').set(uit);
+  return Object.assign({ klanten }, uit);
+}
+
+function stempelKlant(gid, naam, saldo, ver) {
+  const stempels = Math.floor(saldo / STEMPEL_EURO + 1e-9);
+  return {
+    id: String(gid).split('/').pop(), naam: naam || 'Klant zonder naam',
+    saldo: Math.round(saldo * 100) / 100, stempels, ver,
+    open: Math.max(0, Math.floor(stempels / STEMPELS_PER_KAART) - ver),
+    rest: stempels % STEMPELS_PER_KAART
+  };
+}
+
+/* Per klant bijstellen: stempels erbij of eraf (dat is €25 saldo per stempel,
+   zodat de website en HQ hetzelfde blijven tellen) en een kaart verzilveren
+   of dat terugdraaien. */
+exports.stempelAanpassen = onCall(async req => {
+  try { return await stempelAanpassenBinnen(req); }
+  catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('stempelAanpassen', e);
+    throw new HttpsError('internal', 'Aanpassen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+async function stempelAanpassenBinnen(req) {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const id = String(d.id || '');
+  if (!/^\d+$/.test(id)) throw new HttpsError('invalid-argument', 'Onbekende klant.');
+  const ds = Math.max(-6, Math.min(6, parseInt(d.stempels, 10) || 0));
+  const dk = Math.max(-1, Math.min(1, parseInt(d.kaarten, 10) || 0));
+  if (!ds && !dk) throw new HttpsError('invalid-argument', 'Niets om aan te passen.');
+  const { winkel, token: t } = await token(uid);
+
+  const gql = async (query, variables) => {
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables })
+    });
+    if (r.status === 401) {
+      await geheimRef(uid).child('shopify/token').remove();
+      throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+    }
+    if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+    const j = await r.json();
+    if (j.errors && j.errors.length) {
+      const tekst = JSON.stringify(j.errors);
+      if (/ACCESS_DENIED|write_customers|access/i.test(tekst)) {
+        throw new HttpsError('permission-denied',
+          'HQ mag nog geen klanten aanpassen. Zet in het Shopify Dev Dashboard bij je app de scope write_customers aan en installeer de app opnieuw.');
+      }
+      throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+    }
+    return j.data;
+  };
+
+  const gid = 'gid://shopify/Customer/' + id;
+  const c = (await gql('query($id:ID!){customer(id:$id){id displayName s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}}}', { id: gid })).customer;
+  if (!c) throw new HttpsError('not-found', 'Deze klant bestaat niet (meer) in Shopify.');
+  let saldo = c.s ? (parseFloat(c.s.value) || 0) : 0;
+  let ver = c.v ? (parseInt(c.v.value, 10) || 0) : 0;
+  saldo = Math.max(0, Math.round((saldo + ds * STEMPEL_EURO) * 100) / 100);
+  const vol = Math.floor(Math.floor(saldo / STEMPEL_EURO + 1e-9) / STEMPELS_PER_KAART);
+  if (dk > 0 && ver >= vol) throw new HttpsError('failed-precondition', 'Deze klant heeft geen volle kaart om te verzilveren.');
+  ver = Math.max(0, ver + dk);
+
+  const m = [];
+  if (ds) m.push({ ownerId: gid, namespace: 'cbx', key: 'spaarsaldo', type: 'number_decimal', value: saldo.toFixed(2) });
+  if (dk) m.push({ ownerId: gid, namespace: 'cbx', key: 'kaarten_verzilverd', type: 'number_integer', value: String(ver) });
+  const uit = (await gql('mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){metafields{key value} userErrors{field message}}}', { m })).metafieldsSet;
+  if (uit.userErrors && uit.userErrors.length) {
+    throw new HttpsError('internal', 'Shopify weigerde: ' + uit.userErrors.map(x => x.message).join(', ').slice(0, 200));
+  }
+  return stempelKlant(c.id, c.displayName, saldo, ver);
+}
 
 exports.haalOrders = onCall(async req => {
   const uid = wieBenJe(req);
@@ -541,6 +798,60 @@ exports.haalOrders = onCall(async req => {
 
   const open = orders.filter(o => !(o.fulfillment_status === 'fulfilled' || o.cancelled_at || o.closed_at));
   return { aantal: orders.length, open: open.length };
+});
+
+/* ─────── voorraad die jij invult in HQ, leidend voor de webshop ─────── */
+
+exports.shopifyVoorraadOphalen = onCall(async req => {
+  const uid = wieBenJe(req);
+  const locatieId = await shopifyLocatie(uid);
+
+  const producten = [];
+  let pad = 'products.json?status=active,draft&limit=250';
+  for (let ronde = 0; ronde < 4; ronde++) {
+    const { gegevens, volgende } = await shopifyPagina(uid, pad);
+    (gegevens.products || []).forEach(p => producten.push(p));
+    if (!volgende) break;
+    pad = 'products.json?limit=250&page_info=' + encodeURIComponent(volgende);
+  }
+
+  const regels = [];
+  producten.forEach(p => {
+    (p.variants || []).forEach(v => {
+      regels.push({
+        inventoryItemId: v.inventory_item_id,
+        titel: p.title,
+        variantTitel: v.title === 'Default Title' ? '' : v.title,
+        aantal: v.inventory_quantity
+      });
+    });
+  });
+
+  return { locatieId, regels };
+});
+
+exports.shopifyVoorraadZetten = onCall(async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const inventoryItemId = Number(d.inventoryItemId);
+  const aantal = Number(d.aantal);
+  if (!inventoryItemId) throw new HttpsError('invalid-argument', 'Welk product?');
+  if (!Number.isFinite(aantal) || aantal < 0) throw new HttpsError('invalid-argument', 'Vul een geldig aantal in.');
+
+  const locatieId = await shopifyLocatie(uid);
+  await shopifySchrijf(uid, 'inventory_levels/set.json', {
+    location_id: locatieId,
+    inventory_item_id: inventoryItemId,
+    available: aantal
+  });
+
+  /* bewaren wat je hebt ingevuld, zodat je het terugziet zonder opnieuw
+     bij Shopify te hoeven vragen */
+  await werkRef(uid).child('voorraadShopify/' + inventoryItemId).set({
+    aantal, bijgewerkt: Date.now()
+  });
+
+  return { ok: true };
 });
 
 /* Een order bij Shopify opzoeken, op id of op ordernummer. */
@@ -693,3 +1004,10 @@ Object.assign(exports, require('./maakOndertitels'));
 /* Het indelen tegen je eigen lijst staat ook apart, want de lijst groeit en
    deze functie moet klein blijven. */
 Object.assign(exports, require('./beoordeelCode'));
+
+/* Clips bekijken voor de nieuwe videoflow in Studio: wat gebeurt er, bij welk
+   onderdeel hoort het, hoe sterk is het shot. Ook apart, om dezelfde reden. */
+Object.assign(exports, require('./analyseerClip'));
+
+/* De regie: van bekeken clips een montageplan maken. Ook apart. */
+Object.assign(exports, require('./maakRegie'));
