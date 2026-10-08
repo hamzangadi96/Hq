@@ -3939,6 +3939,11 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
   background:var(--bg);font:inherit;font-size:15px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
 .vpkeus button small{font-size:12px;font-weight:400;color:var(--grijs)}
 .vpkeus button.aan{background:var(--ink);color:#fff}.vpkeus button.aan small{color:rgba(255,255,255,.7)}
+.vpdoel{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;padding:12px 14px;background:var(--bg);border-radius:14px}
+.vpdoel>span{display:flex;flex-direction:column;font-size:14px;font-weight:600}
+.vpdoel>span small{font-size:12px;font-weight:400;color:var(--grijs)}
+.vpdoelin{width:64px;text-align:center;font:inherit;font-size:17px;font-weight:700;border:1px solid var(--lijn);border-radius:10px;padding:6px 4px;background:var(--card);color:var(--ink);-moz-appearance:textfield}
+.vpdoelin::-webkit-outer-spin-button,.vpdoelin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .vpinst{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:16px}
 .vpinst label,.vpinst>div{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--grijs)}
 .vpinst>div{align-items:flex-end}
@@ -4193,7 +4198,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v712 · 8 okt 2026';
+const APPVERSIE='v713 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4505,7 +4510,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -7885,7 +7890,9 @@ function homeSheetBody(k){ return HOMESHEETS[k][1]() }
 /* ═══════════ Productievoorspelling (v704) ═══════════
    De server ijkt op je vorige heropening; hier komen afkeur (uit je eigen
    batches) en de stempelkaarten erbij, en wordt het één getal. */
-const ORDERDOEL=100;
+/* je doel is instelbaar en blijft bewaard (v713) */
+function orderDoel(){ return Math.max(1,parseInt(S.orderDoel,10)||100) }
+function orderDoelZet(n){ S.orderDoel=Math.max(5,Math.min(2000,Math.round(n)||100)); bewaarNu() }
 let voorspelBezig=false, voorspelFout='';
 function voorspelStand(){
   let s=(S.werk||{}).voorspelling;
@@ -7930,7 +7937,7 @@ function voorspelKaartHTML(a){
       <b>${voorspelFout?'Voorspellen lukte niet':'Voorspellen…'}</b>
       <small>${voorspelFout?esc(voorspelFout):'op basis van je eigen verkoop'}</small></button>`;
   const lo=v.rustig?v.rustig.orders:v.verwachtOrders, hi=v.druk?v.druk.orders:v.verwachtOrders;
-  const schaal=Math.max(hi,ORDERDOEL)*1.08||1, pos=x=>Math.max(0,Math.min(100,x/schaal*100));
+  const schaal=Math.max(hi,orderDoel())*1.08||1, pos=x=>Math.max(0,Math.min(100,x/schaal*100));
   /* Geen <button> als kaart: Safari rekt de inhoud van een knop niet uit,
      waardoor balk en tegels inklapten. Nu een gewone kaart met een echte
      knop onderaan. */
@@ -7942,8 +7949,8 @@ function voorspelKaartHTML(a){
     <div class="vspdozen"><div><b>${a.d16}×</b><small>doos van 16</small></div><div><b>${a.d25}×</b><small>doos van 25</small></div></div>
     <div class="vspband">
       <div class="vspbalk"><div class="band" style="left:${pos(lo)}%;width:${Math.max(2,pos(hi)-pos(lo))}%"></div>
-        <div class="doel" style="left:${pos(ORDERDOEL)}%"></div><div class="stip" style="left:${pos(v.verwachtOrders)}%"></div></div>
-      <div class="vspas"><span>${lo}</span><span class="doeltekst" style="left:${pos(ORDERDOEL)}%">doel ${ORDERDOEL}</span><span>${hi}</span></div>
+        <div class="doel" style="left:${pos(orderDoel())}%"></div><div class="stip" style="left:${pos(v.verwachtOrders)}%"></div></div>
+      <div class="vspas"><span>${lo}</span><span class="doeltekst" style="left:${pos(orderDoel())}%">doel ${orderDoel()}</span><span>${hi}</span></div>
       <p class="vspuitleg">Bestellingen per maand: je zwakste tot je sterkste maand. De stip is de verwachting.</p>
     </div>
     <button type="button" class="prim vspplanknop" onclick="VP=null;sheetVoorspelPlan()">${svg(I.vorm)}Maak productieplan</button>
@@ -7958,7 +7965,7 @@ function voorspelKaartHTML(a){
 let VP=null;
 function vpNodig(){
   const a=voorspelAdvies(), v=voorspelStand(); if(!a) return 0;
-  return VP.opDoel&&v.verwachtOrders?Math.ceil(a.bruto*ORDERDOEL/v.verwachtOrders):a.bruto;
+  return VP.opDoel&&v.verwachtOrders?Math.ceil(a.bruto*orderDoel()/v.verwachtOrders):a.bruto;
 }
 function vpVoorraad(){
   const m=voorraadPerSmaak(); return Object.keys(m).reduce((n,k)=>n+(m[k]||0),0);
@@ -8035,8 +8042,12 @@ function sheetVoorspelPlan(){
   sheet('Productieplan',
     `<div class="vpkeus">
        <button type="button" class="${VP.opDoel?'':'aan'}" data-vpdoel="0">Verwachting<small>±${v.verwachtOrders} bestellingen</small></button>
-       <button type="button" class="${VP.opDoel?'aan':''}" data-vpdoel="1">Doel<small>${ORDERDOEL} bestellingen</small></button>
+       <button type="button" class="${VP.opDoel?'aan':''}" data-vpdoel="1">Doel<small>${orderDoel()} bestellingen</small></button>
      </div>
+     ${VP.opDoel?`<div class="vpdoel"><span>Jouw doel<small>bestellingen deze periode</small></span>
+       <div class="ostep"><button class="stepbtn klein" data-vpd="-10" aria-label="Doel lager">${svg(I.min)}</button>
+         <input class="vpdoelin" id="vpDoel" type="number" inputmode="numeric" min="5" step="5" value="${orderDoel()}">
+         <button class="stepbtn klein" data-vpd="10" aria-label="Doel hoger">${svg(I.plus)}</button></div></div>`:''}
      <div class="vbon" style="margin-top:12px">
        <div class="vbrij"><span>Nodig</span><b>${g(nodig)}</b></div>
        ${voorraad?`<div class="vbrij"><span>− op voorraad</span><b>−${g(voorraad)}</b></div>`:''}
@@ -8071,6 +8082,8 @@ function sheetVoorspelPlan(){
 
   const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetVoorspelPlan(); $('#sheetBody').scrollTop=st };
   $$('[data-vpdoel]').forEach(b=>b.onclick=()=>{ VP.opDoel=b.dataset.vpdoel==='1'; vpVoorstel(); opnieuw() });
+  $$('[data-vpd]').forEach(b=>b.onclick=()=>{ orderDoelZet(orderDoel()+parseInt(b.dataset.vpd,10)); vpVoorstel(); opnieuw() });
+  if($('#vpDoel')) $('#vpDoel').onchange=()=>{ orderDoelZet(parseInt($('#vpDoel').value,10)); vpVoorstel(); opnieuw() };
   $$('[data-vpp]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpp]=(VP.mallen[b.dataset.vpp]||0)+1; opnieuw() });
   $$('[data-vpm]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpm]=Math.max(0,(VP.mallen[b.dataset.vpm]||0)-1); opnieuw() });
   $('#vpStart').onchange=()=>{ if($('#vpStart').value){ VP.start=$('#vpStart').value; opnieuw() } };
@@ -8110,7 +8123,7 @@ function voorspelSheetHTML(){
 
   /* 2. de maanden als staafjes, met een lijn voor het gemiddelde */
   const M=v.maanden||[];
-  const max=Math.max(ORDERDOEL,...M.map(m=>m.orders))*1.05||1;
+  const max=Math.max(orderDoel(),...M.map(m=>m.orders))*1.05||1;
   const maanden=M.length?`<div class="vbkop"><span>Als november gaat zoals…</span><small>bestellingen</small></div>
     <div class="vbmaanden">
       ${M.map(m=>`<div class="vbm"><span class="n">${esc(m.naam.replace(/ 20(\d\d)$/,' ’$1'))}</span>
