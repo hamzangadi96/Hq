@@ -831,9 +831,9 @@ async function telDozenPerKlant(winkel, t) {
 }
 
 /* ═══════════ Productievoorspelling ═══════════
-   Hoeveel bonbons moet je maken voor de komende verkoopmaand? Twee
-   scenario's uit je eigen historie (een rustige en een drukke maand) en het
-   midden daartussen als advies.
+   Hoeveel bonbons moet je maken voor de komende verkoopmaand? Elke maand uit
+   je eigen historie wordt toegepast op nu ("als het gaat zoals januari"),
+   en het gemiddelde daarvan is het advies.
    - terug: welk deel van je toenmalige klanten kwam terug, en hoe vaak
    - nieuw: hoeveel nieuwe klanten, opgeschaald met de groei van je lijst
    - dozen: dozen per bestelling en de verhouding 16/25
@@ -848,18 +848,22 @@ exports.voorspelProductie = onCall(async req => {
   }
 });
 
-/* Vaste ijkpunten uit je eigen Shopify-historie (alleen totalen, geen
-   klantgegevens). Nodig omdat Shopify apps standaard alleen de laatste
-   60 dagen aan bestellingen geeft. Bron: Shopify-analytics, 8 okt 2026.
-   - basis: klanten die vóór die maand al eens bestelden
-   - dozen: over nov '25–mei '26 samen 194× 25 en 182× 16 op 259 bestellingen */
-const IJKING = {
-  rustig: { naam: 'mei 2026 (heropening)', van: '2026-05-01', nieuw: 21, terug: 9, basis: 196 },
-  druk:   { naam: 'maart 2026 (grote drop)', van: '2026-03-01', nieuw: 76, terug: 17, basis: 117 },
-  dozenPerOrder: 376 / 259,
-  aandeel25: 194 / 376,
-  ordersPerTerug: 1.1
-};
+/* Je hele bestelgeschiedenis, per maand (alleen totalen, geen klantgegevens).
+   Vast vastgelegd omdat Shopify apps standaard alleen de laatste 60 dagen aan
+   bestellingen geeft. Bron: Shopify-analytics, 8 okt 2026.
+   nieuw = nieuwe klanten, terug = terugkerende klanten in die maand.
+   Dozen: nov '25–mei '26 samen 194× 25 en 182× 16 op 259 bestellingen.
+   Nieuwe maanden komen er vanzelf bij zodra ze binnen de 60 dagen vallen. */
+const HISTORIE = [
+  { maand: '2025-11', naam: 'nov 2025', nieuw: 19, terug: 0 },
+  { maand: '2025-12', naam: 'dec 2025', nieuw: 13, terug: 3 },
+  { maand: '2026-01', naam: 'jan 2026', nieuw: 67, terug: 7 },
+  { maand: '2026-02', naam: 'feb 2026', nieuw: 18, terug: 5 },
+  { maand: '2026-03', naam: 'mrt 2026', nieuw: 76, terug: 17 },
+  { maand: '2026-04', naam: 'apr 2026', nieuw: 3, terug: 1 },
+  { maand: '2026-05', naam: 'mei 2026', nieuw: 21, terug: 9 }
+];
+const IJKING = { dozenPerOrder: 376 / 259, aandeel25: 194 / 376, ordersPerTerug: 1.1, minKlanten: 10 };
 
 async function voorspelBinnen(req) {
   const uid = wieBenJe(req);
@@ -868,42 +872,63 @@ async function voorspelBinnen(req) {
   const abonneesNu = st.aanmeldingen.length;
   const bestaandNu = st.klanten.filter(k => k.orders >= 1).length;
 
+  /* recente maanden uit Shopify zelf (de laatste 60 dagen) vullen de historie aan */
+  const { winkel, token: t } = await token(uid);
+  const recent = (await alleOrders(winkel, t)).filter(o => o.bedrag > 0 && o.klant);
+  const perMaand = {};
+  recent.forEach(o => { const m = String(o.datum).slice(0, 7); (perMaand[m] = perMaand[m] || []).push(o); });
+  const historie = HISTORIE.slice();
+  Object.keys(perMaand).sort().forEach(m => {
+    if (historie.some(h => h.maand === m)) return;
+    const kl = new Set(perMaand[m].map(o => o.klant));
+    const terug = [...kl].filter(id => { const k = st.klanten.find(x => x.id === id); return k && k.orders > 1; }).length;
+    historie.push({ maand: m, naam: new Date(m + '-15').toLocaleDateString('nl-NL', { month: 'short', year: 'numeric' }), nieuw: kl.size - terug, terug });
+  });
+
+  /* Per maand: welk deel van je klanten kwam terug (toegepast op je klanten
+     van nu) en hoeveel nieuwe klanten er echt bijkwamen. Nieuwe klanten
+     schalen we níet op met je mailinglijst: in januari kwamen er 67 nieuwe
+     bij terwijl er ±23 op je lijst stonden — die kwamen via lives en TikTok,
+     en opschalen gaf onzin (626). Wat er echt gebeurde is eerlijker. */
+  let basis = 0;
+  const maanden = [];
+  historie.forEach(h => {
+    if (h.nieuw + h.terug >= IJKING.minKlanten && basis > 0) {
+      const terugR = h.terug / basis;
+      const terug = bestaandNu * terugR * IJKING.ordersPerTerug, nieuw = h.nieuw;
+      maanden.push({ naam: h.naam, terugPct: Math.round(terugR * 100), nieuwToen: h.nieuw,
+        terug, nieuw, orders: Math.round(terug + nieuw) });
+    }
+    basis += h.nieuw;
+  });
+  if (!maanden.length) throw new HttpsError('failed-precondition', 'Nog te weinig maanden met verkoop om te voorspellen.');
+
+  const gem = k => maanden.reduce((n, m) => n + m[k], 0) / maanden.length;
+  const verwachtTerug = gem('terug'), verwachtNieuw = gem('nieuw');
+
   /* terugkerende klanten: hun eigen kans op de 25, gewogen met hun kans om terug te komen */
   let g = 0, g25 = 0;
   st.klanten.forEach(k => { if (k.orders >= 1 && typeof k.kans25 === 'number') { const w = (k.kans || 0) / 100; g += w; g25 += w * k.kans25 / 100; } });
   const aandeel25Terug = g ? g25 / g : IJKING.aandeel25;
-
-  const scenario = s => {
-    const terugPct = s.terug / s.basis;
-    const terug = bestaandNu * terugPct * IJKING.ordersPerTerug;
-    const abToen = aanmeldOp(s.van);
-    const groei = abToen ? abonneesNu / abToen : 1;
-    const nieuw = s.nieuw * groei;
-    const dT = terug * IJKING.dozenPerOrder, dN = nieuw * IJKING.dozenPerOrder;
-    return { naam: s.naam, terugPct: Math.round(terugPct * 100), terug, abToen, groei, nieuw,
-      orders: terug + nieuw, w25: dT * aandeel25Terug + dN * IJKING.aandeel25, w16: dT * (1 - aandeel25Terug) + dN * (1 - IJKING.aandeel25) };
-  };
-  const R = scenario(IJKING.rustig), D = scenario(IJKING.druk);
-  /* verwacht: het midden tussen een rustige en een drukke maand */
-  const mid = k => (R[k] + D[k]) / 2;
-  const w25 = mid('w25'), w16 = mid('w16');
+  const dT = verwachtTerug * IJKING.dozenPerOrder, dN = verwachtNieuw * IJKING.dozenPerOrder;
+  const w25 = dT * aandeel25Terug + dN * IJKING.aandeel25, w16 = dT + dN - w25;
   const totaal = Math.ceil(w16 + w25 - 1e-9);
   let dozen25 = Math.round(w25), dozen16 = Math.round(w16);
   while (dozen16 + dozen25 < totaal) { if (w25 - dozen25 >= w16 - dozen16) dozen25++; else dozen16++; }
 
+  const sorted = maanden.slice().sort((a, b) => a.orders - b.orders);
   const r1 = x => Math.round(x * 10) / 10;
   const uit = {
-    bron: 'ijking',
-    rustig: { naam: R.naam, orders: Math.round(R.orders), terugPct: R.terugPct, groei: r1(R.groei) },
-    druk: { naam: D.naam, orders: Math.round(D.orders), terugPct: D.terugPct, groei: r1(D.groei) },
+    bron: 'historie',
+    maanden: maanden.map(m => ({ naam: m.naam, orders: m.orders, terugPct: m.terugPct, nieuwToen: m.nieuwToen })),
+    rustig: { naam: sorted[0].naam, orders: sorted[0].orders },
+    druk: { naam: sorted[sorted.length - 1].naam, orders: sorted[sorted.length - 1].orders },
     bestaandNu, abonneesNu,
-    terugPct: Math.round((R.terugPct + D.terugPct) / 2), verwachtTerug: r1(mid('terug')),
-    nieuwToen: Math.round((IJKING.rustig.nieuw + IJKING.druk.nieuw) / 2), verwachtNieuw: r1(mid('nieuw')),
-    groei: r1(mid('groei')), abonneesToen: Math.round(mid('abToen')),
+    terugPct: Math.round(gem('terugPct')), verwachtTerug: r1(verwachtTerug), verwachtNieuw: r1(verwachtNieuw),
     dozenPerOrder: Math.round(IJKING.dozenPerOrder * 100) / 100,
     aandeel25Nieuw: Math.round(IJKING.aandeel25 * 100), aandeel25Terug: Math.round(aandeel25Terug * 100),
     dozen16, dozen25, stempel16: st.dozen16 || 0, stempel25: st.dozen25 || 0,
-    verwachtOrders: Math.round(mid('orders')), bijgewerkt: Date.now()
+    verwachtOrders: Math.round(verwachtTerug + verwachtNieuw), bijgewerkt: Date.now()
   };
   await werkRef(uid).child('voorspelling').set(uit);
   return uit;
