@@ -640,12 +640,13 @@ async function telStempelsBinnen(req) {
   const { winkel, token: t } = await token(uid);
   let open = 0, klantenVol = 0, bijna = 0, deelnemers = 0, verzilverd = 0, na = null;
   const klanten = [];
+  const aanmeldingen = [];   // aanmelddatums van iedereen op de mailinglijst (geen namen)
   for (let ronde = 0; ronde < 40; ronde++) {
     const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
       method: 'POST',
       headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({
-        query: 'query($na:String){customers(first:250,after:$na){nodes{id displayName numberOfOrders s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
+        query: 'query($na:String){customers(first:250,after:$na){nodes{id displayName numberOfOrders createdAt defaultEmailAddress{marketingState} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
         variables: { na }
       })
     });
@@ -665,6 +666,7 @@ async function telStempelsBinnen(req) {
     }
     const c = d.data.customers;
     c.nodes.forEach(k => {
+      if (k.defaultEmailAddress && k.defaultEmailAddress.marketingState === 'SUBSCRIBED') aanmeldingen.push(k.createdAt);
       const saldo = k.s ? parseFloat(k.s.value) : 0;
       if (!(saldo > 0)) return;
       deelnemers++;
@@ -773,12 +775,16 @@ async function telStempelsBinnen(req) {
   /* Alleen de getallen gaan de database in; de namenlijst komt alleen terug
      naar het scherm dat erom vroeg en blijft verder bij Shopify. */
   await werkRef(uid).child('stempels').set(uit);
-  return Object.assign({ klanten }, uit);
+  return Object.assign({ klanten, aanmeldingen }, uit);
 }
 
-/* per klant de bestellingen met een doos erin: datum en welke doos */
-async function telDozenPerKlant(winkel, t) {
-  const uit = {};
+/* Alle bestellingen: datum, klant, bedrag en hoeveel dozen van 16 en 25.
+   Een minuut onthouden, zodat stempels en voorspelling niet allebei opnieuw
+   alles bij Shopify ophalen. */
+let orderGeheugen = { tijd: 0, winkel: '', lijst: null };
+async function alleOrders(winkel, t) {
+  if (orderGeheugen.lijst && orderGeheugen.winkel === winkel && Date.now() - orderGeheugen.tijd < 60 * 1000) return orderGeheugen.lijst;
+  const lijst = [];
   let na = null;
   try {
     for (let ronde = 0; ronde < 20; ronde++) {
@@ -786,7 +792,7 @@ async function telDozenPerKlant(winkel, t) {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          query: 'query($na:String){orders(first:250,after:$na){nodes{createdAt customer{id} lineItems(first:30){nodes{title quantity}}} pageInfo{hasNextPage endCursor}}}',
+          query: 'query($na:String){orders(first:250,after:$na,sortKey:CREATED_AT){nodes{createdAt customer{id} currentSubtotalPriceSet{shopMoney{amount}} lineItems(first:30){nodes{title quantity}}} pageInfo{hasNextPage endCursor}}}',
           variables: { na }
         })
       });
@@ -794,19 +800,119 @@ async function telDozenPerKlant(winkel, t) {
       const d = await r.json();
       if (!d.data || !d.data.orders) break;
       d.data.orders.nodes.forEach(o => {
-        if (!o.customer) return;
-        const id = String(o.customer.id).split('/').pop();
-        const x = { datum: o.createdAt, d16: 0, d25: 0 };
+        const x = {
+          datum: o.createdAt,
+          klant: o.customer ? String(o.customer.id).split('/').pop() : null,
+          bedrag: parseFloat(((o.currentSubtotalPriceSet || {}).shopMoney || {}).amount) || 0,
+          d16: 0, d25: 0
+        };
         o.lineItems.nodes.forEach(l => {
           if (/\b25\b/.test(l.title)) x.d25 += l.quantity || 1;
           else if (/\b16\b/.test(l.title)) x.d16 += l.quantity || 1;
         });
-        if (x.d16 || x.d25) (uit[id] = uit[id] || []).push(x);
+        lijst.push(x);
       });
       if (!d.data.orders.pageInfo.hasNextPage) break;
       na = d.data.orders.pageInfo.endCursor;
     }
-  } catch (e) { console.error('telDozenPerKlant', e); }
+  } catch (e) { console.error('alleOrders', e); }
+  orderGeheugen = { tijd: Date.now(), winkel, lijst };
+  return lijst;
+}
+
+/* per klant de bestellingen met een doos erin: datum en welke doos */
+async function telDozenPerKlant(winkel, t) {
+  const uit = {};
+  (await alleOrders(winkel, t)).forEach(o => {
+    if (!o.klant || !(o.d16 || o.d25)) return;
+    (uit[o.klant] = uit[o.klant] || []).push({ datum: o.datum, d16: o.d16, d25: o.d25 });
+  });
+  return uit;
+}
+
+/* ═══════════ Productievoorspelling ═══════════
+   Hoeveel bonbons moet je maken voor de komende verkoopmaand? We ijken op je
+   vorige heropening: die vinden we zelf als de laatste bestelling met meer
+   dan 30 dagen stilte ervoor, en we kijken naar de 30 dagen daarna.
+   - terug: welk deel van je toenmalige klanten kwam terug, en hoe vaak
+   - nieuw: hoeveel nieuwe klanten, opgeschaald met de groei van je lijst
+   - dozen: dozen per bestelling en de verhouding 16/25
+   Plus de stempelkaarten. Afkeur rekent de app er zelf bij, uit je batches. */
+const DAG = 864e5;
+exports.voorspelProductie = onCall(async req => {
+  try { return await voorspelBinnen(req); }
+  catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('voorspelProductie', e);
+    throw new HttpsError('internal', 'Voorspellen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+async function voorspelBinnen(req) {
+  const uid = wieBenJe(req);
+  const st = await telStempelsBinnen(req);
+  const { winkel, token: t } = await token(uid);
+  const orders = (await alleOrders(winkel, t)).filter(o => o.bedrag > 0)
+    .sort((a, b) => String(a.datum).localeCompare(String(b.datum)));
+  if (orders.length < 5) {
+    throw new HttpsError('failed-precondition',
+      'Te weinig bestellingen om te voorspellen. Geeft Shopify alleen de laatste 60 dagen? Zet dan in het Dev Dashboard bij je app read_all_orders aan.');
+  }
+  const ms = o => new Date(o.datum).getTime();
+
+  // de heropening: laatste bestelling met >30 dagen stilte ervoor
+  let start = ms(orders[0]);
+  for (let i = 1; i < orders.length; i++) if (ms(orders[i]) - ms(orders[i - 1]) > 30 * DAG) start = ms(orders[i]);
+  const eind = start + 30 * DAG;
+  const venster = orders.filter(o => ms(o) >= start && ms(o) < eind);
+
+  const eerste = {};
+  orders.forEach(o => { if (o.klant && !(o.klant in eerste)) eerste[o.klant] = ms(o); });
+  const bestaandToen = Object.keys(eerste).filter(k => eerste[k] < start).length;
+  const terugSet = new Set(), nieuwSet = new Set();
+  let ordersTerug = 0, ordersNieuw = 0;
+  venster.forEach(o => {
+    if (o.klant && eerste[o.klant] < start) { terugSet.add(o.klant); ordersTerug++; }
+    else { if (o.klant) nieuwSet.add(o.klant); ordersNieuw++; }
+  });
+  const terugPct = bestaandToen ? terugSet.size / bestaandToen : 0;
+  const ordersPerTerug = terugSet.size ? ordersTerug / terugSet.size : 1;
+
+  // nu
+  const bestaandNu = Object.keys(eerste).length;
+  const verwachtTerug = bestaandNu * terugPct * ordersPerTerug;
+  const abonneesNu = st.aanmeldingen.length;
+  const abonneesToen = st.aanmeldingen.filter(d => new Date(d).getTime() < start).length;
+  const groei = abonneesToen ? abonneesNu / abonneesToen : 1;
+  const verwachtNieuw = ordersNieuw * groei;
+
+  // dozen
+  const d16 = venster.reduce((n, o) => n + o.d16, 0), d25 = venster.reduce((n, o) => n + o.d25, 0);
+  const dozenPerOrder = venster.length ? (d16 + d25) / venster.length : 1;
+  const aandeel25Nieuw = d16 + d25 ? d25 / (d16 + d25) : 0.5;
+  /* terugkerende klanten: hun eigen kans op de 25, gewogen met hun kans om terug te komen */
+  let g = 0, g25 = 0;
+  st.klanten.forEach(k => { if (k.orders >= 1 && typeof k.kans25 === 'number') { const w = (k.kans || 0) / 100; g += w; g25 += w * k.kans25 / 100; } });
+  const aandeel25Terug = g ? g25 / g : aandeel25Nieuw;
+
+  const dozenTerug = verwachtTerug * dozenPerOrder, dozenNieuw = verwachtNieuw * dozenPerOrder;
+  const w25 = dozenTerug * aandeel25Terug + dozenNieuw * aandeel25Nieuw;
+  const w16 = dozenTerug + dozenNieuw - w25;
+  const totaal = Math.ceil(w16 + w25 - 1e-9);
+  let dozen25 = Math.round(w25), dozen16 = Math.round(w16);
+  while (dozen16 + dozen25 < totaal) { if (w25 - dozen25 >= w16 - dozen16) dozen25++; else dozen16++; }
+
+  const r1 = x => Math.round(x * 10) / 10;
+  const uit = {
+    venster: { van: new Date(start).toISOString().slice(0, 10), tot: new Date(eind - DAG).toISOString().slice(0, 10) },
+    bestaandToen, terugKlanten: terugSet.size, terugPct: Math.round(terugPct * 100), ordersPerTerug: r1(ordersPerTerug),
+    bestaandNu, verwachtTerug: r1(verwachtTerug),
+    nieuwToen: ordersNieuw, abonneesToen, abonneesNu, groei: r1(groei), verwachtNieuw: r1(verwachtNieuw),
+    dozenPerOrder: Math.round(dozenPerOrder * 100) / 100, aandeel25Nieuw: Math.round(aandeel25Nieuw * 100), aandeel25Terug: Math.round(aandeel25Terug * 100),
+    dozen16, dozen25, stempel16: st.dozen16 || 0, stempel25: st.dozen25 || 0,
+    verwachtOrders: Math.round(verwachtTerug + verwachtNieuw), bijgewerkt: Date.now()
+  };
+  await werkRef(uid).child('voorspelling').set(uit);
   return uit;
 }
 
