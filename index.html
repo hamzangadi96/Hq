@@ -3933,6 +3933,21 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vspknop{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;margin-top:14px;padding:12px;border:0;border-top:1px solid var(--lijn);
   background:none;font:inherit;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer}
 .vspknop small{font-size:12px;font-weight:400;color:var(--grijs)}
+.vspplanknop{margin-top:16px!important;width:100%}
+.vpkeus{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vpkeus button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:14px;border:0;
+  background:var(--bg);font:inherit;font-size:15px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
+.vpkeus button small{font-size:12px;font-weight:400;color:var(--grijs)}
+.vpkeus button.aan{background:var(--ink);color:#fff}.vpkeus button.aan small{color:rgba(255,255,255,.7)}
+.vpsoort{margin-top:20px}
+.vpsoortkop{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
+.vpsoortkop span{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}
+.vpsoortkop .schijf{width:16px;height:16px;border-radius:50%;display:inline-block}
+.vpdatum{border:0;background:var(--bg);border-radius:10px;padding:8px 10px;font:inherit;font-size:14px;color:var(--ink)}
+.vpsoortvoet{font-size:12.5px;color:var(--grijs);text-align:right;margin-top:4px}
+.vpstand{display:flex;flex-direction:column;gap:2px;margin-top:20px;padding:14px 16px;border-radius:14px}
+.vpstand b{font-size:17px}.vpstand span{font-size:13px}
+.vpstand.ok{background:#15803d14;color:var(--groen)}.vpstand.tekort{background:#b4530914;color:var(--amber)}
 .vbtitel{display:flex;flex-direction:column;margin:2px 0 14px}
 .vbtitel b{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
 .vbtitel span{font-size:13px;color:var(--grijs);margin-top:4px}
@@ -4174,7 +4189,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v709 · 8 okt 2026';
+const APPVERSIE='v710 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7927,10 +7942,112 @@ function voorspelKaartHTML(a){
       <div class="vspas"><span>${lo}</span><span class="doeltekst" style="left:${pos(ORDERDOEL)}%">doel ${ORDERDOEL}</span><span>${hi}</span></div>
       <p class="vspuitleg">Bestellingen per maand: je zwakste tot je sterkste maand. De stip is de verwachting.</p>
     </div>
+    <button type="button" class="prim vspplanknop" onclick="VP=null;sheetVoorspelPlan()">${svg(I.vorm)}Maak productieplan</button>
     <button type="button" class="vspknop" onclick="homeTegel('vsp')">Bekijk opbouw<small>incl. ${
       a.stempels?a.stempels+' voor stempelkaarten · ':''}${a.afkeur} voor afkeur</small></button>
   </div>`;
 }
+/* ═══════════ Van voorspelling naar productieplan (v710) ═══════════
+   Het getal wordt mallen per smaak, per chocoladesoort op een productiedag,
+   en komt als gewone planning binnen — met boodschappendatum en "Starten".
+   HQ vult een eerlijke verdeling voor; jij past aan met + en −. */
+let VP=null;
+function vpNodig(){
+  const a=voorspelAdvies(), v=voorspelStand(); if(!a) return 0;
+  return VP.opDoel&&v.verwachtOrders?Math.ceil(a.bruto*ORDERDOEL/v.verwachtOrders):a.bruto;
+}
+function vpVoorraad(){
+  const m=voorraadPerSmaak(); return Object.keys(m).reduce((n,k)=>n+(m[k]||0),0);
+}
+function vpSmaken(){ return (S.recepten||[]).filter(smaakActief) }
+/* gelijk verdelen: steeds een mal erbij voor de smaak met de minste bonbons */
+function vpVoorstel(){
+  VP.mallen={};
+  const doel=Math.max(0,vpNodig()-vpVoorraad()), lijst=vpSmaken();
+  if(!lijst.length) return;
+  let tot=0, rem=0;
+  while(tot<doel&&rem++<3000){
+    let best=null, bestN=Infinity;
+    lijst.forEach(r=>{const n=(VP.mallen[r.id]||0)*malHoltes(r.id); if(n<bestN){bestN=n;best=r}});
+    VP.mallen[best.id]=(VP.mallen[best.id]||0)+1; tot+=malHoltes(best.id);
+  }
+}
+function vpStartdag(){
+  const morgen=datumPlus(vandaag(),1);
+  return morgen<'2026-10-28'?'2026-10-28':morgen;
+}
+function sheetVoorspelPlan(){
+  if(!voorspelAdvies()) return toast('Nog geen voorspelling. Tik eerst op opnieuw.');
+  if(!VP){ VP={opDoel:false,mallen:{},datums:{}}; vpVoorstel(); }
+  const v=voorspelStand();
+  const nodig=vpNodig(), voorraad=vpVoorraad(), nogMaken=Math.max(0,nodig-voorraad);
+  const lijst=vpSmaken();
+  const per={};
+  lijst.forEach(r=>{(per[r.chocolade]=per[r.chocolade]||[]).push(r)});
+  const soortLijst=soorten().filter(c=>per[c.key]);
+  let dag=vpStartdag();
+  soortLijst.forEach(c=>{ if(!VP.datums[c.key]){ VP.datums[c.key]=dag; } dag=datumPlus(VP.datums[c.key],1); });
+  const gepland=lijst.reduce((n,r)=>n+(VP.mallen[r.id]||0)*malHoltes(r.id),0);
+  const mallenTot=lijst.reduce((n,r)=>n+(VP.mallen[r.id]||0),0);
+  const verschil=gepland-nogMaken;
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+
+  sheet('Productieplan',
+    `<div class="vpkeus">
+       <button type="button" class="${VP.opDoel?'':'aan'}" data-vpdoel="0">Verwachting<small>±${v.verwachtOrders} bestellingen</small></button>
+       <button type="button" class="${VP.opDoel?'aan':''}" data-vpdoel="1">Doel<small>${ORDERDOEL} bestellingen</small></button>
+     </div>
+     <div class="vbon" style="margin-top:12px">
+       <div class="vbrij"><span>Nodig</span><b>${g(nodig)}</b></div>
+       ${voorraad?`<div class="vbrij"><span>− op voorraad</span><b>−${g(voorraad)}</b></div>`:''}
+       <div class="vbrij totaal"><span>Nog maken</span><b>${g(nogMaken)}</b></div>
+     </div>
+     ${!lijst.length?'<p class="wdleeg" style="margin-top:16px">Je hebt nog geen smaken. Voeg eerst je smaken toe, dan verdeelt HQ de mallen.</p>':''}
+     ${soortLijst.map(c=>{
+       const rs=per[c.key];
+       const sb=rs.reduce((n,r)=>n+(VP.mallen[r.id]||0)*malHoltes(r.id),0);
+       const sm=rs.reduce((n,r)=>n+(VP.mallen[r.id]||0),0);
+       return `<div class="vpsoort">
+         <div class="vpsoortkop"><span><i class="schijf ${c.key}"></i>${esc(c.naam)}</span>
+           <input class="vpdatum" type="date" data-vpd="${c.key}" value="${VP.datums[c.key]}" min="${vandaag()}"></div>
+         ${rs.map(r=>{const m=VP.mallen[r.id]||0;
+           return `<div class="orij"><span class="on">${esc(r.naam)}<em>${m} ${m===1?'mal':'mallen'} · ${g(m*malHoltes(r.id))} bonbons</em></span>
+             <div class="ostep"><button class="stepbtn klein" data-vpm="${r.id}" aria-label="Mal minder">${svg(I.min)}</button>
+               <span class="oa ${m?'aan':''}">${m}</span>
+               <button class="stepbtn klein" data-vpp="${r.id}" aria-label="Mal erbij">${svg(I.plus)}</button></div></div>`}).join('')}
+         <div class="vpsoortvoet">${sm} ${sm===1?'mal':'mallen'} · ${g(sb)} bonbons</div>
+       </div>`}).join('')}
+     <div class="vpstand ${verschil>=0?'ok':'tekort'}">
+       <b>${g(gepland)} bonbons · ${mallenTot} mallen</b>
+       <span>${verschil>=0?(verschil?g(verschil)+' boven wat je nodig hebt':'precies wat je nodig hebt'):g(-verschil)+' te weinig'}</span>
+     </div>`,
+    `<button class="prim" style="margin-top:0" id="vpOk" ${mallenTot?'':'disabled'}>Zet in planning${
+       soortLijst.filter(c=>per[c.key].some(r=>VP.mallen[r.id])).length>1?' ('+soortLijst.filter(c=>per[c.key].some(r=>VP.mallen[r.id])).length+' dagen)':''}</button>
+     <button class="sec" id="vpTerug">Terug</button>`);
+
+  $$('[data-vpdoel]').forEach(b=>b.onclick=()=>{ VP.opDoel=b.dataset.vpdoel==='1'; vpVoorstel(); sheetVoorspelPlan() });
+  $$('[data-vpp]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpp]=(VP.mallen[b.dataset.vpp]||0)+1; sheetVoorspelPlan() });
+  $$('[data-vpm]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpm]=Math.max(0,(VP.mallen[b.dataset.vpm]||0)-1); sheetVoorspelPlan() });
+  $$('[data-vpd]').forEach(i=>i.onchange=()=>{ if(i.value) VP.datums[i.dataset.vpd]=i.value });
+  $('#vpTerug').onclick=()=>{ dicht() };
+  if($('#vpOk')) $('#vpOk').onclick=()=>{
+    const knop=$('#vpOk'); if(knop.dataset.bezig) return; knop.dataset.bezig='1';
+    S.planning=S.planning||[];
+    let n=0;
+    soortLijst.forEach(c=>{
+      const regels=per[c.key].filter(r=>VP.mallen[r.id]>0)
+        .map(r=>({receptId:r.id,mallen:VP.mallen[r.id],aantal:VP.mallen[r.id]*malHoltes(r.id)}));
+      if(!regels.length) return;
+      S.planning.push({id:uid(),datum:VP.datums[c.key],chocolade:c.key,regels,
+        levertijd:levertijdVoor(regels)||0,voorbereiding:[],gemaakt:vandaag(),bron:'voorspelling'});
+      n++;
+    });
+    bewaarNu(); VP=null;
+    try{ dicht(); render(); toast(n+(n===1?' productiedag':' productiedagen')+' ingepland — staat in je planning'); }
+    catch(e){ toast('Ingepland.'); }
+  };
+}
+
 function voorspelSheetHTML(){
   const v=voorspelStand(), a=voorspelAdvies();
   if(!v||!a) return `<p class="wdleeg">${voorspelFout?esc(voorspelFout):'Voorspellen…'}</p>
@@ -7967,6 +8084,7 @@ function voorspelSheetHTML(){
   return `<div class="vbtitel"><b>${g(a.bruto)}</b><span>bonbons voor november</span></div>
     ${bon}${maanden}
     <p class="vbnoot">Terugkerend: wat toen terugkwam, toegepast op je ${v.bestaandNu} klanten van nu. Nieuw: zoveel als er toen echt bijkwamen.</p>
+    <button type="button" class="prim" style="margin-top:16px" onclick="VP=null;sheetVoorspelPlan()">${svg(I.vorm)}Maak productieplan</button>
     <button type="button" class="kopknop" style="margin-top:14px" onclick="voorspelFout='';voorspelVerversen(true)">${
       voorspelBezig?'Voorspellen…':'Bijgewerkt '+tijd+' · opnieuw'}</button>`;
 }
