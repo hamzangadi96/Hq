@@ -718,15 +718,71 @@ async function telStempelsBinnen(req) {
   const kandidaten = kandidaatLijst.length;
   const verwachtNieuw = kandidaatLijst.reduce((n, k) => n + kans(k), 0);
   const verwacht = Math.ceil(verwachtNieuw);
+
+  /* ── welke doos? ──
+     Een volle kaart is €24,95: de doos van 16 gratis, of korting op de 25.
+     Per klant kijken we wat hij echt kocht: meer 25's dan 16's, dan gebruikt
+     hij zijn kaart waarschijnlijk als korting op de 25. Zonder doos in zijn
+     historie (of als Shopify de oude orders niet geeft) beslist zijn
+     gemiddelde besteding: rond de prijs van de grote doos of meer → 25. */
+  const dozen = await telDozenPerKlant(winkel, t);
+  const DOOS25 = 34.95;
+  klanten.forEach(k => {
+    const d = dozen[k.id];
+    if (d && (d.d16 || d.d25)) { k.doos = d.d25 > d.d16 ? 25 : 16; k.doosBron = 'historie'; }
+    else { k.doos = (k.orders ? k.saldo / k.orders : 0) >= DOOS25 * 0.9 ? 25 : 16; k.doosBron = 'besteding'; }
+  });
+  let w16 = 0, w25 = 0;
+  klanten.forEach(k => { const w = k.open * kans(k); if (k.doos === 25) w25 += w; else w16 += w; });
+  kandidaatLijst.forEach(k => { const w = kans(k); if (k.doos === 25) w25 += w; else w16 += w; });
+  const kaartenTotaal = Math.ceil(w16 + w25 - 1e-9);
+  /* afronden naar boven, en een overschot gaat naar de grote doos: liever
+     negen bonbons over dan een klant die op zijn doos moet wachten */
+  let dozen25 = Math.round(w25), dozen16 = Math.round(w16);
+  while (dozen16 + dozen25 < kaartenTotaal) { if (w25 - dozen25 >= w16 - dozen16) dozen25++; else dozen16++; }
   const kansTabel = Object.keys(kansBij).map(n => ({ n: +n, pct: Math.round(kansBij[n] * 100) }));
   const uit = { open, klantenVol, bijna, deelnemers, verzilverd,
     kandidaten, verwacht, herhaalPct: Math.round(herhaal * 100), gemOrder: Math.round(gemOrder * 100) / 100,
     verwachtVol: Math.round(verwachtVol * 10) / 10, verwachtNieuw: Math.round(verwachtNieuw * 10) / 10, kansTabel,
+    dozen16, dozen25, dozenUitHistorie: klanten.filter(k => k.doosBron === 'historie').length,
     perStempel: STEMPEL_EURO, perKaart: STEMPELS_PER_KAART, bijgewerkt: Date.now() };
   /* Alleen de getallen gaan de database in; de namenlijst komt alleen terug
      naar het scherm dat erom vroeg en blijft verder bij Shopify. */
   await werkRef(uid).child('stempels').set(uit);
   return Object.assign({ klanten }, uit);
+}
+
+/* telt per klant hoeveel dozen van 16 en van 25 hij ooit kocht */
+async function telDozenPerKlant(winkel, t) {
+  const uit = {};
+  let na = null;
+  try {
+    for (let ronde = 0; ronde < 20; ronde++) {
+      const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+        method: 'POST',
+        headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          query: 'query($na:String){orders(first:250,after:$na){nodes{customer{id} lineItems(first:30){nodes{title quantity}}} pageInfo{hasNextPage endCursor}}}',
+          variables: { na }
+        })
+      });
+      if (!r.ok) break;
+      const d = await r.json();
+      if (!d.data || !d.data.orders) break;
+      d.data.orders.nodes.forEach(o => {
+        if (!o.customer) return;
+        const id = String(o.customer.id).split('/').pop();
+        const x = uit[id] || (uit[id] = { d16: 0, d25: 0 });
+        o.lineItems.nodes.forEach(l => {
+          if (/\b25\b/.test(l.title)) x.d25 += l.quantity || 1;
+          else if (/\b16\b/.test(l.title)) x.d16 += l.quantity || 1;
+        });
+      });
+      if (!d.data.orders.pageInfo.hasNextPage) break;
+      na = d.data.orders.pageInfo.endCursor;
+    }
+  } catch (e) { console.error('telDozenPerKlant', e); }
+  return uit;
 }
 
 function stempelKlant(gid, naam, saldo, ver) {
