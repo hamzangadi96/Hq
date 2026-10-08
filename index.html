@@ -4120,7 +4120,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v701 · 8 okt 2026';
+const APPVERSIE='v702 · 8 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7845,9 +7845,12 @@ function stempelAdvies(){
   const vol0=typeof s.verwachtVol==='number'?s.verwachtVol:s.open;
   const nieuw0=typeof s.verwachtNieuw==='number'?s.verwachtNieuw:(s.verwacht||0);
   const kaarten0=Math.ceil(vol0+nieuw0-1e-9);
-  const f=(STEMPELMIX[S.stempelMix]||STEMPELMIX.half)[1];
-  const klein=Math.floor(kaarten0*f+1e-9), groot=kaarten0-klein;
-  return {vol:vol0, nieuw:nieuw0, kaarten:kaarten0, klein, groot,
+  /* sinds v702 voorspelt de server de doos per klant uit zijn aankopen;
+     alleen als die getallen er (nog) niet zijn rekenen we half om half */
+  let klein, groot;
+  if(typeof s.dozen16==='number'){ klein=s.dozen16; groot=s.dozen25 }
+  else { klein=Math.floor(kaarten0*.5+1e-9); groot=kaarten0-klein }
+  return {vol:vol0, nieuw:nieuw0, kaarten:klein+groot, klein, groot,
     totaal:klein*STEMPELDOZEN.klein+groot*STEMPELDOZEN.groot};
 }
 function stempelAdviesOud(){
@@ -7894,9 +7897,9 @@ function stempelSheetHTML(){
       <div><b>${s.open}</b><span>${s.open===1?'kaart vol':'kaarten vol'}</span><small>${s.klantenVol} ${s.klantenVol===1?'klant':'klanten'}</small></div>
       <div><b style="color:var(--amber)">${s.bijna}</b><span>bijna vol</span><small>nog 1 stempel</small></div>
     </div>
-    <div class="blokkop" style="margin-top:18px"><span class="eyebrow">Hoe zetten klanten hun kaart in?</span></div>
-    <div class="wdwat">${keus}</div>
     <p class="wdleeg" style="margin-top:14px">Een volle kaart is €24,95: de doos van 16, of korting op de doos van 25.
+      Welke doos een klant kiest, voorspelt HQ uit wat hij eerder kocht${typeof s.dozenUitHistorie==='number'?
+        ' ('+s.dozenUitHistorie+' klanten op hun eigen dozen, de rest op hun gemiddelde besteding)':''}.
       1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart.
       ${s.verzilverd?s.verzilverd+' kaarten al verzilverd.':'Nog geen kaart verzilverd.'}</p>
     <button type="button" class="kopknop" onclick="stempelFout='';stempelVerversen(true)">${
@@ -7912,7 +7915,7 @@ function stempelBolletjes(k,groot){
 function stempelRij(k){
   return `<button type="button" class="arij" onclick="stempelKlantOpen('${k.id}')">
     <span class="naam">${esc(k.naam)}<small>${k.open?(k.open===1?'kaart vol':k.open+' kaarten vol'):k.rest+' van 6'} · €${
-      String(k.saldo.toFixed(2)).replace('.',',')}${typeof k.kans==='number'?' · kans '+k.kans+'%':''}</small></span>
+      String(k.saldo.toFixed(2)).replace('.',',')}${typeof k.kans==='number'?' · kans '+k.kans+'%':''}${k.doos?' · doos van '+k.doos:''}</small></span>
     ${stempelBolletjes(k)}<span class="pijl">${svg(I.pijl,'2')}</span></button>`;
 }
 function stempelLijstHTML(){
@@ -7951,6 +7954,9 @@ function stempelKlantHTML(k){
       <small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed · ${k.stempels} stempels totaal · ${k.ver} verzilverd</small>
       ${typeof k.kans==='number'?`<span class="stpkansklant">${k.kans}% kans dat ${k.open?'deze kaart':'een volgende kaart'} gebruikt wordt<small>${
         k.orders||1}× besteld · klanten zoals deze bestellen in ${k.kans}% van de gevallen opnieuw</small></span>`:''}
+      ${k.doos?`<span class="stpkansklant">Kiest waarschijnlijk de doos van ${k.doos}<small>${
+        k.doosBron==='historie'?'op basis van de dozen die deze klant eerder kocht':'op basis van wat deze klant gemiddeld besteedt'}${
+        k.doos===25?' · betaalt €10 bij':''}</small></span>`:''}
     </div>
     <div class="blokkop" style="margin-top:20px"><span class="eyebrow">Stempels</span></div>
     <div class="stpknoppen">
