@@ -618,6 +618,71 @@ async function telMailinglijstBinnen(req) {
   return uit;
 }
 
+/* ═══════════ Stempelkaarten ═══════════
+   De website houdt per klant bij hoeveel er besteed is sinds de start van de
+   spaarkaart (cbx.spaarsaldo, zonder verzendkosten) en hoeveel volle kaarten
+   al verzilverd zijn (cbx.kaarten_verzilverd). Hier rekenen we dat om naar
+   wat HQ nodig heeft voor de productie: hoeveel beloningen klaarliggen en
+   hoeveel kaarten bijna vol zijn. Alleen getallen, geen namen. */
+const STEMPEL_EURO = 25, STEMPELS_PER_KAART = 6;
+
+exports.telStempels = onCall(async req => {
+  try { return await telStempelsBinnen(req); }
+  catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('telStempels', e);
+    throw new HttpsError('internal', 'Stempels tellen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+async function telStempelsBinnen(req) {
+  const uid = wieBenJe(req);
+  const { winkel, token: t } = await token(uid);
+  let open = 0, klantenVol = 0, bijna = 0, deelnemers = 0, verzilverd = 0, na = null;
+  for (let ronde = 0; ronde < 40; ronde++) {
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        query: 'query($na:String){customers(first:250,after:$na){nodes{s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}} pageInfo{hasNextPage endCursor}}}',
+        variables: { na }
+      })
+    });
+    if (r.status === 401) {
+      await geheimRef(uid).child('shopify/token').remove();
+      throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+    }
+    if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+    const d = await r.json();
+    if (d.errors && d.errors.length) {
+      const tekst = JSON.stringify(d.errors);
+      if (/ACCESS_DENIED|read_customers|access/i.test(tekst)) {
+        throw new HttpsError('permission-denied',
+          'HQ mag nog geen klanten lezen. Zet in het Shopify Dev Dashboard bij je app de scope read_customers aan en installeer de app opnieuw.');
+      }
+      throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+    }
+    const c = d.data.customers;
+    c.nodes.forEach(k => {
+      const saldo = k.s ? parseFloat(k.s.value) : 0;
+      if (!(saldo > 0)) return;
+      deelnemers++;
+      const stempels = Math.floor(saldo / STEMPEL_EURO + 1e-9);
+      const ver = k.v ? (parseInt(k.v.value, 10) || 0) : 0;
+      verzilverd += ver;
+      const o = Math.max(0, Math.floor(stempels / STEMPELS_PER_KAART) - ver);
+      if (o) { open += o; klantenVol++; }
+      if (stempels % STEMPELS_PER_KAART === STEMPELS_PER_KAART - 1) bijna++;
+    });
+    if (!c.pageInfo.hasNextPage) break;
+    na = c.pageInfo.endCursor;
+  }
+  const uit = { open, klantenVol, bijna, deelnemers, verzilverd,
+    perStempel: STEMPEL_EURO, perKaart: STEMPELS_PER_KAART, bijgewerkt: Date.now() };
+  await werkRef(uid).child('stempels').set(uit);
+  return uit;
+}
+
 exports.haalOrders = onCall(async req => {
   const uid = wieBenJe(req);
 
