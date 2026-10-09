@@ -4110,6 +4110,34 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .sskies button.aan{background:var(--card);box-shadow:0 1px 3px rgba(24,24,27,.12)}
 .sskies button.aan i{border-color:var(--ink);background:var(--ink)}
 .sskies button.aan i::after{content:"";position:absolute;inset:4px;border-radius:50%;background:#fff}
+.hstatus{display:flex;flex-direction:column;gap:3px;padding:16px;border-radius:16px;margin-bottom:6px}
+.hstatus.open{background:#fdf3e4}.hstatus.ok{background:#e9f5ee}
+.hstatus b{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:800;letter-spacing:-.02em}
+.hstatus.open b{color:var(--amber)}.hstatus.ok b{color:var(--groen)}
+.hstatus b svg{width:20px;height:20px}
+.hstatus span{font-size:13.5px;color:var(--ink2,#3f3f46);line-height:1.45}
+.hkop{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--grijs);margin:22px 4px 8px}
+.hkop small{text-transform:none;letter-spacing:0;font-weight:500;margin-left:6px}
+.hlijst{background:var(--card);border-radius:16px;border:1px solid var(--lijn);overflow:hidden}
+.hrij{display:grid;grid-template-columns:10px minmax(0,1fr) auto 14px;align-items:center;gap:12px;width:100%;padding:13px 14px;
+  border:0;border-bottom:1px solid var(--lijn);background:none;font:inherit;text-align:left;color:var(--ink);cursor:pointer}
+.hrij:last-child{border-bottom:0}
+.hrij:active{background:var(--bg)}
+.hrij>i{width:8px;height:8px;border-radius:50%;background:#d4d4d8}
+.hrij>i.ok{background:var(--groen)}.hrij>i.geen{background:none}.hrij>i.let{background:var(--amber)}
+.hrij>i.plus{width:10px;height:10px;background:none;display:grid;place-items:center;color:var(--grijs)}
+.hrij>i.plus svg{width:12px;height:12px}
+.hn{display:flex;flex-direction:column;font-size:15px;font-weight:600;min-width:0}
+.hn small{font-size:12.5px;font-weight:400;color:var(--grijs);margin-top:1px}
+.hw{font-size:13px;color:var(--grijs);text-align:right;white-space:nowrap}
+.hw.let{color:var(--amber);font-weight:600}
+.hrij>svg{width:14px;height:14px;color:#c4c4c8}
+.hnaslag{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hnaslag button{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--lijn);background:var(--card);
+  font:inherit;text-align:left;color:var(--ink);cursor:pointer;min-width:0}
+.hnaslag button>svg{width:18px;height:18px;color:var(--grijs);flex-shrink:0;margin-top:1px}
+.hnaslag span{display:flex;flex-direction:column;font-size:14px;font-weight:600;min-width:0}
+.hnaslag small{font-size:12px;font-weight:400;color:var(--grijs);margin-top:1px}
 .prodlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:8px 0 0;text-align:center}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
 .htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
@@ -4328,7 +4356,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v726 · 9 okt 2026';
+const APPVERSIE='v727 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19762,78 +19790,69 @@ function sheetBatchKopie(id){
 function sheetTraceer(vooraf){ return sheetTrace(vooraf||''); }
 
 function sheetHaccp(){
-  const ij=laatsteIjking();
-  const rij=(k,titel,onder,waarde,waarschuw)=>`<button class="arij" data-h="${k}">
-    <span class="bol ${waarschuw?'':'leeg'}" ${waarschuw?'style="border-color:var(--amber);background:var(--amber)"':''}></span>
-    <span class="naam">${titel}<small>${onder}</small></span>
-    <span class="waarde ${waarde&&waarde!=='—'?'gevuld':''}">${esc(waarde||'—')}</span>
-    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
-  const og=laatsteControle('ongedierte'), rc=laatsteControle('recall');
+  /* v727: één statusblok bovenaan, compacte rijen per ritme in één kaart,
+     naslag als kleine tegels. Was: elf losse kaarten met grote oranje bollen. */
+  const v=vandaag(), jaar=v.slice(0,4);
+  const dk=d=>{ if(!d) return ''; const x=new Date(String(d).slice(0,10)+'T12:00:00');
+    return x.toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:String(d).slice(0,4)===jaar?undefined:'numeric'}) };
+  const laatsteLog=type=>{
+    const alle=[];
+    (S.batches||[]).forEach(b2=>(b2.logs||[]).forEach(l=>{if(l.type===type&&!l.groot)alle.push(l)}));
+    alsLijst(S.losLog).forEach(l=>{if(l.type===type&&!l.groot)alle.push(l)});
+    alle.sort((a,b2)=>String(b2.datum||'').localeCompare(String(a.datum||'')));
+    return alle[0];
+  };
+  const werkdag=isWerkdag();
+  const dag=(l)=>l&&l.datum===v?{st:'ok',w:'vandaag'}:{st:werkdag?'let':'',w:l?'laatst '+dk(l.datum):'nooit'};
+  const periodiek=(laatst,dagen)=>{
+    if(!laatst) return {st:'let',w:'nooit gedaan'};
+    const vlg=datumPlus(laatst,dagen), n=dagenTussen(v,vlg);
+    return n<0?{st:'let',w:Math.abs(n)+' dagen te laat'}:{st:'ok',w:'volgende '+dk(vlg)};
+  };
+  const og=laatsteControle('ongedierte'), rc=laatsteControle('recall'), ij=laatsteIjking();
+  const gsL=groteSchoonmaken()[0], gsN=groteSchoonmaakNodig(), gsT=groteSchoonmaakTaken()[0];
   const kl=controles('klacht');
-  let h='';
-  const open=[];
-  ['ongedierte','recall'].forEach(t=>{const o=controleOver(t); if(o) open.push(CTYPES[t].n)});
-  if(!ij) open.push('Thermometerijking');
-  if(open.length) h+=`<div class="melding amber" style="margin-bottom:20px">${svg(I.alarm,'2')}
-    <span>${open.join(' en ')} ${open.length>1?'zijn':'is'} nog niet op orde. De NVWA vraagt hier standaard naar.</span></div>`;
 
-  /* Deze twee horen bij elke dag dat je in je keuken staat, of je nu
-     produceert of niet. Ze stonden alleen in de batchroute, dus op een dag
-     zonder batch kwam je er niet bij. */
-  const tLaatst=(()=>{
-    const alle=[];
-    (S.batches||[]).forEach(b2=>(b2.logs||[]).forEach(l=>{if(l.type==='temperatuur')alle.push(l)}));
-    alsLijst(S.losLog).forEach(l=>{if(l.type==='temperatuur')alle.push(l)});
-    alle.sort((a,b2)=>String(b2.datum||'').localeCompare(String(a.datum||'')));
-    return alle[0];
-  })();
-  const sLaatst=(()=>{
-    const alle=[];
-    (S.batches||[]).forEach(b2=>(b2.logs||[]).forEach(l=>{if(l.type==='schoonmaak')alle.push(l)}));
-    alsLijst(S.losLog).forEach(l=>{if(l.type==='schoonmaak')alle.push(l)});
-    alle.sort((a,b2)=>String(b2.datum||'').localeCompare(String(a.datum||'')));
-    return alle[0];
-  })();
-  h+=`<div class="paneel" style="margin-bottom:20px"><button class="arij" onclick="sheetHygieneplan()">
-    <span class="ivak">${svg(I.doc||I.klembord)}</span>
-    <span class="naam">Mijn hygiëneplan<small>wat ik doe en waarom</small></span>
-    <span class="pijl">${svg(I.pijl,'2')}</span></button></div>`;
-  h+=`<div class="blokkop"><span class="eyebrow">Elke dag</span></div><div class="paneel">
-    ${rij('temp','Temperatuur meten','koeling en klimaatkast',
-      tLaatst?(tLaatst.datum===vandaag()?'vandaag':kort(new Date(tLaatst.datum))):'nooit',
-      !tLaatst||tLaatst.datum!==vandaag())}
-    ${rij('schoon','Schoonmaak','wat je hebt gereinigd',
-      sLaatst?(sLaatst.datum===vandaag()?'vandaag':kort(new Date(sLaatst.datum))):'nooit',
-      !sLaatst||sLaatst.datum!==vandaag())}
-    ${rij('afwijking','Afwijking melden','er ging iets mis','',false)}
-  </div>`;
+  const rijen={
+    temp:{n:'Temperatuur meten',s:'koeling en klimaatkast',...dag(laatsteLog('temperatuur'))},
+    schoon:{n:'Bijhoudschoonmaak',s:'elke werkdag',...dag(laatsteLog('schoonmaak'))},
+    groot:{k:gsN?'groot_'+gsN.moment:(gsT?gsT.check.doe:'groot_voor'),n:'Grote schoonmaak',s:'vóór en na productie',
+      st:gsN?'let':'ok',w:gsN?(gsN.moment==='voor'?'vóór '+dk(gsN.datum):'na je laatste dag'):gsT?'gepland '+dk(gsT.datum):gsL?'laatst '+dk(gsL.datum):'bij start'},
+    ongedierte:{n:'Ongediertecontrole',s:'elke 3 maanden',...periodiek(og&&og.datum,90)},
+    ijking:{n:'Thermometer ijken',s:'elke 6 maanden',...periodiek(ij&&ij.datum,180)},
+    recall:{n:'Terugroepoefening',s:'elk jaar',...periodiek(rc&&rc.datum,365)}
+  };
+  const rij=(k,x)=>`<button class="hrij" data-h="${x.k||k}">
+      <i class="${x.st||''}"></i>
+      <span class="hn">${x.n}<small>${x.s}</small></span>
+      <span class="hw ${x.st==='let'?'let':''}">${x.w}</span>
+      ${svg(I.pijl,'2')}</button>`;
+  const open=Object.keys(rijen).filter(k=>rijen[k].st==='let');
 
-  const gsL=groteSchoonmaken()[0], gsN=groteSchoonmaakNodig();
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Periodiek</span></div><div class="paneel">
-    ${rij(gsN?'groot_'+gsN.moment:'groot_voor','Grote schoonmaak','vóór en na elke productieperiode',
-      gsL?kort(new Date(gsL.datum)):'nooit',!!gsN)}
-    ${rij('ongedierte','Ongediertecontrole','elke 3 maanden',
-      og?kort(new Date(og.datum)):'nooit',!!controleOver('ongedierte'))}
-    ${rij('ijking','Thermometer ijken','elke 6 maanden',
-      ij?kort(new Date(ij.datum)):'nooit',!ij)}
-    ${rij('recall','Terugroepoefening','elk jaar',
-      rc?kort(new Date(rc.datum)):'nooit',!!controleOver('recall'))}
-  </div>`;
-
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Als het zich voordoet</span></div>
-    <div class="paneel">
-    ${rij('klacht','Klachten','van klanten',kl.length?kl.length+'':'geen',false)}
-    ${rij('ontvangst','Ontvangst','levering vastleggen',(S.ontvangsten||[]).length?(S.ontvangsten||[]).length+'':'—',false)}
-  </div>`;
-
-  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Terugzoeken</span></div>
-    <div class="paneel">
-    ${rij('traceer','Lot terugzoeken','van grondstof tot klant','zoeken',false)}
-    ${rij('archief','Archief','alles per dag',(()=>{const n=alleDatums().length;return n?n+(n===1?' dag':' dagen'):'leeg'})(),false)}
-    ${S.batches.length?rij('dagrapport','Dagrapport','van vandaag','printen',false):''}
-    ${rij('allerg','Ingrediënten','allergenen en prijs',(()=>{const t=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
-      return t?(g?g+' van '+t:'nog niets'):'—'})(),false)}
-  </div>`;
+  let h=`<div class="hstatus ${open.length?'open':'ok'}">
+      <b>${open.length?open.length+(open.length===1?' punt open':' punten open'):svg(I.vink,'2.6')+'Alles op orde'}</b>
+      <span>${open.length?open.map(k=>rijen[k].n).join(' · '):'Je registraties zijn bij voor de NVWA.'}</span>
+    </div>
+    <div class="hkop">Vandaag${werkdag?'':' <small>geen werkdag</small>'}</div>
+    <div class="hlijst">${rij('temp',rijen.temp)}${rij('schoon',rijen.schoon)}
+      <button class="hrij" data-h="afwijking"><i class="plus">${svg(I.plus,'2.4')}</i>
+        <span class="hn">Afwijking melden<small>er ging iets mis</small></span><span class="hw"></span>${svg(I.pijl,'2')}</button></div>
+    <div class="hkop">Onderhoud</div>
+    <div class="hlijst">${['groot','ongedierte','ijking','recall'].map(k=>rij(k,rijen[k])).join('')}</div>
+    <div class="hkop">Als het zich voordoet</div>
+    <div class="hlijst">
+      ${rij('klacht',{n:'Klachten',s:'van klanten',st:'geen',w:kl.length?kl.length+'':'geen'})}
+      ${rij('ontvangst',{n:'Ontvangst',s:'levering vastleggen',st:'geen',w:(S.ontvangsten||[]).length?(S.ontvangsten||[]).length+'×':'nog niet'})}
+    </div>
+    <div class="hkop">Naslag</div>
+    <div class="hnaslag">
+      <button onclick="sheetHygieneplan()">${svg(I.doc||I.klembord)}<span>Hygiëneplan<small>wat en waarom</small></span></button>
+      <button data-h="traceer">${svg(I.loep)}<span>Lot terugzoeken<small>grondstof → klant</small></span></button>
+      <button data-h="archief">${svg(I.klembord)}<span>Archief<small>${(()=>{const n=alleDatums().length;return n?n+(n===1?' dag':' dagen'):'nog leeg'})()}</small></span></button>
+      <button data-h="allerg">${svg(I.vorm)}<span>Ingrediënten<small>${(()=>{const t2=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
+        return t2?g+' van '+t2+' allergenen':'nog leeg'})()}</small></span></button>
+      ${S.batches.length?`<button data-h="dagrapport">${svg(I.doc)}<span>Dagrapport<small>van vandaag</small></span></button>`:''}
+    </div>`;
   sheet('HACCP-dossier',h,'');
 }
 
