@@ -4214,6 +4214,11 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vrtegel.op small,.vrtegel.bijna small{font-weight:600}
 .vrtegel .vrbalk{max-width:none}
 .vrstart{display:flex;flex-direction:column;gap:6px;padding:18px;border-radius:18px;background:var(--card)}
+.vrsug{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.vrsug button{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--lijn);background:var(--card);font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer}
+.vrsug button.aan{background:var(--ink);border-color:var(--ink);color:#fff}
+.vrstart .sec{margin-top:10px}
+.vrlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:6px 0 0;text-align:center;cursor:pointer}
 .vrstart>b{font-size:20px;font-weight:800;letter-spacing:-.02em}
 .vrstart>span{font-size:14px;color:var(--grijs);line-height:1.45}
 .vrstart .prim{margin:10px 0 6px;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -4449,7 +4454,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v733 · 9 okt 2026';
+const APPVERSIE='v734 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16812,7 +16817,8 @@ function vrLijsten(){
   const ingr=alles.filter(x=>artSoort(x.product)==='ingredient'||artSoort(x.product)==='half');
   alleIngredienten().filter(n=>!ingGearchiveerd(n)&&!inHuis[gKey(n)])
     .forEach(n=>ingr.push({product:n,basis:'g',saldo:0,lots:{},nooit:true}));
-  const verp=alles.filter(x=>artSoort(x.product)==='verpakking'||artSoort(x.product)==='hulp');
+  const verp=alles.filter(x=>artSoort(x.product)==='verpakking'||artSoort(x.product)==='hulp')
+    .map(x=>x.saldo===0&&!(S.gmut||[]).some(m=>gKey(m.product)===gKey(x.product))?Object.assign({},x,{nooit:true}):x);
   return {ingr,verp};
 }
 const vrStatus=x=>x.nooit?'nooit':x.saldo<=0?'op':grondOnder(x)?'bijna':'ok';
@@ -16842,7 +16848,9 @@ function voorraadHTML(){
       return `<button class="vrrij" data-vr="${esc(x.receptId)}|${esc(x.lot)}"><i class="${s}"></i>
         <span class="vrn">${esc(smaakNaam(x.receptId))}<small class="${s!=='ok'?'let':''}">lot ${esc(x.lot)}${x.tht?' · THT '+kort(new Date(x.tht))+(d<0?' — verlopen':d<=14?' — nog '+d+' dagen':''):''}</small></span>
         <span class="vrw">${x.aantal}</span></button>`}).join('')}</div>`
-      :`<p class="vrleeg">Nog geen gereed product. Dat komt hier zodra je een batch afrondt.</p>`;
+      :`<div class="vrstart"><b>Nog geen gereed product</b>
+          <span>Zodra je een batch afrondt, staan je bonbons hier per smaak, met lot en houdbaarheid.</span>
+          <button class="sec" data-naar="productie">Naar productie</button></div>`;
   } else {
     const l=VRTAB==='verp'?verp:ingr;
     const groep={};
@@ -16864,8 +16872,19 @@ function voorraadHTML(){
               <b>${s==='nooit'?'—':toonHoeveel(x.saldo,x.basis)}</b>
               <small>${s==='op'?'op':s==='bijna'?'bijna op':s==='nooit'?'tik om te tellen':''}</small>
               ${pct!==null?`<span class="vrbalk"><em class="${s}" style="width:${pct}%"></em></span>`:''}</button>`}).join('')}</div></div>`).join('')}</div>`;
+    } else if(VRTAB==='verp'){
+      /* v734: een lege tab met één regel tekst zei niets. Nu tik je aan wat
+         je gebruikt; het komt meteen in je lijst om te tellen. */
+      const sug=['Doos 16','Doos 25','Inlegvel 16','Inlegvel 25','Lint','Kaartje','Sticker','Verzenddoos','Koelelement','Vulmateriaal'];
+      h+=`<div class="vrstart"><b>Nog geen verpakking</b>
+          <span>Tik aan wat je gebruikt. Daarna tel je hoeveel je hebt, net als bij grondstoffen.</span>
+          <div class="vrsug" id="vrSug">${sug.map(s=>`<button type="button" data-v="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+          <button class="prim" id="vrSugOk" disabled>Toevoegen</button>
+          <button class="vrlos" data-verpnieuw>Iets anders toevoegen</button>
+        </div>`;
     } else {
-      h+=`<p class="vrleeg">${VRTAB==='verp'?'Nog geen verpakking. Voeg dozen, lint en kaartjes toe via Meer overzichten → Verpakkingsartikelen.':'Nog geen grondstoffen. Voeg ingrediënten toe aan je smaken of leg een levering vast.'}</p>`;
+      h+=`<div class="vrstart"><b>Nog geen grondstoffen</b>
+          <span>Voeg ingrediënten toe aan je smaken, of leg een levering vast.</span></div>`;
     }
   }
   h+=`<button class="vrmeer" onclick="sheetVoorraadMeer()"><span>Meer overzichten<small>ingrediënten, verpakking, wanneer op, prijzen, leveranciers</small></span>${svg(I.pijl,'2')}</button>`;
@@ -21875,6 +21894,12 @@ function bind(){
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-sneltel]').forEach(x=>x.onclick=()=>sheetSnelTel(x.dataset.sneltel));
+  $$('#vrSug button').forEach(b=>b.onclick=()=>{ b.classList.toggle('aan');
+    const n=$$('#vrSug .aan').length, k=$('#vrSugOk'); if(k){ k.disabled=!n; k.textContent=n?n+(n===1?' artikel toevoegen':' artikelen toevoegen'):'Toevoegen' } });
+  if($('#vrSugOk')) $('#vrSugOk').onclick=()=>{
+    const l=$$('#vrSug .aan').map(b=>b.dataset.v); if(!l.length) return;
+    l.forEach(n=>zetArt(n,{soort:'verpakking'})); bewaarNu(); render(); toast(l.length+(l.length===1?' artikel':' artikelen')+' toegevoegd — tel ze nu.');
+  };
   if($('#vrZoek')) $('#vrZoek').oninput=e=>{ VRZOEK=e.target.value; const q=gKey(VRZOEK);
     $$('#vrLijst .vrtegel').forEach(r=>r.hidden=q&&r.dataset.naam.indexOf(q)<0);
     $$('#vrLijst [data-groep]').forEach(g=>g.hidden=![...g.querySelectorAll('.vrtegel')].some(r=>!r.hidden)) };
