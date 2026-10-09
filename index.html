@@ -4077,7 +4077,8 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vpsoortkop .vpsn b{color:var(--ink);font-size:16px}
 .vpsoortkop .vpdagkies{font-size:13.5px;font-weight:700}
 .vpsoortkop .vpsn{align-items:flex-start;gap:1px;font-weight:500}
-.vpsoortkop .vpsn small{white-space:nowrap}
+.vpsoortkop .vpsn small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.vpalle2{display:block;width:100%;border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--grijs);padding:4px 0 10px;cursor:pointer}
 .vpsoortkop .vpdagkies span{font-size:inherit;font-weight:inherit;gap:0}
 .vpkeus button small{white-space:nowrap}
 .vpdagkies{flex:none;height:36px;padding:0 12px;gap:6px;border-radius:10px;background:var(--card);font-size:13.5px}
@@ -4545,7 +4546,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v742 · 9 okt 2026';
+const APPVERSIE='v743 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8524,7 +8525,7 @@ function sheetVoorspelPlan(){
        return `<div class="vpsoort">
          <div class="vpsoortkop">
            <i class="schijf ${c.key}"></i>
-           <span class="vpsn"><b>${esc(c.naam)}</b><small>${sm?sm+' mallen · '+g(bon)+' bonbons':'niets gekozen'} · <button type="button" class="vpalle" data-vpsoort="${c.key}" data-aan="${aanN?0:1}">${aanN?'geen':'alle'}</button></small></span>
+           <span class="vpsn"><b>${esc(c.naam)}</b><small>${sm?sm+' mallen · '+g(bon)+' bonbons':'niets gekozen'}</small></span>
            <label class="vpdagkies ${VP.dag[c.key]?'':'leeg'}">${svg(I.klok)}<span>${VP.dag[c.key]?dagKort(VP.dag[c.key]):sm?'Kies dag':'—'}</span>
              <input type="date" data-vpdag="${c.key}" value="${VP.dag[c.key]||''}" min="${vandaag()}"></label>
          </div>
@@ -8537,6 +8538,7 @@ function sheetVoorspelPlan(){
                <b>${m}</b>
                <button type="button" data-vpp="${r.id}" aria-label="Mal erbij">${svg(I.plus)}</button></div>`}</div>`}).join('')}
          </div>
+         <button type="button" class="vpalle2" data-vpsoort="${c.key}" data-aan="${aanN?0:1}">${aanN?'Alles uitvinken':'Alles aanvinken'}</button>
          ${dd.length>1?`<div class="vpsoortvoet" style="color:var(--amber)">${sm} mallen past niet op één dag — verdeeld over ${dd.length} dagen</div>`:''}
        </div>`}).join('')}
      <div class="vpstand ${verschil>=0?'ok':'tekort'}">

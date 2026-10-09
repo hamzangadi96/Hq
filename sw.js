@@ -1,6 +1,6 @@
 /* Cacaoboetiek HQ — service worker
    Verhoog VERSIE bij elke nieuwe upload. */
-const VERSIE = 'hq-v742';
+const VERSIE = 'hq-v743';
 
 /* ═══════════ een leeg antwoord is geen antwoord ═══════════
    Een mislukte upload leverde een bestand van nul bytes op. De server gaf
