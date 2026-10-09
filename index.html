@@ -4084,13 +4084,17 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vpkal{background:var(--card);border-radius:12px;padding:10px 10px 12px;margin-bottom:8px}
 .vpkalkop{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .vpkalkop b{font-size:15px;text-transform:capitalize}
-.vpkalkop button{width:36px;height:36px;border:0;border-radius:10px;background:var(--bg);display:grid;place-items:center;color:var(--ink);padding:0;cursor:pointer}
+.vpkalkop button{display:grid!important;min-width:0;width:36px;height:36px;border:0;border-radius:10px;background:var(--bg);display:grid;place-items:center;color:var(--ink);padding:0;cursor:pointer}
 .vpkalkop button:first-child svg{transform:rotate(180deg)}
 .vpkalkop button:disabled{opacity:.3}
 .vpkalkop svg{width:15px;height:15px}
 .vpkalweek,.vpkalgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
 .vpkalweek span{font-size:11px;font-weight:700;color:var(--grijs);text-transform:uppercase;padding:4px 0}
-.vpkalgrid button{height:40px;border:0;border-radius:10px;background:none;font:inherit;font-size:15px;font-weight:600;color:var(--ink);padding:0;cursor:pointer;position:relative}
+.vpkalgrid{row-gap:4px}
+.vpkal .vpkalgrid button{display:flex;align-items:center;justify-content:center;text-align:center;width:38px;height:38px;min-width:0;min-height:0;
+  margin:0 auto;border:0;border-radius:50%;background:none;font:inherit;font-size:15px;font-weight:600;color:var(--ink);padding:0;cursor:pointer;position:relative;box-shadow:none}
+.vpkal .vpkalgrid button.vd{box-shadow:inset 0 0 0 1.5px #d4d4d8}
+.vpkal .vpkalgrid button.kz{background:var(--ink);color:#fff;box-shadow:none}
 .vpkalgrid button:disabled{color:#d4d4d8;cursor:default}
 .vpkalgrid button.vd{box-shadow:inset 0 0 0 1.5px var(--lijn)}
 .vpkalgrid button.bz::after{content:'';position:absolute;bottom:5px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--grijs)}
@@ -4560,7 +4564,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v745 · 9 okt 2026';
+const APPVERSIE='v746 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
