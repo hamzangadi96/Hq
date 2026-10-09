@@ -1554,7 +1554,7 @@ nav#tabbar{view-transition-name:tabbalk}
 .sheetkop .wstap{font-size:12.5px;font-weight:600;color:var(--grijs2);flex:none}
 .sluit{width:30px;height:30px;border-radius:99px;background:var(--bg);display:grid;place-items:center;color:var(--grijs);flex:none}
 .sluit svg{width:15px;height:15px}
-.sheetbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+.sheetbody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
   padding:8px 20px calc(12px + env(safe-area-inset-bottom))}
 .sheetvoet{flex:none;padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--lijn)}
 .sheetvoet:empty{display:none}
@@ -4044,10 +4044,11 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vpsoortkop small{font-size:12px;color:var(--grijs);text-align:right}
 .vpsoort{margin-top:20px}
 .prim:disabled{opacity:.35;cursor:default}
-.vpdagkies{position:relative;display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:8px;
+.vpdagkies{position:relative;overflow:hidden;display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:8px;
   background:var(--bg);color:var(--ink);font-weight:700;font-size:12.5px;cursor:pointer}
 .vpdagkies.leeg{background:#fdf3e4;color:var(--amber)}
-.vpdagkies input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.vpdagkies input{position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;min-width:0;max-width:100%;
+  -webkit-appearance:none;appearance:none;border:0;padding:0;margin:0;font-size:16px;cursor:pointer}
 .vpsoortkop{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
 .vpsoortkop span{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}
 .vpsoortkop .schijf{width:16px;height:16px;border-radius:50%;display:inline-block}
@@ -4498,7 +4499,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v739 · 9 okt 2026';
+const APPVERSIE='v740 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
