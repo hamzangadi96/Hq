@@ -4546,7 +4546,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v743 · 9 okt 2026';
+const APPVERSIE='v744 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8414,6 +8414,14 @@ function vpNodig(){
   const a=voorspelAdvies(), v=voorspelStand(); if(!a) return 0;
   return VP.opDoel&&v.verwachtOrders?Math.ceil(a.bruto*orderDoel()/v.verwachtOrders):a.bruto;
 }
+/* mallen met de hand aangepast → het doel (bestellingen) rekent mee (v744) */
+function vpDoelUitMallen(){
+  const a=voorspelAdvies(), v=voorspelStand(); if(!a||!a.bruto||!v.verwachtOrders) return;
+  const perOrder=a.bruto/v.verwachtOrders;
+  const gepland=vpSmaken().reduce((n,r)=>n+(VP.mallen[r.id]||0)*malHoltes(r.id),0);
+  VP.opDoel=true;
+  S.orderDoel=Math.max(1,Math.round((gepland+vpVoorraad())/perOrder)); bewaarNu();
+}
 function vpVoorraad(){
   const m=voorraadPerSmaak(); return Object.keys(m).reduce((n,k)=>n+(m[k]||0),0);
 }
@@ -8587,8 +8595,8 @@ function sheetVoorspelPlan(){
   $$('[data-vpuit]').forEach(b=>b.onclick=()=>{ vpUitZet(b.dataset.vpuit,!vpUit(b.dataset.vpuit)); vpVoorstel(); opnieuw() });
   $$('[data-vpsoort]').forEach(b=>b.onclick=()=>{ const aan=b.dataset.aan==='1';
     vpSmaken().filter(r=>r.chocolade===b.dataset.vpsoort).forEach(r=>vpUitZet(r.id,!aan)); vpVoorstel(); opnieuw() });
-  $$('[data-vpp]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpp]=(VP.mallen[b.dataset.vpp]||0)+1; opnieuw() });
-  $$('[data-vpm]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpm]=Math.max(0,(VP.mallen[b.dataset.vpm]||0)-1); opnieuw() });
+  $$('[data-vpp]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpp]=(VP.mallen[b.dataset.vpp]||0)+1; vpDoelUitMallen(); opnieuw() });
+  $$('[data-vpm]').forEach(b=>b.onclick=()=>{ VP.mallen[b.dataset.vpm]=Math.max(0,(VP.mallen[b.dataset.vpm]||0)-1); vpDoelUitMallen(); opnieuw() });
   $$('[data-vpdag]').forEach(i=>i.onchange=()=>{ VP.dag[i.dataset.vpdag]=i.value||''; opnieuw() });
   $('#vpTerug').onclick=()=>{ dicht() };
   if($('#vpOk')) $('#vpOk').onclick=()=>{
