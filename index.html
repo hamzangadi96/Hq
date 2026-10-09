@@ -4095,6 +4095,14 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vpstep button svg{width:13px;height:13px}
 .vpstep b{min-width:24px;text-align:center;font-size:15px;font-variant-numeric:tabular-nums}
 .vpalle{font-size:12.5px}
+.vpdoelseg{display:flex;align-items:center;justify-content:center;gap:2px;height:38px;border-radius:9px;background:var(--card);
+  box-shadow:0 1px 2px rgba(0,0,0,.1);font-size:14px;font-weight:600;color:var(--ink);padding:0 4px}
+.vpdoelseg span{margin-right:4px}
+.vpdoelseg button{width:30px;height:32px;border:0;border-radius:8px;background:var(--bg);display:grid;place-items:center;padding:0;color:var(--ink);cursor:pointer}
+.vpdoelseg button svg{width:12px;height:12px}
+.vpdoelin2{width:44px;height:32px;border:0;background:none;text-align:center;font:inherit;font-size:16px;font-weight:700;color:var(--ink);
+  -moz-appearance:textfield;padding:0}
+.vpdoelin2::-webkit-outer-spin-button,.vpdoelin2::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .vbtitel{display:flex;flex-direction:column;margin:2px 0 14px}
 .vbtitel b{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
 .vbtitel span{font-size:13px;color:var(--grijs);margin-top:4px}
@@ -4537,7 +4545,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v741 · 9 okt 2026';
+const APPVERSIE='v742 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8557,16 +8565,16 @@ function sheetVoorspelPlan(){
   sheet('Productieplan',
     `<div class="vpkeus">
        <button type="button" class="${VP.opDoel?'':'aan'}" data-vpdoel="0">Verwachting<small>±${v.verwachtOrders}</small></button>
-       <button type="button" class="${VP.opDoel?'aan':''}" data-vpdoel="1">Doel<small>${orderDoel()}</small></button>
+       ${VP.opDoel?`<div class="aan vpdoelseg"><span>Doel</span>
+           <button type="button" data-vpd="-5" aria-label="Doel lager">${svg(I.min)}</button>
+           <input class="vpdoelin2" id="vpDoel" type="number" inputmode="numeric" min="5" step="5" value="${orderDoel()}" aria-label="Doel bestellingen">
+           <button type="button" data-vpd="5" aria-label="Doel hoger">${svg(I.plus)}</button></div>`
+         :`<button type="button" data-vpdoel="1">Doel<small>${orderDoel()}</small></button>`}
      </div>
-     ${VP.opDoel?`<div class="vpdoel"><span>Jouw doel<small>bestellingen deze periode</small></span>
-       <div class="ostep"><button class="stepbtn klein" data-vpd="-10" aria-label="Doel lager">${svg(I.min)}</button>
-         <input class="vpdoelin" id="vpDoel" type="number" inputmode="numeric" min="5" step="5" value="${orderDoel()}">
-         <button class="stepbtn klein" data-vpd="10" aria-label="Doel hoger">${svg(I.plus)}</button></div></div>`:''}
      ${tabs}
      <div class="vptabinhoud">${inhoud}</div>`,
     `<button class="prim" style="margin-top:0" id="vpOk" ${mallenTot&&!zonderDag?'':'disabled'}>${
-      zonderDag?'Kies eerst je '+(zonderDag===1?'productiedag':zonderDag+' productiedagen'):'Zet in planning'+(dagen.length>1?' ('+dagen.length+' dagen)':'')}</button>
+      zonderDag?(zonderDag===1?'Kies eerst een dag':'Kies eerst '+zonderDag+' dagen'):'Zet in planning'+(dagen.length>1?' ('+dagen.length+' dagen)':'')}</button>
      <button class="sec" id="vpTerug">Terug</button>`);
 
   const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetVoorspelPlan(); $('#sheetBody').scrollTop=st };
