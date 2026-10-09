@@ -4138,6 +4138,29 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .hnaslag button>svg{width:18px;height:18px;color:var(--grijs);flex-shrink:0;margin-top:1px}
 .hnaslag span{display:flex;flex-direction:column;font-size:14px;font-weight:600;min-width:0}
 .hnaslag small{font-size:12px;font-weight:400;color:var(--grijs);margin-top:1px}
+.hkopb{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.hkopb>div:first-child{display:flex;justify-content:space-between;align-items:baseline}
+.hkopb b{font-size:24px;font-weight:800;letter-spacing:-.03em}
+.hkopb span{font-size:13px;color:var(--grijs)}
+.hbalk{display:flex;gap:4px}.hbalk i{flex:1;height:6px;border-radius:3px;background:var(--groen)}.hbalk i.let{background:var(--amber)}
+.htodo{display:flex;flex-direction:column;gap:8px}
+.hdo{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--lijn)}
+.hdoico{width:36px;height:36px;border-radius:11px;background:#fdf3e4;color:var(--amber);display:grid;place-items:center;flex-shrink:0}
+.hdoico svg{width:18px;height:18px}
+.hdotx{display:flex;flex-direction:column;flex:1;min-width:0}
+.hdotx b{font-size:15px;font-weight:600}.hdotx small{font-size:12.5px;color:var(--amber);font-weight:600}
+.hdoknop{height:36px;padding:0 14px;border-radius:10px;border:0;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;font-weight:700;flex-shrink:0;cursor:pointer}
+.hgoed{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--lijn);border-radius:16px;overflow:hidden}
+.hgoed button{display:flex;align-items:center;gap:10px;padding:11px 14px;border:0;border-bottom:1px solid var(--lijn);background:none;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.hgoed button:last-child{border-bottom:0}
+.hgoed i{width:8px;height:8px;border-radius:50%;background:var(--groen);flex-shrink:0}
+.hgoed span{flex:1;font-size:14.5px;font-weight:500}.hgoed small{font-size:12.5px;color:var(--grijs)}
+.htgs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.htgs.drie{grid-template-columns:repeat(3,minmax(0,1fr))}
+.htg{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 4px;border-radius:14px;border:1px solid var(--lijn);background:var(--card);font:inherit;color:var(--ink);cursor:pointer;min-width:0}
+.htg svg{width:20px;height:20px;color:var(--ink2,#3f3f46)}
+.htg b{font-size:12.5px;font-weight:600;text-align:center;line-height:1.2}
+.htg small{font-size:11px;color:var(--grijs)}
 .prodlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:8px 0 0;text-align:center}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
 .htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
@@ -4356,7 +4379,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v727 · 9 okt 2026';
+const APPVERSIE='v728 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19822,36 +19845,35 @@ function sheetHaccp(){
     ijking:{n:'Thermometer ijken',s:'elke 6 maanden',...periodiek(ij&&ij.datum,180)},
     recall:{n:'Terugroepoefening',s:'elk jaar',...periodiek(rc&&rc.datum,365)}
   };
-  const rij=(k,x)=>`<button class="hrij" data-h="${x.k||k}">
-      <i class="${x.st||''}"></i>
-      <span class="hn">${x.n}<small>${x.s}</small></span>
-      <span class="hw ${x.st==='let'?'let':''}">${x.w}</span>
-      ${svg(I.pijl,'2')}</button>`;
-  const open=Object.keys(rijen).filter(k=>rijen[k].st==='let');
+  /* v728: eerst wat je moet dóen, met de knop erbij. Wat op orde is wordt
+     één rustige lijst; vastleggen en naslag zijn kleine tegels. Past op één scherm. */
+  const ACTIE={temp:'Meten',schoon:'Afvinken',groot:'Doen',ongedierte:'Controleren',ijking:'IJken',recall:'Oefenen'};
+  const ICO={temp:I.temp,schoon:I.vink,groot:I.ververs||I.vink,ongedierte:I.loep,ijking:I.temp,recall:I.doc};
+  const alle=Object.keys(rijen), open=alle.filter(k=>rijen[k].st==='let'), goed=alle.filter(k=>rijen[k].st!=='let');
+  const tegel=(attr,ico,naam,sub)=>`<button class="htg" ${attr}>${svg(ico)}<b>${naam}</b>${sub?`<small>${sub}</small>`:''}</button>`;
 
-  let h=`<div class="hstatus ${open.length?'open':'ok'}">
-      <b>${open.length?open.length+(open.length===1?' punt open':' punten open'):svg(I.vink,'2.6')+'Alles op orde'}</b>
-      <span>${open.length?open.map(k=>rijen[k].n).join(' · '):'Je registraties zijn bij voor de NVWA.'}</span>
+  let h=`<div class="hkopb">
+      <div><b>${open.length?open.length+' te doen':'Alles op orde'}</b><span>${goed.length} van ${alle.length} op orde</span></div>
+      <div class="hbalk">${alle.map(k=>`<i class="${rijen[k].st==='let'?'let':'ok'}"></i>`).join('')}</div>
     </div>
-    <div class="hkop">Vandaag${werkdag?'':' <small>geen werkdag</small>'}</div>
-    <div class="hlijst">${rij('temp',rijen.temp)}${rij('schoon',rijen.schoon)}
-      <button class="hrij" data-h="afwijking"><i class="plus">${svg(I.plus,'2.4')}</i>
-        <span class="hn">Afwijking melden<small>er ging iets mis</small></span><span class="hw"></span>${svg(I.pijl,'2')}</button></div>
-    <div class="hkop">Onderhoud</div>
-    <div class="hlijst">${['groot','ongedierte','ijking','recall'].map(k=>rij(k,rijen[k])).join('')}</div>
-    <div class="hkop">Als het zich voordoet</div>
-    <div class="hlijst">
-      ${rij('klacht',{n:'Klachten',s:'van klanten',st:'geen',w:kl.length?kl.length+'':'geen'})}
-      ${rij('ontvangst',{n:'Ontvangst',s:'levering vastleggen',st:'geen',w:(S.ontvangsten||[]).length?(S.ontvangsten||[]).length+'×':'nog niet'})}
+    ${open.length?`<div class="htodo">${open.map(k=>{const x=rijen[k];
+      return `<div class="hdo"><span class="hdoico">${svg(ICO[k]||I.vink)}</span>
+        <span class="hdotx"><b>${x.n}</b><small>${x.w}</small></span>
+        <button class="hdoknop" data-h="${x.k||k}">${ACTIE[k]||'Doen'}</button></div>`}).join('')}</div>`:''}
+    ${goed.length?`<div class="hkop">Op orde</div><div class="hgoed">${goed.map(k=>{const x=rijen[k];
+      return `<button data-h="${x.k||k}"><i></i><span>${x.n}</span><small>${x.w}</small></button>`}).join('')}</div>`:''}
+    <div class="hkop">Vastleggen</div>
+    <div class="htgs drie">
+      ${tegel('data-h="afwijking"',I.alarm,'Afwijking','')}
+      ${tegel('data-h="klacht"',I.doc,'Klacht',kl.length?kl.length+'×':'')}
+      ${tegel('data-h="ontvangst"',I.vracht,'Ontvangst',(S.ontvangsten||[]).length?(S.ontvangsten||[]).length+'×':'')}
     </div>
     <div class="hkop">Naslag</div>
-    <div class="hnaslag">
-      <button onclick="sheetHygieneplan()">${svg(I.doc||I.klembord)}<span>Hygiëneplan<small>wat en waarom</small></span></button>
-      <button data-h="traceer">${svg(I.loep)}<span>Lot terugzoeken<small>grondstof → klant</small></span></button>
-      <button data-h="archief">${svg(I.klembord)}<span>Archief<small>${(()=>{const n=alleDatums().length;return n?n+(n===1?' dag':' dagen'):'nog leeg'})()}</small></span></button>
-      <button data-h="allerg">${svg(I.vorm)}<span>Ingrediënten<small>${(()=>{const t2=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;
-        return t2?g+' van '+t2+' allergenen':'nog leeg'})()}</small></span></button>
-      ${S.batches.length?`<button data-h="dagrapport">${svg(I.doc)}<span>Dagrapport<small>van vandaag</small></span></button>`:''}
+    <div class="htgs">
+      ${tegel('onclick="sheetHygieneplan()"',I.doc||I.klembord,'Hygiëneplan','')}
+      ${tegel('data-h="traceer"',I.loep,'Lot zoeken','')}
+      ${tegel('data-h="archief"',I.klembord,'Archief',(()=>{const n=alleDatums().length;return n?n+' dagen':''})())}
+      ${tegel('data-h="allerg"',I.vorm,'Allergenen',(()=>{const t2=alleIngredienten().length,g=alleIngredienten().filter(isAllergeen).length;return t2?g+'/'+t2:''})())}
     </div>`;
   sheet('HACCP-dossier',h,'');
 }
