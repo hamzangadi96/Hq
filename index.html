@@ -4087,6 +4087,14 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .prodvolg>b::first-letter{text-transform:uppercase}
 .prodvolg>span{font-size:14px;color:var(--grijs)}
 .prodvolg .prim,.prodvolg .sec{margin-top:12px}
+.gsmelding{display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;padding:12px 14px;border-radius:14px;border:0;
+  background:#fdf3e4;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.gsmelding i{width:9px;height:9px;border-radius:50%;background:var(--amber);flex-shrink:0}
+.gsmelding span{display:flex;flex-direction:column;flex:1}
+.gsmelding b{font-size:14.5px}.gsmelding small{font-size:12.5px;color:var(--grijs);text-transform:none;letter-spacing:0;font-weight:400}
+.gsmelding svg{width:16px;height:16px;color:var(--grijs)}
+.gsuitleg{display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:14px;background:var(--bg);margin-bottom:16px}
+.gsuitleg b{font-size:15px}.gsuitleg span{font-size:13.5px;color:var(--grijs);line-height:1.45}
 .prodlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:8px 0 0;text-align:center}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
 .htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
@@ -4305,7 +4313,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v722 · 9 okt 2026';
+const APPVERSIE='v723 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8809,7 +8817,7 @@ function wdPunten(){
       af:(S.halfBatches||[]).some(x=>x.datum===vandaag()&&x.klaar),auto:'Vinkt vanzelf af als je halffabricaat klaar is.'},
     heeft('inpak')&&{g:'Tijdens',k:'etiket',t:'Elk doosje: allergenen, productiedatum en THT op het etiket',af:!!af.etiket},
     heeft('inpak')&&{g:'Tijdens',k:'warm',t:'Weer gecheckt: bij warmte niet versturen of koelelement erbij',af:!!af.warm},
-    heeft('bonbons','koken','schoon')&&{g:'Einde',k:'schoon',t:'Werkbanken, gereedschap, mallen en vloer schoonmaken',af:haccpLogVandaag('schoonmaak'),meet:true},
+    heeft('bonbons','koken','schoon')&&{g:'Einde',k:'schoon',t:'Bijhoudschoonmaak: werkbanken, gereedschap, mallen en vloer',af:haccpLogVandaag('schoonmaak'),meet:true},
     heeft('bonbons','koken','schoon')&&{g:'Einde',k:'dicht',t:'Afval weg, producten gekoeld met datum, koeling dicht',af:!!af.dicht}
   ].filter(Boolean);
 }
@@ -9353,6 +9361,8 @@ function productieHTML(){
         <small class="${n<=0?'nu':''}">${wanneer}</small>
         <b>${dag}</b>
         <span>${esc(chocNaam(vlg.chocolade))} · ${mal?mal+(mal===1?' mal · ':' mallen · '):''}${st.toLocaleString('nl-NL')} bonbons</span>
+        ${(g=>g&&g.moment==='voor'?`<button type="button" class="gsmelding" onclick="sheetSchoonmaak('voor')">
+          <i></i><span><b>Eerst: grote schoonmaak</b><small>vóór je productie begint</small></span>${svg(I.pijl,'2')}</button>`:'')(groteSchoonmaakNodig())}
         ${n<=0?`<button class="prim" data-planstart="${vlg.id}">${svg(I.vorm)}Batch starten</button>`
               :`<button class="sec" data-planning>Planning bekijken</button>`}
         <button class="prodlos" data-sheet="nieuwbatch">of start een losse batch</button>
@@ -19714,7 +19724,10 @@ function sheetHaccp(){
     ${rij('afwijking','Afwijking melden','er ging iets mis','',false)}
   </div>`;
 
+  const gsL=groteSchoonmaken()[0], gsN=groteSchoonmaakNodig();
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Periodiek</span></div><div class="paneel">
+    ${rij(gsN?'groot_'+gsN.moment:'groot_voor','Grote schoonmaak','vóór en na elke productieperiode',
+      gsL?kort(new Date(gsL.datum)):'nooit',!!gsN)}
     ${rij('ongedierte','Ongediertecontrole','elke 3 maanden',
       og?kort(new Date(og.datum)):'nooit',!!controleOver('ongedierte'))}
     ${rij('ijking','Thermometer ijken','elke 6 maanden',
@@ -21639,6 +21652,8 @@ function bind(){
     if(k==='dagrapport') return sheetRapport('dag',null,vandaag());
     if(k==='temp') return sheetTemp();
     if(k==='schoon') return sheetSchoonmaak();
+    if(k==='groot_voor') return sheetSchoonmaak('voor');
+    if(k==='groot_na') return sheetSchoonmaak('na');
     if(k==='afwijking') return sheetAfwijking();
     sheetControles(k==='klacht'?'klacht':k);
   });
@@ -22930,15 +22945,20 @@ function sheetAfwijking(){
   };
 }
 
-function sheetSchoonmaak(){
-  const b=batch();
+/* groot = 'voor' of 'na': de grote schoonmaak rond een productieperiode (v723).
+   Zonder groot is het je bijhoudschoonmaak van de dag. */
+function sheetSchoonmaak(groot){
+  if(groot!=='voor'&&groot!=='na') groot=null;
+  const b=groot?null:batch();
   if(b) startStap(b,'Schoonmaken');
-  sheet('Schoonmaak',
-    `<div class="veld"><label>Wanneer is dit?</label>
+  sheet(groot?'Grote schoonmaak':'Bijhoudschoonmaak',
+    `${groot?`<div class="gsuitleg"><b>${groot==='voor'?'Vóór je productie begint':'Na je productieperiode'}</b>
+       <span>Alles grondig: koeling en klimaatkast leeg en uitgesopt, tempereermachine uit elkaar, mallen, werkbanken, wanden en vloer.</span></div>`
+     :`<div class="veld"><label>Wanneer is dit?</label>
        <div class="chips" id="sSoort">
          <button class="chip" data-v="Voor productie">Voor productie</button>
          <button class="chip" data-v="Tussendoor">Tussendoor</button>
-         <button class="chip aan" data-v="Na productie">Na productie</button></div></div>
+         <button class="chip aan" data-v="Na productie">Na productie</button></div></div>`}
      <p class="hint">Vink aan wat je hebt gereinigd.</p>
      ${S.zones.length?`
        <!-- ═══════════ de knop die twaalf tikken bespaart, stond ná die twaalf
@@ -22962,7 +22982,7 @@ function sheetSchoonmaak(){
         <button class="miniknop" id="sMFormOk">Toevoegen</button></div></div></div>
      <div class="veld"><label>Notitie</label><textarea class="inp" id="sN" placeholder="Optioneel"></textarea></div>`,
     `<button class="prim" style="margin-top:0" id="sOk">Schoonmaak opslaan</button>`);
-  chips('#sM'); chips('#sSoort');
+  chips('#sM'); if($('#sSoort')) chips('#sSoort');
   const zones=()=>$$('.tog[data-zone]');
   const tel=()=>{
     const n=zones().filter(t=>t.classList.contains('aan')).length;
@@ -22979,22 +22999,27 @@ function sheetSchoonmaak(){
   koppelInline('sZNieuw','sZForm','sZN',()=>{
     const v=$('#sZN').value.trim(); if(!v) return toast('Vul een onderdeel in.');
     if(S.zones.some(x=>gKey(x)===gKey(v))) return toast(v+' staat er al bij.');
-    S.zones.push(v); bewaarNu(); sheetSchoonmaak(); toast('Onderdeel toegevoegd.');
+    S.zones.push(v); bewaarNu(); sheetSchoonmaak(groot); toast('Onderdeel toegevoegd.');
   });
   koppelInline('sMNieuw','sMForm','sMN',()=>{
     const v=$('#sMN').value.trim(); if(!v) return toast('Vul een middel in.');
     if(S.middelen.some(x=>gKey(x)===gKey(v))) return toast(v+' staat er al bij.');
-    S.middelen.push(v); bewaarNu(); sheetSchoonmaak(); toast('Middel toegevoegd.');
+    S.middelen.push(v); bewaarNu(); sheetSchoonmaak(groot); toast('Middel toegevoegd.');
   });
   $('#sOk').onclick=()=>{
     const z=zones().filter(t=>t.classList.contains('aan')).map(t=>t.dataset.zone);
     if(!z.length) return toast('Vink aan wat je hebt gereinigd.');
     const mid=chipV('#sM'); if(!mid) return toast('Kies of voeg een middel toe.');
     const n=$('#sN').value.trim();
-    const soort=chipV('#sSoort')||'Na productie';
-    bLog(b,{type:'schoonmaak',soort,
-      titel:soort+' · '+z.length+(z.length===1?' onderdeel':' onderdelen'),
-      sub:z.join(', ')+' · '+mid+(n?' — '+n:'')});
+    const soort=groot?(groot==='voor'?'Grote schoonmaak vóór productie':'Grote schoonmaak na productie')
+      :(chipV('#sSoort')||'Na productie');
+    if(groot&&z.length<zones().length&&!confirm('Je hebt niet alles aangevinkt. Toch vastleggen als grote schoonmaak?')) return;
+    /* zonder lopende batch kwam bLog(null) nergens: nu landt het in je losse log */
+    const rec={type:'schoonmaak',soort,titel:soort+' · '+z.length+(z.length===1?' onderdeel':' onderdelen'),
+      sub:z.join(', ')+' · '+mid+(n?' — '+n:'')};
+    if(groot) rec.groot=groot;
+    if(b) bLog(b,rec); else legVast(rec);
+    bewaarNu();
     klaarSheet('Schoonmaak vastgelegd.');
   };
 }
@@ -23823,8 +23848,41 @@ function laatsteVan(type){
   return alle[0]||null;
 }
 
+/* Productiedagen komen in periodes. Vóór de eerste dag van een periode en na
+   de laatste hoort een grote schoonmaak; daartussen houd je bij (v723).
+   Een periode eindigt als er 7 dagen geen productie gepland staat. */
+function productieDagen(){
+  const set={};
+  planLijst().forEach(p=>{ if(p.datum) set[p.datum]=1 });
+  (S.batches||[]).forEach(b=>{ if(b.startDatum) set[b.startDatum]=1; if(b.eindDatum) set[b.eindDatum]=1 });
+  return Object.keys(set).sort();
+}
+function groteSchoonmaken(){
+  const l=[];
+  (S.batches||[]).forEach(b=>(b.logs||[]).forEach(x=>{if(x.type==='schoonmaak'&&x.groot)l.push(x)}));
+  alsLijst(S.losLog).forEach(x=>{if(x.type==='schoonmaak'&&x.groot)l.push(x)});
+  return l.sort((a,b)=>String(b.datum||'').localeCompare(String(a.datum||'')));
+}
+function groteSchoonmaakNodig(){
+  const v=vandaag(), dagen=productieDagen(), gs=groteSchoonmaken();
+  const volgende=dagen.find(d=>d>=v), vorige=dagen.filter(d=>d<v).pop();
+  /* vóór: er begint binnen 5 dagen een nieuwe periode */
+  if(volgende&&dagenTussen(v,volgende)<=5&&(!vorige||dagenTussen(vorige,volgende)>=7)){
+    const na=vorige||'0000-00-00';
+    if(!gs.some(x=>x.groot==='voor'&&x.datum>na)) return {moment:'voor',datum:volgende};
+  }
+  /* na: de laatste periode is klaar (7 dagen niets meer gepland) en nog niet grondig schoongemaakt */
+  if(vorige&&(!volgende||dagenTussen(vorige,volgende)>=7)&&dagenTussen(vorige,v)<=21){
+    if(!gs.some(x=>x.groot==='na'&&x.datum>=vorige)) return {moment:'na',datum:vorige};
+  }
+  return null;
+}
 function controlePunten(){
   const uit=[];
+  const gr=groteSchoonmaakNodig();
+  if(gr) uit.push({h:'groot_'+gr.moment, n:'Grote schoonmaak '+(gr.moment==='voor'?'vóór productie':'na productie'),
+    s:gr.moment==='voor'?'productie begint '+kort(new Date(gr.datum+'T12:00:00')):'laatste productiedag '+kort(new Date(gr.datum+'T12:00:00')),
+    w:'', laat:true});
   const t1=laatsteVan('temperatuur');
   if(!t1||t1.datum!==vandaag())
     uit.push({h:'temp', n:'Temperatuur meten', s:(S.meetpunten||[]).map(m=>m.naam).join(' en ')||'koeling',
