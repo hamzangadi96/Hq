@@ -4313,7 +4313,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v723 · 9 okt 2026';
+const APPVERSIE='v724 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9145,6 +9145,8 @@ function dashboardHTML(){
         DAGSOORT[eerste.soort].n.toLowerCase()}${eerste.tijd?' · '+esc(eerste.tijd):''}</div>
       <h2 style="margin-top:6px">${esc(tdeel[0])}</h2>
       <div class="sub">${tdeel.length>1?esc(tdeel.slice(1).join(' — '))
+        :eerste.check&&eerste.check.doe==='groot_voor'?'koeling, klimaatkast, tempereermachine, wanden en vloer — daarna kan de productie beginnen'
+        :eerste.check&&eerste.check.doe==='groot_na'?'je productieperiode is klaar: alles grondig schoon voor je het afsluit'
         :(eerste.plan&&eerste.plan.datum?'voor de batch van '+kort(new Date(eerste.plan.datum))
           :'vandaag op de rol')}</div>
       ${eerste.soort==='half'&&eerste.los
@@ -9153,6 +9155,8 @@ function dashboardHTML(){
               onclick="halfStart(this.dataset.r,this.dataset.t)">${svg(I.vorm)}Start</button>`
           :`<button class="prim" data-n="${esc(eerste.tekst.replace(/\s+maken$/i,''))}"
               onclick="sheetHalfRecept(this.dataset.n)">${svg(I.plus)}Stappen invullen</button>`)
+        :eerste.soort==='haccp'&&eerste.check&&/^groot_/.test(eerste.check.doe)
+        ?`<button class="prim" onclick="sheetSchoonmaak('${eerste.check.doe.slice(6)}')">${svg(I.vink,'2.4')}Grote schoonmaak doen</button>`
         :eerste.soort==='boodschappen'
         ?`<button class="prim" onclick="sheetOntvangst()">${svg(I.vracht)}Ontvangst invullen</button>`
         :eerste.los?`<button class="prim" data-taakaf="${esc(eerste.los.id)}">${svg(I.vink,'2.4')}Klaar</button>`
@@ -17403,7 +17407,7 @@ function haccpTaken(){
          dashboard. Hier alleen zichtbaar in je agenda en weekstrook. */
       eerste:!l, tijd:'', over:n});
   });
-  return uit;
+  return uit.concat(groteSchoonmaakTaken());
 }
 
 /* Een klus die je gisteren niet hebt gedaan is vandaag nog steeds een klus.
@@ -17830,8 +17834,23 @@ function sheetPlanBatch(vooraf){
 }
 
 /* van plan naar echte batch */
+let gsOverslaan=null;
 function planStart(id){
   const p=(S.planning||[]).find(x=>x.id===id); if(!p) return;
+  /* De eerste batch van een periode: eerst de grote schoonmaak. Geen harde
+     blokkade — soms heb je hem op papier gedaan — maar je kunt hem niet
+     meer ongemerkt overslaan (v724). */
+  const gr=groteSchoonmaakNodig();
+  if(gr&&gr.moment==='voor'&&gsOverslaan!==vandaag()){
+    sheet('Eerst de grote schoonmaak',
+      `<div class="gsuitleg"><b>Dit is de eerste productiedag van een nieuwe periode</b>
+        <span>Koeling en klimaatkast uitsoppen, tempereermachine uit elkaar, mallen, werkbanken, wanden en vloer. Daarna start je de batch.</span></div>`,
+      `<button class="prim" style="margin-top:0" id="gsNu">Grote schoonmaak doen</button>
+       <button class="sec" id="gsToch">Al gedaan, start de batch</button>`);
+    $('#gsNu').onclick=()=>sheetSchoonmaak('voor');
+    $('#gsToch').onclick=()=>{ gsOverslaan=vandaag(); dicht(); planStart(id); };
+    return;
+  }
   const kopie={};
   p.regels.forEach(rg=>{const r=recept(rg.receptId); if(r) kopie[rg.receptId]=JSON.parse(JSON.stringify(r))});
   const b={id:uid(),code:nieuweCode(),chocolade:p.chocolade,
@@ -18030,6 +18049,7 @@ function sheetPlanning(){
      Daarom hier nog een keer, anders doen de controles hier niets. */
   $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>{
     const k=x.dataset.haccpdoe;
+    if(k==='groot_voor'||k==='groot_na') return sheetSchoonmaak(k.slice(6));
     k==='ijking'?sheetIjking():sheetControles();
   });
   $$('[data-planstart]').forEach(b=>b.onclick=()=>{
@@ -21546,8 +21566,11 @@ function bind(){
   $$('[data-vraag]').forEach(x=>x.onclick=()=>sheetVraag(''));
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
-  $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>
-    x.dataset.haccpdoe==='ijking'?sheetIjking():sheetControles());
+  $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>{
+    const k=x.dataset.haccpdoe;
+    if(k==='groot_voor'||k==='groot_na') return sheetSchoonmaak(k.slice(6));
+    k==='ijking'?sheetIjking():sheetControles();
+  });
   $$('[data-agendaexport]').forEach(x=>x.onclick=sheetAgendaExport);
   $$('[data-taaknieuw]').forEach(x=>x.onclick=()=>sheetTaakNieuw(vandaag()));
   $$('[data-trace]').forEach(x=>x.onclick=()=>sheetTrace(''));
@@ -23863,6 +23886,36 @@ function groteSchoonmaken(){
   alsLijst(S.losLog).forEach(x=>{if(x.type==='schoonmaak'&&x.groot)l.push(x)});
   return l.sort((a,b)=>String(b.datum||'').localeCompare(String(a.datum||'')));
 }
+/* De grote schoonmaak krijgt een vaste dag in je planning (v724): de dag vóór
+   de eerste productiedag van een periode, en de dag na de laatste. Zo staat hij
+   in je agenda, je weekstrook en op Home onder Vandaag, net als een batch. */
+function productiePeriodes(){
+  const d=productieDagen(), uit=[];
+  d.forEach(x=>{
+    const p=uit[uit.length-1];
+    if(p&&dagenTussen(p.eind,x)<7) p.eind=x; else uit.push({start:x,eind:x});
+  });
+  return uit;
+}
+function groteSchoonmaakTaken(){
+  const v=vandaag(), gs=groteSchoonmaken(), per=productiePeriodes(), uit=[];
+  per.forEach((p,i)=>{
+    const vorigeEind=i?per[i-1].eind:'0000-00-00';
+    const mk=(moment,dag)=>{
+      const n=dagenTussen(v,dag);
+      if(n>45) return;
+      uit.push({datum:n<0?v:dag, soort:'haccp', tijd:'', eerste:false, over:n, telaat:n<0?-n:0,
+        check:{k:'groot_'+moment, n:'Grote schoonmaak', doe:'groot_'+moment},
+        tekst:'Grote schoonmaak '+(moment==='voor'?'vóór productie':'na productie')});
+    };
+    /* vóór: nog niet gedaan sinds de vorige periode, en de periode is nog niet voorbij */
+    if(p.eind>=v&&!gs.some(x=>x.groot==='voor'&&x.datum>vorigeEind)) mk('voor',datumPlus(p.start,-1));
+    /* na: de dag na de laatste productiedag, tot je hem gedaan hebt (max. 3 weken terug) */
+    const naDag=datumPlus(p.eind,1);
+    if(!gs.some(x=>x.groot==='na'&&x.datum>=p.eind)&&dagenTussen(naDag,v)<=21) mk('na',naDag);
+  });
+  return uit;
+}
 function groteSchoonmaakNodig(){
   const v=vandaag(), dagen=productieDagen(), gs=groteSchoonmaken();
   const volgende=dagen.find(d=>d>=v), vorige=dagen.filter(d=>d<v).pop();
@@ -23879,10 +23932,7 @@ function groteSchoonmaakNodig(){
 }
 function controlePunten(){
   const uit=[];
-  const gr=groteSchoonmaakNodig();
-  if(gr) uit.push({h:'groot_'+gr.moment, n:'Grote schoonmaak '+(gr.moment==='voor'?'vóór productie':'na productie'),
-    s:gr.moment==='voor'?'productie begint '+kort(new Date(gr.datum+'T12:00:00')):'laatste productiedag '+kort(new Date(gr.datum+'T12:00:00')),
-    w:'', laat:true});
+  /* de grote schoonmaak staat sinds v724 als taak in je planning en op Home onder Vandaag */
   const t1=laatsteVan('temperatuur');
   if(!t1||t1.datum!==vandaag())
     uit.push({h:'temp', n:'Temperatuur meten', s:(S.meetpunten||[]).map(m=>m.naam).join(' en ')||'koeling',
