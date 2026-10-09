@@ -4187,6 +4187,29 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vrleeg{font-size:13.5px;color:var(--grijs);line-height:1.45;margin:4px 4px 0}
 .sneltel{display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center}
 .sneltel .inp{font-size:22px;font-weight:700}
+.vrkop{display:flex;gap:8px;margin-bottom:12px}
+.vrknop{display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;border-radius:12px;border:0;background:var(--card);color:var(--ink);font:inherit;font-size:14.5px;font-weight:600;cursor:pointer}
+.vrknop.donker{background:var(--ink);color:#fff}
+.vrknop svg{width:16px;height:16px}
+.vrtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;background:#e9e9ec;margin-bottom:14px}
+.vrtabs button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 10px;border:0;border-radius:10px;background:none;font:inherit;text-align:left;cursor:pointer;color:var(--ink);min-width:0}
+.vrtabs button b{font-size:14px;font-weight:700}
+.vrtabs button small{font-size:11.5px;color:var(--grijs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.vrtabs button small.let{color:var(--amber);font-weight:600}
+.vrtabs button.aan{background:var(--card);box-shadow:0 1px 3px rgba(24,24,27,.12)}
+.vrnooit{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;margin-bottom:14px;border-radius:14px;border:0;background:#fdf3e4;font:inherit;text-align:left;color:var(--ink);cursor:pointer}
+.vrnooit span{display:flex;flex-direction:column;flex:1;min-width:0}
+.vrnooit b{font-size:14.5px}.vrnooit small{font-size:12.5px;color:var(--grijs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vrnooit em{font-style:normal;font-weight:700;font-size:14px;color:var(--amber);white-space:nowrap}
+.vrgroep{margin-bottom:14px}
+.vrgkop{display:flex;justify-content:space-between;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--grijs);margin:0 4px 6px}
+.vrgkop span{font-weight:500}
+.vrw.let{color:var(--amber)}
+.vrw.leeg{color:#c4c4c8;background:none;padding:0;font-size:15px}
+.vrmeer{display:flex;align-items:center;gap:12px;width:100%;margin-top:10px;padding:14px 16px;border-radius:16px;border:0;background:var(--card);font:inherit;text-align:left;color:var(--ink);cursor:pointer}
+.vrmeer span{display:flex;flex-direction:column;flex:1;font-size:15px;font-weight:600}
+.vrmeer small{font-size:12.5px;font-weight:400;color:var(--grijs)}
+.vrmeer svg{width:16px;height:16px;color:var(--grijs)}
 .prodlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:8px 0 0;text-align:center}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
 .htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
@@ -4405,7 +4428,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v730 · 9 okt 2026';
+const APPVERSIE='v731 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16755,51 +16778,42 @@ function voorraadTegels(){
    Ook de ingrediënten uit je recepten die nog nooit geboekt zijn staan erin,
    zodat je in één keer je beginvoorraad kunt tellen. */
 let VRTAB='grond', VRZOEK='';
-function voorraadHTML(){
-  const gereed=voorraadGereed();
-  const alles=grondVoorraad();
-  const inHuis={}; alles.forEach(x=>inHuis[gKey(x.product)]=x);
+/* v731: per leverancier gegroepeerd, korte namen, één balk voor wat nog niet
+   geteld is, en "meer" als één rij. Geen losse nul-getallen bovenaan. */
+function vrSplits(naam){
+  const lev=leverancierVan(naam), m=String(naam).split(/\s+[-–—]\s+/);
+  if(m.length>1) return {lev:lev||m.slice(1).join(' - '),kort:m[0]};
+  return {lev:lev||'',kort:naam};
+}
+function vrLijsten(){
+  const alles=grondVoorraad(), inHuis={};
+  alles.forEach(x=>inHuis[gKey(x.product)]=x);
   const ingr=alles.filter(x=>artSoort(x.product)==='ingredient'||artSoort(x.product)==='half');
   alleIngredienten().filter(n=>!ingGearchiveerd(n)&&!inHuis[gKey(n)])
     .forEach(n=>ingr.push({product:n,basis:'g',saldo:0,lots:{},nooit:true}));
   const verp=alles.filter(x=>artSoort(x.product)==='verpakking'||artSoort(x.product)==='hulp');
-  const status=x=>x.nooit?'nooit':x.saldo<=0?'op':grondOnder(x)?'bijna':'ok';
-  const rang={op:0,bijna:1,nooit:2,ok:3};
-  const sorteer=l=>l.slice().sort((a,b)=>rang[status(a)]-rang[status(b)]||a.product.localeCompare(b.product));
-  const tel=(l,s)=>l.filter(x=>status(x)===s).length;
-  const bijna=tel(ingr,'bijna')+tel(verp,'bijna'), op=tel(ingr,'op')+tel(verp,'op'), nooit=tel(ingr,'nooit');
-  const bonbons=gereed.reduce((n,x)=>n+x.aantal,0);
+  return {ingr,verp};
+}
+const vrStatus=x=>x.nooit?'nooit':x.saldo<=0?'op':grondOnder(x)?'bijna':'ok';
+function voorraadHTML(){
+  const gereed=voorraadGereed(), {ingr,verp}=vrLijsten();
+  const aand=l=>l.filter(x=>['op','bijna'].includes(vrStatus(x))).length;
+  const nooitL=ingr.filter(x=>x.nooit);
   const over=gereed.filter(x=>{const d=dagenTotTHT(x.tht);return d!==null&&d<0});
-
+  const bonbons=gereed.reduce((n,x)=>n+x.aantal,0);
   let h='';
   if(over.length) h+=`<div class="melding rood" style="margin-bottom:12px">${svg(I.alarm,'2')}
     <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT. Boek die af als derving.</span></div>`;
-
-  h+=`<div class="vracties">
-      <button class="prim" data-sheet="ontvangst">${svg(I.plus)}Levering binnen</button>
-      <button class="sec" data-telronde>${svg(I.vink,'2.2')}Tellen</button>
-    </div>
-    <div class="vrstat">
-      <div class="${op?'let':''}"><b>${op}</b><span>op</span></div>
-      <div class="${bijna?'let':''}"><b>${bijna}</b><span>bijna op</span></div>
-      <div><b>${bonbons.toLocaleString('nl-NL')}</b><span>bonbons klaar</span></div>
-    </div>
-    <div class="ssseg vrseg" style="--n:3">
-      ${[['grond','Grondstoffen',ingr.length],['verp','Verpakking',verp.length],['gereed','Gereed',gereed.length]].map(([k,n,c])=>
-        `<button type="button" class="${VRTAB===k?'aan':''}" onclick="VRTAB='${k}';VRZOEK='';render()">${n}<small>${c?' '+c:''}</small></button>`).join('')}
+  h+=`<div class="vrkop">
+      <button class="vrknop donker" data-sheet="ontvangst">${svg(I.plus)}Levering binnen</button>
+      <button class="vrknop" data-telronde>${svg(I.vink,'2.2')}Tellen</button></div>
+    <div class="vrtabs">
+      ${[['grond','Grondstoffen',aand(ingr)?aand(ingr)+' bijna op':ingr.length+' producten',aand(ingr)],
+         ['verp','Verpakking',aand(verp)?aand(verp)+' bijna op':verp.length?verp.length+' artikelen':'nog leeg',aand(verp)],
+         ['gereed','Gereed',bonbons?bonbons.toLocaleString('nl-NL')+' bonbons':'nog niets',over.length]].map(([k,n,s,l])=>
+        `<button type="button" class="${VRTAB===k?'aan':''}" onclick="VRTAB='${k}';VRZOEK='';render()"><b>${n}</b><small class="${l?'let':''}">${s}</small></button>`).join('')}
     </div>`;
 
-  const rij=x=>{
-    const s=status(x), d=grondDrempel(x.product);
-    const sub=s==='nooit'?'nog niet geteld':s==='op'?'op — bestellen':s==='bijna'?'onder je drempel van '+toonHoeveel(d,x.basis)
-      :(d?'drempel '+toonHoeveel(d,x.basis):'');
-    const pct=d?Math.max(4,Math.min(100,x.saldo/(d*3)*100)):null;
-    return `<button class="vrrij" ${x.nooit?`data-sneltel="${esc(x.product)}"`:`data-gs="${esc(x.product)}"`} data-naam="${esc(gKey(x.product))}">
-      <i class="${s}"></i>
-      <span class="vrn">${esc(x.product)}<small class="${s==='op'||s==='bijna'?'let':''}">${sub}</small>
-        ${pct!==null&&s!=='nooit'?`<span class="vrbalk"><em class="${s}" style="width:${pct}%"></em></span>`:''}</span>
-      <span class="vrw ${s==='nooit'?'leeg':''}">${s==='nooit'?'invullen':toonHoeveel(x.saldo,x.basis)}</span></button>`;
-  };
   if(VRTAB==='gereed'){
     h+=gereed.length?`<div class="vrlijst">${gereed.map(x=>{const d=dagenTotTHT(x.tht);
       const s=d!==null&&d<0?'op':d!==null&&d<=14?'bijna':'ok';
@@ -16808,27 +16822,68 @@ function voorraadHTML(){
         <span class="vrw">${x.aantal}</span></button>`}).join('')}</div>`
       :`<p class="vrleeg">Nog geen gereed product. Dat komt hier zodra je een batch afrondt.</p>`;
   } else {
-    const l=sorteer(VRTAB==='verp'?verp:ingr);
-    if(l.length>8) h+=`<input class="inp vrzoek" id="vrZoek" placeholder="Zoek in ${VRTAB==='verp'?'verpakking':'grondstoffen'}" value="${esc(VRZOEK)}" autocomplete="off">`;
-    h+=l.length?`<div class="vrlijst" id="vrLijst">${l.map(rij).join('')}</div>`
-      :`<p class="vrleeg">${VRTAB==='verp'?'Nog geen verpakking. Voeg dozen, lint en kaartjes toe bij Verpakkingsartikelen hieronder.':'Nog geen grondstoffen. Voeg ingrediënten toe aan je smaken of leg een levering vast.'}</p>`;
-    if(VRTAB==='grond'&&nooit) h+=`<p class="vrleeg" style="margin-top:8px">${nooit} ${nooit===1?'ingrediënt':'ingrediënten'} uit je recepten ${nooit===1?'is':'zijn'} nog nooit geteld. Tik op "invullen" of doe één telronde.</p>`;
+    const l=VRTAB==='verp'?verp:ingr;
+    if(VRTAB==='grond'&&nooitL.length) h+=`<button class="vrnooit" onclick="sheetTelReeks(0)">
+        <span><b>${nooitL.length} nog niet geteld</b><small>${nooitL.slice(0,3).map(x=>esc(vrSplits(x.product).kort)).join(', ')}${nooitL.length>3?' …':''}</small></span>
+        <em>Nu tellen ›</em></button>`;
+    if(l.length>10) h+=`<input class="inp vrzoek" id="vrZoek" placeholder="Zoek" value="${esc(VRZOEK)}" autocomplete="off">`;
+    const groep={};
+    l.forEach(x=>{const s=vrSplits(x.product); (groep[s.lev||'Overig']=groep[s.lev||'Overig']||[]).push(Object.assign({kort:s.kort},x))});
+    const rang={op:0,bijna:1,ok:2,nooit:3};
+    const kop=Object.keys(groep).sort((a,b)=>(a==='Overig')-(b==='Overig')||groep[b].length-groep[a].length||a.localeCompare(b));
+    h+=l.length?`<div id="vrLijst">${kop.map(g=>`<div class="vrgroep" data-groep>
+        <div class="vrgkop">${esc(g)}<span>${groep[g].length}</span></div>
+        <div class="vrlijst">${groep[g].sort((a,b)=>rang[vrStatus(a)]-rang[vrStatus(b)]||a.kort.localeCompare(b.kort)).map(x=>{
+          const s=vrStatus(x), d=grondDrempel(x.product);
+          return `<button class="vrrij" ${x.nooit?`data-sneltel="${esc(x.product)}"`:`data-gs="${esc(x.product)}"`} data-naam="${esc(gKey(x.product))}">
+            <i class="${s}"></i>
+            <span class="vrn">${esc(x.kort)}${s==='op'||s==='bijna'?`<small class="let">${s==='op'?'op':'onder drempel van '+toonHoeveel(d,x.basis)}</small>`:''}</span>
+            <span class="vrw ${s==='nooit'?'leeg':s==='op'||s==='bijna'?'let':''}">${s==='nooit'?'—':toonHoeveel(x.saldo,x.basis)}</span></button>`}).join('')}</div></div>`).join('')}</div>`
+      :`<p class="vrleeg">${VRTAB==='verp'?'Nog geen verpakking. Voeg dozen, lint en kaartjes toe via Meer → Verpakkingsartikelen.':'Nog geen grondstoffen. Voeg ingrediënten toe aan je smaken of leg een levering vast.'}</p>`;
   }
-
-  const t2=(attr,ico,naam)=>`<button class="hntg" ${attr}>${svg(ico)}<b>${naam}</b></button>`;
-  h+=`<div class="hkop" style="margin-top:26px">Meer</div>
-    <div class="htgs drie">
-      ${t2('data-ingr',I.pot||I.doos,'Ingrediënten')}
-      ${t2('data-verplijst',I.doos,'Verpakkings&shy;artikelen')}
-      ${t2('data-tempo',I.klok,'Wanneer op')}
-      ${t2('data-nogmaken',I.vorm,'Nog te maken')}
-      ${t2('data-prijsverloop',I.euro,'Prijsverloop')}
-      ${t2('data-partijen',I.doos,'Partijen')}
-      ${t2('data-vmut',I.ververs,'Mutaties')}
-      ${t2('data-trace',I.zoek||I.loep,'Lot zoeken')}
-      ${t2('data-ins="leveranciers"',I.vracht,'Leveranciers')}
-    </div>`;
+  h+=`<button class="vrmeer" onclick="sheetVoorraadMeer()"><span>Meer overzichten<small>ingrediënten, verpakking, wanneer op, prijzen, leveranciers</small></span>${svg(I.pijl,'2')}</button>`;
   return h;
+}
+function sheetVoorraadMeer(){
+  const r=(attr,ico,n,s)=>`<button class="hrij" ${attr}><i class="plus">${svg(ico,'2')}</i><span class="hn">${n}<small>${s}</small></span><span class="hw"></span>${svg(I.pijl,'2')}</button>`;
+  sheet('Meer overzichten',
+    `<div class="hkop" style="margin-top:0">Lijsten</div><div class="hlijst">
+       ${r('data-ingr',I.pot||I.doos,'Ingrediënten','prijzen en allergenen')}
+       ${r('data-verplijst',I.doos,'Verpakkingsartikelen','dozen, lint, kaartjes en prijzen')}
+       ${r('data-ins="leveranciers"',I.vracht,'Leveranciers','en hun levertijden')}</div>
+     <div class="hkop">Inzicht</div><div class="hlijst">
+       ${r('data-tempo',I.klok,'Wanneer is het op','op basis van je verbruik')}
+       ${r('data-nogmaken',I.vorm,'Wat kun je nog maken','met wat je in huis hebt')}
+       ${r('data-prijsverloop',I.euro,'Prijsverloop','wat je betaalde per levering')}</div>
+     <div class="hkop">Terugzoeken</div><div class="hlijst">
+       ${r('data-partijen',I.doos,'Partijen in huis','per lotnummer')}
+       ${r('data-vmut',I.ververs,'Alle mutaties','elke boeking')}
+       ${r('data-trace',I.zoek||I.loep,'Lot terugzoeken','van grondstof tot klant')}</div>`);
+  bind();
+}
+/* nog-niet-getelde ingrediënten één voor één */
+function sheetTelReeks(i){
+  const l=vrLijsten().ingr.filter(x=>x.nooit);
+  if(!l.length||i>=l.length){ dicht(); render(); return toast('Alles geteld.') }
+  const x=l[Math.min(i,l.length-1)], s=vrSplits(x.product);
+  sheet(s.kort,
+    `<p class="hint">${s.lev?esc(s.lev)+' · ':''}nog ${l.length} te tellen. Hoeveel heb je nu in huis?</p>
+     <div class="sneltel"><input class="inp" id="stN" type="text" inputmode="decimal" placeholder="0" autocomplete="off">
+       <div class="ssseg" id="stE" style="--n:2"><button type="button" data-v="g">g</button><button type="button" class="aan" data-v="kg">kg</button></div></div>`,
+    `<button class="prim" style="margin-top:0" id="stOk">Opslaan en volgende</button>
+     <button class="sec" id="stSkip">${i+1<l.length?'Overslaan':'Klaar'}</button>`);
+  $$('#stE button').forEach(b=>b.onclick=()=>{ $$('#stE button').forEach(y=>y.classList.remove('aan')); b.classList.add('aan') });
+  setTimeout(()=>{const e=$('#stN'); if(e) e.focus()},250);
+  const ok=()=>{
+    const n=getalIn($('#stN').value);
+    if(!(n>=0)||$('#stN').value.trim()==='') return toast('Vul een hoeveelheid in, of tik op overslaan.');
+    const e=(document.querySelector('#stE .aan')||{}).dataset.v||'g';
+    if(n>0) gBoek(x.product,n,e,'Beginvoorraad (geteld)');
+    else { S.artikelen=S.artikelen||{}; const k=gKey(x.product); S.artikelen[k]=Object.assign({naam:x.product,soort:'ingredient'},S.artikelen[k]||{}); }
+    bewaarNu(); sheetTelReeks(i);
+  };
+  $('#stOk').onclick=ok; $('#stN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ok() } };
+  $('#stSkip').onclick=()=>{ if(i+1<l.length) sheetTelReeks(i+1); else { dicht(); render(); } };
 }
 function sheetSnelTel(product){
   const verp=artSoort(product)==='verpakking'||artSoort(product)==='hulp';
@@ -21794,7 +21849,8 @@ function bind(){
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
   $$('[data-sneltel]').forEach(x=>x.onclick=()=>sheetSnelTel(x.dataset.sneltel));
   if($('#vrZoek')) $('#vrZoek').oninput=e=>{ VRZOEK=e.target.value; const q=gKey(VRZOEK);
-    $$('#vrLijst .vrrij').forEach(r=>r.hidden=q&&r.dataset.naam.indexOf(q)<0) };
+    $$('#vrLijst .vrrij').forEach(r=>r.hidden=q&&r.dataset.naam.indexOf(q)<0);
+    $$('#vrLijst [data-groep]').forEach(g=>g.hidden=![...g.querySelectorAll('.vrrij')].some(r=>!r.hidden)) };
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
   $$('[data-verplijst]').forEach(x=>x.onclick=sheetVerpakkingLijst);
   $$('[data-vraag]').forEach(x=>x.onclick=()=>sheetVraag(''));
