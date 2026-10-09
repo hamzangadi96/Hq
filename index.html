@@ -4454,7 +4454,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v734 · 9 okt 2026';
+const APPVERSIE='v735 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16875,7 +16875,8 @@ function voorraadHTML(){
     } else if(VRTAB==='verp'){
       /* v734: een lege tab met één regel tekst zei niets. Nu tik je aan wat
          je gebruikt; het komt meteen in je lijst om te tellen. */
-      const sug=['Doos 16','Doos 25','Inlegvel 16','Inlegvel 25','Lint','Kaartje','Sticker','Verzenddoos','Koelelement','Vulmateriaal'];
+      /* inlegvellen zitten in de doos zelf, die tel je niet los */
+      const sug=['Doos 16','Doos 25','Lint','Kaartje','Sticker','Verzenddoos','Koelelement','Vulmateriaal'];
       h+=`<div class="vrstart"><b>Nog geen verpakking</b>
           <span>Tik aan wat je gebruikt. Daarna tel je hoeveel je hebt, net als bij grondstoffen.</span>
           <div class="vrsug" id="vrSug">${sug.map(s=>`<button type="button" data-v="${esc(s)}">${esc(s)}</button>`).join('')}</div>
