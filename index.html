@@ -4191,6 +4191,7 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .vrknop{display:flex;align-items:center;justify-content:center;gap:7px;height:44px;padding:0 14px;border-radius:12px;border:0;background:var(--card);color:var(--ink);font:inherit;font-size:14.5px;font-weight:600;cursor:pointer}
 .vrknop.donker{background:var(--ink);color:#fff}
 .vrknop svg{width:16px;height:16px}
+.vrknop small{font-size:12px;font-weight:700;background:#fdf3e4;color:var(--amber);padding:2px 7px;border-radius:99px}
 .vrtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;background:#e9e9ec;margin-bottom:14px}
 .vrtabs button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 10px;border:0;border-radius:10px;background:none;font:inherit;text-align:left;cursor:pointer;color:var(--ink);min-width:0}
 .vrtabs button b{font-size:14px;font-weight:700}
@@ -4448,7 +4449,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v732 · 9 okt 2026';
+const APPVERSIE='v733 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16826,7 +16827,8 @@ function voorraadHTML(){
     <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT. Boek die af als derving.</span></div>`;
   h+=`<div class="vrkop">
       <button class="vrknop donker" data-sheet="ontvangst">${svg(I.plus)}Levering</button>
-      <button class="vrknop" data-telronde>${svg(I.vink,'2.2')}Tellen</button></div>
+      ${nooitL.length?`<button class="vrknop" onclick="sheetTelReeks(0)">${svg(I.vink,'2.2')}Tellen <small>${nooitL.length}</small></button>`
+        :`<button class="vrknop" data-telronde>${svg(I.vink,'2.2')}Tellen</button>`}</div>
     <div class="vrtabs">
       ${[['grond','Grondstoffen',aand(ingr)?aand(ingr)+' bijna op':ingr.length+' producten',aand(ingr)],
          ['verp','Verpakking',aand(verp)?aand(verp)+' bijna op':verp.length?verp.length+' artikelen':'nog leeg',aand(verp)],
@@ -16847,24 +16849,12 @@ function voorraadHTML(){
     l.forEach(x=>{const s=vrSplits(x.product); (groep[s.lev||'Overig']=groep[s.lev||'Overig']||[]).push(Object.assign({kort:s.kort},x))});
     const kop=Object.keys(groep).sort((a,b)=>(a==='Overig')-(b==='Overig')||groep[b].length-groep[a].length||a.localeCompare(b));
     const geteld=l.filter(x=>!x.nooit);
-    if(VRTAB==='grond'&&l.length&&!geteld.length){
-      /* v732: nog niets geteld? Dan geen lange lijst met streepjes, maar één
-         kaart met wat er te tellen is, per winkel samengevat. */
-      h+=`<div class="vrstart"><b>Je voorraad is nog leeg</b>
-          <span>${l.length} ingrediënten uit je recepten. Tel ze één keer, daarna houdt HQ het bij.</span>
-          <button class="prim" onclick="sheetTelReeks(0)">${svg(I.vink,'2.2')}Begin met tellen</button>
-          <div class="vrwolk">${kop.map(g=>`<div><b>${esc(g)}</b><span>${groep[g].map(x=>esc(x.kort)).join(', ')}</span></div>`).join('')}</div>
-        </div>`;
-    } else if(l.length){
-      if(VRTAB==='grond'&&nooitL.length) h+=`<button class="vrnooit" onclick="sheetTelReeks(0)">
-          <span><b>${nooitL.length} nog niet geteld</b><small>${nooitL.slice(0,3).map(x=>esc(vrSplits(x.product).kort)).join(', ')}${nooitL.length>3?' …':''}</small></span>
-          <em>Tellen ›</em></button>`;
+    /* v733: altijd tegels per winkel (zo gekozen). Nog niet geteld = streepje,
+       tik erop om de hoeveelheid in te vullen. */
+    if(l.length){
       if(geteld.length>12) h+=`<input class="inp vrzoek" id="vrZoek" placeholder="Zoek een product" value="${esc(VRZOEK)}" autocomplete="off">`;
       const rang={op:0,bijna:1,ok:2,nooit:3};
-      /* wat je nog niet geteld hebt staat al in de balk hierboven; in het raster alleen wat je echt hebt */
-      Object.keys(groep).forEach(g=>{ groep[g]=groep[g].filter(x=>!x.nooit); if(!groep[g].length) delete groep[g] });
-      const kop2=kop.filter(g=>groep[g]);
-      h+=`<div id="vrLijst">${kop2.map(g=>`<div class="vrgroep" data-groep>
+      h+=`<div id="vrLijst">${kop.map(g=>`<div class="vrgroep" data-groep>
           <div class="vrgkop">${esc(g)}</div>
           <div class="vrgrid">${groep[g].sort((a,b)=>rang[vrStatus(a)]-rang[vrStatus(b)]||a.kort.localeCompare(b.kort)).map(x=>{
             const s=vrStatus(x), d=grondDrempel(x.product);
@@ -16872,7 +16862,7 @@ function voorraadHTML(){
             return `<button class="vrtegel ${s}" ${x.nooit?`data-sneltel="${esc(x.product)}"`:`data-gs="${esc(x.product)}"`} data-naam="${esc(gKey(x.product))}">
               <span class="vrtn">${esc(x.kort)}</span>
               <b>${s==='nooit'?'—':toonHoeveel(x.saldo,x.basis)}</b>
-              <small>${s==='op'?'op':s==='bijna'?'bijna op':s==='nooit'?'nog tellen':d?'drempel '+toonHoeveel(d,x.basis):'op voorraad'}</small>
+              <small>${s==='op'?'op':s==='bijna'?'bijna op':s==='nooit'?'tik om te tellen':''}</small>
               ${pct!==null?`<span class="vrbalk"><em class="${s}" style="width:${pct}%"></em></span>`:''}</button>`}).join('')}</div></div>`).join('')}</div>`;
     } else {
       h+=`<p class="vrleeg">${VRTAB==='verp'?'Nog geen verpakking. Voeg dozen, lint en kaartjes toe via Meer overzichten → Verpakkingsartikelen.':'Nog geen grondstoffen. Voeg ingrediënten toe aan je smaken of leg een levering vast.'}</p>`;
