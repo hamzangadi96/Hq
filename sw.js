@@ -1,6 +1,6 @@
 /* Cacaoboetiek HQ — service worker
    Verhoog VERSIE bij elke nieuwe upload. */
-const VERSIE = 'hq-v717';
+const VERSIE = 'hq-v719';
 
 /* ═══════════ een leeg antwoord is geen antwoord ═══════════
    Een mislukte upload leverde een bestand van nul bytes op. De server gaf
@@ -57,6 +57,11 @@ self.addEventListener('fetch', e => {
       url.hostname.includes('googleapis.com') ||
       url.hostname.includes('gstatic.com') ||
       url.hostname.includes('firebaseapp.com')) return;
+
+  /* Adressen (PDOK, OpenStreetMap) en routes (OSRM) gaan rechtstreeks naar
+     het netwerk: die horen niet in de cache en mogen nooit vastlopen in de
+     service worker (v719). */
+  if (url.origin !== self.location.origin) return;
 
   /* Studio is één groot bestand dat bijna dagelijks verandert, en offline kan
      hij toch niets zonder je videobestanden. Dus altijd vers ophalen, met de

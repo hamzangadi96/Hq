@@ -15,7 +15,8 @@
   img-src 'self' data: blob:;
   connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app
     https://*.googleapis.com https://*.cloudfunctions.net https://*.run.app https://cdn.jsdelivr.net
-    https://tessdata.projectnaptha.com wss://*.firebasedatabase.app blob: data:;
+    https://tessdata.projectnaptha.com wss://*.firebasedatabase.app blob: data:
+    https://api.pdok.nl https://router.project-osrm.org https://nominatim.openstreetmap.org;
   worker-src 'self' blob:;
   base-uri 'self';
   form-action 'none'">
@@ -4014,6 +4015,12 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .stpgetallen span{font-size:13px;font-weight:600}
 .stpgetallen small{font-size:12px;color:var(--grijs)}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
+.htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
+.instico{width:36px;height:36px;border-radius:12px;background:var(--bg);display:grid;place-items:center;color:var(--ink);flex-shrink:0}
+.instico svg{width:19px;height:19px}
+.instt{display:flex;flex-direction:column;flex:1;font-size:15.5px;font-weight:600;color:var(--ink)}
+.instt small{font-size:13px;font-weight:400;color:var(--grijs);margin-top:1px}
+.instp{color:var(--grijs2);display:grid}.instp svg{width:18px;height:18px}
 .htegels>.htegel.rij{flex-direction:row;align-items:center}
 .htegels>.htegel.rij .htg{font-size:22px}
 .htegels>.htegel.rij>span:last-child{display:flex;align-items:baseline;gap:8px}
@@ -4224,7 +4231,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v717 · 8 okt 2026';
+const APPVERSIE='v719 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6201,6 +6208,7 @@ let vtBezig=false;
    op, laten we zien wat er misging, en kun je altijd nog exporteren. */
 function render(){
   if(zoektAan&&S.tab!=='dashboard') zoekDicht();
+  ritHervatten();
   try{ renderProberen(); }
   catch(e){ noodScherm(e); }
 }
@@ -9344,21 +9352,24 @@ function prodLijstenHTML(){
   const pl=n=>n?String(n):'';
   const ij=laatsteIjking();
 
-  return `<div class="fasetegels klein">
-      ${pt('data-ins2="checks"',I.vink,'Openingscheck',pl(S.checks.length))}
-      ${pt('data-ins="meetpunten"',I.temp,'Meetpunten',pl((S.meetpunten||[]).length))}
-      ${/* "Schoonmaakmiddelen" past niet in een halve kolom en brak middenin
-           een lettergreep af. Het kopje eronder staat toch al bij elkaar, dus
-           het woord "schoonmaak" hoeft niet twee keer. */
-        pt('data-ins="zones"',I.huis,'Zones','schoonmaak')}
-      ${pt('data-ins="middelen"',I.fles,'Middelen','schoonmaak')}
-      ${pt('data-ins="mallen"',I.bonbon,vakHoofd('mallen'),pl(mallen().length))}
-      ${pt('data-ins="werkplan"',I.lijst,'Productiestappen',pl((S.werkplan||[]).length))}
-      ${pt('data-ins="activiteiten"',I.ververs,'Werkzaamheden',pl((S.activiteiten||[]).length))}
-      ${pt('data-ins="kleuren"',I.palet,'Kleuren',pl((S.kleuren||[]).length))}
+  /* Twee groepen in plaats van acht losse tegels: wat bij het maken hoort en
+     wat bij hygiëne hoort. Elke waarde zegt wat er geteld wordt (v718). */
+  const tel=(n,een,meer)=>n?n+' '+(n===1?een:meer):'nog leeg';
+  return `<div class="blokkop" style="margin-top:0"><span class="eyebrow">Maken</span></div>
+    <div class="fasetegels klein">
+      ${pt('data-ins="mallen"',I.bonbon,vakHoofd('mallen'),tel(mallen().length,'mal','mallen'))}
+      ${pt('data-ins="werkplan"',I.lijst,'Stappen',tel((S.werkplan||[]).length,'stap','stappen'))}
+      ${pt('data-ins="kleuren"',I.palet,'Kleuren',tel((S.kleuren||[]).length,'kleur','kleuren'))}
+      ${pt('data-ins="activiteiten"',I.ververs,'Werkzaamheden',tel((S.activiteiten||[]).length,'soort','soorten'))}
+    </div>
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Hygiëne</span></div>
+    <div class="fasetegels klein">
+      ${pt('data-ins2="checks"',I.vink,'Openingscheck',tel(S.checks.length,'punt','punten'))}
+      ${pt('data-ins="meetpunten"',I.temp,'Meetpunten',tel((S.meetpunten||[]).length,'plek','plekken'))}
+      ${pt('data-ins="zones"',I.huis,'Zones',tel((S.zones||[]).length,'zone','zones'))}
+      ${pt('data-ins="middelen"',I.fles,'Middelen',tel((S.middelen||[]).length,'middel','middelen'))}
     </div>`;
 }
-function prodLijstenAantal(){ return 8 }
 function prodTegelsHTML(a){
   const v=voorspelStand(), G=a?voorspelGeld(1):null;
   const g=n=>Math.round(n).toLocaleString('nl-NL');
@@ -9377,7 +9388,10 @@ function prodTegelsHTML(a){
   const vv=!ij
     ?tg('vv','Voedselveiligheid','1',sub('thermometer ijken'),'<i class="htstip"></i>','var(--amber)')
     :tg('vv','Voedselveiligheid',svg(I.vink,'2.6').replace('<svg ','<svg width="30" height="30" '),sub('alles bij'),'','var(--groen)');
-  const lst=tg('lst','Instellen',String(prodLijstenAantal()),sub('lijsten, mallen, zones'),'','','breed rij');
+  const lst=`<button type="button" class="htegel breed instrij" onclick="homeTegel('lst')">
+    <span class="instico">${svg(I.instel||I.lijst)}</span>
+    <span class="instt">Instellen<small>mallen, stappen, hygiënelijsten</small></span>
+    <span class="instp">${svg(I.pijl,'2')}</span></button>`;
   return `<div class="htegels" style="margin-top:20px">${vspT}${smk}${vv}${lst}</div>`;
 }
 
@@ -15464,6 +15478,7 @@ function sheetKmTarief(){
 
 async function ritStart(doel){
   if(S.rit) return;
+  ritGrof=0;
   toast('Locatie zoeken…');
   try{
     const p=await positieNu({ms:6000,doel:15,min:1});
@@ -15538,9 +15553,9 @@ async function ritStop(){
            : 'route berekend'}</div>
        </div>
      </div>
-     ${bron==='berekend'?`<div class="melding amber" style="margin:0 0 20px">${svg(I.alarm,'2')}
+     <div id="rrBer">${bron==='berekend'?`<div class="melding amber" style="margin:0 0 20px">${svg(I.alarm,'2')}
        <span>De app was tussendoor dicht en kon niet meten. Dit is de kortste route over de weg —
-         reed je om, pas het aantal dan aan.</span></div>`:''}
+         reed je om, pas het aantal dan aan.</span></div>`:''}</div>
      <div class="veld"><label>Waarvoor was deze rit?</label>
        <input class="inp" id="rrR" placeholder="Bijv. levering Bakkerij De Vries">
        <div class="chips" id="rrSug" style="padding-top:10px"></div></div>
@@ -15581,9 +15596,23 @@ async function ritStop(){
     if(beter){
       eind.lat=beter.lat; eind.lon=beter.lon; eind.nauw=beter.nauw;
       r.punten.push({lat:beter.lat,lon:beter.lon,t:Date.now()});
-      const nieuwKm=Math.round(ritKm(r.punten)*10)/10;
+      let nieuwKm=Math.round(ritKm(r.punten)*10)/10;
+      /* Werd er onderweg niets gemeten, dan stond het eindpunt nog op je
+         vertrekpunt en kwam er 0 km uit. Nu rekenen we, zodra de echte
+         aankomstplek binnen is, alsnog de route over de weg uit (v719). */
+      let berekend=bron==='berekend';
+      if(!berekend&&afstandKm(r.start,beter)>0.3){
+        const via=await wegAfstand(r.start,{lat:beter.lat,lon:beter.lon});
+        if(via!==null&&Math.round(via*10)/10>nieuwKm*1.15){ nieuwKm=Math.round(via*10)/10; berekend=true; }
+      }
       const veld=$('#rrKm');
-      if(veld&&bron==='gemeten'&&!veld.dataset.aangepast&&nieuwKm>0) veld.value=nieuwKm;
+      if(veld&&!veld.dataset.aangepast&&nieuwKm>0&&(bron==='gemeten'||nieuwKm>getalIn0(veld.value))){
+        veld.value=nieuwKm;
+        const g=document.querySelector('.ritklaar .rkgetal');
+        if(g&&g.firstChild) g.firstChild.textContent=komma(nieuwKm);
+        if(berekend&&bron==='gemeten'){ const m=$('#rrBer'); if(m) m.innerHTML=`<div class="melding amber" style="margin:0 0 20px">${svg(I.alarm,'2')}
+          <span>Onderweg is er weinig gemeten, waarschijnlijk stond je scherm uit of zat je in Kaarten. Dit is de kortste route over de weg — reed je om, pas het aantal dan aan.</span></div>`; }
+      }
       const nw=$('#rrNauw');
       if(nw) nw.textContent='Vertrek gemeten op '+(r.nauw||'?')+' m, aankomst op '+beter.nauw+' m nauwkeurig.';
     }
@@ -30184,13 +30213,37 @@ const achtergrondGps=()=>{
   return null;
 };
 const inApp=()=>!!achtergrondGps();
-let ritWatch=null, bgWatch=null;
+let ritWatch=null, bgWatch=null, ritGrof=0;
+/* Een rit stond opgeslagen, maar na herladen van de app (iOS sluit hem zodra je
+   naar Kaarten gaat) liep er geen meting meer: alleen ritStart zette die aan.
+   Nu pakt de app een lopende rit vanzelf weer op (v719). */
+function ritHervatten(){
+  /* render kan al draaien voordat deze variabelen bestaan; dan later opnieuw */
+  try{ if(!S.rit||ritWatch!==null||bgWatch||!navigator.geolocation) return; }catch(e){ return }
+  setTimeout(()=>{ if(S.rit&&ritWatch===null&&!bgWatch){ ritVolgen(true); schermWakker(true); } },0);
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible'||!S.rit) return;
+  /* iOS zet de meting stil zolang de app op de achtergrond staat; opnieuw
+     beginnen is betrouwbaarder dan hopen dat hij vanzelf weer loopt */
+  if(ritWatch!==null){ try{navigator.geolocation.clearWatch(ritWatch)}catch(e){} ritWatch=null }
+  ritVolgen(true); schermWakker(true);
+  positieNu({ms:8000,doel:30,min:1}).then(p=>meetPunt(p.lat,p.lon,p.nauw)).catch(()=>{});
+});
 function meetPunt(lat,lon,nauw){
   if(!S.rit) return;
-  if(nauw>60) return;                               /* te onnauwkeurig, negeren */
   const punt={lat,lon,t:Date.now()};
   const vorig=S.rit.punten[S.rit.punten.length-1];
-  if(vorig&&afstandKm(vorig,punt)<0.015) return;    /* onder de 15 meter is ruis */
+  const af=vorig?afstandKm(vorig,punt):1;
+  /* Alles boven 60 m werd weggegooid. Staat "Nauwkeurige locatie" uit, dan is
+     élke meting grover en telde de rit nooit één meter. Een grove meting telt
+     nu mee zodra je duidelijk verder bent dan de onzekerheid. */
+  if(nauw>60&&af<Math.max(0.3,nauw*2/1000)){
+    ritGrof++;
+    if(ritGrof===8) toast('Je telefoon geeft alleen een grove locatie. Zet bij Safari-websites "Nauwkeurige locatie" aan.');
+    return;
+  }
+  if(af<0.015) return;                              /* onder de 15 meter is ruis */
   S.rit.punten.push(punt);
   S.rit.km=ritKm(S.rit.punten);
   bewaarNu();
