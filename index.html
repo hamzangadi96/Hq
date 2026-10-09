@@ -972,6 +972,17 @@ textarea.inp{min-height:76px}
 .fasetegels.klein .fasetegel .ftico svg{width:20px;height:20px}
 .fasetegels.klein .fasetegel .ftn{margin:0;font-size:13.5px;grid-column:2;overflow-wrap:normal;word-break:normal}
 .fasetegels.klein .fasetegel .ftt{position:static;grid-column:2;text-align:left;font-size:12px}
+.gbkop{display:flex;align-items:baseline;gap:8px}
+.gbkop b{font-size:34px;font-weight:800;letter-spacing:-.03em}.gbkop span{color:var(--grijs);font-size:14px}
+.gbnooit{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.gbnooit span{display:flex;flex-direction:column;padding:8px 12px;border-radius:12px;background:#fdf3e4;color:var(--ink);font-size:14px;font-weight:600}
+.gbnooit small{font-size:10.5px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em}
+.gblijst{display:flex;flex-direction:column;gap:12px;margin-top:10px}
+.gbtop{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14.5px;font-weight:600}
+.gbtop small{font-weight:400;color:var(--grijs);font-size:12px}
+.gbtop b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.gbbalk{height:6px;border-radius:3px;background:var(--lijn);margin-top:6px}.gbbalk i{display:block;height:100%;border-radius:3px;background:var(--ink)}
+.gbonder{display:block;font-size:12px;color:var(--grijs);margin-top:4px}
 .fasetegels{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 0}
 /* Elke tegel had een randje én een schaduw én wit-op-grijs: drie signalen
    voor hetzelfde. Zonder rand is de kaart nog steeds duidelijk, en wordt een
@@ -4285,7 +4296,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v720 · 9 okt 2026';
+const APPVERSIE='v721 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6203,6 +6214,44 @@ function telGebruik(sleutel){
       }).catch(()=>{});
     }catch(e){}
   });
+}
+/* ═══ Gebruik bekijken (v721) ═══
+   De teller loopt al een week stil mee, maar je kon de cijfers nergens zien.
+   Dit scherm laat zien wat je echt opent, en vooral wat je nooit opent:
+   daar beginnen we met opruimen. */
+const GEBRUIKSCHERMEN=['boodschappen','doel','dossier','filmdag','haccp','instellingen','nieuwbatch','ontvangst',
+  'planning','prijzen','smaken','traceren','uitleg','uren','wenskaart','zoeken'];
+function gebruikNaam(k){
+  const [soort,...r]=k.split('_'), key=r.join('_');
+  if(soort==='tab'){ const tb=TABS.find(x=>x.key===key); return {naam:tb?tb.label:key,soort:'Tab'} }
+  const s=SNELITEMS.find(x=>x.key===key)||(key==='prijzen'?{label:'Prijzen'}:null);
+  return {naam:s?s.label:key,soort:'Scherm'};
+}
+function gebruikLezen(){
+  if(!fbUser) return Promise.resolve({});
+  return firebase.database().ref('werkvloer/'+fbUser.uid+'/gebruik').once('value').then(s=>s.val()||{});
+}
+function sheetGebruik(){
+  sheet('Wat je gebruikt','<p class="wdleeg">Cijfers ophalen…</p>');
+  gebruikLezen().then(g=>{
+    const alle=TABS.map(x=>'tab_'+x.key).concat(GEBRUIKSCHERMEN.map(x=>'scherm_'+x));
+    const rijen=Object.keys(g).map(k=>Object.assign({k},g[k],gebruikNaam(k))).sort((a,b)=>(b.dagen||0)-(a.dagen||0)||(b.n||0)-(a.n||0));
+    const nooit=alle.filter(k=>!g[k]).map(k=>Object.assign({k},gebruikNaam(k)));
+    const sinds=rijen.reduce((m,x)=>x.eerst&&(!m||x.eerst<m)?x.eerst:m,null);
+    const dagen=sinds?dagenTussen(sinds,vandaag())+1:0;
+    const max=Math.max(1,...rijen.map(x=>x.dagen||0));
+    const dk=d=>d?new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'short'}):'';
+    $('#sheetBody').innerHTML=`
+      <div class="gbkop"><b>${dagen}</b><span>${dagen===1?'dag':'dagen'} gemeten${sinds?' · sinds '+dk(sinds):''}</span></div>
+      ${nooit.length?`<div class="blokkop" style="margin-top:18px"><span class="eyebrow">Nooit geopend</span><span class="tel">${nooit.length}</span></div>
+        <div class="gbnooit">${nooit.map(x=>`<span><small>${x.soort}</small>${esc(x.naam)}</span>`).join('')}</div>`:''}
+      <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Wel geopend</span><span class="tel">op aantal dagen</span></div>
+      <div class="gblijst">${rijen.map(x=>`<div class="gbrij">
+        <div class="gbtop"><span>${esc(x.naam)} <small>${x.soort.toLowerCase()}</small></span><b>${x.dagen||0} ${x.dagen===1?'dag':'dagen'}</b></div>
+        <div class="gbbalk"><i style="width:${Math.round((x.dagen||0)/max*100)}%"></i></div>
+        <small class="gbonder">${x.n||0}× geopend · laatst ${dk(x.laatst)}</small></div>`).join('')||'<p class="wdleeg">Nog niets gemeten.</p>'}</div>
+      <p class="vbnoot" style="margin-top:16px">Maak een schermafbeelding en stuur hem naar Claude, dan maken we samen de opruimlijst.</p>`;
+  }).catch(()=>{ $('#sheetBody').innerHTML='<p class="wdleeg">De cijfers konden niet worden opgehaald. Ben je online?</p>' });
 }
 function metTeller(sleutel,fn){
   return function(){ telGebruik('scherm_'+sleutel); return fn.apply(this,arguments) };
@@ -33212,6 +33261,7 @@ function sheetApp(){
   sheet('De app',
     `<button class="menurij" data-ins="accent">${svg(I.palet)}Accentkleur<span class="tel">${
        accentNaam()}</span></button>
+     <button class="menurij" onclick="sheetGebruik()">${svg(I.spark)}Wat je gebruikt<span class="tel">meting</span></button>
      <button class="menurij" data-ins="storingen">${svg(I.alarm)}Storingen<span class="tel${
        (S.storingen||[]).length?' let':''}">${(S.storingen||[]).length||'geen'}</span></button>
      <button class="menurij" data-ins="backup">${svg(I.doc)}Back-up<span class="tel${
