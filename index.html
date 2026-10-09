@@ -4095,8 +4095,21 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .gsmelding svg{width:16px;height:16px;color:var(--grijs)}
 .gsuitleg{display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:14px;background:var(--bg);margin-bottom:16px}
 .gsuitleg b{font-size:15px}.gsuitleg span{font-size:13.5px;color:var(--grijs);line-height:1.45}
-.sschips{flex-wrap:wrap!important;overflow:visible!important;padding-bottom:0!important}
-.sschips .chip{flex:0 0 auto}
+.ssnaam{font-size:17px;margin-bottom:6px}
+.sslabel{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--grijs);margin:20px 0 8px}
+.sslabel span{text-transform:none;letter-spacing:0;font-weight:500;margin-left:4px}
+.ssseg{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;background:var(--bg)}
+.ssseg button{display:flex;align-items:baseline;justify-content:center;gap:2px;padding:11px 0 0;height:42px;border:0;border-radius:10px;background:none;font:inherit;font-size:15px;font-weight:600;color:var(--ink2,#3f3f46);cursor:pointer}
+.ssseg button small{font-size:12px;font-weight:500;opacity:.6}
+.ssseg button.aan{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(24,24,27,.12)}
+.sskies{display:flex;flex-direction:column;border-radius:14px;background:var(--bg);padding:4px;gap:2px}
+.sskies button{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:0;border-radius:10px;background:none;font:inherit;text-align:left;cursor:pointer;color:var(--ink)}
+.sskies button span{display:flex;flex-direction:column;font-size:15px;font-weight:600;min-width:0}
+.sskies button small{font-size:12.5px;font-weight:400;color:var(--grijs);margin-top:1px}
+.sskies button i{width:20px;height:20px;border-radius:50%;border:2px solid #d4d4d8;flex-shrink:0;position:relative}
+.sskies button.aan{background:var(--card);box-shadow:0 1px 3px rgba(24,24,27,.12)}
+.sskies button.aan i{border-color:var(--ink);background:var(--ink)}
+.sskies button.aan i::after{content:"";position:absolute;inset:4px;border-radius:50%;background:#fff}
 .prodlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:8px 0 0;text-align:center}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
 .htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
@@ -4315,7 +4328,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v725 · 9 okt 2026';
+const APPVERSIE='v726 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9460,26 +9473,35 @@ function sheetSmaakSnel(){
   const choc=vaakChoc()||(soorten()[0]||{}).key, tht=vaakTht()||14;
   const vbIdx=act.findIndex(r=>(r.onderdelen||[]).length);
   const thts=[14,30,60,90].includes(tht)?[14,30,60,90]:[14,30,60,90,tht].sort((a,b)=>a-b);
+  const kort=n=>String(n).replace(/\s*chocolade$/i,'').replace(/^Witte$/i,'Wit').replace(/^Pure$/i,'Puur')||n;
+  const lagen=r=>(r.onderdelen||[]).length;
+  /* v726: segmenten en een keuzelijst in plaats van losse bruine pillen */
   sheet('Nieuwe smaak',
-    `<div class="veld"><label>Naam</label>
-       <input class="inp" id="ssN" placeholder="Bijv. hazelnoot praliné" autocapitalize="sentences" autocomplete="off"></div>
-     <div class="veld"><label>Chocolade</label><div class="chips sschips" id="ssC">${soorten().map(c=>
-       `<button class="chip ${c.key===choc?'aan':''}" data-v="${c.key}">${esc(c.naam)}</button>`).join('')}</div></div>
-     <div class="veld"><label>Houdbaar</label><div class="chips sschips" id="ssT">${thts.map(d=>
-       `<button class="chip ${d===tht?'aan':''}" data-v="${d}">${d} dagen</button>`).join('')}</div></div>
-     ${act.length?`<div class="veld"><label>Opbouw</label>
-       <p class="hint" style="margin:-2px 0 10px">Schelp, lagen, mal en stappen overnemen van een smaak die je al hebt.</p>
-       <div class="chips sschips" id="ssK"><button class="chip ${vbIdx<0?'aan':''}" data-v="">Leeg beginnen</button>${act.map((r,i)=>
-         `<button class="chip ${i===vbIdx?'aan':''}" data-v="${r.id}">Zoals ${esc(r.naam)}</button>`).join('')}</div></div>`:''}`,
+    `<input class="inp ssnaam" id="ssN" placeholder="Naam, bijv. hazelnoot praliné" autocapitalize="sentences" autocomplete="off">
+     <div class="sslabel">Chocolade</div>
+     <div class="ssseg" id="ssC" style="--n:${soorten().length}">${soorten().map(c=>
+       `<button type="button" class="${c.key===choc?'aan':''}" data-v="${c.key}">${esc(kort(c.naam))}</button>`).join('')}</div>
+     <div class="sslabel">Houdbaar</div>
+     <div class="ssseg" id="ssT" style="--n:${thts.length}">${thts.map(d=>
+       `<button type="button" class="${d===tht?'aan':''}" data-v="${d}">${d}<small> dg</small></button>`).join('')}</div>
+     ${act.length?`<div class="sslabel">Opbouw overnemen <span>schelp, lagen, mal en stappen</span></div>
+       <div class="sskies" id="ssK">
+         ${act.map((r,i)=>`<button type="button" class="${i===vbIdx?'aan':''}" data-v="${r.id}">
+           <span>${esc(r.naam)}<small>${lagen(r)?lagen(r)+(lagen(r)===1?' laag':' lagen'):'nog geen lagen'} · ${esc(kort(chocNaam(r.chocolade)).toLowerCase())}</small></span><i></i></button>`).join('')}
+         <button type="button" class="${vbIdx<0?'aan':''}" data-v=""><span>Leeg beginnen<small>lagen later zelf invullen</small></span><i></i></button>
+       </div>`:''}`,
     `<button class="prim" style="margin-top:0" id="ssOk">${svg(I.plus)}Smaak toevoegen</button>`);
-  chips('#ssC'); chips('#ssT'); if($('#ssK')) chips('#ssK');
+  ['#ssC','#ssT','#ssK'].forEach(sel=>$$(sel+' button').forEach(b=>b.onclick=()=>{
+    $$(sel+' button').forEach(x=>x.classList.remove('aan')); b.classList.add('aan');
+  }));
+  const kies=sel=>{ const e=document.querySelector(sel+' .aan'); return e?e.dataset.v:'' };
   setTimeout(()=>{const e=$('#ssN'); if(e) e.focus()},250);
   const ok=()=>{
     const naam=$('#ssN').value.trim();
     if(!naam) return toast('Geef je smaak een naam.');
     if((S.recepten||[]).some(r=>gKey(r.naam)===gKey(naam))) return toast(naam+' bestaat al.');
-    const bron=$('#ssK')?(S.recepten||[]).find(r=>r.id===chipV('#ssK')):null;
-    R.id=null; R.naam=naam; R.chocolade=chipV('#ssC')||choc; R.tht=parseInt(chipV('#ssT'),10)||tht;
+    const bron=$('#ssK')?(S.recepten||[]).find(r=>r.id===kies('#ssK')):null;
+    R.id=null; R.naam=naam; R.chocolade=kies('#ssC')||choc; R.tht=parseInt(kies('#ssT'),10)||tht;
     R.onderdelen=bron?JSON.parse(JSON.stringify(bron.onderdelen||[])):[];
     R.stappen=bron?JSON.parse(JSON.stringify(bron.stappen||[])):[];
     bewaarSmaak();
