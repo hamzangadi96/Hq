@@ -4161,6 +4161,32 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .hntg svg{width:20px;height:20px;color:var(--ink2,#3f3f46)}
 .hntg b{font-size:12.5px;font-weight:600;text-align:center;line-height:1.2}
 .hntg small{font-size:11px;color:var(--grijs)}
+.vracties{display:grid;grid-template-columns:1.6fr 1fr;gap:8px}
+.vracties .prim,.vracties .sec{margin:0;display:flex;align-items:center;justify-content:center;gap:8px}
+.vracties svg{width:18px;height:18px}
+.vracties .sec{background:var(--card);color:var(--ink);border:0}
+.vrstat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+.vrstat>div{background:var(--card);border-radius:14px;padding:12px;display:flex;flex-direction:column}
+.vrstat b{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.vrstat span{font-size:12.5px;color:var(--grijs)}
+.vrstat .let b{color:var(--amber)}
+.vrseg{margin-bottom:12px}
+.vrzoek{margin-bottom:10px}
+.vrlijst{background:var(--card);border-radius:16px;overflow:hidden}
+.vrrij{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:12px 14px;
+  border:0;border-bottom:1px solid var(--lijn);background:none;font:inherit;text-align:left;color:var(--ink);cursor:pointer}
+.vrrij:last-child{border-bottom:0}.vrrij:active{background:var(--bg)}
+.vrrij>i{width:8px;height:8px;border-radius:50%;background:var(--groen)}
+.vrrij>i.op,.vrrij>i.bijna{background:var(--amber)}.vrrij>i.nooit{background:#d4d4d8}
+.vrn{display:flex;flex-direction:column;font-size:15px;font-weight:600;min-width:0}
+.vrn small{font-size:12.5px;font-weight:400;color:var(--grijs);margin-top:1px}.vrn small.let{color:var(--amber);font-weight:600}
+.vrbalk{display:block;height:4px;border-radius:2px;background:var(--lijn);margin-top:6px;max-width:160px}
+.vrbalk em{display:block;height:100%;border-radius:2px;background:var(--groen)}.vrbalk em.op,.vrbalk em.bijna{background:var(--amber)}
+.vrw{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vrw.leeg{font-size:13px;font-weight:600;color:var(--ink);background:var(--bg);padding:6px 10px;border-radius:9px}
+.vrleeg{font-size:13.5px;color:var(--grijs);line-height:1.45;margin:4px 4px 0}
+.sneltel{display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center}
+.sneltel .inp{font-size:22px;font-weight:700}
 .prodlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:8px 0 0;text-align:center}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
 .htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
@@ -4379,7 +4405,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v729 · 9 okt 2026';
+const APPVERSIE='v730 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16723,7 +16749,107 @@ function voorraadTegels(){
   return h;
 }
 
+/* ═══════════ Voorraad als overzicht (v730) ═══════════
+   Was: tien tegels en geen enkel getal. Nu zie je wat je hébt: per grondstof
+   hoeveel er ligt, wat bijna op is, en met één tik vul je een hoeveelheid in.
+   Ook de ingrediënten uit je recepten die nog nooit geboekt zijn staan erin,
+   zodat je in één keer je beginvoorraad kunt tellen. */
+let VRTAB='grond', VRZOEK='';
 function voorraadHTML(){
+  const gereed=voorraadGereed();
+  const alles=grondVoorraad();
+  const inHuis={}; alles.forEach(x=>inHuis[gKey(x.product)]=x);
+  const ingr=alles.filter(x=>artSoort(x.product)==='ingredient'||artSoort(x.product)==='half');
+  alleIngredienten().filter(n=>!ingGearchiveerd(n)&&!inHuis[gKey(n)])
+    .forEach(n=>ingr.push({product:n,basis:'g',saldo:0,lots:{},nooit:true}));
+  const verp=alles.filter(x=>artSoort(x.product)==='verpakking'||artSoort(x.product)==='hulp');
+  const status=x=>x.nooit?'nooit':x.saldo<=0?'op':grondOnder(x)?'bijna':'ok';
+  const rang={op:0,bijna:1,nooit:2,ok:3};
+  const sorteer=l=>l.slice().sort((a,b)=>rang[status(a)]-rang[status(b)]||a.product.localeCompare(b.product));
+  const tel=(l,s)=>l.filter(x=>status(x)===s).length;
+  const bijna=tel(ingr,'bijna')+tel(verp,'bijna'), op=tel(ingr,'op')+tel(verp,'op'), nooit=tel(ingr,'nooit');
+  const bonbons=gereed.reduce((n,x)=>n+x.aantal,0);
+  const over=gereed.filter(x=>{const d=dagenTotTHT(x.tht);return d!==null&&d<0});
+
+  let h='';
+  if(over.length) h+=`<div class="melding rood" style="margin-bottom:12px">${svg(I.alarm,'2')}
+    <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT. Boek die af als derving.</span></div>`;
+
+  h+=`<div class="vracties">
+      <button class="prim" data-sheet="ontvangst">${svg(I.plus)}Levering binnen</button>
+      <button class="sec" data-telronde>${svg(I.vink,'2.2')}Tellen</button>
+    </div>
+    <div class="vrstat">
+      <div class="${op?'let':''}"><b>${op}</b><span>op</span></div>
+      <div class="${bijna?'let':''}"><b>${bijna}</b><span>bijna op</span></div>
+      <div><b>${bonbons.toLocaleString('nl-NL')}</b><span>bonbons klaar</span></div>
+    </div>
+    <div class="ssseg vrseg" style="--n:3">
+      ${[['grond','Grondstoffen',ingr.length],['verp','Verpakking',verp.length],['gereed','Gereed',gereed.length]].map(([k,n,c])=>
+        `<button type="button" class="${VRTAB===k?'aan':''}" onclick="VRTAB='${k}';VRZOEK='';render()">${n}<small>${c?' '+c:''}</small></button>`).join('')}
+    </div>`;
+
+  const rij=x=>{
+    const s=status(x), d=grondDrempel(x.product);
+    const sub=s==='nooit'?'nog niet geteld':s==='op'?'op — bestellen':s==='bijna'?'onder je drempel van '+toonHoeveel(d,x.basis)
+      :(d?'drempel '+toonHoeveel(d,x.basis):'');
+    const pct=d?Math.max(4,Math.min(100,x.saldo/(d*3)*100)):null;
+    return `<button class="vrrij" ${x.nooit?`data-sneltel="${esc(x.product)}"`:`data-gs="${esc(x.product)}"`} data-naam="${esc(gKey(x.product))}">
+      <i class="${s}"></i>
+      <span class="vrn">${esc(x.product)}<small class="${s==='op'||s==='bijna'?'let':''}">${sub}</small>
+        ${pct!==null&&s!=='nooit'?`<span class="vrbalk"><em class="${s}" style="width:${pct}%"></em></span>`:''}</span>
+      <span class="vrw ${s==='nooit'?'leeg':''}">${s==='nooit'?'invullen':toonHoeveel(x.saldo,x.basis)}</span></button>`;
+  };
+  if(VRTAB==='gereed'){
+    h+=gereed.length?`<div class="vrlijst">${gereed.map(x=>{const d=dagenTotTHT(x.tht);
+      const s=d!==null&&d<0?'op':d!==null&&d<=14?'bijna':'ok';
+      return `<button class="vrrij" data-vr="${esc(x.receptId)}|${esc(x.lot)}"><i class="${s}"></i>
+        <span class="vrn">${esc(smaakNaam(x.receptId))}<small class="${s!=='ok'?'let':''}">lot ${esc(x.lot)}${x.tht?' · THT '+kort(new Date(x.tht))+(d<0?' — verlopen':d<=14?' — nog '+d+' dagen':''):''}</small></span>
+        <span class="vrw">${x.aantal}</span></button>`}).join('')}</div>`
+      :`<p class="vrleeg">Nog geen gereed product. Dat komt hier zodra je een batch afrondt.</p>`;
+  } else {
+    const l=sorteer(VRTAB==='verp'?verp:ingr);
+    if(l.length>8) h+=`<input class="inp vrzoek" id="vrZoek" placeholder="Zoek in ${VRTAB==='verp'?'verpakking':'grondstoffen'}" value="${esc(VRZOEK)}" autocomplete="off">`;
+    h+=l.length?`<div class="vrlijst" id="vrLijst">${l.map(rij).join('')}</div>`
+      :`<p class="vrleeg">${VRTAB==='verp'?'Nog geen verpakking. Voeg dozen, lint en kaartjes toe bij Verpakkingsartikelen hieronder.':'Nog geen grondstoffen. Voeg ingrediënten toe aan je smaken of leg een levering vast.'}</p>`;
+    if(VRTAB==='grond'&&nooit) h+=`<p class="vrleeg" style="margin-top:8px">${nooit} ${nooit===1?'ingrediënt':'ingrediënten'} uit je recepten ${nooit===1?'is':'zijn'} nog nooit geteld. Tik op "invullen" of doe één telronde.</p>`;
+  }
+
+  const t2=(attr,ico,naam)=>`<button class="hntg" ${attr}>${svg(ico)}<b>${naam}</b></button>`;
+  h+=`<div class="hkop" style="margin-top:26px">Meer</div>
+    <div class="htgs drie">
+      ${t2('data-ingr',I.pot||I.doos,'Ingrediënten')}
+      ${t2('data-verplijst',I.doos,'Verpakkings&shy;artikelen')}
+      ${t2('data-tempo',I.klok,'Wanneer op')}
+      ${t2('data-nogmaken',I.vorm,'Nog te maken')}
+      ${t2('data-prijsverloop',I.euro,'Prijsverloop')}
+      ${t2('data-partijen',I.doos,'Partijen')}
+      ${t2('data-vmut',I.ververs,'Mutaties')}
+      ${t2('data-trace',I.zoek||I.loep,'Lot zoeken')}
+      ${t2('data-ins="leveranciers"',I.vracht,'Leveranciers')}
+    </div>`;
+  return h;
+}
+function sheetSnelTel(product){
+  const verp=artSoort(product)==='verpakking'||artSoort(product)==='hulp';
+  const eh=verp?['st']:['g','kg'];
+  sheet(product,
+    `<p class="hint">Hoeveel heb je nu in huis?</p>
+     <div class="sneltel"><input class="inp" id="stN" type="text" inputmode="decimal" placeholder="0" autocomplete="off">
+       <div class="ssseg" id="stE" style="--n:${eh.length}">${eh.map((e,i)=>`<button type="button" class="${i===(verp?0:1)?'aan':''}" data-v="${e}">${e}</button>`).join('')}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="stOk">Opslaan</button>`);
+  $$('#stE button').forEach(b=>b.onclick=()=>{ $$('#stE button').forEach(x=>x.classList.remove('aan')); b.classList.add('aan') });
+  setTimeout(()=>{const e=$('#stN'); if(e) e.focus()},250);
+  const ok=()=>{
+    const n=getalIn($('#stN').value);
+    if(!(n>0)) return toast('Vul een hoeveelheid in.');
+    const e=(document.querySelector('#stE .aan')||{}).dataset.v||eh[0];
+    gBoek(product,n,e,'Beginvoorraad (geteld)');
+    bewaarNu(); dicht(); render(); toast(product+': '+n+' '+e+' vastgelegd.');
+  };
+  $('#stOk').onclick=ok; $('#stN').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ok() } };
+}
+function voorraadHTMLOud(){
   const gereed=voorraadGereed();
   const totaal=gereed.reduce((n,v)=>n+v.aantal,0);
   const bijna=gereed.filter(v=>{const d=dagenTotTHT(v.tht);return d!==null&&d<=14});
@@ -21666,6 +21792,9 @@ function bind(){
   $$('[data-kmtarief]').forEach(x=>x.onclick=sheetKmTarief);
   $$('[data-lot2]').forEach(x=>x.onclick=sheetLots);
   $$('[data-gs]').forEach(x=>x.onclick=()=>sheetGrondstof(x.dataset.gs));
+  $$('[data-sneltel]').forEach(x=>x.onclick=()=>sheetSnelTel(x.dataset.sneltel));
+  if($('#vrZoek')) $('#vrZoek').oninput=e=>{ VRZOEK=e.target.value; const q=gKey(VRZOEK);
+    $$('#vrLijst .vrrij').forEach(r=>r.hidden=q&&r.dataset.naam.indexOf(q)<0) };
   $$('[data-verpnieuw]').forEach(x=>x.onclick=sheetVerpakkingNieuw);
   $$('[data-verplijst]').forEach(x=>x.onclick=sheetVerpakkingLijst);
   $$('[data-vraag]').forEach(x=>x.onclick=()=>sheetVraag(''));
