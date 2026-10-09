@@ -4157,10 +4157,10 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .hgoed span{flex:1;font-size:14.5px;font-weight:500}.hgoed small{font-size:12.5px;color:var(--grijs)}
 .htgs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .htgs.drie{grid-template-columns:repeat(3,minmax(0,1fr))}
-.htg{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 4px;border-radius:14px;border:1px solid var(--lijn);background:var(--card);font:inherit;color:var(--ink);cursor:pointer;min-width:0}
-.htg svg{width:20px;height:20px;color:var(--ink2,#3f3f46)}
-.htg b{font-size:12.5px;font-weight:600;text-align:center;line-height:1.2}
-.htg small{font-size:11px;color:var(--grijs)}
+.hntg{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 4px;border-radius:14px;border:1px solid var(--lijn);background:var(--card);font:inherit;color:var(--ink);cursor:pointer;min-width:0}
+.hntg svg{width:20px;height:20px;color:var(--ink2,#3f3f46)}
+.hntg b{font-size:12.5px;font-weight:600;text-align:center;line-height:1.2}
+.hntg small{font-size:11px;color:var(--grijs)}
 .prodlos{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--grijs);padding:8px 0 0;text-align:center}
 .htegels>.htegel.breed{grid-column:1/-1;min-height:auto}
 .htegels>.htegel.instrij{flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:14px 16px}
@@ -4379,7 +4379,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v728 · 9 okt 2026';
+const APPVERSIE='v729 · 9 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19850,7 +19850,7 @@ function sheetHaccp(){
   const ACTIE={temp:'Meten',schoon:'Afvinken',groot:'Doen',ongedierte:'Controleren',ijking:'IJken',recall:'Oefenen'};
   const ICO={temp:I.temp,schoon:I.vink,groot:I.ververs||I.vink,ongedierte:I.loep,ijking:I.temp,recall:I.doc};
   const alle=Object.keys(rijen), open=alle.filter(k=>rijen[k].st==='let'), goed=alle.filter(k=>rijen[k].st!=='let');
-  const tegel=(attr,ico,naam,sub)=>`<button class="htg" ${attr}>${svg(ico)}<b>${naam}</b>${sub?`<small>${sub}</small>`:''}</button>`;
+  const tegel=(attr,ico,naam,sub)=>`<button class="hntg" ${attr}>${svg(ico)}<b>${naam}</b>${sub?`<small>${sub}</small>`:''}</button>`;
 
   let h=`<div class="hkopb">
       <div><b>${open.length?open.length+' te doen':'Alles op orde'}</b><span>${goed.length} van ${alle.length} op orde</span></div>
