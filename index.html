@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v760 · 10 okt 2026';
+const APPVERSIE='v761 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5616,6 +5616,7 @@ function firebaseStart(){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
           if([eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
+          setTimeout(()=>eenmaligRittenOkt(),1500);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -11607,6 +11608,38 @@ function eenmaligRittenZa(){
   });
   S.eenmalig.rittenZa10okt=Date.now();
   return true;
+}
+/* v761: ritten 1 t/m 9 okt naar de werkplaats en terug, op Hamza's opgave
+   ("iedere dag geweest"). De afstand rekent de telefoon zelf uit over de weg
+   (Kadaster-adres + kortste route), net als bij een berekende rit. Lukt dat
+   niet (geen bereik), dan probeert hij het bij de volgende start opnieuw. */
+let rittenOktBezig=false;
+async function eenmaligRittenOkt(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.rittenOkt1t9||rittenOktBezig) return;
+  rittenOktBezig=true;
+  try{
+    const zoek=async t=>{const l=await adresZoek(t); return l.length?adresDetail(l[0].id):null};
+    const thuis=await zoek('Tongelaar 34 Waalwijk'), werk=await zoek('Alcoalaan 8D Drunen');
+    if(!thuis||!werk||thuis.lat===null||werk.lat===null) return;
+    const heen=await wegAfstand(thuis,werk), terug=await wegAfstand(werk,thuis);
+    if(!heen||!terug) return;
+    S.ritten=S.ritten||[];
+    for(let d=1; d<=9; d++){
+      const datum='2026-10-'+pad(d);
+      [['heen',thuis,werk,heen],['terug',werk,thuis,terug]].forEach(([k,v,n,km])=>{
+        const id='rit-okt'+d+'-'+k;
+        if(S.ritten.some(x=>x&&x.id===id)) return;
+        S.ritten.push({id,datum,km:Math.round(km*10)/10,reden:'Werkplaats',zakelijk:true,bron:'berekend',
+          start:{tijd:'',lat:v.lat,lon:v.lon,adres:v.adres,naam:null},
+          eind:{tijd:'',lat:n.lat,lon:n.lon,adres:n.adres,naam:null},
+          standBegin:null,standEind:null,punten:0});
+      });
+    }
+    S.eenmalig.rittenOkt1t9=Date.now();
+    bewaarNu(); render();
+    toast('18 ritten toegevoegd · '+komma(Math.round(heen*10)/10)+' km per keer.');
+  } finally { rittenOktBezig=false; }
 }
 function eenmaligZondagGepland(){
   S.eenmalig=S.eenmalig||{};
