@@ -4598,7 +4598,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v751 · 10 okt 2026';
+const APPVERSIE='v752 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16239,8 +16239,43 @@ function sheetKoppelingen(){
      <div class="paneel">
        ${rij('myparcel','MyParcel','voor je verzendlabels')}
        ${rij('bonscan','Bonnen scannen','leest je kassabonnen uit')}
+       ${rij('meelezen','Claude laten meelezen','Claude kan je gegevens lezen, niet wijzigen')}
      </div>`,'');
-  $$('[data-kop]').forEach(x=>x.onclick=()=>sheetKoppel(x.dataset.kop));
+  $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():sheetKoppel(x.dataset.kop));
+}
+
+/* v752: Claude laten meelezen. Een link die je één keer in claude.ai plakt;
+   daarna kan Claude je uren, batches en de rest lezen, nooit iets wijzigen.
+   Een nieuwe link maken zet de oude meteen buiten werking. */
+function sheetMeelezen(url){
+  const aan=!!koppeling().meelezen;
+  sheet('Claude laten meelezen',
+    url
+    ? `<p class="hint">Kopieer deze link. Ga in claude.ai naar Instellingen → Connectors →
+        Eigen connector toevoegen, geef hem een naam (bijv. Cacaoboetiek HQ) en plak de link.
+        Deel hem met niemand: wie hem heeft, kan je gegevens lezen.</p>
+       <div class="veld"><input class="inp" id="mlUrl" readonly value="${esc(url)}"></div>`
+    : `<p class="hint">Hiermee kan Claude je app-gegevens lezen, zoals je uren, batches en
+        voorraad. Wijzigen kan niet, en je koppelsleutels blijven op de server.
+        ${aan?'Er is al een link actief. Maak je een nieuwe, dan werkt de oude niet meer.':''}</p>`,
+    url
+    ? `<button class="prim" style="margin-top:0" id="mlKop">Kopieer link</button>`
+    : `<button class="prim" style="margin-top:0" id="mlMaak">${aan?'Nieuwe link maken':'Link maken'}</button>
+       ${aan?`<button class="sec" id="mlWeg" style="color:var(--rood)">Koppeling verwijderen</button>`:''}`);
+  if($('#mlKop')) $('#mlKop').onclick=async()=>{
+    try{ await navigator.clipboard.writeText(url); toast('Gekopieerd.') }
+    catch(e){ $('#mlUrl').select(); toast('Selecteer de link en kopieer met de hand.') }
+  };
+  if($('#mlMaak')) $('#mlMaak').onclick=async()=>{
+    const knop=$('#mlMaak'); knop.disabled=true; knop.textContent='Bezig…';
+    try{ const r=await roep('claudeMeelezen'); sheetMeelezen(r.url); }
+    catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Link maken'; }
+  };
+  if($('#mlWeg')) $('#mlWeg').onclick=async()=>{
+    if(!confirm('Claude kan dan niet meer meelezen. Doorgaan?')) return;
+    try{ await roep('claudeMeelezen',{weg:true}); render(); sheetKoppelingen(); }
+    catch(e){ toast(fout(e)) }
+  };
 }
 
 /* Voorraad die je hier invult gaat direct naar Shopify en overschrijft wat
