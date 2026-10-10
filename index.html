@@ -4652,7 +4652,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v756 · 10 okt 2026';
+const APPVERSIE='v757 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5567,7 +5567,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if(eenmaligMallenOkt()) setTimeout(bewaarNu,800);
+          if([eenmaligMallenOkt(),eenmaligWerkOkt()].some(Boolean)) setTimeout(bewaarNu,800);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -11524,6 +11524,26 @@ function eenmaligMallenOkt(){
       start:st.getTime(),eind:st.getTime()+min*60000,handmatig:true});
   });
   S.eenmalig.mallenOkt2026=Date.now();
+  return true;
+}
+/* v757: tweede invoer op verzoek — do 8, vr 9 en za 10 okt. Zondag 11 okt
+   is nog niet gebeurd en staat er bewust niet in. */
+function eenmaligWerkOkt(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.werkOkt2026b) return false;
+  const regels=[
+    ['2026-10-08','18:50',300,'coderen',''],
+    ['2026-10-09','17:35',420,'coderen',''],
+    ['2026-10-10','12:55',300,'marketing','Video editen']];
+  S.klussen=S.klussen||[];
+  regels.forEach(([datum,begin,min,soort,tekst],i)=>{
+    const id='werk-okt-b'+(i+1);
+    if(S.klussen.some(x=>x&&x.id===id)) return;
+    const [h,m]=begin.split(':').map(Number); const st=new Date(datum+'T00:00'); st.setHours(h,m,0,0);
+    S.klussen.push({id,soort,tekst,datum,tijd:begin,sec:min*60,
+      start:st.getTime(),eind:st.getTime()+min*60000,handmatig:true});
+  });
+  S.eenmalig.werkOkt2026b=Date.now();
   return true;
 }
 
