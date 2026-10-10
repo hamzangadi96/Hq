@@ -3355,6 +3355,49 @@ header.weg{display:none}
 .hervatchip svg{width:11px;height:11px}
 .hervatchip:active{background:var(--grijs3)}
 
+/* ═══ 8c. PER ACTIVITEIT (v753) ═════════════════════════════════════
+   Eén werkzaamheid, alle keren dat je eraan werkte. Gemaakt om te laten
+   zien: groot getal bovenaan, de avonden eronder. */
+.actchips{display:flex;gap:8px;overflow-x:auto;margin:0 -20px 16px;padding:0 20px 2px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.actchips::-webkit-scrollbar{display:none}
+.actchip{flex:none;padding:9px 14px;border-radius:99px;background:var(--card);
+  border:1px solid var(--lijn);font-size:13.5px;font-weight:600;color:var(--grijs);
+  letter-spacing:-.01em;white-space:nowrap}
+.actchip.aan{background:var(--ink);border-color:var(--ink);color:#fff}
+.actchip:active{transform:scale(.97)}
+.actheld{background:linear-gradient(160deg,#332f2b,#1a1618);color:#fff;border-radius:22px;
+  padding:22px 22px 20px;margin:0 0 14px}
+.actheld .eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;color:#8f8f98;
+  text-transform:uppercase}
+.actheld .groot{font-size:46px;font-weight:700;letter-spacing:-.05em;line-height:1.05;
+  margin-top:8px;font-variant-numeric:tabular-nums}
+.actheld .groot small{font-size:20px;font-weight:600;letter-spacing:-.02em;opacity:.55;margin-left:2px}
+.actheld .onder{margin-top:8px;font-size:13.5px;color:#b9b6b2;line-height:1.4}
+.actstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px;
+  padding-top:16px;border-top:1px solid rgba(255,255,255,.1)}
+.actstats div{display:flex;flex-direction:column;gap:3px}
+.actstats b{font-size:17px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.actstats span{font-size:11.5px;color:#8f8f98}
+.actperiode{display:flex;background:var(--bg);border-radius:12px;padding:3px;margin:0 0 16px}
+.actperiode button{flex:1 1 0;min-width:0;width:auto;margin:0;display:flex;justify-content:center;text-align:center;padding:8px 0;border-radius:9px;font-size:13px;font-weight:600;color:var(--grijs)}
+.actperiode button.aan{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.actbalk{display:flex;align-items:flex-end;gap:5px;height:110px;margin:6px 0 4px}
+.actbalk .k{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-end;height:100%;gap:6px}
+.actbalk .s{width:100%;max-width:30px;border-radius:7px 7px 3px 3px;background:var(--choco);min-height:4px}
+.actbalk .k i{font-style:normal;font-size:10px;font-weight:600;color:var(--grijs2);white-space:nowrap}
+.actbalk .k em{font-style:normal;font-size:10px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.actdag{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--lijn)}
+.actdag:last-child{border-bottom:none}
+.actdag .dd{width:44px;flex:none;text-align:center;line-height:1}
+.actdag .dd b{display:block;font-size:20px;font-weight:700;letter-spacing:-.03em;color:var(--ink)}
+.actdag .dd span{display:block;font-size:11px;font-weight:600;color:var(--grijs2);margin-top:3px;text-transform:uppercase}
+.actdag .dm{flex:1;min-width:0}
+.actdag .dm b{display:block;font-size:14.5px;font-weight:600;color:var(--ink)}
+.actdag .dm small{display:block;font-size:12.5px;color:var(--grijs2);margin-top:2px}
+.actdag .du{flex:none;font-size:15px;font-weight:700;color:var(--choco);font-variant-numeric:tabular-nums}
+
 /* ═══ 9. HERO ═══════════════════════════════════════════════════════
    Ring links, tekst rechts. De oude opzet stapelde ring, titel en regels
    onder elkaar en was daardoor bijna een heel scherm hoog. */
@@ -4598,7 +4641,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v752 · 10 okt 2026';
+const APPVERSIE='v753 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10988,6 +11031,10 @@ function sheetUren(){
          <div class="cspoor"><div class="cvul" style="width:${pctC}%;background:${kleur}"></div></div></div>`;
      }).join(''):`<p class="uitleg">Nog niets geregistreerd deze week.</p>`}
 
+     <button class="arij" id="uPerAct" style="margin-top:6px">
+       <span class="naam">Overzicht per activiteit<small>bijv. hoe lang je mallen hebt gewassen</small></span>
+       <span class="p">${svg(I.pijl,'2')}</span></button>
+
      ${(()=>{
        /* Deze keuze hoort inhoudelijk bij het dashboard hierboven, maar
           verdient geen plek vóór het dashboard: wie "Uren" opent wil eerst
@@ -11089,7 +11136,114 @@ function sheetUren(){
     drukAf(weekRapportHTML(van,tot,label),'Weekrapport '+label,'@page{size:A4;margin:8mm}');
   };
   $('#uStaat').onclick=()=>sheetUrenstaat();
+  if($('#uPerAct')) $('#uPerAct').onclick=()=>sheetUrenActiviteit();
   setTimeout(bindVeeg,20);
+}
+
+/* ═══════════ uren per activiteit (v753) ═══════════
+   Alles wat je ooit op een naam hebt geklokt, opgeteld: in een batch
+   ("Mallen wassen" als productiestap) én los (een klus met die omschrijving).
+   Per dag gegroepeerd, met van–tot, zodat je ziet welke avonden het waren. */
+let uActKeuze=null, uActPeriode='alles';
+function urenActRegels(){
+  const regels=[];
+  (S.batches||[]).forEach(b=>(b.werk||[]).forEach(w=>{
+    if(!w||!w.start||!w.act) return;
+    regels.push({naam:w.act,start:w.start,eind:w.eind||null,sec:seconden(w)});
+  }));
+  const k=(S.klussen||[]).concat(S.klus?[S.klus]:[]);
+  k.forEach(x=>{
+    if(!x||!x.start||x.bron==='maandtotaal') return;
+    const naam=(x.tekst||'').trim()||klusSoort(x.soort).n;
+    regels.push({naam,start:x.start,eind:x.eind||null,sec:klusSec(x)});
+  });
+  return regels;
+}
+const actSleutel=n=>String(n||'').trim().toLowerCase();
+function sheetUrenActiviteit(){
+  const alle=urenActRegels();
+  /* welke activiteiten bestaan er, gesorteerd op totale tijd */
+  const per={};
+  alle.forEach(r=>{const k=actSleutel(r.naam); (per[k]=per[k]||{naam:r.naam,sec:0}).sec+=r.sec});
+  const acts=Object.keys(per).sort((a,b)=>per[b].sec-per[a].sec);
+  if(!acts.length){
+    return sheet('Per activiteit','<div class="geen">Nog niets geklokt. Start de klok bij Uren, dan verschijnt het hier.</div>','');
+  }
+  if(!uActKeuze||!per[uActKeuze]) uActKeuze=per['mallen wassen']?'mallen wassen':acts[0];
+
+  const nu=new Date();
+  const grens=uActPeriode==='maand'?new Date(nu.getFullYear(),nu.getMonth(),1).getTime()
+    :uActPeriode==='jaar'?new Date(nu.getFullYear(),0,1).getTime():0;
+  const regels=alle.filter(r=>actSleutel(r.naam)===uActKeuze&&r.start>=grens)
+    .sort((a,b)=>a.start-b.start);
+
+  /* per dag bundelen */
+  const dagen=[], opDag={};
+  regels.forEach(r=>{
+    const d=iso(new Date(r.start));
+    if(!opDag[d]){ opDag[d]={datum:d,van:r.start,tot:r.eind,sec:0,keer:0}; dagen.push(opDag[d]); }
+    const x=opDag[d]; x.sec+=r.sec; x.keer++;
+    if(!r.eind) x.tot=null; else if(x.tot!==null&&r.eind>x.tot) x.tot=r.eind;
+  });
+  const totaal=dagen.reduce((s2,d)=>s2+d.sec,0);
+  const tijd=ms=>{const d=new Date(ms); return pad(d.getHours())+':'+pad(d.getMinutes())};
+  const urenGroot=sec=>{const u=Math.floor(sec/3600), m=Math.round(sec%3600/60);
+    return m===60?`${u+1}<small>u</small>`:`${u}<small>u</small> ${pad(m)}<small>m</small>`};
+  const gem=dagen.length?totaal/dagen.length:0;
+  const langst=dagen.reduce((m,d)=>Math.max(m,d.sec),0);
+  const naam=per[uActKeuze].naam;
+  const sinds=dagen.length?new Date(dagen[0].van):null;
+
+  /* staafjes: maximaal de laatste 10 dagen, anders worden ze te smal */
+  const balk=dagen.slice(-10), maxSec=Math.max(1,...balk.map(d=>d.sec));
+
+  sheet('Per activiteit',
+    `<div class="actchips">${acts.map(k=>`<button type="button" class="actchip ${k===uActKeuze?'aan':''}"
+       data-uact="${esc(k)}">${esc(per[k].naam)}</button>`).join('')}</div>
+
+     <div class="actperiode">
+       ${[['alles','Alles'],['jaar','Dit jaar'],['maand','Deze maand']].map(([k,l])=>
+         `<button type="button" data-uper="${k}" class="${uActPeriode===k?'aan':''}">${l}</button>`).join('')}
+     </div>
+
+     <div class="actheld">
+       <div class="eyebrow">${esc(naam)}</div>
+       <div class="groot">${dagen.length?urenGroot(totaal):'0<small>u</small>'}</div>
+       <div class="onder">${dagen.length
+         ?`verdeeld over ${dagen.length} ${dagen.length===1?'dag':'dagen'}${sinds?' · sinds '+sinds.getDate()+' '+MNDK[sinds.getMonth()]:''}`
+         :'Nog niets in deze periode.'}</div>
+       ${dagen.length?`<div class="actstats">
+         <div><b>${dagen.length}</b><span>${dagen.length===1?'sessie':'sessies'}</span></div>
+         <div><b>${urenTekst(gem)}</b><span>gemiddeld</span></div>
+         <div><b>${urenTekst(langst)}</b><span>langste</span></div></div>`:''}
+     </div>
+
+     ${balk.length>1?`<div class="paneel" style="padding:16px 16px 12px">
+       <div class="actbalk">${balk.map(d=>{const dt=new Date(d.datum);
+         return `<div class="k"><em>${urenGetal(d.sec).toString().replace('.',',')}</em>
+           <div class="s" style="height:${Math.max(4,Math.round(d.sec/maxSec*70))}px"></div>
+           <i>${dt.getDate()} ${MNDK[dt.getMonth()]}</i></div>`}).join('')}</div></div>`:''}
+
+     ${dagen.length?`<div class="blokkop" style="margin-top:20px"><span class="eyebrow">Wanneer</span>
+       <span class="tel">${dagen.length}</span></div>
+       <div class="paneel">${dagen.slice().reverse().map(d=>{const dt=new Date(d.datum);
+         return `<div class="actdag">
+           <div class="dd"><b>${dt.getDate()}</b><span>${MNDK[dt.getMonth()]}</span></div>
+           <div class="dm"><b>${(w=>w[0].toUpperCase()+w.slice(1))(dt.toLocaleDateString('nl-NL',{weekday:'long'}))}${d.van&&new Date(d.van).getHours()>=17?' · avond':''}</b>
+             <small>${tijd(d.van)} – ${d.tot?tijd(d.tot):'loopt nog'}${d.keer>1?' · '+d.keer+' blokken':''}</small></div>
+           <div class="du">${urenTekst(d.sec)}</div></div>`}).join('')}</div>`:''}`,
+    dagen.length?`<button class="sec" style="margin-top:0" id="uActKop">${svg(I.doc)}Overzicht kopiëren</button>`:'');
+
+  $$('[data-uact]').forEach(b=>b.onclick=()=>{uActKeuze=b.dataset.uact; sheetUrenActiviteit()});
+  $$('[data-uper]').forEach(b=>b.onclick=()=>{uActPeriode=b.dataset.uper; sheetUrenActiviteit()});
+  if($('#uActKop')) $('#uActKop').onclick=async()=>{
+    const r=[naam+': '+urenTekst(totaal)+' over '+dagen.length+' '+(dagen.length===1?'dag':'dagen'),'']
+      .concat(dagen.map(d=>{const dt=new Date(d.datum);
+        return dt.toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'})+'  '
+          +tijd(d.van)+'–'+(d.tot?tijd(d.tot):'nu')+'  '+urenTekst(d.sec)}));
+    try{ await navigator.clipboard.writeText(r.join('\n')); toast('Overzicht gekopieerd.') }
+    catch(e){ toast('Kopiëren lukte niet.') }
+  };
 }
 function klusVergeten(){
   const k=S.klus; if(!k) return null;
