@@ -4598,7 +4598,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v750 · 10 okt 2026';
+const APPVERSIE='v751 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7049,6 +7049,8 @@ function dashboardToestand(){
   const vandaagP=plan.filter(p=>dagenTussen(vandaag(),p.datum)<=0);
   if(verz.length&&!bezig) return {soort:'verzenden',lijst:verz,plan:vandaagP};
   if(vandaagP.length) return {soort:'vandaag',p:vandaagP[0],rest:vandaagP.slice(1)};
+  /* v751: zolang er een productie gepland staat, wijst Home de route aan */
+  if(routePlans().length&&routeStappen().some(x=>!x.klaar)) return {soort:'route'};
 
   /* boodschappen: alleen op de dag zelf, en niet meer 's avonds laat.
      Na sluitingstijd schuift het naar morgen — dan is het ook niet urgent meer. */
@@ -9469,6 +9471,11 @@ function dashboardHTML(){
     }
   }
 
+  else if(t.soort==='route'){
+    h+=`<div class="blokkop" style="margin-top:4px"><span class="eyebrow">Productie ${esc(kort(new Date(routePlans()[0].datum)))}</span>
+      <button class="kopknop" onclick="S.tab='productie';render()">Route</button></div>`+routeHeldHTML();
+  }
+
   else if(t.soort==='taakdag'){
     const taken=t.taken;
     const eerste=taken[0];
@@ -9697,20 +9704,7 @@ function productieHTML(){
     const nu=open[0], v0=vandaag();
     const wnr=n=>n<0?Math.abs(n)+' d te laat':n===0?'vandaag':n===1?'morgen':'over '+n+' d';
     const dk=d=>{const dt=new Date(d+'T12:00:00');return `<span class="pldat"><small>${dt.toLocaleDateString('nl-NL',{weekday:'short'}).replace('.','')}</small><b>${dt.getDate()}</b><small>${dt.toLocaleDateString('nl-NL',{month:'short'}).replace('.','')}</small></span>`};
-    const knop={best:'Bestellijst bekijken',gs:'Grote schoonmaak doen',vul:'Vullingen zijn klaar',prod:'Batch starten'};
-    let held='';
-    if(nu&&!loopt.length){
-      const n=dagenTussen(v0,nu.datum), now=n<=0;
-      held=`<div class="rtnu ${n<0?'laat':now?'nu':''}">
-        <small>${n<0?(-n===1?'1 dag':-n+' dagen')+' te laat':now?'Nu doen · vandaag':'Hierna · '+wnr(n)}</small>
-        <b>${esc(nu.titel)}</b><span>${esc(nu.sub)}</span>
-        ${now||nu.soort==='best'?`<button class="prim" data-route="${nu.k}">${knop[nu.soort]}</button>`:''}
-      </div>`;
-    }
-    /* v748: de planning zelf blijft staan; de route geeft alleen de eerstvolgende stap */
-    const dkk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
-    const daarna=open.filter(x=>x!==nu&&x.soort!=='prod')[0];
-    if(held&&daarna) held=held.replace(/<\/div>$/,`<button type="button" class="rtdaarna" data-route="${daarna.k}"><span>Daarna</span>${esc(daarna.titel)} · ${dkk(daarna.datum)}${svg(I.pijl,'2')}</button></div>`);
+    let held=loopt.length?'':routeHeldHTML();
     const plRij=p2=>{
       const n=dagenTussen(v0,p2.datum), r=p2.regels||[];
       const mal=r.reduce((x,y)=>x+(y.mallen||0),0), st=r.reduce((x,y)=>x+(y.aantal||0),0);
@@ -17960,6 +17954,16 @@ function routeStappen(){
   if(tekort.length||klaar[bk]) uit.push({k:bk,soort:'best',datum:klaar[bk]||datumPlus(plans[0].datum,-(lt+1)),
     titel:'Ingrediënten bestellen',sub:klaar[bk]?'besteld':tekort.length+(tekort.length===1?' artikel':' artikelen')+' · levertijd tot '+lt+' dagen',
     klaar:!!klaar[bk]});
+  /* levering: na het bestellen leg je de ontvangst vast (lot, THT, temperatuur) */
+  if(klaar[bk]){ const lk='lev:'+plans[0].id;
+    const binnen=(S.ontvangsten||[]).filter(x=>x.datum>=klaar[bk]);
+    uit.push({k:lk,soort:'lev',datum:binnen.length?binnen[0].datum:(klaar[lk]||v),
+      titel:'Levering ontvangen',sub:binnen.length?binnen.length+(binnen.length===1?' partij vastgelegd':' partijen vastgelegd')
+        :'lot, THT en temperatuur vastleggen · daarna koeling meten',klaar:!!(klaar[lk]||binnen.length&&klaar[lk+'ok'])}); }
+  /* thermometer ijken vóór de eerste productie (één keer per jaar) */
+  const ij=laatsteIjking();
+  if(!ij||dagenTussen(ij.datum,plans[0].datum)>365) uit.push({k:'ijk',soort:'ijk',datum:datumPlus(plans[0].datum,-1),
+    titel:'Thermometer ijken',sub:'in smeltend ijswater: hoort 0 °C te geven',klaar:false});
   groteSchoonmaakTaken().forEach(t=>{ const voor=t.check.k==='groot_voor';
     uit.push({k:t.check.k+':'+t.datum,soort:'gs',moment:voor?'voor':'na',datum:t.datum,
       titel:'Grote schoonmaak',sub:voor?'vóór je productie':'na je productie',klaar:false}); });
@@ -17973,8 +17977,13 @@ function routeStappen(){
     const mal=r.reduce((x,y)=>x+(y.mallen||0),0), st=r.reduce((x,y)=>x+(y.aantal||0),0);
     uit.push({k:'prod:'+p2.id,soort:'prod',plan:p2,datum:p2.datum,titel:chocNaam(p2.chocolade)||'Productie',
       sub:(mal?mal+(mal===1?' mal · ':' mallen · '):'')+st.toLocaleString('nl-NL')+' bonbons',klaar:false}); });
-  const volg={best:0,gs:1,vul:2,prod:3};
-  return uit.sort((x,y)=>String(x.datum).localeCompare(String(y.datum))||(x.soort==='gs'&&x.moment==='na'?4:volg[x.soort])-(y.soort==='gs'&&y.moment==='na'?4:volg[y.soort]));
+  /* rapport: na de laatste productiedag van de planning */
+  const laatste=plans[plans.length-1].datum, rk='rap:'+laatste;
+  uit.push({k:rk,soort:'rap',datum:klaar[rk]||datumPlus(laatste,1),titel:'Productierapport printen',
+    sub:klaar[rk]?'afgedrukt':'HACCP-registratie van deze productie op A4',klaar:!!klaar[rk]});
+  const volg={best:0,lev:1,ijk:2,gs:2,vul:3,prod:4,rap:6};
+  const r2=x=>x.soort==='gs'&&x.moment==='na'?5:volg[x.soort];
+  return uit.sort((x,y)=>String(x.datum).localeCompare(String(y.datum))||r2(x)-r2(y));
 }
 function routeKlaar(k,aan){ S.route=Object.assign({},S.route||{}); if(aan) S.route[k]=vandaag(); else delete S.route[k]; bewaarNu(); render() }
 function sheetRouteInkoop(){
@@ -17994,11 +18003,57 @@ function sheetRouteInkoop(){
     `<button class="prim" style="margin-top:0" id="rtBest">Alles besteld</button><button class="sec" onclick="dicht()">Later</button>`);
   $('#rtBest').onclick=()=>{ dicht(); routeKlaar('best:'+plans[0].id,true); toast('Besteld — staat afgevinkt in je route') };
 }
+function sheetLevering(k){
+  const binnen=(S.ontvangsten||[]).filter(x=>x.datum>=((S.route||{})['best:'+(k||'').slice(4)]||vandaag()));
+  sheet('Levering ontvangen',
+    `<div class="gsuitleg"><b>Per partij vastleggen</b><span>Lotnummer, THT en bij gekoelde producten de temperatuur bij ontvangst. Zet daarna alles direct in de koeling en meet de koeling.</span></div>
+     ${binnen.length?`<div class="vbon">${binnen.map(x=>`<div class="vbrij"><span>${esc(x.product)}<small class="vbklein">${esc(x.leverancier||'')} · lot ${esc(x.lot||'—')}</small></span><b>${x.temp?esc(String(x.temp))+' °C':'✓'}</b></div>`).join('')}</div>`
+       :'<p class="wdleeg">Nog niets vastgelegd.</p>'}`,
+    `<button class="prim" style="margin-top:0" id="lvNieuw">${svg(I.plus)}Partij vastleggen</button>
+     ${binnen.length?`<button class="sec" id="lvKlaar">Alles is binnen</button>`:''}`);
+  $('#lvNieuw').onclick=()=>sheetOntvangst();
+  if($('#lvKlaar')) $('#lvKlaar').onclick=()=>{ S.route=Object.assign({},S.route||{}); S.route[k]=vandaag(); S.route[k+'ok']=1; bewaarNu(); dicht(); render(); toast('Levering afgevinkt — meet nu je koeling') };
+}
+/* periode van de huidige route: van bestellen tot de grote schoonmaak na */
+function routePeriode(){
+  const plans=routePlans(); if(!plans.length) return null;
+  const best=(S.route||{})['best:'+plans[0].id];
+  return {van:best&&best<plans[0].datum?best:datumPlus(plans[0].datum,-7),tot:datumPlus(plans[plans.length-1].datum,2)};
+}
+function sheetProductieRapport(k){
+  const per=routePeriode()||{van:datumPlus(vandaag(),-14),tot:vandaag()};
+  const html=dossierHTML(per.van,per.tot);
+  sheet('Productierapport',
+    `<p class="hint">Alles wat je rond deze productie hebt vastgelegd: levering, schoonmaak, temperaturen, batches en lotnummers.</p>
+     <div class="etvoorbeeld" style="padding:0"><div class="schaal" id="rpSchaal">${html}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="rpPrint">${svg(I.doc)}Printen of opslaan als pdf</button>`);
+  setTimeout(()=>pasSchaal('rpSchaal'),30);
+  $('#rpPrint').onclick=()=>{ if(k){ S.route=Object.assign({},S.route||{}); S.route[k]=vandaag(); bewaarNu(); }
+    drukAf(html,'Productierapport','@page{size:A4;margin:8mm}') };
+}
+/* de "Nu doen"-kaart, gedeeld door Home en Productie */
+function routeHeldHTML(){
+  const stappen=routeStappen(), open=stappen.filter(x=>!x.klaar), nu=open[0]; if(!nu) return '';
+  const v0=vandaag(), n=dagenTussen(v0,nu.datum), now=n<=0;
+  const wnr=m=>m<0?Math.abs(m)+' d te laat':m===0?'vandaag':m===1?'morgen':'over '+m+' d';
+  const knop={ijk:'Thermometer ijken',best:'Bestellijst bekijken',lev:'Ontvangst vastleggen',gs:'Grote schoonmaak doen',vul:'Vullingen zijn klaar',prod:'Batch starten',rap:'Rapport bekijken'};
+  const dkk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
+  const daarna=open.filter(x=>x!==nu&&x.soort!=='prod')[0];
+  return `<div class="rtnu ${n<0?'laat':now?'nu':''}">
+    <small>${n<0?(-n===1?'1 dag':-n+' dagen')+' te laat':now?'Nu doen · vandaag':'Hierna · '+wnr(n)}</small>
+    <b>${esc(nu.titel)}</b><span>${esc(nu.sub)}</span>
+    ${now||nu.soort==='best'||nu.soort==='lev'?`<button class="prim" data-route="${nu.k}">${knop[nu.soort]}</button>`:''}
+    ${daarna?`<button type="button" class="rtdaarna" data-route="${daarna.k}"><span>Daarna</span>${esc(daarna.titel)} · ${dkk(daarna.datum)}${svg(I.pijl,'2')}</button>`:''}
+  </div>`;
+}
 function routeDoe(k){
   const st=routeStappen().find(x=>x.k===k); if(!st) return;
   if(st.soort==='best') return sheetRouteInkoop();
   if(st.soort==='gs') return sheetSchoonmaak(st.moment);
   if(st.soort==='vul') return routeKlaar(k,!st.klaar);
+  if(st.soort==='lev') return sheetLevering(k);
+  if(st.soort==='ijk') return sheetIjking();
+  if(st.soort==='rap') return sheetProductieRapport(k);
   if(st.soort==='prod'){ if(dagenTussen(vandaag(),st.datum)<=0) return planStart(st.plan.id); return sheetPlanning(); }
 }
 function planTaken(p){
@@ -26811,6 +26866,23 @@ function dossierHTML(vanaf,tot){
   });
 
   if(!bs.length) h+=rLeeg('Geen batches in deze periode.');
+
+  /* v751: wat buiten de batches valt maar wel bij de productie hoort */
+  const inP=x=>x&&x.datum>=vanaf&&x.datum<=tot;
+  const losAlle=alsLijst(S.losLog).filter(inP);
+  (S.batches||[]).forEach(b=>(b.logs||[]).forEach(l=>{ if(l.type==='schoonmaak'&&inP(l)) losAlle.push(Object.assign({code:b.code},l)) }));
+  const sch=losAlle.filter(x=>x.type==='schoonmaak').sort((a,b2)=>(a.datum+a.tijd).localeCompare(b2.datum+b2.tijd));
+  h+=`<h3>Schoonmaak</h3>`+(sch.length?`<table><tr><th>Datum</th><th>Wat</th><th>Toelichting</th></tr>
+    ${sch.map(x=>`<tr><td>${kort(new Date(x.datum))} ${esc(x.tijd||'')}</td><td>${x.groot?'<b>Grote schoonmaak '+(x.groot==='voor'?'vóór':'na')+' productie</b>':esc(x.titel||'Schoonmaak')}</td><td>${esc(x.sub||'')}</td></tr>`).join('')}</table>`
+    :rLeeg('Geen schoonmaak vastgelegd in deze periode.'));
+  const ont=(S.ontvangsten||[]).filter(inP);
+  h+=`<h3>Ontvangst grondstoffen</h3>`+(ont.length?`<table><tr><th>Datum</th><th>Product</th><th>Leverancier</th><th>Lot</th><th>THT</th><th>Temp.</th><th>Akkoord</th></tr>
+    ${ont.map(x=>`<tr><td>${kort(new Date(x.datum))}</td><td>${esc(x.product)}</td><td>${esc(x.leverancier||'')}</td><td>${esc(x.lot||'')}</td><td>${x.tht?kort(new Date(x.tht)):'—'}</td><td>${x.temp?esc(String(x.temp))+' °C':'—'}</td><td>${x.staat&&x.staat!=='ok'?'nee':'ja'}</td></tr>`).join('')}</table>`
+    :rLeeg('Geen leveringen vastgelegd in deze periode.'));
+  const tmp=losAlle.filter(x=>x.type==='temperatuur').sort((a,b2)=>(a.datum+a.tijd).localeCompare(b2.datum+b2.tijd));
+  h+=`<h3>Temperatuur koeling en ruimte</h3>`+(tmp.length?`<table><tr><th>Datum</th><th>Meting</th><th>Binnen norm</th></tr>
+    ${tmp.map(x=>`<tr><td>${kort(new Date(x.datum))} ${esc(x.tijd||'')}</td><td>${esc(x.titel||'')}</td><td>${x.status==='ok'?'ja':'nee'}</td></tr>`).join('')}</table>`
+    :rLeeg('Geen losse temperatuurmetingen in deze periode.'));
 
   /* ijking en periodieke controles horen erbij */
   const ijk=laatsteIjking();
