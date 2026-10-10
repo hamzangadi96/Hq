@@ -4171,6 +4171,20 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .gsmelding span{display:flex;flex-direction:column;flex:1}
 .gsmelding b{font-size:14.5px}.gsmelding small{font-size:12.5px;color:var(--grijs);text-transform:none;letter-spacing:0;font-weight:400}
 .gsmelding svg{width:16px;height:16px;color:var(--grijs)}
+.rtnu{background:var(--card);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:3px;
+  box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -22px rgba(24,24,27,.28)}
+.rtnu small{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs)}
+.rtnu.nu small{color:var(--groen)}.rtnu.laat small{color:var(--amber)}
+.rtnu b{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.rtnu span{font-size:14px;color:var(--grijs)}
+.rtnu .prim{margin-top:12px}
+.rtrij{display:flex;align-items:center;gap:14px;padding:11px 0;cursor:pointer}
+.rtrij+.rtrij{border-top:1px solid var(--lijn)}
+.rtrij.klaar .plnm b{color:var(--grijs);text-decoration:line-through;text-decoration-color:#d4d4d8}
+.rtrij.klaar .pldat{opacity:.5}
+.rtvink{width:26px;height:26px;border-radius:50%;background:var(--groen);color:#fff;display:grid;place-items:center;flex:none}
+.rtvink svg{width:13px;height:13px}
+.rtkies{width:26px;height:26px;border-radius:50%;border:2px solid #d4d4d8;background:none;flex:none;padding:0;cursor:pointer}
 .plkaart{background:var(--card);border-radius:18px;padding:6px 14px 10px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -22px rgba(24,24,27,.28)}
 .plkaart .gsmelding{margin-top:8px!important}
@@ -4564,7 +4578,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v746 · 9 okt 2026';
+const APPVERSIE='v747 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4876,7 +4890,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['vpUit','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['route','vpUit','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -9659,29 +9673,34 @@ function productieHTML(){
       <div class="prodvolg"><b>Nog geen smaak</b><span>Voeg je eerste smaak toe, daarna kun je batches maken.</span>
       <button class="prim" data-sheet="receptnieuw">${svg(I.plus)}Smaak toevoegen</button></div>`;
   } else if(plans.length){
-    const gs=groteSchoonmaakNodig();
-    const eerst=plans[0], n0=dagenTussen(vandaag(),eerst.datum);
-    const plWanneer=n=>n<0?Math.abs(n)+' d te laat':n===0?'vandaag':n===1?'morgen':'over '+n+' d';
-    const plRij=(p2,i)=>{
-      const n=dagenTussen(vandaag(),p2.datum), r=p2.regels||[];
-      const mal=r.reduce((x,y)=>x+(y.mallen||0),0), st=r.reduce((x,y)=>x+(y.aantal||0),0);
-      const dt=new Date(p2.datum+'T12:00:00');
-      const sub=[mal?mal+(mal===1?' mal':' mallen'):'',st.toLocaleString('nl-NL')+' bonbons'].filter(Boolean).join(' · ');
-      return veegRij(`<div class="pldag${n<=0?' nu':''}" data-planning>
-        <span class="pldat"><small>${dt.toLocaleDateString('nl-NL',{weekday:'short'}).replace('.','')}</small><b>${dt.getDate()}</b><small>${dt.toLocaleDateString('nl-NL',{month:'short'}).replace('.','')}</small></span>
-        <span class="plnm"><b>${esc(chocNaam(p2.chocolade)||'Productie')}</b><small>${sub}</small></span>
-        ${n<=0&&(i>0||loopt.length)?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
-          :`<span class="plwnr${n<0?' laat':''}">${plWanneer(n)}</span>`}
-      </div>`,'data-planwis="'+p2.id+'"')};
-    h+=`<div class="blokkop" style="margin-top:${loopt.length?24:8}px"><span class="eyebrow">Planning</span>
+    const stappen=routeStappen(), open=stappen.filter(x=>!x.klaar);
+    const nu=open[0], v0=vandaag();
+    const wnr=n=>n<0?Math.abs(n)+' d te laat':n===0?'vandaag':n===1?'morgen':'over '+n+' d';
+    const dk=d=>{const dt=new Date(d+'T12:00:00');return `<span class="pldat"><small>${dt.toLocaleDateString('nl-NL',{weekday:'short'}).replace('.','')}</small><b>${dt.getDate()}</b><small>${dt.toLocaleDateString('nl-NL',{month:'short'}).replace('.','')}</small></span>`};
+    const knop={best:'Bestellijst bekijken',gs:'Grote schoonmaak doen',vul:'Vullingen zijn klaar',prod:'Batch starten'};
+    let held='';
+    if(nu&&!loopt.length){
+      const n=dagenTussen(v0,nu.datum), now=n<=0;
+      held=`<div class="rtnu ${n<0?'laat':now?'nu':''}">
+        <small>${n<0?(-n===1?'1 dag':-n+' dagen')+' te laat':now?'Nu doen · vandaag':'Hierna · '+wnr(n)}</small>
+        <b>${esc(nu.titel)}</b><span>${esc(nu.sub)}</span>
+        ${now||nu.soort==='best'?`<button class="prim" data-route="${nu.k}">${knop[nu.soort]}</button>`:''}
+      </div>`;
+    }
+    const rij=st=>{ const n=dagenTussen(v0,st.datum);
+      return `<div class="rtrij${st.klaar?' klaar':''}${st===nu?' eerst':''}" data-route="${st.k}">
+        ${dk(st.datum)}
+        <span class="plnm"><b>${esc(st.titel)}</b><small>${esc(st.sub)}</small></span>
+        ${st.klaar?`<span class="rtvink">${svg(I.vink,'3')}</span>`
+          :st.soort==='vul'?`<button type="button" class="rtkies" data-routeklaar="${st.k}" aria-label="Afvinken"></button>`
+          :`<span class="plwnr${n<0?' laat':''}">${wnr(n)}</span>`}
+      </div>`};
+    const toon=stappen.filter(x=>x!==nu||loopt.length);
+    h+=`<div class="blokkop" style="margin-top:${loopt.length?24:8}px"><span class="eyebrow">Route naar productie</span>
         <button class="kopknop" data-planning>Hele planning</button></div>
-      <div class="plkaart">
-        ${gs&&gs.moment==='voor'?`<button type="button" class="gsmelding" style="margin:0 0 6px" onclick="sheetSchoonmaak('voor')">
-          <i></i><span><b>Eerst: grote schoonmaak</b><small>vóór je productie begint</small></span>${svg(I.pijl,'2')}</button>`:''}
-        ${plans.slice(0,4).map(plRij).join('')}
-        ${plans.length>4?`<button class="plmeer" data-planning>+${plans.length-4} meer</button>`:''}
-        ${!loopt.length&&n0<=0?`<button class="prim" style="margin-top:10px" data-planstart="${eerst.id}">${svg(I.vorm)}Batch starten</button>`:''}
-      </div>
+      ${held}
+      <div class="plkaart" style="margin-top:${held?12:0}px">${toon.slice(0,7).map(rij).join('')}
+        ${toon.length>7?`<button class="plmeer" data-planning>+${toon.length-7} meer</button>`:''}</div>
       ${loopt.length?'':`<button class="prodlos" style="display:block;width:100%" data-sheet="nieuwbatch">of start een losse batch</button>`}`;
   } else if(!loopt.length){
     h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Planning</span></div>
@@ -17901,6 +17920,61 @@ const planLijst=()=>(S.planning||[]).slice()
   .sort((a,b2)=>String(a.datum).localeCompare(String(b2.datum)));
 
 /* alle losse dagtaken van een geplande batch, inclusief de boodschapdag */
+/* ===== Route naar productie (v747) =====
+   Een planning alleen is een datum. Wat er vóór die datum moet gebeuren —
+   bestellen, grote schoonmaak, vullingen — rekent de app hier uit, op volgorde. */
+function routePlans(){ const v=vandaag(); return planLijst().filter(p=>p.datum>=datumPlus(v,-3)) }
+function routeStappen(){
+  const v=vandaag(), plans=routePlans(), uit=[], klaar=S.route||{};
+  if(!plans.length) return uit;
+  const alle=[]; plans.forEach(p=>(p.regels||[]).forEach(r=>alle.push(r)));
+  const tekort=dekkingGrond(alle).filter(x=>x.tekort>0);
+  const lt=levertijdVoor(alle)||0;
+  const bk='best:'+plans[0].id;
+  if(tekort.length||klaar[bk]) uit.push({k:bk,soort:'best',datum:klaar[bk]||datumPlus(plans[0].datum,-(lt+1)),
+    titel:'Ingrediënten bestellen',sub:klaar[bk]?'besteld':tekort.length+(tekort.length===1?' artikel':' artikelen')+' · levertijd tot '+lt+' dagen',
+    klaar:!!klaar[bk]});
+  groteSchoonmaakTaken().forEach(t=>{ const voor=t.check.k==='groot_voor';
+    uit.push({k:t.check.k+':'+t.datum,soort:'gs',moment:voor?'voor':'na',datum:t.datum,
+      titel:'Grote schoonmaak',sub:voor?'vóór je productie':'na je productie',klaar:false}); });
+  productiePeriodes().filter(x=>x.eind>=v).forEach(per=>{
+    const dag=datumPlus(per.start,-1), k='vul:'+per.start;
+    const soorten2=plans.filter(p=>p.datum>=per.start&&p.datum<=per.eind).map(p=>chocNaam(p.chocolade).toLowerCase());
+    uit.push({k,soort:'vul',datum:klaar[k]?klaar[k]:dag,titel:'Vullingen maken',
+      sub:klaar[k]?'klaar':'ganaches voor '+soorten2.join(' en '),klaar:!!klaar[k]});
+  });
+  plans.forEach(p2=>{ const r=p2.regels||[];
+    const mal=r.reduce((x,y)=>x+(y.mallen||0),0), st=r.reduce((x,y)=>x+(y.aantal||0),0);
+    uit.push({k:'prod:'+p2.id,soort:'prod',plan:p2,datum:p2.datum,titel:chocNaam(p2.chocolade)||'Productie',
+      sub:(mal?mal+(mal===1?' mal · ':' mallen · '):'')+st.toLocaleString('nl-NL')+' bonbons',klaar:false}); });
+  const volg={best:0,gs:1,vul:2,prod:3};
+  return uit.sort((x,y)=>String(x.datum).localeCompare(String(y.datum))||(x.soort==='gs'&&x.moment==='na'?4:volg[x.soort])-(y.soort==='gs'&&y.moment==='na'?4:volg[y.soort]));
+}
+function routeKlaar(k,aan){ S.route=Object.assign({},S.route||{}); if(aan) S.route[k]=vandaag(); else delete S.route[k]; bewaarNu(); render() }
+function sheetRouteInkoop(){
+  const plans=routePlans(), alle=[]; plans.forEach(p=>(p.regels||[]).forEach(r=>alle.push(r)));
+  const dek=dekkingGrond(alle).filter(x=>x.tekort>0), per={};
+  dek.forEach(x=>{ const lev=leverancierVan(x.naam)||'Nog geen leverancier'; (per[lev]=per[lev]||[]).push(x) });
+  const lt=levertijdVoor(alle)||0, uiterlijk=plans.length?datumPlus(plans[0].datum,-(lt+1)):null;
+  const dk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
+  const laat=uiterlijk&&uiterlijk<vandaag();
+  sheet('Bestellen',
+    `${uiterlijk?`<div class="vpdeadline ${laat?'laat':''}"><b>${laat?'Eigenlijk te laat — bestel vandaag':'Bestellen uiterlijk '+dk(uiterlijk)}</b>
+      <span>levertijd tot ${lt} dagen · eerste productiedag ${dk(plans[0].datum)}</span></div>`:''}
+     ${Object.keys(per).sort().map(lev=>`<div class="vbkop"><span>${esc(lev)}</span><small>${per[lev].length} ${per[lev].length===1?'artikel':'artikelen'}</small></div>
+       <div class="vbon">${per[lev].map(x=>`<div class="vbrij"><span>${esc(x.naam)}<small class="vbklein">${x.onbekend?'niet in voorraad':'heb '+toonHoeveel(x.op,'g')}</small></span>
+         <b style="color:var(--amber)">${toonHoeveel(x.tekort,'g')}</b></div>`).join('')}</div>`).join('')
+      ||'<p class="wdleeg">Je hebt alles in huis voor deze planning.</p>'}`,
+    `<button class="prim" style="margin-top:0" id="rtBest">Alles besteld</button><button class="sec" onclick="dicht()">Later</button>`);
+  $('#rtBest').onclick=()=>{ dicht(); routeKlaar('best:'+plans[0].id,true); toast('Besteld — staat afgevinkt in je route') };
+}
+function routeDoe(k){
+  const st=routeStappen().find(x=>x.k===k); if(!st) return;
+  if(st.soort==='best') return sheetRouteInkoop();
+  if(st.soort==='gs') return sheetSchoonmaak(st.moment);
+  if(st.soort==='vul') return routeKlaar(k,!st.klaar);
+  if(st.soort==='prod'){ if(dagenTussen(vandaag(),st.datum)<=0) return planStart(st.plan.id); return sheetPlanning(); }
+}
 function planTaken(p){
   const uit=[];
   const bd=boodschapDatum(p);
@@ -18082,7 +18156,7 @@ function levertijdVoor(regels){
   let max=0;
   d.forEach(x=>{
     const lev=leverancierVan(x.naam);
-    max=Math.max(max, levertijdVan(lev)||3);
+    max=Math.max(max, levertijdVan(lev)||10);
   });
   return max;
 }
@@ -18687,7 +18761,7 @@ function planTekorten(dagen){
   const per={};
   tekort.forEach(x=>{
     const lev=leverancierVan(x.naam)||'Nog geen leverancier';
-    (per[lev]=per[lev]||{lev,regels:[],levertijd:levertijdVan(lev)||3}).regels.push(x);
+    (per[lev]=per[lev]||{lev,regels:[],levertijd:levertijdVan(lev)||10}).regels.push(x);
   });
 
   /* wanneer moet het besteld zijn? De vroegste batch die dit nodig heeft,
@@ -22128,6 +22202,8 @@ function bind(){
     if(heeft||d===vandaag()) sheetPlanning(); else sheetPlanBatch(d);
   });
   $$('[data-planstart]').forEach(x=>x.onclick=e=>{e.stopPropagation();planStart(x.dataset.planstart)});
+  $$('[data-route]').forEach(x=>x.onclick=e=>{e.stopPropagation();routeDoe(x.dataset.route)});
+  $$('[data-routeklaar]').forEach(x=>x.onclick=e=>{e.stopPropagation();routeKlaar(x.dataset.routeklaar,true);toast('Afgevinkt')});
   $$('[data-telronde]').forEach(x=>x.onclick=sheetTelronde);
   $$('[data-ingr]').forEach(x=>x.onclick=()=>sheetIngredientenLijst(false));
   $$('[data-partijen]').forEach(x=>x.onclick=sheetLots);
