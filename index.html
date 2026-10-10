@@ -1550,6 +1550,9 @@ nav#tabbar{view-transition-name:tabbalk}
 .sheet.open{transform:translateY(0)}
 .grip{width:36px;height:4px;border-radius:99px;background:#e4e4e7;margin:12px auto 0;flex:none}
 .sheetkop{display:flex;align-items:center;gap:12px;padding:16px 20px 8px;flex:none}
+.sheetterug{display:none;width:40px;height:40px;margin-left:-8px;border:0;border-radius:12px;background:var(--bg);color:var(--ink);place-items:center;padding:0;flex:none;cursor:pointer}
+.sheetterug.aan{display:grid}
+.sheetterug svg{width:17px;height:17px;transform:rotate(180deg)}
 .sheetkop h2{flex:1;margin:0;font-size:21px;font-weight:600;letter-spacing:-.03em}
 .sheetkop .wstap{font-size:12.5px;font-weight:600;color:var(--grijs2);flex:none}
 .sluit{width:30px;height:30px;border-radius:99px;background:var(--bg);display:grid;place-items:center;color:var(--grijs);flex:none}
@@ -4495,7 +4498,7 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
   <div class="overlay" id="overlay"></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true">
     <div class="grip"></div>
-    <div class="sheetkop"><h2 id="sheetTitel"></h2><span class="wstap" id="sheetStap"></span>
+    <div class="sheetkop"><button class="sheetterug" id="sheetTerug" aria-label="Terug"></button><h2 id="sheetTitel"></h2><span class="wstap" id="sheetStap"></span>
       <button class="hulpknop" id="sheetHulp" aria-label="Uitleg over dit scherm"></button>
       <button class="sluit" id="sheetSluit" aria-label="Sluiten"></button></div>
     <div class="sheetbody" id="sheetBody"></div>
@@ -4595,7 +4598,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v749 · 10 okt 2026';
+const APPVERSIE='v750 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -22468,9 +22471,12 @@ function grenzenZetten(waar){
 }
 
 let sheetUitlegHtml=null;
+/* terugpijl linksboven in een sheet (v750): alleen zichtbaar als er een vorig scherm is */
+let sheetTerugFn=null;
+function sheetTerugZet(f){ sheetTerugFn=f; const b=document.getElementById('sheetTerug'); if(b) b.classList.toggle('aan',!!f) }
 function sheet(t,b,v,stapLabel){
   homeSheet=null; $('#sheetBody').classList.remove('geenin');
-  bijSluiten=null;
+  bijSluiten=null; sheetTerugZet(null);
   $('#sheetTitel').textContent=t; $('#sheetStap').textContent=stapLabel||'';
   /* hulpknopje alleen tonen als er uitleg bij dit scherm hoort */
   hulpDicht();
@@ -22504,6 +22510,8 @@ function dicht(){homeSheet=null;stopStap();plKies=null;sluitVeeg();let ververs=f
   hulpDicht(); ballonDicht(); rlStop();
   $('#sheet').classList.remove('open');$('#overlay').classList.remove('open');sheetOpen=false}
 $('#overlay').onclick=dicht;$('#sheetSluit').onclick=dicht;
+$('#sheetTerug').innerHTML=svg(I.pijl,'2.2');
+$('#sheetTerug').onclick=()=>{ const f=sheetTerugFn; if(f) f() };
 $('#hulpSluit').onclick=hulpDicht;
 $('#rlWeg').onclick=rlStop;
 $('#rlTerug').onclick=()=>{
@@ -27854,7 +27862,7 @@ function smaakHub(){
      <div class="paneel">
        ${rij('naam',I.doc,'Naam',R.naam||'invullen',!R.naam)}
        ${rij('choc',I.bonbon,'Chocolade',chocNaam(R.chocolade)||'kiezen',!R.chocolade)}
-       ${rij('mal',I.vorm,vakHoofd('Mal'),mal?mal.naam+' · '+mal.holtes:'kiezen',!mal)}
+       ${rij('mal',I.vorm,vakHoofd('mal')||'Mal',mal?mal.naam+' · '+mal.holtes:'kiezen',!mal)}
        ${rij('tht',I.klok,'Houdbaarheid',R.tht?R.tht+' dagen':'invullen',!R.tht)}
      </div>
 
@@ -27874,7 +27882,9 @@ function smaakHub(){
     'Opgeslagen');
 
   bijSluiten=null;
-  $('#shOk').onclick=()=>{ bewaarSmaak(); render(); sheetRecepten() };
+  const naarSmaken=()=>{ bewaarSmaak(); render(); homeTegel('smk') };
+  sheetTerugZet(naarSmaken);
+  $('#shOk').onclick=naarSmaken;
   $$('#sheetBody [data-sh]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.sh;
     if(k==='etiket'){ leesRecept(); bewaarSmaak(); return sheetProductEtiket(R.id) }
@@ -27961,6 +27971,7 @@ function smaakDeel(deel){
     blok.querySelector('[data-stapbij]').value=b.dataset.w||'';
   });
   $('#rKlaar').onclick=()=>{ leesRecept(); bewaarSmaak(); render(); smaakHub() };
+  sheetTerugZet(()=>{ leesRecept(); bewaarSmaak(); render(); smaakHub() });
 }
 
 /* Het oude formulier blijft bestaan voor de wizard bij een nieuwe smaak; daar
