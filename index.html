@@ -4189,6 +4189,19 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
   background:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
 .rtdaarna span{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs);margin-right:4px}
 .rtdaarna svg{width:15px;height:15px;color:var(--grijs);margin-left:auto}
+.smsoort{margin-bottom:16px}
+.smkop{display:flex;align-items:center;gap:10px;margin:0 4px 8px}
+.smkop .schijf{width:14px;height:14px;flex:none}
+.smkop b{font-size:16px;font-weight:700;flex:1}
+.smkop small{font-size:13px;color:var(--grijs)}
+.smlijst{background:var(--bg);border-radius:16px;overflow:hidden}
+.smrij{display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:10px 14px;border:0;background:none;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.smrij+.smrij{border-top:1px solid #e4e4e7}
+.smnm{flex:1;min-width:0;font-size:15.5px;font-weight:600;display:flex;flex-direction:column}
+.smnm small{font-size:12.5px;font-weight:400;color:var(--grijs);margin-top:1px}
+.smnm small b{color:var(--amber);font-weight:600}
+.smop{font-size:13px;font-weight:700;color:var(--groen);background:#15803d14;border-radius:99px;padding:3px 9px}
+.smrij .pijl svg{width:15px;height:15px;color:#a1a1aa}
 .plkaart{background:var(--card);border-radius:18px;padding:6px 14px 10px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -22px rgba(24,24,27,.28)}
 .plkaart .gsmelding{margin-top:8px!important}
@@ -4582,7 +4595,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v748 · 10 okt 2026';
+const APPVERSIE='v749 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9826,18 +9839,19 @@ function sheetSmaakSnel(){
 function prodSmakenHTML(){
   let h=`<button class="prim" style="margin:0 0 14px" onclick="sheetSmaakSnel()">${svg(I.plus)}Nieuwe smaak</button>`;
   if(S.recepten.length){
-    h+=`<div class="paneel">${S.recepten.filter(smaakActief).map(rc=>{
-      const vp=verkoopPrijs(rc.id), m=margeVan(rc);
-      const opv=voorraadPerSmaak()[rc.id]||0;
-      return `<button class="arij" data-recept="${rc.id}">
-        <span class="ivak">${svg(I.boek)}</span>
-        <span class="naam">${esc(rc.naam)}<small>${chocNaam(rc.chocolade).toLowerCase()}${
-          rc.tht?' · THT '+rc.tht+' dagen':''}${(rc.onderdelen||[]).length?'':' · <b style="color:var(--amber);font-weight:600">lagen nog leeg</b>'}${
-          vp!==null?' · '+euro(vp):''}${m&&m.pct!==null?' · marge '+m.pct+'%':''}</small></span>
-        <span class="waarde ${opv?'gevuld':''}">${opv?opv+' op voorraad':''}</span>
-        <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}
-      <button class="meer" data-sheet="recepten">Per chocoladesoort en archief</button>
-    </div>`;
+    /* v749: per chocoladesoort gegroepeerd — wit, melk, puur onder elkaar */
+    const act=S.recepten.filter(smaakActief), groepen=soorten().map(c=>({c,l:act.filter(r=>r.chocolade===c.key)}))
+      .concat([{c:{key:'_',naam:'Overig'},l:act.filter(r=>!soorten().some(c=>c.key===r.chocolade))}]).filter(g=>g.l.length);
+    h+=groepen.map(({c,l})=>`<div class="smsoort">
+      <div class="smkop"><i class="schijf ${c.key}"></i><b>${esc(c.naam)}</b><small>${l.length} ${l.length===1?'smaak':'smaken'}</small></div>
+      <div class="smlijst">${l.map(rc=>{
+        const vp=verkoopPrijs(rc.id), opv=voorraadPerSmaak()[rc.id]||0, leeg=!(rc.onderdelen||[]).length;
+        const sub=[rc.tht?'THT '+rc.tht+' d':'',vp!==null?euro(vp):''].filter(Boolean).join(' · ');
+        return `<button class="smrij" data-recept="${rc.id}">
+          <span class="smnm">${esc(rc.naam)}${leeg||sub?`<small>${leeg?'<b>lagen nog leeg</b>'+(sub?' · ':''):''}${sub}</small>`:''}</span>
+          ${opv?`<span class="smop">${opv}</span>`:''}
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div></div>`).join('')
+      +`<button class="prodlos" style="display:block;width:100%" data-sheet="recepten">Archief en meer</button>`;
   } else {
     h+=`<p class="wdleeg">Nog geen smaken. Voeg je eerste toe, daarna kun je batches maken.</p>`;
   }
