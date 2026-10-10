@@ -4652,7 +4652,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v755 · 10 okt 2026';
+const APPVERSIE='v756 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -4974,7 +4974,7 @@ const BEWAARVELDEN=['route','vpUit','orderDoel','malCapaciteit','stempelBonbons'
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','vidsFase1b','vidsLeergeld1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'filmAf','kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw'];
+  'filmAf','kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw','eenmalig'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -5567,6 +5567,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
+          if(eenmaligMallenOkt()) setTimeout(bewaarNu,800);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -11503,6 +11504,27 @@ function sheetUrenHand(){
     S.klussen.push(r);
     bewaarNu(); sheetUren(); render(); toast(urenTekst(sec)+' vastgelegd.');
   };
+}
+
+/* ═══════════ eenmalig (v756): mallen wassen 5–7 okt ═══════════
+   Op verzoek van Hamza door Claude ingevoerd: 8u 39 mallen wassen op
+   ma 5, di 6 en wo 7 oktober 2026 — de avonden die hij zelf opgaf. Draait
+   één keer na het laden van de server; daarna staat er een vlag, zodat het
+   niet terugkomt als je een regel later verwijdert. */
+function eenmaligMallenOkt(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.mallenOkt2026) return false;
+  const regels=[['2026-10-05','19:20',171],['2026-10-06','19:05',197],['2026-10-07','19:45',151]];
+  S.klussen=S.klussen||[];
+  regels.forEach(([datum,begin,min],i)=>{
+    const id='mallen-okt-'+(i+1);
+    if(S.klussen.some(x=>x&&x.id===id)) return;
+    const [h,m]=begin.split(':').map(Number); const st=new Date(datum+'T00:00'); st.setHours(h,m,0,0);
+    S.klussen.push({id,soort:'overig',tekst:'Mallen wassen',datum,tijd:begin,sec:min*60,
+      start:st.getTime(),eind:st.getTime()+min*60000,handmatig:true});
+  });
+  S.eenmalig.mallenOkt2026=Date.now();
+  return true;
 }
 
 /* ═══════════ meerdere avonden in één keer (v755) ═══════════
