@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v761 · 10 okt 2026';
+const APPVERSIE='v762 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5616,7 +5616,7 @@ function firebaseStart(){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
           if([eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
-          setTimeout(()=>eenmaligRittenOkt(),1500);
+          setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); },1500);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -10792,7 +10792,7 @@ function sheetRit(id){
   const r=(S.ritten||[]).find(x=>x.id===id); if(!r) return;
   sheet(r.reden||'Rit',
     `<div class="vrkop"><div class="vrgetal">${komma(Math.round(r.km*10)/10)}<em>kilometer</em></div>
-      <div class="vrmeta">${kort(new Date(r.datum))}<br>${r.start.tijd?r.start.tijd+' – '+r.eind.tijd:'achteraf ingevoerd'}<br>
+      <div class="vrmeta">${kort(new Date(r.datum))}<br>${r.start.tijd?r.start.tijd+' – '+r.eind.tijd:(r.bron==='reconstructie'?'reconstructie':'achteraf ingevoerd')}<br>
         ${r.zakelijk?'zakelijk · '+euro(r.km*kmTarief())+' aftrekbaar':'privé'}</div></div>
      <div class="paneel">
        <div class="item"><span class="t">van</span><span class="b">${esc(toonPlek(r.start)||'onbekend')}
@@ -10801,7 +10801,9 @@ function sheetRit(id){
          <em>${esc(r.eind.adres||'geen adres vastgelegd')}</em></span></div>
        ${r.standBegin!==null?`<div class="item"><span class="t">stand</span>
          <span class="b">${getal(r.standBegin)} → ${getal(r.standEind)} km<em>kilometerteller</em></span></div>`:''}
-       ${r.bron==='achteraf'?`<div class="item"><span class="t">bron</span><span class="b">Achteraf ingevoerd
+       ${r.bron==='reconstructie'?`<div class="item"><span class="t">bron</span><span class="b">Reconstructie op opgave
+         <em>vast patroon opgegeven door Hamza, afstand berekend over de weg</em></span></div>`
+       :r.bron==='achteraf'?`<div class="item"><span class="t">bron</span><span class="b">Achteraf ingevoerd
          <em>kilometers opgegeven, geen gps</em></span></div>`:`<div class="item"><span class="t">${r.punten}</span><span class="b">${
          r.bron==='berekend'?'Route berekend':'Meetpunten'}
          <em>${r.bron==='berekend'?'kortste route over de weg':'via gps vastgelegd'}</em></span></div>`}
@@ -11641,6 +11643,42 @@ async function eenmaligRittenOkt(){
     toast('18 ritten toegevoegd · '+komma(Math.round(heen*10)/10)+' km per keer.');
   } finally { rittenOktBezig=false; }
 }
+/* v762: reconstructie 2026 op Hamza's opgave — elke di t/m zo naar de
+   werkplaats, 1 jan t/m 30 sep, behalve 28 jun t/m 10 aug. Gemarkeerd als
+   reconstructie, zodat niemand denkt dat dit live gemeten ritten zijn. */
+let rittenReconBezig=false;
+async function eenmaligRittenRecon2026(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.rittenRecon2026||rittenReconBezig) return;
+  rittenReconBezig=true;
+  try{
+    const zoek=async t=>{const l=await adresZoek(t); return l.length?adresDetail(l[0].id):null};
+    const thuis=await zoek('Tongelaar 34 Waalwijk'), werk=await zoek('Alcoalaan 8D Drunen');
+    if(!thuis||!werk||thuis.lat===null||werk.lat===null) return;
+    const heen=await wegAfstand(thuis,werk), terug=await wegAfstand(werk,thuis);
+    if(!heen||!terug) return;
+    S.ritten=S.ritten||[];
+    const d=new Date('2026-01-01T12:00'), eind=new Date('2026-09-30T12:00');
+    let n=0;
+    for(;d<=eind;d.setDate(d.getDate()+1)){
+      if(d.getDay()===1) continue;                       /* maandag niet */
+      const datum=iso(d);
+      if(datum>='2026-06-28'&&datum<='2026-08-10') continue;
+      [['heen',thuis,werk,heen],['terug',werk,thuis,terug]].forEach(([k,v,w,km])=>{
+        const id='rit-r26-'+datum+'-'+k;
+        if(S.ritten.some(x=>x&&x.id===id)) return;
+        S.ritten.push({id,datum,km:Math.round(km*10)/10,reden:'Werkplaats',zakelijk:true,bron:'reconstructie',
+          start:{tijd:'',lat:v.lat,lon:v.lon,adres:v.adres,naam:null},
+          eind:{tijd:'',lat:w.lat,lon:w.lon,adres:w.adres,naam:null},
+          standBegin:null,standEind:null,punten:0});
+        n++;
+      });
+    }
+    S.eenmalig.rittenRecon2026=Date.now();
+    bewaarNu(); render();
+    toast(n+' ritten 2026 toegevoegd als reconstructie.');
+  } finally { rittenReconBezig=false; }
+}
 function eenmaligZondagGepland(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.zondag11okt) return false;
@@ -11834,17 +11872,19 @@ function sheetRitten(){
     <div class="rij"><span>Aantal ritten</span><b>${lijst.length}</b></div>
     <h3>Ritten</h3>
     ${lijst.length?`<table><tr><th>Datum</th><th>Van</th><th>Naar</th><th>Reden</th>
-      <th>Stand begin</th><th>Stand eind</th><th>Km</th><th>Soort</th></tr>
+      <th>Stand begin</th><th>Stand eind</th><th>Km</th><th>Soort</th><th>Vastgelegd</th></tr>
       ${lijst.map(r=>`<tr><td class="t">${kort(new Date(r.datum))}</td>
         <td>${esc(r.start.adres||'—')}</td><td>${esc(r.eind.adres||'—')}</td>
         <td>${esc(r.reden||'—')}</td>
         <td class="n">${r.standBegin!==null?getal(r.standBegin):'—'}</td>
         <td class="n">${r.standEind!==null?getal(r.standEind):'—'}</td>
         <td class="n">${komma(Math.round(r.km*10)/10)}</td>
-        <td>${r.zakelijk?'zakelijk':'privé'}</td></tr>`).join('')}</table>`
+        <td>${r.zakelijk?'zakelijk':'privé'}</td>
+        <td>${({reconstructie:'reconstructie',achteraf:'achteraf',berekend:'route berekend'})[r.bron]||'gps'}</td></tr>`).join('')}</table>`
       :rLeeg('Geen ritten in '+jaar+'.')}
-    <div class="leeg" style="text-align:left">Afstanden gemeten via gps. Kilometerstanden zijn met de hand
-      ingevoerd en sluiten op elkaar aan. Bewaartermijn zeven jaar.</div>
+    <div class="leeg" style="text-align:left">De kolom Vastgelegd laat per rit zien hoe hij is vastgelegd: live via gps,
+      met een over de weg berekende route, achteraf ingevoerd, of als reconstructie op opgave van de ondernemer.
+      Bewaartermijn zeven jaar.</div>
     ${rVoet()}</div>`;
   sheet('Rittenoverzicht',
     `<div class="etvoorbeeld" style="padding:0"><div class="schaal" id="rtSchaal">${html}</div></div>`,
