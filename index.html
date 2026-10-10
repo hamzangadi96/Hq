@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v762 · 10 okt 2026';
+const APPVERSIE='v763 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5616,7 +5616,7 @@ function firebaseStart(){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
           if([eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
-          setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); },1500);
+          setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -11678,6 +11678,43 @@ async function eenmaligRittenRecon2026(){
     bewaarNu(); render();
     toast(n+' ritten 2026 toegevoegd als reconstructie.');
   } finally { rittenReconBezig=false; }
+}
+/* v763: reconstructie 2025 op Hamza's opgave — vanaf 1 maart (start huur)
+   elke vrijdag, zaterdag en zondag, plus om de week de dinsdag (vanaf de
+   eerste dinsdag van maart). Juli was vakantie. */
+let rittenRecon25Bezig=false;
+async function eenmaligRittenRecon2025(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.rittenRecon2025||rittenRecon25Bezig) return;
+  rittenRecon25Bezig=true;
+  try{
+    const zoek=async t=>{const l=await adresZoek(t); return l.length?adresDetail(l[0].id):null};
+    const thuis=await zoek('Tongelaar 34 Waalwijk'), werk=await zoek('Alcoalaan 8D Drunen');
+    if(!thuis||!werk||thuis.lat===null||werk.lat===null) return;
+    const heen=await wegAfstand(thuis,werk), terug=await wegAfstand(werk,thuis);
+    if(!heen||!terug) return;
+    S.ritten=S.ritten||[];
+    const d=new Date('2025-03-01T12:00'), eind=new Date('2025-12-31T12:00');
+    let n=0, dinsdag=0;
+    for(;d<=eind;d.setDate(d.getDate()+1)){
+      const wd=d.getDay(), datum=iso(d);
+      let gaan=wd===5||wd===6||wd===0;
+      if(wd===2){ gaan=dinsdag%2===0; dinsdag++; }
+      if(!gaan||datum.slice(5,7)==='07') continue;
+      [['heen',thuis,werk,heen],['terug',werk,thuis,terug]].forEach(([k,v,w,km])=>{
+        const id='rit-r25-'+datum+'-'+k;
+        if(S.ritten.some(x=>x&&x.id===id)) return;
+        S.ritten.push({id,datum,km:Math.round(km*10)/10,reden:'Werkplaats',zakelijk:true,bron:'reconstructie',
+          start:{tijd:'',lat:v.lat,lon:v.lon,adres:v.adres,naam:null},
+          eind:{tijd:'',lat:w.lat,lon:w.lon,adres:w.adres,naam:null},
+          standBegin:null,standEind:null,punten:0});
+        n++;
+      });
+    }
+    S.eenmalig.rittenRecon2025=Date.now();
+    bewaarNu(); render();
+    toast(n+' ritten 2025 toegevoegd als reconstructie.');
+  } finally { rittenRecon25Bezig=false; }
 }
 function eenmaligZondagGepland(){
   S.eenmalig=S.eenmalig||{};
