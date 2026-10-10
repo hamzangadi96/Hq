@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v759 · 10 okt 2026';
+const APPVERSIE='v760 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5615,7 +5615,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
         } else if((S.bijgewerkt||0)>(d.bijgewerkt||0)){
@@ -10791,7 +10791,7 @@ function sheetRit(id){
   const r=(S.ritten||[]).find(x=>x.id===id); if(!r) return;
   sheet(r.reden||'Rit',
     `<div class="vrkop"><div class="vrgetal">${komma(Math.round(r.km*10)/10)}<em>kilometer</em></div>
-      <div class="vrmeta">${kort(new Date(r.datum))}<br>${r.start.tijd} – ${r.eind.tijd}<br>
+      <div class="vrmeta">${kort(new Date(r.datum))}<br>${r.start.tijd?r.start.tijd+' – '+r.eind.tijd:'achteraf ingevoerd'}<br>
         ${r.zakelijk?'zakelijk · '+euro(r.km*kmTarief())+' aftrekbaar':'privé'}</div></div>
      <div class="paneel">
        <div class="item"><span class="t">van</span><span class="b">${esc(toonPlek(r.start)||'onbekend')}
@@ -10800,9 +10800,10 @@ function sheetRit(id){
          <em>${esc(r.eind.adres||'geen adres vastgelegd')}</em></span></div>
        ${r.standBegin!==null?`<div class="item"><span class="t">stand</span>
          <span class="b">${getal(r.standBegin)} → ${getal(r.standEind)} km<em>kilometerteller</em></span></div>`:''}
-       <div class="item"><span class="t">${r.punten}</span><span class="b">${
+       ${r.bron==='achteraf'?`<div class="item"><span class="t">bron</span><span class="b">Achteraf ingevoerd
+         <em>kilometers opgegeven, geen gps</em></span></div>`:`<div class="item"><span class="t">${r.punten}</span><span class="b">${
          r.bron==='berekend'?'Route berekend':'Meetpunten'}
-         <em>${r.bron==='berekend'?'kortste route over de weg':'via gps vastgelegd'}</em></span></div>
+         <em>${r.bron==='berekend'?'kortste route over de weg':'via gps vastgelegd'}</em></span></div>`}
      </div>`,
     `<button class="sec" id="rdWis" style="color:var(--rood);margin-top:0">${svg(I.kruis,'2')}&nbsp; Rit verwijderen</button>`);
   $('#rdWis').onclick=()=>{
@@ -11590,6 +11591,23 @@ function eenmaligWerkOkt(){
 /* v758: zondag 11 okt klaargezet als gepland. Telt pas mee als je hem op
    of na die dag met één tik bevestigt — zo staat er in je urenstaat
    alleen wat echt gebeurd is. */
+/* v760: twee ritten van za 10 okt die niet in de app stonden, op
+   Hamza's opgave: naar de werkplaats en terug, 13,2 km per keer. */
+function eenmaligRittenZa(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.rittenZa10okt) return false;
+  const thuis='Meester van Coothstraat 2-01, Waalwijk', werk='Alcoalaan 8D, Drunen';
+  S.ritten=S.ritten||[];
+  [['heen',thuis,werk],['terug',werk,thuis]].forEach(([k,v,n])=>{
+    const id='rit-za10-'+k;
+    if(S.ritten.some(x=>x&&x.id===id)) return;
+    S.ritten.push({id,datum:'2026-10-10',km:13.2,reden:'Werkplaats',zakelijk:true,bron:'achteraf',
+      start:{tijd:'',lat:null,lon:null,adres:v,naam:null},eind:{tijd:'',lat:null,lon:null,adres:n,naam:null},
+      standBegin:null,standEind:null,punten:0});
+  });
+  S.eenmalig.rittenZa10okt=Date.now();
+  return true;
+}
 function eenmaligZondagGepland(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.zondag11okt) return false;
