@@ -1258,3 +1258,221 @@ Object.assign(exports, require('./analyseerClip'));
 
 /* De regie: van bekeken clips een montageplan maken. Ook apart. */
 Object.assign(exports, require('./maakRegie'));
+
+/* ═══════════════════════════════════════════════════════════════════
+   Claude laten meelezen
+
+   Een connector die je in claude.ai toevoegt. Claude kan daarmee je
+   app-gegevens LEZEN — uren, batches, voorraad, alles wat de app bewaart —
+   maar nooit iets wijzigen. De sleutels onder geheim blijven buiten bereik.
+
+   Hoe het werkt: in de app maak je bij Koppelingen een link. Die link
+   bevat een lange willekeurige sleutel; wie hem heeft, kan lezen. Maak je
+   een nieuwe, dan werkt de oude meteen niet meer.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const { onRequest } = require('firebase-functions/v2/https');
+const crypto = require('crypto');
+
+const connectorRef = sleutel => db().ref('geheim/_connector/' + sleutel);
+const TZ = 'Europe/Amsterdam';
+
+exports.claudeMeelezen = onCall(async req => {
+  const uid = wieBenJe(req);
+  const oud = await leesGeheim(uid, 'meelezen');
+  if (oud && oud.sleutel) await connectorRef(oud.sleutel).remove();
+
+  if ((req.data || {}).weg) {
+    await geheimRef(uid).child('meelezen').remove();
+    await werkRef(uid).child('koppeling/meelezen').remove();
+    return { ok: true };
+  }
+
+  const sleutel = crypto.randomBytes(24).toString('hex');
+  await connectorRef(sleutel).set(uid);
+  await geheimRef(uid).child('meelezen').set({ sleutel, gemaakt: Date.now() });
+  await werkRef(uid).child('koppeling').update({ meelezen: true });
+  const project = process.env.GCLOUD_PROJECT || 'cacaoboetiek-hq';
+  return { ok: true, url: `https://europe-west1-${project}.cloudfunctions.net/claudeLees/${sleutel}` };
+});
+
+/* ── hulpjes ── */
+const alsLijst = v => Array.isArray(v) ? v.filter(Boolean)
+  : (v && typeof v === 'object') ? Object.values(v).filter(Boolean) : [];
+const dagVan = ms => new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(new Date(ms));
+const tijdVan = ms => new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+const weekdag = ms => new Intl.DateTimeFormat('nl-NL', { timeZone: TZ, weekday: 'long' }).format(new Date(ms));
+const uurGetal = sec => Math.round(sec / 36) / 100;
+
+/* Alle tijdregels uit de app op één hoop: productiestappen in batches en
+   losse klussen (zoals mallen wassen op een dag zonder productie). */
+function tijdRegels(S) {
+  const regels = [];
+  const soortNaam = { coderen: 'Coderen', website: 'Website & shop', administratie: 'Administratie',
+    inkoop: 'Inkoop', marketing: 'Marketing', onderhoud: 'Onderhoud & checks', overig: 'Overig' };
+  alsLijst(S.batches).forEach(b => {
+    alsLijst(b.werk).forEach(w => {
+      if (!w.start) return;
+      const eind = w.eind || null;
+      regels.push({ start: w.start, eind, activiteit: w.act || '?',
+        bron: 'batch ' + (b.code || b.id || ''),
+        sec: Math.max(0, Math.round(((eind || Date.now()) - w.start) / 1000)) });
+    });
+  });
+  const klussen = alsLijst(S.klussen);
+  if (S.klus) klussen.push(S.klus);
+  klussen.forEach(k => {
+    if (!k.start) return;
+    const eind = k.eind || null;
+    const sec = (k.sec != null) ? k.sec : Math.max(0, Math.round(((eind || Date.now()) - k.start) / 1000));
+    regels.push({ start: k.start, eind, activiteit: k.tekst || soortNaam[k.soort] || k.soort || '?',
+      bron: 'klus · ' + (soortNaam[k.soort] || k.soort || 'overig'), sec });
+  });
+  return regels.sort((a, b) => a.start - b.start);
+}
+
+function urenRapport(S, a) {
+  const zoek = String(a.zoek || '').toLowerCase().trim();
+  const van = a.van || '0000-01-01', tot = a.tot || '9999-12-31';
+  const rijen = tijdRegels(S).filter(r => {
+    const d = dagVan(r.start);
+    if (d < van || d > tot) return false;
+    return !zoek || (r.activiteit + ' ' + r.bron).toLowerCase().includes(zoek);
+  });
+  const perDag = {}, perAct = {};
+  let totaal = 0;
+  rijen.forEach(r => {
+    const d = dagVan(r.start);
+    const pd = perDag[d] = perDag[d] || { datum: d, dag: weekdag(r.start), van: tijdVan(r.start), tot: null, sec: 0 };
+    pd.sec += r.sec;
+    pd.tot = r.eind ? tijdVan(r.eind) : 'loopt nog';
+    perAct[r.activiteit] = (perAct[r.activiteit] || 0) + r.sec;
+    totaal += r.sec;
+  });
+  /* diensten: van inklokken tot uitklokken */
+  const diensten = alsLijst(S.diensten).concat(S.dienst ? [S.dienst] : [])
+    .filter(d => d.start && dagVan(d.start) >= van && dagVan(d.start) <= tot)
+    .map(d => ({ datum: dagVan(d.start), van: tijdVan(d.start), tot: d.eind ? tijdVan(d.eind) : 'loopt nog',
+      uren: uurGetal(d.sec || Math.round(((d.eind || Date.now()) - d.start) / 1000)) }));
+  return {
+    filter: { van: a.van || null, tot: a.tot || null, zoek: a.zoek || null },
+    totaal_uren: uurGetal(totaal),
+    per_dag: Object.values(perDag).map(x => ({ datum: x.datum, dag: x.dag, van: x.van, tot: x.tot, uren: uurGetal(x.sec) })),
+    per_activiteit: Object.entries(perAct).sort((x, y) => y[1] - x[1]).map(([act, s]) => ({ activiteit: act, uren: uurGetal(s) })),
+    regels: rijen.slice(-400).map(r => ({ datum: dagVan(r.start), van: tijdVan(r.start),
+      tot: r.eind ? tijdVan(r.eind) : 'loopt nog', uren: uurGetal(r.sec), activiteit: r.activiteit, bron: r.bron })),
+    diensten: zoek ? undefined : diensten
+  };
+}
+
+function beschrijf(v) {
+  if (Array.isArray(v)) return 'lijst (' + v.length + ')';
+  if (v && typeof v === 'object') return 'object (' + Object.keys(v).length + ' sleutels)';
+  return typeof v;
+}
+function kort(v, max) {
+  const s = JSON.stringify(v, null, 1);
+  return s.length > max ? s.slice(0, max) + `\n… (afgekapt, ${s.length} tekens in totaal — vraag een dieper pad of gebruik van/aantal)` : s;
+}
+function zoekIn(v, tekst, pad, uit) {
+  if (uit.length >= 60) return;
+  if (v && typeof v === 'object') {
+    for (const k of Object.keys(v)) zoekIn(v[k], tekst, pad ? pad + '/' + k : k, uit);
+  } else if (v != null && String(v).toLowerCase().includes(tekst)) {
+    uit.push({ pad, waarde: String(v).slice(0, 160) });
+  }
+}
+
+const TOOLS = [
+  { name: 'uren',
+    description: 'Gewerkte tijd uit Cacaoboetiek HQ: productiestappen in batches en losse klussen. Geeft totaal, per dag (met weekdag en tijden), per activiteit en alle losse regels. Filter optioneel op periode en op activiteit (bijv. "mallen wassen"). Tijden in Europe/Amsterdam.',
+    inputSchema: { type: 'object', properties: {
+      van: { type: 'string', description: 'Begindatum JJJJ-MM-DD (optioneel)' },
+      tot: { type: 'string', description: 'Einddatum JJJJ-MM-DD (optioneel)' },
+      zoek: { type: 'string', description: 'Deel van de activiteitsnaam, bijv. "mallen"' } } } },
+  { name: 'overzicht',
+    description: 'Welke gegevens er in de app staan: elke sleutel met type en aantal. Bron "app" is de hoofdopslag, "werkvloer" de orders/opdrachten-tak.',
+    inputSchema: { type: 'object', properties: {
+      bron: { type: 'string', enum: ['app', 'werkvloer'] } } } },
+  { name: 'lees',
+    description: 'Lees een stuk app-data op pad, bijv. "recepten", "batches/3", "voorraad". Lijsten kun je in stukken lezen met van/aantal.',
+    inputSchema: { type: 'object', required: ['pad'], properties: {
+      pad: { type: 'string' }, bron: { type: 'string', enum: ['app', 'werkvloer'] },
+      van: { type: 'integer' }, aantal: { type: 'integer' } } } },
+  { name: 'zoek',
+    description: 'Zoek tekst door alle app-data heen; geeft paden met de gevonden waarde.',
+    inputSchema: { type: 'object', required: ['tekst'], properties: {
+      tekst: { type: 'string' }, bron: { type: 'string', enum: ['app', 'werkvloer'] } } } }
+];
+
+async function voerUit(uid, naam, a) {
+  const bron = (a && a.bron === 'werkvloer') ? 'werkvloer/' : 'cacaoboetiek/';
+  const lees = async pad => (await db().ref(bron + uid + (pad ? '/' + pad : '')).once('value')).val();
+  if (naam === 'uren') return urenRapport((await db().ref('cacaoboetiek/' + uid).once('value')).val() || {}, a || {});
+  if (naam === 'overzicht') {
+    const S = (await lees('')) || {};
+    const o = {}; Object.keys(S).sort().forEach(k => { o[k] = beschrijf(S[k]) });
+    return o;
+  }
+  if (naam === 'lees') {
+    const pad = String(a.pad || '').replace(/^\/+|\/+$/g, '').replace(/\.\./g, '');
+    let v = await lees(pad);
+    if (v == null) return { pad, waarde: null };
+    if (a.van != null || a.aantal != null) {
+      const l = Array.isArray(v) ? v : Object.values(v);
+      const van = a.van || 0;
+      v = { totaal: l.length, van, items: l.slice(van, van + (a.aantal || 20)) };
+    }
+    return kort(v, 60000);
+  }
+  if (naam === 'zoek') {
+    const uit = []; zoekIn(await lees(''), String(a.tekst || '').toLowerCase(), '', uit);
+    return uit;
+  }
+  throw new Error('Onbekende tool: ' + naam);
+}
+
+exports.claudeLees = onRequest({ invoker: 'public', cors: false }, async (req, res) => {
+  const sleutel = String(req.path || '').split('/').filter(Boolean)[0] || '';
+  const uid = /^[0-9a-f]{48}$/.test(sleutel) ? (await connectorRef(sleutel).once('value')).val() : null;
+  if (!uid) return res.status(404).send('Niet gevonden');
+  if (req.method !== 'POST') return res.status(405).set('Allow', 'POST').send('');
+
+  const antwoord = async m => {
+    const id = m.id;
+    if (id === undefined || id === null) return null;   /* melding, geen antwoord */
+    const ok = result => ({ jsonrpc: '2.0', id, result });
+    try {
+      switch (m.method) {
+        case 'initialize':
+          return ok({ protocolVersion: (m.params && m.params.protocolVersion) || '2025-06-18',
+            capabilities: { tools: {} },
+            serverInfo: { name: 'cacaoboetiek-hq', version: '1.0.0' },
+            instructions: 'Alleen-lezen toegang tot Cacaoboetiek HQ. Gebruik "uren" voor gewerkte tijd, "overzicht" om te zien wat er is, "lees" en "zoek" voor de rest.' });
+        case 'ping': return ok({});
+        case 'tools/list': return ok({ tools: TOOLS });
+        case 'tools/call': {
+          const p = m.params || {};
+          try {
+            const r = await voerUit(uid, p.name, p.arguments || {});
+            return ok({ content: [{ type: 'text', text: typeof r === 'string' ? r : JSON.stringify(r, null, 1) }] });
+          } catch (e) {
+            return ok({ isError: true, content: [{ type: 'text', text: String(e.message || e) }] });
+          }
+        }
+        default:
+          return { jsonrpc: '2.0', id, error: { code: -32601, message: 'Onbekende methode' } };
+      }
+    } catch (e) {
+      return { jsonrpc: '2.0', id, error: { code: -32603, message: String(e.message || e) } };
+    }
+  };
+
+  const body = req.body;
+  if (Array.isArray(body)) {
+    const uit = (await Promise.all(body.map(antwoord))).filter(Boolean);
+    return uit.length ? res.json(uit) : res.status(202).send('');
+  }
+  const r = await antwoord(body || {});
+  return r ? res.json(r) : res.status(202).send('');
+});
