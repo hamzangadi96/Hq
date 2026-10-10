@@ -3354,6 +3354,17 @@ header.weg{display:none}
   color:var(--ink);background:var(--bg);border-radius:99px;padding:6px 12px;margin-left:auto}
 .hervatchip svg{width:11px;height:11px}
 .hervatchip:active{background:var(--grijs3)}
+/* v755: meerdere avonden tegelijk invoeren */
+.meerrij{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px;align-items:end;
+  padding:12px 0;border-bottom:1px solid var(--lijn)}
+.meerrij:last-child{border-bottom:none}
+.meerrij label{display:block;font-size:11px;font-weight:600;color:var(--grijs2);margin:0 0 5px;letter-spacing:.02em}
+.meerrij .inp{padding-left:12px;padding-right:10px;min-width:0;width:100%;box-sizing:border-box}
+.meerrij .vol{grid-column:1/-1}
+.meerrij .nr{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:-2px}
+.meertot{display:flex;justify-content:space-between;align-items:center;margin:14px 2px 0;
+  font-size:13.5px;color:var(--grijs)}
+.meertot b{font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
 
 /* ═══ 8c. PER ACTIVITEIT (v753) ═════════════════════════════════════
    Eén werkzaamheid, alle keren dat je eraan werkte. Gemaakt om te laten
@@ -4641,7 +4652,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v754 · 10 okt 2026';
+const APPVERSIE='v755 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11464,8 +11475,10 @@ function sheetUrenHand(){
        <div class="chips" id="uhA" style="margin-bottom:8px">${(S.activiteiten||[]).filter(x=>!/pauze/i.test(x)).map(x=>
          `<button type="button" class="chip" data-uha="${esc(x)}">${esc(x)}</button>`).join('')}</div>
        <input class="inp" id="uhT" placeholder="Of typ een omschrijving" autocomplete="off"></div>`,
-    `<button class="prim" style="margin-top:0" id="uhJa">Vastleggen</button>`);
+    `<button class="prim" style="margin-top:0" id="uhJa">Vastleggen</button>
+     <button class="sec" id="uhMeer">${svg(I.plus)}Meerdere avonden in één keer</button>`);
   chips('#uhS');
+  $('#uhMeer').onclick=()=>sheetUrenMeer();
   /* een werkzaamheid aantikken vult de omschrijving, zodat hij in
      "Overzicht per activiteit" bij dezelfde naam optelt */
   $$('[data-uha]').forEach(c=>c.onclick=()=>{
@@ -11489,6 +11502,97 @@ function sheetUrenHand(){
       st.setHours(h,m,0,0); r.start=st.getTime(); r.eind=r.start+sec*1000; }
     S.klussen.push(r);
     bewaarNu(); sheetUren(); render(); toast(urenTekst(sec)+' vastgelegd.');
+  };
+}
+
+/* ═══════════ meerdere avonden in één keer (v755) ═══════════
+   Je weet het totaal en hoeveel avonden het waren. De app verdeelt het
+   totaal ongelijk over de avonden — zoals het in het echt ook gaat — en
+   jij vult per avond de echte datum in. Alles blijft aanpasbaar. */
+function verdeelOngelijk(totMin,n){
+  const gewicht=[1.04,1.2,0.92,1.11,0.86,1.15,0.97,1.08].slice(0,n);
+  while(gewicht.length<n) gewicht.push(1);
+  const som=gewicht.reduce((a,b)=>a+b,0);
+  const delen=gewicht.map(g=>Math.round(totMin*g/som));
+  delen[0]+=totMin-delen.reduce((a,b)=>a+b,0);   /* afrondingsrest */
+  return delen;
+}
+const minNaarTekst=m=>Math.floor(m/60)+':'+pad(m%60);
+const tekstNaarMin=t=>{
+  t=String(t||'').trim();
+  if(/^\d+:\d{1,2}$/.test(t)){const [h,m]=t.split(':').map(Number); return h*60+m}
+  const u=parseFloat(t.replace(',','.')); return u>0?Math.round(u*60):0;
+};
+function sheetUrenMeer(st){
+  st=st||{act:'Mallen wassen',totaal:'',n:3,rijen:null};
+  const acts=(S.activiteiten||[]).filter(x=>!/pauze/i.test(x));
+  if(!st.rijen){
+    const tm=tekstNaarMin(st.totaal);
+    const delen=tm?verdeelOngelijk(tm,st.n):Array(st.n).fill(0);
+    const beginnen=['19:20','19:05','19:45','19:10','19:30','18:55','19:40','19:15'];
+    st.rijen=delen.map((m,i)=>({datum:'',begin:beginnen[i%8],duur:m?minNaarTekst(m):''}));
+  }
+  const som=st.rijen.reduce((a,r)=>a+tekstNaarMin(r.duur),0);
+  sheet('Meerdere avonden',
+    `<div class="veld"><label>Werkzaamheid</label>
+       <div class="chips" id="umA">${acts.map(x=>
+         `<button type="button" class="chip ${x===st.act?'aan':''}" data-uma="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+     <div class="kpirij2" style="margin-bottom:6px">
+       <div class="veld" style="margin:0"><label>Totaal</label>
+         <input class="inp" id="umT" inputmode="decimal" placeholder="bijv. 8:39" value="${esc(st.totaal)}"></div>
+       <div class="veld" style="margin:0"><label>Aantal avonden</label>
+         <input class="inp" id="umN" type="number" inputmode="numeric" min="1" max="8" value="${st.n}"></div>
+     </div>
+     <button class="sec" id="umVerdeel" style="margin:6px 0 16px">Verdeel over de avonden</button>
+     <div class="paneel" style="padding:2px 14px">${st.rijen.map((r,i)=>`<div class="meerrij">
+       <div class="vol nr">Avond ${i+1}</div>
+       <div class="vol"><label>Datum</label><input class="inp" type="date" data-umd="${i}" value="${r.datum}"></div>
+       <div><label>Begonnen</label><input class="inp" type="time" data-umb="${i}" value="${r.begin}"></div>
+       <div><label>Duur</label><input class="inp" inputmode="decimal" data-umu="${i}" value="${esc(r.duur)}" placeholder="2:45"></div>
+     </div>`).join('')}</div>
+     <div class="meertot"><span>Samen</span><b id="umSom">${minNaarTekst(som)}</b></div>
+     <p class="uitleg" style="margin-top:14px">Vul bij elke regel de avond in waarop je het echt deed.
+       Deze uren tellen mee in je jaarurenstaat.</p>`,
+    `<button class="prim" style="margin-top:0" id="umJa">Alles vastleggen</button>`);
+
+  const lees=()=>{
+    st.totaal=$('#umT').value.trim();
+    st.n=Math.max(1,Math.min(8,parseInt($('#umN').value)||1));
+    st.rijen.forEach((r,i)=>{ r.datum=$(`[data-umd="${i}"]`).value; r.begin=$(`[data-umb="${i}"]`).value;
+      r.duur=$(`[data-umu="${i}"]`).value.trim() });
+  };
+  $$('[data-uma]').forEach(c=>c.onclick=()=>{ lees(); st.act=c.dataset.uma; sheetUrenMeer(st) });
+  $$('[data-umu]').forEach(x=>x.oninput=()=>{
+    const m=$$('[data-umu]').reduce((a,y)=>a+tekstNaarMin(y.value),0);
+    $('#umSom').textContent=minNaarTekst(m);
+  });
+  $('#umVerdeel').onclick=()=>{
+    lees();
+    const tm=tekstNaarMin(st.totaal);
+    if(!tm){ toast('Vul eerst het totaal in, bijv. 8:39.'); $('#umT').focus(); return }
+    const oud=st.rijen; st.rijen=null; sheetUrenMeer(st);
+    /* datums die je al had ingevuld blijven staan */
+    oud.forEach((r,i)=>{ if(r.datum&&st.rijen[i]){ st.rijen[i].datum=r.datum; const e=$(`[data-umd="${i}"]`); if(e) e.value=r.datum } });
+  };
+  $('#umJa').onclick=()=>{
+    lees();
+    if(!st.act){ toast('Kies een werkzaamheid.'); return }
+    const leeg=st.rijen.findIndex(r=>!r.datum);
+    if(leeg>=0){ toast('Vul bij avond '+(leeg+1)+' de datum in.'); $(`[data-umd="${leeg}"]`).focus(); return }
+    if(st.rijen.some(r=>!tekstNaarMin(r.duur))){ toast('Vul bij elke avond een duur in.'); return }
+    S.klussen=S.klussen||[];
+    let tot=0;
+    st.rijen.forEach(r=>{
+      const sec=tekstNaarMin(r.duur)*60; tot+=sec;
+      const x={id:uid(),soort:'overig',tekst:st.act,datum:r.datum,tijd:r.begin||'',sec,handmatig:true};
+      if(r.begin){ const [h,m]=r.begin.split(':').map(Number); const d=new Date(r.datum+'T00:00');
+        d.setHours(h,m,0,0); x.start=d.getTime(); x.eind=x.start+sec*1000; }
+      S.klussen.push(x);
+    });
+    bewaarNu(); render();
+    uActKeuze=actSleutel(st.act); uActPeriode='alles';
+    sheetUrenActiviteit();
+    toast(urenTekst(tot)+' '+st.act.toLowerCase()+' vastgelegd over '+st.rijen.length+' avonden.');
   };
 }
 
