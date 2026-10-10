@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v763 · 10 okt 2026';
+const APPVERSIE='v764 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11896,8 +11896,11 @@ function sheetUrenstaat(){
   $('#usPrint').onclick=()=>drukAf(html,'Urenregistratie '+jaar,'@page{size:A4;margin:8mm}');
 }
 
-function sheetRitten(){
-  const jaar=new Date().getFullYear();
+function sheetRitten(jaar){
+  /* v764: kies het jaar; eerst stond hier altijd het lopende jaar */
+  jaar=jaar||new Date().getFullYear();
+  const jaren=[...new Set((S.ritten||[]).map(r=>+String(r.datum).slice(0,4)).concat([new Date().getFullYear()]))]
+    .filter(Boolean).sort((a,b)=>b-a);
   const lijst=(S.ritten||[]).filter(r=>r.datum.startsWith(String(jaar)))
     .sort((a,b)=>(a.datum+a.start.tijd).localeCompare(b.datum+b.start.tijd));
   const zak=lijst.filter(r=>r.zakelijk).reduce((n,r)=>n+r.km,0);
@@ -11924,11 +11927,13 @@ function sheetRitten(){
       Bewaartermijn zeven jaar.</div>
     ${rVoet()}</div>`;
   sheet('Rittenoverzicht',
-    `<div class="etvoorbeeld" style="padding:0"><div class="schaal" id="rtSchaal">${html}</div></div>`,
+    `${jaren.length>1?`<div class="actperiode">${jaren.map(j=>`<button type="button" data-rtj="${j}" class="${j===jaar?'aan':''}">${j}</button>`).join('')}</div>`:''}
+     <div class="etvoorbeeld" style="padding:0"><div class="schaal" id="rtSchaal">${html}</div></div>`,
     `<button class="prim" style="margin-top:0" id="rtPrint">${svg(I.doc)}Printen of opslaan als pdf</button>
      <button class="sec" id="rtT">Sluiten</button>`);
   setTimeout(()=>pasSchaal('rtSchaal'),30);
-  $('#rtPrint').onclick=()=>drukAf(html,'Rittenregistratie','@page{size:210mm 297mm;margin:12mm}');
+  $$('[data-rtj]').forEach(b=>b.onclick=()=>sheetRitten(+b.dataset.rtj));
+  $('#rtPrint').onclick=()=>drukAf(html,'Rittenregistratie '+jaar,'@page{size:210mm 297mm;margin:12mm}');
   $('#rtT').onclick=dicht;
 }
 
@@ -16237,6 +16242,10 @@ function geldHTML(){
         <small>${komma(kmTarief())} per km</small>
       </div>
       <div class="kmkwart"><span>Q${kw0}</span><b>${getal(Math.round(kwK))} km · ${euro(kwK*kmTarief())}</b></div>
+      ${(()=>{const dj=new Date().getFullYear(), per={};
+        (S.ritten||[]).forEach(x=>{const j=+String(x.datum).slice(0,4); if(j&&j<dj&&x.zakelijk) per[j]=(per[j]||0)+x.km});
+        return Object.keys(per).sort((a,b)=>b-a).map(j=>`<button type="button" class="kmkwart" data-kmjaar="${j}" style="width:100%;margin-top:8px;border:none;font:inherit">
+          <span>${j}</span><b>${getal(Math.round(per[j]))} km · ${euro(per[j]*kmTarief())} ›</b></button>`).join('')})()}
       ${r?`<button type="button" class="kmloopt" onclick="ritSchermOpen=true;ritUI()"><i></i>Rit loopt · ${komma(Math.round((r.km||0)*10)/10)} km<span>open</span></button>`
          :`<button class="prim kmstart" data-ritstart>${svg(I.auto)}Rit starten</button>
            <button class="kmbestem" data-ritbestem>met bestemming</button>`}
@@ -22791,7 +22800,8 @@ function bind(){
     ['touchend','touchmove','touchcancel'].forEach(e=>
       x.addEventListener(e,()=>{if(lang){clearTimeout(lang);lang=null}},{passive:true}));
   });
-  $$('[data-kmexport]').forEach(x=>x.onclick=sheetRitten);
+  $$('[data-kmexport]').forEach(x=>x.onclick=()=>sheetRitten());
+  $$('[data-kmjaar]').forEach(x=>x.onclick=()=>sheetRitten(+x.dataset.kmjaar));
   $$('[data-plekken]').forEach(x=>x.onclick=sheetPlekken);
   $$('[data-bonnen]').forEach(x=>x.onclick=sheetBonnen);
   $$('[data-autosoort]').forEach(x=>x.onclick=sheetAutoSoort);
