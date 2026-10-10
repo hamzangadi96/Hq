@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v764 · 10 okt 2026';
+const APPVERSIE='v765 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11131,9 +11131,9 @@ function sheetUren(){
     S.gepland=(S.gepland||[]).filter(g=>!ids.includes(g.id)); bewaarNu(); sheetUren(); toast('Gepland werk weggehaald.') };
   if($('#uWkVorig')) $('#uWkVorig').onclick=()=>{ uWkOffset--; sheetUren() };
   if($('#uWkVolgend')) $('#uWkVolgend').onclick=()=>{ if(uWkOffset<0){ uWkOffset++; sheetUren() } };
-  $$('[data-uopen]').forEach(x=>x.onclick=()=>{ uActKeuze=x.dataset.uopen; uActPeriode='alles'; sheetUrenActiviteit() });
+  $$('[data-uopen]').forEach(x=>x.onclick=()=>{ uActKeuze=x.dataset.uopen; uActPeriode='maand'; sheetUrenActiviteit() });
   $('#uSessies').onclick=()=>sheetUrenSessies(van,tot,volledig);
-  $('#uPerAct').onclick=()=>{ uActKeuze=null; sheetUrenActiviteit() };
+  $('#uPerAct').onclick=()=>{ uActKeuze=null; uActPeriode='maand'; sheetUrenActiviteit() };
   $('#uRapport').onclick=()=>sheetUrenRapporten(van,tot,volledig);
   $('#uHand').onclick=()=>sheetUrenHand();
   if($('#uKlok')) $('#uKlok').onclick=()=>sheetUrenKlok();
@@ -11201,7 +11201,7 @@ function sheetUrenRapporten(van,tot,volledig){
    Alles wat je ooit op een naam hebt geklokt, opgeteld: in een batch
    ("Mallen wassen" als productiestap) én los (een klus met die omschrijving).
    Per dag gegroepeerd, met van–tot, zodat je ziet welke avonden het waren. */
-let uActKeuze=null, uActPeriode='alles';
+let uActKeuze=null, uActPeriode='maand';
 function urenActRegels(){
   const regels=[];
   (S.batches||[]).forEach(b=>(b.werk||[]).forEach(w=>{
@@ -11267,7 +11267,7 @@ function sheetUrenActiviteit(){
        data-uact="${esc(k)}">${esc(per[k].naam)}</button>`).join('')}</div>
 
      <div class="actperiode">
-       ${[['alles','Alles'],['jaar','Dit jaar'],['maand','Deze maand']].map(([k,l])=>
+       ${[['maand','Deze maand'],['jaar','Dit jaar'],['alles','Alles']].map(([k,l])=>
          `<button type="button" data-uper="${k}" class="${uActPeriode===k?'aan':''}">${l}</button>`).join('')}
      </div>
 
@@ -11822,7 +11822,7 @@ function sheetUrenMeer(st){
       S.klussen.push(x);
     });
     bewaarNu(); render();
-    uActKeuze=actSleutel(st.act); uActPeriode='alles';
+    uActKeuze=actSleutel(st.act); uActPeriode='maand';
     sheetUrenActiviteit();
     toast(urenTekst(tot)+' '+st.act.toLowerCase()+' vastgelegd over '+st.rijen.length+' avonden.');
   };
