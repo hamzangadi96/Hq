@@ -4641,7 +4641,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v753 · 10 okt 2026';
+const APPVERSIE='v754 · 10 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11031,9 +11031,10 @@ function sheetUren(){
          <div class="cspoor"><div class="cvul" style="width:${pctC}%;background:${kleur}"></div></div></div>`;
      }).join(''):`<p class="uitleg">Nog niets geregistreerd deze week.</p>`}
 
-     <button class="arij" id="uPerAct" style="margin-top:6px">
-       <span class="naam">Overzicht per activiteit<small>bijv. hoe lang je mallen hebt gewassen</small></span>
-       <span class="p">${svg(I.pijl,'2')}</span></button>
+     <div class="paneel" style="margin-top:14px"><button class="arij" id="uPerAct" style="border-bottom:none">
+       <span class="ivak" style="background:#4A2B181a;color:var(--choco)">${svg(I.klok||I.klembord)}</span>
+       <span class="naam">Overzicht per activiteit<small>Hoe lang deed je over mallen wassen, afwassen…</small></span>
+       <span class="p">${svg(I.pijl,'2')}</span></button></div>
 
      ${(()=>{
        /* Deze keuze hoort inhoudelijk bij het dashboard hierboven, maar
@@ -11046,7 +11047,7 @@ function sheetUren(){
          <button class="weg" id="ukStop">Stoppen</button></div>`
         :`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Waar ga je aan werken?</span></div>
           <p class="uitleg" style="margin-top:-6px">Tik een soort om de klok te starten.</p>
-          <div class="fasetegels">${werkTegels.map(y=>`<button type="button" class="fasetegel ${y.nu?'nu':''}" ${y.attr}>
+          <div class="fasetegels klein">${werkTegels.map(y=>`<button type="button" class="fasetegel ${y.nu?'nu':''}" ${y.attr}>
             <span class="ftico" ${y.kleur?`style="color:${y.kleur}"`:''}>${svg(I[y.i]||I.klembord)}</span>
             <span class="ftn">${esc(y.l)}</span>
             ${y.nu?'<i class="ftt bezig">bezig</i>':(y.sec?`<i class="ftt">${duurKort(y.sec)}</i>`:'')}</button>`).join('')}</div>`})()}
@@ -11083,8 +11084,8 @@ function sheetUren(){
         <div class="paneel"><div class="rij"><span>Nog geen losse sessies deze week</span></div></div>`}`,
 
     `<button class="prim" style="margin-top:0" id="uHand">${svg(I.plus)}Uren achteraf invoeren</button>
-     <button class="sec" id="uWkRapport">${svg(I.doc)}Weekrapport downloaden</button>
-     <button class="sec" id="uStaat">${svg(I.doc)}Jaarurenstaat printen</button>`);
+     <button class="sec" id="uWkRapport">${svg(I.doc)}Weekrapport</button>
+     <button class="sec" id="uStaat">${svg(I.doc)}Jaarurenstaat</button>`);
 
   $$('[data-inkact]').forEach(b=>b.onclick=()=>{
     if(bActief) startWerk(bActief,b.dataset.inkact); else klusStart('overig',b.dataset.inkact);
@@ -11153,9 +11154,12 @@ function urenActRegels(){
   }));
   const k=(S.klussen||[]).concat(S.klus?[S.klus]:[]);
   k.forEach(x=>{
-    if(!x||!x.start||x.bron==='maandtotaal') return;
+    if(!x||x.bron==='maandtotaal') return;
     const naam=(x.tekst||'').trim()||klusSoort(x.soort).n;
-    regels.push({naam,start:x.start,eind:x.eind||null,sec:klusSec(x)});
+    if(x.start) return regels.push({naam,start:x.start,eind:x.eind||null,sec:klusSec(x)});
+    /* achteraf ingevoerd zonder begintijd: wel de dag en de duur, geen tijden */
+    if(x.datum&&x.sec) regels.push({naam,start:new Date(x.datum+'T12:00').getTime(),
+      eind:null,sec:x.sec,geenTijd:true});
   });
   return regels;
 }
@@ -11181,9 +11185,13 @@ function sheetUrenActiviteit(){
   const dagen=[], opDag={};
   regels.forEach(r=>{
     const d=iso(new Date(r.start));
-    if(!opDag[d]){ opDag[d]={datum:d,van:r.start,tot:r.eind,sec:0,keer:0}; dagen.push(opDag[d]); }
+    if(!opDag[d]){ opDag[d]={datum:d,van:r.geenTijd?null:r.start,tot:r.geenTijd?null:r.eind,sec:0,keer:0,
+      loopt:false}; dagen.push(opDag[d]); }
     const x=opDag[d]; x.sec+=r.sec; x.keer++;
-    if(!r.eind) x.tot=null; else if(x.tot!==null&&r.eind>x.tot) x.tot=r.eind;
+    if(r.geenTijd) return;
+    if(!r.eind){ x.loopt=true; return }
+    if(x.van===null||r.start<x.van) x.van=r.start;
+    if(x.tot===null||r.eind>x.tot) x.tot=r.eind;
   });
   const totaal=dagen.reduce((s2,d)=>s2+d.sec,0);
   const tijd=ms=>{const d=new Date(ms); return pad(d.getHours())+':'+pad(d.getMinutes())};
@@ -11192,7 +11200,7 @@ function sheetUrenActiviteit(){
   const gem=dagen.length?totaal/dagen.length:0;
   const langst=dagen.reduce((m,d)=>Math.max(m,d.sec),0);
   const naam=per[uActKeuze].naam;
-  const sinds=dagen.length?new Date(dagen[0].van):null;
+  const sinds=dagen.length?new Date(dagen[0].datum):null;
 
   /* staafjes: maximaal de laatste 10 dagen, anders worden ze te smal */
   const balk=dagen.slice(-10), maxSec=Math.max(1,...balk.map(d=>d.sec));
@@ -11230,7 +11238,7 @@ function sheetUrenActiviteit(){
          return `<div class="actdag">
            <div class="dd"><b>${dt.getDate()}</b><span>${MNDK[dt.getMonth()]}</span></div>
            <div class="dm"><b>${(w=>w[0].toUpperCase()+w.slice(1))(dt.toLocaleDateString('nl-NL',{weekday:'long'}))}${d.van&&new Date(d.van).getHours()>=17?' · avond':''}</b>
-             <small>${tijd(d.van)} – ${d.tot?tijd(d.tot):'loopt nog'}${d.keer>1?' · '+d.keer+' blokken':''}</small></div>
+             <small>${d.van?tijd(d.van)+' – '+(d.loopt?'loopt nog':d.tot?tijd(d.tot):''):'achteraf ingevoerd'}${d.keer>1?' · '+d.keer+' blokken':''}</small></div>
            <div class="du">${urenTekst(d.sec)}</div></div>`}).join('')}</div>`:''}`,
     dagen.length?`<button class="sec" style="margin-top:0" id="uActKop">${svg(I.doc)}Overzicht kopiëren</button>`:'');
 
@@ -11240,7 +11248,7 @@ function sheetUrenActiviteit(){
     const r=[naam+': '+urenTekst(totaal)+' over '+dagen.length+' '+(dagen.length===1?'dag':'dagen'),'']
       .concat(dagen.map(d=>{const dt=new Date(d.datum);
         return dt.toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'})+'  '
-          +tijd(d.van)+'–'+(d.tot?tijd(d.tot):'nu')+'  '+urenTekst(d.sec)}));
+          +(d.van?tijd(d.van)+'–'+(d.loopt?'nu':d.tot?tijd(d.tot):''):'')+'  '+urenTekst(d.sec)}));
     try{ await navigator.clipboard.writeText(r.join('\n')); toast('Overzicht gekopieerd.') }
     catch(e){ toast('Kopiëren lukte niet.') }
   };
@@ -11447,21 +11455,40 @@ function sheetUrenHand(){
          `<button class="chip ${i===0?'aan':''}" data-v="${so.k}">${esc(so.n)}</button>`).join('')}</div></div>
      <div class="veld"><label>Datum</label>
        <input class="inp" id="uhD" type="date" value="${vandaag()}"></div>
-     <div class="veld"><label>Hoeveel uur</label>
+     <div class="veld"><label>Begonnen om — mag leeg</label>
+       <input class="inp" id="uhB" type="time"></div>
+     <div class="veld"><label>Hoe lang</label>
        <input class="inp" id="uhU" type="text" inputmode="decimal"
-         placeholder="Bijv. 2,5" autocomplete="off"></div>
+         placeholder="Bijv. 2,5 of 2:45" autocomplete="off"></div>
      <div class="veld"><label>Waar werk je aan? — mag leeg</label>
-       <input class="inp" id="uhT" placeholder="Korte omschrijving" autocomplete="off"></div>`,
+       <div class="chips" id="uhA" style="margin-bottom:8px">${(S.activiteiten||[]).filter(x=>!/pauze/i.test(x)).map(x=>
+         `<button type="button" class="chip" data-uha="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+       <input class="inp" id="uhT" placeholder="Of typ een omschrijving" autocomplete="off"></div>`,
     `<button class="prim" style="margin-top:0" id="uhJa">Vastleggen</button>`);
   chips('#uhS');
+  /* een werkzaamheid aantikken vult de omschrijving, zodat hij in
+     "Overzicht per activiteit" bij dezelfde naam optelt */
+  $$('[data-uha]').forEach(c=>c.onclick=()=>{
+    $$('[data-uha]').forEach(y=>y.classList.toggle('aan',y===c));
+    $('#uhT').value=c.dataset.uha;
+    const ov=$('#uhS [data-v="overig"]'); if(ov){ $$('#uhS .chip').forEach(y=>y.classList.toggle('aan',y===ov)) }
+  });
   $('#uhJa').onclick=()=>{
-    const u=parseFloat(($('#uhU').value||'').replace(',','.'));
+    /* 2:45 is twee uur en drie kwartier, 2,75 ook */
+    const ruw=($('#uhU').value||'').trim();
+    const u=/^\d+:\d{1,2}$/.test(ruw)
+      ?(([h,m])=>h+m/60)(ruw.split(':').map(Number))
+      :parseFloat(ruw.replace(',','.'));
     if(!u||u<=0){ toast('Vul in hoeveel uur je gewerkt hebt.'); $('#uhU').focus(); return }
     if(u>24){ toast('Meer dan 24 uur op één dag kan niet.'); return }
     S.klussen=S.klussen||[];
-    S.klussen.push({id:uid(),soort:chipV('#uhS')||'overig',tekst:$('#uhT').value.trim(),
-      datum:$('#uhD').value||vandaag(),tijd:'',sec:Math.round(u*3600),handmatig:true});
-    bewaarNu(); sheetUren(); render(); toast(komma(u)+' uur vastgelegd.');
+    const datum=$('#uhD').value||vandaag(), b=$('#uhB').value, sec=Math.round(u*3600);
+    const r={id:uid(),soort:chipV('#uhS')||'overig',tekst:$('#uhT').value.trim(),
+      datum,tijd:b||'',sec,handmatig:true};
+    if(b){ const [h,m]=b.split(':').map(Number); const st=new Date(datum+'T00:00');
+      st.setHours(h,m,0,0); r.start=st.getTime(); r.eind=r.start+sec*1000; }
+    S.klussen.push(r);
+    bewaarNu(); sheetUren(); render(); toast(urenTekst(sec)+' vastgelegd.');
   };
 }
 
