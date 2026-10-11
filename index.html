@@ -4318,6 +4318,15 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .sp2get button b{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
 .sp2get button span{font-size:13px;font-weight:600}
 .sp2get button small{font-size:12px;color:var(--grijs)}
+.spvink .rtkies{display:grid;place-items:center;color:transparent}
+.spvink .rtkies svg{width:13px;height:13px}
+.spvink.af .rtkies{background:var(--groen);border-color:var(--groen);color:#fff}
+.spvink.af .sp2nm{color:var(--grijs);text-decoration:line-through;text-decoration-color:#d4d4d8}
+.spwis{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:#a1a1aa;flex:none}
+.spwis svg{width:13px;height:13px}
+.spnieuw{display:flex;gap:8px;margin-top:12px;align-items:center}
+.spnieuw .inp{flex:1;margin:0}
+.spnieuw .kopknop{flex:none}
 .sp2adv{background:var(--card);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:4px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -22px rgba(24,24,27,.28)}
 .sp2adv>small{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs)}
@@ -4755,7 +4764,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v775 · 11 okt 2026';
+const APPVERSIE='v776 · 11 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5067,7 +5076,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['route','vpUit','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['spullen','spulVink','route','vpUit','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -18644,6 +18653,12 @@ function routeStappen(){
   groteSchoonmaakTaken().forEach(t=>{ const voor=t.check.k==='groot_voor';
     uit.push({k:t.check.k+':'+t.datum,soort:'gs',moment:voor?'voor':'na',datum:t.datum,
       titel:'Grote schoonmaak',sub:voor?'vóór je productie':'na je productie',klaar:false}); });
+  /* v776: spullen checken — de dag vóór elke productieperiode */
+  productiePeriodes().filter(x=>x.eind>=v).forEach(per=>{
+    const k='spul:'+per.start, l=spulLijst(per), af=l.filter(x=>spulAf(per.start,x.id)).length;
+    uit.push({k,soort:'spul',per,datum:klaar[k]||datumPlus(per.start,-1),titel:'Spullen checken',
+      sub:klaar[k]?'alles klaar':af+' van '+l.length+' klaar',klaar:!!klaar[k]});
+  });
   productiePeriodes().filter(x=>x.eind>=v).forEach(per=>{
     const dag=datumPlus(per.start,-1), k='vul:'+per.start;
     const soorten2=plans.filter(p=>p.datum>=per.start&&p.datum<=per.eind).map(p=>chocNaam(p.chocolade).toLowerCase());
@@ -18658,7 +18673,7 @@ function routeStappen(){
   const laatste=plans[plans.length-1].datum, rk='rap:'+laatste;
   uit.push({k:rk,soort:'rap',datum:klaar[rk]||datumPlus(laatste,1),titel:'Productierapport printen',
     sub:klaar[rk]?'afgedrukt':'HACCP-registratie van deze productie op A4',klaar:!!klaar[rk]});
-  const volg={best:0,lev:1,ijk:2,gs:2,vul:3,prod:4,rap:6};
+  const volg={best:0,lev:1,ijk:2,gs:2,spul:3,vul:3,prod:4,rap:6};
   const r2=x=>x.soort==='gs'&&x.moment==='na'?5:volg[x.soort];
   return uit.sort((x,y)=>String(x.datum).localeCompare(String(y.datum))||r2(x)-r2(y));
 }
@@ -18679,6 +18694,46 @@ function sheetRouteInkoop(){
       ||'<p class="wdleeg">Je hebt alles in huis voor deze planning.</p>'}`,
     `<button class="prim" style="margin-top:0" id="rtBest">Alles besteld</button><button class="sec" onclick="dicht()">Later</button>`);
   $('#rtBest').onclick=()=>{ dicht(); routeKlaar('best:'+plans[0].id,true); toast('Besteld — staat afgevinkt in je route') };
+}
+/* ===== Spullen checken (v776) =====
+   Mallen rekent de app uit je planning; de rest is je vaste lijst, die je zelf aanvult. */
+const SPULSTANDAARD=['Tempereermachine','Thermometer','Weegschaal','Spuitzakken','Paletmes en spatels','Schraper',
+  'Föhn of heatgun','Cacaoboterkleuren','Kwastjes of airbrush','Bakjes voor de vullingen','Folie of bakpapier',
+  'Handschoenen en haarnetje','Dozen, lint en kaartjes'];
+function spullen(){ if(!Array.isArray(S.spullen)) S.spullen=SPULSTANDAARD.map(n=>({id:uid(),naam:n})); return S.spullen }
+function spulMallen(per){
+  const m={}; planLijst().filter(p=>p.datum>=per.start&&p.datum<=per.eind).forEach(p=>(p.regels||[]).forEach(r=>{
+    const rc=(S.recepten||[]).find(x=>x.id===r.receptId), mal=rc&&rc.malId?malVanId(rc.malId):null;
+    const key=mal?mal.id:'_', naam=mal?mal.naam+' · '+mal.holtes+' holtes':'Mal nog niet gekozen';
+    (m[key]=m[key]||{naam,n:0,dagen:{}}); m[key].n+=r.mallen||0; m[key].dagen[p.datum]=(m[key].dagen[p.datum]||0)+(r.mallen||0);
+  })); return m;
+}
+function spulLijst(per){
+  const m=spulMallen(per);
+  return Object.keys(m).map(k=>{ const piek=Math.max(...Object.values(m[k].dagen));
+      return {id:'mal:'+k,naam:m[k].naam,sub:'tot '+piek+' mallen op één dag · schoon en gepoetst',mal:true} })
+    .concat(spullen().map(x=>({id:x.id,naam:x.naam})));
+}
+const spulAf=(start,id)=>!!(((S.spulVink||{})[start]||{})[id]);
+function sheetSpullen(per){
+  const l=spulLijst(per), af=l.filter(x=>spulAf(per.start,x.id)).length, k='spul:'+per.start;
+  const dk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
+  sheet('Spullen checken',
+    `<p class="vbnoot" style="margin:0 0 12px">Voor je productie van ${dk(per.start)}${per.eind!==per.start?' t/m '+dk(per.eind):''} · ${af} van ${l.length} klaar</p>
+     <div class="sp2lijst">${l.map(x=>`<button type="button" class="sp2rij spvink${spulAf(per.start,x.id)?' af':''}" data-spul="${esc(x.id)}">
+       <span class="rtkies">${svg(I.vink,'3')}</span>
+       <span class="sp2nm">${esc(x.naam)}${x.sub?`<small>${esc(x.sub)}</small>`:''}</span>
+       ${x.mal?'':`<span class="spwis" data-spulwis="${esc(x.id)}" aria-label="Van je lijst halen">${svg(I.kruis,'2')}</span>`}</button>`).join('')}</div>
+     <div class="spnieuw"><input class="inp" id="spNieuw" placeholder="Iets toevoegen aan je vaste lijst"><button type="button" class="kopknop" id="spPlus">${svg(I.plus)}Toevoegen</button></div>`,
+    `<button class="prim" style="margin-top:0" id="spKlaar" ${af===l.length?'':'disabled'}>${af===l.length?'Alles staat klaar':'Nog '+(l.length-af)+' te checken'}</button>`);
+  sheetTerugZet(null);
+  const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetSpullen(per); $('#sheetBody').scrollTop=st };
+  $$('[data-spul]').forEach(b=>b.onclick=e=>{ if(e.target.closest('[data-spulwis]')) return;
+    S.spulVink=Object.assign({},S.spulVink||{}); const v=Object.assign({},S.spulVink[per.start]||{});
+    if(v[b.dataset.spul]) delete v[b.dataset.spul]; else v[b.dataset.spul]=1; S.spulVink[per.start]=v; bewaarNu(); opnieuw() });
+  $$('[data-spulwis]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); S.spullen=spullen().filter(x=>x.id!==b.dataset.spulwis); bewaarNu(); opnieuw() });
+  $('#spPlus').onclick=()=>{ const n=$('#spNieuw').value.trim(); if(!n) return; spullen().push({id:uid(),naam:n}); bewaarNu(); opnieuw() };
+  $('#spKlaar').onclick=()=>{ dicht(); routeKlaar(k,true); toast('Spullen staan klaar') };
 }
 function sheetLevering(k){
   const binnen=(S.ontvangsten||[]).filter(x=>x.datum>=((S.route||{})['best:'+(k||'').slice(4)]||vandaag()));
@@ -18713,7 +18768,7 @@ function routeHeldHTML(){
   const stappen=routeStappen(), open=stappen.filter(x=>!x.klaar), nu=open[0]; if(!nu) return '';
   const v0=vandaag(), n=dagenTussen(v0,nu.datum), now=n<=0;
   const wnr=m=>m<0?Math.abs(m)+' d te laat':m===0?'vandaag':m===1?'morgen':'over '+m+' d';
-  const knop={ijk:'Thermometer ijken',best:'Bestellijst bekijken',lev:'Ontvangst vastleggen',gs:'Grote schoonmaak doen',vul:'Vullingen zijn klaar',prod:'Batch starten',rap:'Rapport bekijken'};
+  const knop={spul:'Spullen checken',ijk:'Thermometer ijken',best:'Bestellijst bekijken',lev:'Ontvangst vastleggen',gs:'Grote schoonmaak doen',vul:'Vullingen zijn klaar',prod:'Batch starten',rap:'Rapport bekijken'};
   const dkk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
   const daarna=open.filter(x=>x!==nu&&x.soort!=='prod')[0];
   return `<div class="rtnu ${n<0?'laat':now?'nu':''}">
@@ -18730,6 +18785,7 @@ function routeDoe(k){
   if(st.soort==='vul') return routeKlaar(k,!st.klaar);
   if(st.soort==='lev') return sheetLevering(k);
   if(st.soort==='ijk') return sheetIjking();
+  if(st.soort==='spul') return sheetSpullen(st.per);
   if(st.soort==='rap') return sheetProductieRapport(k);
   if(st.soort==='prod'){ if(dagenTussen(vandaag(),st.datum)<=0) return planStart(st.plan.id); return sheetPlanning(); }
 }
