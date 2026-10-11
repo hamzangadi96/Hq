@@ -624,7 +624,7 @@ async function telMailinglijstBinnen(req) {
 exports.mailAdressen = onCall(async req => {
   try {
     const uid = wieBenJe(req);
-    const sinds = /^\d{4}-\d{2}-\d{2}$/.test((req.data || {}).sinds || '') ? req.data.sinds : '2026-10-01';
+    const sinds = /^\d{4}-\d{2}-\d{2}$/.test((req.data || {}).sinds || '') ? req.data.sinds : '2000-01-01';
     const { winkel, token: t } = await token(uid);
     const uit = []; let na = null;
     for (let ronde = 0; ronde < 40; ronde++) {
@@ -632,7 +632,7 @@ exports.mailAdressen = onCall(async req => {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt firstName lastName defaultEmailAddress{emailAddress marketingState}} pageInfo{hasNextPage endCursor}}}',
+          query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt firstName lastName numberOfOrders defaultEmailAddress{emailAddress marketingState}} pageInfo{hasNextPage endCursor}}}',
           variables: { na }
         })
       });
@@ -645,7 +645,8 @@ exports.mailAdressen = onCall(async req => {
         if (!e || e.marketingState !== 'SUBSCRIBED') return;
         const dag = nlDag(k.createdAt);
         if (dag < sinds) return;
-        uit.push({ email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), datum: dag, tijd: k.createdAt });
+        uit.push({ email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), datum: dag, tijd: k.createdAt,
+          orders: parseInt(k.numberOfOrders, 10) || 0 });
       });
       if (!c.pageInfo.hasNextPage) break;
       na = c.pageInfo.endCursor;
