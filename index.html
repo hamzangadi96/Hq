@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v766 · 11 okt 2026';
+const APPVERSIE='v767 · 11 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6078,7 +6078,8 @@ function klusStop(){
    overblijft is tijd die je nergens aan hebt gehangen, en dat mag je zien. */
 /* een werkdag die al in je urenstaat staat, kan niet ook nog lopen */
 function spookKlokWeg(){
-  if(S.dienst&&(S.diensten||[]).some(x=>x&&x.id===S.dienst.id)){ S.dienst=null; return true }
+  /* zelfde werkdag, of een afgesloten werkdag die ná de start van deze klok eindigde: dan is deze klok een spook */
+  if(S.dienst&&(S.diensten||[]).some(x=>x&&(x.id===S.dienst.id||(x.eind&&x.eind>S.dienst.start&&x.start<=S.dienst.start+60000)))){ S.dienst=null; return true }
   if(S.klus&&S.klus.id&&(S.klussen||[]).some(x=>x&&x.id===S.klus.id)){ S.klus=null; return true }
   return false;
 }
@@ -24953,7 +24954,8 @@ function sheetTimerCorrectie(){
        <input class="inp" id="tcT" type="time" value="${nuTijd}"></div>
      <div class="geen" id="tcU" style="padding-top:8px"></div>`,
     `<button class="prim" style="margin-top:0" id="tcOk">Tijd corrigeren</button>
-     <button class="sec" id="tcDoor">Nee, hij loopt nog</button>`);
+     <button class="sec" id="tcAl">Ik was al uitgeklokt</button>
+     <button class="sec terug" id="tcDoor">Nee, hij loopt nog</button>`);
   const reken=()=>{
     const [u,m]=($('#tcT').value||'00:00').split(':').map(Number);
     const eind=new Date(start); eind.setHours(u,m,0,0);
@@ -24964,6 +24966,9 @@ function sheetTimerCorrectie(){
   };
   $('#tcT').oninput=reken; reken();
   $('#tcDoor').onclick=()=>{ if(v.w) v.w.gezien=Date.now(); bewaarNu(); dicht() };
+  /* uitgeklokt, maar de klok kwam terug: weg ermee, zonder iets aan je uren toe te voegen */
+  $('#tcAl').onclick=()=>{ if(v.n.soort==='dienst') S.dienst=null; else if(v.n.soort==='klus') S.klus=null; else if(v.w) v.w.eind=v.w.start;
+    bewaarNu(); badgeBij(); dicht(); render(); toast('Klok weggehaald — je uren zijn niet veranderd.') };
   $('#tcOk').onclick=()=>{
     const eind=reken();
     if(eind>new Date()) return toast('Die tijd ligt in de toekomst.');
