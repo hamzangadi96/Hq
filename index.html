@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v765 · 10 okt 2026';
+const APPVERSIE='v766 · 11 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5208,6 +5208,12 @@ function zetData(d){
     S[k]=v;
   });
   LIJSTVELDEN.forEach(k=>{ if(!Array.isArray(S[k])) S[k]=alsLijst(S[k]) });
+  /* v766: een klok die je hebt gestopt staat als "leeg" op de server. Een leeg
+     veld werd hierboven overgeslagen, dus bleef de oude, lopende klok van dit
+     toestel staan — en kwam je uitgeklokte werkdag terug. Deze velden zijn
+     juist leeg als ze klaar zijn, dus leeg betekent hier: stoppen. */
+  ['dienst','klus','rit','kook','schoonNu'].forEach(k=>{ if(d[k]===undefined||d[k]===null) S[k]=null });
+  spookKlokWeg();
   S.bijgewerkt=d.bijgewerkt||0;
   /* Het vangnet keek één keer op 2,5 seconde na het starten en daarna pas na
      tien minuten. Op een telefoon komt je data vrijwel altijd ná die 2,5
@@ -6070,6 +6076,12 @@ function klusStop(){
    Dat is ook waarom je uren niet meer dubbel kunnen tellen: het totaal komt
    uit de dienst en niet uit de optelling van wat je erbinnen deed. Wat er
    overblijft is tijd die je nergens aan hebt gehangen, en dat mag je zien. */
+/* een werkdag die al in je urenstaat staat, kan niet ook nog lopen */
+function spookKlokWeg(){
+  if(S.dienst&&(S.diensten||[]).some(x=>x&&x.id===S.dienst.id)){ S.dienst=null; return true }
+  if(S.klus&&S.klus.id&&(S.klussen||[]).some(x=>x&&x.id===S.klus.id)){ S.klus=null; return true }
+  return false;
+}
 function dienstStart(){
   if(S.dienst) return S.dienst;
   S.dienst={id:uid(),start:Date.now(),datum:vandaag(),tijd:nu()};
@@ -24903,6 +24915,7 @@ function ringSvg(deel,groot){
    Bij een registratie die je urencriterium moet dragen is dat het ergste wat
    er kan gebeuren, dus kijkt hij nu naar wat er ook maar loopt. */
 function vergetenTimer(){
+  if(spookKlokWeg()) bewaarNu();
   /* De dienst is wat 's nachts doorloopt, dus daar kijken we naar; loopt er
      geen dienst maar wel een activiteit, dan telt die. */
   const n=S.dienst?{soort:'dienst',naam:'je werkdag',start:S.dienst.start}:nuAanHetWerk();
