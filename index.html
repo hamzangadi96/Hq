@@ -4700,7 +4700,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v767 · 11 okt 2026';
+const APPVERSIE='v768 · 11 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8414,6 +8414,22 @@ function mailKaartHTML(){
       </span>
     </button>`;
 }
+/* v768: wie zich heeft aangemeld — rechtstreeks uit Shopify, niet opgeslagen */
+function sheetMailAdressen(){
+  sheet('Aanmeldingen','<p class="wdleeg">Ophalen uit Shopify…</p>','');
+  sheetTerugZet(()=>homeTegel('mail'));
+  roep('mailAdressen',{sinds:MAILDOEL.sinds}).then(r=>{
+    const l=(r&&r.lijst)||[];
+    if(!$('#sheetTitel')||$('#sheetTitel').textContent!=='Aanmeldingen') return;
+    const per={}; l.forEach(x=>(per[x.datum]=per[x.datum]||[]).push(x));
+    $('#sheetBody').innerHTML=`<p class="vbnoot" style="margin:0 0 12px">${l.length} ${l.length===1?'adres':'adressen'} sinds 1 okt, nieuwste eerst.</p>`+
+      Object.keys(per).sort().reverse().map(d=>`<div class="vbkop"><span>${esc(new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'}))}</span><small>${per[d].length}</small></div>
+        <div class="vbon">${per[d].map(x=>`<div class="vbrij"><span style="min-width:0;overflow-wrap:anywhere">${esc(x.email)}${x.naam?`<small class="vbklein">${esc(x.naam)}</small>`:''}</span></div>`).join('')}</div>`).join('');
+    $('#sheetVoet').innerHTML=l.length?`<button class="prim" style="margin-top:0" id="maKop">Alle adressen kopiëren</button>`:'';
+    if($('#maKop')) $('#maKop').onclick=()=>{ const t=l.map(x=>x.email).join('\n');
+      (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast(l.length+' adressen gekopieerd')).catch(()=>toast('Kopiëren lukte niet')) };
+  }).catch(e=>{ if($('#sheetBody')) $('#sheetBody').innerHTML=`<p class="wdleeg">${esc((e&&e.message)||'Ophalen lukte niet.')}</p>` });
+}
 /* ═══════════ Home-tegels (8 okt 2026) ═══════════
    Hygiëne, je lijst, de mailinglijst en de controles stonden alle vier
    uitgeklapt onder elkaar: vier schermen scrollen voor één blik. Nu is elk
@@ -8435,7 +8451,8 @@ const HOMESHEETS={
   hyg:['Hygiëne vandaag',()=>(werkdagKaartHTML()||'<p class="wdleeg">Vandaag is geen werkdag.</p>')
     .replace('<span class="eyebrow">Hygiëne vandaag</span>','<span class="eyebrow"></span>')],
   mail:['Mailinglijst',()=>{const o=mailGroot; mailGroot=true; const h=mailKaartHTML(); mailGroot=o;
-    return h.replace(/<div class="blokkop"><span class="eyebrow">Mailinglijst<\/span>\s*<button class="kopknop"[^>]*>Kleiner<\/button><\/div>/,'')}],
+    return h.replace(/<div class="blokkop"><span class="eyebrow">Mailinglijst<\/span>\s*<button class="kopknop"[^>]*>Kleiner<\/button><\/div>/,'')
+      +`<button class="sec" style="margin-top:14px" onclick="sheetMailAdressen()">Aanmeldingen bekijken</button>`}],
   ctl:['Controles',()=>controleKaartHTML()||'<p class="wdleeg">Alles is op tijd.</p>'],
   stp:['Stempelkaarten',()=>stempelSheetHTML()],
   vsp:['Voorspelling',()=>voorspelSheetHTML()],

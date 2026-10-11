@@ -618,6 +618,47 @@ async function telMailinglijstBinnen(req) {
   return uit;
 }
 
+/* ═══════════ Mailinglijst: wie ═══════════
+   Op verzoek van Hamza: de adressen zelf, alleen voor hem in HQ.
+   Ze gaan rechtstreeks naar het scherm en worden nergens opgeslagen. */
+exports.mailAdressen = onCall(async req => {
+  try {
+    const uid = wieBenJe(req);
+    const sinds = /^\d{4}-\d{2}-\d{2}$/.test((req.data || {}).sinds || '') ? req.data.sinds : '2026-10-01';
+    const { winkel, token: t } = await token(uid);
+    const uit = []; let na = null;
+    for (let ronde = 0; ronde < 40; ronde++) {
+      const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+        method: 'POST',
+        headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt firstName lastName defaultEmailAddress{emailAddress marketingState}} pageInfo{hasNextPage endCursor}}}',
+          variables: { na }
+        })
+      });
+      if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+      const d = await r.json();
+      if (d.errors && d.errors.length) throw new HttpsError('internal', 'Shopify gaf een fout: ' + JSON.stringify(d.errors).slice(0, 200));
+      const c = d.data.customers;
+      c.nodes.forEach(k => {
+        const e = k.defaultEmailAddress;
+        if (!e || e.marketingState !== 'SUBSCRIBED') return;
+        const dag = nlDag(k.createdAt);
+        if (dag < sinds) return;
+        uit.push({ email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), datum: dag, tijd: k.createdAt });
+      });
+      if (!c.pageInfo.hasNextPage) break;
+      na = c.pageInfo.endCursor;
+    }
+    uit.sort((a, b) => String(b.tijd).localeCompare(String(a.tijd)));
+    return { sinds, lijst: uit };
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('mailAdressen', e);
+    throw new HttpsError('internal', 'Ophalen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
 /* ═══════════ Stempelkaarten ═══════════
    De website houdt per klant bij hoeveel er besteed is sinds de start van de
    spaarkaart (cbx.spaarsaldo, zonder verzendkosten) en hoeveel volle kaarten
