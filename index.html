@@ -4755,7 +4755,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v774 · 11 okt 2026';
+const APPVERSIE='v775 · 11 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8479,7 +8479,7 @@ function mailKaartHTML(){
 }
 /* v773: je abonnees — alles uit Shopify, alleen in het geheugen (niet opgeslagen).
    Kies de groep (heropening of alles sinds 2025) en of ze al eens bestelden. */
-let maLijst=null, maPeriode='heropening', maFilter='nooit', maBezig=false, maFout='';
+let maLijst=null, maPeriode='alles', maFilter='alle', maBezig=false, maFout='';
 function maGroep(){
   const l=(maLijst||[]).filter(x=>maPeriode==='alles'||x.datum>=MAILDOEL.sinds);
   return {alle:l, nooit:l.filter(x=>!x.orders), wel:l.filter(x=>x.orders>0)};
@@ -8491,7 +8491,7 @@ function maTeken(){
   const seg=(var_,k,n,c)=>`<button type="button" class="${(var_==='p'?maPeriode:maFilter)===k?'aan':''}" data-ma${var_}="${k}">${n}${c!==''?`<b>${c}</b>`:''}</button>`;
   const per={}; l.forEach(x=>{ const m=x.datum.slice(0,7); (per[m]=per[m]||[]).push(x) });
   $('#sheetBody').innerHTML=`
-    <div class="sp2seg" style="margin-top:0">${seg('p','heropening','Sinds 1 okt','')}${seg('p','alles','Alle abonnees','')}</div>
+    <div class="sp2seg" style="margin-top:0">${seg('p','alles','Alle abonnees','')}${seg('p','heropening','Sinds 1 okt','')}</div>
     <div class="sp2get" style="margin:0 0 6px">
       <button type="button" class="${maFilter==='nooit'?'aan':''}" data-maf="nooit"><b>${g.nooit.length}</b><span>nooit besteld</span><small>nog geen klant</small></button>
       <button type="button" class="${maFilter==='wel'?'aan':''}" data-maf="wel"><b>${g.wel.length}</b><span>al klant</span><small>besteld</small></button>
