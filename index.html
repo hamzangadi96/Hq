@@ -4744,7 +4744,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v769 · 11 okt 2026';
+const APPVERSIE='v770 · 11 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5241,6 +5241,9 @@ function vversKnop(){
 }
 
 function zetData(d){
+  /* v770: je urenlog is alleen-toevoegen. Een ander toestel met een oude kopie
+     mag hier dus niets uit weggooien: wat dit toestel al had blijft bewaard. */
+  const urenLokaal={diensten:alsLijst(S.diensten||[]),klussen:alsLijst(S.klussen||[])};
   BEWAARVELDEN.forEach(k=>{
     let v=d[k];
     if(v===undefined||v===null) return;
@@ -5257,6 +5260,11 @@ function zetData(d){
      toestel staan — en kwam je uitgeklokte werkdag terug. Deze velden zijn
      juist leeg als ze klaar zijn, dus leeg betekent hier: stoppen. */
   ['dienst','klus','rit','kook','schoonNu'].forEach(k=>{ if(d[k]===undefined||d[k]===null) S[k]=null });
+  ['diensten','klussen'].forEach(k=>{
+    const nu=alsLijst(S[k]||[]), ids=new Set(nu.map(x=>x&&x.id));
+    urenLokaal[k].forEach(x=>{ if(x&&x.id&&!ids.has(x.id)) nu.push(x) });
+    S[k]=nu;
+  });
   spookKlokWeg();
   S.bijgewerkt=d.bijgewerkt||0;
   /* Het vangnet keek één keer op 2,5 seconde na het starten en daarna pas na
