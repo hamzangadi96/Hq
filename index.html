@@ -4764,7 +4764,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v776 · 11 okt 2026';
+const APPVERSIE='v777 · 12 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8911,7 +8911,8 @@ function sheetVoorspelPlan(){
     dagen.forEach(d=>S.planning.push({id:uid(),datum:d.datum,chocolade:d.soort.key,regels:d.regels,
       levertijd:levertijdVoor(d.regels)||0,voorbereiding:[],gemaakt:vandaag(),bron:'voorspelling'}));
     bewaarNu(); VP=null;
-    try{ dicht(); render(); toast(dagen.length+(dagen.length===1?' productiedag':' productiedagen')+' ingepland — staat in je planning'); }
+    try{ dicht(); render(); toast(dagen.length+(dagen.length===1?' productiedag':' productiedagen')+' ingepland — check eerst je spullen');
+      const per=productiePeriodes().find(x=>x.start<=dagen[0].datum&&x.eind>=dagen[0].datum); if(per) setTimeout(()=>sheetSpullen(per),350); }
     catch(e){ toast('Ingepland.'); }
   };
 }
@@ -18653,11 +18654,13 @@ function routeStappen(){
   groteSchoonmaakTaken().forEach(t=>{ const voor=t.check.k==='groot_voor';
     uit.push({k:t.check.k+':'+t.datum,soort:'gs',moment:voor?'voor':'na',datum:t.datum,
       titel:'Grote schoonmaak',sub:voor?'vóór je productie':'na je productie',klaar:false}); });
-  /* v776: spullen checken — de dag vóór elke productieperiode */
-  productiePeriodes().filter(x=>x.eind>=v).forEach(per=>{
+  /* v776: spullen checken — voor de eerstvolgende productieperiode */
+  productiePeriodes().filter(x=>x.eind>=v).slice(0,1).forEach(per=>{
     const k='spul:'+per.start, l=spulLijst(per), af=l.filter(x=>spulAf(per.start,x.id)).length;
-    uit.push({k,soort:'spul',per,datum:klaar[k]||datumPlus(per.start,-1),titel:'Spullen checken',
-      sub:klaar[k]?'alles klaar':af+' van '+l.length+' klaar',klaar:!!klaar[k]});
+    /* v777: als eerste — wat je mist moet je ook nog bestellen */
+    const ltS=levertijdVoor(alle)||0, vroeg=datumPlus(per.start,-(ltS+2));
+    uit.push({k,soort:'spul',per,datum:klaar[k]||(vroeg<v?v:vroeg),titel:'Spullen checken',
+      sub:klaar[k]?'alles in huis':af+' van '+l.length+' in huis · wat mist bestel je mee',klaar:!!klaar[k]});
   });
   productiePeriodes().filter(x=>x.eind>=v).forEach(per=>{
     const dag=datumPlus(per.start,-1), k='vul:'+per.start;
@@ -18673,9 +18676,11 @@ function routeStappen(){
   const laatste=plans[plans.length-1].datum, rk='rap:'+laatste;
   uit.push({k:rk,soort:'rap',datum:klaar[rk]||datumPlus(laatste,1),titel:'Productierapport printen',
     sub:klaar[rk]?'afgedrukt':'HACCP-registratie van deze productie op A4',klaar:!!klaar[rk]});
-  const volg={best:0,lev:1,ijk:2,gs:2,spul:3,vul:3,prod:4,rap:6};
+  const volg={spul:-1,best:0,lev:1,ijk:2,gs:2,vul:3,prod:4,rap:6};
   const r2=x=>x.soort==='gs'&&x.moment==='na'?5:volg[x.soort];
-  return uit.sort((x,y)=>String(x.datum).localeCompare(String(y.datum))||r2(x)-r2(y));
+  /* spullen checken komt altijd eerst zolang hij nog nooit is gedaan */
+  const dS=x=>x.soort==='spul'&&!x.klaar&&!Object.keys((S.spulVink||{})[x.per.start]||{}).length?'0000':String(x.datum);
+  return uit.sort((x,y)=>dS(x).localeCompare(dS(y))||r2(x)-r2(y));
 }
 function routeKlaar(k,aan){ S.route=Object.assign({},S.route||{}); if(aan) S.route[k]=vandaag(); else delete S.route[k]; bewaarNu(); render() }
 function sheetRouteInkoop(){
@@ -18688,6 +18693,8 @@ function sheetRouteInkoop(){
   sheet('Bestellen',
     `${uiterlijk?`<div class="vpdeadline ${laat?'laat':''}"><b>${laat?'Eigenlijk te laat — bestel vandaag':'Bestellen uiterlijk '+dk(uiterlijk)}</b>
       <span>levertijd tot ${lt} dagen · eerste productiedag ${dk(plans[0].datum)}</span></div>`:''}
+     ${(m=>m.length?`<div class="vbkop"><span>Spullen die je mist</span><small>${m.length}</small></div>
+       <div class="vbon">${m.map(x=>`<div class="vbrij"><span>${esc(x.naam)}</span><b style="color:var(--amber)">regelen</b></div>`).join('')}</div>`:'')(spulMist())}
      ${Object.keys(per).sort().map(lev=>`<div class="vbkop"><span>${esc(lev)}</span><small>${per[lev].length} ${per[lev].length===1?'artikel':'artikelen'}</small></div>
        <div class="vbon">${per[lev].map(x=>`<div class="vbrij"><span>${esc(x.naam)}<small class="vbklein">${x.onbekend?'niet in voorraad':'heb '+toonHoeveel(x.op,'g')}</small></span>
          <b style="color:var(--amber)">${toonHoeveel(x.tekort,'g')}</b></div>`).join('')}</div>`).join('')
@@ -18714,18 +18721,27 @@ function spulLijst(per){
       return {id:'mal:'+k,naam:m[k].naam,sub:'tot '+piek+' mallen op één dag · schoon en gepoetst',mal:true} })
     .concat(spullen().map(x=>({id:x.id,naam:x.naam})));
 }
+/* wat je bij het checken open liet, voor alle komende periodes samen */
+function spulMist(){
+  const v=vandaag(), uit=[], gezien={};
+  productiePeriodes().filter(x=>x.eind>=v).forEach(per=>{
+    if(!Object.keys((S.spulVink||{})[per.start]||{}).length) return;   /* nog niet gecheckt */
+    spulLijst(per).forEach(x=>{ if(!spulAf(per.start,x.id)&&!gezien[x.naam]){ gezien[x.naam]=1; uit.push(x) } });
+  });
+  return uit;
+}
 const spulAf=(start,id)=>!!(((S.spulVink||{})[start]||{})[id]);
 function sheetSpullen(per){
   const l=spulLijst(per), af=l.filter(x=>spulAf(per.start,x.id)).length, k='spul:'+per.start;
   const dk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
   sheet('Spullen checken',
-    `<p class="vbnoot" style="margin:0 0 12px">Voor je productie van ${dk(per.start)}${per.eind!==per.start?' t/m '+dk(per.eind):''} · ${af} van ${l.length} klaar</p>
+    `<p class="vbnoot" style="margin:0 0 12px">Vink af wat je in huis hebt voor ${dk(per.start)}${per.eind!==per.start?' t/m '+dk(per.eind):''}. Wat open blijft komt op je bestellijst. · ${af} van ${l.length}</p>
      <div class="sp2lijst">${l.map(x=>`<button type="button" class="sp2rij spvink${spulAf(per.start,x.id)?' af':''}" data-spul="${esc(x.id)}">
        <span class="rtkies">${svg(I.vink,'3')}</span>
        <span class="sp2nm">${esc(x.naam)}${x.sub?`<small>${esc(x.sub)}</small>`:''}</span>
        ${x.mal?'':`<span class="spwis" data-spulwis="${esc(x.id)}" aria-label="Van je lijst halen">${svg(I.kruis,'2')}</span>`}</button>`).join('')}</div>
      <div class="spnieuw"><input class="inp" id="spNieuw" placeholder="Iets toevoegen aan je vaste lijst"><button type="button" class="kopknop" id="spPlus">${svg(I.plus)}Toevoegen</button></div>`,
-    `<button class="prim" style="margin-top:0" id="spKlaar" ${af===l.length?'':'disabled'}>${af===l.length?'Alles staat klaar':'Nog '+(l.length-af)+' te checken'}</button>`);
+    `<button class="prim" style="margin-top:0" id="spKlaar">${af===l.length?'Alles is in huis':'Klaar · '+(l.length-af)+' op de bestellijst'}</button>`);
   sheetTerugZet(null);
   const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetSpullen(per); $('#sheetBody').scrollTop=st };
   $$('[data-spul]').forEach(b=>b.onclick=e=>{ if(e.target.closest('[data-spulwis]')) return;
@@ -18733,7 +18749,8 @@ function sheetSpullen(per){
     if(v[b.dataset.spul]) delete v[b.dataset.spul]; else v[b.dataset.spul]=1; S.spulVink[per.start]=v; bewaarNu(); opnieuw() });
   $$('[data-spulwis]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); S.spullen=spullen().filter(x=>x.id!==b.dataset.spulwis); bewaarNu(); opnieuw() });
   $('#spPlus').onclick=()=>{ const n=$('#spNieuw').value.trim(); if(!n) return; spullen().push({id:uid(),naam:n}); bewaarNu(); opnieuw() };
-  $('#spKlaar').onclick=()=>{ dicht(); routeKlaar(k,true); toast('Spullen staan klaar') };
+  $('#spKlaar').onclick=()=>{ const mist=l.length-af; dicht(); if(!mist) routeKlaar(k,true); else render();
+    toast(mist?mist+' op je bestellijst gezet':'Alles is in huis') };
 }
 function sheetLevering(k){
   const binnen=(S.ontvangsten||[]).filter(x=>x.datum>=((S.route||{})['best:'+(k||'').slice(4)]||vandaag()));
