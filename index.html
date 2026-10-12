@@ -4769,7 +4769,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v780 · 12 okt 2026';
+const APPVERSIE='v781 · 12 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5134,6 +5134,8 @@ async function lokaalLees(){
 
    Daarom gaat nu alles eréén keer doorheen. undefined verdwijnt uit objecten
    en wordt null in lijsten, zodat de plekken in een lijst blijven kloppen. */
+const fbSleutel=k=>{ const t=String(k).replace(/[.#$\/\[\]]/g,'_'); return t||'_' };
+let opslagFoutGemeld=false;
 function schoonVoorFirebase(v){
   if(v===undefined) return undefined;
   if(v===null||typeof v!=='object') return v;
@@ -5150,7 +5152,9 @@ function schoonVoorFirebase(v){
   for(const k in v){
     if(!Object.prototype.hasOwnProperty.call(v,k)) continue;
     const w=schoonVoorFirebase(v[k]);
-    if(w!==undefined) o[k]=w;
+    /* v781: Firebase weigert sleutels met . # $ / [ ] — en dan mislukt de hele
+       opslag, stil. Een productnaam als "Puur 70.5%" mag dat nooit veroorzaken. */
+    if(w!==undefined) o[fbSleutel(k)]=w;
   }
   return o;
 }
@@ -5291,6 +5295,9 @@ function zetData(d){
     S[k]=nu;
   });
   spookKlokWeg();
+  /* v781: een toestel met een oude versie kent nieuwe velden niet en laat ze weg.
+     Dan houden we die van hier en zetten ze meteen terug op de server. */
+  if(['route','spulVink','bestelVink','spullen','spulWeg'].some(k=>d[k]===undefined&&S[k]!==undefined&&S[k]!==null)) setTimeout(()=>{ try{bewaarNu()}catch(e){} },1500);
   S.bijgewerkt=d.bijgewerkt||0;
   /* Het vangnet keek één keer op 2,5 seconde na het starten en daarna pas na
      tien minuten. Op een telefoon komt je data vrijwel altijd ná die 2,5
@@ -5577,7 +5584,10 @@ function bewaarNu(){
   /* d komt uit pakData() en is dus al schoon; deze extra ronde is er voor het
      geval bewaarNu() ooit iets anders doorgeeft. Kost niets, scheelt een
      stilstaande app. */
-  if(fbRef){ negeerRemote=true; fbRef.set(schoonVoorFirebase(d)).catch(()=>{}); setTimeout(()=>negeerRemote=false,600); }
+  if(fbRef){ negeerRemote=true;
+    try{ fbRef.set(schoonVoorFirebase(d)).catch(e=>{ if(!opslagFoutGemeld){ opslagFoutGemeld=true; toast('Opslaan op de server lukte niet: '+((e&&e.message)||'onbekend')) } }) }
+    catch(e){ if(!opslagFoutGemeld){ opslagFoutGemeld=true; toast('Opslaan op de server lukte niet: '+((e&&e.message)||'onbekend')) } }
+    setTimeout(()=>negeerRemote=false,600); }
 }
 function bewaar(){clearTimeout(bewaarTimer);bewaarTimer=setTimeout(bewaarNu,400)}
 
@@ -18698,19 +18708,20 @@ function sheetRouteInkoop(eerste){
   const dk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
   const laat=uiterlijk&&uiterlijk<vandaag();
   const bk=plans.length?'best:'+plans[0].id:'best';
-  const bv=((S.bestelVink||{})[bk])||{};
+  const bv0=((S.bestelVink||{})[bk])||{}, bv={}; Object.keys(bv0).forEach(k=>bv[k]=bv0[k]);
+  const bvHeeft=n=>!!bv[fbSleutel(n)];
   /* spullen: wat bij het openen nog miste blijft zichtbaar, zodat je ziet wat je net afvinkte */
   const pr=productiePeriodes().filter(x=>x.eind>=vandaag())[0];
   if(eerste!==false||!rbSpulOpen) rbSpulOpen=pr?spulLijst(pr).filter(x=>!spulAf(pr.start,x.id)).map(x=>x.id):[];
   const spul=pr?spulLijst(pr).filter(x=>rbSpulOpen.includes(x.id)):[];
   if(!rbTab) rbTab=dek.length?'ing':'spul';
-  const ingAf=dek.filter(x=>bv[x.naam]).length, spAf=spul.filter(x=>spulAf(pr.start,x.id)).length;
+  const ingAf=dek.filter(x=>bvHeeft(x.naam)).length, spAf=spul.filter(x=>spulAf(pr.start,x.id)).length;
   const rij=(attr,af,naam,sub,rechts)=>`<button type="button" class="sp2rij spvink${af?' af':''}" ${attr}>
       <span class="rtkies">${svg(I.vink,'3')}</span><span class="sp2nm">${esc(naam)}${sub?`<small>${sub}</small>`:''}</span>${rechts||''}</button>`;
   let inhoud='';
   if(rbTab==='ing'){
-    inhoud=Object.keys(per).sort().map(lev=>`<div class="sp2kop"><span>${esc(lev)}</span><small>${per[lev].filter(x=>bv[x.naam]).length}/${per[lev].length}</small></div>
-      <div class="sp2lijst">${per[lev].map(x=>rij(`data-rbing="${esc(x.naam)}"`,bv[x.naam],x.naam,x.onbekend?'niet in voorraad':'heb '+toonHoeveel(x.op,'g'),
+    inhoud=Object.keys(per).sort().map(lev=>`<div class="sp2kop"><span>${esc(lev)}</span><small>${per[lev].filter(x=>bvHeeft(x.naam)).length}/${per[lev].length}</small></div>
+      <div class="sp2lijst">${per[lev].map(x=>rij(`data-rbing="${esc(fbSleutel(x.naam))}"`,bvHeeft(x.naam),x.naam,x.onbekend?'niet in voorraad':'heb '+toonHoeveel(x.op,'g'),
         `<b class="rbhv">${toonHoeveel(x.tekort,'g')}</b>`)).join('')}</div>`).join('')||'<p class="wdleeg">Je hebt alle ingrediënten in huis.</p>';
   } else {
     inhoud=spul.length?['Mallen'].concat(SPULGROEPEN.map(g=>g[0]),['Eigen spullen']).map(gn=>{ const gl=spul.filter(x=>x.groep===gn); if(!gl.length) return '';
