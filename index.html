@@ -4327,6 +4327,8 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .spnieuw{display:flex;gap:8px;margin-top:12px;align-items:center}
 .spnieuw .inp{flex:1;margin:0}
 .spnieuw .kopknop{flex:none}
+.rbhv{color:var(--amber);font-size:14px;white-space:nowrap}
+.spvink.af .rbhv{color:var(--grijs)}
 .sp2adv{background:var(--card);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:4px;
   box-shadow:0 1px 2px rgba(24,24,27,.04),0 14px 30px -22px rgba(24,24,27,.28)}
 .sp2adv>small{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs)}
@@ -4764,7 +4766,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v778 · 12 okt 2026';
+const APPVERSIE='v779 · 12 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5076,7 +5078,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['spulVersie','spullen','spulVink','route','vpUit','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['bestelVink','spulVersie','spullen','spulVink','route','vpUit','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -18683,24 +18685,52 @@ function routeStappen(){
   return uit.sort((x,y)=>dS(x).localeCompare(dS(y))||r2(x)-r2(y));
 }
 function routeKlaar(k,aan){ S.route=Object.assign({},S.route||{}); if(aan) S.route[k]=vandaag(); else delete S.route[k]; bewaarNu(); render() }
-function sheetRouteInkoop(){
+/* v779: bestellijst om af te vinken — ingrediënten per winkel, spullen per processtap */
+let rbTab=null, rbSpulOpen=null;
+function sheetRouteInkoop(eerste){
   const plans=routePlans(), alle=[]; plans.forEach(p=>(p.regels||[]).forEach(r=>alle.push(r)));
   const dek=dekkingGrond(alle).filter(x=>x.tekort>0), per={};
   dek.forEach(x=>{ const lev=leverancierVan(x.naam)||'Nog geen leverancier'; (per[lev]=per[lev]||[]).push(x) });
   const lt=levertijdVoor(alle)||0, uiterlijk=plans.length?datumPlus(plans[0].datum,-(lt+1)):null;
   const dk=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
   const laat=uiterlijk&&uiterlijk<vandaag();
+  const bk=plans.length?'best:'+plans[0].id:'best';
+  const bv=((S.bestelVink||{})[bk])||{};
+  /* spullen: wat bij het openen nog miste blijft zichtbaar, zodat je ziet wat je net afvinkte */
+  const pr=productiePeriodes().filter(x=>x.eind>=vandaag())[0];
+  if(eerste!==false||!rbSpulOpen) rbSpulOpen=pr?spulLijst(pr).filter(x=>!spulAf(pr.start,x.id)).map(x=>x.id):[];
+  const spul=pr?spulLijst(pr).filter(x=>rbSpulOpen.includes(x.id)):[];
+  if(!rbTab) rbTab=dek.length?'ing':'spul';
+  const ingAf=dek.filter(x=>bv[x.naam]).length, spAf=spul.filter(x=>spulAf(pr.start,x.id)).length;
+  const rij=(attr,af,naam,sub,rechts)=>`<button type="button" class="sp2rij spvink${af?' af':''}" ${attr}>
+      <span class="rtkies">${svg(I.vink,'3')}</span><span class="sp2nm">${esc(naam)}${sub?`<small>${sub}</small>`:''}</span>${rechts||''}</button>`;
+  let inhoud='';
+  if(rbTab==='ing'){
+    inhoud=Object.keys(per).sort().map(lev=>`<div class="sp2kop"><span>${esc(lev)}</span><small>${per[lev].filter(x=>bv[x.naam]).length}/${per[lev].length}</small></div>
+      <div class="sp2lijst">${per[lev].map(x=>rij(`data-rbing="${esc(x.naam)}"`,bv[x.naam],x.naam,x.onbekend?'niet in voorraad':'heb '+toonHoeveel(x.op,'g'),
+        `<b class="rbhv">${toonHoeveel(x.tekort,'g')}</b>`)).join('')}</div>`).join('')||'<p class="wdleeg">Je hebt alle ingrediënten in huis.</p>';
+  } else {
+    inhoud=spul.length?['Mallen'].concat(SPULGROEPEN.map(g=>g[0]),['Eigen spullen']).map(gn=>{ const gl=spul.filter(x=>x.groep===gn); if(!gl.length) return '';
+      return `<div class="sp2kop"><span>${gn}</span><small>${gl.filter(x=>spulAf(pr.start,x.id)).length}/${gl.length}</small></div>
+      <div class="sp2lijst">${gl.map(x=>rij(`data-rbspul="${esc(x.id)}"`,spulAf(pr.start,x.id),x.naam,x.sub?esc(x.sub):'')).join('')}</div>` }).join('')
+      :'<p class="wdleeg">Je mist geen spullen. Check ze via de stap Spullen checken.</p>';
+  }
   sheet('Bestellen',
-    `${uiterlijk?`<div class="vpdeadline ${laat?'laat':''}"><b>${laat?'Eigenlijk te laat — bestel vandaag':'Bestellen uiterlijk '+dk(uiterlijk)}</b>
+    `${uiterlijk&&dek.length?`<div class="vpdeadline ${laat?'laat':''}"><b>${laat?'Eigenlijk te laat — bestel vandaag':'Bestellen uiterlijk '+dk(uiterlijk)}</b>
       <span>levertijd tot ${lt} dagen · eerste productiedag ${dk(plans[0].datum)}</span></div>`:''}
-     ${(m=>m.length?`<div class="vbkop"><span>Spullen die je mist</span><small>${m.length}</small></div>
-       <div class="vbon">${m.map(x=>`<div class="vbrij"><span>${esc(x.naam)}</span><b style="color:var(--amber)">regelen</b></div>`).join('')}</div>`:'')(spulMist())}
-     ${Object.keys(per).sort().map(lev=>`<div class="vbkop"><span>${esc(lev)}</span><small>${per[lev].length} ${per[lev].length===1?'artikel':'artikelen'}</small></div>
-       <div class="vbon">${per[lev].map(x=>`<div class="vbrij"><span>${esc(x.naam)}<small class="vbklein">${x.onbekend?'niet in voorraad':'heb '+toonHoeveel(x.op,'g')}</small></span>
-         <b style="color:var(--amber)">${toonHoeveel(x.tekort,'g')}</b></div>`).join('')}</div>`).join('')
-      ||'<p class="wdleeg">Je hebt alles in huis voor deze planning.</p>'}`,
+     <div class="sp2seg"><button type="button" class="${rbTab==='ing'?'aan':''}" data-rbtab="ing">Ingrediënten<b>${ingAf}/${dek.length}</b></button>
+       <button type="button" class="${rbTab==='spul'?'aan':''}" data-rbtab="spul">Spullen<b>${spAf}/${spul.length}</b></button></div>
+     <p class="vbnoot" style="margin:0 0 4px">Vink af wat je besteld of geregeld hebt.</p>
+     ${inhoud}`,
     `<button class="prim" style="margin-top:0" id="rtBest">Alles besteld</button><button class="sec" onclick="dicht()">Later</button>`);
-  $('#rtBest').onclick=()=>{ dicht(); routeKlaar('best:'+plans[0].id,true); toast('Besteld — staat afgevinkt in je route') };
+  sheetTerugZet(null);
+  const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetRouteInkoop(false); $('#sheetBody').scrollTop=st };
+  $$('[data-rbtab]').forEach(b=>b.onclick=()=>{ rbTab=b.dataset.rbtab; sheetRouteInkoop(false) });
+  $$('[data-rbing]').forEach(b=>b.onclick=()=>{ S.bestelVink=Object.assign({},S.bestelVink||{}); const v=Object.assign({},S.bestelVink[bk]||{});
+    if(v[b.dataset.rbing]) delete v[b.dataset.rbing]; else v[b.dataset.rbing]=vandaag(); S.bestelVink[bk]=v; bewaarNu(); opnieuw() });
+  $$('[data-rbspul]').forEach(b=>b.onclick=()=>{ S.spulVink=Object.assign({},S.spulVink||{}); const v=Object.assign({},S.spulVink[pr.start]||{});
+    if(v[b.dataset.rbspul]) delete v[b.dataset.rbspul]; else v[b.dataset.rbspul]=1; S.spulVink[pr.start]=v; bewaarNu(); opnieuw() });
+  $('#rtBest').onclick=()=>{ dicht(); routeKlaar(bk,true); toast('Besteld — staat afgevinkt in je route') };
 }
 /* ===== Spullen checken (v776) =====
    Mallen rekent de app uit je planning; de rest is je vaste lijst, die je zelf aanvult. */
