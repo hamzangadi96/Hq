@@ -4794,7 +4794,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v783 · 14 okt 2026';
+const APPVERSIE='v784 · 14 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -34995,10 +34995,14 @@ function sheetBackup(){
       account kwijt of wist iemand iets, dan is het weg. Met een back-up heb je
       één bestand met alles erin dat je zelf bewaart.</p>
      ${laatste?`<div class="melding ${dagen>30?'amber':''}">${svg(dagen>30?I.alarm:I.vink,'2')}
-       <span>Laatste back-up ${dagen===0?'vandaag':dagen===1?'gisteren':dagen+' dagen geleden'}
+       <span>Laatste bestand ${dagen===0?'vandaag':dagen===1?'gisteren':dagen+' dagen geleden'}
          \u00b7 ${kort(new Date(laatste))}</span></div>`
       :`<div class="melding amber">${svg(I.alarm,'2')}
-        <span>Je hebt nog nooit een back-up gemaakt.</span></div>`}
+        <span>Je hebt nog nooit een back-up als bestand bewaard.</span></div>`}
+     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Elke nacht automatisch</span>
+       <button class="kopknop" id="buServerNu">Nu maken</button></div>
+     <p class="vbnoot" style="margin:0 0 8px">Om 03:00 maakt de server een kopie van alles. De laatste 30 dagen blijven bewaard. Tik op een dag om hem terug te zetten.</p>
+     <div id="buAuto"><p class="wdleeg">Ophalen…</p></div>
      <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Wat erin komt</span></div>
      <div class="paneel"><div class="arij stil">
        <span class="naam">Je hele administratie<small>${esc(backupTekst(nu2))}</small></span>
@@ -35013,7 +35017,7 @@ function sheetBackup(){
        <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
      <input type="file" id="buBestand" accept="application/json,.json" hidden>
      <div id="buVoor"></div>`,
-    `<button class="prim" style="margin-top:0" id="buMaak">${svg(I.doc)}&nbsp;Back-up maken</button>
+    `<button class="prim" style="margin-top:0" id="buMaak">${svg(I.doc)}&nbsp;Bewaar als bestand</button>
      <button class="sec" id="buOk">Klaar</button>`);
 
   $('#buMaak').onclick=async()=>{
@@ -35051,8 +35055,35 @@ function sheetBackup(){
           ${svg(I.alarm,'2')}<span>Dit lijkt geen back-up van HQ.</span></div>`;
         return;
       }
+      buVoorbeeld(d, d._backup&&d._backup.gemaakt?kort(new Date(d._backup.gemaakt)):'onbekend');
+    };
+    lezer.readAsText(f);
+  };
+  /* v784: back-ups van de server */
+  const autoTeken=()=>{
+    if(!fbUser||typeof firebase==='undefined'||!firebase.database){ $('#buAuto').innerHTML='<p class="wdleeg">Log in om je automatische back-ups te zien.</p>'; return }
+    firebase.database().ref('reservekopieLijst/'+fbUser.uid).once('value').then(sn=>{
+      const l=sn.val()||{}, dagen=Object.keys(l).sort().reverse();
+      if(!$('#buAuto')) return;
+      $('#buAuto').innerHTML=dagen.length?`<div class="sp2lijst">${dagen.map(d=>`<button type="button" class="sp2rij" data-buauto="${d}">
+        <span class="sp2nm">${esc(new Date(d+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'}))}<small>${l[d].smaken||0} smaken · ${l[d].batches||0} batches · ${Math.round((l[d].grootte||0)/1024)} kB</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
+        :'<p class="wdleeg">Nog geen automatische back-up. De eerste komt vannacht, of tik op Nu maken.</p>';
+      $$('[data-buauto]').forEach(b=>b.onclick=()=>{ b.disabled=true;
+        firebase.database().ref('reservekopie/'+fbUser.uid+'/'+b.dataset.buauto).once('value').then(x=>{
+          const d=x.val(); if(!d) return toast('Deze back-up is leeg');
+          buVoorbeeld(d, new Date(b.dataset.buauto+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'long'}));
+          setTimeout(()=>{ const v=$('#buVoor'); if(v) v.scrollIntoView({behavior:'smooth',block:'start'}) },50);
+        }).catch(e=>toast('Ophalen lukte niet: '+(e.message||e))).finally(()=>{ b.disabled=false }) });
+    }).catch(()=>{ if($('#buAuto')) $('#buAuto').innerHTML='<p class="wdleeg">Kon de back-ups niet ophalen. De eerste komt vannacht.</p>' });
+  };
+  autoTeken();
+  $('#buServerNu').onclick=()=>{ $('#buServerNu').textContent='Bezig…';
+    roep('backupNu',{}).then(()=>{ toast('Back-up van vandaag gemaakt'); autoTeken() })
+      .catch(e=>toast((e&&e.message)||'Lukte niet')).finally(()=>{ if($('#buServerNu')) $('#buServerNu').textContent='Nu maken' }) };
+  function buVoorbeeld(d,gemaakt){
+    {
       const t=backupTellen(d);
-      const gemaakt=d._backup&&d._backup.gemaakt?kort(new Date(d._backup.gemaakt)):'onbekend';
       $('#buVoor').innerHTML=`<div class="paneel" style="margin-top:14px">
         <div class="arij stil">
           <span class="naam">Back-up van ${esc(gemaakt)}<small>${esc(backupTekst(t))}</small></span>
@@ -35073,9 +35104,8 @@ function sheetBackup(){
         bewaarNu(); render();
         toast('Back-up teruggezet.',herstel);
       };
-    };
-    lezer.readAsText(f);
-  };
+    }
+  }
   $('#buOk').onclick=sheetInstellingen;
 }
 

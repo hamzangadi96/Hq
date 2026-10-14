@@ -12,6 +12,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
@@ -1517,4 +1518,48 @@ exports.claudeLees = onRequest({ invoker: 'public', cors: false }, async (req, r
   }
   const r = await antwoord(body || {});
   return r ? res.json(r) : res.status(202).send('');
+});
+
+
+/* ═══════════ Dagelijkse back-up (v784) ═══════════
+   Elke nacht om 03:00 een kopie van ieders HQ-data naar reservekopie/{uid}/{datum}.
+   30 dagen bewaard. Zo kun je terug naar gisteren als een oud toestel of een
+   fout iets overschrijft. Alleen de server schrijft hier; jij kunt alleen lezen. */
+const telVoorBackup = d => ({
+  smaken: (d.recepten || []).length || Object.keys(d.recepten || {}).length,
+  batches: Object.keys(d.batches || {}).length,
+  orders: Object.keys(d.orders || {}).length,
+  diensten: Object.keys(d.diensten || {}).length,
+  bijgewerkt: d.bijgewerkt || 0
+});
+async function maakDagBackup(uid, data, datum) {
+  if (!data) return;
+  const grootte = Buffer.byteLength(JSON.stringify(data));
+  await db().ref('reservekopie/' + uid + '/' + datum).set(data);
+  await db().ref('reservekopieLijst/' + uid + '/' + datum).set(Object.assign(telVoorBackup(data), { grootte, gemaakt: Date.now() }));
+  /* ouder dan 30 dagen opruimen */
+  const lijst = (await db().ref('reservekopieLijst/' + uid).once('value')).val() || {};
+  const dagen = Object.keys(lijst).sort();
+  const weg = dagen.slice(0, Math.max(0, dagen.length - 30));
+  for (const d of weg) {
+    await db().ref('reservekopie/' + uid + '/' + d).remove();
+    await db().ref('reservekopieLijst/' + uid + '/' + d).remove();
+  }
+}
+exports.dagelijkseBackup = onSchedule({ schedule: '0 3 * * *', timeZone: 'Europe/Amsterdam', timeoutSeconds: 300, memory: '512MiB' }, async () => {
+  const datum = nlDag(Date.now());
+  const alles = (await db().ref('cacaoboetiek').once('value')).val() || {};
+  for (const uid of Object.keys(alles)) {
+    try { await maakDagBackup(uid, alles[uid], datum); }
+    catch (e) { console.error('backup', uid, e); }
+  }
+});
+/* ook met de hand vanuit de app: "Nu een back-up maken" */
+exports.backupNu = onCall(async req => {
+  const uid = wieBenJe(req);
+  const data = (await db().ref('cacaoboetiek/' + uid).once('value')).val();
+  if (!data) throw new HttpsError('not-found', 'Er staat nog niets om te bewaren.');
+  const datum = nlDag(Date.now());
+  await maakDagBackup(uid, data, datum);
+  return { datum };
 });
