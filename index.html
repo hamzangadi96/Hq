@@ -4794,7 +4794,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v785 · 15 okt 2026';
+const APPVERSIE='v786 · 15 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5733,7 +5733,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
@@ -11856,6 +11856,26 @@ function sheetUrenHand(){
    week al geregistreerd stond (bv. mallen wassen, coderen 8–10 okt) wordt
    ervan afgetrokken, zodat niets dubbel telt. Eén regel per week, als
    reconstructie gemarkeerd, met het ritme en de onderbouwing erbij. */
+/* v786: eerste twee weken september, op opgave van Hamza (15 okt) */
+function eenmaligReconstructieSep12(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.reconstructieSep12) return false;
+  const ritme='doordeweeks na 15:00, weekend hele dag';
+  const weken=[
+    ['2026-09-01','2026-09-06',35.5,'onderbouwing: 2 sep Studio (video-app) gebouwd, 4 sep Studio herontwerp (v50–v77)'],
+    ['2026-09-07','2026-09-13',39.7,'onderbouwing: 8 sep HQ v562–v610 en overdrachtsdocumenten, 12 sep Shopify-voorraad en Content-module (v608–v611), 13 sep Uren-tab (v612)']];
+  S.klussen=S.klussen||[];
+  weken.forEach(([van,tot,uren,bewijs],i)=>{
+    const id='reconstructie-sep12-'+(i+1);
+    if(S.klussen.some(x=>x&&x.id===id)) return;
+    const al=urenPeriode(van,tot).totaalSec, rest=Math.max(0,Math.round(uren*3600)-al);
+    if(!rest) return;
+    S.klussen.push({id,soort:'overig',datum:tot,tijd:'',sec:rest,handmatig:true,bron:'reconstructie',
+      tekst:'Reconstructie week '+kort(new Date(van))+' – '+kort(new Date(tot))+' ('+String(uren).replace('.',',')+' u totaal'+(al?', waarvan '+urenTekst(al)+' al geregistreerd':'')+'): opruimen, coderen, marketing, administratie · '+ritme+' · '+bewijs+' · achteraf vastgelegd op 15 okt 2026'});
+  });
+  S.eenmalig.reconstructieSep12=Date.now();
+  return true;
+}
 function eenmaligReconstructieSepOkt(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.reconstructieSepOkt) return false;
