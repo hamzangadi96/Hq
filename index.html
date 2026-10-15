@@ -4794,7 +4794,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v784 · 14 okt 2026';
+const APPVERSIE='v785 · 15 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5733,7 +5733,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
           toast('Bijgewerkt vanaf je andere apparaat.');
@@ -11851,6 +11851,32 @@ function sheetUrenHand(){
    ma 5, di 6 en wo 7 oktober 2026 — de avonden die hij zelf opgaf. Draait
    één keer na het laden van de server; daarna staat er een vlag, zodat het
    niet terugkomt als je een regel later verwijdert. */
+/* ═══════════ eenmalig (v785): reconstructie 14 sep – 11 okt 2026 ═══════════
+   Op opgave van Hamza (15 okt): weektotalen die hij zelf schatte. Wat er die
+   week al geregistreerd stond (bv. mallen wassen, coderen 8–10 okt) wordt
+   ervan afgetrokken, zodat niets dubbel telt. Eén regel per week, als
+   reconstructie gemarkeerd, met het ritme en de onderbouwing erbij. */
+function eenmaligReconstructieSepOkt(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.reconstructieSepOkt) return false;
+  const ritme='doordeweeks na 15:00, weekend hele dag';
+  const weken=[
+    ['2026-09-14','2026-09-20',33.6,'onderbouwing: 16 sep Studio gebouwd, 19 sep Content-tab HQ (v612–v632), contentplan, website'],
+    ['2026-09-21','2026-09-27',37.9,'onderbouwing: 24 sep to-do-, video- en Blauwdrukmodule HQ (v632–v662), contentstrategie en videoplan'],
+    ['2026-09-28','2026-10-04',26.3,'onderbouwing: 1 okt comebackvideo, 4 okt HQ-reorganisatie, mailinglijstkaart, hygiëneplan (v675–v690)'],
+    ['2026-10-05','2026-10-11',39.5,'onderbouwing: 87 GitHub-commits 8–11 okt, 7 okt invertsuiker overgeschept, 11 okt social-teksten']];
+  S.klussen=S.klussen||[];
+  weken.forEach(([van,tot,uren,bewijs],i)=>{
+    const id='reconstructie-sepokt-'+(i+1);
+    if(S.klussen.some(x=>x&&x.id===id)) return;
+    const al=urenPeriode(van,tot).totaalSec, rest=Math.max(0,Math.round(uren*3600)-al);
+    if(!rest) return;
+    S.klussen.push({id,soort:'overig',datum:tot,tijd:'',sec:rest,handmatig:true,bron:'reconstructie',
+      tekst:'Reconstructie week '+kort(new Date(van))+' – '+kort(new Date(tot))+' ('+String(uren).replace('.',',')+' u totaal'+(al?', waarvan '+urenTekst(al)+' al geregistreerd':'')+'): schoonmaak, afwassen, marketing, website, coderen · '+ritme+' · '+bewijs+' · achteraf vastgelegd op 15 okt 2026'});
+  });
+  S.eenmalig.reconstructieSepOkt=Date.now();
+  return true;
+}
 function eenmaligMallenOkt(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.mallenOkt2026) return false;
