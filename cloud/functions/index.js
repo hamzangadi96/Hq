@@ -1007,7 +1007,8 @@ async function stempelAanpassenBinnen(req) {
   const ds = Math.max(-6, Math.min(6, parseInt(d.stempels, 10) || 0));
   const dk = Math.max(-1, Math.min(1, parseInt(d.kaarten, 10) || 0));
   if (!ds && !dk) throw new HttpsError('invalid-argument', 'Niets om aan te passen.');
-  const { winkel, token: t } = await token(uid);
+  let { winkel, token: t } = await token(uid);
+  let vers = false;
 
   const gql = async (query, variables) => {
     const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
@@ -1024,6 +1025,14 @@ async function stempelAanpassenBinnen(req) {
     if (j.errors && j.errors.length) {
       const tekst = JSON.stringify(j.errors);
       if (/ACCESS_DENIED|write_customers|access/i.test(tekst)) {
+        /* v788: het token wordt een dag bewaard. Zet je de scope net aan, dan
+           heeft het oude token hem nog niet. Eén keer een vers token halen. */
+        if (!vers) {
+          vers = true;
+          await geheimRef(uid).child('shopify/token').remove();
+          ({ winkel, token: t } = await token(uid));
+          return gql(query, variables);
+        }
         throw new HttpsError('permission-denied',
           'HQ mag nog geen klanten aanpassen. Zet in het Shopify Dev Dashboard bij je app de scope write_customers aan en installeer de app opnieuw.');
       }
