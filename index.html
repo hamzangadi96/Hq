@@ -4794,7 +4794,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v786 · 15 okt 2026';
+const APPVERSIE='v787 · 16 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9010,7 +9010,9 @@ function stempelStand(){
 }
 function stempelVerversen(hand){
   const s=(S.werk||{}).stempels;
-  if(stempelBezig||!fbUser) return;
+  if(stempelBezig) return;
+  /* v787: zonder inlog deed de knop stil niets; nu zegt hij waarom */
+  if(!fbUser){ if(hand){ stempelFout='Je bent niet ingelogd, dus HQ kan Shopify niet vragen. Log opnieuw in via je account.'; render() } return }
   if(!hand&&stempelFout) return;
   if(!hand&&s&&stempelKlanten&&Date.now()-(s.bijgewerkt||0)<10*60*1000) return;
   stempelBezig=true; if(hand) render();
@@ -9097,7 +9099,9 @@ function stempelSheetHTML(){
       <p>1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart (€24,95): de doos van 16, of korting op de doos van 25.
         Welke doos een klant kiest, voorspelt HQ uit wat hij eerder kocht.</p>
     </details>`;
-  return advies+getallen+stempelLijstHTML()+uitleg+`
+  /* v787: een fout bleef onzichtbaar zodra er al een oude telling stond */
+  const fout=stempelFout&&!stempelBezig?`<p class="wdleeg" style="margin-top:18px;color:var(--rood,#c0392b)">${esc(stempelFout)}</p>`:'';
+  return advies+getallen+stempelLijstHTML()+uitleg+fout+`
     <button type="button" class="prodlos" style="display:block;width:100%" onclick="stempelFout='';stempelVerversen(true)">${
       stempelBezig?'Tellen…':'Bijgewerkt '+tijd+' · opnieuw tellen'}</button>`;
 }
