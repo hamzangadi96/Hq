@@ -4814,7 +4814,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v794 · 17 okt 2026';
+const APPVERSIE='v795 · 17 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9248,7 +9248,11 @@ function stempelLijstHTML(){
   const rest=stempelKlanten.filter(k=>!k.open&&k.rest>0&&k.rest<5).sort((a,b)=>b.rest-a.rest||b.saldo-a.saldo);
   const blok=(kop,l)=>!l.length?'':`<div class="sp2kop"><span>${kop}</span><small>${l.length}</small></div>
     <div class="sp2lijst">${l.map(stempelRij).join('')}</div>`;
-  return blok('Kaart vol',vol)+blok('Bijna vol',bijna)+blok('Onderweg',rest);
+  /* v795: ook iedereen zonder stempels, op naam — alle klanten in één lijst */
+  const nul=stempelKlanten.filter(k=>!k.open&&!k.rest)
+    .concat(stempelOverig.map(k=>Object.assign({saldo:0,stempels:0,ver:0,open:0,rest:0},k)))
+    .sort((a,b)=>naamNet(a.naam).localeCompare(naamNet(b.naam),'nl'));
+  return blok('Kaart vol',vol)+blok('Bijna vol',bijna)+blok('Onderweg',rest)+blok('Nog geen stempels',nul);
 }
 /* v790: zoeken op naam, ook klanten die nog geen stempel hebben */
 const zoekNorm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
