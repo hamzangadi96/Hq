@@ -4391,6 +4391,12 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .sp2kaart{display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--bg);border-radius:18px;padding:20px 16px;text-align:center}
 .sp2kaart>b{font-size:22px;font-weight:800;letter-spacing:-.02em}
 .sp2kaart>small{font-size:13.5px;color:var(--grijs)}
+.stpzoek{display:flex;align-items:center;gap:10px;margin-top:16px;background:var(--bg);border-radius:14px;padding:0 6px 0 14px;height:50px}
+.stpzoek>svg{width:18px;height:18px;color:var(--grijs);flex:none}
+.stpzoek input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:16px;color:var(--ink);outline:none;height:100%}
+.stpzoek input::-webkit-search-cancel-button{display:none}
+.stpzoek button{display:none;width:38px;height:38px;border:0;border-radius:10px;background:none;color:var(--grijs);align-items:center;justify-content:center;cursor:pointer}
+.stpzoek button.aan{display:flex}.stpzoek button svg{width:16px;height:16px}
 .gcrij{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:12px 14px}
 .gcrij+.gcrij{border-top:1px solid #e4e4e7}
 .gcstand{font-size:12.5px;font-weight:700;color:var(--grijs);white-space:nowrap}
@@ -4800,7 +4806,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v789 · 17 okt 2026';
+const APPVERSIE='v790 · 17 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9008,6 +9014,7 @@ function voorspelSheetHTML(){
       voorspelBezig?'Voorspellen…':'Bijgewerkt '+tijd+' · opnieuw'}</button>`;
 }
 
+let stempelOverig=[];
 let stempelBezig=false, stempelFout='', stempelKlanten=null, stempelZoek='', stempelNet={}, stempelWerkt=false;
 function stempelStand(){
   let s=(S.werk||{}).stempels;
@@ -9023,7 +9030,7 @@ function stempelVerversen(hand){
   if(!hand&&s&&stempelKlanten&&Date.now()-(s.bijgewerkt||0)<10*60*1000) return;
   stempelBezig=true; if(hand) render();
   roep('telStempels',{}).then(r=>{
-    stempelKlanten=r.klanten||null;
+    stempelKlanten=r.klanten||null; stempelOverig=r.overig||[];
     const kaal=Object.assign({},r); delete kaal.klanten; delete kaal.aanmeldingen;
     S.werk=S.werk||{}; S.werk.stempels=kaal; stempelFout='';
     try{ localStorage.setItem('hq-stempels',JSON.stringify(kaal)) }catch(e){}
@@ -9108,7 +9115,12 @@ function stempelSheetHTML(){
     </details>`;
   /* v787: een fout bleef onzichtbaar zodra er al een oude telling stond */
   const fout=stempelFout&&!stempelBezig?`<p class="wdleeg" style="margin-top:18px;color:var(--rood,#c0392b)">${esc(stempelFout)}</p>`:'';
-  return advies+getallen+stempelLijstHTML()+uitleg+fout+`
+  const zoek=stempelKlanten?`<div class="stpzoek">${svg(I.loep,'2')}
+      <input type="search" id="stpZoek" placeholder="Zoek klant op naam" autocomplete="off" enterkeyhint="search"
+        value="${esc(stempelZoek)}" oninput="stempelZoekNu(this.value)">
+      <button type="button" id="stpZoekWeg" class="${stempelZoek?'aan':''}" aria-label="Zoeken wissen"
+        onclick="stempelZoekNu('');const i=$('#stpZoek');if(i){i.value='';i.focus()}">${svg(I.kruis,'2')}</button></div>`:'';
+  return advies+getallen+zoek+`<div id="stpLijst">${stempelZoekHTML()}</div>`+uitleg+fout+`
     <button type="button" class="prodlos" style="display:block;width:100%" onclick="stempelFout='';stempelVerversen(true)">${
       stempelBezig?'Tellen…':'Bijgewerkt '+tijd+' · opnieuw tellen'}</button>`;
 }
@@ -9120,7 +9132,7 @@ function stempelBolletjes(k,groot){
 }
 function stempelRij(k){
   return `<button type="button" class="sp2rij" onclick="stempelKlantOpen('${k.id}')">
-    <span class="sp2nm">${esc(naamNet(k.naam))}<small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed</small></span>
+    <span class="sp2nm">${esc(naamNet(k.naam))}<small>${k.saldo?'€'+String(k.saldo.toFixed(2)).replace('.',',')+' besteed':'nog geen stempels'}</small></span>
     ${k.open?`<span class="sp2pil">${k.open===1?'1 kaart':k.open+' kaarten'}</span>`:stempelBolletjes(k)}
     <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
 }
@@ -9136,17 +9148,31 @@ function stempelLijstHTML(){
     <div class="sp2lijst">${l.map(stempelRij).join('')}</div>`;
   return blok('Kaart vol',vol)+blok('Bijna vol',bijna)+blok('Onderweg',rest);
 }
+/* v790: zoeken op naam, ook klanten die nog geen stempel hebben */
+const zoekNorm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function stempelZoekHTML(){
-  const z=stempelZoek.trim().toLowerCase();
-  if(z.length<2) return '';
-  const l=stempelKlanten.filter(k=>k.naam.toLowerCase().indexOf(z)>=0).slice(0,20);
-  return l.length?`<div class="sp2lijst">${l.map(stempelRij).join('')}</div>`:'<p class="wdleeg">Geen klant gevonden.</p>';
+  const z=zoekNorm(stempelZoek.trim());
+  if(z.length<2) return stempelLijstHTML();
+  const delen=z.split(/\s+/);
+  const past=n=>{ const x=zoekNorm(n); return delen.every(d=>x.indexOf(d)>=0) };
+  const met=stempelKlanten.filter(k=>past(k.naam)).sort((a,b)=>b.open-a.open||b.stempels-a.stempels);
+  const zonder=stempelOverig.filter(k=>past(k.naam)).slice(0,Math.max(0,25-met.length))
+    .map(k=>Object.assign({saldo:0,stempels:0,ver:0,open:0,rest:0,orders:k.orders},k));
+  const l=met.concat(zonder).slice(0,25);
+  return l.length?`<div class="sp2kop"><span>Gevonden</span><small>${l.length}</small></div>
+    <div class="sp2lijst">${l.map(stempelRij).join('')}</div>`:'<p class="wdleeg" style="margin-top:18px">Geen klant gevonden met deze naam.</p>';
 }
-function stempelZoekNu(w){ stempelZoek=w; const el=$('#stpLijst'); if(el) el.innerHTML=stempelZoekHTML() }
+function stempelZoekNu(w){ stempelZoek=w; const el=$('#stpLijst'); if(el) el.innerHTML=stempelZoekHTML();
+  const x=$('#stpZoekWeg'); if(x) x.classList.toggle('aan',!!w) }
 
 let stempelOpen=null;
 function stempelKlantOpen(id){
-  const k=(stempelKlanten||[]).find(x=>x.id===id); if(!k) return;
+  let k=(stempelKlanten||[]).find(x=>x.id===id);
+  if(!k){
+    const o=stempelOverig.find(x=>x.id===id); if(!o) return;
+    k=Object.assign({saldo:0,stempels:0,ver:0,open:0,rest:0},o);
+    stempelKlanten.push(k); stempelOverig=stempelOverig.filter(x=>x.id!==id);
+  }
   stempelOpen=id;
   sheet(naamNet(k.naam), stempelKlantHTML(k),
     k.open?`<button type="button" class="prim" style="margin-top:0" id="stpVerz" ${stempelWerkt?'disabled':''}>${svg(I.vink,'2.4')}${stempelWerkt?'Bezig…':'Giftcard sturen · €24,95'}</button>`:'');
@@ -9237,7 +9263,7 @@ function stempelKlantHTML(k){
       ${stempelBolletjes(k,true)}
       <b>${k.open?(k.open===1?'Kaart vol':k.open+' kaarten vol'):k.rest+' van 6 stempels'}</b>
       ${k.open?`<span class="sp2pil" style="margin-top:2px">Klaar voor een giftcard van €24,95</span>`:''}
-      <small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed · ${k.orders||1}× besteld${k.ver?' · '+k.ver+' verzilverd':''}</small>
+      <small>${[k.saldo?'€'+String(k.saldo.toFixed(2)).replace('.',',')+' besteed':'nog geen stempels',k.orders?k.orders+'× besteld':'',k.ver?k.ver+' verzilverd':''].filter(Boolean).join(' · ')}</small>
     </div>
     <div class="sp2info">
       ${typeof k.kans==='number'?`<div><span>Kans dat hij weer bestelt</span><b>${k.kans}%</b></div>`:''}

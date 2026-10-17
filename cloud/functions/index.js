@@ -683,6 +683,7 @@ async function telStempelsBinnen(req) {
   const { winkel, token: t } = await token(uid);
   let open = 0, klantenVol = 0, bijna = 0, deelnemers = 0, verzilverd = 0, na = null;
   const klanten = [];
+  const overig = [];         // klanten zonder stempels, alleen om op naam te kunnen zoeken
   const aanmeldingen = [];   // aanmelddatums van iedereen op de mailinglijst (geen namen)
   for (let ronde = 0; ronde < 40; ronde++) {
     const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
@@ -711,7 +712,10 @@ async function telStempelsBinnen(req) {
     c.nodes.forEach(k => {
       if (k.defaultEmailAddress && k.defaultEmailAddress.marketingState === 'SUBSCRIBED') aanmeldingen.push(k.createdAt);
       const saldo = k.s ? parseFloat(k.s.value) : 0;
-      if (!(saldo > 0)) return;
+      if (!(saldo > 0)) {
+        overig.push({ id: String(k.id).split('/').pop(), naam: k.displayName || 'Klant zonder naam', orders: parseInt(k.numberOfOrders, 10) || 0 });
+        return;
+      }
       deelnemers++;
       const stempels = Math.floor(saldo / STEMPEL_EURO + 1e-9);
       const ver = k.v ? (parseInt(k.v.value, 10) || 0) : 0;
@@ -819,7 +823,7 @@ async function telStempelsBinnen(req) {
   /* Alleen de getallen gaan de database in; de namenlijst komt alleen terug
      naar het scherm dat erom vroeg en blijft verder bij Shopify. */
   await werkRef(uid).child('stempels').set(uit);
-  return Object.assign({ klanten, aanmeldingen }, uit);
+  return Object.assign({ klanten, overig, aanmeldingen }, uit);
 }
 
 /* Alle bestellingen: datum, klant, bedrag en hoeveel dozen van 16 en 25.
