@@ -4391,6 +4391,12 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .sp2kaart{display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--bg);border-radius:18px;padding:20px 16px;text-align:center}
 .sp2kaart>b{font-size:22px;font-weight:800;letter-spacing:-.02em}
 .sp2kaart>small{font-size:13.5px;color:var(--grijs)}
+.gcrij{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:12px 14px}
+.gcrij+.gcrij{border-top:1px solid #e4e4e7}
+.gcstand{font-size:12.5px;font-weight:700;color:var(--grijs);white-space:nowrap}
+.gcstand.groen{color:var(--groen)}.gcstand.amb{color:var(--amber)}
+.gcacties{flex-basis:100%;display:flex;gap:18px}
+.gclink{border:0;background:none;padding:6px 0;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink2);text-decoration:underline;text-decoration-color:#d4d4d8;text-underline-offset:3px;cursor:pointer}
 .sp2info{margin-top:12px;border:1px solid var(--lijn);border-radius:14px;overflow:hidden}
 .sp2info div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;font-size:14.5px}
 .sp2info div+div{border-top:1px solid var(--lijn)}
@@ -4794,7 +4800,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v787 · 16 okt 2026';
+const APPVERSIE='v789 · 17 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9090,13 +9096,14 @@ function stempelSheetHTML(){
   const getallen=`<div class="sp2get">
       <div><b>${s.open}</b><span>${s.open===1?'kaart vol':'kaarten vol'}</span><small>${s.klantenVol} ${s.klantenVol===1?'klant':'klanten'}</small></div>
       <div><b class="${s.bijna?'amb':''}">${s.bijna}</b><span>bijna vol</span><small>nog 1 stempel</small></div>
-      <div><b>${s.verzilverd||0}</b><span>verzilverd</span><small>tot nu toe</small></div>
+      ${s.giftcards?`<div><b>${s.giftcards.aantal}</b><span>${s.giftcards.aantal===1?'giftcard':'giftcards'}</span><small>${gcEuro(s.giftcards.bedrag)} tegoed</small></div>`
+        :`<div><b>${s.verzilverd||0}</b><span>verzilverd</span><small>tot nu toe</small></div>`}
     </div>`;
   const uitleg=`<details class="sp2uit"><summary>Hoe rekent HQ dit?</summary>
       ${adv?`<p>Van je ${s.open} volle kaarten worden er naar verwachting ±${komma(adv.vol)} ingezet. Daarnaast raken er ±${komma(adv.nieuw)} binnenkort vol.</p>`:''}
       ${s.kansTabel?`<div class="sp2kans">${s.kansTabel.map(x=>`<i><b>${x.pct}%</b>${x.n===5?'5+':x.n+'×'} besteld</i>`).join('')}</div>
         <p>Kans dat een klant opnieuw bestelt, naar hoe vaak hij al bestelde. Uit je eigen Shopify-cijfers.</p>`:''}
-      <p>1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart (€24,95): de doos van 16, of korting op de doos van 25.
+      <p>1 stempel per €${s.perStempel} zonder verzendkosten, ${s.perKaart} stempels is een volle kaart. Daarvoor stuur je vanuit HQ een giftcard van €24,95: de doos van 16, of korting op de doos van 25. Shopify mailt de code naar de klant.
         Welke doos een klant kiest, voorspelt HQ uit wat hij eerder kocht.</p>
     </details>`;
   /* v787: een fout bleef onzichtbaar zodra er al een oude telling stond */
@@ -9142,32 +9149,108 @@ function stempelKlantOpen(id){
   const k=(stempelKlanten||[]).find(x=>x.id===id); if(!k) return;
   stempelOpen=id;
   sheet(naamNet(k.naam), stempelKlantHTML(k),
-    k.open?`<button type="button" class="prim" style="margin-top:0" id="stpVerz">${svg(I.vink,'2.4')}Kaart verzilveren</button>`:'');
+    k.open?`<button type="button" class="prim" style="margin-top:0" id="stpVerz" ${stempelWerkt?'disabled':''}>${svg(I.vink,'2.4')}${stempelWerkt?'Bezig…':'Giftcard sturen · €24,95'}</button>`:'');
   sheetTerugZet(()=>{ stempelOpen=null; homeTegel('stp') });
-  if($('#stpVerz')) $('#stpVerz').onclick=()=>stempelPas(k.id,0,1);
+  if($('#stpVerz')) $('#stpVerz').onclick=()=>giftcardStuur(k.id);
   bijSluiten=()=>{ stempelOpen=null };
+  if(!stempelGift[id]) giftcardsLaad(id);
+}
+
+/* ── giftcards (v789) ──
+   Een volle kaart wordt een giftcard van €24,95 die Shopify zelf naar de
+   klant mailt. Per klant zie je welke giftcards hij al kreeg en of hij ze
+   gebruikt heeft. */
+let stempelGift={};
+const gcEuro=x=>'€'+(Math.round((x||0)*100)/100).toFixed(2).replace('.',',');
+function stempelHerteken(id){
+  const k=(stempelKlanten||[]).find(x=>x.id===id);
+  if(k&&stempelOpen===id) stempelKlantOpen(id);
+}
+function giftcardsLaad(id){
+  stempelGift[id]={laden:true};
+  roep('klantGiftcards',{id}).then(r=>{ stempelGift[id]={lijst:r.giftcards||[]} })
+    .catch(e=>{ stempelGift[id]={fout:(e&&e.message)||'Giftcards ophalen lukte niet.'} })
+    .finally(()=>stempelHerteken(id));
+}
+function stempelTellerBij(){
+  const s=Object.assign({},stempelStand()||{});
+  s.open=stempelKlanten.reduce((n,x)=>n+x.open,0);
+  s.klantenVol=stempelKlanten.filter(x=>x.open).length;
+  s.bijna=stempelKlanten.filter(x=>x.rest===5).length;
+  s.verzilverd=stempelKlanten.reduce((n,x)=>n+x.ver,0);
+  S.werk=S.werk||{}; S.werk.stempels=s;
+  return s;
+}
+function giftcardStuur(id){
+  if(stempelWerkt) return;
+  stempelWerkt=true; stempelHerteken(id);
+  roep('giftcardSturen',{id}).then(r=>{
+    const i=stempelKlanten.findIndex(x=>x.id===id); if(i>=0) stempelKlanten[i]=Object.assign({},stempelKlanten[i],r.klant);
+    const g=stempelGift[id]&&stempelGift[id].lijst||[];
+    stempelGift[id]={lijst:[r.giftcard].concat(g)};
+    const s=stempelTellerBij();
+    if(s.giftcards){ s.giftcards={aantal:s.giftcards.aantal+1,bedrag:Math.round((s.giftcards.bedrag+r.giftcard.bedrag)*100)/100} }
+    if(r.gemaild) toast('Giftcard gemaild',()=>giftcardTerug(id));
+    else toast('Giftcard gemaakt, mailen lukte niet: '+(r.mailFout||'onbekend'));
+  }).catch(e=>toast((e&&e.message)||'Giftcard sturen lukte niet'))
+    .finally(()=>{ stempelWerkt=false; render(); stempelHerteken(id) });
+}
+function giftcardTerug(id){
+  if(stempelWerkt) return;
+  stempelWerkt=true; stempelHerteken(id);
+  roep('giftcardTerug',{id}).then(r=>{
+    const i=stempelKlanten.findIndex(x=>x.id===id); if(i>=0) stempelKlanten[i]=Object.assign({},stempelKlanten[i],r.klant);
+    stempelGift[id]={lijst:r.giftcards||[]};
+    const s=stempelTellerBij();
+    if(s.giftcards){ s.giftcards={aantal:Math.max(0,s.giftcards.aantal-1),bedrag:Math.max(0,Math.round((s.giftcards.bedrag-24.95)*100)/100)} }
+  }).catch(e=>toast((e&&e.message)||'Terugdraaien lukte niet'))
+    .finally(()=>{ stempelWerkt=false; render(); stempelHerteken(id) });
+}
+function giftcardOpnieuw(gc){
+  roep('giftcardOpnieuw',{giftcard:gc}).then(()=>toast('Opnieuw gemaild'))
+    .catch(e=>toast((e&&e.message)||'Mailen lukte niet'));
+}
+function giftcardsHTML(k){
+  const g=stempelGift[k.id];
+  if(!g) return '';
+  if(g.laden) return `<div class="sp2kop"><span>Giftcards</span></div><p class="vbnoot">Ophalen…</p>`;
+  if(g.fout) return `<div class="sp2kop"><span>Giftcards</span></div><p class="vbnoot">${esc(g.fout)}</p>`;
+  if(!g.lijst.length) return '';
+  const datum=d=>new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'});
+  const eersteOpen=g.lijst.find(x=>x.spaarkaart&&x.aan&&x.saldo>=x.bedrag-0.001);
+  const rij=x=>{
+    const stand=!x.aan?['Uitgezet','']:x.saldo<=0.001?['Gebruikt','']:x.saldo<x.bedrag-0.001?[gcEuro(x.saldo)+' over','amb']:['Nog niet gebruikt','groen'];
+    return `<div class="gcrij">
+      <span class="sp2nm">${gcEuro(x.bedrag)} · ${datum(x.datum)}<small>code eindigt op ${esc(x.laatste)}${x.spaarkaart?' · spaarkaart':''}</small></span>
+      <span class="gcstand ${stand[1]}">${stand[0]}</span>
+      ${x.aan&&x.saldo>0.001?`<span class="gcacties"><button type="button" class="gclink" onclick="giftcardOpnieuw('${x.id}')">Opnieuw mailen</button>${
+        eersteOpen&&eersteOpen.id===x.id?`<button type="button" class="gclink" onclick="giftcardTerug('${k.id}')">Terugdraaien</button>`:''}</span>`:''}
+    </div>`;
+  };
+  return `<div class="sp2kop"><span>Giftcards</span><small>${g.lijst.length}</small></div>
+    <div class="sp2lijst">${g.lijst.map(rij).join('')}</div>`;
 }
 function stempelKlantHTML(k){
-  const net=stempelNet[k.id];
   const doosTekst=k.doos?(typeof k.kans25==='number'?(k.kans25>=50?'Doos van 25':'Doos van 16'):'Doos van '+k.doos):null;
   const doosPct=typeof k.kans25==='number'?(k.kans25>=50?k.kans25:100-k.kans25)+'%':'';
   return `<div class="sp2kaart">
       ${stempelBolletjes(k,true)}
       <b>${k.open?(k.open===1?'Kaart vol':k.open+' kaarten vol'):k.rest+' van 6 stempels'}</b>
+      ${k.open?`<span class="sp2pil" style="margin-top:2px">Klaar voor een giftcard van €24,95</span>`:''}
       <small>€${String(k.saldo.toFixed(2)).replace('.',',')} besteed · ${k.orders||1}× besteld${k.ver?' · '+k.ver+' verzilverd':''}</small>
     </div>
     <div class="sp2info">
       ${typeof k.kans==='number'?`<div><span>Kans dat hij weer bestelt</span><b>${k.kans}%</b></div>`:''}
       ${doosTekst?`<div><span>Kiest waarschijnlijk</span><b>${doosTekst}${doosPct?' · '+doosPct:''}</b></div>`:''}
     </div>
+    ${giftcardsHTML(k)}
     <div class="sp2kop"><span>Stempels aanpassen</span></div>
     <div class="sp2step">
       <button type="button" ${stempelWerkt||!k.stempels?'disabled':''} onclick="stempelPas('${k.id}',-1,0)" aria-label="Stempel eraf">${svg(I.min)}</button>
       <span><b>${k.stempels}</b>stempels</span>
       <button type="button" ${stempelWerkt?'disabled':''} onclick="stempelPas('${k.id}',1,0)" aria-label="Stempel erbij">${svg(I.plus)}</button>
     </div>
-    <p class="vbnoot" style="margin-top:8px">Voor een verkoop buiten de webshop: 1 stempel = €25 spaarsaldo.</p>
-    ${net?`<button type="button" class="prodlos" style="display:block;width:100%" onclick="stempelPas('${k.id}',0,-1)">Verzilveren ongedaan maken</button>`:''}`;
+    <p class="vbnoot" style="margin-top:8px">Voor een verkoop buiten de webshop: 1 stempel = €25 spaarsaldo.</p>`;
 }
 function stempelPas(id,stempels,kaarten){
   if(stempelWerkt) return;

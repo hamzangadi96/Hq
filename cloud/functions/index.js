@@ -814,6 +814,7 @@ async function telStempelsBinnen(req) {
     kandidaten, verwacht, herhaalPct: Math.round(herhaal * 100), gemOrder: Math.round(gemOrder * 100) / 100,
     verwachtVol: Math.round(verwachtVol * 10) / 10, verwachtNieuw: Math.round(verwachtNieuw * 10) / 10, kansTabel,
     dozen16, dozen25, dozenUitHistorie: klanten.filter(k => k.doosBron === 'historie').length,
+    giftcards: await telGiftcards(uid),
     perStempel: STEMPEL_EURO, perKaart: STEMPELS_PER_KAART, bijgewerkt: Date.now() };
   /* Alleen de getallen gaan de database in; de namenlijst komt alleen terug
      naar het scherm dat erom vroeg en blijft verder bij Shopify. */
@@ -1059,6 +1060,203 @@ async function stempelAanpassenBinnen(req) {
     throw new HttpsError('internal', 'Shopify weigerde: ' + uit.userErrors.map(x => x.message).join(', ').slice(0, 200));
   }
   return stempelKlant(c.id, c.displayName, saldo, ver);
+}
+
+/* ═══════════ Giftcards voor volle spaarkaarten (v789) ═══════════
+   Eén handeling vanuit HQ: Shopify maakt een giftcard van €24,95 op naam
+   van de klant, mailt hem de code, en de kaart telt als verzilverd.
+   Terugdraaien zet de giftcard uit (Shopify kan hem daarna niet meer aan)
+   en de teller één terug — maar alleen zolang er nog niets van besteed is. */
+const GIFTCARD_EURO = '24.95';
+const GIFTCARD_NOTITIE = 'Volle spaarkaart (HQ)';
+
+/* Shopify-vraag met jouw token. Bij een scope-fout eerst één keer een vers
+   token halen: het oude wordt een dag bewaard en kent nieuwe rechten nog niet. */
+async function shopifyGql(uid, scope) {
+  let { winkel, token: t } = await token(uid);
+  let vers = false;
+  const gql = async (query, variables) => {
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables })
+    });
+    if (r.status === 401) {
+      await geheimRef(uid).child('shopify/token').remove();
+      throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+    }
+    if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+    const j = await r.json();
+    if (j.errors && j.errors.length) {
+      const tekst = JSON.stringify(j.errors);
+      if (/ACCESS_DENIED|access/i.test(tekst)) {
+        if (!vers) {
+          vers = true;
+          await geheimRef(uid).child('shopify/token').remove();
+          ({ winkel, token: t } = await token(uid));
+          return gql(query, variables);
+        }
+        throw new HttpsError('permission-denied',
+          'HQ mag dit nog niet in Shopify. Zet in het Shopify Dev Dashboard bij je app de scope ' + scope +
+          ' aan, geef de versie vrij en keur hem goed via App openen in je Shopify-admin.');
+      }
+      throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+    }
+    return j.data;
+  };
+  return gql;
+}
+
+function fouten(lijst) {
+  return (lijst || []).map(x => x.message).join(', ').slice(0, 200);
+}
+
+function netteGiftcard(g) {
+  return {
+    id: String(g.id).split('/').pop(),
+    datum: g.createdAt,
+    bedrag: parseFloat(g.initialValue.amount),
+    saldo: parseFloat(g.balance.amount),
+    aan: !!g.enabled,
+    laatste: g.lastCharacters,
+    spaarkaart: g.note === GIFTCARD_NOTITIE
+  };
+}
+
+const GIFTCARD_VELDEN = 'id createdAt enabled lastCharacters note initialValue{amount} balance{amount}';
+
+async function giftcardsVan(gql, klantId) {
+  const d = await gql('query($q:String){giftCards(first:20,sortKey:CREATED_AT,reverse:true,query:$q){nodes{' + GIFTCARD_VELDEN + '}}}',
+    { q: 'customer_id:' + klantId });
+  return d.giftCards.nodes.map(netteGiftcard);
+}
+
+function klantId(req) {
+  const id = String((req.data || {}).id || '');
+  if (!/^\d+$/.test(id)) throw new HttpsError('invalid-argument', 'Onbekende klant.');
+  return id;
+}
+
+function binnen(naam, fn) {
+  return onCall(async req => {
+    try { return await fn(req); }
+    catch (e) {
+      if (e instanceof HttpsError) throw e;
+      console.error(naam, e);
+      throw new HttpsError('internal', 'Dat lukte niet: ' + String((e && e.message) || e).slice(0, 200));
+    }
+  });
+}
+
+async function leesKlant(gql, gid) {
+  const c = (await gql('query($id:ID!){customer(id:$id){id displayName defaultEmailAddress{emailAddress} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} v:metafield(namespace:"cbx",key:"kaarten_verzilverd"){value}}}', { id: gid })).customer;
+  if (!c) throw new HttpsError('not-found', 'Deze klant bestaat niet (meer) in Shopify.');
+  return {
+    c,
+    saldo: c.s ? (parseFloat(c.s.value) || 0) : 0,
+    ver: c.v ? (parseInt(c.v.value, 10) || 0) : 0,
+    heeftMail: !!(c.defaultEmailAddress && c.defaultEmailAddress.emailAddress)
+  };
+}
+
+async function zetVerzilverd(gql, gid, ver) {
+  const uit = (await gql('mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){userErrors{message}}}',
+    { m: [{ ownerId: gid, namespace: 'cbx', key: 'kaarten_verzilverd', type: 'number_integer', value: String(ver) }] })).metafieldsSet;
+  if (uit.userErrors && uit.userErrors.length) throw new HttpsError('internal', 'Shopify weigerde: ' + fouten(uit.userErrors));
+}
+
+/* De giftcards van één klant, voor zijn kaartje in HQ. */
+exports.klantGiftcards = binnen('klantGiftcards', async req => {
+  const uid = wieBenJe(req);
+  const id = klantId(req);
+  const gql = await shopifyGql(uid, 'read_gift_cards');
+  return { giftcards: await giftcardsVan(gql, id) };
+});
+
+exports.giftcardSturen = binnen('giftcardSturen', async req => {
+  const uid = wieBenJe(req);
+  const id = klantId(req);
+  const gid = 'gid://shopify/Customer/' + id;
+  const gql = await shopifyGql(uid, 'write_gift_cards');
+
+  const { c, saldo, ver, heeftMail } = await leesKlant(gql, gid);
+  const vol = Math.floor(Math.floor(saldo / STEMPEL_EURO + 1e-9) / STEMPELS_PER_KAART);
+  if (ver >= vol) throw new HttpsError('failed-precondition', 'Deze klant heeft geen volle kaart.');
+  if (!heeftMail) throw new HttpsError('failed-precondition',
+    'Deze klant heeft geen e-mailadres in Shopify, dus Shopify kan de giftcard niet mailen. Zet eerst een e-mailadres bij de klant.');
+
+  const maak = (await gql('mutation($i:GiftCardCreateInput!){giftCardCreate(input:$i){giftCard{' + GIFTCARD_VELDEN + '} userErrors{message}}}',
+    { i: { initialValue: GIFTCARD_EURO, customerId: gid, note: GIFTCARD_NOTITIE } })).giftCardCreate;
+  if (maak.userErrors && maak.userErrors.length) throw new HttpsError('internal', 'Giftcard maken lukte niet: ' + fouten(maak.userErrors));
+  const kaart = maak.giftCard;
+
+  /* eerst tellen, dan mailen: lukt de mail niet, dan staat de kaart er wel
+     en kun je hem opnieuw laten sturen */
+  await zetVerzilverd(gql, gid, ver + 1);
+
+  let gemaild = true, mailFout = '';
+  try {
+    const s = (await gql('mutation($id:ID!){giftCardSendNotificationToCustomer(id:$id){userErrors{message}}}', { id: kaart.id }))
+      .giftCardSendNotificationToCustomer;
+    if (s.userErrors && s.userErrors.length) { gemaild = false; mailFout = fouten(s.userErrors); }
+  } catch (e) { gemaild = false; mailFout = String((e && e.message) || e).slice(0, 200); }
+
+  return { klant: stempelKlant(c.id, c.displayName, saldo, ver + 1), giftcard: netteGiftcard(kaart), gemaild, mailFout };
+});
+
+/* De mail nog eens laten sturen (kwijt, in de spam, of de eerste keer mislukt). */
+exports.giftcardOpnieuw = binnen('giftcardOpnieuw', async req => {
+  const uid = wieBenJe(req);
+  const gc = String((req.data || {}).giftcard || '');
+  if (!/^\d+$/.test(gc)) throw new HttpsError('invalid-argument', 'Onbekende giftcard.');
+  const gql = await shopifyGql(uid, 'write_gift_cards');
+  const s = (await gql('mutation($id:ID!){giftCardSendNotificationToCustomer(id:$id){userErrors{message}}}',
+    { id: 'gid://shopify/GiftCard/' + gc })).giftCardSendNotificationToCustomer;
+  if (s.userErrors && s.userErrors.length) throw new HttpsError('failed-precondition', 'Mailen lukte niet: ' + fouten(s.userErrors));
+  return { ok: true };
+});
+
+/* Terugdraaien: de nieuwste spaarkaart-giftcard die nog onaangeroerd is uit,
+   en de teller één terug. Is er al iets van besteed, dan niet. */
+exports.giftcardTerug = binnen('giftcardTerug', async req => {
+  const uid = wieBenJe(req);
+  const id = klantId(req);
+  const gid = 'gid://shopify/Customer/' + id;
+  const gql = await shopifyGql(uid, 'write_gift_cards');
+
+  const kaarten = await giftcardsVan(gql, id);
+  const laatste = kaarten.find(k => k.spaarkaart && k.aan);
+  if (!laatste) throw new HttpsError('failed-precondition', 'Er staat geen actieve spaarkaart-giftcard op naam van deze klant.');
+  if (laatste.saldo < laatste.bedrag - 0.001) throw new HttpsError('failed-precondition',
+    'De klant heeft deze giftcard al (deels) gebruikt, dus terugdraaien kan niet meer.');
+
+  const uit = (await gql('mutation($id:ID!){giftCardDeactivate(id:$id){userErrors{message}}}',
+    { id: 'gid://shopify/GiftCard/' + laatste.id })).giftCardDeactivate;
+  if (uit.userErrors && uit.userErrors.length) throw new HttpsError('internal', 'Uitzetten lukte niet: ' + fouten(uit.userErrors));
+
+  const { c, saldo, ver } = await leesKlant(gql, gid);
+  const nieuw = Math.max(0, ver - 1);
+  await zetVerzilverd(gql, gid, nieuw);
+  return { klant: stempelKlant(c.id, c.displayName, saldo, nieuw), giftcards: await giftcardsVan(gql, id) };
+});
+
+/* Hoeveel spaarkaart-giftcards staan er nog open, en voor welk bedrag?
+   Alleen getallen. Zonder de rechten voor giftcards geeft dit gewoon niets. */
+async function telGiftcards(uid) {
+  try {
+    const gql = await shopifyGql(uid, 'read_gift_cards');
+    let na = null, aantal = 0, bedrag = 0;
+    for (let ronde = 0; ronde < 10; ronde++) {
+      const d = await gql('query($na:String){giftCards(first:250,after:$na,query:"status:enabled balance_status:full_or_partial"){nodes{note balance{amount}} pageInfo{hasNextPage endCursor}}}', { na });
+      d.giftCards.nodes.forEach(g => {
+        if (g.note !== GIFTCARD_NOTITIE) return;
+        aantal++; bedrag += parseFloat(g.balance.amount) || 0;
+      });
+      if (!d.giftCards.pageInfo.hasNextPage) break;
+      na = d.giftCards.pageInfo.endCursor;
+    }
+    return { aantal, bedrag: Math.round(bedrag * 100) / 100 };
+  } catch (e) { return null; }
 }
 
 exports.haalOrders = onCall(async req => {
