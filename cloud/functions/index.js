@@ -1071,7 +1071,7 @@ async function stempelAanpassenBinnen(req) {
    van de klant, mailt hem de code, en de kaart telt als verzilverd.
    Terugdraaien zet de giftcard uit (Shopify kan hem daarna niet meer aan)
    en de teller één terug — maar alleen zolang er nog niets van besteed is. */
-const GIFTCARD_EURO = '24.95';
+const GIFTCARD_EURO = '25.00';
 const GIFTCARD_NOTITIE = 'Volle spaarkaart (HQ)';
 
 /* Shopify-vraag met jouw token. Bij een scope-fout eerst één keer een vers
@@ -1244,6 +1244,87 @@ exports.giftcardTerug = binnen('giftcardTerug', async req => {
   return { klant: stempelKlant(c.id, c.displayName, saldo, nieuw), giftcards: await giftcardsVan(gql, id) };
 });
 
+/* ═══════════ Verzilveringen controleren (v791) ═══════════
+   Twee wegen naar een giftcard: de klant verzilvert zelf op de website
+   (Cacaoboetiek Loyalty maakt en mailt hem meteen), of Hamza stuurt er een
+   vanuit HQ. Achteraf kijkt HQ per giftcard of het klopt: heeft deze klant
+   genoeg besteed voor het aantal spaarkaart-giftcards dat hij kreeg?
+   Rekenregel van de website: €150 aan producten (na korting, zonder
+   verzendkosten, min terugbetalingen) = één giftcard. Wat je hebt
+   nagekeken wordt onthouden, alleen het giftcard-nummer. */
+const KAART_DREMPEL = 150;
+
+async function productBesteding(gql, klantGid) {
+  const d = await gql('query($id:ID!){customer(id:$id){orders(first:250,sortKey:CREATED_AT){nodes{cancelledAt subtotalPriceSet{shopMoney{amount}} totalRefundedSet{shopMoney{amount}}}}}}', { id: klantGid });
+  if (!d.customer) return null;
+  return Math.round(d.customer.orders.nodes.reduce((n, o) => {
+    if (o.cancelledAt) return n;
+    const sub = parseFloat(o.subtotalPriceSet.shopMoney.amount) || 0;
+    const terug = parseFloat(o.totalRefundedSet.shopMoney.amount) || 0;
+    return n + Math.max(0, sub - terug);
+  }, 0) * 100) / 100;
+}
+
+exports.giftcardsControle = binnen('giftcardsControle', async req => {
+  const uid = wieBenJe(req);
+  const gql = await shopifyGql(uid, 'read_gift_cards');
+  const sinds = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
+  const d = await gql('query($q:String){giftCards(first:100,sortKey:CREATED_AT,reverse:true,query:$q){nodes{' + GIFTCARD_VELDEN + ' customer{id displayName}}}}',
+    { q: "created_at:>='" + sinds + "' AND (source:api_client OR source:manual)" });
+  const kaarten = d.giftCards.nodes;
+  const nagekeken = (await werkRef(uid).child('giftcardControle').once('value')).val() || {};
+
+  /* per klant: besteding en hoeveel beloning-giftcards hij in totaal kreeg */
+  const perKlant = {};
+  for (const g of kaarten) {
+    const c = g.customer; if (!c || perKlant[c.id]) continue;
+    const besteed = await productBesteding(gql, c.id);
+    const alle = await gql('query($q:String){giftCards(first:100,query:$q){nodes{id enabled}}}',
+      { q: 'customer_id:' + String(c.id).split('/').pop() + ' AND (source:api_client OR source:manual)' });
+    const gekregen = alle.giftCards.nodes.filter(x => x.enabled).length;
+    const verdiend = besteed === null ? null : Math.floor(besteed / KAART_DREMPEL + 1e-9);
+    perKlant[c.id] = { besteed, gekregen, verdiend };
+  }
+
+  const lijst = kaarten.map(g => {
+    const n = netteGiftcard(g);
+    const k = g.customer ? perKlant[g.customer.id] : null;
+    n.bron = g.note === GIFTCARD_NOTITIE ? 'hq' : 'website';
+    n.klant = g.customer ? { id: String(g.customer.id).split('/').pop(), naam: g.customer.displayName || 'Klant zonder naam' } : null;
+    if (k) Object.assign(n, k);
+    /* klopt: genoeg besteed voor alle giftcards die hij kreeg. Wat jij zelf
+       vanuit HQ gaf is jouw keuze en hoeft niet te kloppen met de rekenregel. */
+    n.klopt = n.bron === 'hq' ? true : !!(k && k.verdiend !== null && k.gekregen <= k.verdiend);
+    n.nagekeken = !!nagekeken[n.id];
+    return n;
+  });
+  const open = lijst.filter(x => x.bron === 'website' && !x.nagekeken).length;
+  await werkRef(uid).child('giftcardTeControleren').set(open);
+  return { lijst, open };
+});
+
+exports.giftcardNagekeken = binnen('giftcardNagekeken', async req => {
+  const uid = wieBenJe(req);
+  const gc = String((req.data || {}).giftcard || '');
+  if (!/^\d+$/.test(gc)) throw new HttpsError('invalid-argument', 'Onbekende giftcard.');
+  const aan = (req.data || {}).aan !== false;
+  await werkRef(uid).child('giftcardControle/' + gc).set(aan ? Date.now() : null);
+  return { ok: true };
+});
+
+/* Een giftcard uitzetten na controle. Kan niet terug: Shopify zet hem nooit weer aan. */
+exports.giftcardUitzetten = binnen('giftcardUitzetten', async req => {
+  const uid = wieBenJe(req);
+  const gc = String((req.data || {}).giftcard || '');
+  if (!/^\d+$/.test(gc)) throw new HttpsError('invalid-argument', 'Onbekende giftcard.');
+  const gql = await shopifyGql(uid, 'write_gift_cards');
+  const uit = (await gql('mutation($id:ID!){giftCardDeactivate(id:$id){giftCard{' + GIFTCARD_VELDEN + '} userErrors{message}}}',
+    { id: 'gid://shopify/GiftCard/' + gc })).giftCardDeactivate;
+  if (uit.userErrors && uit.userErrors.length) throw new HttpsError('internal', 'Uitzetten lukte niet: ' + fouten(uit.userErrors));
+  await werkRef(uid).child('giftcardControle/' + gc).set(Date.now());
+  return { giftcard: netteGiftcard(uit.giftCard) };
+});
+
 /* Hoeveel spaarkaart-giftcards staan er nog open, en voor welk bedrag?
    Alleen getallen. Zonder de rechten voor giftcards geeft dit gewoon niets. */
 async function telGiftcards(uid) {
@@ -1251,9 +1332,9 @@ async function telGiftcards(uid) {
     const gql = await shopifyGql(uid, 'read_gift_cards');
     let na = null, aantal = 0, bedrag = 0;
     for (let ronde = 0; ronde < 10; ronde++) {
-      const d = await gql('query($na:String){giftCards(first:250,after:$na,query:"status:enabled balance_status:full_or_partial"){nodes{note balance{amount}} pageInfo{hasNextPage endCursor}}}', { na });
+      /* alle beloning-giftcards: van de website én uit HQ, niet de gekochte */
+      const d = await gql('query($na:String){giftCards(first:250,after:$na,query:"status:enabled AND balance_status:full_or_partial AND (source:api_client OR source:manual)"){nodes{balance{amount}} pageInfo{hasNextPage endCursor}}}', { na });
       d.giftCards.nodes.forEach(g => {
-        if (g.note !== GIFTCARD_NOTITIE) return;
         aantal++; bedrag += parseFloat(g.balance.amount) || 0;
       });
       if (!d.giftCards.pageInfo.hasNextPage) break;
@@ -1773,15 +1854,4 @@ exports.backupNu = onCall(async req => {
   const datum = nlDag(Date.now());
   await maakDagBackup(uid, data, datum);
   return { datum };
-});
-
-/* ═══════════ Verzilveren via de website (v791) ═══════════
-   De knop "verzilveren" op de website komt via de app-proxy van
-   Cacaoboetiek Loyalty (/apps/cb-stamps) hier binnen. Er gaat NOOIT
-   automatisch een giftcard de deur uit: Hamza geeft in HQ altijd zelf
-   akkoord. Zolang het aanvraagsysteem nog niet af is, staat verzilveren
-   op pauze en ziet de klant dat zijn stempels bewaard blijven. */
-exports.stempelVerzoek = onRequest({ invoker: 'public', cors: false }, async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.status(409).json({ error: 'CLAIMS_PAUSED' });
 });
