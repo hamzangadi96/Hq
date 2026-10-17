@@ -4397,6 +4397,12 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .stpzoek input::-webkit-search-cancel-button{display:none}
 .stpzoek button{display:none;width:38px;height:38px;border:0;border-radius:10px;background:none;color:var(--grijs);align-items:center;justify-content:center;cursor:pointer}
 .stpzoek button.aan{display:flex}.stpzoek button svg{width:16px;height:16px}
+.gcsam{display:flex;align-items:center;gap:12px;width:100%;margin:0 0 14px;padding:14px 16px;border:0;border-radius:16px;background:var(--bg);font:inherit;color:var(--ink);text-align:left;cursor:pointer;min-height:64px}
+.gcsam .pijl svg{width:15px;height:15px;color:#a1a1aa}
+.gcpil{min-width:28px;height:28px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;padding:0 8px}
+.gcpil.amb{background:#b4530918;color:var(--amber)}.gcpil.groen{background:#15803d14;color:var(--groen)}.gcpil svg{width:14px;height:14px}
+.gckaart{flex-basis:100%;font-size:13px;color:var(--ink2);padding-top:6px}
+.gcsub{flex-basis:100%;font-size:12.5px;color:var(--grijs)}
 .gcrij{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:12px 14px}
 .gcrij+.gcrij{border-top:1px solid #e4e4e7}
 .gcstand{font-size:12.5px;font-weight:700;color:var(--grijs);white-space:nowrap}
@@ -4806,7 +4812,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v792 · 17 okt 2026';
+const APPVERSIE='v793 · 17 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9137,49 +9143,86 @@ function gcControleLaad(hand){
   gcControleBezig=true; if(hand) homeTegelVernieuw();
   roep('giftcardsControle',{}).then(r=>{ gcControle=r.lijst||[]; gcControleFout='' })
     .catch(e=>{ gcControleFout=(e&&e.message)||'Controleren lukte niet.' })
-    .finally(()=>{ gcControleBezig=false; homeTegelVernieuw() });
+    .finally(()=>{ gcControleBezig=false; gcVernieuw() });
 }
 function homeTegelVernieuw(){ if(homeSheet==='stp'&&sheetOpen) $('#sheetBody').innerHTML=homeSheetBody('stp'); render() }
-function gcNagekeken(id){
-  const g=(gcControle||[]).find(x=>x.id===id); if(!g) return;
-  g.nagekeken=true; homeTegelVernieuw();
-  roep('giftcardNagekeken',{giftcard:id}).catch(e=>{ g.nagekeken=false; toast((e&&e.message)||'Opslaan lukte niet'); homeTegelVernieuw() });
-  toast('Nagekeken',()=>{ g.nagekeken=false; roep('giftcardNagekeken',{giftcard:id,aan:false}); homeTegelVernieuw() });
+function gcNagekeken(ids){
+  ids=[].concat(ids);
+  const l=(gcControle||[]).filter(x=>ids.indexOf(x.id)>=0); if(!l.length) return;
+  l.forEach(g=>g.nagekeken=true); gcVernieuw();
+  const zet=aan=>roep('giftcardNagekeken',{giftcards:ids,aan});
+  zet(true).catch(e=>{ l.forEach(g=>g.nagekeken=false); toast((e&&e.message)||'Opslaan lukte niet'); gcVernieuw() });
+  toast(ids.length===1?'Nagekeken':ids.length+' nagekeken',()=>{ l.forEach(g=>g.nagekeken=false); zet(false); gcVernieuw() });
 }
 function gcUitzetten(id){
   /* uitzetten kan niet terug, dus eerst één keer vragen */
-  if(gcUitVraag!==id){ gcUitVraag=id; homeTegelVernieuw(); return }
+  if(gcUitVraag!==id){ gcUitVraag=id; gcVernieuw(); return }
   gcUitVraag=null;
   roep('giftcardUitzetten',{giftcard:id}).then(r=>{
     const g=(gcControle||[]).find(x=>x.id===id); if(g){ Object.assign(g,r.giftcard,{nagekeken:true}) }
     toast('Giftcard uitgezet');
-  }).catch(e=>toast((e&&e.message)||'Uitzetten lukte niet')).finally(homeTegelVernieuw);
+  }).catch(e=>toast((e&&e.message)||'Uitzetten lukte niet')).finally(gcVernieuw);
 }
+/* per klant gegroepeerd: één regel per klant, niet per giftcard */
+function gcGroepen(alleen){
+  const m={};
+  (gcControle||[]).filter(x=>x.bron==='website'&&(!alleen||!x.nagekeken)).forEach(x=>{
+    const id=x.klant?x.klant.id:'?'+x.id;
+    (m[id]=m[id]||{klant:x.klant,kaarten:[],besteed:x.besteed,gekregen:x.gekregen,verdiend:x.verdiend,klopt:true}).kaarten.push(x);
+    if(!x.klopt&&x.aan) m[id].klopt=false;
+  });
+  return Object.values(m).sort((a,b)=>a.klopt-b.klopt);
+}
+/* op het overzicht: alleen één regel, de details staan in een eigen scherm */
 function gcControleHTML(){
-  if(gcControleFout) return `<div class="gcblok"><b>Verzilveringen</b><p class="vbnoot">${esc(gcControleFout)}</p>
-    <button type="button" class="gclink" onclick="gcControleFout='';gcControleLaad(true)">Opnieuw proberen</button></div>`;
+  if(gcControleFout) return `<button type="button" class="gcsam" onclick="gcControleFout='';gcControleLaad(true)">
+    <span class="sp2nm">Verzilveringen<small>${esc(gcControleFout)}</small></span><span class="pijl">${svg(I.pijl,'2')}</span></button>`;
   if(!gcControle) return '';
+  const g=gcGroepen(true); if(!g.length) return '';
+  const fout=g.filter(x=>!x.klopt).length, n=g.reduce((s,x)=>s+x.kaarten.length,0);
+  return `<button type="button" class="gcsam" onclick="gcSheetOpen()">
+    <span class="sp2nm">${n} ${n===1?'verzilvering':'verzilveringen'} nakijken
+      <small>${fout?`${fout} ${fout===1?'klant klopt':'klanten kloppen'} niet · ${g.length-fout} in orde`:'alles lijkt in orde'}</small></span>
+    ${fout?`<span class="gcpil amb">${fout}</span>`:`<span class="gcpil groen">${svg(I.vink,'2.6')}</span>`}
+    <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+}
+function gcVernieuw(){
+  if(sheetOpen&&gcSheetAan) $('#sheetBody').innerHTML=gcSheetHTML();
+  else homeTegelVernieuw();
+  render();
+}
+let gcSheetAan=false;
+function gcSheetOpen(){
+  gcSheetAan=true;
+  const g=gcGroepen(true), goed=g.filter(x=>x.klopt).flatMap(x=>x.kaarten.map(k=>k.id));
+  sheet('Verzilveringen',gcSheetHTML(),
+    goed.length?`<button type="button" class="prim" style="margin-top:0" id="gcAlles">${svg(I.vink,'2.4')}${goed.length===1?'In orde: afvinken':'Alles wat klopt afvinken ('+goed.length+')'}</button>`:'');
+  sheetTerugZet(()=>{ gcSheetAan=false; homeTegel('stp') });
+  bijSluiten=()=>{ gcSheetAan=false };
+  if($('#gcAlles')) $('#gcAlles').onclick=()=>{ gcNagekeken(goed); gcSheetOpen() };
+}
+function gcSheetHTML(){
   const datum=d=>new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
-  const web=gcControle.filter(x=>x.bron==='website');
-  const open=web.filter(x=>!x.nagekeken);
-  const lijst=gcAlles?gcControle:open;
-  const rij=x=>{
+  const g=gcGroepen(!gcAlles);
+  const blok=x=>{
     const k=x.klant;
-    const regel=x.bron==='hq'?'door jou vanuit HQ':typeof x.besteed!=='number'?'besteding onbekend'
-      :`${gcEuro(x.besteed)} besteed · ${x.gekregen} van ${x.verdiend} ${x.verdiend===1?'giftcard':'giftcards'} verdiend`;
-    const stand=!x.aan?['Uitgezet','']:x.klopt?['Klopt','groen']:['Te veel gekregen','amb'];
+    const reken=typeof x.besteed==='number'?`${gcEuro(x.besteed)} besteed · recht op ${x.verdiend}, kreeg ${x.gekregen}`:'besteding onbekend';
+    const open=x.kaarten.filter(c=>!c.nagekeken&&c.aan);
     return `<div class="gcrij">
-      <span class="sp2nm">${esc(naamNet(k?k.naam:'Geen klant gekoppeld'))}<small>${gcEuro(x.bedrag)} · ${datum(x.datum)} · ${esc(regel)}</small></span>
-      <span class="gcstand ${stand[1]}">${stand[0]}</span>
-      ${!x.nagekeken&&x.aan?`<span class="gcacties">
-        <button type="button" class="gclink" onclick="gcNagekeken('${x.id}')">Nagekeken</button>
-        <button type="button" class="gclink" onclick="gcUitzetten('${x.id}')">${gcUitVraag===x.id?'Tik nog eens: uitzetten kan niet terug':'Uitzetten'}</button></span>`:''}
+      <span class="sp2nm">${esc(naamNet(k?k.naam:'Geen klant gekoppeld'))}<small>${esc(reken)}</small></span>
+      <span class="gcstand ${x.klopt?'groen':'amb'}">${x.klopt?'Klopt':'Te veel'}</span>
+      ${!x.klopt?x.kaarten.map(c=>`<span class="gckaart">${gcEuro(c.bedrag)} · ${datum(c.datum)} · •••${esc(c.laatste)}${!c.aan?' · uitgezet':''}
+        ${c.aan&&!c.nagekeken?`<span class="gcacties"><button type="button" class="gclink" onclick="gcNagekeken('${c.id}')">Toch goed</button>
+          <button type="button" class="gclink" onclick="gcUitzetten('${c.id}')">${gcUitVraag===c.id?'Tik nog eens om uit te zetten':'Uitzetten'}</button></span>`:''}</span>`).join('')
+        :`<small class="gcsub">${x.kaarten.length} ${x.kaarten.length===1?'giftcard':'giftcards'} · ${x.kaarten.map(c=>datum(c.datum)).join(', ')}</small>`}
     </div>`;
   };
-  const kop=`<div class="sp2kop" style="margin-top:4px"><span>${gcAlles?'Alle verzilveringen':open.length?'Te controleren':'Verzilveringen'}</span>
-    <small>${gcAlles?gcControle.length:open.length?open.length:'alles nagekeken'}</small></div>`;
-  const wissel=gcControle.length?`<button type="button" class="gclink" style="margin:6px 4px 0" onclick="gcAlles=!gcAlles;homeTegelVernieuw()">${gcAlles?'Alleen te controleren':'Alle verzilveringen bekijken'}</button>`:'';
-  return kop+(lijst.length?`<div class="sp2lijst">${lijst.map(rij).join('')}</div>`:'')+wissel;
+  const fout=g.filter(x=>!x.klopt), goed=g.filter(x=>x.klopt);
+  const deel=(kop,l)=>l.length?`<div class="sp2kop"><span>${kop}</span><small>${l.length}</small></div><div class="sp2lijst">${l.map(blok).join('')}</div>`:'';
+  return (g.length?'':`<p class="wdleeg">${gcAlles?'Nog geen verzilveringen.':'Alles is nagekeken.'}</p>`)
+    +deel('Klopt niet',fout)+deel('In orde',goed)
+    +`<button type="button" class="gclink" style="margin:14px 4px 0" onclick="gcAlles=!gcAlles;gcSheetOpen()">${gcAlles?'Alleen wat nog open staat':'Ook nagekeken verzilveringen tonen'}</button>
+    <p class="vbnoot" style="margin-top:10px">Recht op = totaal besteed (incl. verzending) gedeeld door €150. Klopt het niet, kijk dan zelf in Shopify.</p>`;
 }
 
 /* ── per klant ── */

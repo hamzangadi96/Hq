@@ -1259,15 +1259,13 @@ exports.giftcardTerug = binnen('giftcardTerug', async req => {
    nagekeken wordt onthouden, alleen het giftcard-nummer. */
 const KAART_DREMPEL = 150;
 
-async function productBesteding(gql, klantGid) {
-  const d = await gql('query($id:ID!){customer(id:$id){orders(first:250,sortKey:CREATED_AT){nodes{cancelledAt subtotalPriceSet{shopMoney{amount}} totalRefundedSet{shopMoney{amount}}}}}}', { id: klantGid });
-  if (!d.customer) return null;
-  return Math.round(d.customer.orders.nodes.reduce((n, o) => {
-    if (o.cancelledAt) return n;
-    const sub = parseFloat(o.subtotalPriceSet.shopMoney.amount) || 0;
-    const terug = parseFloat(o.totalRefundedSet.shopMoney.amount) || 0;
-    return n + Math.max(0, sub - terug);
-  }, 0) * 100) / 100;
+/* Wat heeft de klant in totaal bij je uitgegeven? Shopify houdt dat zelf bij
+   (amountSpent), ook voor bestellingen ouder dan 60 dagen — die mag HQ niet
+   per stuk lezen. Inclusief verzending, dus een ruwe bovengrens: wie
+   hieronder blijft, heeft zeker te veel gekregen. */
+async function totaalBesteed(gql, klantGid) {
+  const d = await gql('query($id:ID!){customer(id:$id){amountSpent{amount}}}', { id: klantGid });
+  return d.customer ? Math.round((parseFloat(d.customer.amountSpent.amount) || 0) * 100) / 100 : null;
 }
 
 exports.giftcardsControle = binnen('giftcardsControle', async req => {
@@ -1283,7 +1281,7 @@ exports.giftcardsControle = binnen('giftcardsControle', async req => {
   const perKlant = {};
   for (const g of kaarten) {
     const c = g.customer; if (!c || perKlant[c.id]) continue;
-    const besteed = await productBesteding(gql, c.id);
+    const besteed = await totaalBesteed(gql, c.id);
     const alle = await gql('query($q:String){giftCards(first:100,query:$q){nodes{id enabled}}}',
       { q: 'customer_id:' + String(c.id).split('/').pop() + ' AND (source:api_client OR source:manual)' });
     const gekregen = alle.giftCards.nodes.filter(x => x.enabled).length;
@@ -1310,10 +1308,14 @@ exports.giftcardsControle = binnen('giftcardsControle', async req => {
 
 exports.giftcardNagekeken = binnen('giftcardNagekeken', async req => {
   const uid = wieBenJe(req);
-  const gc = String((req.data || {}).giftcard || '');
-  if (!/^\d+$/.test(gc)) throw new HttpsError('invalid-argument', 'Onbekende giftcard.');
-  const aan = (req.data || {}).aan !== false;
-  await werkRef(uid).child('giftcardControle/' + gc).set(aan ? Date.now() : null);
+  const d = req.data || {};
+  const lijst = (Array.isArray(d.giftcards) ? d.giftcards : [d.giftcard]).map(String).filter(x => /^\d+$/.test(x)).slice(0, 200);
+  if (!lijst.length) throw new HttpsError('invalid-argument', 'Onbekende giftcard.');
+  const aan = d.aan !== false, upd = {};
+  lijst.forEach(gc => { upd[gc] = aan ? Date.now() : null; });
+  await werkRef(uid).child('giftcardControle').update(upd);
+  const rest = Math.max(0, ((await werkRef(uid).child('giftcardTeControleren').once('value')).val() || 0) + (aan ? -lijst.length : lijst.length));
+  await werkRef(uid).child('giftcardTeControleren').set(rest);
   return { ok: true };
 });
 
