@@ -4806,7 +4806,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v791 · 17 okt 2026';
+const APPVERSIE='v792 · 17 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9232,7 +9232,7 @@ function stempelKlantOpen(id){
   }
   stempelOpen=id;
   sheet(naamNet(k.naam), stempelKlantHTML(k),
-    k.open?`<button type="button" class="prim" style="margin-top:0" id="stpVerz" ${stempelWerkt?'disabled':''}>${svg(I.vink,'2.4')}${stempelWerkt?'Bezig…':'Giftcard sturen · €25'}</button>`:'');
+    `<button type="button" class="prim" style="margin-top:0" id="stpVerz" ${stempelWerkt?'disabled':''}>${svg(I.vink,'2.4')}${stempelWerkt?'Bezig…':k.open?'Giftcard sturen · €25':'Giftcard geven · €25'}</button>`);
   sheetTerugZet(()=>{ stempelOpen=null; homeTegel('stp') });
   if($('#stpVerz')) $('#stpVerz').onclick=()=>giftcardStuur(k.id);
   bijSluiten=()=>{ stempelOpen=null };
@@ -9273,7 +9273,7 @@ function giftcardStuur(id){
     stempelGift[id]={lijst:[r.giftcard].concat(g)};
     const s=stempelTellerBij();
     if(s.giftcards){ s.giftcards={aantal:s.giftcards.aantal+1,bedrag:Math.round((s.giftcards.bedrag+r.giftcard.bedrag)*100)/100} }
-    if(r.gemaild) toast('Giftcard gemaild',()=>giftcardTerug(id));
+    if(r.gemaild) toast(r.cadeau?'Cadeau-giftcard gemaild':'Giftcard gemaild',()=>r.cadeau?giftcardCadeauUit(id,r.giftcard.id):giftcardTerug(id));
     else toast('Giftcard gemaakt, mailen lukte niet: '+(r.mailFout||'onbekend'));
   }).catch(e=>toast((e&&e.message)||'Giftcard sturen lukte niet'))
     .finally(()=>{ stempelWerkt=false; render(); stempelHerteken(id) });
@@ -9288,6 +9288,12 @@ function giftcardTerug(id){
     if(s.giftcards){ s.giftcards={aantal:Math.max(0,s.giftcards.aantal-1),bedrag:Math.max(0,Math.round((s.giftcards.bedrag-25)*100)/100)} }
   }).catch(e=>toast((e&&e.message)||'Terugdraaien lukte niet'))
     .finally(()=>{ stempelWerkt=false; render(); stempelHerteken(id) });
+}
+/* een cadeau terugdraaien: alleen de giftcard uit, de stempels blijven staan */
+function giftcardCadeauUit(id,gc){
+  roep('giftcardUitzetten',{giftcard:gc}).then(r=>{
+    const g=stempelGift[id]&&stempelGift[id].lijst; if(g){ const x=g.find(y=>y.id===gc); if(x) Object.assign(x,r.giftcard) }
+  }).catch(e=>toast((e&&e.message)||'Terugdraaien lukte niet')).finally(()=>stempelHerteken(id));
 }
 function giftcardOpnieuw(gc){
   roep('giftcardOpnieuw',{giftcard:gc}).then(()=>toast('Opnieuw gemaild'))
@@ -9304,7 +9310,7 @@ function giftcardsHTML(k){
   const rij=x=>{
     const stand=!x.aan?['Uitgezet','']:x.saldo<=0.001?['Gebruikt','']:x.saldo<x.bedrag-0.001?[gcEuro(x.saldo)+' over','amb']:['Nog niet gebruikt','groen'];
     return `<div class="gcrij">
-      <span class="sp2nm">${gcEuro(x.bedrag)} · ${datum(x.datum)}<small>code eindigt op ${esc(x.laatste)}${x.spaarkaart?' · spaarkaart':''}</small></span>
+      <span class="sp2nm">${gcEuro(x.bedrag)} · ${datum(x.datum)}<small>code eindigt op ${esc(x.laatste)}${x.spaarkaart?' · spaarkaart':x.cadeau?' · cadeau':''}</small></span>
       <span class="gcstand ${stand[1]}">${stand[0]}</span>
       ${x.aan&&x.saldo>0.001?`<span class="gcacties"><button type="button" class="gclink" onclick="giftcardOpnieuw('${x.id}')">Opnieuw mailen</button>${
         eersteOpen&&eersteOpen.id===x.id?`<button type="button" class="gclink" onclick="giftcardTerug('${k.id}')">Terugdraaien</button>`:''}</span>`:''}

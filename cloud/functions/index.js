@@ -1073,6 +1073,7 @@ async function stempelAanpassenBinnen(req) {
    en de teller één terug — maar alleen zolang er nog niets van besteed is. */
 const GIFTCARD_EURO = '25.00';
 const GIFTCARD_NOTITIE = 'Volle spaarkaart (HQ)';
+const CADEAU_NOTITIE = 'Cadeau (HQ)';
 
 /* Shopify-vraag met jouw token. Bij een scope-fout eerst één keer een vers
    token halen: het oude wordt een dag bewaard en kent nieuwe rechten nog niet. */
@@ -1123,7 +1124,8 @@ function netteGiftcard(g) {
     saldo: parseFloat(g.balance.amount),
     aan: !!g.enabled,
     laatste: g.lastCharacters,
-    spaarkaart: g.note === GIFTCARD_NOTITIE
+    spaarkaart: g.note === GIFTCARD_NOTITIE,
+    cadeau: g.note === CADEAU_NOTITIE
   };
 }
 
@@ -1185,18 +1187,21 @@ exports.giftcardSturen = binnen('giftcardSturen', async req => {
 
   const { c, saldo, ver, heeftMail } = await leesKlant(gql, gid);
   const vol = Math.floor(Math.floor(saldo / STEMPEL_EURO + 1e-9) / STEMPELS_PER_KAART);
-  if (ver >= vol) throw new HttpsError('failed-precondition', 'Deze klant heeft geen volle kaart.');
+  /* Volle kaart: telt als verzilverd. Geen volle kaart: een cadeau van
+     Hamza, de stempels blijven dan gewoon staan. */
+  const kaartVol = ver < vol;
   if (!heeftMail) throw new HttpsError('failed-precondition',
     'Deze klant heeft geen e-mailadres in Shopify, dus Shopify kan de giftcard niet mailen. Zet eerst een e-mailadres bij de klant.');
 
   const maak = (await gql('mutation($i:GiftCardCreateInput!){giftCardCreate(input:$i){giftCard{' + GIFTCARD_VELDEN + '} userErrors{message}}}',
-    { i: { initialValue: GIFTCARD_EURO, customerId: gid, note: GIFTCARD_NOTITIE } })).giftCardCreate;
+    { i: { initialValue: GIFTCARD_EURO, customerId: gid, note: kaartVol ? GIFTCARD_NOTITIE : CADEAU_NOTITIE } })).giftCardCreate;
   if (maak.userErrors && maak.userErrors.length) throw new HttpsError('internal', 'Giftcard maken lukte niet: ' + fouten(maak.userErrors));
   const kaart = maak.giftCard;
 
   /* eerst tellen, dan mailen: lukt de mail niet, dan staat de kaart er wel
      en kun je hem opnieuw laten sturen */
-  await zetVerzilverd(gql, gid, ver + 1);
+  const nieuwVer = kaartVol ? ver + 1 : ver;
+  if (kaartVol) await zetVerzilverd(gql, gid, nieuwVer);
 
   let gemaild = true, mailFout = '';
   try {
@@ -1205,7 +1210,7 @@ exports.giftcardSturen = binnen('giftcardSturen', async req => {
     if (s.userErrors && s.userErrors.length) { gemaild = false; mailFout = fouten(s.userErrors); }
   } catch (e) { gemaild = false; mailFout = String((e && e.message) || e).slice(0, 200); }
 
-  return { klant: stempelKlant(c.id, c.displayName, saldo, ver + 1), giftcard: netteGiftcard(kaart), gemaild, mailFout };
+  return { klant: stempelKlant(c.id, c.displayName, saldo, nieuwVer), giftcard: netteGiftcard(kaart), gemaild, mailFout, cadeau: !kaartVol };
 });
 
 /* De mail nog eens laten sturen (kwijt, in de spam, of de eerste keer mislukt). */
@@ -1289,7 +1294,7 @@ exports.giftcardsControle = binnen('giftcardsControle', async req => {
   const lijst = kaarten.map(g => {
     const n = netteGiftcard(g);
     const k = g.customer ? perKlant[g.customer.id] : null;
-    n.bron = g.note === GIFTCARD_NOTITIE ? 'hq' : 'website';
+    n.bron = g.note === GIFTCARD_NOTITIE || g.note === CADEAU_NOTITIE ? 'hq' : 'website';
     n.klant = g.customer ? { id: String(g.customer.id).split('/').pop(), naam: g.customer.displayName || 'Klant zonder naam' } : null;
     if (k) Object.assign(n, k);
     /* klopt: genoeg besteed voor alle giftcards die hij kreeg. Wat jij zelf
