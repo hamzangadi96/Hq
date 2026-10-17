@@ -180,6 +180,8 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
 #vversknop svg{width:19px;height:19px;stroke:#fff}
 #vversknop b{font-size:9px;font-weight:600;letter-spacing:.02em;opacity:.75}
 #vversknop.bezig{opacity:.5}
+/* v794: als er een scherm open is, ligt hij niet over je knoppen */
+body.sheetaan #vversknop{opacity:0;pointer-events:none;transition:opacity .15s}
 
 /* snelacties: dezelfde capsuletaal als de tabbalk */
 .snelrij{display:flex;gap:8px;overflow-x:auto;margin:0 -20px;padding:2px 20px 4px;
@@ -4812,7 +4814,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v793 · 17 okt 2026';
+const APPVERSIE='v794 · 17 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13414,7 +13416,7 @@ function offerteHTML(klantId){
   </div>`;
 }
 
-function sheetOfferte(klantId){
+function sheetKlantOfferte(klantId){
   const a=afspraak(klantId); if(!a) return toast('Leg eerst een prijsafspraak vast.');
   const html=offerteHTML(klantId);
   sheet('Offerte',
@@ -13497,7 +13499,7 @@ function sheetAfspraak(klantId){
         <button class="sec" id="afTerug2">Terug</button>`);
 
   if($('#afTerug2')) $('#afTerug2').onclick=()=>sheetKlant(klantId);
-  if($('#afOff')) $('#afOff').onclick=()=>sheetOfferte(klantId);
+  if($('#afOff')) $('#afOff').onclick=()=>sheetKlantOfferte(klantId);
   if($('#afNieuw')) $('#afNieuw').onclick=()=>{
     if(!vormen().length) zetStandaardVormen();
     const vId=B2B.vorm&&vorm(B2B.vorm)?B2B.vorm:vormen()[0].id;
@@ -14371,12 +14373,7 @@ function watMisJe(basis){
    omzeilen hielpen niet. Dit is een eigen kiezer — een raster van tinten, elk
    in vijf helderheden. Werkt overal hetzelfde en kan niet dichtvallen. */
 
-function hslHex(h,sa,li){
-  const a=sa*Math.min(li,1-li);
-  const f=n=>{const k=(n+h/30)%12;
-    return li-a*Math.max(-1,Math.min(k-3,Math.min(9-k,1)))};
-  return rgbHex([f(0)*255,f(8)*255,f(4)*255]);
-}
+/* (v794: oude dubbele hslHex weggehaald — de versie verderop werd altijd al gebruikt) */
 
 /* Het kiesvlak: links pastel, rechts vol, onder donker. Precies het vlak dat
    je in elke echte kleurkiezer ziet. Eerst had ik hier een raster van vakjes,
@@ -15026,10 +15023,7 @@ function sheetGrondstofJaar(jaar){
 const dozen=()=>S.dozen||[];
 const doos=id=>dozen().find(d=>d.id===id);
 
-function verpakkingsArtikelen(){
-  return grondVoorraad().filter(v=>artSoort(v.product)==='verpakking')
-    .map(v=>v.product).sort((a,b2)=>a.localeCompare(b2));
-}
+/* (v794: oude dubbele verpakkingsArtikelen weggehaald — de versie verderop werd altijd al gebruikt) */
 
 /* de prijs per stuk van een verpakkingsartikel */
 /* Wat je voor een verpakkingsonderdeel betaalde, net zo vastgelegd als bij een
@@ -23802,13 +23796,13 @@ function sheet(t,b,v,stapLabel){
     }
   })();
   if(hk) hk.classList.toggle('aan',!!(sheetUitlegHtml||hk.dataset.ond)&&t!=='Hoe werkt het?');
-  $('#sheet').classList.add('open');$('#overlay').classList.add('open');$('#sheetBody').scrollTop=0;sheetOpen=true;
+  $('#sheet').classList.add('open');$('#overlay').classList.add('open');document.body.classList.add('sheetaan');$('#sheetBody').scrollTop=0;sheetOpen=true;
   if(window.__sheetPas) setTimeout(window.__sheetPas,60)}
 function dicht(){homeSheet=null;stopStap();plKies=null;sluitVeeg();let ververs=false;
   if(bijSluiten){try{bijSluiten();ververs=true}catch(e){console.error('bijSluiten:',e)};bijSluiten=null}
   if(ververs)setTimeout(render,0);
   hulpDicht(); ballonDicht(); rlStop();
-  $('#sheet').classList.remove('open');$('#overlay').classList.remove('open');sheetOpen=false}
+  $('#sheet').classList.remove('open');$('#overlay').classList.remove('open');document.body.classList.remove('sheetaan');sheetOpen=false}
 $('#overlay').onclick=dicht;$('#sheetSluit').onclick=dicht;
 $('#sheetTerug').innerHTML=svg(I.pijl,'2.2');
 $('#sheetTerug').onclick=()=>{ const f=sheetTerugFn; if(f) f() };
