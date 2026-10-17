@@ -1774,3 +1774,14 @@ exports.backupNu = onCall(async req => {
   await maakDagBackup(uid, data, datum);
   return { datum };
 });
+
+/* ═══════════ Verzilveren via de website (v791) ═══════════
+   De knop "verzilveren" op de website komt via de app-proxy van
+   Cacaoboetiek Loyalty (/apps/cb-stamps) hier binnen. Er gaat NOOIT
+   automatisch een giftcard de deur uit: Hamza geeft in HQ altijd zelf
+   akkoord. Zolang het aanvraagsysteem nog niet af is, staat verzilveren
+   op pauze en ziet de klant dat zijn stempels bewaard blijven. */
+exports.stempelVerzoek = onRequest({ invoker: 'public', cors: false }, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.status(409).json({ error: 'CLAIMS_PAUSED' });
+});
