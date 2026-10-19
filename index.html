@@ -4038,6 +4038,12 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .hoofdkaart h2{font-size:25px;font-weight:700;letter-spacing:-.035em;line-height:1.15}
 .hoofdkaart h2,.hoofdkaart b,.hoofdkaart .getal,.hoofdkaart .ln,.hoofdkaart .lt{color:var(--ink)}
 .hoofdkaart .stap,.hoofdkaart .sub,.hoofdkaart .onder,.hoofdkaart .hkstappen{color:var(--grijs)}
+/* v802: de kaart werd wit, maar de tekst in de Nu-in-productie-kaart bleef wit
+   van toen hij nog bruin was. Kop, percentage en batchnummer waren onzichtbaar. */
+.hoofdkaart.hk2 .hk2tekst h2,.hk2ring .binnen b,.hk2stap span{color:var(--ink)}
+.hk2badge{background:var(--bg);color:var(--ink)}
+.hk2ring .baan{stroke:var(--lijn)}
+button.hoofdkaart.hk2:active{background:var(--bg)}
 .hoofdkaart .eyebrow{color:var(--grijs2)}
 .hoofdkaart .dagenbadge{background:var(--bg);color:var(--ink2)}
 .hoofdkaart .dagenbadge.let{background:#b4530914;color:var(--amber)}
@@ -4436,6 +4442,12 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .sp2info span{color:var(--grijs)}
 .cbchips{display:flex;gap:8px;align-items:center}
 .cbchips .inp{flex:1;min-width:0;height:40px;font-size:15px}
+.smkrt{font-size:13.5px;color:var(--grijs);line-height:1.4;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bmeer{margin-top:20px}
+.bmeer>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:0 18px;background:#fff;border-radius:18px;font-size:15.5px;font-weight:600;cursor:pointer}
+.bmeer>summary::-webkit-details-marker{display:none}
+.bmeer>summary svg{width:18px;height:18px;color:var(--grijs);transition:transform .2s}
+.bmeer[open]>summary svg{transform:rotate(90deg)}
 .sp2info .sp2mail{min-width:0;text-align:right;overflow-wrap:anywhere}
 .sp2info span{flex-shrink:0}
 .sp2step{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:14px;padding:6px}
@@ -4837,7 +4849,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v801 · 19 okt 2026';
+const APPVERSIE='v802 · 19 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6575,6 +6587,10 @@ function receptVan(b,id){
 }
 const bPlan=b=>(b&&b.werkplan&&b.werkplan.length)?b.werkplan:S.werkplan;
 const bNamen=b=>b.regels.map(r=>receptVan(b,r.receptId).naam).join(' + ');
+/* v802: vijf smaaknamen als kop was vijf regels tekst. Vanaf drie smaken
+   staat er alleen het aantal; de namen staan klein eronder. */
+const smakenKop=l=>l.length>2?l.length+' smaken':l.join(' + ');
+const smakenRegel=l=>l.length>2?`<div class="smkrt">${esc(l.join(' · '))}</div>`:'';
 
 /* alle ingrediënten van een batch, opgeteld in gram */
 function bIngredienten(b){
@@ -7510,7 +7526,7 @@ function heroBatchHTML(b, metStap){
           <span class="binnen"><b>${pct}%</b><em>gereed</em></span>
         </span>
         <span class="hk2tekst">
-          <h2>${esc(bNamen(b))}</h2>
+          <h2>${esc(smakenKop(b.regels.map(r=>receptVan(b,r.receptId).naam)))}</h2>${smakenRegel(b.regels.map(r=>receptVan(b,r.receptId).naam))}
           <div class="sub">${(()=>{
             /* "pure chocolade · dag 1" liet de regel afbreken, en een tweede
                regel kost hier meer dan hij oplevert. De soort zegt genoeg
@@ -7610,6 +7626,8 @@ function sheetFase(k){
   const f=BFASEN.find(x=>x.k===k); if(!f) return;
   const stappen=BSTAPPEN.filter(s=>f.stappen.includes(s.key));
   const af=stappen.filter(s=>s.klaar(b)).length;
+  /* v802: Maken had één regel ("Productiestappen"). Dat was een tik voor niks. */
+  if(stappen.length===1&&SHEETS[stappen[0].sheet]){ SHEETS[stappen[0].sheet](); return }
   sheet(f.n,
     `<div class="paneel">${stappen.map(s=>{
       const klaar2=s.klaar(b), w=String(s.waarde(b));
@@ -9964,7 +9982,7 @@ function dashboardHTML(){
     const dek=dekkingGrond(p.regels).filter(x=>x.tekort>0);
     h+=`<div class="hoofdkaart">
       <div class="stap">Vandaag gepland · ${tot} stuks</div>
-      <h2 style="margin-top:6px">${esc(p.regels.map(r=>smaakNaam(r.receptId)).join(', '))}</h2>
+      <h2 style="margin-top:6px">${esc(smakenKop(p.regels.map(r=>smaakNaam(r.receptId))))}</h2>${smakenRegel(p.regels.map(r=>smaakNaam(r.receptId)))}
       <div class="sub">${chocNaam(p.chocolade).toLowerCase()} · ${p.regels.reduce((n,r)=>n+r.mallen,0)} mallen${
         dek.length?' · '+dek.length+' grondstof'+(dek.length===1?'':'fen')+' tekort':' · alles in huis'}</div>
       ${''/* je baan naast het bedrijf is uit de app gehaald */}
@@ -10099,7 +10117,7 @@ function dashboardHTML(){
     const dek=dekkingGrond(p.regels).filter(x=>x.tekort>0);
     h+=`<div class="hoofdkaart">
       <div class="stap">Volgende batch · over ${n} ${n===1?'dag':'dagen'}</div>
-      <h2 style="margin-top:6px">${esc(p.regels.map(r=>smaakNaam(r.receptId)).join(', '))}</h2>
+      <h2 style="margin-top:6px">${esc(smakenKop(p.regels.map(r=>smaakNaam(r.receptId))))}</h2>${smakenRegel(p.regels.map(r=>smaakNaam(r.receptId)))}
       <div class="sub">${kort(new Date(p.datum))} · ${p.regels.reduce((x,r)=>x+r.aantal,0)} bonbons${
         bd?' · boodschappen '+(bn===0?'vandaag':bn===1?'morgen':'over '+bn+' dagen'):' · alles in huis'}</div>
       <button class="prim" data-planning>${svg(I.klok)}Planning bekijken</button></div>`;
@@ -10818,7 +10836,8 @@ function batchHTML(){
   h+=`<div class="blokkop"><span class="eyebrow">De route</span>
       <span class="tel">${bGedaan(b)} van ${KERN.length}</span></div>
     ${faseHtml}
-    <div class="blokkop" style="margin-top:24px"><span class="eyebrow">Naslag</span></div>
+    <details class="bmeer"${b.status==='klaar'?' open':''}><summary>Rapporten, notitie, onderbreken${svg(I.pijl,'2')}</summary>
+    <div class="blokkop" style="margin-top:16px"><span class="eyebrow">Naslag</span></div>
     <div class="paneel">${naslag}</div>
     ${(()=>{
       /* Acht rijen over de volle breedte was vier schermlengtes scrollen voor
@@ -10841,7 +10860,7 @@ function batchHTML(){
         ${btegel('data-dossier',I.klembord,'HACCP-dossier','inspectie')}
         ${btegel('data-bkopie="'+b.id+'"',I.plus,'Nieuwe batch','deze opzet')}
       </div>
-      <div class="voet"><button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`})()}`;
+      <div class="voet"><button data-verwijder="${b.id}" style="color:var(--rood)">Batch verwijderen</button></div>`})()}</details>`;
   if(verw&&b.status!=='klaar'){
     const st=batchDuurStat();
     h=h.replace('<div class="blokkop"><span class="eyebrow">De route</span>',
