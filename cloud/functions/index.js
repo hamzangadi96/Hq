@@ -1176,7 +1176,14 @@ exports.klantGiftcards = binnen('klantGiftcards', async req => {
   const uid = wieBenJe(req);
   const id = klantId(req);
   const gql = await shopifyGql(uid, 'read_gift_cards');
-  return { giftcards: await giftcardsVan(gql, id) };
+  /* v799: ook het mailadres, zodat je in HQ ziet waar de giftcard heen gaat.
+     Alleen voor deze ene klant, niet voor de hele lijst. */
+  const [giftcards, k] = await Promise.all([
+    giftcardsVan(gql, id),
+    gql('query($id:ID!){customer(id:$id){defaultEmailAddress{emailAddress}}}', { id: 'gid://shopify/Customer/' + id })
+  ]);
+  const email = k.customer && k.customer.defaultEmailAddress ? k.customer.defaultEmailAddress.emailAddress || '' : '';
+  return { giftcards, email };
 });
 
 exports.giftcardSturen = binnen('giftcardSturen', async req => {

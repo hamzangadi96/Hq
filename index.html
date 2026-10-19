@@ -4434,6 +4434,8 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .sp2info div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;font-size:14.5px}
 .sp2info div+div{border-top:1px solid var(--lijn)}
 .sp2info span{color:var(--grijs)}
+.sp2info .sp2mail{min-width:0;text-align:right;overflow-wrap:anywhere}
+.sp2info span{flex-shrink:0}
 .sp2step{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:14px;padding:6px}
 .sp2step button{width:48px;height:44px;border:0;border-radius:10px;background:var(--card);display:grid;place-items:center;color:var(--ink);cursor:pointer;padding:0}
 .sp2step button:disabled{opacity:.35}
@@ -4833,7 +4835,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v798 · 18 okt 2026';
+const APPVERSIE='v799 · 19 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9320,7 +9322,7 @@ function stempelHerteken(id){
 }
 function giftcardsLaad(id){
   stempelGift[id]={laden:true};
-  roep('klantGiftcards',{id}).then(r=>{ stempelGift[id]={lijst:r.giftcards||[]} })
+  roep('klantGiftcards',{id}).then(r=>{ stempelGift[id]={lijst:r.giftcards||[],email:r.email} })
     .catch(e=>{ stempelGift[id]={fout:(e&&e.message)||'Giftcards ophalen lukte niet.'} })
     .finally(()=>stempelHerteken(id));
 }
@@ -9339,7 +9341,7 @@ function giftcardStuur(id){
   roep('giftcardSturen',{id}).then(r=>{
     const i=stempelKlanten.findIndex(x=>x.id===id); if(i>=0) stempelKlanten[i]=Object.assign({},stempelKlanten[i],r.klant);
     const g=stempelGift[id]&&stempelGift[id].lijst||[];
-    stempelGift[id]={lijst:[r.giftcard].concat(g)};
+    stempelGift[id]={lijst:[r.giftcard].concat(g),email:stempelGift[id]&&stempelGift[id].email};
     const s=stempelTellerBij();
     if(s.giftcards){ s.giftcards={aantal:s.giftcards.aantal+1,bedrag:Math.round((s.giftcards.bedrag+r.giftcard.bedrag)*100)/100} }
     if(r.gemaild) toast(r.cadeau?'Cadeau-giftcard gemaild':'Giftcard gemaild',()=>r.cadeau?giftcardCadeauUit(id,r.giftcard.id):giftcardTerug(id));
@@ -9352,7 +9354,7 @@ function giftcardTerug(id){
   stempelWerkt=true; stempelHerteken(id);
   roep('giftcardTerug',{id}).then(r=>{
     const i=stempelKlanten.findIndex(x=>x.id===id); if(i>=0) stempelKlanten[i]=Object.assign({},stempelKlanten[i],r.klant);
-    stempelGift[id]={lijst:r.giftcards||[]};
+    stempelGift[id]={lijst:r.giftcards||[],email:stempelGift[id]&&stempelGift[id].email};
     const s=stempelTellerBij();
     if(s.giftcards){ s.giftcards={aantal:Math.max(0,s.giftcards.aantal-1),bedrag:Math.max(0,Math.round((s.giftcards.bedrag-25)*100)/100)} }
   }).catch(e=>toast((e&&e.message)||'Terugdraaien lukte niet'))
@@ -9391,6 +9393,11 @@ function giftcardsHTML(k){
 function stempelKlantHTML(k){
   const doosTekst=k.doos?(typeof k.kans25==='number'?(k.kans25>=50?'Doos van 25':'Doos van 16'):'Doos van '+k.doos):null;
   const doosPct=typeof k.kans25==='number'?(k.kans25>=50?k.kans25:100-k.kans25)+'%':'';
+  const gm=stempelGift[k.id];
+  /* v799: waar de giftcard heen gaat */
+  const mailRij=!gm||gm.fout||(!gm.laden&&gm.email===undefined)?'':gm.laden?`<div><span>Mailadres</span><b class="sp2mail" style="color:var(--grijs);font-weight:500">ophalen…</b></div>`
+    :gm.email?`<div><span>Mailadres</span><b class="sp2mail">${esc(gm.email)}</b></div>`
+    :`<div><span>Mailadres</span><b class="sp2mail" style="color:#b45309">geen — giftcard kan niet gemaild worden</b></div>`;
   return `<div class="sp2kaart">
       ${stempelBolletjes(k,true)}
       <b>${k.open?(k.open===1?'Kaart vol':k.open+' kaarten vol'):k.rest+' van 6 stempels'}</b>
@@ -9398,6 +9405,7 @@ function stempelKlantHTML(k){
       <small>${[k.saldo?'€'+String(k.saldo.toFixed(2)).replace('.',',')+' besteed':'nog geen stempels',k.orders?k.orders+'× besteld':'',k.ver?k.ver+' verzilverd':''].filter(Boolean).join(' · ')}</small>
     </div>
     <div class="sp2info">
+      ${mailRij}
       ${typeof k.kans==='number'?`<div><span>Kans dat hij weer bestelt</span><b>${k.kans}%</b></div>`:''}
       ${doosTekst?`<div><span>Kiest waarschijnlijk</span><b>${doosTekst}${doosPct?' · '+doosPct:''}</b></div>`:''}
     </div>
