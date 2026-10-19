@@ -4837,7 +4837,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v800 · 19 okt 2026';
+const APPVERSIE='v801 · 19 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5160,7 +5160,7 @@ const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','ro
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','vidsFase1b','vidsLeergeld1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
   'filmAf','kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw','eenmalig','gepland'];
-let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false;
+let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false, fbAuthBekend=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
 const claudeOpslag = !!(window.storage && window.storage.get);
@@ -5739,7 +5739,7 @@ function firebaseStart(){
       if(was!==fbOnline&&typeof render==='function'&&startKlaar) render();
     });
     firebase.auth().onAuthStateChanged(u=>{
-      fbUser=u||null;
+      fbUser=u||null; fbAuthBekend=true;
       if(fbRef){fbRef.off();fbRef=null}
       if(u) welkomWeg();
       if(!u){ if(startKlaar&&welkomNodig()) welkomTonen(); render(); return }
@@ -7375,7 +7375,7 @@ function kopknoppenHTML(){
   return `<div class="kopknoppen${S.tab==='dashboard'?' rechts':''}">
     <button class="belknop links" data-account aria-label="${
       fbUser?'Je account':'Account aanmaken of inloggen'}">${svg(I.persoon)}${
-      fbUser?'':'<i class="stipje"></i>'}</button>${
+      fbUser||!fbAuthBekend?'':'<i class="stipje"></i>'}</button>${
       S.tab==='dashboard'?`<span class="kopgroet">${groetNu()}</span>`:''}
     <button class="belknop${meld?' aan':''}" data-meldingen aria-label="${
       meld?meld+' meldingen':'Geen meldingen'}">${svg(I.bel)}</button>
@@ -7388,9 +7388,10 @@ function kopknoppenHTML(){
    leeg zolang alles goed gaat, en luid zodra dat niet zo is. */
 let fbStartTijd=Date.now();
 function syncstrookHTML(){
-  if(!fbUser) return `<button class="syncstrook rood" data-account>
-    ${svg(I.alarm,'2')}<span><b>Niet ingelogd</b><small>Je werk staat alleen op dit
-    toestel en wordt niet bewaard. Tik om in te loggen.</small></span></button>`;
+  /* v801: geen rode balk meer over inloggen. Die flitste bij elke start in
+     beeld, nog voordat Firebase je login had teruggevonden. Ben je echt
+     uitgelogd, dan zie je alleen het stipje bij je profiel. */
+  if(!fbUser) return '';
   /* Eerste seconden na het opstarten is "nog niet verbonden" normaal. */
   if(!fbOnline&&Date.now()-fbStartTijd<3000) return '';
   if(!fbOnline) return `<div class="syncstrook amber">
