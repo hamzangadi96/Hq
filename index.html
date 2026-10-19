@@ -4434,6 +4434,8 @@ body:has(.sheet.open) .zweefknop:active{transform:translateY(-92px) scale(.94)}
 .sp2info div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;font-size:14.5px}
 .sp2info div+div{border-top:1px solid var(--lijn)}
 .sp2info span{color:var(--grijs)}
+.cbchips{display:flex;gap:8px;align-items:center}
+.cbchips .inp{flex:1;min-width:0;height:40px;font-size:15px}
 .sp2info .sp2mail{min-width:0;text-align:right;overflow-wrap:anywhere}
 .sp2info span{flex-shrink:0}
 .sp2step{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:14px;padding:6px}
@@ -4835,7 +4837,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v799 · 19 okt 2026';
+const APPVERSIE='v800 · 19 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9152,7 +9154,9 @@ function stempelSheetHTML(){
       <button type="button" id="stpZoekWeg" class="${stempelZoek?'aan':''}" aria-label="Zoeken wissen"
         onclick="stempelZoekNu('');const i=$('#stpZoek');if(i){i.value='';i.focus()}">${svg(I.kruis,'2')}</button></div>`:'';
   if(!gcControle&&!gcControleBezig) setTimeout(()=>gcControleLaad(false),0);
-  return gcControleHTML()+advies+getallen+zoek+`<div id="stpLijst">${stempelZoekHTML()}</div>`+uitleg+fout+`
+  const cadeau=`<button type="button" class="gcsam" style="margin-top:10px" onclick="cadeaubonOpen()">
+      <span class="sp2nm">Cadeaubon sturen<small>naar een mailadres, ook zonder account</small></span><span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+  return gcControleHTML()+advies+getallen+zoek+cadeau+`<div id="stpLijst">${stempelZoekHTML()}</div>`+uitleg+fout+`
     <button type="button" class="prodlos" style="display:block;width:100%" onclick="stempelFout='';stempelVerversen(true);gcControleLaad(false)">${
       stempelBezig?'Tellen…':'Bijgewerkt '+tijd+' · opnieuw tellen'}</button>`;
 }
@@ -9249,6 +9253,64 @@ function gcSheetHTML(){
     <p class="vbnoot" style="margin-top:10px">Recht op = totaal besteed (incl. verzending) gedeeld door €150. Klopt het niet, kijk dan zelf in Shopify.</p>`;
 }
 
+/* ── cadeaubon naar een los mailadres (v800) ── */
+let cbBezig=false, cbVraag=false, cbBedrag=25;
+function cadeaubonOpen(email){
+  cbVraag=false; cbBezig=false;
+  sheet('Cadeaubon sturen',cadeaubonHTML(email||''),
+    `<button type="button" class="prim" style="margin-top:0" id="cbStuur">${svg(I.vink,'2.4')}Cadeaubon sturen · ${gcEuro(cbBedrag)}</button>`);
+  sheetTerugZet(()=>homeTegel('stp'));
+  $('#cbStuur').onclick=cadeaubonStuur;
+  const opn=()=>{ cbVraag=false; cadeaubonKnop() };
+  ['cbMail','cbNaam'].forEach(i=>$('#'+i).addEventListener('input',opn));
+  setTimeout(()=>{ const i=$('#cbMail'); if(i&&!i.value) i.focus() },250);
+}
+function cadeaubonHTML(email){
+  const chips=[10,25,50].map(b=>`<button type="button" class="wdchip ${cbBedrag===b?'aan':''}" onclick="cadeaubonBedrag(${b})">${gcEuro(b)}</button>`).join('');
+  return `<div class="veld"><label for="cbMail">Mailadres</label>
+      <input class="inp" id="cbMail" type="email" inputmode="email" autocomplete="off" autocapitalize="off" placeholder="naam@voorbeeld.nl" value="${esc(email)}"></div>
+    <div class="veld"><label for="cbNaam">Naam <span style="font-weight:500">· optioneel</span></label>
+      <input class="inp" id="cbNaam" type="text" autocomplete="off" placeholder="Voor de aanhef in de mail"></div>
+    <div class="veld"><label>Bedrag</label>
+      <div class="cbchips">${chips}<input class="inp" id="cbAnder" inputmode="decimal" placeholder="Ander" value="${[10,25,50].indexOf(cbBedrag)<0?String(cbBedrag).replace('.',','):''}"
+        oninput="cadeaubonBedrag(this.value,true)"></div></div>
+    <p class="vbnoot" id="cbFout" style="color:#c0392b;display:none"></p>
+    <p class="vbnoot">Shopify mailt de code naar dit adres. Heeft dit adres nog geen account, dan maakt HQ een klant aan — zonder nieuwsbrief-toestemming. De bon telt niet mee als verzilverde spaarkaart.</p>`;
+}
+function cadeaubonBedrag(b,getypt){
+  const x=Math.round(parseFloat(String(b).replace(',','.'))*100)/100;
+  cbBedrag=x>0?x:0; cbVraag=false;
+  if(!getypt){ const a=$('#cbAnder'); if(a) a.value='' }
+  document.querySelectorAll('.cbchips .wdchip').forEach(c=>c.classList.toggle('aan',parseFloat(c.textContent.replace(/[^\d,]/g,'').replace(',','.'))===cbBedrag));
+  cadeaubonKnop();
+}
+function cadeaubonKnop(){
+  const k=$('#cbStuur'); if(!k) return;
+  const m=($('#cbMail')||{}).value||'';
+  k.disabled=cbBezig;
+  k.innerHTML=svg(I.vink,'2.4')+(cbBezig?'Bezig…':cbVraag?'Naar '+esc(m.trim())+'? Tik nog eens':'Cadeaubon sturen · '+gcEuro(cbBedrag));
+}
+function cadeaubonFout(t){ const f=$('#cbFout'); if(f){ f.textContent=t; f.style.display=t?'':'none' } }
+function cadeaubonStuur(){
+  if(cbBezig) return;
+  const email=$('#cbMail').value.trim().toLowerCase(), naam=$('#cbNaam').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return cadeaubonFout('Dat mailadres klopt nog niet. Kijk even of er een @ en een punt in staan.');
+  if(!(cbBedrag>=5&&cbBedrag<=250)) return cadeaubonFout('Kies een bedrag tussen €5 en €250.');
+  cadeaubonFout('');
+  /* een giftcard kost geld en gaat meteen de deur uit: eerst het adres laten bevestigen */
+  if(!cbVraag){ cbVraag=true; cadeaubonKnop(); return }
+  cbBezig=true; cbVraag=false; cadeaubonKnop();
+  roep('cadeaubonMailen',{email,naam,bedrag:cbBedrag}).then(r=>{
+    const id=r.klant.id;
+    if(stempelKlanten&&!stempelKlanten.some(x=>x.id===id)&&!stempelOverig.some(x=>x.id===id)) stempelOverig.push(r.klant);
+    const oud=stempelGift[id]&&stempelGift[id].lijst||null;
+    stempelGift[id]=oud?{lijst:[r.giftcard].concat(oud),email:r.email}:undefined;
+    cbBezig=false;
+    toast(r.gemaild?'Cadeaubon gemaild naar '+r.email:'Bon gemaakt, mailen lukte niet: '+(r.mailFout||'onbekend'));
+    if(stempelKlanten) stempelKlantOpen(id); else homeTegel('stp');
+  }).catch(e=>{ cbBezig=false; cadeaubonKnop(); cadeaubonFout((e&&e.message)||'Sturen lukte niet.') });
+}
+
 /* ── per klant ── */
 function stempelBolletjes(k,groot){
   let h=''; for(let i=0;i<6;i++) h+=`<i class="${i<k.rest||k.open?'aan':''}"></i>`;
@@ -9288,7 +9350,8 @@ function stempelZoekHTML(){
     .map(k=>Object.assign({saldo:0,stempels:0,ver:0,open:0,rest:0,orders:k.orders},k));
   const l=met.concat(zonder).slice(0,25);
   return l.length?`<div class="sp2kop"><span>Gevonden</span><small>${l.length}</small></div>
-    <div class="sp2lijst">${l.map(stempelRij).join('')}</div>`:'<p class="wdleeg" style="margin-top:18px">Geen klant gevonden met deze naam.</p>';
+    <div class="sp2lijst">${l.map(stempelRij).join('')}</div>`:`<p class="wdleeg" style="margin-top:18px">Geen klant gevonden met deze naam.</p>
+    <button type="button" class="gclink" style="display:block;margin:6px auto 0" onclick="cadeaubonOpen(${stempelZoek.indexOf('@')>0?`'${esc(stempelZoek.trim()).replace(/'/g,'')}'`:"''"})">Cadeaubon naar een mailadres sturen</button>`;
 }
 function stempelZoekNu(w){ stempelZoek=w; const el=$('#stpLijst'); if(el) el.innerHTML=stempelZoekHTML();
   const x=$('#stpZoekWeg'); if(x) x.classList.toggle('aan',!!w) }

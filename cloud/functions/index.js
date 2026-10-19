@@ -1232,6 +1232,63 @@ exports.giftcardOpnieuw = binnen('giftcardOpnieuw', async req => {
   return { ok: true };
 });
 
+/* ═══════════ Cadeaubon naar een los mailadres (v800) ═══════════
+   Voor iemand zonder account of zonder mailadres in Shopify. HQ zoekt de
+   klant op mailadres; bestaat hij niet, dan maakt HQ hem aan (zonder
+   nieuwsbrief-toestemming). Daarna een giftcard op zijn naam, en Shopify
+   mailt de code. */
+const CADEAU_MIN = 5, CADEAU_MAX = 250;
+exports.cadeaubonMailen = binnen('cadeaubonMailen', async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const email = String(d.email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || email.length > 200)
+    throw new HttpsError('invalid-argument', 'Dat mailadres klopt nog niet.');
+  const bedrag = Math.round(parseFloat(String(d.bedrag || '').replace(',', '.')) * 100) / 100;
+  if (!(bedrag >= CADEAU_MIN && bedrag <= CADEAU_MAX))
+    throw new HttpsError('invalid-argument', 'Kies een bedrag tussen €' + CADEAU_MIN + ' en €' + CADEAU_MAX + '.');
+  const naam = String(d.naam || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+  const gql = await shopifyGql(uid, 'write_gift_cards');
+
+  /* 1. bestaande klant met dit adres? */
+  const zoek = await gql('query($q:String){customers(first:5,query:$q){nodes{id displayName defaultEmailAddress{emailAddress}}}}',
+    { q: 'email:"' + email.replace(/"/g, '') + '"' });
+  let klant = zoek.customers.nodes.find(c => c.defaultEmailAddress && String(c.defaultEmailAddress.emailAddress).toLowerCase() === email);
+  let nieuw = false;
+
+  /* 2. zo niet: aanmaken */
+  if (!klant) {
+    const delen = naam.split(' ');
+    const input = { email, tags: ['hq-cadeau'] };
+    if (naam) { input.firstName = delen[0]; if (delen.length > 1) input.lastName = delen.slice(1).join(' '); }
+    const m = (await gql('mutation($i:CustomerInput!){customerCreate(input:$i){customer{id displayName} userErrors{field message}}}',
+      { i: input })).customerCreate;
+    if (m.userErrors && m.userErrors.length) {
+      if (/taken|already/i.test(fouten(m.userErrors))) throw new HttpsError('already-exists',
+        'Dit mailadres hoort al bij een klant in Shopify. Zoek hem op naam en stuur de giftcard vanuit zijn kaartje.');
+      throw new HttpsError('internal', 'Klant aanmaken lukte niet: ' + fouten(m.userErrors));
+    }
+    klant = m.customer; nieuw = true;
+  }
+
+  /* 3. giftcard op zijn naam, dan mailen */
+  const maak = (await gql('mutation($i:GiftCardCreateInput!){giftCardCreate(input:$i){giftCard{' + GIFTCARD_VELDEN + '} userErrors{message}}}',
+    { i: { initialValue: bedrag.toFixed(2), customerId: klant.id, note: CADEAU_NOTITIE } })).giftCardCreate;
+  if (maak.userErrors && maak.userErrors.length) throw new HttpsError('internal', 'Giftcard maken lukte niet: ' + fouten(maak.userErrors));
+
+  let gemaild = true, mailFout = '';
+  try {
+    const s = (await gql('mutation($id:ID!){giftCardSendNotificationToCustomer(id:$id){userErrors{message}}}', { id: maak.giftCard.id }))
+      .giftCardSendNotificationToCustomer;
+    if (s.userErrors && s.userErrors.length) { gemaild = false; mailFout = fouten(s.userErrors); }
+  } catch (e) { gemaild = false; mailFout = String((e && e.message) || e).slice(0, 200); }
+
+  return {
+    klant: { id: String(klant.id).split('/').pop(), naam: klant.displayName || naam || email, orders: 0 },
+    nieuw, email, giftcard: netteGiftcard(maak.giftCard), gemaild, mailFout
+  };
+});
+
 /* Terugdraaien: de nieuwste spaarkaart-giftcard die nog onaangeroerd is uit,
    en de teller één terug. Is er al iets van besteed, dan niet. */
 exports.giftcardTerug = binnen('giftcardTerug', async req => {
