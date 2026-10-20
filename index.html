@@ -2965,9 +2965,20 @@ body.wlaan #vversknop,body.wlaan #zweefknop{opacity:0!important;pointer-events:n
 .wl-chips{display:flex;justify-content:center;gap:10px;margin-top:32px;flex-wrap:wrap}
 .wl-chip{font-size:14px;font-weight:500;padding:9px 14px;border-radius:999px;background:#27272a;color:#e4e4e7}
 .wl-chip.op{color:#4ade80}
-.wl-url{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 28px);
-  text-align:center;font-size:15px;font-weight:600;letter-spacing:.04em;color:#71717a}
-.wl-hint{position:absolute;top:calc(env(safe-area-inset-top) + 16px);right:20px;font-size:12px;color:#52525b}
+.wl-onder{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 28px);
+  display:flex;flex-direction:column;align-items:center;gap:10px}
+.wl-onder small{font-size:13px;color:#71717a}
+.wl-cta{background:#fff;color:#18181b;font-size:16px;font-weight:600;padding:15px 24px;border-radius:999px;
+  letter-spacing:-.01em;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.wl-cta b{font-weight:700}
+.wl-balk{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 10px);padding:0 14px;
+  display:flex;justify-content:space-between;align-items:center}
+.wl-balk button{background:#27272a;color:#d4d4d8;border:0;font:600 14px Inter,system-ui,sans-serif;
+  height:44px;min-width:44px;padding:0 16px;border-radius:999px;cursor:pointer}
+.wl-balk button.x{padding:0;width:44px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:400;line-height:1}
+.wl-balk span{font-size:12px;color:#52525b}
+.wl.open .wd7{transition-delay:3.4s}
+.wl.wlreset .wlr{transition:none!important;opacity:0!important;transform:translateY(14px)!important}
 </style>
 <style id="kaartstijl">
 /* ══ kaartstijl v1 ══ donkere hoofdkaart, snelacties, kaartrijen met balk.
@@ -4886,7 +4897,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v803 · 20 okt 2026';
+const APPVERSIE='v804 · 20 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8646,7 +8657,8 @@ function wlEl(){
   let el=document.getElementById('wl'); if(el) return el;
   el=document.createElement('div'); el.id='wl'; el.className='wl';
   el.setAttribute('role','dialog'); el.setAttribute('aria-label','Wachtlijst');
-  el.innerHTML=`<div class="wl-hint wlr wd6">tik om te sluiten</div>
+  el.innerHTML=`<div class="wl-balk wlr wd7"><button type="button" class="x" id="wlX" aria-label="Sluiten">×</button>
+      <span>tik = opnieuw</span><button type="button" id="wlDet">Details</button></div>
     <div class="wl-in">
       <div class="wl-lab wlr wd1"><i class="wl-live"></i>Wachtlijst · Cacaoboetiek</div>
       <div class="wl-num wlr wd2" id="wlNum">0</div>
@@ -8655,8 +8667,15 @@ function wlEl(){
       <div class="wl-dag wlr wd4"><b id="wlDag">–</b><span id="wlDagT"></span></div>
       <div class="wl-chips wlr wd5" id="wlChips"></div>
     </div>
-    <div class="wl-url wlr wd6">cacaoboetiek.nl</div>`;
-  el.onclick=wlDicht;
+    <div class="wl-onder wlr wd6"><small>Wil je erbij zijn op 1 november?</small>
+      <span class="wl-cta">Meld je aan op <b>cacaoboetiek.nl</b></span></div>`;
+  el.onclick=wlOpnieuw;
+  el.querySelector('#wlX').onclick=e=>{ e.stopPropagation(); wlDicht() };
+  el.querySelector('#wlDet').onclick=e=>{ e.stopPropagation(); wlDicht(); mailLang=true; homeTegel('mail') };
+  /* omlaag vegen = sluiten */
+  let y0=null;
+  el.addEventListener('touchstart',e=>{ y0=e.touches[0].clientY },{passive:true});
+  el.addEventListener('touchend',e=>{ if(y0!=null&&e.changedTouches[0].clientY-y0>90){ el.dataset.veeg='1'; wlDicht() } y0=null });
   document.body.appendChild(el);
   return el;
 }
@@ -8685,7 +8704,8 @@ function wlOpen(){
   document.getElementById('wlNum').textContent='0';
   wlGetal=d.totaal; wlRest(d);
   document.body.classList.add('wlaan');
-  requestAnimationFrame(()=>el.classList.add('open'));
+  el.classList.add('wlreset'); void el.offsetWidth; el.classList.remove('wlreset');
+  void el.offsetWidth; el.classList.add('open');
   setTimeout(()=>wlTel(d.totaal),300);
   clearInterval(wlTik);
   /* zolang hij openstaat: elke 2 min Shopify opnieuw tellen, elke 5 s kijken
@@ -8698,6 +8718,14 @@ function wlOpen(){
       document.getElementById('wlNum').textContent=n.totaal; if(op) wlBump() }
     wlRest(n);
   },5000);
+}
+function wlOpnieuw(){
+  const el=document.getElementById('wl'); if(!el) return;
+  if(el.dataset.veeg){ delete el.dataset.veeg; return }
+  const d=wlData(); if(!d) return;
+  el.classList.add('wlreset'); document.getElementById('wlNum').textContent='0';
+  void el.offsetWidth; el.classList.remove('wlreset');
+  wlGetal=d.totaal; wlRest(d); setTimeout(()=>wlTel(d.totaal),300);
 }
 function wlDicht(){
   const el=document.getElementById('wl'); if(!el) return;
