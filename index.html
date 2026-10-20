@@ -2977,6 +2977,7 @@ body.wlaan #vversknop,body.wlaan #zweefknop{opacity:0!important;pointer-events:n
   height:44px;min-width:44px;padding:0 16px;border-radius:999px;cursor:pointer}
 .wl-balk button.x{padding:0;width:44px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:400;line-height:1}
 .wl-balk span{font-size:12px;color:#52525b}
+.wl-balk .wl-rechts{display:flex;gap:8px}
 .wl.open .wd7{transition-delay:3.4s}
 .wl.wlreset .wlr{transition:none!important;opacity:0!important;transform:translateY(14px)!important}
 </style>
@@ -4897,7 +4898,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v804 · 20 okt 2026';
+const APPVERSIE='v805 · 20 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8658,7 +8659,7 @@ function wlEl(){
   el=document.createElement('div'); el.id='wl'; el.className='wl';
   el.setAttribute('role','dialog'); el.setAttribute('aria-label','Wachtlijst');
   el.innerHTML=`<div class="wl-balk wlr wd7"><button type="button" class="x" id="wlX" aria-label="Sluiten">×</button>
-      <span>tik = opnieuw</span><button type="button" id="wlDet">Details</button></div>
+      <span>tik = opnieuw</span><span class="wl-rechts"><button type="button" id="wlAdr">Adressen</button><button type="button" id="wlDet">Details</button></span></div>
     <div class="wl-in">
       <div class="wl-lab wlr wd1"><i class="wl-live"></i>Wachtlijst · Cacaoboetiek</div>
       <div class="wl-num wlr wd2" id="wlNum">0</div>
@@ -8671,7 +8672,8 @@ function wlEl(){
       <span class="wl-cta">Meld je aan op <b>cacaoboetiek.nl</b></span></div>`;
   el.onclick=wlOpnieuw;
   el.querySelector('#wlX').onclick=e=>{ e.stopPropagation(); wlDicht() };
-  el.querySelector('#wlDet').onclick=e=>{ e.stopPropagation(); wlDicht(); mailLang=true; homeTegel('mail') };
+  el.querySelector('#wlDet').onclick=e=>{ e.stopPropagation(); wlDicht(); mailDetails() };
+  el.querySelector('#wlAdr').onclick=e=>{ e.stopPropagation(); wlDicht(); sheetMailAdressen() };
   /* omlaag vegen = sluiten */
   let y0=null;
   el.addEventListener('touchstart',e=>{ y0=e.touches[0].clientY },{passive:true});
@@ -8719,6 +8721,7 @@ function wlOpen(){
     wlRest(n);
   },5000);
 }
+function mailDetails(){ mailLang=true; homeTegel('mail') }
 function wlOpnieuw(){
   const el=document.getElementById('wl'); if(!el) return;
   if(el.dataset.veeg){ delete el.dataset.veeg; return }
@@ -8737,7 +8740,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') wlDicht() });
 (()=>{ let tm=null;
   const isMail=e=>{ const b=e.target.closest&&e.target.closest('.htegel'); return b&&/'mail'/.test(b.getAttribute('onclick')||'') };
   document.addEventListener('pointerdown',e=>{ if(!isMail(e)) return; mailLang=false;
-    tm=setTimeout(()=>{ mailLang=true; if(navigator.vibrate) navigator.vibrate(12); homeTegel('mail') },550) });
+    tm=setTimeout(()=>{ mailLang=true; if(navigator.vibrate) navigator.vibrate(12); mailDetails() },550) });
   ['pointerup','pointercancel','pointerleave'].forEach(n=>document.addEventListener(n,()=>clearTimeout(tm)));
   document.addEventListener('contextmenu',e=>{ if(isMail(e)) e.preventDefault() });
 })();
@@ -8773,7 +8776,7 @@ function maTeken(){
 }
 function sheetMailAdressen(){
   sheet('Abonnees','','');
-  sheetTerugZet(()=>homeTegel('mail'));
+  sheetTerugZet(()=>mailDetails());
   maTeken();
   if(maBezig) return;
   maBezig=true; maFout='';
