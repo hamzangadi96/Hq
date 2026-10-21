@@ -4968,7 +4968,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v811 · 21 okt 2026';
+const APPVERSIE='v812 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8940,7 +8940,7 @@ function maAdresWeg(id){
     : x.email+'\n\nHelemaal wissen uit Shopify? Dit kan niet ongedaan worden.';
   if(!confirm(vraag)) return;
   maWegBezig=id; maTeken();
-  roep('mailAdresWeg',{id,email:x.email}).then(r=>{
+  roep('mailAdressen',{weg:{id,email:x.email}}).then(r=>{
     maLijst=(maLijst||[]).filter(a=>a.id!==id);
     toast(r&&r.actie==='afgemeld'?'Afgemeld':'Gewist');
     mailVerversen(true);
