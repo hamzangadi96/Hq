@@ -2,6 +2,23 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
+<script>
+/* v806: vangnet voor een half geladen app. Brak de verbinding af vóór het
+   grote script, dan bleef je achter met een grijs scherm en twee lege
+   rondjes. Is de app na acht seconden nog niet gestart, dan zie je dit. */
+setTimeout(function(){
+  if(window.HQ_GESTART) return;
+  var d=document.createElement('div');
+  d.setAttribute('style','position:fixed;inset:0;z-index:2147483647;background:#f4f4f5;display:flex;'
+    +'flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center;'
+    +'font-family:Inter,system-ui,-apple-system,sans-serif;color:#18181b');
+  d.innerHTML='<b style="font-size:20px;letter-spacing:-.02em">De app is niet helemaal geladen</b>'
+    +'<span style="font-size:15px;color:#71717a;max-width:300px;line-height:1.45">Waarschijnlijk viel je verbinding even weg. Je gegevens zijn veilig.</span>'
+    +'<button style="margin-top:10px;height:52px;padding:0 28px;border:0;border-radius:999px;background:#18181b;color:#fff;font:600 16px Inter,system-ui,sans-serif">Opnieuw laden</button>';
+  d.querySelector('button').onclick=function(){ location.replace(location.pathname+'?v='+Date.now()) };
+  (document.body||document.documentElement).appendChild(d);
+},8000);
+</script>
 <!-- Beperkt waar de app scripts en verbindingen vandaan mag halen. Glipt er
      ooit toch iets langs de escaping, dan kan het niets naar buiten sturen.
      frame-ancestors werkt alleen als HTTP-header; die zet je bij Firebase
@@ -4898,7 +4915,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v805 · 20 okt 2026';
+const APPVERSIE='v806 · 21 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -36554,6 +36571,8 @@ window.addEventListener('unhandledrejection',ev=>{
   noodScherm(ev.reason||new Error('mislukte belofte'));
 });
 
+/* v806: tot hier gekomen = het hele script is binnen en draait (zie vangnet in <head>) */
+window.HQ_GESTART=true;
 let startKlaar=false;
 (async()=>{
   /* Elke stap apart, zodat één kapotte stap de rest niet meesleept. Zo krijg je
