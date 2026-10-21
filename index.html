@@ -2693,6 +2693,27 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .mlk .mlstaven span{flex:1;min-width:3px;border-radius:3px 3px 1px 1px;background:var(--grijs3)}
 .mlk .mlstaven span.nu{background:var(--ink)}
 .mlk .mlstaven span.later{background:var(--lijn)}
+/* v810: in de sheet is elke dag een tikbare kolom over de volle hoogte */
+.mlk .mlstaven.tik{height:64px;gap:0;margin-top:8px}
+.mlk .mlstaven.tik .mlkol{flex:1;min-width:0;height:100%;display:flex;align-items:flex-end;justify-content:center;padding:0 1.5px;background:none;border-radius:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mlk .mlstaven.tik .mlkol i{display:block;width:100%;border-radius:3px 3px 1px 1px;background:var(--grijs3)}
+.mlk .mlstaven.tik .mlkol.vandaag i{background:var(--grijs2)}
+.mlk .mlstaven.tik .mlkol.kies i{background:var(--ink)}
+.mlk .mlstaven.tik .mlkol.later{cursor:default}
+.mlk .mlstaven.tik .mlkol.later i{background:var(--lijn)}
+.mldag{margin-top:4px}
+.mldag .mldkop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
+.mldag .mldkop b{font-size:15px;font-weight:600;color:var(--ink)}
+.mldag .mldkop small{display:block;font-size:12.5px;color:var(--grijs);font-weight:400;margin-top:2px}
+.mldag .mldpijl{display:flex;gap:6px}
+.mldag .mldpijl button{width:44px;height:44px;border-radius:50%;background:var(--card);border:1px solid var(--lijn);font-size:18px;color:var(--ink);display:flex;align-items:center;justify-content:center}
+.mldag .mldpijl button:disabled{opacity:.3}
+.mldag .mldlijst{background:var(--card);border-radius:18px;overflow:hidden}
+.mldag .mldrij{display:flex;align-items:baseline;gap:14px;padding:13px 16px;border-top:1px solid var(--lijn);font-size:15px}
+.mldag .mldrij:first-child{border-top:0}
+.mldag .mldrij b{font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);min-width:44px}
+.mldag .mldrij span{color:var(--grijs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mldag .mldleeg{background:var(--card);border-radius:18px;padding:18px 16px;color:var(--grijs2);font-size:14px}
 .mlk .mlas{display:flex;justify-content:space-between;font-size:11px;color:var(--grijs2);margin-top:6px}
 .mlk .mlvoet{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;font-size:12.5px;color:var(--grijs)}
 .mlk .mlvoet strong{color:var(--ink);font-weight:600}
@@ -4942,7 +4963,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v809 · 21 okt 2026';
+const APPVERSIE='v810 · 21 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8585,6 +8606,8 @@ const filmAf=id=>!!((S.filmAf||{})[id]);
    of als je op de kaart tikt. */
 const MAILDOEL={sinds:'2026-10-01',tot:'2026-11-01',doel:250};
 let mailBezig=false, mailFout='', mailGroot=false;
+/* v810: dag die in de Mailinglijst-sheet open staat (null = vandaag) */
+let mailInSheet=false, mailDag=null, maGehaald=0;
 function mailVerversen(hand){
   const m=(S.werk||{}).mailinglijst;
   if(mailBezig||!fbUser) return;
@@ -8658,6 +8681,14 @@ function mailKaartHTML(){
     const dagen=[]; let d=MAILDOEL.sinds;
     for(let i=0;i<looptijd;i++){ dagen.push(d); d=iso(new Date(new Date(d+'T12:00:00').getTime()+864e5)) }
     const max=Math.max(1,...dagen.map(x=>m.perDag[x]||0));
+    if(mailInSheet){
+      const kies=mailDag||vandaag();
+      staven=`<span class="mlstaven tik">${dagen.map(x=>{const n=m.perDag[x]||0, later=x>vandaag();
+        return `<span class="mlkol${later?' later':''}${x===kies?' kies':x===vandaag()?' vandaag':''}"${
+          later?'':` onclick="event.stopPropagation();mailDagKies('${x}')"`}><i style="height:${
+          later?6:n?Math.max(8,Math.round(n/max*100)):6}%"></i></span>`}).join('')}</span>
+      <span class="mlas"><span>1 okt</span><span>1 nov</span></span>`;
+    } else
     staven=`<span class="mlstaven">${dagen.map(x=>{const n=m.perDag[x]||0, later=x>vandaag();
       return `<span class="${x===vandaag()?'nu':later?'later':''}" style="height:${
         later?6:n?Math.max(8,Math.round(n/max*100)):6}%"></span>`}).join('')}</span>
@@ -8680,7 +8711,53 @@ function mailKaartHTML(){
         <span>${rest?`Nog <strong>${rest}</strong> · ±${perDagNodig} per dag`:'Alles erbij is bonus'} · ${m.totaal} op je lijst</span>
         <span>${mailFout?'⚠ '+esc(mailFout):(mailBezig?'tellen…':tijd+' ↻')}</span>
       </span>
-    </button>`;
+    </button>${mailInSheet?mailDagHTML():''}`;
+}
+/* ═══════════ v810: aanmeldingen per dag, met tijdstip ═══════════
+   Tik op een staaf in de sheet: onder de grafiek staat wie zich die dag
+   aanmeldde en hoe laat. Haalt dezelfde lijst als "Abonnees bekijken"
+   (rechtstreeks uit Shopify, alleen in het geheugen, nergens opgeslagen). */
+function mailDagLaden(forceer){
+  if(maBezig) return;
+  if(!forceer&&maLijst&&Date.now()-maGehaald<2*60*1000) return;
+  maBezig=true; maFout='';
+  roep('mailAdressen',{sinds:'2000-01-01'}).then(r=>{ maLijst=(r&&r.lijst)||[]; maGehaald=Date.now() })
+    .catch(e=>{ maFout=(e&&e.message)||'Ophalen lukte niet.' })
+    .finally(()=>{ maBezig=false; mailSheetVernieuw(); if(typeof maTeken==='function') maTeken() });
+}
+function mailSheetVernieuw(){
+  if(homeSheet!=='mail'||!sheetOpen) return;
+  const sb=$('#sheetBody'), st=sb.scrollTop;
+  sb.classList.add('geenin'); sb.innerHTML=homeSheetBody('mail'); sb.scrollTop=st;
+}
+function mailDagKies(d){
+  if(!d||d>vandaag()||d<MAILDOEL.sinds) return;
+  mailDag=d; mailSheetVernieuw(); mailDagLaden(false);
+}
+function mailDagStap(r){
+  const d=iso(new Date(new Date((mailDag||vandaag())+'T12:00:00').getTime()+r*864e5));
+  mailDagKies(d);
+}
+function mailDagHTML(){
+  const d=mailDag||vandaag();
+  setTimeout(()=>mailDagLaden(false),0);
+  const dt=new Date(d+'T12:00:00');
+  let kop=dt.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'short'});
+  kop=kop.charAt(0).toUpperCase()+kop.slice(1);
+  const vorige=d>MAILDOEL.sinds, volgende=d<vandaag();
+  const pijlen=`<span class="mldpijl">
+      <button type="button" aria-label="Vorige dag" ${vorige?'':'disabled'} onclick="mailDagStap(-1)">‹</button>
+      <button type="button" aria-label="Volgende dag" ${volgende?'':'disabled'} onclick="mailDagStap(1)">›</button></span>`;
+  if(!maLijst) return `<div class="mldag"><div class="mldkop"><span><b>${esc(kop)}</b><small>${
+      maFout?'':'ophalen uit Shopify…'}</small></span>${pijlen}</div>
+    <div class="mldleeg">${maFout?esc(maFout):'Tijdstippen laden…'}</div></div>`;
+  const l=maLijst.filter(x=>x.datum===d).slice().sort((a,b)=>String(b.tijd).localeCompare(String(a.tijd)));
+  const uur=x=>new Date(x.tijd).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Amsterdam'});
+  const vn=x=>x.voornaam||(x.naam||'').split(' ')[0]||'—';
+  return `<div class="mldag"><div class="mldkop"><span><b>${esc(kop)}</b><small>${
+      l.length===1?'1 aanmelding':l.length+' aanmeldingen'}</small></span>${pijlen}</div>
+    ${l.length?`<div class="mldlijst">${l.map(x=>`<div class="mldrij"><b>${uur(x)}</b><span>${esc(vn(x))}</span></div>`).join('')}</div>`
+      :'<div class="mldleeg">Geen aanmeldingen deze dag</div>'}</div>`;
 }
 /* ═══════════ Wachtlijst-scherm (v803) ═══════════
    Tik op de Mailinglijst-tegel: een groot donker scherm om te filmen.
@@ -8852,7 +8929,7 @@ function sheetMailAdressen(){
   maTeken();
   if(maBezig) return;
   maBezig=true; maFout='';
-  roep('mailAdressen',{sinds:'2000-01-01'}).then(r=>{ maLijst=(r&&r.lijst)||[] })
+  roep('mailAdressen',{sinds:'2000-01-01'}).then(r=>{ maLijst=(r&&r.lijst)||[]; maGehaald=Date.now() })
     .catch(e=>{ maFout=(e&&e.message)||'Ophalen lukte niet.' })
     .finally(()=>{ maBezig=false; maTeken() });
 }
@@ -8876,7 +8953,7 @@ const HOMESHEETS={
   td:['Vandaag',()=>homeDagLijstHTML()+(homeDagTaken.length?'<div style="height:18px"></div>':'')+tedoenKaartHTML()],
   hyg:['Hygiëne vandaag',()=>(werkdagKaartHTML()||'<p class="wdleeg">Vandaag is geen werkdag.</p>')
     .replace('<span class="eyebrow">Hygiëne vandaag</span>','<span class="eyebrow"></span>')],
-  mail:['Mailinglijst',()=>{const o=mailGroot; mailGroot=true; const h=mailKaartHTML(); mailGroot=o;
+  mail:['Mailinglijst',()=>{const o=mailGroot; mailGroot=true; mailInSheet=true; let h; try{ h=mailKaartHTML() }finally{ mailGroot=o; mailInSheet=false }
     return h.replace(/<div class="blokkop"><span class="eyebrow">Mailinglijst<\/span>\s*<button class="kopknop"[^>]*>Kleiner<\/button><\/div>/,'')}],
   ctl:['Controles',()=>controleKaartHTML()||'<p class="wdleeg">Alles is op tijd.</p>'],
   stp:['Stempelkaarten',()=>stempelSheetHTML()],
@@ -9750,7 +9827,7 @@ function stempelPas(id,stempels,kaarten){
 }
 function homeTegel(k){
   if(k==='mail'&&!mailLang){ wlOpen(); return }
-  if(k==='mail') mailLang=false;
+  if(k==='mail'){ mailLang=false; mailDag=null }
   if(!HOMESHEETS[k]) return;
   sheet(HOMESHEETS[k][0],homeSheetBody(k),
     k==='mail'?`<button class="prim" style="margin-top:0" onclick="sheetMailAdressen()">Abonnees bekijken</button>`:'');

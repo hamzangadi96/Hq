@@ -559,6 +559,14 @@ exports.wisKoppeling = onCall(async req => {
    lijst, nieuw sinds die datum, en nieuw vandaag. Datums in Nederlandse tijd,
    anders telt een aanmelding om 01:00 bij de verkeerde dag. */
 const nlDag = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
+/* Het moment van aanmelden = wanneer de mail-toestemming op "ja" ging
+   (marketingUpdatedAt). createdAt is wanneer de klant ooit ontstond: een
+   klant van vorig jaar die zich vandaag aanmeldt, telde anders op die oude dag.
+   Het laatste van de twee, zodat een nieuwe pop-up-aanmelding gewoon klopt. */
+const aanmeldMoment = k => {
+  const c = k.createdAt, m = k.defaultEmailAddress && k.defaultEmailAddress.marketingUpdatedAt;
+  return m && m > c ? m : c;
+};
 
 exports.telMailinglijst = onCall(async req => {
   /* Elke fout die we niet zelf hebben voorzien, komt toch met uitleg terug —
@@ -584,7 +592,7 @@ async function telMailinglijstBinnen(req) {
       method: 'POST',
       headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({
-        query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt defaultEmailAddress{marketingState}} pageInfo{hasNextPage endCursor}}}',
+        query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt defaultEmailAddress{marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
         variables: { na }
       })
     });
@@ -606,7 +614,7 @@ async function telMailinglijstBinnen(req) {
     c.nodes.forEach(k => {
       if (!k.defaultEmailAddress || k.defaultEmailAddress.marketingState !== 'SUBSCRIBED') return;
       totaal++;
-      const dag = nlDag(k.createdAt);
+      const dag = nlDag(aanmeldMoment(k));
       if (dag >= sinds) { nieuw++; perDag[dag] = (perDag[dag] || 0) + 1; }
       if (dag === vandaag) nieuwVandaag++;
     });
@@ -633,7 +641,7 @@ exports.mailAdressen = onCall(async req => {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt firstName lastName numberOfOrders defaultEmailAddress{emailAddress marketingState}} pageInfo{hasNextPage endCursor}}}',
+          query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt firstName lastName numberOfOrders defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
           variables: { na }
         })
       });
@@ -644,9 +652,9 @@ exports.mailAdressen = onCall(async req => {
       c.nodes.forEach(k => {
         const e = k.defaultEmailAddress;
         if (!e || e.marketingState !== 'SUBSCRIBED') return;
-        const dag = nlDag(k.createdAt);
+        const moment = aanmeldMoment(k), dag = nlDag(moment);
         if (dag < sinds) return;
-        uit.push({ email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), datum: dag, tijd: k.createdAt,
+        uit.push({ email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), voornaam: k.firstName || '', datum: dag, tijd: moment,
           orders: parseInt(k.numberOfOrders, 10) || 0 });
       });
       if (!c.pageInfo.hasNextPage) break;
