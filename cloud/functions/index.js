@@ -641,7 +641,7 @@ exports.mailAdressen = onCall(async req => {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          query: 'query($na:String){customers(first:250,after:$na){nodes{createdAt firstName lastName numberOfOrders defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
+          query: 'query($na:String){customers(first:250,after:$na){nodes{id createdAt firstName lastName numberOfOrders defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
           variables: { na }
         })
       });
@@ -654,7 +654,7 @@ exports.mailAdressen = onCall(async req => {
         if (!e || e.marketingState !== 'SUBSCRIBED') return;
         const moment = aanmeldMoment(k), dag = nlDag(moment);
         if (dag < sinds) return;
-        uit.push({ email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), voornaam: k.firstName || '', datum: dag, tijd: moment,
+        uit.push({ id: String(k.id).split('/').pop(), email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), voornaam: k.firstName || '', datum: dag, tijd: moment,
           orders: parseInt(k.numberOfOrders, 10) || 0 });
       });
       if (!c.pageInfo.hasNextPage) break;
@@ -666,6 +666,71 @@ exports.mailAdressen = onCall(async req => {
     if (e instanceof HttpsError) throw e;
     console.error('mailAdressen', e);
     throw new HttpsError('internal', 'Ophalen mislukt: ' + String((e && e.message) || e).slice(0, 200));
+  }
+});
+
+/* ═══════════ Mailinglijst: testadres weghalen (v811) ═══════════
+   Voor adressen die Hamza zelf als test heeft ingevuld.
+   Nooit besteld → klant helemaal wissen uit Shopify (niet terug te draaien).
+   Wel besteld → Shopify laat wissen niet toe; dan alleen afmelden van mail.
+   De client vraagt eerst om bevestiging en geeft het e-mailadres mee; dat
+   moet kloppen met wat Shopify bij dit id heeft, anders gebeurt er niets. */
+exports.mailAdresWeg = onCall(async req => {
+  try {
+    const uid = wieBenJe(req);
+    const d = req.data || {};
+    const id = String(d.id || '');
+    if (!/^\d+$/.test(id)) throw new HttpsError('invalid-argument', 'Onbekende klant.');
+    let { winkel, token: t } = await token(uid);
+    let vers = false;
+    const gql = async (query, variables) => {
+      const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+        method: 'POST',
+        headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query, variables })
+      });
+      if (r.status === 401) {
+        await geheimRef(uid).child('shopify/token').remove();
+        throw new HttpsError('permission-denied', 'Shopify weigerde het token. Probeer het nog een keer.');
+      }
+      if (!r.ok) throw new HttpsError('internal', duiding(r.status, await r.text()));
+      const j = await r.json();
+      if (j.errors && j.errors.length) {
+        const tekst = JSON.stringify(j.errors);
+        if (/ACCESS_DENIED|write_customers|access/i.test(tekst)) {
+          if (!vers) {
+            vers = true;
+            await geheimRef(uid).child('shopify/token').remove();
+            ({ winkel, token: t } = await token(uid));
+            return gql(query, variables);
+          }
+          throw new HttpsError('permission-denied',
+            'HQ mag nog geen klanten aanpassen. Zet in het Shopify Dev Dashboard bij je app de scope write_customers aan en installeer de app opnieuw.');
+        }
+        throw new HttpsError('internal', 'Shopify gaf een fout: ' + tekst.slice(0, 200));
+      }
+      return j.data;
+    };
+    const gid = 'gid://shopify/Customer/' + id;
+    const c = (await gql('query($id:ID!){customer(id:$id){id numberOfOrders defaultEmailAddress{emailAddress}}}', { id: gid })).customer;
+    if (!c) return { actie: 'al-weg' };
+    const mail = ((c.defaultEmailAddress || {}).emailAddress || '').toLowerCase();
+    if (!d.email || mail !== String(d.email).toLowerCase()) {
+      throw new HttpsError('failed-precondition', 'Dit adres klopt niet meer met Shopify. Ververs de lijst en probeer opnieuw.');
+    }
+    const fout = ue => { if (ue && ue.length) throw new HttpsError('failed-precondition', 'Shopify: ' + ue.map(x => x.message).join(', ')); };
+    if ((parseInt(c.numberOfOrders, 10) || 0) === 0) {
+      const r = await gql('mutation($id:ID!){customerDelete(input:{id:$id}){deletedCustomerId userErrors{message}}}', { id: gid });
+      fout(r.customerDelete.userErrors);
+      return { actie: 'gewist' };
+    }
+    const r = await gql('mutation($id:ID!){customerEmailMarketingConsentUpdate(input:{customerId:$id,emailMarketingConsent:{marketingState:UNSUBSCRIBED}}){userErrors{message}}}', { id: gid });
+    fout(r.customerEmailMarketingConsentUpdate.userErrors);
+    return { actie: 'afgemeld' };
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    console.error('mailAdresWeg', e);
+    throw new HttpsError('internal', 'Weghalen mislukt: ' + String((e && e.message) || e).slice(0, 200));
   }
 });
 

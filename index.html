@@ -4521,6 +4521,11 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .sp2nm small{font-size:12.5px;font-weight:400;color:var(--grijs)}
 .sp2pil{font-size:12.5px;font-weight:700;color:var(--groen);background:#15803d14;border-radius:99px;padding:4px 10px;white-space:nowrap}
 .sp2rij .pijl svg{width:15px;height:15px;color:#a1a1aa}
+/* v811: testadres weghalen */
+.maweg{flex:none;width:44px;height:44px;margin:-6px -8px -6px 0;border:0;border-radius:50%;background:none;color:#a1a1aa;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.maweg svg{width:18px;height:18px}
+.maweg:active{background:#c0392b14;color:var(--rood,#c0392b)}
+.maweg[disabled]{opacity:.35}
 .sp2uit{margin-top:20px;background:var(--bg);border-radius:14px;padding:12px 14px}
 .sp2uit summary{font-size:14px;font-weight:600;cursor:pointer;list-style:none}
 .sp2uit summary::-webkit-details-marker{display:none}
@@ -4963,7 +4968,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v810 · 21 okt 2026';
+const APPVERSIE='v811 · 21 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8915,13 +8920,32 @@ function maTeken(){
     </div>
     ${l.length?Object.keys(per).sort().reverse().map(m=>`<div class="sp2kop"><span>${esc(new Date(m+'-15T12:00:00').toLocaleDateString('nl-NL',{month:'long',year:'numeric'}))}</span><small>${per[m].length}</small></div>
       <div class="sp2lijst">${per[m].map(x=>`<div class="sp2rij" style="cursor:default"><span class="sp2nm" style="overflow-wrap:anywhere">${esc(x.email)}<small>${x.naam?esc(naamNet(x.naam))+' · ':''}${
-        new Date(x.datum+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}</small></span>${x.orders?`<span class="sp2pil">${x.orders}× besteld</span>`:''}</div>`).join('')}</div>`).join('')
+        new Date(x.datum+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}</small></span>${x.orders?`<span class="sp2pil">${x.orders}× besteld</span>`:''}${
+        x.id?`<button type="button" class="maweg" aria-label="Weghalen" data-maweg="${esc(x.id)}" ${maWegBezig===x.id?'disabled':''}>${svg(I.prul)}</button>`:''}</div>`).join('')}</div>`).join('')
       :'<p class="wdleeg">Niemand in deze groep.</p>'}`;
   $('#sheetVoet').innerHTML=l.length?`<button class="prim" style="margin-top:0" id="maKop">${l.length} adressen kopiëren</button>`:'';
   $$('[data-map]').forEach(b=>b.onclick=()=>{ maPeriode=b.dataset.map; maTeken() });
   $$('[data-maf]').forEach(b=>b.onclick=()=>{ maFilter=b.dataset.maf; maTeken() });
+  $$('[data-maweg]').forEach(b=>b.onclick=()=>maAdresWeg(b.dataset.maweg));
   if($('#maKop')) $('#maKop').onclick=()=>{ const t=l.map(x=>x.email).join('\n');
     (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast(l.length+' adressen gekopieerd')).catch(()=>toast('Kopiëren lukte niet')) };
+}
+/* v811: testadres weghalen. Nooit besteld → gewist uit Shopify,
+   wel besteld → afgemeld (Shopify laat wissen dan niet toe). */
+let maWegBezig=null;
+function maAdresWeg(id){
+  const x=(maLijst||[]).find(a=>a.id===id); if(!x||maWegBezig) return;
+  const vraag=x.orders
+    ? x.email+'\n\nDit adres heeft '+x.orders+'× besteld, dus Shopify laat het niet wissen. Wel afmelden van de mailinglijst?'
+    : x.email+'\n\nHelemaal wissen uit Shopify? Dit kan niet ongedaan worden.';
+  if(!confirm(vraag)) return;
+  maWegBezig=id; maTeken();
+  roep('mailAdresWeg',{id,email:x.email}).then(r=>{
+    maLijst=(maLijst||[]).filter(a=>a.id!==id);
+    toast(r&&r.actie==='afgemeld'?'Afgemeld':'Gewist');
+    mailVerversen(true);
+  }).catch(e=>toast((e&&e.message)||'Weghalen lukte niet'))
+    .finally(()=>{ maWegBezig=null; maTeken() });
 }
 function sheetMailAdressen(){
   sheet('Abonnees','','');
