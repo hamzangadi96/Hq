@@ -4942,7 +4942,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v808 · 21 okt 2026';
+const APPVERSIE='v809 · 21 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8688,8 +8688,8 @@ function mailKaartHTML(){
    staan er bewust niet op — dat is stuurinfo voor jou, niet voor de kijker.
    Lang drukken op de tegel opent de oude detailkaart. */
 const WL_OPENING='2026-11-01';
-/* v807: maximaal 350 aanmeldingen op de wachtlijst */
-const WL_MAX=350;
+/* v809: maximaal 250 plekken voor deze drop (zelfde doel als MAILDOEL) */
+const WL_MAX=MAILDOEL.doel;
 let wlTik=null, wlRaf=null, wlGetal=0, mailLang=false;
 function wlData(){
   let m=(S.werk||{}).mailinglijst;
@@ -8698,7 +8698,9 @@ function wlData(){
   let week=0;
   if(m.perDag){ const nu=new Date();
     for(let i=0;i<7;i++){ const d=iso(new Date(nu.getTime()-i*864e5)); week+=m.perDag[d]||0 } }
-  return {totaal:m.totaal||m.nieuw||0, nieuw:m.nieuw||0, vandaag:m.vandaag||0, week};
+  /* v809: alleen wie zich voor deze drop heeft aangemeld (sinds MAILDOEL.sinds),
+     niet de hele lijst sinds 2025 */
+  return {totaal:m.nieuw||0, nieuw:m.nieuw||0, vandaag:m.vandaag||0, week};
 }
 function wlEl(){
   let el=document.getElementById('wl'); if(el) return el;
@@ -8707,7 +8709,7 @@ function wlEl(){
   el.innerHTML=`<div class="wl-balk wlr wd7"><button type="button" class="x" id="wlX" aria-label="Sluiten">×</button>
       <span>tik = opnieuw</span><span class="wl-rechts"><button type="button" id="wlAdr">Adressen</button><button type="button" id="wlDet">Details</button></span></div>
     <div class="wl-in">
-      <div class="wl-lab wlr wd1"><i class="wl-live"></i><span id="wlLab">Wachtlijst live</span><em>Cacaoboetiek</em></div>
+      <div class="wl-lab wlr wd1"><i class="wl-live"></i><span id="wlLab">Drop · 1 november</span><em>Cacaoboetiek</em></div>
       <div class="wl-tel wlr wd2"><span class="wl-num" id="wlNum">0</span>
         <span class="wl-naast"><span class="wl-max">/${WL_MAX}</span><span class="wl-sub">plekken<br>bezet</span></span></div>
       <div class="wl-raster wlr wd3" id="wlRaster">${'<i></i>'.repeat(WL_MAX)}</div>
@@ -8760,7 +8762,7 @@ function wlRest(d){
   const dg=dagenTussen(vandaag(),WL_OPENING), over=Math.max(WL_MAX-d.totaal,0);
   wlNieuw=Math.min(d.vandaag||0,d.totaal);
   const el=document.getElementById('wl'); if(el) el.classList.toggle('vol',over===0);
-  $('#wlLab').textContent=over>0?'Wachtlijst live':'Wachtlijst vol';
+  $('#wlLab').textContent=over>0?'Drop · 1 november':'Drop · vol';
   $('#wlDag').textContent=dg>0?dg:'Open';
   $('#wlDagT').textContent=dg>1?'dagen te gaan':dg===1?'dag te gaan':'webshop live';
   $('#wlWeek').textContent=d.week>0?'+'+d.week:'0';
