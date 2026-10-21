@@ -2961,31 +2961,46 @@ body.wlaan #vversknop,body.wlaan #zweefknop{opacity:0!important;pointer-events:n
   background:radial-gradient(circle,rgba(255,255,255,.07) 0%,rgba(255,255,255,0) 65%);
   top:50%;left:50%;transform:translate(-50%,-58%) scale(.6);transition:transform 1.4s cubic-bezier(.2,.8,.2,1)}
 .wl.open::before{transform:translate(-50%,-58%) scale(1)}
-.wl-in{position:relative;width:100%;max-width:400px;text-align:center}
+.wl-in{position:relative;width:100%;max-width:380px;text-align:center}
+/* v807: wachtlijst met limiet van 350 — getal / max, balk, plekken over */
 .wl .wlr{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.8,.2,1)}
 .wl.open .wlr{opacity:1;transform:none}
-.wl.open .wd1{transition-delay:.1s}.wl.open .wd2{transition-delay:.25s}.wl.open .wd3{transition-delay:1.5s}
-.wl.open .wd4{transition-delay:1.75s}.wl.open .wd5{transition-delay:2s}.wl.open .wd6{transition-delay:2.2s}
-.wl-lab{font-size:13px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:#a1a1aa;
+.wl.open .wd1{transition-delay:.1s}.wl.open .wd2{transition-delay:.2s}.wl.open .wd3{transition-delay:.3s}
+.wl.open .wd4{transition-delay:1.9s}.wl.open .wd6{transition-delay:2.2s}
+.wl-lab{font-size:12.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:#a1a1aa;
   display:inline-flex;align-items:center;gap:10px}
 .wl-live{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:wlpuls 2s infinite}
 @keyframes wlpuls{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 12px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
-.wl-num{font-size:clamp(116px,38vw,172px);font-weight:700;letter-spacing:-.06em;line-height:.9;
-  margin-top:28px;font-variant-numeric:tabular-nums}
+.wl-tel{display:flex;align-items:baseline;justify-content:center;margin-top:26px;font-variant-numeric:tabular-nums}
+.wl-num{font-size:clamp(104px,33vw,156px);font-weight:700;letter-spacing:-.065em;line-height:.85;display:inline-block}
 .wl-num.wlbump{animation:wlbump .5s ease}
 @keyframes wlbump{40%{transform:scale(1.06)}}
-.wl-sub{font-size:22px;font-weight:500;color:#d4d4d8;margin-top:14px;letter-spacing:-.01em}
-.wl-lijn{width:40px;height:1px;background:#3f3f46;margin:40px auto}
-.wl-dag{display:flex;align-items:baseline;justify-content:center;gap:10px}
-.wl-dag b{font-size:56px;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
-.wl-dag span{font-size:17px;color:#a1a1aa;text-align:left;line-height:1.25}
-.wl-chips{display:flex;justify-content:center;gap:10px;margin-top:32px;flex-wrap:wrap}
-.wl-chip{font-size:14px;font-weight:500;padding:9px 14px;border-radius:999px;background:#27272a;color:#e4e4e7}
-.wl-chip.op{color:#4ade80}
+.wl-max{font-size:clamp(30px,9vw,40px);font-weight:600;letter-spacing:-.04em;color:#52525b;margin-left:6px}
+.wl-sub{font-size:19px;font-weight:500;color:#a1a1aa;margin-top:14px;letter-spacing:-.01em}
+.wl-balkje{margin-top:34px}
+.wl-baan{position:relative;height:14px;border-radius:999px;background:#27272a;overflow:hidden}
+.wl-vul{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:999px;
+  background:linear-gradient(90deg,#d4d4d8,#fff);box-shadow:0 0 24px rgba(255,255,255,.35);overflow:hidden}
+.wl-vul::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent);
+  transform:translateX(-100%);animation:wlglans 2.6s ease-in-out 2s infinite}
+@keyframes wlglans{60%,100%{transform:translateX(100%)}}
+.wl-schaal{display:flex;justify-content:space-between;margin-top:12px;font-size:14px;font-weight:500;color:#71717a;
+  font-variant-numeric:tabular-nums}
+.wl-schaal b{color:#4ade80;font-weight:600}
+.wl.vol .wl-schaal b{color:#fbbf24}
+.wl-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:34px;background:#1f1f23;
+  border:1px solid #2a2a2e;border-radius:18px;padding:18px 0}
+.wl-stat{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center}
+.wl-stat+.wl-stat{border-left:1px solid #2a2a2e}
+.wl-stat b{font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.wl-stat b.op{color:#4ade80}
+.wl-stat span{font-size:12.5px;color:#a1a1aa;line-height:1.25}
 .wl-onder{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 28px);
-  display:flex;flex-direction:column;align-items:center;gap:10px}
-.wl-onder small{font-size:13px;color:#71717a}
-.wl-cta{background:#fff;color:#18181b;font-size:16px;font-weight:600;padding:15px 24px;border-radius:999px;
+  display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 24px}
+.wl-onder small{font-size:14px;color:#a1a1aa}
+.wl-onder small b{color:#fff;font-weight:600}
+.wl-cta{background:#fff;color:#18181b;font-size:16px;font-weight:600;padding:16px 26px;border-radius:999px;
   letter-spacing:-.01em;box-shadow:0 8px 30px rgba(0,0,0,.35)}
 .wl-cta b{font-weight:700}
 .wl-balk{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 10px);padding:0 14px;
@@ -4915,7 +4930,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v806 · 21 okt 2026';
+const APPVERSIE='v807 · 21 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8661,6 +8676,8 @@ function mailKaartHTML(){
    staan er bewust niet op — dat is stuurinfo voor jou, niet voor de kijker.
    Lang drukken op de tegel opent de oude detailkaart. */
 const WL_OPENING='2026-11-01';
+/* v807: maximaal 350 aanmeldingen op de wachtlijst */
+const WL_MAX=350;
 let wlTik=null, wlRaf=null, wlGetal=0, mailLang=false;
 function wlData(){
   let m=(S.werk||{}).mailinglijst;
@@ -8679,14 +8696,14 @@ function wlEl(){
       <span>tik = opnieuw</span><span class="wl-rechts"><button type="button" id="wlAdr">Adressen</button><button type="button" id="wlDet">Details</button></span></div>
     <div class="wl-in">
       <div class="wl-lab wlr wd1"><i class="wl-live"></i>Wachtlijst · Cacaoboetiek</div>
-      <div class="wl-num wlr wd2" id="wlNum">0</div>
-      <div class="wl-sub wlr wd2">mensen wachten mee</div>
-      <div class="wl-lijn wlr wd3"></div>
-      <div class="wl-dag wlr wd4"><b id="wlDag">–</b><span id="wlDagT"></span></div>
-      <div class="wl-chips wlr wd5" id="wlChips"></div>
+      <div class="wl-tel wlr wd2"><span class="wl-num" id="wlNum">0</span><span class="wl-max">/${WL_MAX}</span></div>
+      <div class="wl-sub wlr wd2">aanmeldingen voor de opening</div>
+      <div class="wl-balkje wlr wd3"><div class="wl-baan"><i class="wl-vul" id="wlVul"></i></div>
+        <div class="wl-schaal"><span id="wlPct">0% vol</span><b id="wlOver">nog ${WL_MAX} plekken</b></div></div>
+      <div class="wl-stats wlr wd4" id="wlStats"></div>
     </div>
-    <div class="wl-onder wlr wd6"><small>Wil je erbij zijn op 1 november?</small>
-      <span class="wl-cta">Meld je aan op <b>cacaoboetiek.nl</b></span></div>`;
+    <div class="wl-onder wlr wd6"><small id="wlOnder"></small>
+      <span class="wl-cta" id="wlCta">Meld je aan op <b>cacaoboetiek.nl</b></span></div>`;
   el.onclick=wlOpnieuw;
   el.querySelector('#wlX').onclick=e=>{ e.stopPropagation(); wlDicht() };
   el.querySelector('#wlDet').onclick=e=>{ e.stopPropagation(); wlDicht(); mailDetails() };
@@ -8700,27 +8717,39 @@ function wlEl(){
 }
 function wlBump(){ const n=document.getElementById('wlNum'); if(!n) return;
   n.classList.remove('wlbump'); void n.offsetWidth; n.classList.add('wlbump') }
+/* getal, balk en "nog x plekken" lopen samen op */
+function wlZet(n){
+  const pct=Math.min(n/WL_MAX,1), over=Math.max(WL_MAX-n,0);
+  const num=document.getElementById('wlNum'), vul=document.getElementById('wlVul');
+  if(num) num.textContent=n;
+  if(vul) vul.style.width=(pct*100).toFixed(2)+'%';
+  const p=document.getElementById('wlPct'); if(p) p.textContent=Math.round(pct*100)+'% vol';
+  const o=document.getElementById('wlOver');
+  if(o) o.textContent=over>0?'nog '+over+' plek'+(over===1?'':'ken'):'wachtlijst vol';
+}
 function wlTel(naar){
   cancelAnimationFrame(wlRaf);
-  const n=document.getElementById('wlNum'), t0=performance.now(), ms=1400;
+  const t0=performance.now(), ms=1600;
   const stap=t=>{ const p=Math.min((t-t0)/ms,1), e=1-Math.pow(1-p,4);
-    n.textContent=Math.round(naar*e);
+    wlZet(Math.round(naar*e));
     if(p<1) wlRaf=requestAnimationFrame(stap); else wlBump() };
   wlRaf=requestAnimationFrame(stap);
 }
 function wlRest(d){
-  const dg=dagenTussen(vandaag(),WL_OPENING);
-  $('#wlDag').textContent=dg>0?dg:'Open';
-  $('#wlDagT').innerHTML=dg>1?'dagen tot<br>de opening':dg===1?'dag tot<br>de opening':'de webshop<br>is open';
-  const c=[];
-  if(d.week>0) c.push(`<span class="wl-chip op">+${d.week} deze week</span>`);
-  if(d.vandaag>0) c.push(`<span class="wl-chip">+${d.vandaag} vandaag</span>`);
-  $('#wlChips').innerHTML=c.join('');
+  const dg=dagenTussen(vandaag(),WL_OPENING), over=Math.max(WL_MAX-d.totaal,0);
+  const el=document.getElementById('wl'); if(el) el.classList.toggle('vol',over===0);
+  const cel=(w,t,op)=>`<div class="wl-stat"><b${op?' class="op"':''}>${w}</b><span>${t}</span></div>`;
+  $('#wlStats').innerHTML=
+    (dg>0?cel(dg,dg===1?'dag tot<br>opening':'dagen tot<br>opening'):cel('Open','webshop<br>is live'))
+    +cel(d.week>0?'+'+d.week:'0','deze<br>week',d.week>0)
+    +cel(d.vandaag>0?'+'+d.vandaag:'0','vandaag<br>erbij',d.vandaag>0);
+  $('#wlOnder').innerHTML=over>0?'Wil je erbij zijn op 1 november?':'De wachtlijst is vol. Bedankt!';
+  $('#wlCta').innerHTML=over>0?'Meld je aan op <b>cacaoboetiek.nl</b>':'Open op 1 november · <b>cacaoboetiek.nl</b>';
 }
 function wlOpen(){
   const d=wlData(), el=wlEl();
   if(!d){ mailVerversen(true); toast('Even tellen…'); return }
-  document.getElementById('wlNum').textContent='0';
+  wlZet(0);
   wlGetal=d.totaal; wlRest(d);
   document.body.classList.add('wlaan');
   el.classList.add('wlreset'); void el.offsetWidth; el.classList.remove('wlreset');
@@ -8734,7 +8763,7 @@ function wlOpen(){
     if(++teller%24===0) mailVerversen(true);
     const n=wlData(); if(!n) return;
     if(n.totaal!==wlGetal){ const op=n.totaal>wlGetal; wlGetal=n.totaal;
-      document.getElementById('wlNum').textContent=n.totaal; if(op) wlBump() }
+      wlZet(n.totaal); if(op) wlBump() }
     wlRest(n);
   },5000);
 }
@@ -8743,7 +8772,7 @@ function wlOpnieuw(){
   const el=document.getElementById('wl'); if(!el) return;
   if(el.dataset.veeg){ delete el.dataset.veeg; return }
   const d=wlData(); if(!d) return;
-  el.classList.add('wlreset'); document.getElementById('wlNum').textContent='0';
+  el.classList.add('wlreset'); wlZet(0);
   void el.offsetWidth; el.classList.remove('wlreset');
   wlGetal=d.totaal; wlRest(d); setTimeout(()=>wlTel(d.totaal),300);
 }
