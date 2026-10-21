@@ -2962,46 +2962,58 @@ body.wlaan #vversknop,body.wlaan #zweefknop{opacity:0!important;pointer-events:n
   top:50%;left:50%;transform:translate(-50%,-58%) scale(.6);transition:transform 1.4s cubic-bezier(.2,.8,.2,1)}
 .wl.open::before{transform:translate(-50%,-58%) scale(1)}
 .wl-in{position:relative;width:100%;max-width:380px;text-align:center}
-/* v807: wachtlijst met limiet van 350 — getal / max, balk, plekken over */
+/* v808: wachtlijst als stippenraster — 350 plekken, elke aanmelding één stip */
 .wl .wlr{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.8,.2,1)}
 .wl.open .wlr{opacity:1;transform:none}
 .wl.open .wd1{transition-delay:.1s}.wl.open .wd2{transition-delay:.2s}.wl.open .wd3{transition-delay:.3s}
-.wl.open .wd4{transition-delay:1.9s}.wl.open .wd6{transition-delay:2.2s}
-.wl-lab{font-size:12.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:#a1a1aa;
-  display:inline-flex;align-items:center;gap:10px}
+.wl.open .wd4{transition-delay:2.1s}.wl.open .wd6{transition-delay:2.4s}
+.wl-in{position:relative;width:100%;max-width:372px;text-align:left;margin-bottom:118px;margin-top:40px}
+.wl-lab{font-size:12px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:#a1a1aa;
+  display:flex;align-items:center;gap:10px}
+.wl-lab em{font-style:normal;margin-left:auto;color:#71717a;letter-spacing:.14em}
 .wl-live{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:wlpuls 2s infinite}
+.wl.vol .wl-live{background:#f59e0b;animation:none}
 @keyframes wlpuls{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 12px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
-.wl-tel{display:flex;align-items:baseline;justify-content:center;margin-top:26px;font-variant-numeric:tabular-nums}
-.wl-num{font-size:clamp(104px,33vw,156px);font-weight:700;letter-spacing:-.065em;line-height:.85;display:inline-block}
+.wl-tel{display:flex;align-items:flex-end;gap:12px;margin-top:22px;font-variant-numeric:tabular-nums}
+.wl-num{font-size:clamp(108px,34vw,148px);font-weight:800;letter-spacing:-.07em;line-height:.8;display:inline-block;
+  transform-origin:left bottom;margin-left:-6px}
 .wl-num.wlbump{animation:wlbump .5s ease}
-@keyframes wlbump{40%{transform:scale(1.06)}}
-.wl-max{font-size:clamp(30px,9vw,40px);font-weight:600;letter-spacing:-.04em;color:#52525b;margin-left:6px}
-.wl-sub{font-size:19px;font-weight:500;color:#a1a1aa;margin-top:14px;letter-spacing:-.01em}
-.wl-balkje{margin-top:34px}
-.wl-baan{position:relative;height:14px;border-radius:999px;background:#27272a;overflow:hidden}
-.wl-vul{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:999px;
-  background:linear-gradient(90deg,#d4d4d8,#fff);box-shadow:0 0 24px rgba(255,255,255,.35);overflow:hidden}
-.wl-vul::after{content:"";position:absolute;inset:0;border-radius:inherit;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent);
-  transform:translateX(-100%);animation:wlglans 2.6s ease-in-out 2s infinite}
-@keyframes wlglans{60%,100%{transform:translateX(100%)}}
-.wl-schaal{display:flex;justify-content:space-between;margin-top:12px;font-size:14px;font-weight:500;color:#71717a;
-  font-variant-numeric:tabular-nums}
-.wl-schaal b{color:#4ade80;font-weight:600}
-.wl.vol .wl-schaal b{color:#fbbf24}
-.wl-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:34px;background:#1f1f23;
-  border:1px solid #2a2a2e;border-radius:18px;padding:18px 0}
-.wl-stat{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center}
-.wl-stat+.wl-stat{border-left:1px solid #2a2a2e}
-.wl-stat b{font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
-.wl-stat b.op{color:#4ade80}
-.wl-stat span{font-size:12.5px;color:#a1a1aa;line-height:1.25}
-.wl-onder{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 28px);
+@keyframes wlbump{40%{transform:scale(1.05)}}
+.wl-naast{display:flex;flex-direction:column;gap:4px;padding-bottom:6px}
+.wl-max{font-size:30px;font-weight:700;letter-spacing:-.04em;color:#52525b;line-height:1}
+.wl-sub{font-size:15px;font-weight:500;color:#a1a1aa;line-height:1.25}
+/* het raster */
+.wl-raster{display:grid;grid-template-columns:repeat(25,1fr);gap:clamp(4px,1.3vw,5.5px);margin-top:34px}
+.wl-raster i{aspect-ratio:1;border-radius:50%;background:#34343a;transform:scale(.62);
+  transition:transform .35s cubic-bezier(.3,1.6,.5,1),background .25s ease,box-shadow .25s ease}
+.wl-raster i.on{background:#fafafa;transform:scale(1)}
+.wl-raster i.nw{background:#4ade80;box-shadow:0 0 10px rgba(74,222,128,.75);transform:scale(1)}
+.wl-raster.klaar i.nw{animation:wlstip 2.4s ease-in-out infinite}
+@keyframes wlstip{50%{box-shadow:0 0 2px rgba(74,222,128,.2);opacity:.75}}
+.wl.vol .wl-raster i.on{background:#fbbf24}
+.wl-leg{display:flex;gap:16px;margin-top:16px;font-size:13px;color:#a1a1aa;font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.wl-leg span{display:inline-flex;align-items:center;gap:7px}
+.wl-leg i{width:9px;height:9px;border-radius:50%;background:#fafafa}
+.wl-leg i.nw{background:#4ade80;box-shadow:0 0 8px rgba(74,222,128,.7)}
+.wl-leg i.vr{background:#34343a}
+.wl-leg b{color:#fff;font-weight:600}
+/* nog x plekken */
+.wl-over{display:flex;align-items:center;justify-content:space-between;margin-top:30px;padding:18px 20px;
+  border-radius:18px;background:linear-gradient(135deg,rgba(74,222,128,.14),rgba(74,222,128,.04));
+  border:1px solid rgba(74,222,128,.22)}
+.wl-over div{display:flex;flex-direction:column;gap:5px;flex:1}
+.wl-over div+div{border-left:1px solid rgba(255,255,255,.08);padding-left:14px;margin-left:14px}
+.wl-over b{font-size:28px;font-weight:700;letter-spacing:-.035em;color:#4ade80;line-height:1;font-variant-numeric:tabular-nums}
+.wl-over small{font-size:13px;color:#a1a1aa;white-space:nowrap}
+.wl-over .r b{color:#fff}
+.wl.vol .wl-over{background:linear-gradient(135deg,rgba(251,191,36,.16),rgba(251,191,36,.04));border-color:rgba(251,191,36,.25)}
+.wl.vol .wl-over div:first-child b{color:#fbbf24}
+.wl.vol .wl-leg i:not(.nw):not(.vr){background:#fbbf24}
+.wl-onder{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 26px);
   display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 24px}
 .wl-onder small{font-size:14px;color:#a1a1aa}
-.wl-onder small b{color:#fff;font-weight:600}
-.wl-cta{background:#fff;color:#18181b;font-size:16px;font-weight:600;padding:16px 26px;border-radius:999px;
-  letter-spacing:-.01em;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.wl-cta{background:#fff;color:#18181b;font-size:16px;font-weight:600;padding:17px 28px;border-radius:999px;
+  letter-spacing:-.01em;box-shadow:0 10px 40px rgba(255,255,255,.12)}
 .wl-cta b{font-weight:700}
 .wl-balk{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 10px);padding:0 14px;
   display:flex;justify-content:space-between;align-items:center}
@@ -4930,7 +4942,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v807 · 21 okt 2026';
+const APPVERSIE='v808 · 21 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -8695,12 +8707,14 @@ function wlEl(){
   el.innerHTML=`<div class="wl-balk wlr wd7"><button type="button" class="x" id="wlX" aria-label="Sluiten">×</button>
       <span>tik = opnieuw</span><span class="wl-rechts"><button type="button" id="wlAdr">Adressen</button><button type="button" id="wlDet">Details</button></span></div>
     <div class="wl-in">
-      <div class="wl-lab wlr wd1"><i class="wl-live"></i>Wachtlijst · Cacaoboetiek</div>
-      <div class="wl-tel wlr wd2"><span class="wl-num" id="wlNum">0</span><span class="wl-max">/${WL_MAX}</span></div>
-      <div class="wl-sub wlr wd2">aanmeldingen voor de opening</div>
-      <div class="wl-balkje wlr wd3"><div class="wl-baan"><i class="wl-vul" id="wlVul"></i></div>
-        <div class="wl-schaal"><span id="wlPct">0% vol</span><b id="wlOver">nog ${WL_MAX} plekken</b></div></div>
-      <div class="wl-stats wlr wd4" id="wlStats"></div>
+      <div class="wl-lab wlr wd1"><i class="wl-live"></i><span id="wlLab">Wachtlijst live</span><em>Cacaoboetiek</em></div>
+      <div class="wl-tel wlr wd2"><span class="wl-num" id="wlNum">0</span>
+        <span class="wl-naast"><span class="wl-max">/${WL_MAX}</span><span class="wl-sub">plekken<br>bezet</span></span></div>
+      <div class="wl-raster wlr wd3" id="wlRaster">${'<i></i>'.repeat(WL_MAX)}</div>
+      <div class="wl-leg wlr wd4" id="wlLeg"></div>
+      <div class="wl-over wlr wd4"><div><b id="wlOver">${WL_MAX}</b><small id="wlOverT">plekken vrij</small></div>
+        <div class="r"><b id="wlWeek">0</b><small>deze week</small></div>
+        <div class="r"><b id="wlDag">–</b><small id="wlDagT">dagen tot opening</small></div></div>
     </div>
     <div class="wl-onder wlr wd6"><small id="wlOnder"></small>
       <span class="wl-cta" id="wlCta">Meld je aan op <b>cacaoboetiek.nl</b></span></div>`;
@@ -8718,33 +8732,43 @@ function wlEl(){
 function wlBump(){ const n=document.getElementById('wlNum'); if(!n) return;
   n.classList.remove('wlbump'); void n.offsetWidth; n.classList.add('wlbump') }
 /* getal, balk en "nog x plekken" lopen samen op */
+let wlNieuw=0, wlAan=0;
+/* getal en stippen lopen samen op; de laatste aanmeldingen van vandaag zijn groen */
 function wlZet(n){
-  const pct=Math.min(n/WL_MAX,1), over=Math.max(WL_MAX-n,0);
-  const num=document.getElementById('wlNum'), vul=document.getElementById('wlVul');
-  if(num) num.textContent=n;
-  if(vul) vul.style.width=(pct*100).toFixed(2)+'%';
-  const p=document.getElementById('wlPct'); if(p) p.textContent=Math.round(pct*100)+'% vol';
-  const o=document.getElementById('wlOver');
-  if(o) o.textContent=over>0?'nog '+over+' plek'+(over===1?'':'ken'):'wachtlijst vol';
+  n=Math.max(0,n);
+  const num=document.getElementById('wlNum'); if(num) num.textContent=n;
+  const r=document.getElementById('wlRaster');
+  if(r){ const st=r.children, vanaf=Math.max(0,n-wlNieuw);
+    for(let i=0;i<st.length;i++){
+      const c=i<n?(i>=vanaf?'nw':'on'):'';
+      if(st[i].className!==c) st[i].className=c } }
+  const over=Math.max(WL_MAX-n,0), o=document.getElementById('wlOver');
+  if(o) o.textContent=over>0?over:'Vol';
+  const ot=document.getElementById('wlOverT');
+  if(ot) ot.textContent=over>0?(over===1?'plek vrij':'plekken vrij'):'geen plek meer';
 }
 function wlTel(naar){
   cancelAnimationFrame(wlRaf);
-  const t0=performance.now(), ms=1600;
-  const stap=t=>{ const p=Math.min((t-t0)/ms,1), e=1-Math.pow(1-p,4);
+  const r=document.getElementById('wlRaster'); if(r) r.classList.remove('klaar');
+  const t0=performance.now(), ms=1900;
+  const stap=t=>{ const p=Math.min((t-t0)/ms,1), e=1-Math.pow(1-p,3);
     wlZet(Math.round(naar*e));
-    if(p<1) wlRaf=requestAnimationFrame(stap); else wlBump() };
+    if(p<1) wlRaf=requestAnimationFrame(stap); else { wlBump(); if(r) r.classList.add('klaar') } };
   wlRaf=requestAnimationFrame(stap);
 }
 function wlRest(d){
   const dg=dagenTussen(vandaag(),WL_OPENING), over=Math.max(WL_MAX-d.totaal,0);
+  wlNieuw=Math.min(d.vandaag||0,d.totaal);
   const el=document.getElementById('wl'); if(el) el.classList.toggle('vol',over===0);
-  const cel=(w,t,op)=>`<div class="wl-stat"><b${op?' class="op"':''}>${w}</b><span>${t}</span></div>`;
-  $('#wlStats').innerHTML=
-    (dg>0?cel(dg,dg===1?'dag tot<br>opening':'dagen tot<br>opening'):cel('Open','webshop<br>is live'))
-    +cel(d.week>0?'+'+d.week:'0','deze<br>week',d.week>0)
-    +cel(d.vandaag>0?'+'+d.vandaag:'0','vandaag<br>erbij',d.vandaag>0);
+  $('#wlLab').textContent=over>0?'Wachtlijst live':'Wachtlijst vol';
+  $('#wlDag').textContent=dg>0?dg:'Open';
+  $('#wlDagT').textContent=dg>1?'dagen te gaan':dg===1?'dag te gaan':'webshop live';
+  $('#wlWeek').textContent=d.week>0?'+'+d.week:'0';
+  $('#wlLeg').innerHTML=`<span><i></i>aangemeld</span>`
+    +(wlNieuw>0?`<span><i class="nw"></i><b>+${wlNieuw}</b> vandaag</span>`:'')
+    +`<span><i class="vr"></i>vrij</span>`;
   $('#wlOnder').innerHTML=over>0?'Wil je erbij zijn op 1 november?':'De wachtlijst is vol. Bedankt!';
-  $('#wlCta').innerHTML=over>0?'Meld je aan op <b>cacaoboetiek.nl</b>':'Open op 1 november · <b>cacaoboetiek.nl</b>';
+  $('#wlCta').innerHTML=over>0?'Meld je aan op <b>cacaoboetiek.nl</b>':'Open op <b>1 november</b>';
 }
 function wlOpen(){
   const d=wlData(), el=wlEl();
@@ -8762,9 +8786,9 @@ function wlOpen(){
   wlTik=setInterval(()=>{
     if(++teller%24===0) mailVerversen(true);
     const n=wlData(); if(!n) return;
-    if(n.totaal!==wlGetal){ const op=n.totaal>wlGetal; wlGetal=n.totaal;
-      wlZet(n.totaal); if(op) wlBump() }
     wlRest(n);
+    if(n.totaal!==wlGetal){ const op=n.totaal>wlGetal; wlGetal=n.totaal; if(op) wlBump() }
+    if(!wlRaf||document.getElementById('wlRaster').classList.contains('klaar')) wlZet(n.totaal);
   },5000);
 }
 function mailDetails(){ mailLang=true; homeTegel('mail') }
