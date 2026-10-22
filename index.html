@@ -4514,6 +4514,8 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgin em{font-style:normal;color:var(--grijs);font-size:14px}
 .lgvoet.bvoet{flex-wrap:wrap;justify-content:flex-start;gap:0 18px}
 #scherm .gl,#scherm .gl .veeg>.veeginhoud{background:var(--card)}
+.vbw{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.vbleeg{width:14px;flex:none}
 .w2lijst .rrij{padding:10px 14px;border-bottom:0}
 .w3kop{display:flex;flex-direction:column;gap:2px;margin:0 2px 16px}
 .w3kop b{font-size:26px;letter-spacing:-.02em}.w3kop span{font-size:14px;color:var(--grijs)}
@@ -5029,7 +5031,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v823 · 22 okt 2026';
+const APPVERSIE='v824 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9535,7 +9537,64 @@ function sheetVast(id,terugFn){
   };
   teken();
 }
+/* v824: de kassabon van tien regels in bestellingen, dozen én bonbons werd
+   één lijst van vijf regels, alles in bonbons. Tik op een regel om hem aan
+   te passen. Maanden en opbrengst staan achter een tekstlink. */
 function voorspelSheetHTML(){
+  const v=voorspelStand(), a=voorspelAdvies();
+  if(!v||!a) return `<p class="wdleeg">${voorspelFout?esc(voorspelFout):'Voorspellen…'}</p>
+    <button type="button" class="kopknop" onclick="voorspelFout='';voorspelVerversen(true)">Opnieuw</button>`;
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+  const ruw=voorspelStandRuw()||{};
+  const A=v.aanmeld||{nieuw:0,pct:10,orders:0,d16:0,d25:0}, VT=v.vast||{n:0,bonbons:0};
+  if(!A.geladen) setTimeout(()=>mailVerversen(false),0);
+  const bVerk=(ruw.dozen16||0)*16+(ruw.dozen25||0)*25, bAanm=A.d16*16+A.d25*25, bStemp=(v.stempel16||0)*16;
+  const rij=(on,n,sub,w)=>`<button type="button" class="shrij"${on?` onclick="${on}"`:''}>
+    <span class="shn">${n}${sub?`<small>${sub}</small>`:''}</span><span class="shw vbw">${w}</span>${on?svg(I.pijl,'2'):'<i class="vbleeg"></i>'}</button>`;
+  const tijd=new Date(v.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+  return `<div class="vbtitel"><b>${g(a.bruto)}</b><span>bonbons voor november · ${a.d16}× doos 16 · ${a.d25}× doos 25</span></div>
+    <div class="gl">
+      ${rij("vspDeel('maand')",'Verkoop','zoals vorig jaar · ±'+g(v.modelOrders)+' bestellingen',g(bVerk))}
+      ${rij('sheetAanmeldPct()','Aanmeldingen',A.geladen?A.nieuw+' sinds 1 okt · '+nlGetal(A.pct)+'% bestelt':'tellen…','+'+g(bAanm))}
+      ${rij("sheetVasteLijst(()=>homeTegel('vsp'))",'Vaste bestellingen',VT.n?VT.n+' mond-op-mond':'tik om toe te voegen',VT.n?'+'+g(VT.bonbons):'+0')}
+      ${bStemp?rij('','Stempelkaarten',(v.stempel16||0)+' gratis dozen','+'+g(bStemp)):''}
+      ${rij('','Afkeur',Math.round(a.afk.deel*100)+'%'+(a.afk.eigen?' uit je batches':', schatting'),'+'+g(a.afkeur))}
+    </div>
+    <div class="lgvoet bvoet">
+      <button type="button" onclick="vspDeel('maand')">Per maand</button>
+      <button type="button" onclick="vspDeel('geld')">Opbrengst</button>
+      <button type="button" onclick="voorspelFout='';voorspelVerversen(true)">${voorspelBezig?'Rekenen…':'Opnieuw · '+tijd}</button>
+    </div>`;
+}
+/* de twee naslagstukken uit het oude scherm, elk op een eigen scherm */
+function vspDeel(k){
+  const v=voorspelStand(); if(!v) return;
+  const div=document.createElement('div'); div.innerHTML=voorspelOudHTML();
+  let h='';
+  if(k==='maand'){ const m=div.querySelector('.vbmaanden'); h=(m?m.outerHTML:'<p class="wdleeg">Nog geen maanden.</p>')+
+    `<p class="vbnoot">Terugkerend: wat toen terugkwam, toegepast op je ${v.bestaandNu} klanten van nu. Nieuw: zoveel als er toen echt bijkwamen.</p>` }
+  else { const kop=[...div.querySelectorAll('.vbkop')].find(x=>/Opbrengst/.test(x.textContent));
+    if(kop){ let n=kop.nextElementSibling; const stuk=[]; while(n&&!(n.classList.contains('vbnoot')&&/Terugkerend/.test(n.textContent))&&!n.classList.contains('kopknop')){ stuk.push(n.outerHTML); n=n.nextElementSibling }
+      h=stuk.join('') } else h='<p class="wdleeg">Vul je dozen en prijzen in, dan zie je hier je omzet.</p>' }
+  sheet(k==='maand'?'Als november gaat zoals…':'Opbrengst',h,'');
+  sheetTerugZet(()=>homeTegel('vsp'));
+}
+function sheetAanmeldPct(){
+  const A=(voorspelStand()||{}).aanmeld||{nieuw:0,pct:10};
+  sheet('Hoeveel bestelt er?',
+    `<p class="hint">Van de ${A.nieuw} mensen die zich sinds 1 oktober aanmeldden. Weet je het niet, laat het op 10%.</p>
+     <div class="vpaanm" style="justify-content:center"><div class="vpstep">
+       <button type="button" id="apMin" aria-label="Minder">${svg(I.min)}</button><b id="apW">${nlGetal(vpAanmeldPct())}%</b>
+       <button type="button" id="apPlus" aria-label="Meer">${svg(I.plus)}</button></div></div>
+     <div class="lgsom" id="apUit" style="text-align:center"></div>`,
+    `<button class="prim" style="margin-top:0" id="apOk">Klaar</button>`);
+  const uit=()=>{ const s=voorspelStand(); $('#apW').textContent=nlGetal(vpAanmeldPct())+'%';
+    $('#apUit').innerHTML='= <b>'+((s.aanmeld||{}).orders||0)+' bestellingen</b> extra' };
+  const zet=d=>{ S.vpAanmeldPct=Math.max(0,Math.min(100,vpAanmeldPct()+d)); bewaarNu(); uit() };
+  $('#apMin').onclick=()=>zet(-5); $('#apPlus').onclick=()=>zet(5);
+  sheetTerugZet(()=>homeTegel('vsp')); $('#apOk').onclick=()=>homeTegel('vsp'); uit();
+}
+function voorspelOudHTML(){
   const v=voorspelStand(), a=voorspelAdvies();
   if(!v||!a) return `<p class="wdleeg">${voorspelFout?esc(voorspelFout):'Voorspellen…'}</p>
     <button type="button" class="kopknop" onclick="voorspelFout='';voorspelVerversen(true)">Opnieuw</button>`;
@@ -10056,7 +10115,8 @@ function homeTegel(k){
   if(k==='mail'){ mailLang=false; mailDag=null }
   if(!HOMESHEETS[k]) return;
   sheet(HOMESHEETS[k][0],homeSheetBody(k),
-    k==='mail'?`<button class="prim" style="margin-top:0" onclick="sheetMailAdressen()">Abonnees bekijken</button>`:'');
+    k==='mail'?`<button class="prim" style="margin-top:0" onclick="sheetMailAdressen()">Abonnees bekijken</button>`:
+    k==='vsp'&&voorspelAdvies()?`<button class="prim" style="margin-top:0" onclick="VP=null;sheetVoorspelPlan()">${svg(I.vorm)}Maak productieplan</button>`:'');
   homeSheet=k; bind();
 }
 function homeTegelsHTML(){
