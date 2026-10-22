@@ -4492,6 +4492,16 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .rsing{display:flex;gap:6px;align-items:center;margin-top:6px}
 .rsing input{height:42px;border:0;border-radius:10px;background:var(--card);font:inherit;font-size:16px;padding:0 10px;color:var(--ink);min-width:0}
 .rsing [data-rsin]{flex:1}
+.vpaanm{display:flex;align-items:center;gap:12px;margin:14px 0 4px;padding:12px 14px;background:var(--card);border-radius:14px}
+.vpaanm>span{flex:1;font-size:14px;font-weight:500}
+.vpaanm small{display:block;font-size:12px;color:var(--grijs);font-weight:400;margin-top:2px}
+.vbknop{width:100%;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.vschips{display:flex;flex-wrap:wrap;gap:8px}
+.vsstep{display:inline-flex}
+.vpw2{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--lijn)}
+.vpw2>span{flex:1;min-width:0}
+.vpw2 b{display:block;font-size:15px}
+.vpw2 small{display:block;font-size:12px;color:var(--grijs);margin-top:2px}
 .rsinkies{height:42px;border:0;border-radius:10px;background:var(--card);font:inherit;font-size:16px;padding:0 10px;color:var(--ink);min-width:0;display:flex;align-items:center;gap:6px;text-align:left;cursor:pointer}
 .rsinkies span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rsinkies svg{width:14px;height:14px;flex:none;opacity:.35}
@@ -4972,7 +4982,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v815 · 22 okt 2026';
+const APPVERSIE='v816 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5231,7 +5241,7 @@ const S={
   tab:'dashboard', batchId:null, open:null,
   naam:'Hamza', datum:new Date(), dagOpening:null,
   malGrootte:24, tempReserve:1500, schoonNu:null, losLog:[], controleDag:0, ingEtiket:{}, eigenWw:[],
-  recepten:[], halfRecepten:[], halfBatches:[], werkdag:{}, meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
+  recepten:[], vasteBestellingen:[], halfRecepten:[], halfBatches:[], werkdag:{}, meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
   gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], tedoen:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
@@ -5284,7 +5294,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','route','vpUit','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','route','vpUit','vpAanmeldPct','vasteBestellingen','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -8627,7 +8637,7 @@ function mailVerversen(hand){
     S.werk=S.werk||{}; S.werk.mailinglijst=r; mailFout='';
     try{ localStorage.setItem('hq-mailinglijst',JSON.stringify(r)) }catch(e){}
   }).catch(e=>{ mailFout=(e&&e.message)||'Tellen lukte niet.' })
-    .finally(()=>{ mailBezig=false; if(S.tab==='dashboard') render() });
+    .finally(()=>{ mailBezig=false; if(S.tab==='dashboard') render(); vspVernieuw() });
 }
 /* Vers houden zonder te tikken: zodra je de app weer voor je hebt, en elke
    twee minuten zolang je op het dashboard kijkt. Shopify tellen kost maar
@@ -9003,7 +9013,51 @@ function homeSheetBody(k){ return HOMESHEETS[k][1]() }
 function orderDoel(){ return Math.max(1,parseInt(S.orderDoel,10)||100) }
 function orderDoelZet(n){ S.orderDoel=Math.max(5,Math.min(2000,Math.round(n)||100)); bewaarNu() }
 let voorspelBezig=false, voorspelFout='';
+/* ═══════════ v816: aanmeldingen en vaste bestellingen erbij ═══════════
+   De server rekent met je verkoop van vorig jaar en je stempelkaarten. Twee
+   dingen wist hij niet: de mensen die zich sinds 1 oktober voor de opening
+   aanmeldden (nieuwe vraag die vorig jaar niet bestond), en bestellingen die
+   al vastliggen via mond-op-mond. Die komen hier bovenop, zonder iets dubbel
+   te tellen: de historie kijkt naar vorig jaar, niet naar wat nu binnen is. */
+function vpAanmeldPct(){ const p=parseFloat(S.vpAanmeldPct); return isFinite(p)&&p>=0?Math.min(100,p):10 }
+function vpAanmeldZet(d){ S.vpAanmeldPct=Math.max(0,Math.min(100,vpAanmeldPct()+d)); bewaarNu(); vspVernieuw() }
+function vpMail(){
+  let m=(S.werk||{}).mailinglijst;
+  if(!m){ try{ m=JSON.parse(localStorage.getItem('hq-mailinglijst')||'null') }catch(e){ m=null } }
+  return m&&m.sinds===MAILDOEL.sinds?m:null;
+}
+const vasteOpen=()=>alsLijst(S.vasteBestellingen).filter(x=>x&&!x.geleverd);
+function vastTelling(){
+  const l=vasteOpen(); let d16=0, d25=0; const perSmaak={};
+  l.forEach(x=>{
+    const n=Math.max(1,parseInt(x.aantal,10)||1), doos=+x.doos===25?25:16;
+    if(doos===25) d25+=n; else d16+=n;
+    /* liggen de smaken vast, dan gaan die bonbons eerst naar die smaken */
+    const sm=alsLijst(x.smaken).filter(id=>(S.recepten||[]).some(r=>r.id===id));
+    if(sm.length){ const tot=n*doos, per=Math.floor(tot/sm.length); let rest=tot-per*sm.length;
+      sm.forEach(id=>{ perSmaak[id]=(perSmaak[id]||0)+per+(rest>0?1:0); if(rest>0) rest-- }) }
+  });
+  return {n:l.length, d16, d25, bonbons:d16*16+d25*25, perSmaak};
+}
+function vspVernieuw(){
+  if(homeSheet!=='vsp'||!sheetOpen) return;
+  const sb=$('#sheetBody'), st=sb.scrollTop; sb.innerHTML=homeSheetBody('vsp'); sb.scrollTop=st;
+}
 function voorspelStand(){
+  const v=voorspelStandRuw(); if(!v) return v;
+  const m=vpMail(), nieuw=m?(m.nieuw||0):0, pct=vpAanmeldPct();
+  const aOrders=Math.round(nieuw*pct/100);
+  const dpo=v.dozenPerOrder||1.45, a25=(typeof v.aandeel25Nieuw==='number'?v.aandeel25Nieuw:52)/100;
+  const aDoz=Math.round(aOrders*dpo), aD25=Math.round(aDoz*a25), aD16=aDoz-aD25;
+  const vt=vastTelling();
+  return Object.assign({},v,{
+    modelOrders:v.verwachtOrders||0,
+    verwachtOrders:(v.verwachtOrders||0)+aOrders+vt.n,
+    dozen16:(v.dozen16||0)+aD16+vt.d16, dozen25:(v.dozen25||0)+aD25+vt.d25,
+    aanmeld:{nieuw, pct, orders:aOrders, d16:aD16, d25:aD25, geladen:!!m},
+    vast:vt});
+}
+function voorspelStandRuw(){
   let s=(S.werk||{}).voorspelling;
   if(!s){ try{ s=JSON.parse(localStorage.getItem('hq-voorspelling')||'null') }catch(e){ s=null } }
   return s;
@@ -9036,7 +9090,8 @@ function voorspelAdvies(){
   const netto=d16*16+d25*25;
   const afk=afkeurDeel();
   const bruto=Math.ceil(netto/(1-afk.deel));
-  return {d16, d25, netto, bruto, afkeur:bruto-netto, afk, stempels:(v.stempel16||0)*16};
+  const vastBruto=v.vast&&v.vast.bonbons?Math.ceil(v.vast.bonbons/(1-afk.deel)):0;
+  return {d16, d25, netto, bruto, afkeur:bruto-netto, afk, stempels:(v.stempel16||0)*16, vastBruto};
 }
 const nlGetal=n=>String(n).replace('.',',');
 /* ═══ Omzet en verpakking bij de voorspelling (v714) ═══
@@ -9130,15 +9185,21 @@ let VP=null;
 
 function vpNodig(){
   const a=voorspelAdvies(), v=voorspelStand(); if(!a) return 0;
-  return VP.opDoel&&v.verwachtOrders?Math.ceil(a.bruto*orderDoel()/v.verwachtOrders):a.bruto;
+  if(!(VP.opDoel&&v.verwachtOrders)) return a.bruto;
+  /* vaste bestellingen liggen vast: alleen de verwachting schaalt mee met je doel */
+  const vn=(v.vast&&v.vast.n)||0, vrij=v.verwachtOrders-vn;
+  if(vrij<=0) return a.bruto;
+  return a.vastBruto+Math.ceil((a.bruto-a.vastBruto)*Math.max(0,orderDoel()-vn)/vrij);
 }
 /* mallen met de hand aangepast → het doel (bestellingen) rekent mee (v744) */
 function vpDoelUitMallen(){
   const a=voorspelAdvies(), v=voorspelStand(); if(!a||!a.bruto||!v.verwachtOrders) return;
-  const perOrder=a.bruto/v.verwachtOrders;
+  const vn=(v.vast&&v.vast.n)||0, vrij=v.verwachtOrders-vn;
+  if(vrij<=0||a.bruto<=a.vastBruto) return;
+  const perOrder=(a.bruto-a.vastBruto)/vrij;
   const gepland=vpSmaken().reduce((n,r)=>n+(VP.mallen[r.id]||0)*malHoltes(r.id),0);
   VP.opDoel=true;
-  S.orderDoel=Math.max(1,Math.round((gepland+vpVoorraad())/perOrder)); bewaarNu();
+  S.orderDoel=Math.max(1,vn+Math.round(Math.max(0,gepland+vpVoorraad()-a.vastBruto)/perOrder)); bewaarNu();
 }
 /* eigen kalender in het plan: de iPhone-datumkiezer koos meteen vandaag en sloot (v745) */
 function vpKalHTML(key){
@@ -9170,6 +9231,9 @@ function vpVoorstel(){
   const doel=Math.max(0,vpNodig()-vpVoorraad()), lijst=vpSmaken().filter(r=>!vpUit(r.id));
   if(!lijst.length) return;
   let tot=0, rem=0;
+  const vt=vastTelling();
+  Object.keys(vt.perSmaak).forEach(id=>{ if(!lijst.some(r=>r.id===id)) return;
+    const h=malHoltes(id)||1, m=Math.ceil(vt.perSmaak[id]/h); VP.mallen[id]=m; tot+=m*h });
   while(tot<doel&&rem++<3000){
     let best=null, bestN=Infinity;
     lijst.forEach(r=>{const n=(VP.mallen[r.id]||0)*malHoltes(r.id); if(n<bestN){bestN=n;best=r}});
@@ -9352,27 +9416,87 @@ function sheetVoorspelPlan(){
   };
 }
 
+/* één vaste bestelling: wie, welke doos, hoeveel, eventueel welke smaken */
+function sheetVast(id){
+  S.vasteBestellingen=alsLijst(S.vasteBestellingen);
+  const oud=id?S.vasteBestellingen.find(x=>x.id===id):null;
+  const F=oud?JSON.parse(JSON.stringify(oud)):{id:uid(),naam:'',doos:16,aantal:1,smaken:[],datum:'',geleverd:false};
+  F.smaken=alsLijst(F.smaken);
+  const lees=()=>{ const n=$('#vsN'), d=$('#vsD'); if(n) F.naam=n.value; if(d) F.datum=d.value };
+  const terug=()=>homeTegel('vsp');
+  const teken=()=>{
+    const sm=(S.recepten||[]).filter(smaakActief);
+    const n=Math.max(1,parseInt(F.aantal,10)||1), doos=+F.doos===25?25:16;
+    sheet(oud?'Vaste bestelling':'Nieuwe vaste bestelling',
+      `<div class="veld"><label>Voor wie</label>
+         <input class="inp" id="vsN" value="${esc(F.naam)}" placeholder="Naam" autocapitalize="words"></div>
+       <div class="veld"><label>Doos</label>
+         <div class="vschips">${[16,25].map(d=>`<button type="button" class="chip ${doos===d?'aan':''}" data-vsdoos="${d}">${d} bonbons</button>`).join('')}</div></div>
+       <div class="veld"><label>Aantal dozen</label>
+         <div class="vpstep vsstep"><button type="button" data-vsa="-1" aria-label="Minder">${svg(I.min)}</button>
+           <b>${n}</b><button type="button" data-vsa="1" aria-label="Meer">${svg(I.plus)}</button></div></div>
+       <div class="veld"><label>Smaken <span style="font-weight:400;text-transform:none;letter-spacing:0">(optioneel)</span></label>
+         <div class="vschips">${sm.map(r=>`<button type="button" class="chip ${F.smaken.includes(r.id)?'aan':''}" data-vssm="${r.id}">${esc(r.naam)}</button>`).join('')||'<span class="vbnoot">Nog geen smaken.</span>'}</div>
+         <p class="vbnoot" style="margin-top:6px">${F.smaken.length?'HQ verdeelt de '+n*doos+' bonbons gelijk over deze smaken en zet ze eerst in je plan.':'Niets gekozen: de bonbons gaan mee in de gewone verdeling.'}</p></div>
+       <div class="veld"><label>Klaar op</label><input class="inp" id="vsD" type="date" value="${esc(F.datum||'')}"></div>
+       <div class="totaalregel" style="margin-top:6px"><span class="l">Bovenop je productie</span><span class="w">${n*doos} bonbons</span></div>
+       ${oud?`<div class="voet" style="margin-top:18px"><button type="button" id="vsWeg" style="color:var(--rood)">Verwijderen</button></div>`:''}`,
+      `<button class="prim" style="margin-top:0" id="vsOk">Opslaan</button>
+       ${oud?`<button class="sec" id="vsLev">Geleverd — telt niet meer mee</button>`:`<button class="sec" id="vsAf">Annuleren</button>`}`);
+    sheetTerugZet(terug);
+    $$('[data-vsdoos]').forEach(b=>b.onclick=()=>{ lees(); F.doos=+b.dataset.vsdoos; teken() });
+    $$('[data-vsa]').forEach(b=>b.onclick=()=>{ lees(); F.aantal=Math.max(1,Math.min(99,n+(+b.dataset.vsa))); teken() });
+    $$('[data-vssm]').forEach(b=>b.onclick=()=>{ lees(); const k=b.dataset.vssm, i=F.smaken.indexOf(k);
+      if(i>=0) F.smaken.splice(i,1); else F.smaken.push(k); const st=$('#sheetBody').scrollTop; teken(); $('#sheetBody').scrollTop=st });
+    const bewaar=()=>{ const i=S.vasteBestellingen.findIndex(x=>x.id===F.id);
+      if(i>=0) S.vasteBestellingen[i]=F; else S.vasteBestellingen.push(F); bewaarNu(); render() };
+    $('#vsOk').onclick=()=>{ lees(); F.naam=F.naam.trim(); if(!F.naam) return toast('Vul een naam in.');
+      F.aantal=n; F.doos=doos; bewaar(); terug(); toast(F.naam+': '+n*doos+' bonbons bovenop je productie.') };
+    if($('#vsAf')) $('#vsAf').onclick=terug;
+    if($('#vsLev')) $('#vsLev').onclick=()=>{ lees(); F.geleverd=true; F.geleverdOp=vandaag(); bewaar(); terug(); toast(F.naam+' geleverd.') };
+    if($('#vsWeg')) $('#vsWeg').onclick=()=>{
+      const kopie=S.vasteBestellingen.slice();
+      S.vasteBestellingen=S.vasteBestellingen.filter(x=>x.id!==F.id); bewaarNu(); render(); terug();
+      toast('Verwijderd.',()=>{ S.vasteBestellingen=kopie; bewaarNu(); render(); vspVernieuw() }) };
+  };
+  teken();
+}
 function voorspelSheetHTML(){
   const v=voorspelStand(), a=voorspelAdvies();
   if(!v||!a) return `<p class="wdleeg">${voorspelFout?esc(voorspelFout):'Voorspellen…'}</p>
     <button type="button" class="kopknop" onclick="voorspelFout='';voorspelVerversen(true)">Opnieuw</button>`;
   const g=n=>Math.round(n).toLocaleString('nl-NL');
   const r=(l,w,kl)=>`<div class="vbrij ${kl||''}"><span>${l}</span><b>${w}</b></div>`;
-  const dozen=a.d16+a.d25-(v.stempel16||0);
+  const A=v.aanmeld||{nieuw:0,pct:10,orders:0,d16:0,d25:0}, VT=v.vast||{n:0,d16:0,d25:0,bonbons:0};
+  const dozen=a.d16+a.d25-(v.stempel16||0)-VT.d16-VT.d25;
+  if(!A.geladen) setTimeout(()=>mailVerversen(false),0);
+  const vlijst=vasteOpen();
   const tijd=new Date(v.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
 
   /* 1. de rekensom als kassabon */
   const bon=`<div class="vbon">
     ${r('Terugkerende klanten',g(v.verwachtTerug))}
     ${r('Nieuwe klanten',g(v.verwachtNieuw))}
-    ${r('Bestellingen',g(v.verwachtOrders),'sub')}
+    ${r('Aanmeldingen sinds 1 okt<small class="vbklein">'+(A.geladen?A.nieuw+' × '+nlGetal(A.pct)+'% bestelt':'tellen…')+'</small>',g(A.orders))}
+    ${r('Verwachte bestellingen',g(v.modelOrders+A.orders),'sub')}
     ${r('× '+nlGetal(v.dozenPerOrder)+' doos per bestelling',g(dozen)+' dozen')}
+    ${VT.n?r('+ vast besteld<small class="vbklein">'+VT.n+(VT.n===1?' bestelling':' bestellingen')+'</small>',(VT.d16+VT.d25)+' dozen'):''}
     ${v.stempel16?r('+ gratis dozen stempelkaart',v.stempel16+' dozen'):''}
     ${r('In bonbons',g(a.netto),'sub')}
     ${r('+ '+Math.round(a.afk.deel*100)+'% afkeur'+(a.afk.eigen?'':' (schatting)'),'+'+g(a.afkeur))}
     ${r('Maken',g(a.bruto),'totaal')}
   </div>
-  <p class="vbnoot">${a.d16}× doos van 16 en ${a.d25}× doos van 25${v.stempel25?' · '+v.stempel25+' kaarten als korting op de 25 zitten al in de verkoop':''}</p>`;
+  <p class="vbnoot">${a.d16}× doos van 16 en ${a.d25}× doos van 25${v.stempel25?' · '+v.stempel25+' kaarten als korting op de 25 zitten al in de verkoop':''}</p>
+  <div class="vpaanm"><span>Van je aanmeldingen bestelt<small>schatting, pas aan als je het beter weet</small></span>
+    <div class="vpstep"><button type="button" onclick="vpAanmeldZet(-5)" aria-label="Minder">${svg(I.min)}</button>
+      <b>${nlGetal(A.pct)}%</b>
+      <button type="button" onclick="vpAanmeldZet(5)" aria-label="Meer">${svg(I.plus)}</button></div></div>
+  <div class="vbkop"><span>Vaste bestellingen</span><small>${vlijst.length?VT.bonbons+' bonbons, bovenop':'mond-op-mond, al toegezegd'}</small></div>
+  ${vlijst.length?`<div class="vbon">${vlijst.map(x=>`<button type="button" class="vbrij vbknop" onclick="sheetVast('${esc(x.id)}')">
+      <span>${esc(x.naam||'Zonder naam')}<small class="vbklein">${[x.datum?'klaar '+kort(new Date(x.datum+'T12:00:00')):'',
+        alsLijst(x.smaken).map(id=>recept(id).naam).filter(n=>n!=='?').join(', ')].filter(Boolean).join(' · ')||'smaken vrij'}</small></span>
+      <b>${Math.max(1,parseInt(x.aantal,10)||1)}× ${+x.doos===25?25:16}</b></button>`).join('')}</div>`:''}
+  <button type="button" class="kopknop" style="margin:10px 0 4px" onclick="sheetVast()">${svg(I.plus)}Vaste bestelling</button>`;
 
   /* 2. de maanden als staafjes, met een lijn voor het gemiddelde */
   const M=v.maanden||[];
@@ -9382,7 +9506,7 @@ function voorspelSheetHTML(){
       ${M.map(m=>`<div class="vbm"><span class="n">${esc(m.naam.replace(/ 20(\d\d)$/,' ’$1'))}</span>
         <span class="bar"><i style="width:${m.orders/max*100}%"></i></span><b>${m.orders}</b>
         <small>${m.terugPct}% terug · ${m.nieuwToen} nieuw</small></div>`).join('')}
-      <div class="vbgem" style="left:calc(64px + (100% - 64px - 40px) * ${v.verwachtOrders/max})"><span>gem. ${v.verwachtOrders}</span></div>
+      <div class="vbgem" style="left:calc(64px + (100% - 64px - 40px) * ${v.modelOrders/max})"><span>gem. ${v.modelOrders}</span></div>
     </div>`:'';
 
   return `<div class="vbtitel"><b>${g(a.bruto)}</b><span>bonbons voor november</span></div>
@@ -24655,8 +24779,27 @@ function hintTekst(r,mallen){
   const n=mallen*S.malGrootte;
   return `${mallen} ${mallen===1?'mal':'mallen'} = ${n} bonbons · ${getal(g*n)} g`;
 }
+/* wat de voorspelling voor deze chocoladesoort nog wil, min je lopende batches */
+function vpVoorstelVoor(choc){
+  if(!voorspelAdvies()) return null;
+  const oud=VP; VP={opDoel:false,mallen:{},dag:{}};
+  try{ vpVoorstel() }catch(e){ VP=oud; return null }
+  const alle=VP.mallen; VP=oud;
+  const lopend={};
+  (S.batches||[]).filter(b=>b&&b.status!=='klaar'&&b.chocolade===choc)
+    .forEach(b=>(b.regels||[]).forEach(rg=>{ lopend[rg.receptId]=(lopend[rg.receptId]||0)+(parseFloat(rg.mallen)||0) }));
+  const mallen={}; let bonbons=0, af=0;
+  (S.recepten||[]).filter(r=>r.chocolade===choc&&smaakActief(r)&&(r.onderdelen||[]).length).forEach(r=>{
+    const m=Math.max(0,Math.ceil((alle[r.id]||0)-(lopend[r.id]||0)));
+    if(lopend[r.id]) af+=Math.min(alle[r.id]||0,lopend[r.id])*malHoltes(r.id);
+    if(m>0){ mallen[r.id]=m; bonbons+=m*malHoltes(r.id) }
+  });
+  return {mallen, bonbons, lopend:af};
+}
 function wizard2(){
   const lijst=S.recepten.filter(r=>r.chocolade===W.choc&&smaakActief(r));
+  if(!voorspelStand()) setTimeout(()=>voorspelVerversen(false),0);
+  const vsp=vpVoorstelVoor(W.choc);
   if(!W.voorgevuld){
     W.voorgevuld=true;
     const v=vorigeMallenVoor(W.choc);
@@ -24670,6 +24813,11 @@ function wizard2(){
   sheet('Welke smaken?',
     lijst.length
       ? `<p class="hint">Tel in mallen. Eén mal is ${S.malGrootte} bonbons — aan te passen bij Instellingen.</p>
+         ${vsp?`<div class="vpw2">
+           <span><b>${vsp.bonbons?'Voorspelling: '+vsp.bonbons.toLocaleString('nl-NL')+' bonbons':'Voorspelling: je hebt genoeg'}</b>
+             <small>${vsp.bonbons?Object.keys(vsp.mallen).map(id=>esc(recept(id).naam)+' '+vsp.mallen[id]+'×').join(' · '):
+               'met '+esc(chocNaam(W.choc).toLowerCase())+' voor november'}${vsp.lopend?' · lopende batches al afgetrokken':''}</small></span>
+           ${vsp.bonbons?`<button type="button" class="chip klein" id="w2Vsp">Invullen</button>`:''}</div>`:''}
          ${W.vanBatch?`<div class="melding groen" style="margin-bottom:14px">
            <span>Aantallen van batch ${esc(W.vanBatch)} staan klaar. Pas aan wat anders is.</span>
            <button type="button" class="chip klein" id="w2Leeg"
@@ -24697,6 +24845,8 @@ function wizard2(){
     document.querySelector(`[data-hint="${r.id}"]`).textContent=hintTekst(r,W.mallen[r.id]);
   });
   if($('#w2Leeg')) $('#w2Leeg').onclick=()=>{ W.mallen={}; W.vanBatch=''; wizard2() };
+  if($('#w2Vsp')) $('#w2Vsp').onclick=()=>{ W.mallen=Object.assign({},vsp.mallen); W.vanBatch=''; wizard2();
+    toast('Ingevuld volgens de voorspelling. Pas aan wat je anders wilt.') };
   $$('[data-malin]').forEach(b=>b.onclick=()=>sheetMalAantal(b.dataset.malin));
   $$('[data-afmaken]').forEach(b=>b.onclick=()=>sheetReceptForm(b.dataset.afmaken));
   $('#w2N').onclick=()=>sheetReceptForm(null,W.choc);
