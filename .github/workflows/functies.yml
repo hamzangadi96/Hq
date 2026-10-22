@@ -42,5 +42,12 @@ jobs:
             --only functions,database \
             --project cacaoboetiek-hq \
             --non-interactive \
-            --force
+            --force > uitrol.log 2>&1 || FOUT=1
           rm -f "$GITHUB_WORKSPACE/sleutel.json"
+          cat uitrol.log
+          # Bij een fout de belangrijkste regels als melding, zodat ze ook
+          # zonder het volledige logboek te lezen zijn.
+          if [ -n "$FOUT" ]; then
+            grep -iE "error|failed|fout|denied|quota|cannot" uitrol.log | tail -10 | while IFS= read -r r; do echo "::error::$r"; done
+            exit 1
+          fi
