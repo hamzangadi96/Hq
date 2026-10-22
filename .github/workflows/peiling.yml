@@ -1,0 +1,17 @@
+# Tijdelijk: kijkt of de HQ-functies van buitenaf bereikbaar zijn.
+# Stuurt geen inlog mee, dus er wordt niets gewijzigd. Mag weg na gebruik.
+name: Peiling functies
+on: workflow_dispatch
+jobs:
+  peil:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Peilen
+        run: |
+          for f in mailAdressen mailAdresWeg cadeaubonMailen stempelAanpassen telMailinglijst; do
+            u="https://europe-west1-cacaoboetiek-hq.cloudfunctions.net/$f"
+            o=$(curl -s -o /tmp/b -w "%{http_code}" -X OPTIONS -H "Origin: https://cacaoboetiek-hq.web.app" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type,authorization" "$u")
+            p=$(curl -s -o /tmp/b -w "%{http_code}" -X POST -H "Content-Type: application/json" -H "Origin: https://cacaoboetiek-hq.web.app" -d '{"data":{}}' "$u")
+            b=$(head -c 160 /tmp/b | tr '\n' ' ')
+            echo "::notice title=$f::OPTIONS=$o POST=$p BODY=$b"
+          done
