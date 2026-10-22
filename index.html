@@ -5029,7 +5029,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v822 · 22 okt 2026';
+const APPVERSIE='v823 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9364,7 +9364,14 @@ function sheetVoorspelPlan(){
 
   let inhoud='';
   if(VP.tab==='maken'){
-    inhoud=`${voorraad?`<div class="vbon">
+    const vtP=vastTelling(), vP=voorspelStand()||{}, aP=vP.aanmeld||{};
+    inhoud=`<div class="gl" style="margin-bottom:14px">
+       <button type="button" class="shrij" id="vpVast"><span class="shn">Vaste bestellingen<small>mond-op-mond, komt erbovenop</small></span>
+         <span class="shw">${vtP.n?vtP.n+' · '+vtP.bonbons+' st':'toevoegen'}</span>${svg(I.pijl,'2')}</button>
+       <button type="button" class="shrij" id="vpOpb"><span class="shn">Verwachting<small>vorig jaar${aP.orders?' + '+aP.orders+' uit aanmeldingen':''} + stempelkaarten</small></span>
+         <span class="shw">±${(vP.modelOrders||0)+(aP.orders||0)} best.</span>${svg(I.pijl,'2')}</button>
+     </div>
+     ${voorraad?`<div class="vbon">
          <div class="vbrij"><span>Nodig</span><b>${g(nodig)}</b></div>
          <div class="vbrij"><span>− op voorraad</span><b>−${g(voorraad)}</b></div>
          <div class="vbrij totaal"><span>Nog maken</span><b>${g(nogMaken)}</b></div></div>`:''}
@@ -9434,6 +9441,9 @@ function sheetVoorspelPlan(){
      <button class="sec" id="vpTerug">Terug</button>`);
 
   const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetVoorspelPlan(); $('#sheetBody').scrollTop=st };
+  if($('#vpVast')) $('#vpVast').onclick=()=>{ const voor=JSON.stringify(vastTelling());
+    sheetVasteLijst(()=>{ if(JSON.stringify(vastTelling())!==voor){ vpVoorstel(); toast('Plan bijgewerkt met je vaste bestellingen.') } sheetVoorspelPlan() }) };
+  if($('#vpOpb')) $('#vpOpb').onclick=()=>homeTegel('vsp');
   $$('[data-vpdoel]').forEach(b=>b.onclick=()=>{ VP.opDoel=b.dataset.vpdoel==='1'; vpVoorstel(); opnieuw() });
   $$('[data-vptab]').forEach(b=>b.onclick=()=>{ VP.tab=b.dataset.vptab; sheetVoorspelPlan(); $('#sheetBody').scrollTop=0 });
   $$('[data-vpd]').forEach(b=>b.onclick=()=>{ orderDoelZet(orderDoel()+parseInt(b.dataset.vpd,10)); vpVoorstel(); opnieuw() });
@@ -9463,14 +9473,31 @@ function sheetVoorspelPlan(){
   };
 }
 
+/* v823: alle vaste bestellingen op één plek, ook vanuit het productieplan */
+function sheetVasteLijst(terugFn){
+  const l=vasteOpen(), vt=vastTelling();
+  const hier=()=>sheetVasteLijst(terugFn);
+  sheet('Vaste bestellingen',
+    `<div class="gl">${l.map(x=>`<button type="button" class="shrij" data-vs="${esc(x.id)}">
+        <span class="shn">${esc(x.naam||'Zonder naam')}<small>${esc([x.datum?'klaar '+kort(new Date(x.datum+'T12:00:00')):'',
+          alsLijst(x.smaken).map(id=>recept(id).naam).filter(n=>n!=='?').join(', ')].filter(Boolean).join(' · ')||'smaken vrij')}</small></span>
+        <span class="shw">${Math.max(1,parseInt(x.aantal,10)||1)}× ${+x.doos===25?25:16}</span>${svg(I.pijl,'2')}</button>`).join('')}
+       <button type="button" class="lgnieuw" id="vlN">${svg(I.plus)}Vaste bestelling</button></div>
+     <div class="lgsom">${l.length?'Samen <b>'+vt.bonbons+' bonbons</b>, bovenop de verwachting':'Bestellingen via mond-op-mond die al vastliggen. Ze komen bovenop de verwachting.'}</div>`,
+    `<button class="prim" style="margin-top:0" id="vlOk">Klaar</button>`);
+  sheetTerugZet(terugFn);
+  $$('#sheetBody [data-vs]').forEach(b=>b.onclick=()=>sheetVast(b.dataset.vs,hier));
+  $('#vlN').onclick=()=>sheetVast(null,hier);
+  $('#vlOk').onclick=terugFn;
+}
 /* één vaste bestelling: wie, welke doos, hoeveel, eventueel welke smaken */
-function sheetVast(id){
+function sheetVast(id,terugFn){
   S.vasteBestellingen=alsLijst(S.vasteBestellingen);
   const oud=id?S.vasteBestellingen.find(x=>x.id===id):null;
   const F=oud?JSON.parse(JSON.stringify(oud)):{id:uid(),naam:'',doos:16,aantal:1,smaken:[],datum:'',geleverd:false};
   F.smaken=alsLijst(F.smaken);
   const lees=()=>{ const n=$('#vsN'), d=$('#vsD'); if(n) F.naam=n.value; if(d) F.datum=d.value };
-  const terug=()=>homeTegel('vsp');
+  const terug=terugFn||(()=>homeTegel('vsp'));
   const teken=()=>{
     const sm=(S.recepten||[]).filter(smaakActief);
     const n=Math.max(1,parseInt(F.aantal,10)||1), doos=+F.doos===25?25:16;
