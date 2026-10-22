@@ -200,6 +200,10 @@ main.opdonker{border-radius:22px 22px 0 0;margin-top:-18px;padding-top:28px;posi
 #vversknop.bezig{opacity:.5}
 /* v794: als er een scherm open is, ligt hij niet over je knoppen */
 body.sheetaan #vversknop{opacity:0;pointer-events:none;transition:opacity .15s}
+#vversknop.vvbalk{left:50%;transform:translateX(-50%);bottom:calc(104px + env(safe-area-inset-bottom));top:auto;width:auto;height:40px;
+  border-radius:20px;flex-direction:row;gap:8px;padding:0 16px;cursor:pointer;touch-action:manipulation;white-space:nowrap}
+#vversknop.vvbalk svg{width:16px;height:16px}
+#vversknop.vvbalk b{font-size:13px;opacity:1}
 
 /* snelacties: dezelfde capsuletaal als de tabbalk */
 .snelrij{display:flex;gap:8px;overflow-x:auto;margin:0 -20px;padding:2px 20px 4px;
@@ -4519,13 +4523,15 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
 .plstand{display:flex;align-items:center;gap:10px;width:100%;border:0;background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;font:inherit;font-size:15px;color:var(--ink);text-align:left;cursor:pointer}
-.plstand>span{flex:1}.plstand em{font-style:normal;font-weight:600;color:var(--groen);display:flex}
+.plstand>span{flex:1;display:flex;flex-direction:column}.plstand>span small{font-size:13px;color:var(--grijs);margin-top:2px}
+.plstand.let>span b{color:var(--amber)}.plstand em{font-style:normal;font-weight:600;color:var(--groen);display:flex}
 .plstand em svg{width:16px;height:16px}.plstand>svg{width:14px;height:14px;opacity:.35}
 .plstand.let em{color:var(--amber)}
 .pldat2{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.1}
 .pldat2 b{font-size:20px}.pldat2 small{font-size:11px;color:var(--grijs);white-space:nowrap}
 .pldag.nu .pldat2 b{color:var(--amber)}
 .plwnr small{display:block;text-align:right;font-size:12px;margin-top:2px}
+.plbest{display:block;margin:4px 0 0 auto;border:0;background:#fffbeb;color:var(--amber);font:inherit;font-size:13px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer}
 .shw svg{width:14px;height:14px;vertical-align:-2px;color:var(--groen)}
 .vpk2{display:flex;align-items:center;gap:10px;margin:0 2px 8px}
 .vpk2 .schijf{width:14px;height:14px;flex:none}
@@ -5057,7 +5063,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v828 · 22 okt 2026';
+const APPVERSIE='v829 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5518,10 +5524,33 @@ async function vversDoen(el){
   location.reload();
 }
 
+/* v829: de zwevende bol lag over je scherm, ook als er niets nieuws was.
+   Nu kijkt HQ zelf op de server of er een nieuwere versie is (VERSIE in
+   sw.js) en toont dan pas een smal balkje boven de tabbalk. */
+let vversNieuw='';
+const vNr=s=>parseInt(String(s||'').replace(/\D/g,''),10)||0;
+async function vversCheck(){
+  try{
+    const r=await fetch('sw.js?v='+Date.now(),{cache:'no-store'});
+    const m=(await r.text()).match(/VERSIE\s*=\s*'hq-(v\d+)'/);
+    const hier=String(APPVERSIE).split(' ')[0];
+    vversNieuw=m&&vNr(m[1])>vNr(hier)?m[1]:'';
+  }catch(e){}
+  vversKnop();
+}
+addEventListener('load',()=>setTimeout(vversCheck,2500));
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') vversCheck() });
+setInterval(()=>{ if(document.visibilityState==='visible') vversCheck() },5*60*1000);
 function vversKnop(){
   const oud=document.getElementById('vversknop');
-  if(!vversStaat()){ if(oud) oud.remove(); return }
-  if(oud) return;
+  if(!vversStaat()||!vversNieuw){ if(oud) oud.remove(); return }
+  if(oud){ const b=oud.querySelector('b'); if(b) b.textContent=vversNieuw+' staat klaar · tik om te verversen'; return }
+  const balk=document.createElement('button');
+  balk.id='vversknop'; balk.className='vvbalk'; balk.type='button';
+  balk.innerHTML=svg(I.ververs||I.pijl,'2')+'<b>'+vversNieuw+' staat klaar · tik om te verversen</b>';
+  balk.onclick=()=>vversDoen(balk);
+  document.body.appendChild(balk);
+  return;
 
   const el=document.createElement('button');
   el.id='vversknop';
@@ -10933,7 +10962,7 @@ function productieHTML(){
         ${dk(p2.datum)}
         <span class="plnm"><b>${esc(chocNaam(p2.chocolade)||'Productie')}</b><small>${sub}</small></span>
         ${n<=0&&!(nu&&nu.k==='prod:'+p2.id&&!loopt.length)?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
-          :`<span class="plwnr${n<0?' laat':''}">${wnr(n)}${tk?`<small class="lglet">${tk} tekort</small>`:''}</span>`}
+          :`<span class="plwnr${n<0?' laat':''}">${wnr(n)}${tk?`<button type="button" class="plbest" data-plbest="${p2.id}">${tk} bestellen</button>`:''}</span>`}
       </div>`,'data-planwis="'+p2.id+'"')};
     if(held) h+=`<div style="margin-top:${loopt.length?24:8}px">${held}</div>`;
     h+=`<div class="blokkop" style="margin-top:${held||loopt.length?24:8}px"><span class="eyebrow">Planning</span></div>
@@ -11195,7 +11224,8 @@ function prodSmakenHTML(){
   let h=(S.recepten||[]).length?'':`<button class="prim" style="margin:0 0 14px" onclick="sheetSmaakSnel()">${svg(I.plus)}Eerste smaak</button>`;
   { const act=(S.recepten||[]).filter(smaakActief), leeg=act.filter(r=>smaakStatus(r).k!=='ok').length;
     if(act.length) h+=`<button type="button" class="rsbanner${leeg?' let':''}" onclick="${leeg?'smaakVolgendeOnaf()':'sheetReceptForm(receptSnelLijst()[0].id)'}">
-      <span><b>${leeg?leeg+(leeg===1?' smaak nog niet af':' smaken nog niet af'):'Alle recepten af'}</b>
+      <span><b>${leeg?(()=>{ const gp=geplandeSmaken(), gl=act.filter(r=>gp.has(r.id)&&smaakStatus(r).k!=='ok').length;
+        return gl?gl+' in je planning nog niet af':leeg+(leeg===1?' smaak nog niet af':' smaken nog niet af') })():'Alle recepten af'}</b>
       <small>${leeg?(act.length-leeg)+' van '+act.length+' klaar · zonder recept kan HQ niet rekenen':'tik om ze na te lopen'}</small></span>
       <em>${leeg?'Volgende':'Nalopen'}</em></button>`; }
   if(!(S.recepten||[]).filter(smaakActief).some(r=>smaakStatus(r).k!=='ok')) h=h.replace(/<button type="button" class="rsbanner[\s\S]*?<\/button>/,'');
@@ -11264,6 +11294,24 @@ function prodLijstenHTML(){
       ${pt('data-ins="middelen"',I.fles,'Middelen',tel((S.middelen||[]).length,'middel','middelen'))}
     </div>`;
 }
+/* v829: wat moet je voor deze productiedag nog kopen, per leverancier */
+function sheetPlanBestel(id){
+  const p=(S.planning||[]).find(x=>x.id===id); if(!p) return;
+  const d=dekkingGrond(p.regels||[]).filter(x=>x.tekort>0);
+  const per={};
+  d.forEach(x=>{ const m=String(x.naam).split(/\s+[-–—]\s+/), lev=leverancierVan(x.naam)||(m.length>1?m.slice(1).join(' - '):'Overig');
+    (per[lev]=per[lev]||[]).push(Object.assign({},x,{kort:m.length>1&&!leverancierVan(x.naam)?m[0]:x.naam})) });
+  const dt=new Date(p.datum+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'short'});
+  sheet('Bestellen voor '+chocNaam(p.chocolade).toLowerCase(),
+    `<p class="hint">Voor ${esc(dt)}. Wat je nu in huis hebt is al afgetrokken.</p>
+     ${Object.keys(per).sort().map(l=>`<div class="blokkop" style="margin-top:16px"><span class="eyebrow">${esc(l)}</span></div>
+       <div class="gl">${per[l].map(x=>`<div class="shrij"><span class="shn">${esc(x.kort)}<small>${x.onbekend?'niet in voorraad':'heb '+toonHoeveel(x.op,'g')}</small></span>
+         <span class="shw let">${toonHoeveel(x.tekort,'g')}</span></div>`).join('')}</div>`).join('')
+       ||'<p class="wdleeg">Je hebt alles in huis.</p>'}`,
+    d.length?`<button class="prim" style="margin-top:0" id="pbOk">Op de boodschappenlijst</button>`:'');
+  if($('#pbOk')) $('#pbOk').onclick=()=>{ const r=boodschapUitBatch(p.regels||[]); bewaarNu(); render();
+    toast(r.toegevoegd?r.toegevoegd+(r.toegevoegd===1?' product':' producten')+' op je lijst gezet.':'Stond al op je lijst.'); sheetBoodschappen() };
+}
 /* v826: maak ik genoeg? Nodig volgens de voorspelling tegenover wat er
    gepland of al in de maak is, plus wat er op voorraad ligt. */
 function planStandHTML(plans,loopt){
@@ -11273,20 +11321,21 @@ function planStandHTML(plans,loopt){
     +loopt.reduce((n,b)=>n+bTotaal(b),0)+vpVoorraad();
   const nodig=a.bruto, gat=nodig-gepland, g=n=>Math.round(n).toLocaleString('nl-NL');
   return `<button type="button" class="plstand${gat>0?' let':''}" onclick="homeTegel('vsp')">
-    <span><b>${g(gepland)}</b> van ${g(nodig)} gepland</span>
-    <em>${gat>0?g(gat)+' te weinig':svg(I.vink,'2.6')}</em>${svg(I.pijl,'2')}</button>`;
+    <span><b>${gat>0?g(gat)+' te weinig gepland':'Genoeg gepland'}</b><small>${g(gepland)} gepland · ${g(nodig)} nodig</small></span>
+    <em>${gat>0?'':svg(I.vink,'2.6')}</em>${svg(I.pijl,'2')}</button>`;
 }
 /* v826: vier tegels werden één lijst "Klaarzetten"; de voorspelling zit nu
    in de planning (nodig · gepland). */
 function prodTegelsHTML(a){
   const act=(S.recepten||[]).filter(smaakActief), sOnaf=act.filter(r=>smaakStatus(r).k!=='ok').length;
+  const gp=geplandeSmaken(), gOnaf=act.filter(r=>gp.has(r.id)&&smaakStatus(r).k!=='ok').length;
   const ings=alleIngredienten().filter(n=>!ingGearchiveerd(n)), iOnaf=ingOnaf().length;
   const ij=laatsteIjking();
   const rij=(on,n,w,let2)=>`<button type="button" class="shrij" onclick="${on}"><span class="shn">${n}</span>
     <span class="shw${let2?' let':''}">${w}</span>${svg(I.pijl,'2')}</button>`;
   return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Klaarzetten</span></div>
     <div class="gl">
-      ${rij("homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||sOnaf)}
+      ${rij(gOnaf?'smaakVolgendeOnaf()':"homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
       ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
       ${rij("homeTegel('vv')",'Voedselveiligheid',ij?svg(I.vink,'2.6'):'thermometer ijken',!ij)}
       ${rij("homeTegel('lst')",'Instellen','')}
@@ -24366,6 +24415,7 @@ function bind(){
   $$('[data-vraag]').forEach(x=>x.onclick=()=>sheetVraag(''));
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
+  $$('[data-plbest]').forEach(x=>x.onclick=ev=>{ ev.stopPropagation(); sheetPlanBestel(x.dataset.plbest) });
   $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>{
     const k=x.dataset.haccpdoe;
     if(k==='groot_voor'||k==='groot_na') return sheetSchoonmaak(k.slice(6));
@@ -30105,8 +30155,19 @@ function smaakStatus(r){
   return {k:'ok',t:''};
 }
 const smakenOnaf=()=>receptSnelLijst().filter(r=>smaakStatus(r).k!=='ok');
+/* v829: welke smaken staan in je planning of in een lopende batch? */
+function geplandeSmaken(){
+  const v0=vandaag(), ids=new Set();
+  (S.planning||[]).filter(p=>!p.datum||p.datum>=v0).forEach(p=>(p.regels||[]).forEach(r=>{ if((r.aantal||r.mallen)>0) ids.add(r.receptId) }));
+  (S.batches||[]).filter(b=>b&&b.status!=='klaar').forEach(b=>(b.regels||[]).forEach(r=>ids.add(r.receptId)));
+  return ids;
+}
 function smaakVolgendeOnaf(naId){
-  const l=smakenOnaf(); if(!l.length){ toast('Alle smaken zijn af.'); return homeTegel('smk') }
+  const gp=geplandeSmaken();
+  const l=smakenOnaf().sort((a,b)=>gp.has(b.id)-gp.has(a.id)); if(!l.length){ toast('Alle smaken zijn af.'); return homeTegel('smk') }
+  const lg=l.filter(r=>gp.has(r.id)&&r.id!==naId);
+  if(lg.length){ const al=receptSnelLijst(), i0=naId?al.findIndex(r=>r.id===naId):-1;
+    const v=al.slice(i0+1).concat(al.slice(0,i0+1)).find(r=>lg.includes(r))||lg[0]; return sheetReceptForm(v.id) }
   const i=naId?receptSnelLijst().findIndex(r=>r.id===naId):-1;
   const volg=receptSnelLijst().slice(i+1).concat(receptSnelLijst().slice(0,i+1)).find(r=>r.id!==naId&&smaakStatus(r).k!=='ok')||l[0];
   sheetReceptForm(volg.id);
