@@ -4512,6 +4512,10 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgin{display:flex;align-items:center;gap:4px;width:112px;height:42px;border-radius:10px;background:var(--card);padding:0 10px;flex:none;margin-right:4px}
 .lgin input{width:100%;min-width:0;border:0;background:none;font:inherit;font-size:16px;text-align:right;color:var(--ink);padding:0}
 .lgin em{font-style:normal;color:var(--grijs);font-size:14px}
+.gl{background:var(--bg);border-radius:16px;overflow:hidden}
+.gl>*+*{border-top:1px solid var(--lijn)}
+.gl .veeg>.veeginhoud{background:var(--bg)}
+.gl .lgnieuw{border-top:0}
 .shrij{display:flex;align-items:center;gap:10px;width:100%;min-height:56px;border:0;background:none;font:inherit;color:var(--ink);text-align:left;padding:10px 14px;cursor:pointer}
 .shrij+.shrij,.shrij+.lgnieuw{border-top:1px solid var(--lijn)}
 .shrij>svg{width:14px;height:14px;flex:none;opacity:.35}
@@ -5020,7 +5024,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v820 · 22 okt 2026';
+const APPVERSIE='v821 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -34104,6 +34108,20 @@ function sheetIngDelen(naam){
    waar nog een prijs mist. Nu: een overzicht dat op één regel per ingrediënt
    zegt hoe het ervoor staat, en één scherm per ingrediënt om het in te vullen. */
 
+/* v821: wat mist er nog aan een ingrediënt? Prijs (kostprijs) en
+   voedingswaarde (etiket). Allergenen niet: "geen" is daar een normaal antwoord. */
+function ingStatus(n){
+  if(ingPrijs(n)===null) return {k:'let',t:'geen prijs'};
+  if(!voedingCompleet(n)) return {k:'let',t:'voedingswaarde mist'};
+  return {k:'ok',t:''};
+}
+const ingOnaf=()=>alleIngredienten().filter(n=>!ingGearchiveerd(n)&&ingStatus(n).k!=='ok');
+function ingVolgendeOnaf(na){
+  const l=ingOnaf().filter(n=>n!==na); if(!l.length){ toast('Alle ingrediënten zijn af.'); return sheetIngredientenLijst(false) }
+  const alle=alleIngredienten(), i=alle.indexOf(na);
+  const v=alle.slice(i+1).concat(alle.slice(0,Math.max(0,i))).find(n=>l.includes(n))||l[0];
+  sheetIngredient(v,false,true);
+}
 function ingStand(n){
   const pr=ingPrijs(n), bron=prijsBron(n), gk=ingAllerg(n), d=ingDelen(n);
   return {naam:n, prijs:pr, eigen:!!bron, allerg:gk, delen:d,
@@ -34136,8 +34154,7 @@ function ingNieuwBinden(na){
       toast(naam+' stond er al — hier is hij.');
       return sheetIngredient(naam,false);
     }
-    /* meteen door naar de eerste vraag: dat is waarom je hem toevoegt */
-    sheetIngWizard(naam,0);
+    sheetIngredient(naam,false,true);
   };
   $('#inOk').onclick=doe;
   $('#inNm').onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); doe() } };
@@ -34229,56 +34246,36 @@ function sheetIngredientenLijst(alleenMissend){
     return;
   }
 
-  /* De kop zei twee keer hetzelfde: de titel "Ingrediënten" en daaronder
-     "16 ingrediënten". Het aantal staat nu in de titel zelf. Toevoegen stond
-     helemaal onderaan, achter zestien rijen — die hoort bovenaan, naast het
-     zoekveld, want daar begin je. */
+  /* v821: één grijze lijst met een bolletje per ingrediënt, zoals bij je
+     smaken. Wat nog niet af is staat bovenaan, met een knop Volgende. */
+  const onaf=alles.filter(x=>ingStatus(x.naam).k!=='ok');
+  const lijst2=alles.slice().sort((a,b)=>(ingStatus(a.naam).k==='ok')-(ingStatus(b.naam).k==='ok')||a.naam.localeCompare(b.naam,'nl'));
+  const grij=x=>{ const st=ingStatus(x.naam);
+    const onder=st.t||(x.allerg.length?x.allerg.map(alNaam).join(', '):'');
+    return veegRij(`<button type="button" class="shrij" data-ing="${esc(x.naam)}">
+      <span class="smst ${st.k}">${st.k==='ok'?svg(I.vink,'3'):''}</span>
+      <span class="shn">${esc(x.naam)}${onder?`<small${st.t?' class="lglet"':''}>${esc(onder)}</small>`:''}</span>
+      ${x.prijs!==null?`<span class="shw">${euro(x.prijs)}/kg</span>`:''}${svg(I.pijl,'2')}</button>`,'data-ingweg="'+esc(x.naam)+'"') };
   sheet(alles.length+' '+(alles.length===1?'ingrediënt':'ingrediënten'),
-    `<div class="zoekrij">
-       ${alles.length>5?`<div class="mveld">
-         ${svg(I.loep)}<input id="ilZ" placeholder="Zoeken"
-           autocapitalize="none" spellcheck="false"></div>`:'<span></span>'}
-       <button class="toevoeg" id="ilN">${svg(I.plus)}Nieuw</button>
-     </div>
+    `${alles.length>8?`<div class="mveld" style="margin-bottom:12px">${svg(I.loep)}<input id="ilZ" placeholder="Zoeken"
+         autocapitalize="none" spellcheck="false"></div>`:''}
+     ${onaf.length?`<button type="button" class="rsbanner let" id="ilVolg" style="margin-bottom:12px">
+       <span><b>${onaf.length} nog niet af</b><small>${alles.length-onaf.length} van ${alles.length} klaar</small></span><em>Volgende</em></button>`:''}
+     <div class="gl" id="ilL">${lijst2.map(grij).join('')}
+       <button type="button" class="lgnieuw" id="ilN">${svg(I.plus)}Ingrediënt</button></div>
      ${ingNieuwHtml()}
-     <div class="ingtop">
-       ${missend.length
-         ? `<span class="let">${missend.length} zonder prijs${
-             oud.length?' \u00b7 '+oud.length+' verouderd':''}</span>`
-         : oud.length
-           ? `<span class="let">${oud.length} ${oud.length===1?'prijs is':'prijzen zijn'} ouder dan een half jaar</span>`
-           : `<span class="goed">${svg(I.vink,'2.4')} allemaal een prijs</span>`}
-       ${missend.length&&missend.length<alles.length
-         ? `<button class="chip klein${alleenMissend?' aan':''}" id="ilF">Alleen wat mist</button>`
-         : ''}
-     </div>
-     <div class="paneel" id="ilL">${lijst.map(rij).join('')}</div>
-     ${alles.length>1?`<button class="toevoeg" id="ilKies" style="margin-top:14px">${
-       svg(I.doos)}Archiveren</button>`:''}
-     ${archief.length?`<button class="klapkop" id="ilArK">${svg(I.pijl,'2')}
-       Archief (${archief.length})</button>
-       <div class="klapin" id="ilAr"><div class="paneel">${archief.map(n=>
-         `<button class="ingrij2" data-ing="${esc(n)}">
-           <span class="in"><span class="nm">${esc(n)}</span>
-             <small>gearchiveerd</small></span>
-           <span class="p">${svg(I.pijl,'2')}</span></button>`).join('')}</div>
-         <button class="toevoeg" id="ilAlles" style="margin-top:8px">${svg(I.ververs)}
-           Alles terughalen</button></div>`:''}
-     ${lijst.length?'':`<div class="geen">Alles ingevuld.</div>`}
-     <p class="hint" style="margin-top:16px">Alles wat je bij Smaken intikt komt
-       hier vanzelf te staan. Wat je hier invult gebruiken je kostprijs, je
-       etiketten en je batches.</p>`,
+     ${archief.length?`<div class="klapin" id="ilAr"><div class="gl" style="margin-top:14px">${archief.map(n=>
+         `<button type="button" class="shrij" data-ing="${esc(n)}"><span class="shn">${esc(n)}<small>gearchiveerd</small></span>${svg(I.pijl,'2')}</button>`).join('')}</div>
+         <div class="lgvoet" style="justify-content:flex-start"><button type="button" id="ilAlles">Alles terughalen</button></div></div>`:''}
+     <div class="lgvoet">
+       ${alles.length>1?'<button type="button" id="ilKies">Meerdere archiveren</button>':'<span></span>'}
+       ${archief.length?`<button type="button" id="ilArK">Archief (${archief.length})</button>`:''}</div>`,
     `<button class="prim" style="margin-top:0" id="ilOk">Klaar</button>`);
-
+  const rij2=grij;
   bindVeeg();
   /* Dezelfde vraag en hetzelfde ongedaan maken als op het detailscherm. */
   $$('#sheetBody [data-ingweg]').forEach(x=>x.onclick=()=>{
-    const n2=x.dataset.ingweg, g=ingGebruikt(n2);
-    const vraag=g.length
-      ? n2+' zit in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.join(', ')+
-        '.\n\nVerwijderen haalt hem daar ook uit. Je afgeronde batches blijven zoals ze waren.'
-      : n2+' verwijderen? Prijs, link, allergenen en voedingswaarde gaan mee weg.';
-    if(!confirm(vraag)) return;
+    const n2=x.dataset.ingweg;
     const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron',
       'ingLink','allerg','samenstelling','voeding','prijsHist','ingArchief']);
     ingWeg(n2);
@@ -34287,7 +34284,8 @@ function sheetIngredientenLijst(alleenMissend){
   });
 
   const bindRijen=()=>$$('#ilL [data-ing]').forEach(b=>
-    b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend));
+    b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend,true));
+  if($('#ilVolg')) $('#ilVolg').onclick=()=>ingVolgendeOnaf(null);
   bindRijen();
   if($('#ilF')) $('#ilF').onclick=()=>sheetIngredientenLijst(!alleenMissend);
   /* De knop bleef staan zodra het invulvak openging, dus zag je twee keer
@@ -34295,13 +34293,13 @@ function sheetIngredientenLijst(alleenMissend){
      het echte werk doet. */
   $('#ilN').onclick=()=>{ $('#inForm').classList.add('open');
     $('#ilN').style.display='none'; $('#inNm').focus() };
+  if($('#ilF')) $('#ilF').onclick=null;
   if($('#ilKies')) $('#ilKies').onclick=()=>{
     ingKeuze=new Set(); sheetIngredientenLijst(alleenMissend);
   };
   if($('#ilArK')) $('#ilArK').onclick=()=>{
-    $('#ilArK').classList.toggle('open');
     $('#ilAr').classList.toggle('open');
-    $$('#ilAr [data-ing]').forEach(b=>b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend));
+    $$('#ilAr [data-ing]').forEach(b=>b.onclick=()=>sheetIngredient(b.dataset.ing,alleenMissend,true));
     if($('#ilAlles')) $('#ilAlles').onclick=()=>{
       const herstel=terugpunt(['ingArchief']);
       const n=archief.length;
@@ -34313,10 +34311,10 @@ function sheetIngredientenLijst(alleenMissend){
   ingNieuwBinden(()=>sheetIngredientenLijst(alleenMissend));
   if($('#ilZ')) $('#ilZ').oninput=()=>{
     const t=$('#ilZ').value.trim().toLowerCase();
-    const gevonden=t?lijst.filter(x=>x.naam.toLowerCase().indexOf(t)>=0):lijst;
-    $('#ilL').innerHTML=gevonden.length?gevonden.map(rij).join('')
+    const gevonden=t?lijst2.filter(x=>x.naam.toLowerCase().indexOf(t)>=0):lijst2;
+    $('#ilL').innerHTML=gevonden.length?gevonden.map(rij2).join('')
       :`<div class="geen" style="padding:16px">Niets gevonden.</div>`;
-    bindRijen();
+    bindVeeg(); bindRijen();
   };
   $('#ilOk').onclick=sheetInstellingen;
 }
@@ -34831,52 +34829,25 @@ function sheetIngredient(naam,uitMissend,vanWizard){
   const leeg = ingPrijs(naam)===null && !prijsBron(naam)
     && !ingAllerg(naam).length && !voeding(naam) && !ingLink(naam)
     && !ingDelen(naam).length;
-  if(!vanWizard&&leeg) return sheetIngWizard(naam,0);
+  void leeg; /* v821: het scherm is klein genoeg, geen verplichte wizard meer */
 
   const teken=()=>{
     const gk=ingAllerg(naam), d=ingDelen(naam), w=voeding(naam);
-    const rest=alleIngredienten().map(ingStand).filter(x=>x.mist&&x.naam!==naam);
-    /* wat er nog ontbreekt komt bovenaan, met een teller — de rest eronder */
-    const rijen=[
-      {id:'voed', ico:I.klembord, n:'Voedingswaarde',
-       w: w&&voedingCompleet(naam)?Math.round(w.kcal)+' kcal':(w?'onvolledig':''),
-       mist:!voedingCompleet(naam)},
-      {id:'allerg', ico:I.alarm, n:'Allergenen',
-       w: gk.length?gk.map(alNaam).join(', '):'geen', mist:false},
-      {id:'delen', ico:I.doc, n:'Bestaat uit meerdere ingrediënten',
-       w: d.length?d.length+' onderdelen':'nee', mist:false}
-    ];
-    const open=rijen.filter(x=>x.mist), af=rijen.filter(x=>!x.mist);
-    const rij=x=>`<button class="arij" data-ir="${x.id}">
-      <span class="ivak">${svg(x.ico)}</span>
-      <span class="naam">${esc(x.n)}</span>
-      <span class="waarde ${x.w?'gevuld':'let'}">${x.w?esc(x.w):'invullen'}</span>
-      <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
-
+    const verder=ingOnaf().filter(n=>n!==naam).length;
+    const g=ingGebruikt(naam);
+    const gr=(id,n,waarde,mist)=>`<button type="button" class="shrij" data-ir="${id}">
+      <span class="shn">${esc(n)}</span>${waarde?`<span class="shw${mist?' let':''}">${esc(waarde)}</span>`:''}${svg(I.pijl,'2')}</button>`;
+    /* v821: prijs en link blijven typvelden (dat is waarvoor je hier bent),
+       de rest is één grijze lijst; wat je zelden doet staat onderaan als tekst. */
     sheet(naam,
       `${ingVeldenHtml(naam,{prijsLabel:'Wat betaal je ervoor?',kort:true})}
        ${ingVoorraadHtml(naam)}
-       ${open.length?`<div class="blokkop" style="margin-top:24px">
-         <span class="eyebrow">Nog invullen</span><span class="tel let">${open.length}</span></div>
-         <div class="paneel">${open.map(rij).join('')}</div>`:''}
-       ${af.length?`<div class="blokkop" style="margin-top:${open.length?22:24}px">
-         <span class="eyebrow">Ingevuld</span></div>
-         <div class="paneel">${af.map(rij).join('')}</div>`:''}
-       <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Dit ingrediënt</span></div>
-       <div class="paneel">
-         <button class="arij" data-ir="wiz"><span class="ivak">${svg(I.vink)}</span>
-           <span class="naam">Alles langslopen</span>
-           <span class="pijl">${svg(I.pijl,'2')}</span></button>
-         <button class="arij" data-ir="naam"><span class="ivak">${svg(I.doc)}</span>
-           <span class="naam">Naam aanpassen</span>
-           <span class="pijl">${svg(I.pijl,'2')}</span></button>
-         <button class="arij" data-ir="arch"><span class="ivak">${svg(I.doos)}</span>
-           <span class="naam">${ingGearchiveerd(naam)?'Terughalen uit het archief':'Naar het archief'}</span>
-           <span class="pijl">${svg(I.pijl,'2')}</span></button>
-         <button class="arij" data-ir="weg"><span class="ivak">${svg(I.prul)}</span>
-           <span class="naam" style="color:var(--rood)">Verwijderen</span>
-           <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       <div class="lglijst" style="margin-top:20px">
+         ${gr('voed','Voedingswaarde',w&&voedingCompleet(naam)?Math.round(w.kcal)+' kcal':'invullen',!voedingCompleet(naam))}
+         ${gr('allerg','Allergenen',gk.length?gk.map(alNaam).join(', '):'geen',false)}
+         ${gr('delen','Samengesteld',d.length?d.length+' onderdelen':'',false)}
        </div>
+       ${g.length?`<div class="lgsom">In ${g.map(esc).join(', ')}</div>`:''}
        <div class="inlineform" id="iNaamF">
          <div class="rijtje">
            <input class="mini" id="iNaamV" value="${esc(naam)}"
@@ -34885,16 +34856,14 @@ function sheetIngredient(naam,uitMissend,vanWizard){
          </div>
          <div class="geen" id="iNaamUit" style="padding:8px 0 0"></div>
        </div>
-       <div class="geen" style="padding:16px 0 0">${(()=>{
-         const g=ingGebruikt(naam);
-         return g.length
-           ? 'Gebruikt in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.map(esc).join(', ')
-           : 'Nog niet in gebruik in een smaak.';
-       })()}</div>`,
-      `${rest.length?`<button class="prim tweeregels" style="margin-top:0" id="iVolg">
-         <span>Volgende zonder prijs</span><em>${esc(rest[0].naam)}</em></button>
-        <button class="sec" id="iTerug">Terug naar de lijst</button>`
-       :`<button class="prim" style="margin-top:0" id="iTerug">Terug naar de lijst</button>`}`);
+       <div class="lgvoet">
+         <button type="button" data-ir="naam">Naam</button>
+         <button type="button" data-ir="wiz">Stap voor stap</button>
+         <button type="button" data-ir="arch">${ingGearchiveerd(naam)?'Terughalen':'Archief'}</button>
+         <button type="button" data-ir="weg">Weghalen</button></div>`,
+      `${verder?`<button class="sec" style="margin-top:0" id="iVolg">Volgende</button>`:''}
+       <button class="prim" style="margin-top:0" id="iTerug">Klaar</button>`);
+    sheetTerugZet(()=>sheetIngredientenLijst(uitMissend));
 
     ingVeldenBinden();
     const naamOpslaan=()=>{
@@ -34940,12 +34909,6 @@ function sheetIngredient(naam,uitMissend,vanWizard){
         return toast(aan?naam+' gearchiveerd.':naam+' staat weer in je lijst.');
       }
       if(k==='weg'){
-        const g=ingGebruikt(naam);
-        const vraag=g.length
-          ? naam+' zit in '+g.length+' '+(g.length===1?'smaak':'smaken')+': '+g.join(', ')+
-            '.\n\nVerwijderen haalt hem daar ook uit. Je afgeronde batches blijven zoals ze waren.'
-          : naam+' verwijderen? Prijs, link, allergenen en voedingswaarde gaan mee weg.';
-        if(!confirm(vraag)) return;
         const herstel=terugpunt(['ingredienten','recepten','prijzen','prijsBron',
           'ingLink','allerg','samenstelling','voeding','prijsHist','ingArchief']);
         ingWeg(naam);
@@ -34953,7 +34916,7 @@ function sheetIngredient(naam,uitMissend,vanWizard){
         toast(naam+' verwijderd.',herstel);
       }
     });
-    if($('#iVolg')) $('#iVolg').onclick=()=>sheetIngredient(rest[0].naam,uitMissend);
+    if($('#iVolg')) $('#iVolg').onclick=()=>ingVolgendeOnaf(naam);
     if($('#iTerug')) $('#iTerug').onclick=()=>sheetIngredientenLijst(uitMissend);
   };
   teken();
