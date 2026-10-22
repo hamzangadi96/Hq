@@ -4512,6 +4512,14 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgin{display:flex;align-items:center;gap:4px;width:112px;height:42px;border-radius:10px;background:var(--card);padding:0 10px;flex:none;margin-right:4px}
 .lgin input{width:100%;min-width:0;border:0;background:none;font:inherit;font-size:16px;text-align:right;color:var(--ink);padding:0}
 .lgin em{font-style:normal;color:var(--grijs);font-size:14px}
+.shrij{display:flex;align-items:center;gap:10px;width:100%;min-height:56px;border:0;background:none;font:inherit;color:var(--ink);text-align:left;padding:10px 14px;cursor:pointer}
+.shrij+.shrij,.shrij+.lgnieuw{border-top:1px solid var(--lijn)}
+.shrij>svg{width:14px;height:14px;flex:none;opacity:.35}
+.shn{flex:1;min-width:0;font-size:16px;display:flex;flex-direction:column}
+.shn small{font-size:13px;color:var(--grijs);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shn small.lglet{color:var(--amber);font-weight:600}
+.shw{font-size:15px;color:var(--grijs);flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shw.let{color:var(--amber);font-weight:600}
 .lgnieuw{display:flex;align-items:center;gap:8px;width:100%;border:0;border-top:1px solid var(--lijn);background:none;font:inherit;font-size:15px;font-weight:600;color:var(--grijs);padding:15px 14px;cursor:pointer;text-align:left}
 .lgnieuw svg{width:16px;height:16px}
 .lgvoet{display:flex;justify-content:space-between;margin-top:22px;padding:0 4px}
@@ -5012,7 +5020,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v819 · 22 okt 2026';
+const APPVERSIE='v820 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -29984,40 +29992,37 @@ function smaakHub(){
   const ander=schelpAndere(R);
   const onaf=smakenOnaf().filter(r=>r.id!==R.id).length;
 
-  const door=totaal?`<div class="sdoor">${lagen.map((o,i)=>{ const g=parseFloat(o.gram)||0; if(!g) return '';
-      return `<i style="flex:${g};background:${LAAGKLEUR[Math.min(i,LAAGKLEUR.length-1)]};color:${i>=2?'var(--ink)':'#fff'}">${esc(o.naam)} ${fijn(g)} g</i>` }).join('')}</div>
-    <div class="sdoortot">Eén bonbon weegt <b>${fijn(totaal)} g</b></div>`:'';
+  /* v820: twee rustige lijsten in dezelfde vorm als het laagscherm. De
+     doorsnede-balk zei hetzelfde als de lagen eronder, en zes losse kaarten
+     met icoontjes voor de gegevens was veel tekenwerk voor weinig. */
+  const gr=(id,naam,waarde,mist)=>`<button type="button" class="shrij" data-sh="${id}">
+    <span class="shn">${esc(naam)}</span>${waarde?`<span class="shw${mist?' let':''}">${esc(waarde)}</span>`:''}${svg(I.pijl,'2')}</button>`;
 
   sheet(R.naam||'Smaak',
-    `${door}
-     ${ander?`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}
-       <span>De schelp is ${esc(chocNaam(ander).toLowerCase())}, maar de smaak staat op ${esc(chocNaam(R.chocolade).toLowerCase())}. Je inkoop en voorspelling rekenen nu met de verkeerde chocolade.
+    `${ander?`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}
+       <span>De schelp is ${esc(chocNaam(ander).toLowerCase())}, de smaak staat op ${esc(chocNaam(R.chocolade).toLowerCase())}.
          <span class="smkeus"><button type="button" class="chip klein" data-shchoc="${ander}">Smaak op ${esc(chocNaam(ander).toLowerCase())}</button>
          <button type="button" class="chip klein" data-shschelp="1">Schelp op ${esc(chocNaam(R.chocolade).toLowerCase())}</button></span></span></div>`:''}
-     <div class="blokkop" style="margin-top:2px"><span class="eyebrow">Lagen</span>
-       <span class="tel">${lagen.length}</span></div>
-     ${lagen.length?`<div class="paneel">${lagen.map((o,i)=>{ const st=laagStatus(o), ing=(o.ing||[]).filter(x=>x.naam);
-        return `<button class="arij" data-laag="${i}">
+     <div class="lglijst" style="margin-top:0">
+       ${lagen.map((o,i)=>{ const st=laagStatus(o), ing=(o.ing||[]).filter(x=>x.naam), g=parseFloat(o.gram)||0;
+        return `<button type="button" class="shrij" data-laag="${i}">
           <span class="lgbol" style="background:${LAAGKLEUR[Math.min(i,LAAGKLEUR.length-1)]}"></span>
-          <span class="naam">${esc(o.naam||'Naamloze laag')}<small>${st?`<b class="lglet">${st}</b>`:
-            esc(ing.length===1?ing[0].naam:ing.length+' ingrediënten')}</small></span>
-          <span class="waarde ${parseFloat(o.gram)>0?'gevuld':'let'}">${parseFloat(o.gram)>0?fijn(o.gram)+' g':'—'}</span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>` }).join('')}</div>`
-       :`<p class="hint" style="margin:0 0 4px">Nog geen lagen. Meestal een schelp en een vulling.</p>`}
-     <button type="button" class="toevoeg" id="shLaag" style="margin-top:10px">${svg(I.plus)}Laag toevoegen</button>
+          <span class="shn">${esc(o.naam||'Naamloze laag')}<small${st?' class="lglet"':''}>${esc(st||(ing.length===1?ing[0].naam.split(/\s+[-–—]\s+/)[0]:ing.length+' ingrediënten'))}</small></span>
+          <span class="shw${g?'':' let'}">${g?fijn(g)+' g':'—'}</span>${svg(I.pijl,'2')}</button>` }).join('')}
+       <button type="button" class="lgnieuw" id="shLaag"${lagen.length?'':' style="border-top:0"'}>${svg(I.plus)}Laag</button>
+     </div>
+     ${totaal?`<div class="lgsom">Eén bonbon weegt <b>${fijn(totaal)} g</b></div>`:''}
 
-     <div class="blokkop"><span class="eyebrow">Gegevens</span></div>
-     <div class="paneel">
-       ${rij('naam',I.doc,'Naam',R.naam||'invullen',!R.naam)}
-       ${rij('choc',I.bonbon,'Chocolade',chocNaam(R.chocolade)||'kiezen',!R.chocolade)}
-       ${rij('mal',I.vorm,vakHoofd('mal')||'Mal',mal?mal.naam+' · '+mal.holtes:'kiezen',!mal)}
-       ${rij('tht',I.klok,'Houdbaarheid',R.tht?R.tht+' dagen':'invullen',!R.tht)}
-       ${rij('werk',I.lijst,'Werkinstructies',ins?ins+(ins===1?' instructie':' instructies'):'geen',false)}
-       ${R.id?rij('etiket',I.doc,'Productetiket','instellen',false):''}
+     <div class="lglijst" style="margin-top:24px">
+       ${gr('choc','Chocolade',chocNaam(R.chocolade)||'kiezen',!R.chocolade)}
+       ${gr('mal',vakHoofd('mal')||'Mal',mal?mal.naam:'kiezen',!mal)}
+       ${gr('tht','Houdbaar',R.tht?R.tht+' dagen':'invullen',!R.tht)}
+       ${gr('werk','Werkinstructies',ins?String(ins):'',false)}
+       ${R.id?gr('etiket','Productetiket','',false):''}
+       ${gr('naam','Naam wijzigen','',false)}
      </div>`,
-    `${onaf?`<button class="sec" style="margin-top:0" id="shVolg">Volgende die niet af is</button>`:''}
-     <button class="prim" style="margin-top:0" id="shOk">Klaar</button>`,
-    'Opgeslagen');
+    `${onaf?`<button class="sec" style="margin-top:0" id="shVolg">Volgende smaak</button>`:''}
+     <button class="prim" style="margin-top:0" id="shOk">Klaar</button>`);
 
   bijSluiten=null;
   const naarSmaken=()=>{ smaakOpslaan(); render(); homeTegel('smk') };
