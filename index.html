@@ -4522,6 +4522,12 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 #scherm .gl,#scherm .gl .veeg>.veeginhoud{background:var(--card)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
+.mlrij.nieuw .shn{font-weight:700}
+.mlrij .shn small{font-weight:400}
+.mlkop{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
+.mlkop b{font-size:17px;line-height:1.3}.mlkop small{font-size:13px;color:var(--grijs)}
+.mltekst{white-space:pre-wrap;font-size:15px;line-height:1.5;background:var(--bg);border-radius:14px;padding:14px;max-height:45vh;overflow:auto;word-break:break-word}
+.mlant{width:100%;height:320px!important;min-height:260px;line-height:1.5;font-size:16px;box-sizing:border-box;padding:14px!important;resize:vertical}
 .plstand{display:flex;align-items:center;gap:10px;width:100%;border:0;background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;font:inherit;font-size:15px;color:var(--ink);text-align:left;cursor:pointer}
 .plstand>span{flex:1;display:flex;flex-direction:column}.plstand>span small{font-size:13px;color:var(--grijs);margin-top:2px}
 .plstand.let>span b{color:var(--amber)}.plstand em{font-style:normal;font-weight:600;color:var(--groen);display:flex}
@@ -5063,7 +5069,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v829 · 23 okt 2026';
+const APPVERSIE='v830 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5375,7 +5381,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','route','vpUit','vpAanmeldPct','vasteBestellingen','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','route','vpUit','vpAanmeldPct','mailInfo','vasteBestellingen','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -7004,6 +7010,7 @@ const SNELITEMS=[
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
+  {key:'inbox',label:'Mail',icon:'post',soort:'sheet',doe:()=>sheetInbox()},
   {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
   {key:'halffab',label:'Halffabricaten',icon:'vorm',soort:'sheet',doe:()=>sheetHalfLijst()},
   {key:'smaken',label:'Smaken',icon:'boek',soort:'sheet',doe:()=>sheetRecepten()},
@@ -18238,8 +18245,132 @@ function sheetKoppelingen(){
        ${rij('myparcel','MyParcel','voor je verzendlabels')}
        ${rij('bonscan','Bonnen scannen','leest je kassabonnen uit')}
        ${rij('meelezen','Claude laten meelezen','Claude kan je gegevens lezen, niet wijzigen')}
+       ${rij('mail','Mail (info@)','klantmails ophalen en beantwoorden')}
      </div>`,'');
-  $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():sheetKoppel(x.dataset.kop));
+  $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():x.dataset.kop==='mail'?sheetMailKoppel():sheetKoppel(x.dataset.kop));
+}
+
+/* ═══════════ v830: Mail (info@ bij Strato) ═══════════
+   De server haalt je mail per keer op bij Strato en stuurt hem alleen naar
+   dit scherm; er wordt niets van je mail opgeslagen (AVG). Claude schrijft
+   een concept met je vaste info en de orders van die klant; jij leest het,
+   past aan en verstuurt. Het antwoord komt ook in je Verzonden-map. */
+const INBOX={lijst:null,bezig:false,fout:'',open:null,concept:'',wens:''};
+const MAILINFO_STANDAARD=`Webshop: cacaoboetiek.nl — gaat weer open op 1 november 2026.
+Handgemaakte halal bonbons, zonder alcohol.
+Dozen: 16 bonbons (€ 24,95) en 25 bonbons (€ 34,95).
+Spaarkaart: bij 6 stempels (€ 150 besteed) een cadeaubon van € 24,95.
+Adres: Cacaoboetiek, Alcoalaan 8D, 5151 RW Drunen.`;
+const mailInfo=()=>S.mailInfo||MAILINFO_STANDAARD;
+const mailTijd=ms=>{ const d=new Date(ms), v=vandaag(), dg=iso(d);
+  return dg===v?d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})
+    :dagenTussen(dg,v)<7?d.toLocaleDateString('nl-NL',{weekday:'short'}).replace('.','')
+    :d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'}).replace('.','') };
+function sheetMailKoppel(){
+  const k=koppeling();
+  sheet('Mail koppelen',
+    `<p class="hint">Je mailbox bij Strato. HQ haalt je mail per keer op en bewaart er niets van. Je wachtwoord staat op de server, niet in deze app.</p>
+     <div class="veld"><label>Mailadres</label><input class="inp" id="mkA" value="info@cacaoboetiek.nl" autocapitalize="off" inputmode="email"></div>
+     <div class="veld"><label>Wachtwoord van dit mailadres</label><input class="inp" id="mkW" type="password" autocomplete="off" placeholder="zoals in je mailprogramma"></div>
+     ${k.claude?'':`<div class="veld"><label>Claude-sleutel <span style="font-weight:400;text-transform:none;letter-spacing:0">(voor de concepten)</span></label>
+       <input class="inp" id="mkC" type="password" autocomplete="off" placeholder="sk-ant-…"></div>
+       <p class="vbnoot">Te maken op console.anthropic.com onder API keys. Je betaalt per gebruik: een paar cent per antwoord.</p>`}`,
+    `<button class="prim" style="margin-top:0" id="mkOk">Koppelen en uitproberen</button>
+     ${k.mail?`<button class="sec" id="mkWeg">Ontkoppelen</button>`:''}`);
+  sheetTerugZet(()=>sheetKoppelingen());
+  $('#mkOk').onclick=async()=>{
+    const knop=$('#mkOk'); knop.disabled=true; knop.textContent='Inloggen bij Strato…';
+    try{
+      const a=$('#mkA').value.trim(), w=$('#mkW').value;
+      if(!a||!w) throw new Error('Vul je mailadres en wachtwoord in.');
+      if($('#mkC')&&$('#mkC').value.trim()) await roep('zetKoppeling',{claude:{sleutel:$('#mkC').value.trim()}});
+      await roep('zetKoppeling',{mail:{adres:a,wachtwoord:w}});
+      S.werk=S.werk||{}; S.werk.koppeling=Object.assign({},S.werk.koppeling,{mail:true});
+      INBOX.lijst=null; toast('Gekoppeld en getest.'); sheetInbox();
+    }catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Koppelen en uitproberen' }
+  };
+  if($('#mkWeg')) $('#mkWeg').onclick=async()=>{ try{ await roep('wisKoppeling',{welke:'mail'}); INBOX.lijst=null;
+    if(S.werk&&S.werk.koppeling) delete S.werk.koppeling.mail; toast('Mail ontkoppeld.'); sheetKoppelingen() }catch(e){ toast(fout(e)) } };
+}
+function inboxLaden(){
+  if(INBOX.bezig) return; INBOX.bezig=true; INBOX.fout='';
+  roep('mailLijst',{aantal:40}).then(r=>{ INBOX.lijst=(r&&r.mails)||[] })
+    .catch(e=>{ INBOX.fout=fout(e) })
+    .finally(()=>{ INBOX.bezig=false; if(sheetOpen&&$('#sheetTitel').textContent==='Mail') sheetInbox(true) });
+}
+function sheetInbox(stil){
+  if(!koppeling().mail) return sheetMailKoppel();
+  if(!stil) inboxLaden();
+  const l=INBOX.lijst;
+  const open=(l||[]).filter(m=>!m.beantwoord).length;
+  sheet('Mail',
+    (!l?`<p class="wdleeg">${INBOX.fout?esc(INBOX.fout):'Mail ophalen bij Strato…'}</p>`
+    :`<div class="lgsom" style="margin:0 2px 10px">${open?'<b class="lglet">'+open+' onbeantwoord</b>':'Alles beantwoord'} · laatste ${l.length}</div>
+      <div class="gl">${l.map(m=>`<button type="button" class="shrij mlrij${m.gelezen?'':' nieuw'}" data-ml="${m.uid}">
+        <span class="smst ${m.beantwoord?'ok':'let'}">${m.beantwoord?svg(I.vink,'3'):''}</span>
+        <span class="shn">${esc(m.van||m.adres)}<small>${esc(m.onderwerp)}</small></span>
+        <span class="shw">${mailTijd(m.datum)}</span></button>`).join('')||'<p class="wdleeg" style="padding:16px">Je inbox is leeg.</p>'}</div>`)
+    +`<div class="lgvoet bvoet"><button type="button" id="ibVers">${INBOX.bezig?'Ophalen…':'Verversen'}</button>
+       <button type="button" id="ibInfo">Vaste info voor antwoorden</button>
+       <button type="button" id="ibKop">Koppeling</button></div>`,'');
+  $$('#sheetBody [data-ml]').forEach(b=>b.onclick=()=>sheetMail(+b.dataset.ml));
+  $('#ibVers').onclick=()=>{ INBOX.lijst=INBOX.lijst; inboxLaden(); sheetInbox(true) };
+  $('#ibInfo').onclick=sheetMailInfo;
+  $('#ibKop').onclick=sheetMailKoppel;
+}
+function sheetMailInfo(){
+  sheet('Vaste info',
+    `<p class="hint">Dit weet HQ als hij een antwoord schrijft. Staat iets hier niet, dan zet hij [INVULLEN] in het concept in plaats van iets te verzinnen.</p>
+     <textarea class="inp" id="miT" rows="12" style="min-height:240px;line-height:1.45">${esc(mailInfo())}</textarea>`,
+    `<button class="prim" style="margin-top:0" id="miOk">Opslaan</button>`);
+  sheetTerugZet(()=>sheetInbox(true));
+  $('#miOk').onclick=()=>{ S.mailInfo=$('#miT').value.trim(); bewaarNu(); toast('Opgeslagen.'); sheetInbox(true) };
+}
+async function sheetMail(uid){
+  const kort=INBOX.lijst&&INBOX.lijst.find(m=>m.uid===uid);
+  if(!INBOX.open||INBOX.open.uid!==uid){ INBOX.concept=''; INBOX.wens='' }
+  const teken=()=>{
+    const m=INBOX.open&&INBOX.open.uid===uid?INBOX.open:null;
+    sheet(kort?(kort.van||kort.adres):'Mail',
+      !m?'<p class="wdleeg">Mail openen…</p>'
+      :`<div class="mlkop"><b>${esc(m.onderwerp)}</b><small>${esc(m.adres)} · ${new Date(m.datum).toLocaleString('nl-NL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${m.beantwoord?' · beantwoord':''}</small></div>
+        <div class="mltekst">${esc(m.tekst||'(lege mail)')}</div>
+        ${m.bijlagen.length?`<div class="lgsom">Bijlagen: ${esc(m.bijlagen.join(', '))} — open die in je mailprogramma</div>`:''}
+        <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Antwoord</span></div>
+        ${INBOX.concept
+          ?`<textarea class="inp mlant" id="mlA" rows="12">${esc(INBOX.concept)}</textarea>
+            ${/\[INVULLEN/i.test(INBOX.concept)?'<div class="lgsom"><b class="lglet">Vul eerst de [INVULLEN]-plekken in</b></div>':''}
+            <div class="lgvoet bvoet"><button type="button" id="mlOpn">Opnieuw schrijven</button></div>`
+          :`<input class="inp" id="mlW" placeholder="Kort wat je wilt zeggen (mag leeg)" value="${esc(INBOX.wens)}">`}`,
+      !m?'':INBOX.concept
+        ?`<button class="prim" style="margin-top:0" id="mlStuur">Versturen</button>`
+        :`<button class="prim" style="margin-top:0" id="mlSchrijf">Schrijf antwoord</button>`);
+    sheetTerugZet(()=>sheetInbox(true));
+    if(!m) return;
+    const leesA=()=>{ const a=$('#mlA'); if(a) INBOX.concept=a.value; const w=$('#mlW'); if(w) INBOX.wens=w.value };
+    bijSluiten=leesA;
+    const schrijf=async knop=>{
+      leesA(); knop.disabled=true; knop.textContent='Schrijven…';
+      try{ const r=await roep('mailConcept',{uid,info:mailInfo(),wens:INBOX.wens}); INBOX.concept=r.tekst||''; teken() }
+      catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Schrijf antwoord' }
+    };
+    if($('#mlSchrijf')) $('#mlSchrijf').onclick=()=>schrijf($('#mlSchrijf'));
+    if($('#mlOpn')) $('#mlOpn').onclick=()=>{ leesA(); INBOX.concept=''; teken() };
+    if($('#mlStuur')) $('#mlStuur').onclick=async()=>{
+      leesA(); const knop=$('#mlStuur');
+      if(/\[INVULLEN/i.test(INBOX.concept)) return toast('Er staat nog een [INVULLEN] in je antwoord.');
+      knop.disabled=true; knop.textContent='Versturen…';
+      try{ await roep('mailVerstuur',{uid,tekst:INBOX.concept});
+        const k=INBOX.lijst&&INBOX.lijst.find(x=>x.uid===uid); if(k){ k.beantwoord=true; k.gelezen=true }
+        INBOX.concept=''; INBOX.open=null; toast('Verstuurd naar '+m.adres+'.'); sheetInbox(true) }
+      catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Versturen' }
+    };
+  };
+  teken();
+  if(!INBOX.open||INBOX.open.uid!==uid){
+    try{ INBOX.open=await roep('mailLees',{uid}); if(kort) kort.gelezen=true; teken() }
+    catch(e){ toast(fout(e)); sheetInbox(true) }
+  }
 }
 
 /* v752: Claude laten meelezen. Een link die je één keer in claude.ai plakt;
@@ -35707,6 +35838,7 @@ function sheetMeer(){
     if(it.key==='productie'){const n=lopende().length;
       return n?n+(n===1?' batch loopt':' batches lopen'):'niets onderweg'}
     if(it.key==='ontvangst') return 'levering vastleggen';
+    if(it.key==='inbox') return INBOX.lijst?(INBOX.lijst.filter(m=>!m.beantwoord).length+' onbeantwoord'):'klantmails beantwoorden';
     if(it.key==='traceren') return 'lot of batch terugzoeken';
     if(it.key==='b2b') return (S.recepten||[]).length?'consument en zakelijk':'eerst een smaak toevoegen';
     if(it.key==='dossier') return 'voor de inspectie';

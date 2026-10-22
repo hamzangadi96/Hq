@@ -524,6 +524,16 @@ exports.zetKoppeling = onCall(async req => {
     return { ok: true };
   }
 
+  if (d.mail) {
+    const adres = String(d.mail.adres || '').trim().toLowerCase();
+    const wachtwoord = String(d.mail.wachtwoord || '');
+    if (!adres || !wachtwoord) throw new HttpsError('invalid-argument', 'Vul je mailadres en wachtwoord in.');
+    await MAIL.testInlog(adres, wachtwoord);   /* lukt dit niet, dan slaan we niets op */
+    await geheimRef(uid).child('mail').set({ adres, wachtwoord });
+    await werkRef(uid).child('koppeling').update({ mail: true });
+    return { ok: true, adres };
+  }
+
   throw new HttpsError('invalid-argument', 'Ik weet niet wat ik moet koppelen.');
 });
 
@@ -542,7 +552,7 @@ exports.shopifyTokenVersen = onCall(async req => {
 exports.wisKoppeling = onCall(async req => {
   const uid = wieBenJe(req);
   const welke = String((req.data || {}).welke || '');
-  if (!['shopify', 'myparcel', 'claude'].includes(welke)) {
+  if (!['shopify', 'myparcel', 'claude', 'mail'].includes(welke)) {
     throw new HttpsError('invalid-argument', 'Onbekende koppeling.');
   }
   await geheimRef(uid).child(welke).remove();
@@ -1993,4 +2003,101 @@ exports.backupNu = onCall(async req => {
   const datum = nlDag(Date.now());
   await maakDagBackup(uid, data, datum);
   return { datum };
+});
+
+/* ─────────────────────────── Mail (v830) ───────────────────────────
+   info@ bij Strato. Lijst en mails gaan per keer rechtstreeks van Strato
+   naar de app; er wordt niets van je mail in de database bewaard. */
+const MAIL = require('./mail');
+const MAILMODEL = 'claude-sonnet-4-5';
+
+async function mailGeheim(uid) {
+  const g = await leesGeheim(uid, 'mail');
+  if (!g || !g.adres) throw new HttpsError('failed-precondition', 'Koppel eerst je mailbox.');
+  return g;
+}
+
+exports.mailLijst = onCall({ timeoutSeconds: 60 }, async req => {
+  const uid = wieBenJe(req);
+  const aantal = Math.min(80, Math.max(5, Number((req.data || {}).aantal) || 40));
+  return { mails: await MAIL.lijst(await mailGeheim(uid), aantal) };
+});
+
+exports.mailLees = onCall({ timeoutSeconds: 60 }, async req => {
+  const uid = wieBenJe(req);
+  const id = Number((req.data || {}).uid);
+  if (!id) throw new HttpsError('invalid-argument', 'Welke mail?');
+  return await MAIL.lees(await mailGeheim(uid), id);
+});
+
+/* laatste orders van deze klant, als hij in Shopify staat */
+async function ordersVan(uid, adres) {
+  try {
+    const { winkel, token: t } = await token(uid);
+    const r = await fetch('https://' + winkel + '/admin/api/' + SHOPIFY_API + '/graphql.json', {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        query: 'query($q:String){orders(first:5,query:$q,sortKey:CREATED_AT,reverse:true){nodes{name createdAt displayFinancialStatus displayFulfillmentStatus totalPriceSet{shopMoney{amount}} lineItems(first:10){nodes{title quantity}}}}}',
+        variables: { q: 'email:' + adres }
+      })
+    });
+    const j = await r.json();
+    const n = (((j || {}).data || {}).orders || {}).nodes || [];
+    return n.map(o => o.name + ' van ' + String(o.createdAt).slice(0, 10) + ': ' +
+      o.lineItems.nodes.map(l => l.quantity + '× ' + l.title).join(', ') +
+      ' · €' + o.totalPriceSet.shopMoney.amount + ' · betaling ' + o.displayFinancialStatus +
+      ' · verzending ' + o.displayFulfillmentStatus).join('\n');
+  } catch (e) { return ''; }
+}
+
+const MAILOPDRACHT =
+  'Je schrijft een antwoord op een klantmail namens Hamza van Cacaoboetiek, een kleine ' +
+  'zaak in handgemaakte halal bonbons uit Drunen. Schrijf in het Nederlands, tenzij de klant ' +
+  'een andere taal gebruikt; antwoord dan in die taal.\n\n' +
+  'Toon: zakelijk en vriendelijk, kort en duidelijk. Niet overdreven warm, geen uitroeptekens ' +
+  'achter elkaar, geen emoji, niet pronken. Begin met "Beste [voornaam]," of "Hallo [voornaam]," ' +
+  'als de naam bekend is. Sluit af met:\nMet vriendelijke groet,\nHamza\nCacaoboetiek\n\n' +
+  'Gebruik alleen de feiten hieronder en wat in de mail of de orders staat. Verzin nooit ' +
+  'levertijden, prijzen, voorraad of toezeggingen. Weet je iets niet, zet dan op die plek ' +
+  '[INVULLEN: wat er moet komen], zodat Hamza het zelf aanvult. Noem nooit alcohol als ' +
+  'ingrediënt of optie.\n\nVaste informatie:\n{INFO}\n\nOrders van deze klant:\n{ORDERS}\n\n' +
+  'Geef alleen de tekst van de mail terug, zonder onderwerpregel en zonder uitleg.';
+
+exports.mailConcept = onCall({ timeoutSeconds: 90 }, async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const id = Number(d.uid);
+  if (!id) throw new HttpsError('invalid-argument', 'Welke mail?');
+  const c = await leesGeheim(uid, 'claude');
+  if (!c || !c.sleutel) throw new HttpsError('failed-precondition', 'Koppel eerst je Claude-sleutel.');
+  const mail = await MAIL.lees(await mailGeheim(uid), id);
+  const orders = mail.adres ? await ordersVan(uid, mail.adres) : '';
+  const systeem = MAILOPDRACHT
+    .replace('{INFO}', String(d.info || '').slice(0, 4000) || '(geen)')
+    .replace('{ORDERS}', orders || '(geen orders gevonden bij dit adres)');
+  const vraag = 'Van: ' + mail.van + ' <' + mail.adres + '>\nOnderwerp: ' + mail.onderwerp + '\n\n' +
+    mail.tekst.slice(0, 8000) + (d.wens ? '\n\n---\nWat Hamza in het antwoord wil: ' + String(d.wens).slice(0, 1000) : '');
+  const r = await fetch(CLAUDE_URL, {
+    method: 'POST', headers: claudeKoppen(c.sleutel),
+    body: JSON.stringify({ model: MAILMODEL, max_tokens: 1200, system: systeem, messages: [{ role: 'user', content: vraag }] })
+  });
+  if (!r.ok) {
+    if (r.status === 401 || r.status === 403) throw new HttpsError('permission-denied', 'Je Claude-sleutel wordt niet meer geaccepteerd.');
+    throw new HttpsError('unavailable', 'Claude antwoordde met ' + r.status + '. Probeer het zo nog eens.');
+  }
+  const j = await r.json();
+  const tekst = ((j.content || []).find(x => x.type === 'text') || {}).text || '';
+  return { tekst: tekst.trim(), orders: !!orders };
+});
+
+exports.mailVerstuur = onCall({ timeoutSeconds: 90 }, async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const id = Number(d.uid), tekst = String(d.tekst || '').trim();
+  if (!id || !tekst) throw new HttpsError('invalid-argument', 'Er is niets om te versturen.');
+  if (/\[INVULLEN/i.test(tekst)) throw new HttpsError('failed-precondition', 'Er staat nog een [INVULLEN] in je antwoord.');
+  const g = await mailGeheim(uid);
+  const mail = await MAIL.lees(g, id);
+  return await MAIL.verstuur(g, mail, tekst);
 });
