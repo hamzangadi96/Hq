@@ -4492,6 +4492,29 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .rsing{display:flex;gap:6px;align-items:center;margin-top:6px}
 .rsing input{height:42px;border:0;border-radius:10px;background:var(--card);font:inherit;font-size:16px;padding:0 10px;color:var(--ink);min-width:0}
 .rsing [data-rsin]{flex:1}
+.sdoor{display:flex;height:46px;border-radius:12px;overflow:hidden;gap:2px;margin:2px 0 8px}
+.sdoor i{display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:600;min-width:0;overflow:hidden;white-space:nowrap;padding:0 6px}
+.sdoortot{font-size:13px;color:var(--grijs);margin-bottom:18px}
+.smkeus{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.lgbol{width:12px;height:12px;border-radius:50%;flex:none;margin-right:4px}
+.lglet{color:var(--amber);font-weight:600}
+.chips.lgsoort{display:flex;flex-wrap:wrap!important;gap:6px;overflow:visible}
+.lggram{display:flex;align-items:center;gap:10px;margin-top:14px;padding:6px 6px 6px 16px;background:var(--bg);border-radius:14px}
+.lggram span{flex:1;font-size:15px;font-weight:500}
+.lggram input{width:80px;height:44px;border:0;border-radius:10px;background:var(--card);font:inherit;font-size:18px;font-weight:600;text-align:right;padding:0 10px;color:var(--ink)}
+.lggram em{font-style:normal;color:var(--grijs);font-size:14px;padding-right:8px}
+.lgrij{display:flex;gap:6px;align-items:center;margin-top:6px}
+.lgrij .lgnaam{flex:1;height:50px;background:var(--bg)}
+.lgnaam span{display:flex;flex-direction:column;justify-content:center;line-height:1.2}
+.lgnaam small{font-size:12px;color:var(--grijs);margin-top:2px}
+.lgin{width:74px;height:50px;border:0;border-radius:10px;background:var(--bg);font:inherit;font-size:16px;text-align:right;padding:0 10px;color:var(--ink);flex:none;min-width:0}
+.lgeh{width:40px;height:50px;border:0;border-radius:10px;background:var(--bg);font:inherit;font-size:13px;font-weight:600;color:var(--ink2,var(--ink));flex:none;padding:0;display:flex;align-items:center;justify-content:center;text-align:center}
+.lgsom{margin-top:16px;padding:12px 16px;border-radius:14px;background:var(--bg);display:flex;flex-direction:column;gap:2px}
+.lgsom b{font-size:15px}.lgsom span{font-size:13px;color:var(--grijs)}
+.smst{width:22px;height:22px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;border:2px solid var(--lijn)}
+.smst.ok{background:var(--groen);border-color:var(--groen);color:#fff}
+.smst.ok svg{width:12px;height:12px}
+.smst.let{border-color:var(--amber)}
 .vpaanm{display:flex;align-items:center;gap:12px;margin:14px 0 4px;padding:12px 14px;background:var(--card);border-radius:14px}
 .vpaanm>span{flex:1;font-size:14px;font-weight:500}
 .vpaanm small{display:block;font-size:12px;color:var(--grijs);font-weight:400;margin-top:2px}
@@ -4982,7 +5005,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v816 · 22 okt 2026';
+const APPVERSIE='v817 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10908,6 +10931,10 @@ function receptSnelLijst(){
   return l.slice().sort((a,b)=>(vol.indexOf(a.chocolade)-vol.indexOf(b.chocolade))||String(a.naam).localeCompare(String(b.naam)));
 }
 function sheetReceptSnel(id){
+  if(!receptSnelLijst().length) return toast('Nog geen smaken');
+  return id?sheetReceptForm(id):smaakVolgendeOnaf();
+}
+function sheetReceptSnelOud(id){
   const lijst=receptSnelLijst(); if(!lijst.length) return toast('Nog geen smaken');
   const r=id?lijst.find(x=>x.id===id):(lijst.find(x=>!smaakHeeftRecept(x))||lijst[0]);
   if(!r) return;
@@ -11029,11 +11056,11 @@ function receptSnelBewaar(streng){
 }
 function prodSmakenHTML(){
   let h=`<button class="prim" style="margin:0 0 14px" onclick="sheetSmaakSnel()">${svg(I.plus)}Nieuwe smaak</button>`;
-  { const act=(S.recepten||[]).filter(smaakActief), leeg=act.filter(r=>!smaakHeeftRecept(r)).length;
-    if(act.length) h+=`<button type="button" class="rsbanner${leeg?' let':''}" onclick="sheetReceptSnel()">
-      <span><b>${leeg?leeg+(leeg===1?' smaak zonder recept':' smaken zonder recept'):'Alle recepten ingevuld'}</b>
-      <small>${leeg?'zonder recept kan HQ niet uitrekenen wat je moet kopen':'tik om ze snel na te lopen'}</small></span>
-      <em>${leeg?'Invullen':'Nalopen'}</em></button>`; }
+  { const act=(S.recepten||[]).filter(smaakActief), leeg=act.filter(r=>smaakStatus(r).k!=='ok').length;
+    if(act.length) h+=`<button type="button" class="rsbanner${leeg?' let':''}" onclick="${leeg?'smaakVolgendeOnaf()':'sheetReceptForm(receptSnelLijst()[0].id)'}">
+      <span><b>${leeg?leeg+(leeg===1?' smaak nog niet af':' smaken nog niet af'):'Alle recepten af'}</b>
+      <small>${leeg?(act.length-leeg)+' van '+act.length+' klaar · zonder recept kan HQ niet rekenen':'tik om ze na te lopen'}</small></span>
+      <em>${leeg?'Volgende':'Nalopen'}</em></button>`; }
   if(S.recepten.length){
     /* v749: per chocoladesoort gegroepeerd — wit, melk, puur onder elkaar */
     const act=S.recepten.filter(smaakActief), groepen=soorten().map(c=>({c,l:act.filter(r=>r.chocolade===c.key)}))
@@ -11041,10 +11068,11 @@ function prodSmakenHTML(){
     h+=groepen.map(({c,l})=>`<div class="smsoort">
       <div class="smkop"><i class="schijf ${c.key}"></i><b>${esc(c.naam)}</b><small>${l.length} ${l.length===1?'smaak':'smaken'}</small></div>
       <div class="smlijst">${l.map(rc=>{
-        const vp=verkoopPrijs(rc.id), opv=voorraadPerSmaak()[rc.id]||0, leeg=!(rc.onderdelen||[]).length;
-        const sub=[rc.tht?'THT '+rc.tht+' d':'',vp!==null?euro(vp):''].filter(Boolean).join(' · ');
+        const vp=verkoopPrijs(rc.id), opv=voorraadPerSmaak()[rc.id]||0, st=smaakStatus(rc), leeg=st.k!=='ok';
+        const sub=[gramPerBonbon(rc)?fijn(gramPerBonbon(rc))+' g':'',vp!==null?euro(vp):''].filter(Boolean).join(' · ');
         return `<button class="smrij" data-recept="${rc.id}">
-          <span class="smnm">${esc(rc.naam)}${leeg||sub?`<small>${leeg?'<b>lagen nog leeg</b>'+(sub?' · ':''):''}${sub}</small>`:''}</span>
+          <span class="smst ${st.k}">${st.k==='ok'?svg(I.vink,'3'):''}</span>
+          <span class="smnm">${esc(rc.naam)}${leeg||sub?`<small>${leeg?'<b>'+st.t+'</b>'+(sub?' · ':''):''}${sub}</small>`:''}</span>
           ${opv?`<span class="smop">${opv}</span>`:''}
           <span class="pijl">${svg(I.pijl,'2')}</span></button>`}).join('')}</div></div>`).join('')
       +`<button class="prodlos" style="display:block;width:100%" data-sheet="recepten">Archief en meer</button>`;
@@ -29887,6 +29915,55 @@ function smaakStap4(){
    en als het ingrediëntscherm — zo werkt de app overal hetzelfde.
 
    Nieuw aanmaken houdt zijn wizard: dan wil je juist wél langs alles. */
+/* ═══════════ v817: één plek voor je recept, drie schermen diep ═══════════
+   Het recept stond op twee plekken (Opbouw én "recepten snel invullen") en
+   op één lang scherm: lagen, ingrediënten en plakken onder elkaar, twee
+   schermlengtes per smaak, zonder te zien of het klopte. Nu: smakenlijst →
+   smaak (doorsnede + lagen als rijen) → één laag. Bij de laag zie je per
+   ingrediënt het aandeel en hoeveel bonbons je recept oplevert. */
+const SCHELPWOORD={wit:/\bwit/, melk:/melk/, puur:/\bpuur|\bpure\b|\bdark\b|\bfondant/};
+function schelpAndere(r){
+  const o=(r.onderdelen||[]).find(isSchelp); if(!o) return null;
+  const namen=(o.ing||[]).map(i=>gKey(i.naam)).filter(Boolean); if(!namen.length) return null;
+  const eigen=SCHELPWOORD[r.chocolade];
+  if(eigen&&namen.some(n=>eigen.test(n))) return null;
+  const k=Object.keys(SCHELPWOORD).find(k=>k!==r.chocolade&&soorten().some(c=>c.key===k)&&namen.some(n=>SCHELPWOORD[k].test(n)));
+  return k||null;
+}
+/* welk ingrediënt gebruik je als schelp bij deze chocoladesoort? */
+function schelpIngVoor(key){
+  const l=(S.recepten||[]).filter(r=>r.chocolade===key&&r.id!==R.id);
+  for(const r of l){ const o=(r.onderdelen||[]).find(isSchelp);
+    const n=o&&(o.ing||[]).find(i=>i.naam&&(!SCHELPWOORD[key]||SCHELPWOORD[key].test(gKey(i.naam))));
+    if(n) return n.naam }
+  return chocNaam(key);
+}
+const getDeel=i=>parseFloat(String((i&&i.deel)||'').replace(',','.'))||0;
+function laagStatus(o){
+  const ing=(o.ing||[]).filter(i=>i.naam);
+  if(!ing.length) return 'geen ingrediënten';
+  if(!(parseFloat(o.gram)>0)) return 'gram per bonbon mist';
+  if(ing.length>1&&ing.some(i=>!(getDeel(i)>0))) return 'grammen missen';
+  return '';
+}
+function smaakStatus(r){
+  const l=(r.onderdelen||[]).filter(o=>o&&o.naam);
+  if(!l.length||!l.some(o=>(o.ing||[]).some(i=>i.naam))) return {k:'leeg',t:'geen recept'};
+  const m=l.map(laagStatus).find(Boolean); if(m) return {k:'let',t:m};
+  if(schelpAndere(r)) return {k:'let',t:'schelp past niet bij de chocolade'};
+  return {k:'ok',t:''};
+}
+const smakenOnaf=()=>receptSnelLijst().filter(r=>smaakStatus(r).k!=='ok');
+function smaakVolgendeOnaf(naId){
+  const l=smakenOnaf(); if(!l.length){ toast('Alle smaken zijn af.'); return homeTegel('smk') }
+  const i=naId?receptSnelLijst().findIndex(r=>r.id===naId):-1;
+  const volg=receptSnelLijst().slice(i+1).concat(receptSnelLijst().slice(0,i+1)).find(r=>r.id!==naId&&smaakStatus(r).k!=='ok')||l[0];
+  sheetReceptForm(volg.id);
+}
+const fijn=n=>{ n=+n||0; const r=n>=100?Math.round(n):n>=10?Math.round(n*10)/10:n>=1?Math.round(n*1000)/1000:Number(n.toPrecision(3)); return String(r).replace('.',',') };
+const LAAGKLEUR=['#18181b','#52525b','#a1a1aa','#d4d4d8','#e4e4e7'];
+function smaakOpslaan(){ bewaarSmaak(); bewaarNu() }
+
 function smaakHub(){
   const totaal=gramPerBonbon(R);
   const rij=(id,ico,naam,waarde,mist)=>`<button class="arij" data-sh="${id}">
@@ -29894,45 +29971,181 @@ function smaakHub(){
     <span class="naam">${esc(naam)}</span>
     <span class="waarde ${mist?'let':'gevuld'}">${esc(waarde)}</span>
     <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
-
   const mal=mallen().find(m=>m.id===R.malId);
   const ins=(R.stappen||[]).filter(x=>(typeof x==='string'?x:(x&&x.t)||'').trim()).length;
+  const lagen=R.onderdelen||[];
+  const ander=schelpAndere(R);
+  const onaf=smakenOnaf().filter(r=>r.id!==R.id).length;
+
+  const door=totaal?`<div class="sdoor">${lagen.map((o,i)=>{ const g=parseFloat(o.gram)||0; if(!g) return '';
+      return `<i style="flex:${g};background:${LAAGKLEUR[Math.min(i,LAAGKLEUR.length-1)]};color:${i>=2?'var(--ink)':'#fff'}">${esc(o.naam)} ${fijn(g)} g</i>` }).join('')}</div>
+    <div class="sdoortot">Eén bonbon weegt <b>${fijn(totaal)} g</b></div>`:'';
 
   sheet(R.naam||'Smaak',
-    `<div class="blokkop" style="margin-top:2px">
-       <span class="eyebrow">De bonbon</span></div>
+    `${door}
+     ${ander?`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}
+       <span>De schelp is ${esc(chocNaam(ander).toLowerCase())}, maar de smaak staat op ${esc(chocNaam(R.chocolade).toLowerCase())}. Je inkoop en voorspelling rekenen nu met de verkeerde chocolade.
+         <span class="smkeus"><button type="button" class="chip klein" data-shchoc="${ander}">Smaak op ${esc(chocNaam(ander).toLowerCase())}</button>
+         <button type="button" class="chip klein" data-shschelp="1">Schelp op ${esc(chocNaam(R.chocolade).toLowerCase())}</button></span></span></div>`:''}
+     <div class="blokkop" style="margin-top:2px"><span class="eyebrow">Lagen</span>
+       <span class="tel">${lagen.length}</span></div>
+     ${lagen.length?`<div class="paneel">${lagen.map((o,i)=>{ const st=laagStatus(o), ing=(o.ing||[]).filter(x=>x.naam);
+        return `<button class="arij" data-laag="${i}">
+          <span class="lgbol" style="background:${LAAGKLEUR[Math.min(i,LAAGKLEUR.length-1)]}"></span>
+          <span class="naam">${esc(o.naam||'Naamloze laag')}<small>${st?`<b class="lglet">${st}</b>`:
+            esc(ing.length===1?ing[0].naam:ing.length+' ingrediënten')}</small></span>
+          <span class="waarde ${parseFloat(o.gram)>0?'gevuld':'let'}">${parseFloat(o.gram)>0?fijn(o.gram)+' g':'—'}</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>` }).join('')}</div>`
+       :`<p class="hint" style="margin:0 0 4px">Nog geen lagen. Meestal een schelp en een vulling.</p>`}
+     <button type="button" class="toevoeg" id="shLaag" style="margin-top:10px">${svg(I.plus)}Laag toevoegen</button>
+
+     <div class="blokkop"><span class="eyebrow">Gegevens</span></div>
      <div class="paneel">
        ${rij('naam',I.doc,'Naam',R.naam||'invullen',!R.naam)}
        ${rij('choc',I.bonbon,'Chocolade',chocNaam(R.chocolade)||'kiezen',!R.chocolade)}
        ${rij('mal',I.vorm,vakHoofd('mal')||'Mal',mal?mal.naam+' · '+mal.holtes:'kiezen',!mal)}
        ${rij('tht',I.klok,'Houdbaarheid',R.tht?R.tht+' dagen':'invullen',!R.tht)}
-     </div>
-
-     <div class="blokkop"><span class="eyebrow">Receptuur</span></div>
-     <div class="paneel">
-       ${rij('opbouw',I.doos,'Opbouw',
-         R.onderdelen.length?R.onderdelen.length+(R.onderdelen.length===1?' laag · ':' lagen · ')+getal(totaal)+' g'
-                            :'nog geen lagen', !R.onderdelen.length)}
        ${rij('werk',I.lijst,'Werkinstructies',ins?ins+(ins===1?' instructie':' instructies'):'geen',false)}
-     </div>
-
-     ${R.id?`<div class="blokkop"><span class="eyebrow">Voor de klant</span></div>
-     <div class="paneel">
-       ${rij('etiket',I.doc,'Productetiket','instellen',false)}
-     </div>`:''}`,
-    `<button class="prim" style="margin-top:0" id="shOk">Klaar</button>`,
+       ${R.id?rij('etiket',I.doc,'Productetiket','instellen',false):''}
+     </div>`,
+    `${onaf?`<button class="sec" style="margin-top:0" id="shVolg">Volgende die niet af is</button>`:''}
+     <button class="prim" style="margin-top:0" id="shOk">Klaar</button>`,
     'Opgeslagen');
 
   bijSluiten=null;
-  const naarSmaken=()=>{ bewaarSmaak(); render(); homeTegel('smk') };
+  const naarSmaken=()=>{ smaakOpslaan(); render(); homeTegel('smk') };
   sheetTerugZet(naarSmaken);
   $('#shOk').onclick=naarSmaken;
+  if($('#shVolg')) $('#shVolg').onclick=()=>{ smaakOpslaan(); smaakVolgendeOnaf(R.id) };
+  $$('#sheetBody [data-laag]').forEach(b=>b.onclick=()=>sheetLaag(+b.dataset.laag));
+  $('#shLaag').onclick=sheetLaagNieuw;
+  $$('#sheetBody [data-shchoc]').forEach(b=>b.onclick=()=>{ const oud=R.chocolade; R.chocolade=b.dataset.shchoc; smaakOpslaan(); smaakHub();
+    toast('Smaak staat nu op '+chocNaam(R.chocolade).toLowerCase()+'.',()=>{ R.chocolade=oud; smaakOpslaan(); smaakHub() }) });
+  $$('#sheetBody [data-shschelp]').forEach(b=>b.onclick=()=>{ const o=R.onderdelen.find(isSchelp); if(!o) return;
+    const oud=JSON.parse(JSON.stringify(o.ing)); o.ing=[{naam:schelpIngVoor(R.chocolade),deel:'100'}]; smaakOpslaan(); smaakHub();
+    toast('Schelp is nu '+o.ing[0].naam+'.',()=>{ o.ing=oud; smaakOpslaan(); smaakHub() }) });
   $$('#sheetBody [data-sh]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.sh;
     if(k==='etiket'){ leesRecept(); bewaarSmaak(); return sheetProductEtiket(R.id) }
-    if(k==='opbouw'&&R.id){ bewaarSmaak(); return sheetReceptSnel(R.id) }   /* v783: lagen op één scherm */
     smaakDeel(k);
   });
+}
+
+const LAAGSOORTEN=['Schelp','Ganache','Karamel','Gelei','Praliné','Crunch'];
+function sheetLaagNieuw(){
+  sheet('Welke laag?',
+    `<div class="chips keuzeraster">${LAAGSOORTEN.map(x=>`<button type="button" class="chip" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}
+       <button type="button" class="chip" data-nl="">Anders…</button></div>
+     <p class="hint" style="margin-top:12px">Maakte je deze laag al bij een andere ${esc(chocNaam(R.chocolade).toLowerCase())}-smaak, dan neemt HQ die over. Je past alleen aan wat anders is.</p>`,'');
+  sheetTerugZet(smaakHub);
+  $$('#sheetBody [data-nl]').forEach(b=>b.onclick=()=>{
+    const naam=b.dataset.nl;
+    let o=naam?nieuweLaag(naam):{naam:'',gram:'',ing:[]};
+    o=Object.assign({},o,{naam,ing:(o.ing||[]).map(x=>({naam:x.naam||'',deel:x.deel||'',...(x.rol?{rol:x.rol}:{})})).filter(x=>x.naam)});
+    if(naam==='Schelp'&&!o.ing.length) o.ing=[{naam:schelpIngVoor(R.chocolade),deel:'100'}];
+    if(!o.gram){ const s0=ondSoort(naam); if(s0) o.gram=String(s0.gram) }
+    if(!o.stap) o.stap=ondStapVoor(naam);
+    R.onderdelen.push(o); smaakOpslaan();
+    sheetLaag(R.onderdelen.length-1);
+    if(o._van) toast('Overgenomen van '+o._van+'. Pas aan wat anders is.');
+  });
+}
+
+let LG={plak:false,plakTekst:''};
+function sheetLaag(n){
+  const o=R.onderdelen[n]; if(!o) return smaakHub();
+  o.ing=(o.ing||[]); if(!o.ing.length) o.ing.push({naam:'',deel:''});
+  const isStd=LAAGSOORTEN.includes(o.naam);
+  const ing=o.ing, som=ing.reduce((s,i)=>s+getDeel(i),0);
+  const gram=parseFloat(String(o.gram||'').replace(',','.'))||0;
+  const genoeg=gram&&som?Math.floor(som/gram):0;
+  const toon=i=>{ const g=getDeel(i); if(!g) return ''; return i.eh==='kg'?fijn(g/1000):fijn(g) };
+
+  sheet(o.naam||'Laag',
+    `<div class="chips lgsoort">${LAAGSOORTEN.map(x=>`<button type="button" class="chip klein ${x===o.naam?'aan':''}" data-lgs="${esc(x)}">${esc(x)}</button>`).join('')}
+       <button type="button" class="chip klein ${isStd?'':'aan'}" data-lgs="">Anders</button></div>
+     ${isStd?'':`<input class="inp" id="lgNaam" style="margin-top:10px" value="${esc(o.naam)}" placeholder="Naam van deze laag">`}
+     <div class="lggram"><span>In één bonbon</span>
+       <input id="lgGram" type="text" inputmode="decimal" value="${esc(String(o.gram||'').replace('.',','))}" placeholder="0"><em>gram</em></div>
+
+     <div class="blokkop" style="margin-top:22px"><span class="eyebrow">Recept zoals je het afweegt</span></div>
+     ${ing.map((x,k)=>{ const g=getDeel(x), pct=som&&g?Math.round(g/som*100):0;
+       return `<div class="lgrij">
+         <button type="button" class="rsinkies lgnaam${x.naam?'':' leeg'}" data-lgkies="${k}"><span>${esc(x.naam||'kies ingrediënt')}${
+           x.naam&&ing.length>1&&pct?`<small>${pct<1?'<1':pct}%</small>`:''}</span>${svg(I.pijl,'2')}</button>
+         <input class="lgin" data-lgg="${k}" type="text" inputmode="decimal" value="${toon(x)}" placeholder="0">
+         <button type="button" class="lgeh" data-lgeh="${k}" aria-label="Eenheid wisselen">${x.eh==='kg'?'kg':'g'}</button>
+         <button type="button" class="rsweg" data-lgweg="${k}" aria-label="Weghalen">${svg(I.kruis,'2')}</button></div>` }).join('')}
+     <div class="rsknoppen">
+       <button type="button" class="kopknop" id="lgPlus">${svg(I.plus)}Ingrediënt</button>
+       <button type="button" class="kopknop" id="lgPlak">Plakken</button>
+       <button type="button" class="kopknop" id="lgKopie">Kopieer van andere smaak</button>
+     </div>
+     ${LG.plak?`<div class="rsplak"><textarea id="lgPlakTxt" rows="5" placeholder="Eén ingrediënt per regel, bijv.&#10;200 g slagroom&#10;300 g witte chocolade&#10;pistachepasta 60 g">${esc(LG.plakTekst||'')}</textarea>
+       <button type="button" class="prim" style="margin-top:8px" id="lgPlakOk">Omzetten</button></div>`:''}
+     ${som?`<div class="lgsom"><b>Samen ${som>=1000?fijn(som/1000)+' kg':fijn(som)+' g'}</b><span>${
+       !gram?'Vul in hoeveel gram er in één bonbon gaat.':
+       genoeg>=1?'Genoeg voor ±'+genoeg.toLocaleString('nl-NL')+' bonbons':'Minder dan één bonbon — HQ rekent met de verhouding'}</span></div>`:''}
+     <div class="voet" style="margin-top:20px"><button type="button" id="lgWeg">Laag weghalen</button></div>`,
+    `<button class="prim" style="margin-top:0" id="lgOk">Klaar</button>`);
+
+  const lees=()=>{
+    const nm=$('#lgNaam'); if(nm) o.naam=nm.value.trim();
+    const g=$('#lgGram'); if(g) o.gram=g.value.replace(',','.').trim();
+    $$('[data-lgg]').forEach(el=>{ const x=o.ing[+el.dataset.lgg]; if(!x) return;
+      const v=parseFloat(el.value.replace(',','.')); x.deel=v>0?String(Math.round((x.eh==='kg'?v*1000:v)*10000)/10000):'' });
+    const pt=$('#lgPlakTxt'); if(pt) LG.plakTekst=pt.value;
+  };
+  const opnieuw=()=>{ lees(); smaakOpslaan(); const st=$('#sheetBody').scrollTop; sheetLaag(n); $('#sheetBody').scrollTop=st };
+  const terug=()=>{ lees(); o.ing=o.ing.filter(x=>x.naam); if(o.ing.length===1&&!getDeel(o.ing[0])) o.ing[0].deel='100';
+    LG={plak:false,plakTekst:''}; smaakOpslaan(); smaakHub() };
+  sheetTerugZet(terug); bijSluiten=()=>{ lees(); smaakOpslaan() };
+  $('#lgOk').onclick=terug;
+  $$('#sheetBody [data-lgs]').forEach(b=>b.onclick=()=>{ lees(); o.naam=b.dataset.lgs;
+    if(!(parseFloat(o.gram)>0)){ const s0=ondSoort(o.naam); if(s0) o.gram=String(s0.gram) } opnieuw() });
+  $$('#sheetBody [data-lgg]').forEach(el=>el.onchange=opnieuw);
+  if($('#lgGram')) $('#lgGram').onchange=opnieuw;
+  if($('#lgNaam')) $('#lgNaam').onchange=()=>{ lees(); smaakOpslaan(); $('#sheetTitel').textContent=o.naam||'Laag' };
+  $$('#sheetBody [data-lgeh]').forEach(b=>b.onclick=()=>{ lees(); const x=o.ing[+b.dataset.lgeh]; x.eh=x.eh==='kg'?'':'kg';
+    smaakOpslaan(); const st=$('#sheetBody').scrollTop; sheetLaag(n); $('#sheetBody').scrollTop=st });
+  $$('#sheetBody [data-lgweg]').forEach(b=>b.onclick=()=>{ lees(); o.ing.splice(+b.dataset.lgweg,1); if(!o.ing.length) o.ing.push({naam:'',deel:''}); opnieuw() });
+  $('#lgPlus').onclick=()=>{ lees(); o.ing.push({naam:'',deel:''}); smaakOpslaan();
+    const k=o.ing.length-1; sheetIngKiezen('',keuze=>{ if(keuze) o.ing[k].naam=keuze; else o.ing.splice(k,1); smaakOpslaan(); sheetLaag(n);
+      if(keuze) setTimeout(()=>{ const el=$(`[data-lgg="${k}"]`); if(el) el.focus() },60) }) };
+  $$('#sheetBody [data-lgkies]').forEach(b=>b.onclick=()=>{ lees(); const k=+b.dataset.lgkies;
+    sheetIngKiezen(o.ing[k].naam,keuze=>{ if(keuze) o.ing[k].naam=keuze; smaakOpslaan(); sheetLaag(n);
+      if(keuze&&!getDeel(o.ing[k])) setTimeout(()=>{ const el=$(`[data-lgg="${k}"]`); if(el) el.focus() },60) }) });
+  $('#lgPlak').onclick=()=>{ lees(); LG.plak=!LG.plak; LG.plakTekst=''; opnieuw() };
+  if($('#lgPlakOk')) $('#lgPlakOk').onclick=()=>{ lees();
+    const rijen=receptPlakLees(LG.plakTekst||''); if(!rijen.length) return toast('Ik herken geen ingrediënten. Zet per regel een hoeveelheid en een naam.');
+    rijen.forEach(x=>ingToevoegen(x.naam));
+    o.ing=o.ing.filter(x=>x.naam).concat(rijen); LG={plak:false,plakTekst:''}; smaakOpslaan(); sheetLaag(n); toast(rijen.length+' ingrediënten overgenomen') };
+  $('#lgKopie').onclick=()=>{ lees(); smaakOpslaan(); sheetLaagKopie(n) };
+  $('#lgWeg').onclick=()=>{ lees(); const kopie=JSON.parse(JSON.stringify(R.onderdelen));
+    R.onderdelen.splice(n,1); LG={plak:false,plakTekst:''}; smaakOpslaan(); smaakHub();
+    toast((o.naam||'Laag')+' weggehaald.',()=>{ R.onderdelen=kopie; smaakOpslaan(); smaakHub() }) };
+}
+function sheetLaagKopie(n){
+  const o=R.onderdelen[n];
+  const bron=[];
+  receptSnelLijst().filter(r=>r.id!==R.id).forEach(r=>(r.onderdelen||[]).forEach((x,i)=>{
+    if((x.ing||[]).some(y=>y.naam)) bron.push({r,x,i}) }));
+  /* dezelfde soort laag eerst */
+  const sk=(ondSoort(o.naam)||{}).k;
+  bron.sort((a,b)=>((ondSoort(b.x.naam)||{}).k===sk)-((ondSoort(a.x.naam)||{}).k===sk));
+  sheet('Kopieer een laag',
+    bron.length?`<p class="hint">De ingrediënten en verhouding komen in je ${esc((o.naam||'laag').toLowerCase())}. Daarna pas je aan wat anders is.</p>
+      <div class="paneel">${bron.map((b,j)=>`<button class="arij" data-lk="${j}">
+        <span class="naam">${esc(b.r.naam)} · ${esc(b.x.naam)}<small>${esc((b.x.ing||[]).filter(y=>y.naam).map(y=>y.naam.split(/\s+[-–—]\s+/)[0]).join(', '))}</small></span>
+        <span class="waarde gevuld">${fijn(b.x.gram||0)} g</span><span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`
+      :'<p class="wdleeg">Je andere smaken hebben nog geen lagen met ingrediënten.</p>','');
+  sheetTerugZet(()=>sheetLaag(n));
+  $$('#sheetBody [data-lk]').forEach(b=>b.onclick=()=>{ const s=bron[+b.dataset.lk], oud=JSON.parse(JSON.stringify(o));
+    o.ing=JSON.parse(JSON.stringify(s.x.ing||[])).filter(y=>y.naam);
+    if(!(parseFloat(o.gram)>0)) o.gram=s.x.gram;
+    if(!o.naam) o.naam=s.x.naam;
+    smaakOpslaan(); sheetLaag(n);
+    toast('Overgenomen van '+s.r.naam+'.',()=>{ R.onderdelen[n]=oud; smaakOpslaan(); sheetLaag(n) }) });
 }
 
 /* Eén onderwerp per keer. Wat je hier invult gaat terug naar het overzicht. */
