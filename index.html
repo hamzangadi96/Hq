@@ -5012,7 +5012,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v818 · 22 okt 2026';
+const APPVERSIE='v819 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -30064,25 +30064,31 @@ let LG={plak:false,plakTekst:''};
    is altijd "ingrediënt toevoegen". Plakken en kopiëren staan onderaan. */
 function sheetLaag(n){
   const o=R.onderdelen[n]; if(!o) return smaakHub();
-  o.ing=(o.ing||[]).filter(x=>x.naam);
-  const ing=o.ing, som=ing.reduce((s,i)=>s+getDeel(i),0);
-  const gram=parseFloat(String(o.gram||'').replace(',','.'))||0;
-  const genoeg=gram&&som?Math.floor(som/gram):0;
+  /* zwaarste bovenaan; lege getallen onderaan. Alleen bij het tekenen, niet
+     tijdens het typen, anders springen de regels onder je vinger weg. */
+  o.ing=(o.ing||[]).filter(x=>x.naam).map((x,i)=>({x,i}))
+    .sort((a,b)=>(getDeel(b.x)-getDeel(a.x))||(a.i-b.i)).map(y=>y.x);
+  const ing=o.ing;
+  const somTekst=()=>{ const som=o.ing.reduce((s,i)=>s+getDeel(i),0), gram=parseFloat(String(o.gram||'').replace(',','.'))||0;
+    const genoeg=gram&&som?Math.floor(som/gram):0;
+    return som?`Samen <b>${som>=1000?fijn(som/1000)+' kg':fijn(som)+' g'}</b>${
+      !gram?' · vul hierboven de gram per bonbon in':genoeg>=1?' · genoeg voor <b>'+genoeg.toLocaleString('nl-NL')+'</b> bonbons':''}`:'' };
+  const pctTekst=k=>{ const som=o.ing.reduce((s,i)=>s+getDeel(i),0), g=getDeel(o.ing[k]);
+    if(!(som&&g&&o.ing.length>1)) return ''; const p=Math.round(g/som*100); return (p<1?'<1':p)+'%' };
 
   sheet(o.naam||'Laag',
     `<div class="lggram"><span>In één bonbon</span>
        <input id="lgGram" type="text" inputmode="decimal" value="${esc(String(o.gram||'').replace('.',','))}" placeholder="0"><em>g</em></div>
      <div class="lglijst">
-     ${ing.map((x,k)=>{ const g=getDeel(x), pct=som&&g&&ing.length>1?Math.round(g/som*100):0;
+     ${ing.map((x,k)=>{ const g=getDeel(x);
        return `<div class="lgrij">
-         <button type="button" class="lgnaam" data-lgkies="${k}"><span>${esc(x.naam)}</span>${pct?`<small>${pct<1?'<1':pct}%</small>`:''}</button>
+         <button type="button" class="lgnaam" data-lgkies="${k}"><span>${esc(x.naam)}</span><small data-lgp="${k}">${pctTekst(k)}</small></button>
          <label class="lgin"><input data-lgg="${k}" type="text" inputmode="decimal" value="${g?fijn(g):''}" placeholder="0"><em>g</em></label></div>` }).join('')}
        <button type="button" class="lgnieuw" id="lgPlus">${svg(I.plus)}Ingrediënt</button>
      </div>
      ${LG.plak?`<div class="rsplak"><textarea id="lgPlakTxt" rows="5" placeholder="Eén ingrediënt per regel, bijv.&#10;200 g slagroom&#10;300 g witte chocolade">${esc(LG.plakTekst||'')}</textarea>
        <button type="button" class="prim" style="margin-top:8px" id="lgPlakOk">Omzetten</button></div>`:''}
-     ${som?`<div class="lgsom">Samen <b>${som>=1000?fijn(som/1000)+' kg':fijn(som)+' g'}</b>${
-       !gram?' · vul hierboven de gram per bonbon in':genoeg>=1?' · genoeg voor <b>'+genoeg.toLocaleString('nl-NL')+'</b> bonbons':''}</div>`:''}
+     <div class="lgsom" id="lgSom">${somTekst()}</div>
      <div class="lgvoet">
        <button type="button" id="lgPlak">Plakken</button>
        <button type="button" id="lgKopie">Kopiëren</button>
@@ -30102,10 +30108,11 @@ function sheetLaag(n){
     LG={plak:false,plakTekst:''}; smaakOpslaan(); smaakHub() };
   sheetTerugZet(terug); bijSluiten=()=>{ lees(); smaakOpslaan() };
   $('#lgOk').onclick=terug;
-  $$('#sheetBody [data-lgg]').forEach(el=>{ el.onchange=opnieuw;
+  const live=()=>{ lees(); $$('[data-lgp]').forEach(s=>s.textContent=pctTekst(+s.dataset.lgp)); const sm=$('#lgSom'); if(sm) sm.innerHTML=somTekst() };
+  $$('#sheetBody [data-lgg]').forEach(el=>{ el.oninput=live; el.onchange=()=>{ live(); smaakOpslaan() };
     /* Enter springt naar het volgende getal */
     el.onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); const vg=$(`[data-lgg="${+el.dataset.lgg+1}"]`); if(vg) vg.focus(); else el.blur() } } });
-  $('#lgGram').onchange=opnieuw;
+  $('#lgGram').oninput=live; $('#lgGram').onchange=()=>{ live(); smaakOpslaan() };
   const focusG=k=>setTimeout(()=>{ const el=$(`[data-lgg="${k}"]`); if(el) el.focus() },80);
   $('#lgPlus').onclick=()=>{ lees(); smaakOpslaan();
     sheetIngKiezen('',keuze=>{ if(keuze) o.ing.push({naam:keuze,deel:''}); smaakOpslaan(); sheetLaag(n); if(keuze) focusG(o.ing.length-1) }) };
