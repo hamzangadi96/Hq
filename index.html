@@ -5069,7 +5069,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v830 · 23 okt 2026';
+const APPVERSIE='v831 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7010,7 +7010,8 @@ const SNELITEMS=[
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
-  {key:'inbox',label:'Mail',icon:'post',soort:'sheet',doe:()=>sheetInbox()},
+  /* v831: Mail even verborgen op verzoek; code blijft staan. Terugzetten = deze regel weer aanzetten.
+  {key:'inbox',label:'Mail',icon:'post',soort:'sheet',doe:()=>sheetInbox()}, */
   {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
   {key:'halffab',label:'Halffabricaten',icon:'vorm',soort:'sheet',doe:()=>sheetHalfLijst()},
   {key:'smaken',label:'Smaken',icon:'boek',soort:'sheet',doe:()=>sheetRecepten()},
@@ -18245,7 +18246,6 @@ function sheetKoppelingen(){
        ${rij('myparcel','MyParcel','voor je verzendlabels')}
        ${rij('bonscan','Bonnen scannen','leest je kassabonnen uit')}
        ${rij('meelezen','Claude laten meelezen','Claude kan je gegevens lezen, niet wijzigen')}
-       ${rij('mail','Mail (info@)','klantmails ophalen en beantwoorden')}
      </div>`,'');
   $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():x.dataset.kop==='mail'?sheetMailKoppel():sheetKoppel(x.dataset.kop));
 }
