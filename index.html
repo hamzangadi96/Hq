@@ -5057,7 +5057,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v827 · 22 okt 2026';
+const APPVERSIE='v828 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9158,15 +9158,16 @@ function afkeurDeel(){
 }
 function voorspelAdvies(){
   const v=voorspelStand(); if(!v) return null;
-  /* Stempelkaarten: alleen de gratis doos van 16 komt erbovenop. Wie zijn
-     kaart als korting op de 25 inzet, doet gewoon een bestelling — die zit
-     al in "terugkerende klanten", dus die tellen we niet nog eens. */
-  const d16=v.dozen16+(v.stempel16||0), d25=v.dozen25;
+  /* v828: alle beloningen komen bovenop je productie, ook de kaarten die
+     als korting op de doos van 25 worden ingezet. Zo klopt dit getal met
+     "Extra klaarzetten" op het stempelkaartscherm. (Was: alleen de gratis
+     doos van 16, de rest werd in "terugkerende klanten" verondersteld.) */
+  const d16=v.dozen16+(v.stempel16||0), d25=v.dozen25+(v.stempel25||0);
   const netto=d16*16+d25*25;
   const afk=afkeurDeel();
   const bruto=Math.ceil(netto/(1-afk.deel));
   const vastBruto=v.vast&&v.vast.bonbons?Math.ceil(v.vast.bonbons/(1-afk.deel)):0;
-  return {d16, d25, netto, bruto, afkeur:bruto-netto, afk, stempels:(v.stempel16||0)*16, vastBruto};
+  return {d16, d25, netto, bruto, afkeur:bruto-netto, afk, stempels:(v.stempel16||0)*16+(v.stempel25||0)*25, vastBruto};
 }
 const nlGetal=n=>String(n).replace('.',',');
 /* ═══ Omzet en verpakking bij de voorspelling (v714) ═══
@@ -9568,7 +9569,7 @@ function voorspelSheetHTML(){
   const ruw=voorspelStandRuw()||{};
   const A=v.aanmeld||{nieuw:0,pct:10,orders:0,d16:0,d25:0}, VT=v.vast||{n:0,bonbons:0};
   if(!A.geladen) setTimeout(()=>mailVerversen(false),0);
-  const bVerk=(ruw.dozen16||0)*16+(ruw.dozen25||0)*25, bAanm=A.d16*16+A.d25*25, bStemp=(v.stempel16||0)*16;
+  const bVerk=(ruw.dozen16||0)*16+(ruw.dozen25||0)*25, bAanm=A.d16*16+A.d25*25, bStemp=(v.stempel16||0)*16+(v.stempel25||0)*25;
   const rij=(on,n,sub,w)=>`<button type="button" class="shrij"${on?` onclick="${on}"`:''}>
     <span class="shn">${n}${sub?`<small>${sub}</small>`:''}</span><span class="shw vbw">${w}</span>${on?svg(I.pijl,'2'):'<i class="vbleeg"></i>'}</button>`;
   const tijd=new Date(v.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
@@ -9577,7 +9578,7 @@ function voorspelSheetHTML(){
       ${rij("vspDeel('maand')",'Verkoop','zoals vorig jaar · ±'+g(v.modelOrders)+' bestellingen',g(bVerk))}
       ${rij('sheetAanmeldPct()','Aanmeldingen',A.geladen?A.nieuw+' sinds 1 okt · '+nlGetal(A.pct)+'% bestelt':'tellen…','+'+g(bAanm))}
       ${rij("sheetVasteLijst(()=>homeTegel('vsp'))",'Vaste bestellingen',VT.n?VT.n+' mond-op-mond':'tik om toe te voegen',VT.n?'+'+g(VT.bonbons):'+0')}
-      ${bStemp?rij('','Stempelkaarten',(v.stempel16||0)+' gratis dozen','+'+g(bStemp)):''}
+      ${bStemp?rij("homeTegel('stp')",'Stempelkaarten',[(v.stempel16?v.stempel16+'× doos 16':''),(v.stempel25?v.stempel25+'× doos 25':'')].filter(Boolean).join(' · '),'+'+g(bStemp)):''}
       ${rij('','Afkeur',Math.round(a.afk.deel*100)+'%'+(a.afk.eigen?' uit je batches':', schatting'),'+'+g(a.afkeur))}
     </div>
     <div class="lgvoet bvoet">
