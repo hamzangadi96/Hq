@@ -4435,6 +4435,7 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
   background:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
 .rtdaarna span{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs);margin-right:4px}
 .rtdaarna svg{width:15px;height:15px;color:var(--grijs);margin-left:auto}
+.rtdt{font-style:normal;flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .smsoort{margin-bottom:16px}
 .smkop{display:flex;align-items:center;gap:10px;margin:0 4px 8px}
 .smkop .schijf{width:14px;height:14px;flex:none}
@@ -4516,6 +4517,15 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 #scherm .gl,#scherm .gl .veeg>.veeginhoud{background:var(--card)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
+.plstand{display:flex;align-items:center;gap:10px;width:100%;border:0;background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;font:inherit;font-size:15px;color:var(--ink);text-align:left;cursor:pointer}
+.plstand>span{flex:1}.plstand em{font-style:normal;font-weight:600;color:var(--groen);display:flex}
+.plstand em svg{width:16px;height:16px}.plstand>svg{width:14px;height:14px;opacity:.35}
+.plstand.let em{color:var(--amber)}
+.pldat2{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.pldat2 b{font-size:20px}.pldat2 small{font-size:11px;color:var(--grijs);white-space:nowrap}
+.pldag.nu .pldat2 b{color:var(--amber)}
+.plwnr small{display:block;text-align:right;font-size:12px;margin-top:2px}
+.shw svg{width:14px;height:14px;vertical-align:-2px;color:var(--groen)}
 .vpk2{display:flex;align-items:center;gap:10px;margin:0 2px 8px}
 .vpk2 .schijf{width:14px;height:14px;flex:none}
 .vpk2n{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -5046,7 +5056,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v825 · 22 okt 2026';
+const APPVERSIE='v826 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10909,24 +10919,28 @@ function productieHTML(){
     const stappen=routeStappen(), open=stappen.filter(x=>!x.klaar);
     const nu=open[0], v0=vandaag();
     const wnr=n=>n<0?Math.abs(n)+' d te laat':n===0?'vandaag':n===1?'morgen':'over '+n+' d';
-    const dk=d=>{const dt=new Date(d+'T12:00:00');return `<span class="pldat"><small>${dt.toLocaleDateString('nl-NL',{weekday:'short'}).replace('.','')}</small><b>${dt.getDate()}</b><small>${dt.toLocaleDateString('nl-NL',{month:'short'}).replace('.','')}</small></span>`};
+    const dk=d=>{const dt=new Date(d+'T12:00:00');return `<span class="pldat2"><b>${dt.getDate()}</b><small>${dt.toLocaleDateString('nl-NL',{weekday:'short'}).replace('.','')} ${dt.toLocaleDateString('nl-NL',{month:'short'}).replace('.','')}</small></span>`};
     let held=loopt.length?'':routeHeldHTML();
     const plRij=p2=>{
       const n=dagenTussen(v0,p2.datum), r=p2.regels||[];
       const mal=r.reduce((x,y)=>x+(y.mallen||0),0), st=r.reduce((x,y)=>x+(y.aantal||0),0);
-      const sub=[mal?mal+(mal===1?' mal':' mallen'):'',st.toLocaleString('nl-NL')+' bonbons'].filter(Boolean).join(' · ');
+      const tk=(()=>{ try{ return dekkingGrond(r).filter(x=>x.tekort>0).length }catch(e){ return 0 } })();
+      const sub=[mal?mal+(mal===1?' mal':' mallen'):'',st.toLocaleString('nl-NL')+' bonbons'].filter(Boolean).join(' · ')
+
       return veegRij(`<div class="pldag${n<=0?' nu':''}" data-planning>
         ${dk(p2.datum)}
         <span class="plnm"><b>${esc(chocNaam(p2.chocolade)||'Productie')}</b><small>${sub}</small></span>
         ${n<=0&&!(nu&&nu.k==='prod:'+p2.id&&!loopt.length)?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
-          :`<span class="plwnr${n<0?' laat':''}">${wnr(n)}</span>`}
+          :`<span class="plwnr${n<0?' laat':''}">${wnr(n)}${tk?`<small class="lglet">${tk} tekort</small>`:''}</span>`}
       </div>`,'data-planwis="'+p2.id+'"')};
-    if(held) h+=`<div class="blokkop" style="margin-top:${loopt.length?24:8}px"><span class="eyebrow">Nu doen</span></div>${held}`;
-    h+=`<div class="blokkop" style="margin-top:${held||loopt.length?24:8}px"><span class="eyebrow">Planning</span>
-        <button class="kopknop" data-planning>Hele planning</button></div>
+    if(held) h+=`<div style="margin-top:${loopt.length?24:8}px">${held}</div>`;
+    h+=`<div class="blokkop" style="margin-top:${held||loopt.length?24:8}px"><span class="eyebrow">Planning</span></div>
+      ${planStandHTML(plans,loopt)}
       <div class="plkaart">${plans.slice(0,4).map(plRij).join('')}
         ${plans.length>4?`<button class="plmeer" data-planning>+${plans.length-4} meer</button>`:''}</div>
-      ${loopt.length?'':`<button class="prodlos" style="display:block;width:100%" data-sheet="nieuwbatch">of start een losse batch</button>`}`;
+      <div class="lgvoet bvoet"><button type="button" data-planning>Hele planning</button>
+        <button type="button" onclick="VP=null;sheetVoorspelPlan()">Nieuw plan</button>
+        ${loopt.length?'':'<button type="button" data-sheet="nieuwbatch">Losse batch</button>'}</div>`;
   } else if(!loopt.length){
     h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Planning</span></div>
       <div class="prodvolg"><b>Niets gepland</b><span>Maak een productieplan vanuit je voorspelling, of start meteen een batch.</span>
@@ -11248,7 +11262,35 @@ function prodLijstenHTML(){
       ${pt('data-ins="middelen"',I.fles,'Middelen',tel((S.middelen||[]).length,'middel','middelen'))}
     </div>`;
 }
+/* v826: maak ik genoeg? Nodig volgens de voorspelling tegenover wat er
+   gepland of al in de maak is, plus wat er op voorraad ligt. */
+function planStandHTML(plans,loopt){
+  const a=voorspelAdvies(); if(!a) return '';
+  const v0=vandaag();
+  const gepland=plans.filter(p=>p.datum>=v0||!p.datum).reduce((n,p)=>n+(p.regels||[]).reduce((x,y)=>x+(y.aantal||0),0),0)
+    +loopt.reduce((n,b)=>n+bTotaal(b),0)+vpVoorraad();
+  const nodig=a.bruto, gat=nodig-gepland, g=n=>Math.round(n).toLocaleString('nl-NL');
+  return `<button type="button" class="plstand${gat>0?' let':''}" onclick="homeTegel('vsp')">
+    <span><b>${g(gepland)}</b> van ${g(nodig)} gepland</span>
+    <em>${gat>0?g(gat)+' te weinig':svg(I.vink,'2.6')}</em>${svg(I.pijl,'2')}</button>`;
+}
+/* v826: vier tegels werden één lijst "Klaarzetten"; de voorspelling zit nu
+   in de planning (nodig · gepland). */
 function prodTegelsHTML(a){
+  const act=(S.recepten||[]).filter(smaakActief), sOnaf=act.filter(r=>smaakStatus(r).k!=='ok').length;
+  const ings=alleIngredienten().filter(n=>!ingGearchiveerd(n)), iOnaf=ingOnaf().length;
+  const ij=laatsteIjking();
+  const rij=(on,n,w,let2)=>`<button type="button" class="shrij" onclick="${on}"><span class="shn">${n}</span>
+    <span class="shw${let2?' let':''}">${w}</span>${svg(I.pijl,'2')}</button>`;
+  return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Klaarzetten</span></div>
+    <div class="gl">
+      ${rij("homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||sOnaf)}
+      ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
+      ${rij("homeTegel('vv')",'Voedselveiligheid',ij?svg(I.vink,'2.6'):'thermometer ijken',!ij)}
+      ${rij("homeTegel('lst')",'Instellen','')}
+    </div>`;
+}
+function prodTegelsOudHTML(a){
   const v=voorspelStand(), G=a?voorspelGeld(1):null;
   const g=n=>Math.round(n).toLocaleString('nl-NL');
   const tg=(k,label,groot,onder,extra,kleur,kl)=>`<button type="button" class="htegel ${kl||''}" onclick="homeTegel('${k}')">
@@ -20099,7 +20141,7 @@ function routeHeldHTML(){
     <small>${n<0?(-n===1?'1 dag':-n+' dagen')+' te laat':now?'Nu doen · vandaag':'Hierna · '+wnr(n)}</small>
     <b>${esc(nu.titel)}</b><span>${esc(nu.sub)}</span>
     ${now||nu.soort==='best'||nu.soort==='lev'?`<button class="prim" data-route="${nu.k}">${knop[nu.soort]}</button>`:''}
-    ${daarna?`<button type="button" class="rtdaarna" data-route="${daarna.k}"><span>Daarna</span>${esc(daarna.titel)} · ${dkk(daarna.datum)}${svg(I.pijl,'2')}</button>`:''}
+    ${daarna?`<button type="button" class="rtdaarna" data-route="${daarna.k}"><span>Daarna</span><i class="rtdt">${esc(daarna.titel)} · ${daarna.datum<vandaag()?'<b class="lglet" style="font-size:inherit">te laat</b>':dkk(daarna.datum)}</i>${svg(I.pijl,'2')}</button>`:''}
   </div>`;
 }
 function routeDoe(k){
