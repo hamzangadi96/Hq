@@ -4492,6 +4492,10 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .rsing{display:flex;gap:6px;align-items:center;margin-top:6px}
 .rsing input{height:42px;border:0;border-radius:10px;background:var(--card);font:inherit;font-size:16px;padding:0 10px;color:var(--ink);min-width:0}
 .rsing [data-rsin]{flex:1}
+.rsinkies{height:42px;border:0;border-radius:10px;background:var(--card);font:inherit;font-size:16px;padding:0 10px;color:var(--ink);min-width:0;display:flex;align-items:center;gap:6px;text-align:left;cursor:pointer}
+.rsinkies span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rsinkies svg{width:14px;height:14px;flex:none;opacity:.35}
+.rsinkies.leeg span{color:var(--grijs)}
 .rsing [data-rsig]{width:78px;flex:none;text-align:right}
 .rsknoppen{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .rsplak textarea{width:100%;margin-top:10px;border:0;border-radius:10px;background:var(--card);font:inherit;font-size:16px;padding:10px;resize:vertical;color:var(--ink);box-sizing:border-box}
@@ -4968,7 +4972,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v813 · 22 okt 2026';
+const APPVERSIE='v814 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10821,7 +10825,7 @@ function receptSnelTeken(){
       ${isStd?'':`<input class="inp rsnaam" data-rsnaam value="${esc(o.naam)}" placeholder="Naam van deze laag">`}
       <div class="rsingkop"><span>Ingrediënt</span><span>gram in je recept</span></div>
       ${o.ing.map((x,k)=>`<div class="rsing" data-rsing data-rol="${esc(x.rol||'')}">
-        <input data-rsin list="rsIngLijst" value="${esc(x.naam)}" placeholder="${esc(x.rol?x.rol:'ingrediënt')}" autocapitalize="sentences">
+        <button type="button" class="rsinkies${x.naam?'':' leeg'}" data-rsin data-rsinkies="${n}:${k}" value="${esc(x.naam)}"><span>${esc(x.naam||(x.rol?x.rol:'ingrediënt'))}</span>${svg(I.pijl,'2')}</button>
         <input data-rsig type="text" inputmode="decimal" value="${esc(x.deel)}" placeholder="g">
         <button type="button" class="rsweg" data-rsingweg="${n}:${k}" aria-label="Weghalen">${svg(I.kruis,'2')}</button></div>`).join('')}
       <div class="rsknoppen">
@@ -10853,6 +10857,13 @@ function receptSnelTeken(){
   $$('[data-rsingweg]').forEach(b=>b.onclick=()=>{ receptSnelLees(); const [n,k]=b.dataset.rsingweg.split(':').map(Number); RS.lagen[n].ing.splice(k,1); if(!RS.lagen[n].ing.length) RS.lagen[n].ing.push({naam:'',deel:''}); opnieuw() });
   $$('[data-rsingplus]').forEach(b=>b.onclick=()=>{ receptSnelLees(); RS.lagen[+b.dataset.rsingplus].ing.push({naam:'',deel:''}); opnieuw();
     setTimeout(()=>{ const l=$$(`[data-rslaag="${b.dataset.rsingplus}"] [data-rsin]`); if(l.length) l[l.length-1].focus() },60) });
+  $$('[data-rsinkies]').forEach(b=>b.onclick=()=>{ receptSnelLees();
+    const [n,k]=b.dataset.rsinkies.split(':').map(Number), st=$('#sheetBody').scrollTop, rid=RS.id;
+    sheetIngKiezen(RS.lagen[n].ing[k].naam, keuze=>{
+      if(!RS||RS.id!==rid) return;
+      if(keuze) RS.lagen[n].ing[k].naam=keuze;
+      receptSnelTeken(); $('#sheetBody').scrollTop=st;
+      if(keuze) setTimeout(()=>{ const g=$$(`[data-rslaag="${n}"] [data-rsig]`)[k]; if(g&&!g.value) g.focus() },60) }) });
   $$('[data-rsplak]').forEach(b=>b.onclick=()=>{ receptSnelLees(); RS.plak=RS.plak===+b.dataset.rsplak?-1:+b.dataset.rsplak; RS.plakTekst=''; opnieuw() });
   $$('[data-rsplakok]').forEach(b=>b.onclick=()=>{ receptSnelLees(); const n=+b.dataset.rsplakok;
     const rijen=receptPlakLees(RS.plakTekst||''); if(!rijen.length) return toast('Ik herken geen ingrediënten. Zet per regel een hoeveelheid en een naam.');
@@ -30006,6 +30017,7 @@ function sheetIngKiezen(huidig, klaar){
         :`<div class="paneel"><div class="geen" style="padding:18px">${
             zoek.trim()?'Niets gevonden.':'Je hebt nog geen ingrediënten.'}</div></div>`}`,
       `<button class="sec" style="margin-top:0" id="ikAf">Annuleren</button>`);
+    sheetTerugZet(()=>klaar(null));
 
     if($('#ikZ')){
       const z=$('#ikZ');
