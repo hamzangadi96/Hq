@@ -4968,7 +4968,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v812 · 22 okt 2026';
+const APPVERSIE='v813 · 22 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -17836,8 +17836,14 @@ async function roep(naam,gegevens){
   if(!fbUser) throw new Error('Log eerst in.');
   if(typeof firebase==='undefined'||!firebase.functions) throw new Error('Functions niet geladen.');
   const f=firebase.app().functions('europe-west1').httpsCallable(naam);
-  const r=await f(gegevens||{});
-  return r.data;
+  /* v813: een kale "internal" zegt niks. Die komt alleen als de server de
+     functie niet kent of onderweg crasht; zeg dan welke en wat te doen. */
+  try{ const r=await f(gegevens||{}); return r.data }
+  catch(e){
+    const m=String((e&&e.message)||'');
+    if(/^(internal|INTERNAL)?$/.test(m.trim())) throw new Error('Server gaf geen antwoord op "'+naam+'". Sluit HQ helemaal af en open hem opnieuw; blijft dit, stuur deze melding door.');
+    throw e;
+  }
 }
 const koppeling=()=>((S.werk||{}).koppeling)||{};
 
