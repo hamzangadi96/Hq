@@ -72,6 +72,8 @@ const OPDRACHT =
   '      "hoeveel":        netto inhoud van één verpakking als getal, of null,\n' +
   '      "eenheid":        "kg", "g", "l", "ml" of "st",\n' +
   '      "aantal":         hoeveel verpakkingen van deze partij je ziet,\n' +
+  '      "soort":          "ingredient" voor eetbare grondstoffen, "verpakking" voor dozen,\n' +
+  '                        zakjes, lint, etiketten en ander materiaal,\n' +
   '      "voeding":        voedingswaarde per 100 g als die op een foto staat, anders null:\n' +
   '                        {"kj","kcal","vet","verz","koolh","suik","eiwit","zout"} als getallen,\n' +
   '                        verz = waarvan verzadigd, suik = waarvan suikers; onleesbaar = null,\n' +
@@ -165,6 +167,7 @@ function schonePartij(p) {
     hoeveel,
     eenheid,
     aantal,
+    soort: p.soort === 'verpakking' ? 'verpakking' : 'ingredient',
     voeding: schoneVoeding(p.voeding),
     ingredienten: tekst(p.ingredienten, 1500),
     allergenen: (Array.isArray(p.allergenen) ? p.allergenen : [])

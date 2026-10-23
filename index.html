@@ -5139,7 +5139,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v836 · 23 okt 2026';
+const APPVERSIE='v837 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -26007,6 +26007,13 @@ function boekPartij(r,b){
   const lev=r.lev, p=r.p, l=r.l, t=r.t, h=r.h, e=r.e, gekoeld=r.gekoeld, tmp=r.tmp, staat=r.staat, a=r.a;
   let vanLijst=false;
   if(staat==='ok'){
+    /* v837: inboeken is ook aanmaken. Wat je ontvangt bestond alleen in je
+       voorraad; in een smaak moest je de naam nog eens typen. Nu staat een
+       grondstof meteen in je ingrediëntenlijst, klaar om te kiezen. */
+    const bestaand=(S.artikelen||{})[gKey(p)];
+    const soort=r.soort||(bestaand&&bestaand.soort)||'ingredient';
+    if(!bestaand) zetArt(p,{soort});
+    if(soort==='ingredient') ingToevoegen(p);
     S.lots=S.lots||[];
     const lot={id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:getalIn0(h),eenheid:e,
       plek:r.plek||'',ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''};
@@ -26157,6 +26164,10 @@ function etiketHerken(p){
   if(lv) p.leverancier=lv;
   const pv=grondVoorraad().find(x=>gKey(x.product)===gKey(p.product));
   if(pv) p.product=pv.product;
+  const ba=(S.artikelen||{})[gKey(p.product)];
+  if(ba&&ba.soort) p.soort=ba.soort==='verpakking'?'verpakking':'ingredient';
+  else if(m&&m.soort) p.soort=m.soort;
+  if(p.soort!=='verpakking') p.soort='ingredient';
   p.aan=true;
   return p;
 }
@@ -26230,6 +26241,9 @@ function etiketCheck(ps,tip){
            `<option${p.eenheid===e?' selected':''}>${e}</option>`).join('')}</select></div></div>
        <div class="breed"><label>Leverancier</label><input class="inp${twijfel(p,'leverancier',!p.leverancier)}"
          data-f="leverancier" value="${esc(p.leverancier)}" placeholder="Leverancier" list="eLev" autocomplete="off"></div>
+       <div class="breed"><div class="duo" data-soort="${i}">
+         <button type="button" data-v="ingredient"${p.soort!=='verpakking'?' class="aan"':''}>Ingrediënt</button>
+         <button type="button" data-v="verpakking"${p.soort==='verpakking'?' class="aan"':''}>Verpakking</button></div></div>
      </div>${etiketBlok(p,i)}</div>`;
   sheet('Levering nakijken',
     `<datalist id="eProd">${grondVoorraad().map(x=>`<option value="${esc(x.product)}">`).join('')}</datalist>
@@ -26291,6 +26305,10 @@ function etiketCheck(ps,tip){
     x.closest('.ecard').classList.toggle('uit',!p.aan);
     telKnop();
   });
+  $$('[data-soort] button').forEach(x=>x.onclick=()=>{
+    const d=x.parentElement; d.querySelectorAll('button').forEach(y=>y.classList.remove('aan'));
+    x.classList.add('aan'); ps[+d.dataset.soort].soort=x.dataset.v;
+  });
   $$('[data-etaan]').forEach(x=>x.onclick=()=>{
     const p=ps[+x.dataset.etaan]; p.etAan=!p.etAan;
     x.classList.toggle('aan',p.etAan); x.innerHTML=p.etAan?svg(I.vink,'2.6'):'';
@@ -26338,14 +26356,14 @@ function etiketCheck(ps,tip){
       /* onthoud de artikelcode: volgende keer is het product meteen goed */
       const ck=codeKey(p.artikelcode);
       if(ck){
-        const m={product:p.product,leverancier:p.leverancier,eenheid:p.eenheid};
+        const m={product:p.product,leverancier:p.leverancier,eenheid:p.eenheid,soort:p.soort||'ingredient'};
         if(p.hoeveel) m.hoeveel=p.hoeveel;
         S.etiketCodes[ck]=m;
       }
       const totaal=(p.hoeveel||0)*(p.aantal||1);
       const h=totaal?String(Math.round(totaal*1000)/1000):'';
       if(boekPartij({lev:p.leverancier,p:p.product,l:p.lot,t:p.tht,h,e:p.eenheid,plek,gekoeld,tmp,staat,a,
-        pr:0,prod:p.productiedatum||'',code:p.artikelcode||'',stil:true,foto:true},b)) vanLijst++;
+        pr:0,prod:p.productiedatum||'',code:p.artikelcode||'',soort:p.soort||'ingredient',stil:true,foto:true},b)) vanLijst++;
       if(staat==='ok'&&p.etAan) etiketGegevensZet(p);
     });
     bewaarNu();
