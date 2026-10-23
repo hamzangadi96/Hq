@@ -5143,7 +5143,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v838 · 23 okt 2026';
+const APPVERSIE='v839 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19489,8 +19489,91 @@ function sheetVoorraadMeer(){
      <div class="hkop">Terugzoeken</div><div class="hlijst">
        ${r('data-partijen',I.doos,'Partijen in huis','per lotnummer')}
        ${r('data-vmut',I.ververs,'Alle mutaties','elke boeking')}
-       ${r('data-trace',I.zoek||I.loep,'Lot terugzoeken','van grondstof tot klant')}</div>`);
+       ${r('data-trace',I.zoek||I.loep,'Lot terugzoeken','van grondstof tot klant')}</div>
+     <div class="hkop">Opschonen</div><div class="hlijst">
+       ${r('data-ingleeg',I.kruis,'Ingrediënten leegmaken','opnieuw beginnen met de camera')}</div>`);
   bind();
+  const il=$('[data-ingleeg]'); if(il) il.onclick=sheetIngLeeg;
+}
+
+/* ═══════════ ingrediënten leegmaken (v839) ═══════════
+   Eenmalig opnieuw beginnen: de handmatig ingevoerde ingrediënten eruit,
+   zodat je alles opnieuw inboekt met de camera — dan staat bij elk product
+   meteen voedingswaarde, allergenen, lot en foto.
+
+   Weg:    de ingrediënten met prijzen, voedingswaarde, allergenen,
+           samenstelling, drempels, en hun voorraadstand.
+   Blijft: smaken (alleen de ingrediëntregels worden leeg), lots en
+           HACCP-ontvangsten (traceerbaarheid van wat je al verkocht),
+           halffabricaten, verpakking, en alles wat je al met de camera
+           hebt ingescand.
+   Eerst wordt een backup gemaakt; lukt die niet, dan gebeurt er niets. */
+function ingLeegPlan(){
+  const gescand=new Set((S.lots||[]).filter(l=>l&&((l.fotos&&l.fotos.length)||l.code))
+    .map(l=>gKey(l.product)));
+  const namen=new Map();
+  alleIngredienten().forEach(n=>namen.set(gKey(n),n));
+  grondVoorraad().forEach(v=>{ if(artSoort(v.product)==='ingredient') namen.set(gKey(v.product),v.product) });
+  gescand.forEach(k=>namen.delete(k));
+  const lijst=[...namen.values()].sort((a,b)=>a.localeCompare(b,'nl'));
+  const keys=new Set(lijst.map(gKey));
+  const smaken=(S.recepten||[]).filter(r=>(r.onderdelen||[]).some(o=>
+    (o.ing||[]).some(i=>!i.basis&&keys.has(gKey(i.naam)))));
+  return {lijst,keys,smaken,gescand:gescand.size};
+}
+
+function sheetIngLeeg(){
+  const pl=ingLeegPlan();
+  if(!pl.lijst.length){ dicht(); return toast('Er staan geen handmatige ingrediënten meer in.') }
+  sheet('Ingrediënten leegmaken',
+    `<div class="melding rood" style="margin-bottom:14px">${svg(I.alarm,'2')}<span>
+       <b>${pl.lijst.length} ingrediënten</b> gaan eruit, met hun prijzen, voedingswaarde,
+       allergenen en voorraadstand.</span></div>
+     <div class="veld"><label>Wat blijft</label>
+       <div class="hint" style="margin:0">${pl.smaken.length?`<b>${pl.smaken.length} ${pl.smaken.length===1?'smaak</b> blijft':'smaken</b> blijven'}
+         bestaan met naam, stappen en houdbaarheid; alleen de ingrediëntregels worden leeg. `:''}
+         Lots en HACCP-ontvangsten blijven staan voor je traceerbaarheid. Halffabricaten en
+         verpakking blijven ook${pl.gescand?', net als '+pl.gescand+' product'+(pl.gescand===1?'':'en')+' dat je al met de camera inscande':''}.</div></div>
+     <div class="veld"><label>Gaat eruit</label>
+       <div class="eetal">${pl.lijst.map(n=>`<span>${esc(n)}</span>`).join('')}</div></div>
+     <div class="hint" style="margin:0">Er wordt eerst een backup gemaakt. Lukt die niet, dan gebeurt er niets.</div>`,
+    `<button class="prim" style="margin-top:0;background:#c0392b;color:#fff" id="ilOk">${pl.lijst.length} ingrediënten weghalen</button>`);
+  sheetTerugZet(()=>sheetVoorraadMeer());
+  let zeker=false;
+  $('#ilOk').onclick=async()=>{
+    const k=$('#ilOk');
+    if(!zeker){ zeker=true; k.textContent='Zeker weten? Tik nog een keer'; return }
+    k.disabled=true; k.innerHTML='<span class="espin"></span>Backup maken…';
+    try{ await roep('backupNu') }
+    catch(e){
+      k.disabled=false; zeker=false; k.textContent=pl.lijst.length+' ingrediënten weghalen';
+      return toast('Backup lukte niet, er is niets weggehaald. '+((e&&e.message)||''));
+    }
+    const n=ingLeegDoe(pl);
+    dicht(); render();
+    toast(n+' ingrediënten weggehaald. Backup staat klaar.');
+  };
+}
+
+function ingLeegDoe(pl){
+  const keys=pl.keys;
+  pl.lijst.forEach(n=>ingWeg(n));
+  /* voorraadstand op nul: de boekingen van deze producten eruit. Lots en
+     ontvangsten blijven, die zijn je HACCP-geschiedenis. */
+  S.gmut=(S.gmut||[]).filter(m=>!keys.has(gKey(m.product)));
+  Object.keys(S.artikelen||{}).forEach(k=>{
+    const a=S.artikelen[k];
+    if(keys.has(k)&&(!a||(a.soort||'ingredient')==='ingredient')) delete S.artikelen[k];
+  });
+  keys.forEach(k=>{
+    if(S.drempels) delete S.drempels[k];
+    if(S.levertijden) delete S.levertijden[k];
+  });
+  Object.keys(S.etiketCodes||{}).forEach(c=>{
+    if(keys.has(gKey((S.etiketCodes[c]||{}).product))) delete S.etiketCodes[c];
+  });
+  bewaarNu();
+  return pl.lijst.length;
 }
 /* Tellijst per winkel (v736): alle producten van één winkel op één scherm,
    je typt alleen getallen. Leeg laten = niet geteld, niets verandert. */
