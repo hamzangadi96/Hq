@@ -4522,6 +4522,10 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 #scherm .gl,#scherm .gl .veeg>.veeginhoud{background:var(--card)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
+.vulblok{margin-bottom:26px}
+.vulkop{display:flex;align-items:baseline;gap:10px;margin:0 2px 10px}
+.vulkop b{font-size:18px;flex:1}.vulkop span{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.lgbasis{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--grijs);background:var(--card);border-radius:6px;padding:2px 6px;flex:none}
 .mlrij.nieuw .shn{font-weight:700}
 .mlrij .shn small{font-weight:400}
 .mlkop{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
@@ -5069,7 +5073,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v831 · 23 okt 2026';
+const APPVERSIE='v832 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5148,7 +5152,7 @@ function alleIngredienten(){
   const set=new Set();
   (S.ingredienten||[]).forEach(n=>{ if(n&&n.trim()) set.add(n.trim()) });
   (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>
-    (o.ing||[]).forEach(i=>{if(i.naam&&i.naam.trim())set.add(i.naam.trim())})));
+    (o.ing||[]).forEach(i=>{if(i.naam&&i.naam.trim()&&!i.basis)set.add(i.naam.trim())})));
   return [...set].sort((a,b)=>a.localeCompare(b,'nl'));
 }
 
@@ -6813,10 +6817,10 @@ const gramPerBonbon=r=>(r.onderdelen||[]).reduce((s,o)=>s+(parseFloat(o.gram)||0
 function verdeel(o,totaalGram){
   const ing=o.ing||[];
   if(!ing.length) return [];
-  if(ing.length===1) return [{naam:ing[0].naam,gram:totaalGram}];
+  if(ing.length===1) return [{naam:ing[0].naam,gram:totaalGram,basis:ing[0].basis}];
   const som=ing.reduce((s,i)=>s+(getalIn0(i.deel)),0);
-  if(!som) return ing.map(i=>({naam:i.naam,gram:0}));
-  return ing.map(i=>({naam:i.naam,gram:totaalGram*((getalIn0(i.deel))/som)}));
+  if(!som) return ing.map(i=>({naam:i.naam,gram:0,basis:i.basis}));
+  return ing.map(i=>({naam:i.naam,gram:totaalGram*((getalIn0(i.deel))/som),basis:i.basis}));
 }
 const bTel=(b,t)=>(b.logs||[]).filter(l=>l.type===t).length;
 const lopende=()=>S.batches.filter(b=>b.status==='bezig');
@@ -10302,6 +10306,105 @@ setInterval(()=>{
   document.querySelectorAll('[data-halfklok]').forEach(e=>e.textContent=klokMS(sec));
 },1000);
 
+/* ═══════════ v832: basisrecepten en hoeveel vulling je moet maken ═══════════
+   Een karamel maak je één keer en gebruik je in meerdere bonbons, elk in
+   een eigen verhouding: in de ene is de hele laag karamel, in de andere de
+   helft. Zet het basisrecept als ingrediënt in de laag, met zijn aandeel.
+   Dan rekent HQ per smaak uit hoeveel gram karamel er in één bonbon gaat,
+   telt dat op over wat je maakt, en schaalt het basisrecept naar dat totaal.
+   Bij inkopen wordt de karamel uitgesplitst naar room, suiker en boter. */
+const basisVan=id=>halfRecepten().find(r=>r.id===id);
+const basisKeuze=k=>{ const m=/^\u0001basis:(.+)$/.exec(String(k||'')); return m?basisVan(m[1]):null };
+function basisZeker(){ if(!S.halfRecepten||!S.halfRecepten.length) S.halfRecepten=JSON.parse(JSON.stringify(HALF_STANDAARD)); return S.halfRecepten }
+/* per smaak: hoeveel gram van dit basisrecept zit er in één bonbon? */
+function basisPerBonbon(id){
+  const uit=[];
+  (S.recepten||[]).filter(smaakActief).forEach(r=>{
+    let g=0;
+    (r.onderdelen||[]).forEach(o=>{ verdeel(o,parseFloat(o.gram)||0).forEach(x=>{ if(x.basis===id) g+=x.gram }) });
+    if(g>0) uit.push({r,g});
+  });
+  return uit;
+}
+let VUL=null;
+function sheetVullingen(){
+  const bas=halfRecepten();
+  if(!VUL){ VUL={aantal:{}}; const v0=vandaag();
+    (S.planning||[]).filter(p=>!p.datum||p.datum>=v0).forEach(p=>(p.regels||[]).forEach(rg=>{ VUL.aantal[rg.receptId]=(VUL.aantal[rg.receptId]||0)+(rg.aantal||0) })) }
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+  const blok=b=>{
+    const geb=basisPerBonbon(b.id), tot=geb.reduce((s,x)=>s+x.g*(VUL.aantal[x.r.id]||0),0);
+    const bi=alsLijst(b.ing).filter(y=>y.naam), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
+    return `<div class="vulblok">
+      <div class="vulkop"><b>${esc(b.naam)}</b><span data-vultot="${esc(b.id)}">${tot?g(tot)+' g maken':''}</span></div>
+      ${geb.length?`<div class="gl">${geb.map(x=>`<div class="vprij3">
+          <span class="shn">${esc(x.r.naam)}<small data-vulsub="${esc(b.id)}:${esc(x.r.id)}">${fijn(x.g)} g per bonbon${VUL.aantal[x.r.id]?' · '+g(x.g*VUL.aantal[x.r.id])+' g':''}</small></span>
+          <label class="lgin"><input data-vula="${esc(x.r.id)}" type="text" inputmode="numeric" value="${VUL.aantal[x.r.id]||''}" placeholder="0"><em>st</em></label></div>`).join('')}</div>`
+        :`<p class="lgsom" style="margin-top:0">Nog in geen enkele smaak gebruikt. Kies hem in een laag als ingrediënt — onder <b>Basisrecepten</b> — met zijn aandeel.</p>`}
+      ${bs?`<div class="blokkop" style="margin-top:14px"><span class="eyebrow">Afwegen</span></div>
+        <div class="gl">${bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw" data-vuling="${esc(b.id)}" data-deel="${getalIn0(y.deel)/bs}">${tot?g(tot*getalIn0(y.deel)/bs)+' g':'—'}</span></div>`).join('')}</div>`:''}
+      <div class="lgvoet bvoet"><button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
+    </div>`;
+  };
+  sheet('Vullingen',
+    `<p class="hint" style="margin-top:0">Aantallen komen uit je planning. Pas ze aan om één smaak los te berekenen.</p>
+     ${bas.map(blok).join('')}
+     <div class="lgvoet bvoet"><button type="button" id="vulNw">Nieuw basisrecept</button><button type="button" id="vulRst">Aantallen uit planning</button></div>`,'');
+  const live=()=>{
+    bas.forEach(b=>{ const geb=basisPerBonbon(b.id); let tot=0;
+      geb.forEach(x=>{ const n=VUL.aantal[x.r.id]||0; tot+=x.g*n;
+        const s=document.querySelector(`[data-vulsub="${b.id}:${x.r.id}"]`); if(s) s.textContent=fijn(x.g)+' g per bonbon'+(n?' · '+g(x.g*n)+' g':'') });
+      const kt=document.querySelector(`[data-vultot="${b.id}"]`); if(kt) kt.textContent=tot?g(tot)+' g maken':'';
+      $$(`[data-vuling="${b.id}"]`).forEach(e=>e.textContent=tot?g(tot*parseFloat(e.dataset.deel))+' g':'—') });
+  };
+  $$('#sheetBody [data-vula]').forEach(el=>el.oninput=()=>{ VUL.aantal[el.dataset.vula]=Math.max(0,parseInt(el.value,10)||0); live() });
+  $$('#sheetBody [data-vulrec]').forEach(b=>b.onclick=()=>sheetBasisIng(b.dataset.vulrec,sheetVullingen));
+  $('#vulRst').onclick=()=>{ VUL=null; sheetVullingen() };
+  $('#vulNw').onclick=()=>{ const lijst=basisZeker(), id=uid(); lijst.push({id,naam:'Nieuw basisrecept',stappen:[{tekst:'Stappen invullen'}],ing:[]}); bewaarNu(); sheetBasisIng(id,sheetVullingen) };
+}
+/* het recept van een basis: wat je afweegt voor één pan, in gram */
+function sheetBasisIng(id,terug){
+  basisZeker(); const b=basisVan(id); if(!b) return terug&&terug();
+  b.ing=alsLijst(b.ing).filter(y=>y.naam);
+  const ing=b.ing, som=ing.reduce((s,y)=>s+getalIn0(y.deel),0);
+  /* lagen in je smaken die al uitgewerkt zijn en op deze naam lijken */
+  const bron=[]; (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach((o,i)=>{
+    if(alsLijst(o.ing).filter(y=>y.naam&&!y.basis).length>1) bron.push({r,o,i}) }));
+  const kw=b.naam.toLowerCase().split(/\s+/).pop();
+  bron.sort((x,y)=>((y.o.naam||'').toLowerCase().includes(kw)||(y.r.naam||'').toLowerCase().includes(kw))-((x.o.naam||'').toLowerCase().includes(kw)||(x.r.naam||'').toLowerCase().includes(kw)));
+  sheet(b.naam,
+    `<div class="veld"><label>Naam</label><input class="inp" id="bsN" value="${esc(b.naam)}"></div>
+     <div class="lglijst">
+       ${ing.map((y,k)=>`<div class="lgrij"><button type="button" class="lgnaam" data-bsk="${k}"><span>${esc(y.naam)}</span><small>${som&&getalIn0(y.deel)?Math.round(getalIn0(y.deel)/som*100)+'%':''}</small></button>
+         <label class="lgin"><input data-bsg="${k}" type="text" inputmode="decimal" value="${getalIn0(y.deel)?fijn(getalIn0(y.deel)):''}" placeholder="0"><em>g</em></label></div>`).join('')}
+       <button type="button" class="lgnieuw" id="bsPlus">${svg(I.plus)}Ingrediënt</button></div>
+     ${som?`<div class="lgsom">Eén pan = <b>${fijn(som)} g</b></div>`:''}
+     ${!ing.length&&bron.length?`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">Overnemen uit een smaak</span></div>
+       <div class="gl">${bron.slice(0,5).map((x,j)=>`<button type="button" class="shrij" data-bsbron="${j}"><span class="shn">${esc(x.r.naam)} · ${esc(x.o.naam)}<small>${alsLijst(x.o.ing).filter(y=>y.naam).map(y=>y.naam.split(/\s+[-–—]\s+/)[0]).join(', ')}</small></span>${svg(I.pijl,'2')}</button>`).join('')}</div>
+       <p class="lgsom">Die laag gaat daarna het basisrecept gebruiken.</p>`:''}
+     <div class="lgvoet bvoet"><button type="button" id="bsSt">Stappen (${alsLijst(b.stappen).length})</button></div>`,
+    `<button class="prim" style="margin-top:0" id="bsOk">Klaar</button>`);
+  const lees=()=>{ const nm=$('#bsN'); if(nm&&nm.value.trim()) b.naam=nm.value.trim();
+    $$('[data-bsg]').forEach(el=>{ const y=b.ing[+el.dataset.bsg]; const v=parseFloat(el.value.replace(',','.')); if(y) y.deel=v>0?String(v):'' }) };
+  const opslaan=()=>{ lees();
+    /* naam doorgeven aan de lagen die hem gebruiken */
+    (S.recepten||[]).forEach(r=>(r.onderdelen||[]).forEach(o=>(o.ing||[]).forEach(y=>{ if(y.basis===id) y.naam=b.naam })));
+    bewaarNu() };
+  const hier=()=>sheetBasisIng(id,terug);
+  sheetTerugZet(()=>{ opslaan(); terug&&terug() }); bijSluiten=opslaan;
+  $('#bsOk').onclick=()=>{ opslaan(); terug&&terug() };
+  $$('#sheetBody [data-bsg]').forEach(el=>el.onchange=()=>{ opslaan(); const st=$('#sheetBody').scrollTop; hier(); $('#sheetBody').scrollTop=st });
+  $('#bsPlus').onclick=()=>{ opslaan(); sheetIngKiezen('',k=>{ if(k) b.ing.push({naam:k,deel:''}); bewaarNu(); hier() }) };
+  $$('#sheetBody [data-bsk]').forEach(el=>el.onclick=()=>{ opslaan(); const k=+el.dataset.bsk;
+    sheetIngKiezen(b.ing[k].naam,keuze=>{ if(keuze==='\u0000weg') b.ing.splice(k,1); else if(keuze) b.ing[k].naam=keuze; bewaarNu(); hier() },{weg:true}) });
+  $$('#sheetBody [data-bsbron]').forEach(el=>el.onclick=()=>{ opslaan(); const x=bron[+el.dataset.bsbron];
+    const oud=JSON.parse(JSON.stringify(x.o.ing));
+    b.ing=alsLijst(x.o.ing).filter(y=>y.naam).map(y=>({naam:y.naam,deel:y.deel}));
+    x.o.ing=[{naam:b.naam,deel:'100',basis:id}];
+    bewaarNu(); hier();
+    toast(x.r.naam+' gebruikt nu '+b.naam+'.',()=>{ x.o.ing=oud; b.ing=[]; bewaarNu(); hier() }) });
+  $('#bsSt').onclick=()=>{ opslaan(); sheetHalfRecept(b.naam) };
+}
 function sheetHalfLijst(){
   const klaar=(S.halfBatches||[]).filter(x=>x.klaar).slice(-5).reverse();
   sheet('Halffabricaten',
@@ -11345,6 +11448,7 @@ function prodTegelsHTML(a){
     <div class="gl">
       ${rij(gOnaf?'smaakVolgendeOnaf()':"homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
       ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
+      ${rij('VUL=null;sheetVullingen()','Vullingen',(()=>{ const n=halfRecepten().filter(b=>basisPerBonbon(b.id).length).length; return n?n+' basis':'' })())}
       ${rij("homeTegel('vv')",'Voedselveiligheid',ij?svg(I.vink,'2.6'):'thermometer ijken',!ij)}
       ${rij("homeTegel('lst')",'Instellen','')}
     </div>`;
@@ -19896,6 +20000,9 @@ function nodigVoor(regels,receptenBron){
     (r.onderdelen||[]).forEach(o=>{
       verdeel(o,(parseFloat(o.gram)||0)*rg.aantal).forEach(x=>{
         if(!x.naam) return;
+        const b=x.basis&&basisVan(x.basis), bi=b?alsLijst(b.ing).filter(y=>y.naam):[];
+        const bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
+        if(bs){ bi.forEach(y=>{ map[y.naam]=(map[y.naam]||0)+x.gram*getalIn0(y.deel)/bs }); return }
         map[x.naam]=(map[x.naam]||0)+x.gram;
       });
     });
@@ -30415,7 +30522,7 @@ function sheetLaag(n){
      <div class="lglijst">
      ${ing.map((x,k)=>{ const g=getDeel(x);
        return `<div class="lgrij">
-         <button type="button" class="lgnaam" data-lgkies="${k}"><span>${esc(x.naam)}</span><small data-lgp="${k}">${pctTekst(k)}</small></button>
+         <button type="button" class="lgnaam" data-lgkies="${k}"><span>${esc(x.naam)}</span>${x.basis?'<i class="lgbasis">basis</i>':''}<small data-lgp="${k}">${pctTekst(k)}</small></button>
          <label class="lgin"><input data-lgg="${k}" type="text" inputmode="decimal" value="${g?fijn(g):''}" placeholder="0"><em>g</em></label></div>` }).join('')}
        <button type="button" class="lgnieuw" id="lgPlus">${svg(I.plus)}Ingrediënt</button>
      </div>
@@ -30448,12 +30555,15 @@ function sheetLaag(n){
   $('#lgGram').oninput=live; $('#lgGram').onchange=()=>{ live(); smaakOpslaan() };
   const focusG=k=>setTimeout(()=>{ const el=$(`[data-lgg="${k}"]`); if(el) el.focus() },80);
   $('#lgPlus').onclick=()=>{ lees(); smaakOpslaan();
-    sheetIngKiezen('',keuze=>{ if(keuze) o.ing.push({naam:keuze,deel:''}); smaakOpslaan(); sheetLaag(n); if(keuze) focusG(o.ing.length-1) }) };
+    sheetIngKiezen('',keuze=>{ const bk=basisKeuze(keuze); if(bk) o.ing.push({naam:bk.naam,deel:'',basis:bk.id}); else if(keuze) o.ing.push({naam:keuze,deel:''});
+      smaakOpslaan(); sheetLaag(n); if(keuze) focusG(o.ing.length-1) },{basis:true}) };
   $$('#sheetBody [data-lgkies]').forEach(b=>b.onclick=()=>{ lees(); smaakOpslaan(); const k=+b.dataset.lgkies;
     sheetIngKiezen(o.ing[k].naam,keuze=>{
       if(keuze==='\u0000weg'){ const weg=o.ing.splice(k,1)[0]; smaakOpslaan(); sheetLaag(n);
         return toast(weg.naam+' weggehaald.',()=>{ o.ing.splice(k,0,weg); smaakOpslaan(); sheetLaag(n) }) }
-      if(keuze) o.ing[k].naam=keuze; smaakOpslaan(); sheetLaag(n) },{weg:true}) });
+      const bk=basisKeuze(keuze);
+      if(bk){ o.ing[k].naam=bk.naam; o.ing[k].basis=bk.id } else if(keuze){ o.ing[k].naam=keuze; delete o.ing[k].basis }
+      smaakOpslaan(); sheetLaag(n) },{weg:true,basis:true}) });
   $('#lgPlak').onclick=()=>{ lees(); LG.plak=!LG.plak; LG.plakTekst=''; opnieuw() };
   if($('#lgPlakOk')) $('#lgPlakOk').onclick=()=>{ lees();
     const rijen=receptPlakLees(LG.plakTekst||''); if(!rijen.length) return toast('Ik herken geen ingrediënten. Zet per regel een hoeveelheid en een naam.');
@@ -30737,11 +30847,16 @@ function sheetIngKiezen(huidig, klaar, opt){
     const q=zoek.trim().toLowerCase();
     const lijst=q?alle.filter(n=>n.toLowerCase().includes(q)):alle;
     const nieuw=zoek.trim()&&!alle.some(n=>n.toLowerCase()===q);
+    const bas=opt&&opt.basis?halfRecepten().filter(r=>!q||r.naam.toLowerCase().includes(q)):[];
 
     sheet('Welk ingrediënt?',
       `<div class="veld" style="margin-bottom:10px">
          <input class="inp" id="ikZ" placeholder="Zoeken of een nieuwe naam typen"
            autocomplete="off" value="${esc(zoek)}"></div>
+       ${bas.length?`<div class="blokkop" style="margin-top:0"><span class="eyebrow">Basisrecepten</span></div>
+         <div class="gl" style="margin-bottom:16px">${bas.map(r=>`<button type="button" class="shrij" data-ikb="${esc(r.id)}">
+           <span class="shn">${esc(r.naam)}<small>${alsLijst(r.ing).length?'zelfgemaakt · '+alsLijst(r.ing).length+' ingrediënten':'zelfgemaakt · recept nog invullen'}</small></span>${svg(I.pijl,'2')}</button>`).join('')}</div>
+         <div class="blokkop" style="margin-top:0"><span class="eyebrow">Ingrediënten</span></div>`:''}
        ${nieuw?`<button class="toevoeg" id="ikNieuw" style="margin-bottom:12px">${svg(I.plus)}
          "${esc(zoek.trim())}" toevoegen aan je ingrediënten</button>`:''}
        ${lijst.length?`<div class="paneel">${lijst.map(n=>{
@@ -30771,6 +30886,7 @@ function sheetIngKiezen(huidig, klaar, opt){
       toast(n+' staat nu in je ingrediënten.');
     };
     $$('#sheetBody [data-ik]').forEach(b=>b.onclick=()=>klaar(b.dataset.ik));
+    $$('#sheetBody [data-ikb]').forEach(b=>b.onclick=()=>klaar('\u0001basis:'+b.dataset.ikb));
     if($('#ikAf')) $('#ikAf').onclick=()=>klaar(null);
   };
   teken();
@@ -33097,6 +33213,9 @@ function prijsBronZet(naam,bedrag,hoeveel,eenheid,gramPerStuk){
 function prijsUitDelen(naam,diep){
   diep=diep||0;
   if(diep>3) return null;
+  { const b=halfRecepten().find(r=>r.naam===naam), bi=b?alsLijst(b.ing).filter(y=>y.naam):[];
+    const bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
+    if(bs){ let som=0; for(const y of bi){ const k=ingPrijs(y.naam,diep+1); if(k===null) return null; som+=k*getalIn0(y.deel)/bs } return som } }
   const delen=ingDelen(naam);
   if(!delen.length) return null;
   let pct=0, som=0, mist=[];
