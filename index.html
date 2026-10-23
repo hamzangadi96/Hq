@@ -4569,6 +4569,19 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .rbheel svg{width:15px;height:15px;color:var(--grijs)}
 .rsbanner{display:flex;align-items:center;gap:12px;width:100%;margin:0 0 14px;padding:13px 14px;border:0;border-radius:14px;background:var(--bg);font:inherit;color:var(--ink);text-align:left;cursor:pointer}
 .rsbanner.let{background:#fdf3e4}
+.mkgroot{background:var(--ink);color:#fff;border-radius:18px;padding:18px;margin:0 0 16px}
+.mkgroot b{display:block;font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.mkgroot small{display:block;font-size:13.5px;opacity:.75;margin-top:4px}
+.mkrij{display:grid;grid-template-columns:1fr 84px 64px;gap:10px;align-items:center;padding:10px 14px;min-height:56px}
+.mkrij+.mkrij{border-top:1px solid #e4e4e7}
+.mkrij .shn small{display:block}
+.mkrij .mkg{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.mkweeg{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;min-height:56px;text-align:left}
+.mkweeg+.mkweeg{border-top:1px solid #e4e4e7}
+.mkweeg .smst{flex:none}
+.mkweeg span.n{flex:1;font-size:15.5px;font-weight:600}
+.mkweeg b{font-size:17px;font-variant-numeric:tabular-nums}
+.mkweeg.af span.n,.mkweeg.af b{color:var(--grijs2);text-decoration:line-through}
 .bkaart{margin-top:14px;border:1px solid #ececee;border-radius:18px;padding:14px;background:#fff}
 .bkkop{display:flex;flex-direction:column;margin:0 2px 12px}
 .bkkop b{font-size:17px;font-weight:700}
@@ -5192,7 +5205,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v850 · 23 okt 2026';
+const APPVERSIE='v851 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5508,7 +5521,7 @@ const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','ro
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
-'samenstelling','halfRecepten','halfBatches','werkdag','etiketCodes',
+'samenstelling','halfRecepten','halfBatches','werkdag','etiketCodes','vulMarge',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
@@ -10386,7 +10399,7 @@ function halfLot(){
   const n=(S.halfBatches||[]).filter(x=>String(x.lot||'').indexOf('H'+d)===0).length+1;
   return 'H'+d+'-'+n;
 }
-function halfStart(rid,taakId){
+function halfStart(rid,taakId,gram){
   const al=halfBezig();
   if(al) return toast('Rond eerst '+al.naam+' af.');
   const r=halfRecepten().find(x=>x.id===rid); if(!r) return;
@@ -10394,7 +10407,7 @@ function halfStart(rid,taakId){
   if(!S.halfRecepten||!S.halfRecepten.length) S.halfRecepten=JSON.parse(JSON.stringify(HALF_STANDAARD));
   S.halfBatches=S.halfBatches||[];
   S.halfBatches.push({id:uid(),receptId:r.id,naam:r.naam,stappen:JSON.parse(JSON.stringify(r.stappen)),
-    stap:0,stapStart:Date.now(),start:Date.now(),datum:vandaag(),lot:halfLot(),taakId:taakId||'',log:[]});
+    stap:0,stapStart:Date.now(),start:Date.now(),datum:vandaag(),lot:halfLot(),taakId:taakId||'',log:[],...(gram>0?{gram:Math.round(gram)}:{})});
   S.tab='dashboard'; bewaarNu(); render(); toast(r.naam+' gestart.',herstel);
 }
 function halfStapKlaar(){
@@ -10524,7 +10537,7 @@ function sheetVullingen(){
         :`<p class="lgsom" style="margin-top:0">Nog in geen enkele smaak gebruikt. Kies hem in een laag als ingrediënt — onder <b>Basisrecepten</b> — met zijn aandeel.</p>`}
       ${bs?`<div class="blokkop" style="margin-top:14px"><span class="eyebrow">Afwegen</span></div>
         <div class="gl">${bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw" data-vuling="${esc(b.id)}" data-deel="${getalIn0(y.deel)/bs}">${tot?g(tot*getalIn0(y.deel)/bs)+' g':'—'}</span></div>`).join('')}</div>`:''}
-      <div class="lgvoet bvoet"><button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
+      <div class="lgvoet bvoet">${bs&&geb.length?`<button type="button" data-vulmaak="${esc(b.id)}"><b style="font-size:inherit">Maken</b></button>`:''}<button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
     </div>`;
   };
   sheet('Vullingen',
@@ -10540,10 +10553,73 @@ function sheetVullingen(){
   };
   $$('#sheetBody [data-vula]').forEach(el=>el.oninput=()=>{ VUL.aantal[el.dataset.vula]=Math.max(0,parseInt(el.value,10)||0); live() });
   $$('#sheetBody [data-vulrec]').forEach(b=>b.onclick=()=>sheetBasisIng(b.dataset.vulrec,sheetVullingen));
+  $$('#sheetBody [data-vulmaak]').forEach(b=>b.onclick=()=>sheetBasisMaken(b.dataset.vulmaak,sheetVullingen));
   $('#vulRst').onclick=()=>{ VUL=null; sheetVullingen() };
   $('#vulNw').onclick=()=>{ const lijst=basisZeker(), id=uid(); lijst.push({id,naam:'Nieuw basisrecept',stappen:[{tekst:'Stappen invullen'}],ing:[]}); bewaarNu(); sheetBasisIng(id,sheetVullingen) };
 }
 /* het recept van een basis: wat je afweegt voor één pan, in gram */
+/* ═══════════ hoeveel basisrecept maken (v851) ═══════════
+   Gezouten karamel zit in meerdere bonbons. Hier tel je op hoeveel je nodig
+   hebt (aantallen uit je planning, per smaak aan te passen), met een marge
+   voor wat in de pan en spuitzak achterblijft en wat verdampt. Daarna weeg
+   je af en vink je af, en start je het maken met lotnummer en stappen. */
+let MK=null;   /* {id, af:Set} — wat je al hebt afgewogen, alleen deze sessie */
+function vulAantallenZeker(){
+  if(VUL) return VUL;
+  VUL={aantal:{}}; const v0=vandaag();
+  (S.planning||[]).filter(p=>!p.datum||p.datum>=v0).forEach(p=>(p.regels||[]).forEach(rg=>{
+    VUL.aantal[rg.receptId]=(VUL.aantal[rg.receptId]||0)+(rg.aantal||0) }));
+  return VUL;
+}
+function sheetBasisMaken(id,terug){
+  basisZeker(); const b=basisVan(id); if(!b) return terug&&terug();
+  vulAantallenZeker();
+  if(!MK||MK.id!==id) MK={id,af:new Set()};
+  const marge=typeof S.vulMarge==='number'?S.vulMarge:10;
+  const bi=alsLijst(b.ing).filter(y=>y.naam&&!y.basis), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
+  const geb=basisPerBonbon(id);
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+  const reken=()=>{ const nodig=geb.reduce((s,x)=>s+x.g*(VUL.aantal[x.r.id]||0),0); return {nodig,maak:nodig*(1+marge/100)} };
+  const {nodig,maak}=reken();
+  sheet(b.naam+' maken',
+    `<div class="mkgroot"><b id="mkMaak">${maak?g(maak)+' g':'—'}</b>
+       <small id="mkSub">${nodig?g(nodig)+' g nodig'+(marge?' + '+marge+'% marge':''):'Vul hieronder in hoeveel bonbons je maakt'}</small></div>
+     <div class="blokkop" style="margin-top:0"><span class="eyebrow">Voor welke bonbons</span></div>
+     <div class="gl">${geb.length?geb.map(x=>`<div class="mkrij">
+        <span class="shn">${esc(x.r.naam)}<small>${fijn(x.g)} g per bonbon</small></span>
+        <label class="lgin"><input data-mka="${esc(x.r.id)}" type="text" inputmode="numeric" value="${VUL.aantal[x.r.id]||''}" placeholder="0"><em>st</em></label>
+        <span class="mkg" data-mkg="${esc(x.r.id)}">${VUL.aantal[x.r.id]?g(x.g*VUL.aantal[x.r.id])+' g':'—'}</span></div>`).join('')
+       :`<div class="geen" style="padding:14px">Nog geen bonbon gebruikt dit basisrecept.</div>`}</div>
+     <div class="veld" style="margin-top:16px"><label>Marge voor pan, spuitzak en verdamping</label>
+       <div class="chips" id="mkM">${[0,10,15,20].map(m=>`<button type="button" class="chip${m===marge?' aan':''}" data-v="${m}">${m?m+'%':'geen'}</button>`).join('')}</div></div>
+     <div class="blokkop"><span class="eyebrow">Afwegen</span></div>
+     <div class="gl" id="mkWeeg">${bs?bi.map((y,i)=>`<button type="button" class="mkweeg${MK.af.has(y.naam)?' af':''}" data-mkw="${esc(y.naam)}">
+        <span class="smst${MK.af.has(y.naam)?' ok':''}">${MK.af.has(y.naam)?svg(I.vink,'3'):''}</span>
+        <span class="n">${esc(y.naam)}</span><b data-mkd="${getalIn0(y.deel)/bs}">${maak?gramKort(maak*getalIn0(y.deel)/bs):'—'}</b></button>`).join('')
+       :`<div class="geen" style="padding:14px">Dit basisrecept heeft nog geen ingrediënten.</div>`}</div>
+     <div class="hint" style="margin:8px 0 0">Tik een ingrediënt aan als je het hebt afgewogen.</div>`,
+    `<button class="prim" style="margin-top:0" id="mkStart"${maak&&bs?'':' disabled'}>${svg(I.vorm)}Start maken${maak?' · '+g(maak)+' g':''}</button>`);
+  sheetTerugZet(terug||null);
+  const live=()=>{
+    const r=reken();
+    $('#mkMaak').textContent=r.maak?g(r.maak)+' g':'—';
+    $('#mkSub').textContent=r.nodig?g(r.nodig)+' g nodig'+(marge?' + '+marge+'% marge':''):'Vul hieronder in hoeveel bonbons je maakt';
+    geb.forEach(x=>{ const s=document.querySelector(`[data-mkg="${x.r.id}"]`); const n=VUL.aantal[x.r.id]||0; if(s) s.textContent=n?g(x.g*n)+' g':'—' });
+    $$('[data-mkd]').forEach(e=>{ e.textContent=r.maak?gramKort(r.maak*(+e.dataset.mkd)):'—' });
+    const k=$('#mkStart'); k.disabled=!(r.maak&&bs); k.innerHTML=svg(I.vorm)+'Start maken'+(r.maak?' · '+g(r.maak)+' g':'');
+  };
+  $$('[data-mka]').forEach(el=>el.oninput=()=>{ VUL.aantal[el.dataset.mka]=Math.max(0,parseInt(el.value,10)||0); live() });
+  $$('#mkM [data-v]').forEach(c=>c.onclick=()=>{ S.vulMarge=+c.dataset.v; bewaarNu();
+    const st=$('#sheetBody').scrollTop; sheetBasisMaken(id,terug); $('#sheetBody').scrollTop=st });
+  $$('[data-mkw]').forEach(x=>x.onclick=()=>{ const n=x.dataset.mkw; MK.af.has(n)?MK.af.delete(n):MK.af.add(n);
+    const af=MK.af.has(n); x.classList.toggle('af',af); const s=x.querySelector('.smst'); s.classList.toggle('ok',af); s.innerHTML=af?svg(I.vink,'3'):'' });
+  $('#mkStart').onclick=()=>{
+    const r=reken(); if(!r.maak) return;
+    if(!b.stappen||!b.stappen.length){ b.stappen=[{tekst:'Maken volgens het basisrecept'}]; bewaarNu() }
+    MK=null; dicht(); halfStart(id,'',r.maak);
+  };
+}
+
 function sheetBasisIng(id,terug){
   basisZeker(); const b=basisVan(id); if(!b) return terug&&terug();
   b.ing=alsLijst(b.ing).filter(y=>y.naam);
@@ -31718,6 +31794,7 @@ function basisLaagHtml(o,bk){
       <span class="shw" data-bdeel="${getalIn0(y.deel)/bs}">${gpb?gramKort(gpb*mult*getalIn0(y.deel)/bs):'—'}</span></div>`).join('')
       :`<div class="geen" style="padding:14px">Dit basisrecept heeft nog geen ingrediënten.</div>`}</div>
     <div class="lgsom" id="lgBasTot">${gpb?'Samen <b>'+gramKort(gpb*mult)+'</b>':'Vul hierboven in hoeveel gram in één bonbon gaat'}</div>
+    <button type="button" class="sec" id="lgBasMaak" style="margin-top:10px">Hoeveel ${esc(bk.naam.toLowerCase())} moet ik maken?</button>
     <div class="lgvoet" style="margin-top:4px"><button type="button" id="lgBasisOpen">Basisrecept aanpassen</button>
       <button type="button" id="lgBasisLos">Loskoppelen</button></div>
   </div>`;
@@ -31826,6 +31903,7 @@ function sheetLaag(n){
     if(gl) setTimeout(()=>{ const g=$('#lgGram'); if(g) g.focus() },150) });
   if($('#lgAlsBasis')) $('#lgAlsBasis').onclick=()=>{ lees(); smaakOpslaan(); sheetLaagAlsBasis(n) };
   if($('#lgBasisOpen')) $('#lgBasisOpen').onclick=()=>{ lees(); smaakOpslaan(); sheetBasisIng(o.ing[0].basis,()=>sheetLaag(n)) };
+  if($('#lgBasMaak')) $('#lgBasMaak').onclick=()=>{ lees(); smaakOpslaan(); sheetBasisMaken(o.ing[0].basis,()=>sheetLaag(n)) };
   $$('#lgBasMod [data-v]').forEach(b=>b.onclick=()=>{ lees(); smaakOpslaan(); LG.basMod=b.dataset.v; teken() });
   if($('#lgBasisLos')) $('#lgBasisLos').onclick=()=>{ lees(); const bk=basisVan(o.ing[0].basis); if(!bk) return;
     const oud=JSON.parse(JSON.stringify(o.ing));
