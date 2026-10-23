@@ -1746,6 +1746,9 @@ Object.assign(exports, require('./maakRegie'));
 /* Etiketten lezen: een levering inboeken met de camera. Ook apart. */
 Object.assign(exports, require('./leesEtiket'));
 
+/* Receptfoto lezen: je schrift in HQ. */
+Object.assign(exports, require('./leesReceptFoto'));
+
 /* ═══════════════════════════════════════════════════════════════════
    Claude laten meelezen
 
