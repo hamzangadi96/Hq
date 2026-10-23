@@ -5206,7 +5206,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v858 · 23 okt 2026';
+const APPVERSIE='v859 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10409,6 +10409,14 @@ function karamelBijwerken(){
 /* De smaak Gezouten karamel krijgt dezelfde werkwijze als werkinstructies,
    eenmalig (vlag op de smaak). Bij een stap uit je werkplan over vullingen
    hangen ze daaraan, zodat je ze tijdens het maken vanzelf ziet. */
+/* basisrecepten met stappen die bij deze smaak horen: gebruikt in een laag,
+   of met dezelfde naam als de smaak */
+function werkBasissen(){
+  const ids=new Set();
+  (R.onderdelen||[]).forEach(o=>alsLijst(o.ing).forEach(y=>{ if(y.basis) ids.add(y.basis) }));
+  halfRecepten().forEach(b=>{ if((b.naam||'').toLowerCase()===(R.naam||'').toLowerCase()) ids.add(b.id) });
+  return [...ids].map(basisVan).filter(b=>b&&alsLijst(b.stappen).length);
+}
 let smaakKaramelGecheckt=false;
 function smaakKaramelStappen(){
   if(smaakKaramelGecheckt||!S.recepten||!S.recepten.length) return;
@@ -32087,7 +32095,8 @@ function smaakDeel(deel){
         krijg je hem tijdens het maken vanzelf te zien. Noem je een tijd of temperatuur,
         dan leest de app die eruit.</p>
       <div id="rS">${(R.stappen.length?R.stappen:['']).map((x,i)=>stapRij(x,i)).join('')}</div>
-      <button class="knop2" id="rPS" style="margin-top:12px">${svg(I.plus)}Instructie toevoegen</button>`}
+      <button class="knop2" id="rPS" style="margin-top:12px">${svg(I.plus)}Instructie toevoegen</button>
+      ${werkBasissen().map(b=>`<button class="knop2" data-wwb="${esc(b.id)}" style="margin-top:8px">${svg(I.lijst)}Werkwijze ${esc(b.naam.toLowerCase())} overnemen (${alsLijst(b.stappen).length} stappen)</button>`).join('')}`}
   }[deel];
   if(!D) return smaakHub();
 
@@ -32098,6 +32107,12 @@ function smaakDeel(deel){
   if($('#rMal')) chips('#rMal');
   if($('#rMalNieuw')) $('#rMalNieuw').onclick=()=>{ leesRecept(); bewaarSmaak(); sheetMallen() };
   if($('#rOnd')) $('#rOnd').onclick=()=>{ leesRecept(); bewaarSmaak(); sheetOnderdeel(null) };
+  $$('#sheetBody [data-wwb]').forEach(b=>b.onclick=()=>{ leesRecept(); const bs=basisVan(b.dataset.wwb); if(!bs) return;
+    const bij=(S.werkplan||[]).find(w=>/vulling|karamel/i.test(w))||'';
+    const kop=bs.naam.split(/\s+/).pop(); const kopH=kop.charAt(0).toUpperCase()+kop.slice(1);
+    const oud=(R.stappen||[]).filter(x=>(typeof x==='string'?x:(x&&x.t)||'').trim());
+    R.stappen=oud.concat(alsLijst(bs.stappen).map(s=>bij?{t:kopH+': '+s.tekst,stap:bij}:kopH+': '+s.tekst));
+    bewaarSmaak(); bewaarNu(); smaakDeel('werk'); toast(alsLijst(bs.stappen).length+' stappen toegevoegd.') });
   $$('#sheetBody [data-ond]').forEach(b=>b.onclick=()=>{
     leesRecept(); bewaarSmaak(); sheetOnderdeel(parseInt(b.dataset.ond)) });
   if($('#rPS')) $('#rPS').onclick=()=>{
