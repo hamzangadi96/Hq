@@ -5205,7 +5205,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v852 · 23 okt 2026';
+const APPVERSIE='v853 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10384,23 +10384,25 @@ function homeTegelsHTML(){
    je later kunt terugvinden welke karamel in welke bonbon zit. */
 /* v852: Hamza's eigen werkwijze voor gezouten karamel */
 const KARAMEL_STAPPEN=[
-  {tekst:'Verwarm de room met de glucose tot 80 °C.',temp:80},
-  {tekst:'Karamelliseer de suiker droog tot 180 °C, diep amber.',temp:180},
+  {tekst:'Verwarm de room tot 80 °C (zonder glucose).',temp:80},
+  {tekst:'Doe de glucose in de pan op middelhoog vuur tot hij borrelt.'},
+  {tekst:'Strooi de suiker in 3–4 delen erbij. Laat elk deel oplossen voor het volgende. Zwenk de pan, niet roeren.'},
+  {tekst:'Karamelliseer tot 172 °C, middel-donker amber. Vanaf 160 °C goed opletten: met glucose kleurt hij sneller.',temp:172},
   {tekst:'Zet het vuur laag en voeg de room in 3–4 scheuten toe. Roer tot het bruisen zakt.'},
   {tekst:'Breng het al roerend aan de kook tot 112 °C.',temp:112},
   {tekst:'Haal van het vuur en roer de boter, callets en zout erdoor.'},
   {tekst:'Staafmix tot het glad is.'},
   {tekst:'Laat afgedekt afkoelen tot 30 °C.',temp:30}];
 const HALF_STANDAARD=[{id:'karamel',naam:'Gezouten karamel',stappen:KARAMEL_STAPPEN}];
-/* Je gezouten karamel krijgt eenmalig deze werkwijze (v852, op verzoek). */
+/* Je gezouten karamel krijgt eenmalig deze werkwijze: glucose eerst, suiker in delen (op verzoek, na een bittere karamel). */
 let karamelGecheckt=false;
 function karamelBijwerken(){
   if(karamelGecheckt||!S.halfRecepten||!S.halfRecepten.length) return;
   karamelGecheckt=true;
   /* eenmalig per recept (vlag op het recept zelf), daarna blijven jouw eigen aanpassingen staan */
   let gewijzigd=false;
-  S.halfRecepten.filter(r=>r&&(r.id==='karamel'||/gezouten\s*karamel/i.test(r.naam||''))&&!r.werkwijze835).forEach(r=>{
-    r.stappen=JSON.parse(JSON.stringify(KARAMEL_STAPPEN)); r.werkwijze835=true; gewijzigd=true });
+  S.halfRecepten.filter(r=>r&&(r.id==='karamel'||/gezouten\s*karamel/i.test(r.naam||''))&&!r.werkwijzeGlucose).forEach(r=>{
+    r.stappen=JSON.parse(JSON.stringify(KARAMEL_STAPPEN)); r.werkwijze835=true; r.werkwijzeGlucose=true; gewijzigd=true });
   if(gewijzigd) setTimeout(()=>bewaarNu(),0);
 }
 const halfRecepten=()=>{ karamelBijwerken(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
