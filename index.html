@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v864 · 23 okt 2026';
+const APPVERSIE='v865 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -31817,6 +31817,7 @@ function receptFotoCheck(rs,keus,tip){
 }
 
 function smaakHub(){
+  geleienRechtzetten();
   const totaal=gramPerBonbon(R);
   const rij=(id,ico,naam,waarde,mist)=>`<button class="arij" data-sh="${id}">
     <span class="ivak${mist?' amber':''}">${svg(ico)}</span>
@@ -31886,6 +31887,37 @@ function smaakHub(){
 }
 
 const LAAGSOORTEN=['Schelp','Ganache','Karamel','Gelei','Praliné','Crunch'];
+/* ═══════════ v865: de juiste gelei bij de juiste smaak ═══════════
+   Een nieuwe laag nam de laag met dezelfde naam van een andere smaak over.
+   Voor een gelei is dat fout: Vanille & blauwe bessen kreeg de aardbeiengelei
+   van Matcha & aardbei. Een gelei kiest nu de gelei die bij de smaaknaam past. */
+const geleiStam=n=>String(n||'').toLowerCase().replace(/\s*gelei$/,'').replace(/(en|s)$/,'').trim();
+const isGeleiBasis=b=>!!b&&/gelei/i.test(b.naam||'');
+function geleiVoorSmaak(smaakNaam){
+  const k=String(smaakNaam||'').toLowerCase();
+  return halfRecepten().filter(isGeleiBasis).find(b=>{ const s=geleiStam(b.naam); return s&&k.includes(s) })||null }
+function laagGeleiGoedzetten(o,smaakNaam){
+  if(!o||!o.ing) return false;
+  let anders=false;
+  o.ing=o.ing.map(x=>{ if(!x.basis) return x; const b=basisVan(x.basis); if(!isGeleiBasis(b)) return x;
+    const goed=geleiVoorSmaak(smaakNaam);
+    if(goed&&goed.id!==b.id){ anders=true; return Object.assign({},x,{naam:goed.naam,basis:goed.id}) }
+    if(!goed&&!String(smaakNaam||'').toLowerCase().includes(geleiStam(b.naam))){ anders=true; return null }
+    return x }).filter(Boolean);
+  return anders }
+/* eenmalig per keer laden: smaken die een gelei van een ander fruit kregen rechtzetten */
+function geleienRechtzetten(){
+  const zet=(ond,naam)=>{ let n=0; const goed=geleiVoorSmaak(naam);
+    if(!goed) return 0;   /* alleen wisselen als er een betere gelei is; nooit leeghalen */
+    (ond||[]).forEach(o=>{ if(!o||!o.ing) return;
+      o.ing=o.ing.map(x=>{ const b=x&&x.basis&&basisVan(x.basis);
+        if(isGeleiBasis(b)&&goed.id!==b.id&&!String(naam).toLowerCase().includes(geleiStam(b.naam))){ n++; return Object.assign({},x,{naam:goed.naam,basis:goed.id}) }
+        return x }) });
+    return n };
+  let n=0; (S.recepten||[]).forEach(r=>{ if(r) n+=zet(r.onderdelen,r.naam) });
+  try{ if(R&&R.id) n+=zet(R.onderdelen,R.naam) }catch(e){}
+  if(n) setTimeout(()=>bewaarNu(),0);
+  return n }
 function sheetLaagNieuw(){
   sheet('Welke laag?',
     `<div class="chips keuzeraster">${LAAGSOORTEN.map(x=>`<button type="button" class="chip" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}
@@ -31897,6 +31929,8 @@ function sheetLaagNieuw(){
     let o=naam?nieuweLaag(naam):{naam:'',gram:'',ing:[]};
     o=Object.assign({},o,{naam,ing:(o.ing||[]).map(x=>({naam:x.naam||'',deel:x.deel||'',...(x.rol?{rol:x.rol}:{}),...(x.basis?{basis:x.basis}:{})})).filter(x=>x.naam)});
     if(naam==='Schelp'&&!o.ing.length) o.ing=[{naam:schelpIngVoor(R.chocolade),deel:'100'}];
+    if(laagGeleiGoedzetten(o,R.naam)) delete o._van;
+    if(/gelei/i.test(naam)&&!o.ing.length){ const g=geleiVoorSmaak(R.naam); if(g) o.ing=[{naam:g.naam,deel:'100',basis:g.id}] }
     if(!o.gram){ const s0=ondSoort(naam); if(s0) o.gram=String(s0.gram) }
     if(!o.stap) o.stap=ondStapVoor(naam);
     R.onderdelen.push(o); smaakOpslaan();
