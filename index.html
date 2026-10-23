@@ -5188,7 +5188,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v847 · 23 okt 2026';
+const APPVERSIE='v849 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -31699,7 +31699,7 @@ function sheetLaag(n){
   o.ing=(o.ing||[]).filter(x=>x.naam).map((x,i)=>({x,i}))
     .sort((a,b)=>(getDeel(b.x)-getDeel(a.x))||(a.i-b.i)).map(y=>y.x);
   const ing=o.ing;
-  const somTekst=()=>{ const som=o.ing.reduce((s,i)=>s+getDeel(i),0), gram=parseFloat(String(o.gram||'').replace(',','.'))||0;
+  const somTekst=()=>{ if(o.ing.length===1&&o.ing[0].basis) return ''; const som=o.ing.reduce((s,i)=>s+getDeel(i),0), gram=parseFloat(String(o.gram||'').replace(',','.'))||0;
     const genoeg=gram&&som?Math.floor(som/gram):0;
     return som?`Samen <b>${som>=1000?fijn(som/1000)+' kg':fijn(som)+' g'}</b>${
       !gram?' · vul hierboven de gram per bonbon in':genoeg>=1?' · genoeg voor <b>'+genoeg.toLocaleString('nl-NL')+'</b> bonbons':''}`:'' };
@@ -31713,16 +31713,25 @@ function sheetLaag(n){
      ${ing.map((x,k)=>{ const g=getDeel(x);
        return `<div class="lgrij">
          <button type="button" class="lgnaam" data-lgkies="${k}"><span>${esc(x.naam)}</span>${x.basis?'<i class="lgbasis">basis</i>':''}<small data-lgp="${k}">${pctTekst(k)}</small></button>
-         <label class="lgin"><input data-lgg="${k}" type="text" inputmode="decimal" value="${g?fijn(g):''}" placeholder="0"><em>g</em></label></div>` }).join('')}
+         ${ing.length===1&&x.basis?'<span class="shw">hele laag</span>':`<label class="lgin"><input data-lgg="${k}" type="text" inputmode="decimal" value="${g?fijn(g):''}" placeholder="0"><em>g</em></label>`}</div>` }).join('')}
        <button type="button" class="lgnieuw" id="lgPlus">${svg(I.plus)}Ingrediënt</button>
      </div>
      ${LG.plak?`<div class="rsplak"><textarea id="lgPlakTxt" rows="5" placeholder="Eén ingrediënt per regel, bijv.&#10;200 g slagroom&#10;300 g witte chocolade">${esc(LG.plakTekst||'')}</textarea>
        <button type="button" class="prim" style="margin-top:8px" id="lgPlakOk">Omzetten</button></div>`:''}
      <div class="lgsom" id="lgSom">${somTekst()}</div>
      ${(()=>{ const bk=ing.length===1&&ing[0].basis&&basisVan(ing[0].basis);
-       if(bk) return `<div class="melding groen" style="margin-top:12px">${svg(I.vink,'2')}<span>Gebruikt het basisrecept
+       if(bk){
+         /* v848: wat er bij deze gram per bonbon van elk ingrediënt in gaat */
+         const bi=alsLijst(bk.ing).filter(y=>y.naam&&!y.basis), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
+         const gpb=parseFloat(String(o.gram||'').replace(',','.'))||0;
+         return `<div class="blokkop" style="margin-top:16px"><span class="eyebrow">In één bonbon</span></div>
+         <div class="gl" id="lgBasisDelen">${bs?bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}<small>${komma(Math.round(getalIn0(y.deel)/bs*1000)/10)}%</small></span>
+           <span class="shw" data-bdeel="${getalIn0(y.deel)/bs}">${gpb?fijn(gpb*getalIn0(y.deel)/bs)+' g':'—'}</span></div>`).join('')
+           :`<div class="geen" style="padding:14px">Dit basisrecept heeft nog geen ingrediënten.</div>`}</div>
+         <div class="melding groen" style="margin-top:12px">${svg(I.vink,'2')}<span>Uit het basisrecept
          <b>${esc(bk.naam)}</b>. Pas je dat aan, dan verandert het in elke bonbon mee.
          <span class="smkeus"><button type="button" class="chip klein" id="lgBasisOpen">Basisrecept openen</button></span></span></div>`;
+       }
        /* v847: ook tonen als de laag al ingrediënten heeft (bijv. overgenomen
           van een andere smaak); kiezen vervangt ze, met ongedaan maken */
        const vrij=halfRecepten().filter(b=>alsLijst(b.ing).some(y=>y.naam&&getalIn0(y.deel)>0));
@@ -31750,7 +31759,9 @@ function sheetLaag(n){
     LG={plak:false,plakTekst:''}; smaakOpslaan(); smaakHub() };
   sheetTerugZet(terug); bijSluiten=()=>{ lees(); smaakOpslaan() };
   $('#lgOk').onclick=terug;
-  const live=()=>{ lees(); $$('[data-lgp]').forEach(s=>s.textContent=pctTekst(+s.dataset.lgp)); const sm=$('#lgSom'); if(sm) sm.innerHTML=somTekst() };
+  const live=()=>{ lees(); $$('[data-lgp]').forEach(s=>s.textContent=pctTekst(+s.dataset.lgp)); const sm=$('#lgSom'); if(sm) sm.innerHTML=somTekst();
+    const gpb=parseFloat(String(o.gram||'').replace(',','.'))||0;
+    $$('[data-bdeel]').forEach(s=>{ s.textContent=gpb?fijn(gpb*(+s.dataset.bdeel))+' g':'—' }) };
   $$('#sheetBody [data-lgg]').forEach(el=>{ el.oninput=live; el.onchange=()=>{ live(); smaakOpslaan() };
     /* Enter springt naar het volgende getal */
     el.onkeydown=ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); const vg=$(`[data-lgg="${+el.dataset.lgg+1}"]`); if(vg) vg.focus(); else el.blur() } } });
