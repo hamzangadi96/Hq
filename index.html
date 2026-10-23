@@ -5170,7 +5170,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v842 · 23 okt 2026';
+const APPVERSIE='v843 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19546,9 +19546,18 @@ function sheetVoorraadMeer(){
            halffabricaten, verpakking, en alles wat je al met de camera
            hebt ingescand.
    Eerst wordt een backup gemaakt; lukt die niet, dan gebeurt er niets. */
+/* wat met de camera is ingeboekt: een lot met foto, artikelcode of vlag,
+   of een HACCP-ontvangst die via de foto kwam. Supermarktproducten hebben
+   vaak geen artikelcode, en als het bewaren van de foto mislukte telt de
+   ontvangst nog steeds. (v843) */
+function gescandeProducten(){
+  const s=new Set();
+  (S.lots||[]).forEach(l=>{ if(l&&((l.fotos&&l.fotos.length)||l.code||l.viaFoto)) s.add(gKey(l.product)) });
+  (S.ontvangsten||[]).forEach(o=>{ if(o&&o.viaFoto) s.add(gKey(o.product)) });
+  return s;
+}
 function ingLeegPlan(){
-  const gescand=new Set((S.lots||[]).filter(l=>l&&((l.fotos&&l.fotos.length)||l.code))
-    .map(l=>gKey(l.product)));
+  const gescand=gescandeProducten();
   const namen=new Map();
   alleIngredienten().forEach(n=>namen.set(gKey(n),n));
   grondVoorraad().forEach(v=>{ if(artSoort(v.product)==='ingredient') namen.set(gKey(v.product),v.product) });
@@ -26319,6 +26328,7 @@ function boekPartij(r,b){
       plek:r.plek||'',ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''};
     if(r.prod) lot.productie=r.prod;
     if(r.code) lot.code=r.code;
+    if(r.foto) lot.viaFoto=true;
     if(r.fotos&&r.fotos.length) lot.fotos=r.fotos.slice(0,6);
     S.lots.push(lot);
     /* "2,5 kg" werd hier 2 kg: parseFloat kapt af op de komma. De prijs ging
@@ -35771,8 +35781,9 @@ function sheetIngredientenLijst(alleenMissend){
      smaken. Wat nog niet af is staat bovenaan, met een knop Volgende. */
   const onaf=alles.filter(x=>ingStatus(x.naam).k!=='ok');
   const lijst2=alles.slice().sort((a,b)=>(ingStatus(a.naam).k==='ok')-(ingStatus(b.naam).k==='ok')||a.naam.localeCompare(b.naam,'nl'));
+  const gsc=gescandeProducten(), handPlan=ingLeegPlan();
   const grij=x=>{ const st=ingStatus(x.naam);
-    const onder=st.t||(x.allerg.length?x.allerg.map(alNaam).join(', '):'');
+    const onder=[gsc.has(gKey(x.naam))?'gescand':'',st.t||(x.allerg.length?x.allerg.map(alNaam).join(', '):'')].filter(Boolean).join(' · ');
     return veegRij(`<button type="button" class="shrij" data-ing="${esc(x.naam)}">
       <span class="smst ${st.k}">${st.k==='ok'?svg(I.vink,'3'):''}</span>
       <span class="shn">${esc(x.naam)}${onder?`<small${st.t?' class="lglet"':''}>${esc(onder)}</small>`:''}</span>
@@ -35780,6 +35791,8 @@ function sheetIngredientenLijst(alleenMissend){
   sheet(alles.length+' '+(alles.length===1?'ingrediënt':'ingrediënten'),
     `${alles.length>8?`<div class="mveld" style="margin-bottom:12px">${svg(I.loep)}<input id="ilZ" placeholder="Zoeken"
          autocapitalize="none" spellcheck="false"></div>`:''}
+     ${handPlan.lijst.length?`<button type="button" class="rsbanner let" id="ilHand" style="margin-bottom:12px">
+       <span><b>${handPlan.lijst.length} handmatig ingevoerd</b><small>niet met de camera gescand</small></span><em>Weghalen</em></button>`:''}
      ${onaf.length?`<button type="button" class="rsbanner let" id="ilVolg" style="margin-bottom:12px">
        <span><b>${onaf.length} nog niet af</b><small>${alles.length-onaf.length} van ${alles.length} klaar</small></span><em>Volgende</em></button>`:''}
      <div class="gl" id="ilL">${lijst2.map(grij).join('')}
@@ -35794,6 +35807,7 @@ function sheetIngredientenLijst(alleenMissend){
     `<button class="prim" style="margin-top:0" id="ilOk">Klaar</button>`);
   const rij2=grij;
   bindVeeg();
+  if($('#ilHand')) $('#ilHand').onclick=()=>{ sheetIngLeeg(); sheetTerugZet(()=>sheetIngredientenLijst(alleenMissend)) };
   /* Dezelfde vraag en hetzelfde ongedaan maken als op het detailscherm. */
   $$('#sheetBody [data-ingweg]').forEach(x=>x.onclick=()=>{
     const n2=x.dataset.ingweg;
