@@ -5188,7 +5188,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v846 · 23 okt 2026';
+const APPVERSIE='v847 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -31723,10 +31723,13 @@ function sheetLaag(n){
        if(bk) return `<div class="melding groen" style="margin-top:12px">${svg(I.vink,'2')}<span>Gebruikt het basisrecept
          <b>${esc(bk.naam)}</b>. Pas je dat aan, dan verandert het in elke bonbon mee.
          <span class="smkeus"><button type="button" class="chip klein" id="lgBasisOpen">Basisrecept openen</button></span></span></div>`;
+       /* v847: ook tonen als de laag al ingrediënten heeft (bijv. overgenomen
+          van een andere smaak); kiezen vervangt ze, met ongedaan maken */
        const vrij=halfRecepten().filter(b=>alsLijst(b.ing).some(y=>y.naam&&getalIn0(y.deel)>0));
-       if(!ing.length&&vrij.length) return `<div class="veld" style="margin-top:14px"><label>Basisrecept gebruiken</label>
-         <div class="chips">${vrij.map(b=>`<button type="button" class="chip" data-lgbas="${esc(b.id)}">${esc(b.naam)}</button>`).join('')}</div></div>`;
-       return ing.filter(x=>!x.basis).length>1?`<button type="button" class="sec" id="lgAlsBasis" style="margin-top:12px">Opslaan als basisrecept</button>`:'';
+       const kies=vrij.length?`<div class="veld" style="margin-top:14px"><label>Basisrecept gebruiken${ing.length?' — vervangt de ingrediënten hierboven':''}</label>
+         <div class="chips">${vrij.map(b=>`<button type="button" class="chip" data-lgbas="${esc(b.id)}">${esc(b.naam)}</button>`).join('')}</div></div>`
+         :`<div class="hint" style="margin:12px 0 0">Nog geen basisrecepten. Sla een uitgewerkte laag op met <b>Opslaan als basisrecept</b>, dan kun je hem hier kiezen.</div>`;
+       return kies+(ing.filter(x=>!x.basis).length>1?`<button type="button" class="sec" id="lgAlsBasis" style="margin-top:12px">Opslaan als basisrecept</button>`:'');
      })()}
      <div class="lgvoet">
        <button type="button" id="lgPlak">Plakken</button>
@@ -31765,8 +31768,11 @@ function sheetLaag(n){
       smaakOpslaan(); sheetLaag(n) },{weg:true,basis:true}) });
   $('#lgPlak').onclick=()=>{ lees(); LG.plak=!LG.plak; LG.plakTekst=''; opnieuw() };
   $$('[data-lgbas]').forEach(b=>b.onclick=()=>{ lees(); const bk=basisVan(b.dataset.lgbas); if(!bk) return;
+    const oud=JSON.parse(JSON.stringify(o.ing||[]));
     o.ing=[{naam:bk.naam,deel:'100',basis:bk.id}]; smaakOpslaan(); sheetLaag(n);
-    toast(bk.naam+' gekoppeld — rekent mee naar de grammen van deze bonbon.',()=>{ o.ing=[]; smaakOpslaan(); sheetLaag(n) }) });
+    const gl=!(parseFloat(String(o.gram||'').replace(',','.'))>0);
+    toast(bk.naam+' gekoppeld'+(gl?' — vul nog in hoeveel gram in één bonbon gaat.':' — rekent mee naar de grammen van deze bonbon.'),()=>{ o.ing=oud; smaakOpslaan(); sheetLaag(n) });
+    if(gl) setTimeout(()=>{ const g=$('#lgGram'); if(g) g.focus() },150) });
   if($('#lgAlsBasis')) $('#lgAlsBasis').onclick=()=>{ lees(); smaakOpslaan(); sheetLaagAlsBasis(n) };
   if($('#lgBasisOpen')) $('#lgBasisOpen').onclick=()=>{ lees(); smaakOpslaan(); sheetBasisIng(o.ing[0].basis,()=>sheetLaag(n)) };
   if($('#lgPlakOk')) $('#lgPlakOk').onclick=()=>{ lees();
