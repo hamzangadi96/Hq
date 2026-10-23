@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v862 · 23 okt 2026';
+const APPVERSIE='v863 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11772,18 +11772,12 @@ function prodSmakenHTML(){
       return `<div class="smrij2">
         <button class="smrij" data-recept="${rc.id}">
           ${af?`<span class="smst ok">${svg(I.vink,'3')}</span>`:`<i class="schijf ${esc(rc.chocolade||'')}"></i>`}
-          <span class="smnm"><span>${esc(rc.naam)}${!af&&gp.has(rc.id)?'<i class="smtag">gepland</i>':''}</span>${sub?`<small>${esc(sub)}</small>`:''}</span>
-          ${af?`<span class="pijl">${svg(I.pijl,'2')}</span>`:''}</button>
-        ${af?'':`<button type="button" class="smfoto" onclick="receptFotoVoor('${rc.id}')" aria-label="Recept van foto">${svg(I.camera,'1.8')}</button>`}
+          <span class="smnm"><span>${esc(rc.naam)}</span>${(()=>{ const s2=[!af&&gp.has(rc.id)?'gepland':'',sub].filter(Boolean).join(' · '); return s2?`<small>${esc(s2)}</small>`:'' })()}</span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>
       </div>`;
     };
-    h+=`<div class="smvoort">
-        <b>${klaar.length} van ${act.length} recepten ingevuld</b>
-        <small>${todo.length?(todo.filter(r=>gp.has(r.id)).length?todo.filter(r=>gp.has(r.id)).length+' staan in je planning — die eerst':'tik op de camera naast een smaak'):'alles staat erin'}</small>
-        <div class="smbalk"><i style="width:${pct}%"></i></div>
-        ${todo.length?`<button class="prim" onclick="receptFotoVoor('${todo[0].id}')">${svg(I.camera,'1.8')}Volgende: ${esc(todo[0].naam)}</button>`:''}
-      </div>`;
-    if(todo.length) h+=`<div class="smsect"><b>Nog te doen</b><small>${todo.length}</small></div>
+    h+=`<p class="lgsom" style="margin:0 4px 14px">${todo.length?klaar.length+' van '+act.length+' ingevuld'+(todo.some(r=>gp.has(r.id))?' · geplande smaken staan bovenaan':''):'Alle '+act.length+' smaken zijn ingevuld'}</p>`;
+    if(todo.length) h+=`<div class="smsect"><b>Nog invullen</b><small>${todo.length}</small></div>
       <div class="smlijst" style="margin-bottom:18px">${todo.map(r=>rij(r,false)).join('')}</div>`;
     if(klaar.length) h+=`<div class="smsect"><b>Klaar</b><small>${klaar.length}</small></div>
       <div class="smlijst" style="margin-bottom:18px">${klaar.map(r=>rij(r,true)).join('')}</div>`;
@@ -11880,7 +11874,7 @@ function prodTegelsHTML(a){
     <span class="shw${let2?' let':''}">${w}</span>${svg(I.pijl,'2')}</button>`;
   return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Klaarzetten</span></div>
     <div class="gl">
-      ${rij(gOnaf?'smaakVolgendeOnaf()':"homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
+      ${rij("homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
       ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
       ${rij('sheetRekenen()','<b>Wat heb ik nodig?</b>','')}
       ${rij('VUL=null;sheetVullingen()','Vullingen',(()=>{ const n=halfRecepten().filter(b=>basisPerBonbon(b.id).length).length; return n?n+' basis':'' })())}
