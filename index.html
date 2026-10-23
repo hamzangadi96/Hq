@@ -29,7 +29,7 @@ setTimeout(function(){
     https://*.firebasedatabase.app https://*.firebaseio.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
-  img-src 'self' data: blob:;
+  img-src 'self' data: blob: https://firebasestorage.googleapis.com;
   connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app
     https://*.googleapis.com https://*.cloudfunctions.net https://*.run.app https://cdn.jsdelivr.net
     https://tessdata.projectnaptha.com wss://*.firebasedatabase.app blob: data:
@@ -2835,6 +2835,10 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .rapport h3{font-size:8pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
   margin:6mm 0 2mm;padding-bottom:1mm;border-bottom:.2mm solid #bbb}
 .rapport h3:first-of-type{margin-top:0}
+.rapport .rfotos{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}
+.rapport .rfotos figure{margin:0;break-inside:avoid;page-break-inside:avoid}
+.rapport .rfotos img{width:100%;height:58mm;object-fit:contain;background:#f4f4f5;border:.2mm solid #ddd;display:block}
+.rapport .rfotos figcaption{font-size:7pt;color:#444;margin-top:1mm;line-height:1.3}
 .rapport table{width:100%;border-collapse:collapse}
 /* Zonder ruimte tussen de kolommen plakken lange teksten aan elkaar: in het
    dagrapport stond "Voor productieWerkbank en werkbladen" als één woord. Dat
@@ -5139,7 +5143,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v837 · 23 okt 2026';
+const APPVERSIE='v838 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -26019,6 +26023,7 @@ function boekPartij(r,b){
       plek:r.plek||'',ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''};
     if(r.prod) lot.productie=r.prod;
     if(r.code) lot.code=r.code;
+    if(r.fotos&&r.fotos.length) lot.fotos=r.fotos.slice(0,6);
     S.lots.push(lot);
     /* "2,5 kg" werd hier 2 kg: parseFloat kapt af op de komma. De prijs ging
        al door getalIn0, de voorraad nog niet — dus je bon klopte wel en je
@@ -26048,12 +26053,13 @@ function boekPartij(r,b){
     const o={id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
       hoeveel:h,eenheid:e,temp:gekoeld==='ja'?tmp:'',staat,actie:a};
     if(r.foto) o.viaFoto=true;
+    if(r.fotos&&r.fotos.length) o.fotos=r.fotos.slice(0,6);
     S.ontvangsten.push(o);
   } else {
     bLog(b,{type:'ontvangst',titel:lev+' · '+p,
       sub:'Lot '+l+(t?' · THT '+kort(new Date(t)):'')+(h?' · '+h+' '+e:'')+
           (gekoeld==='ja'?' · '+komma(tmp)+' °C':'')+(staat==='ok'?'':' — '+a),
-      status:staat==='ok'?'ok':'fout'});
+      status:staat==='ok'?'ok':'fout',fotos:(r.fotos||[]).slice(0,6)});
   }
   return vanLijst;
 }
@@ -26064,7 +26070,7 @@ function boekPartij(r,b){
    etiket, Claude leest het uit, jij kijkt het na en legt alles in één keer
    vast. Wat Claude niet zeker weet staat amber. De artikelcode onthoudt de
    app, dus de tweede keer kent hij het product al. */
-let etiketFotos=[];
+let etiketFotos=[], etiketUrls=[];
 const ETIKET_MAX=6;
 const codeKey=c=>String(c||'').trim().toLowerCase().replace(/[.#$\/\[\]\s]+/g,'_').slice(0,40);
 
@@ -26115,6 +26121,7 @@ function etiketScan(fotos,meteenCamera){
     for(const f of lijst.slice(0,Math.max(0,ruimte))){
       try{ etiketFotos.push(await verkleinFoto(f)) }catch(e){ toast(e.message) }
     }
+    etiketUrls=[];
     etiketScan();
   };
   $('#eCam').onchange=e=>voegToe([...(e.target.files||[])]);
@@ -26122,7 +26129,7 @@ function etiketScan(fotos,meteenCamera){
   if($('#eMeer')) $('#eMeer').onclick=()=>$('#eCam').click();
   if($('#eKies')) $('#eKies').onclick=()=>$('#eAlb').click();
   $$('[data-wisfoto]').forEach(x=>x.onclick=()=>{
-    etiketFotos.splice(+x.dataset.wisfoto,1); etiketScan();
+    etiketFotos.splice(+x.dataset.wisfoto,1); etiketUrls=[]; etiketScan();
   });
   $('#eLees').onclick=etiketLees;
   if(meteenCamera) $('#eCam').click();
@@ -26136,6 +26143,7 @@ async function etiketLees(){
       beelden:etiketFotos.map(f=>f.split(',')[1]),
       producten:grondVoorraad().map(x=>x.product).filter(Boolean).slice(0,300),
       leveranciers:(S.leveranciers||[]).slice(0,60)});
+    etiketUrls=((r&&r.fotos)||[]).map(f=>f&&f.url||null);
     const ps=((r&&r.partijen)||[]).map(etiketHerken);
     if(!ps.length){
       toast((r&&r.tip)||'Ik kon geen etiket lezen. Maak een scherpere close-up.');
@@ -26360,14 +26368,17 @@ function etiketCheck(ps,tip){
         if(p.hoeveel) m.hoeveel=p.hoeveel;
         S.etiketCodes[ck]=m;
       }
+      /* welke foto's horen bij deze partij? zegt Claude niets, dan alle */
+      const idx=(p.fotos&&p.fotos.length)?p.fotos:etiketUrls.map((u,i)=>i);
+      const fotos=idx.map(i=>etiketUrls[i]).filter(Boolean);
       const totaal=(p.hoeveel||0)*(p.aantal||1);
       const h=totaal?String(Math.round(totaal*1000)/1000):'';
       if(boekPartij({lev:p.leverancier,p:p.product,l:p.lot,t:p.tht,h,e:p.eenheid,plek,gekoeld,tmp,staat,a,
-        pr:0,prod:p.productiedatum||'',code:p.artikelcode||'',soort:p.soort||'ingredient',stil:true,foto:true},b)) vanLijst++;
+        pr:0,prod:p.productiedatum||'',code:p.artikelcode||'',soort:p.soort||'ingredient',fotos,stil:true,foto:true},b)) vanLijst++;
       if(staat==='ok'&&p.etAan) etiketGegevensZet(p);
     });
     bewaarNu();
-    etiketFotos=[];
+    etiketFotos=[]; etiketUrls=[];
     const n=kies.length;
     const msg=staat==='ok'
       ?(n===1?'Partij vastgelegd.':n+' partijen vastgelegd.')
@@ -29258,6 +29269,30 @@ const rVoet=(wat)=>`<div class="voet"><span>${BEDRIJF.naam} · ${wat||'productie
 const rHand=()=>`<div class="hand"><div>Uitgevoerd door — ${esc(S.naam)}</div><div>Gecontroleerd door / datum</div></div>`;
 const rLeeg=t=>`<div class="leeg">${t}</div>`;
 
+/* ═══════════ etiketfoto's in het batchrapport (v838) ═══════════
+   Bij elk lot dat in deze batch is gebruikt de foto's van de verpakking, zoals
+   ze bij de ontvangst zijn gemaakt. Zo zie je in het rapport zelf dat lot en
+   THT kloppen met wat er op de doos stond. Ook leveringen die tijdens de
+   batch binnenkwamen tellen mee. */
+function rapportEtiketFotos(b,ing){
+  const rijen=[], gezien=new Set();
+  const voeg=(naam,lot,datum,fotos)=>(fotos||[]).forEach(u=>{
+    if(!u||gezien.has(u)) return; gezien.add(u);
+    rijen.push({naam,lot,datum,u});
+  });
+  (ing||[]).forEach(i=>lotLijst(b,i.naam).forEach(lot=>{
+    const pt=(S.lots||[]).find(x=>x.lot===lot);
+    if(pt) voeg(i.naam,lot,String(pt.ontvangen||'').split(' ')[0],pt.fotos);
+  }));
+  ((b&&b.logs)||[]).filter(l=>l.type==='ontvangst').forEach(l=>
+    voeg(l.titel,(String(l.sub||'').match(/^Lot ([^·]+)/)||[])[1]||'',l.datum||'',l.fotos));
+  if(!rijen.length) return '';
+  const dt=d=>{ const x=d?new Date(d):null; return x&&!isNaN(x)?' · ontvangen '+kort(x):'' };
+  return `<h3>Etiketfoto's grondstoffen</h3><div class="rfotos">${rijen.map(r=>
+    `<figure><img src="${esc(r.u)}" alt=""><figcaption>${esc(r.naam)}${
+      r.lot?' · lot '+esc(String(r.lot).trim()):''}${dt(r.datum)}</figcaption></figure>`).join('')}</div>`;
+}
+
 function batchRapportHTML(b){
   const mallen=bMallen(b), tot=bTotaal(b);
   let h=`<div class="rapport">${rKop('Productieregistratie batch','Batch '+b.code+' · '+kort(S.datum))}`;
@@ -29322,6 +29357,7 @@ function batchRapportHTML(b){
           <td>${esc(lot)}</td><td>${pt?esc(pt.leverancier):'—'}</td>
           <td class="n">${pt&&pt.tht?kort(new Date(pt.tht)):'—'}</td></tr>`}).join('');
     }).join('')}</table>`:rLeeg('Geen ingrediënten.');
+  h+=rapportEtiketFotos(b,ing);
 
   const ontv=b.logs.filter(l=>l.type==='ontvangst');
   if(ontv.length) h+=`<h3>Ontvangst goederen</h3><table><tr><th>Tijd</th><th>Levering</th><th>Details</th></tr>

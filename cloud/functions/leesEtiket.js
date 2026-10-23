@@ -14,6 +14,7 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 /* Kleine print vraagt een scherp model. Kent je account het eerste niet,
@@ -82,6 +83,7 @@ const OPDRACHT =
   '      "allergenen":     allergenen die erin ZITTEN (niet "kan sporen bevatten"), alleen codes uit:\n' +
   '                        gluten schaaldier ei vis pinda soja melk noten selderij mosterd sesam\n' +
   '                        sulfiet lupine weekdier,\n' +
+  '      "fotos":          nummers van de foto\'s waarop deze partij staat, bijvoorbeeld [1, 3],\n' +
   '      "twijfel":        lijst veldnamen waar je niet zeker van bent (ook "voeding" of "ingredienten")\n' +
   '    }\n' +
   '  ],\n' +
@@ -143,8 +145,11 @@ function tekst(x, max) {
   return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-function schonePartij(p) {
+function schonePartij(p, aantalFotos) {
   p = p || {};
+  const fotos = [...new Set((Array.isArray(p.fotos) ? p.fotos : [])
+    .map(n => Math.round(Number(n)) - 1)
+    .filter(n => isFinite(n) && n >= 0 && n < (aantalFotos || 0)))];
   const twijfel = (Array.isArray(p.twijfel) ? p.twijfel : [])
     .map(x => String(x || '').trim()).filter(x => VELDEN.includes(x));
   const tht = datum(p.tht);
@@ -167,6 +172,7 @@ function schonePartij(p) {
     hoeveel,
     eenheid,
     aantal,
+    fotos,
     soort: p.soort === 'verpakking' ? 'verpakking' : 'ingredient',
     voeding: schoneVoeding(p.voeding),
     ingredienten: tekst(p.ingredienten, 1500),
@@ -191,6 +197,38 @@ async function vraagClaude(sleutel, model, systeem, inhoud) {
       messages: [{ role: 'user', content: inhoud }]
     })
   });
+}
+
+/* ---------- foto's bewaren ----------
+
+   De foto's zijn je bewijs bij de ontvangst en horen later in het
+   batchrapport. De server slaat ze op, niet de app: dan gelden de regels van
+   de opslag niet en hoeft de telefoon niets twee keer te versturen. Een
+   downloadtoken maakt er een vaste link van die ook in een afdruk werkt. */
+
+async function bewaarFotos(uid, beelden) {
+  const bucket = admin.storage().bucket();
+  const stempel = new Date().toISOString().slice(0, 10) + '-' + crypto.randomBytes(4).toString('hex');
+  return Promise.all(beelden.map(async (b, i) => {
+    try {
+      const pad = 'etiketten/' + uid + '/' + stempel + '-' + (i + 1) + '.jpg';
+      const token = crypto.randomUUID();
+      await bucket.file(pad).save(Buffer.from(b, 'base64'), {
+        resumable: false,
+        metadata: {
+          contentType: 'image/jpeg',
+          cacheControl: 'private, max-age=31536000',
+          metadata: { firebaseStorageDownloadTokens: token }
+        }
+      });
+      const url = 'https://firebasestorage.googleapis.com/v0/b/' + bucket.name + '/o/' +
+        encodeURIComponent(pad) + '?alt=media&token=' + token;
+      return { pad, url };
+    } catch (e) {
+      console.error('foto bewaren mislukt', e && e.message);
+      return null;
+    }
+  }));
 }
 
 /* ---------- de functie ---------- */
@@ -226,6 +264,9 @@ exports.leesEtiket = onCall(
 
     const systeem = OPDRACHT.replace('{BEKEND}', bekend);
 
+    /* tegelijk met het lezen, zodat het niet langer duurt */
+    const fotosBezig = d.bewaar === false ? Promise.resolve([]) : bewaarFotos(uid, beelden).catch(() => []);
+
     let r = null, laatsteFout = '';
     for (const model of MODELLEN) {
       r = await vraagClaude(g.sleutel, model, systeem, inhoud);
@@ -252,8 +293,9 @@ exports.leesEtiket = onCall(
     catch (e) { throw new HttpsError('internal', 'Onleesbaar antwoord. Probeer een scherpere foto.'); }
 
     const partijen = (Array.isArray(o.partijen) ? o.partijen : [])
-      .slice(0, 20).map(schonePartij).filter(p => p.product || p.lot || p.artikelcode);
+      .slice(0, 20).map(p => schonePartij(p, beelden.length)).filter(p => p.product || p.lot || p.artikelcode);
 
-    return { partijen, tip: tekst(o.tip, 140) };
+    const fotos = await fotosBezig;
+    return { partijen, tip: tekst(o.tip, 140), fotos };
   }
 );
