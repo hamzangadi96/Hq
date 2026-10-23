@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v860 · 23 okt 2026';
+const APPVERSIE='v861 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10491,7 +10491,40 @@ function smaakKaramelStappen(){
     gewijzigd=true });
   if(gewijzigd) setTimeout(()=>bewaarNu(),0);
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+/* ═══════════ v861: standaard geleien (op verzoek) ═══════════
+   1 kg fruit, 330 g suiker, pectine gemengd met 60 g suiker, 15 g citroen.
+   Eén keer toegevoegd (vlag geleiStandaard op je basisrecepten); verwijder je
+   er later één, dan komt hij niet terug. Ingrediëntnamen sluiten aan op je
+   eigen ingrediëntenlijst als die er al zijn, anders komen ze erbij. */
+const GELEI_STANDAARD=[
+  {naam:'Aardbeiengelei',fruit:'Aardbeien',zeef:false},
+  {naam:'Rode vruchtengelei',fruit:'Rode vruchten',zeef:true},
+  {naam:'Blauwe bessengelei',fruit:'Blauwe bessen',zeef:false}];
+function geleiStappen(zeef){ return [
+  {tekst:'Doe het fruit en 330 g suiker in de pan. Vuur op 500 en laat 45 minuten koken.',min:45},
+  {tekst:zeef?'Staafmix tot glad en zeef het daarna. Zet het gezeefde terug op het vuur.':'Staafmix tot glad. Laat de pan op het vuur staan.'},
+  {tekst:'Strooi het pectinemengsel (15 g pectine gemengd met 60 g suiker) erdoor en staafmix.'},
+  {tekst:'Voeg de citroen toe en laat nog 2 minuten koken.',min:2},
+  {tekst:'Haal van het vuur en laat afkoelen tot 30 °C.',temp:30}] }
+function ingUitLijst(woord){
+  const L=(S.ingredienten||[]).map(x=>typeof x==='string'?x:(x&&x.naam)||'').filter(Boolean);
+  const k=woord.toLowerCase(), hit=L.find(n=>n.toLowerCase().startsWith(k))||L.find(n=>n.toLowerCase().includes(k));
+  if(hit) return hit;
+  if(Array.isArray(S.ingredienten)&&(!S.ingredienten.length||typeof S.ingredienten[0]==='string')) S.ingredienten.push(woord);
+  return woord }
+function geleienToevoegen(){
+  if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.geleiStandaard)) return;
+  const sui=ingUitLijst('Kristalsuiker'), cit=ingUitLijst('Citroensap'), pec=ingUitLijst('Pectine');
+  GELEI_STANDAARD.forEach(g=>{ const ing=[{naam:ingUitLijst(g.fruit),deel:'1000'},{naam:sui,deel:'390'},{naam:pec,deel:'15'},{naam:cit,deel:'15'}];
+    const r=S.halfRecepten.find(r=>r&&String(r.naam||'').trim().toLowerCase()===g.naam.toLowerCase());
+    if(!r) return S.halfRecepten.push({id:uid(),naam:g.naam,stappen:geleiStappen(g.zeef),ing});
+    /* bestaat al: alleen lege delen invullen, jouw eigen werk blijft staan */
+    if(!alsLijst(r.ing).some(y=>y&&y.naam)) r.ing=ing;
+    if(!alsLijst(r.stappen).some(s=>s&&(s.tekst||s).toString().trim())) r.stappen=geleiStappen(g.zeef) });
+  S.halfRecepten.forEach(r=>{ if(r) r.geleiStandaard=true });
+  setTimeout(()=>bewaarNu(),0);
+}
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
