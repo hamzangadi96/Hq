@@ -1630,6 +1630,24 @@ nav#tabbar{view-transition-name:tabbalk}
 .espin{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;
   display:inline-block;margin-right:8px;animation:espin .8s linear infinite;vertical-align:-3px}
 @keyframes espin{to{transform:rotate(360deg)}}
+.eet{margin-top:12px;border-top:1px solid #ececee;padding-top:12px}
+.eetkop{display:flex;align-items:center;gap:10px}
+.eetkop .evink{width:28px;height:28px}
+.eetkop .evink svg{width:14px;height:14px}
+.eetkop span{flex:1;display:flex;flex-direction:column;font-size:14px;font-weight:600}
+.eetkop small{font-size:12.5px;font-weight:500;color:var(--grijs);margin-top:2px;line-height:1.35}
+.eetkop small.twijfel{color:#b45309}
+.eetknop{font-size:13px;font-weight:600;color:var(--ink);padding:8px 10px;border-radius:10px;background:var(--bg);flex:none}
+.eetdet{display:none;margin-top:10px}
+.eetdet.open{display:block}
+.eetvw{display:grid;grid-template-columns:1fr 92px;gap:6px 10px;align-items:center;font-size:13.5px}
+.eetvw .in{padding-left:12px;color:var(--grijs)}
+.eetvw .inp{height:38px;font-size:14px;text-align:right;padding:0 10px}
+.eetvw .inp.leeg{box-shadow:inset 0 0 0 2px #b45309;background:#fffbeb}
+.eetdet label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);margin:12px 0 6px}
+.eetdet textarea.inp{min-height:88px;font-size:14px;padding:10px 12px;line-height:1.4}
+.eetal{display:flex;flex-wrap:wrap;gap:6px}
+.eetal span{font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--bg)}
 .sec{width:100%;height:48px;border-radius:14px;background:var(--bg);font-size:15px;font-weight:600;
   margin-top:8px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
 /* zonder maat schaalt een svg op tot de hoogte van de knop */
@@ -5121,7 +5139,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v835 · 23 okt 2026';
+const APPVERSIE='v836 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -26143,10 +26161,54 @@ function etiketHerken(p){
   return p;
 }
 
+/* Voedingswaarde, ingrediënten en allergenen van het etiket. Komen bij het
+   product terecht, precies waar ook het plakken van verpakkingstekst ze zet,
+   dus je productetiketten rekenen er meteen mee. */
+function etiketBlok(p,i){
+  const vw=p.voeding||{}, n=VOEDING.filter(x=>typeof vw[x.k]==='number').length;
+  if(!n&&!p.ingredienten) return '';
+  const tw=(p.twijfel||[]).some(x=>x==='voeding'||x==='ingredienten');
+  const stukken=[];
+  if(n) stukken.push(n===VOEDING.length?'voedingswaarde compleet':'voedingswaarde '+n+'/'+VOEDING.length);
+  if(p.ingredienten) stukken.push('ingrediënten');
+  if((p.allergenen||[]).length) stukken.push('bevat '+p.allergenen.map(k=>alNaam(k).toLowerCase()).join(', '));
+  return `<div class="eet">
+    <div class="eetkop"><button type="button" class="evink${p.etAan?' aan':''}" data-etaan="${i}"
+        aria-label="Etiketgegevens opslaan">${p.etAan?svg(I.vink,'2.6'):''}</button>
+      <span>Etiketgegevens opslaan<small class="${tw?'twijfel':''}">${esc(stukken.join(' · '))}${tw?' — even nakijken':''}</small></span>
+      <button type="button" class="eetknop" data-etopen>Bekijken</button></div>
+    <div class="eetdet">
+      ${n?`<div class="eetvw">${VOEDING.map(x=>`<span class="${x.in?'in':''}">${esc(x.n)} (${x.e})</span>
+        <input class="inp${typeof vw[x.k]==='number'?'':' leeg'}" data-vw="${x.k}" type="text" inputmode="decimal"
+          value="${typeof vw[x.k]==='number'?komma(vw[x.k]):''}" placeholder="—">`).join('')}</div>
+        <div class="hint" style="margin:8px 0 0">Per 100 g.</div>`:''}
+      ${p.ingredienten?`<label>Ingrediënten</label><textarea class="inp" data-ing>${esc(p.ingredienten)}</textarea>`:''}
+      ${(p.allergenen||[]).length?`<label>Bevat</label><div class="eetal">${p.allergenen.map(k=>
+        `<span>${esc(alNaam(k))}</span>`).join('')}</div>`:''}
+    </div></div>`;
+}
+
+function etiketGegevensZet(p){
+  const naam=p.product; if(!naam) return;
+  if(p.voeding&&Object.keys(p.voeding).length)
+    voedingZet(naam,Object.assign({},voeding(naam)||{},p.voeding));
+  const set=new Set(ingAllerg(naam).concat(p.allergenen||[]));
+  if(p.ingredienten){
+    const ing=leesIngredientenTekst('Ingrediënten: '+p.ingredienten);
+    ing.forEach(x=>(x.al||[]).forEach(a=>set.add(a)));
+    if(ing.length>1){
+      S.samenstelling=S.samenstelling||{};
+      S.samenstelling[naam]=ing.map(x=>({naam:x.naam,pct:x.pct,al:x.al}));
+    }
+  }
+  if(set.size) allergZet(naam,ALLERGENEN.filter(a=>set.has(a.k)).map(a=>a.k));
+}
+
 function etiketCheck(ps,tip){
   const b=batch();
   const twijfel=(p,v,leeg)=>((p.twijfel||[]).includes(v)||leeg)?' twijfel':'';
   const nakijken=ps.some(p=>(p.twijfel||[]).length||!p.lot||!p.tht);
+  ps.forEach(p=>{ if(p.etAan===undefined) p.etAan=!!(p.voeding||p.ingredienten) });
   const kaart=(p,i)=>`<div class="ecard${p.aan?'':' uit'}" data-i="${i}">
      <div class="ekop"><button type="button" class="evink${p.aan?' aan':''}" data-aan="${i}"
          aria-label="Meenemen">${p.aan?svg(I.vink,'2.6'):''}</button>
@@ -26168,7 +26230,7 @@ function etiketCheck(ps,tip){
            `<option${p.eenheid===e?' selected':''}>${e}</option>`).join('')}</select></div></div>
        <div class="breed"><label>Leverancier</label><input class="inp${twijfel(p,'leverancier',!p.leverancier)}"
          data-f="leverancier" value="${esc(p.leverancier)}" placeholder="Leverancier" list="eLev" autocomplete="off"></div>
-     </div></div>`;
+     </div>${etiketBlok(p,i)}</div>`;
   sheet('Levering nakijken',
     `<datalist id="eProd">${grondVoorraad().map(x=>`<option value="${esc(x.product)}">`).join('')}</datalist>
      <datalist id="eLev">${(S.leveranciers||[]).map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
@@ -26210,6 +26272,13 @@ function etiketCheck(ps,tip){
         else if(f==='aantal'){ const a=Math.round(getalIn0(w)); p.aantal=a>0?a:1 }
         else p[f]=w;
       });
+      if(c.querySelector('[data-vw]')){
+        const vw={};
+        c.querySelectorAll('[data-vw]').forEach(x=>{ const n=getalIn(x.value); if(n!==null) vw[x.dataset.vw]=n });
+        p.voeding=Object.keys(vw).length?vw:null;
+      }
+      const it=c.querySelector('[data-ing]');
+      if(it) p.ingredienten=it.value.trim();
     });
   };
   /* wat je zelf aanraakt is nagekeken: dan hoeft het niet meer amber */
@@ -26222,6 +26291,15 @@ function etiketCheck(ps,tip){
     x.closest('.ecard').classList.toggle('uit',!p.aan);
     telKnop();
   });
+  $$('[data-etaan]').forEach(x=>x.onclick=()=>{
+    const p=ps[+x.dataset.etaan]; p.etAan=!p.etAan;
+    x.classList.toggle('aan',p.etAan); x.innerHTML=p.etAan?svg(I.vink,'2.6'):'';
+  });
+  $$('[data-etopen]').forEach(x=>x.onclick=()=>{
+    const d=x.closest('.eet').querySelector('.eetdet'), open=d.classList.toggle('open');
+    x.textContent=open?'Dicht':'Bekijken';
+  });
+  $$('[data-vw]').forEach(x=>x.addEventListener('input',()=>x.classList.toggle('leeg',!x.value.trim())));
   $$('[data-groot]').forEach(x=>x.onclick=()=>{
     const g=$('#eGroot'), al=x.classList.contains('aan');
     $$('[data-groot]').forEach(y=>y.classList.remove('aan'));
@@ -26268,6 +26346,7 @@ function etiketCheck(ps,tip){
       const h=totaal?String(Math.round(totaal*1000)/1000):'';
       if(boekPartij({lev:p.leverancier,p:p.product,l:p.lot,t:p.tht,h,e:p.eenheid,plek,gekoeld,tmp,staat,a,
         pr:0,prod:p.productiedatum||'',code:p.artikelcode||'',stil:true,foto:true},b)) vanLijst++;
+      if(staat==='ok'&&p.etAan) etiketGegevensZet(p);
     });
     bewaarNu();
     etiketFotos=[];

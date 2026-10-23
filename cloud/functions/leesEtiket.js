@@ -51,6 +51,10 @@ const OPDRACHT =
   'dag-maand-jaar. Staat er alleen maand en jaar, neem dan de laatste dag van ' +
   'die maand. THT is "best before", "ten minste houdbaar tot", "BBE", "MHD", ' +
   '"DLUO" of "à consommer de préférence avant".\n\n' +
+  'Voedingswaarde en ingrediënten staan vaak op een andere zijde van de verpakking. ' +
+  'Neem ze alleen over als ze echt op een foto staan en horen bij dit product. ' +
+  'Is het etiket meertalig, gebruik dan de Nederlandse tekst; is die er niet, vertaal de ' +
+  'ingrediënten naar het Nederlands. Per 100 g, nooit per portie.\n\n' +
   'Productnaam: kort en in het Nederlands, zoals een chocolatier het zou ' +
   'noemen, bijvoorbeeld "Melkchocolade callets" of "Witte chocolade". ' +
   '{BEKEND}\n\n' +
@@ -68,7 +72,15 @@ const OPDRACHT =
   '      "hoeveel":        netto inhoud van één verpakking als getal, of null,\n' +
   '      "eenheid":        "kg", "g", "l", "ml" of "st",\n' +
   '      "aantal":         hoeveel verpakkingen van deze partij je ziet,\n' +
-  '      "twijfel":        lijst veldnamen waar je niet zeker van bent\n' +
+  '      "voeding":        voedingswaarde per 100 g als die op een foto staat, anders null:\n' +
+  '                        {"kj","kcal","vet","verz","koolh","suik","eiwit","zout"} als getallen,\n' +
+  '                        verz = waarvan verzadigd, suik = waarvan suikers; onleesbaar = null,\n' +
+  '      "ingredienten":   de ingrediëntenlijst in het Nederlands zoals gedrukt, met percentages,\n' +
+  '                        zonder het woord "Ingrediënten:", of "" als die niet op een foto staat,\n' +
+  '      "allergenen":     allergenen die erin ZITTEN (niet "kan sporen bevatten"), alleen codes uit:\n' +
+  '                        gluten schaaldier ei vis pinda soja melk noten selderij mosterd sesam\n' +
+  '                        sulfiet lupine weekdier,\n' +
+  '      "twijfel":        lijst veldnamen waar je niet zeker van bent (ook "voeding" of "ingredienten")\n' +
   '    }\n' +
   '  ],\n' +
   '  "tip": één korte zin als een foto onscherp of te ver weg is, anders ""\n' +
@@ -100,7 +112,20 @@ function leesJson(tekst) {
   return JSON.parse(van >= 0 && tot > van ? schoon.slice(van, tot + 1) : schoon);
 }
 
-const VELDEN = ['product', 'artikelcode', 'leverancier', 'lot', 'tht', 'productiedatum', 'hoeveel', 'eenheid', 'aantal'];
+const VELDEN = ['product', 'artikelcode', 'leverancier', 'lot', 'tht', 'productiedatum', 'hoeveel', 'eenheid', 'aantal', 'voeding', 'ingredienten'];
+const VOEDING = ['kj', 'kcal', 'vet', 'verz', 'koolh', 'suik', 'eiwit', 'zout'];
+const ALLERGENEN = ['gluten', 'schaaldier', 'ei', 'vis', 'pinda', 'soja', 'melk', 'noten', 'selderij',
+  'mosterd', 'sesam', 'sulfiet', 'lupine', 'weekdier'];
+
+function schoneVoeding(v) {
+  if (!v || typeof v !== 'object') return null;
+  const uit = {};
+  VOEDING.forEach(k => {
+    const n = Number(String(v[k] == null ? '' : v[k]).replace(',', '.'));
+    if (v[k] !== null && v[k] !== '' && isFinite(n) && n >= 0 && n <= 4000) uit[k] = n;
+  });
+  return Object.keys(uit).length ? uit : null;
+}
 const EENHEDEN = ['kg', 'g', 'l', 'ml', 'st'];
 
 function datum(d) {
@@ -140,6 +165,10 @@ function schonePartij(p) {
     hoeveel,
     eenheid,
     aantal,
+    voeding: schoneVoeding(p.voeding),
+    ingredienten: tekst(p.ingredienten, 1500),
+    allergenen: (Array.isArray(p.allergenen) ? p.allergenen : [])
+      .map(x => String(x || '').trim().toLowerCase()).filter(x => ALLERGENEN.includes(x)),
     twijfel
   };
 }
@@ -154,7 +183,7 @@ async function vraagClaude(sleutel, model, systeem, inhoud) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1500,
+      max_tokens: 3000,
       system: systeem,
       messages: [{ role: 'user', content: inhoud }]
     })
