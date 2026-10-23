@@ -110,7 +110,9 @@ exports.leesReceptFoto = onCall(
     const d = req.data || {};
 
     const beelden = schoneBeelden(d.beelden);
-    if (!beelden.length) throw new HttpsError('invalid-argument', 'Geen foto ontvangen.');
+    /* v866: ook een getypt of ingesproken recept (dan geen foto's) */
+    const getypt = String(d.tekst || '').trim().slice(0, 4000);
+    if (!beelden.length && getypt.length < 4) throw new HttpsError('invalid-argument', 'Geen foto of tekst ontvangen.');
 
     const g = await leesGeheim(uid, 'claude');
     if (!g || !g.sleutel) throw new HttpsError('failed-precondition', 'Koppel eerst je Claude-sleutel.');
@@ -127,6 +129,9 @@ exports.leesReceptFoto = onCall(
       inhoud.push({ type: 'text', text: 'Foto ' + (i + 1) + ':' });
       inhoud.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b } });
     });
+    if (getypt) inhoud.push({ type: 'text', text:
+      'Geen foto: de maker typte of sprak dit recept in (spraak kan rare woorden of ' +
+      'getallen als woorden geven, zoals "honderd" = 100). Lees het als receptpagina:\n\n' + getypt });
     inhoud.push({ type: 'text', text: smaak
       ? 'De maker zoekt het recept voor de smaak "' + smaak + '". Geef alle recepten op de pagina.'
       : 'Geef alle recepten op de pagina.' });

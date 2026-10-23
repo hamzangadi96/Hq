@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v865 · 23 okt 2026';
+const APPVERSIE='v866 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11731,6 +11731,7 @@ function receptSnelBewaar(streng){
   return '';
 }
 function prodSmakenHTML(){
+  try{ schelpenAanvullen() }catch(e){}
   /* v822: de grote zwarte knop is een regel "+ Smaak" onderaan geworden */
   let h=(S.recepten||[]).length?'':`<button class="prim" style="margin:0 0 14px" onclick="sheetSmaakSnel()">${svg(I.plus)}Eerste smaak</button>`;
   if(false){ const act=(S.recepten||[]).filter(smaakActief), leeg=act.filter(r=>smaakStatus(r).k!=='ok').length;
@@ -31817,7 +31818,7 @@ function receptFotoCheck(rs,keus,tip){
 }
 
 function smaakHub(){
-  geleienRechtzetten();
+  geleienRechtzetten(); schelpenAanvullen();
   const totaal=gramPerBonbon(R);
   const rij=(id,ico,naam,waarde,mist)=>`<button class="arij" data-sh="${id}">
     <span class="ivak${mist?' amber':''}">${svg(ico)}</span>
@@ -31837,8 +31838,13 @@ function smaakHub(){
     <span class="shn">${esc(naam)}</span>${waarde?`<span class="shw${mist?' let':''}">${esc(waarde)}</span>`:''}${svg(I.pijl,'2')}</button>`;
 
   sheet(R.naam||'Smaak',
-    `<button type="button" class="fotoknop" id="shFoto">${svg(I.camera,'1.8')}<span>Recept van foto
-       <small>Foto van je schrift — HQ zet de lagen en grammen erin</small></span></button>
+    `${!smaakGevuld(R)?`<div class="smsect" style="margin-top:0"><b>Snel invullen</b></div>
+       <div class="gl" style="margin-bottom:22px">
+         ${smakenDieLijken(R,2).map(r=>`<button type="button" class="shrij" data-bv="${r.id}"><span class="shn">Begin vanaf ${esc(r.naam)}<small>neemt alle lagen en grammen over</small></span>${svg(I.pijl,'2')}</button>`).join('')}
+         <button type="button" class="shrij" id="shTekst"><span class="shn">Typ of spreek het recept<small>alles in één keer</small></span>${svg(I.pijl,'2')}</button>
+         <button type="button" class="shrij" id="shFoto"><span class="shn">Foto van je schrift</span>${svg(I.pijl,'2')}</button>
+         ${smakenDieLijken(R,2).length?'':`<button type="button" class="shrij" id="shBv"><span class="shn">Begin vanaf een andere smaak</span>${svg(I.pijl,'2')}</button>`}
+       </div>`:''}
      ${ander?`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}
        <span>De schelp is ${esc(chocNaam(ander).toLowerCase())}, de smaak staat op ${esc(chocNaam(R.chocolade).toLowerCase())}.
          <span class="smkeus"><button type="button" class="chip klein" data-shchoc="${ander}">Smaak op ${esc(chocNaam(ander).toLowerCase())}</button>
@@ -31852,6 +31858,7 @@ function smaakHub(){
        <button type="button" class="lgnieuw" id="shLaag"${lagen.length?'':' style="border-top:0"'}>${svg(I.plus)}Laag</button>
      </div>
      ${totaal?`<div class="lgsom">Eén bonbon weegt <b>${fijn(totaal)} g</b></div>`:''}
+     ${smaakGevuld(R)?`<div class="lgvoet bvoet"><button type="button" id="shTekst">Recept typen</button><button type="button" id="shFoto">Foto</button><button type="button" id="shBv">Begin vanaf…</button></div>`:''}
 
      <div class="lglijst" style="margin-top:24px">
        ${gr('choc','Chocolade',chocNaam(R.chocolade)||'kiezen',!R.chocolade)}
@@ -31873,6 +31880,9 @@ function smaakHub(){
   $$('#sheetBody [data-laag]').forEach(b=>b.onclick=()=>sheetLaag(+b.dataset.laag));
   $('#shLaag').onclick=sheetLaagNieuw;
   $('#shFoto').onclick=()=>{ smaakOpslaan(); RF.fotos=[]; sheetReceptFoto(true) };
+  $('#shTekst').onclick=()=>{ smaakOpslaan(); sheetReceptTekst() };
+  if($('#shBv')) $('#shBv').onclick=()=>{ smaakOpslaan(); sheetBeginVanaf() };
+  $$('#sheetBody [data-bv]').forEach(b=>b.onclick=()=>beginVanaf(b.dataset.bv));
   $$('#sheetBody [data-shchoc]').forEach(b=>b.onclick=()=>{ const oud=R.chocolade; R.chocolade=b.dataset.shchoc; smaakOpslaan(); smaakHub();
     toast('Smaak staat nu op '+chocNaam(R.chocolade).toLowerCase()+'.',()=>{ R.chocolade=oud; smaakOpslaan(); smaakHub() }) });
   $$('#sheetBody [data-shschelp]').forEach(b=>b.onclick=()=>{ const o=R.onderdelen.find(isSchelp); if(!o) return;
@@ -31887,6 +31897,68 @@ function smaakHub(){
 }
 
 const LAAGSOORTEN=['Schelp','Ganache','Karamel','Gelei','Praliné','Crunch'];
+/* ═══════════ v866: sneller invullen ═══════════
+   1. Een lege schelp krijgt vanzelf de chocolade van de smaak.
+   2. "Begin vanaf" neemt alle lagen van een smaak die erop lijkt over.
+   3. Typ of spreek het recept in één keer; dezelfde lezer als de foto. */
+function schelpenAanvullen(){
+  let n=0;
+  const vul=r=>{ if(!r||!r.chocolade) return; (r.onderdelen||[]).forEach(o=>{
+    if(isSchelp(o)&&!(o.ing||[]).some(i=>i&&i.naam)){ o.ing=[{naam:schelpIngVoorKey(r.chocolade),deel:'100'}]; n++ } }) };
+  (S.recepten||[]).forEach(vul);
+  try{ if(R&&R.id) vul(R) }catch(e){}
+  if(n) setTimeout(()=>bewaarNu(),0);
+  return n }
+const snelWoorden=n=>String(n||'').toLowerCase().split(/[^a-zà-ÿ0-9]+/).filter(w=>w.length>2).map(w=>w.replace(/(en|s)$/,''));
+const smaakGevuld=r=>(r.onderdelen||[]).some(o=>!isSchelp(o)&&(o.ing||[]).some(i=>i&&i.naam));
+function smakenDieLijken(rc,max){
+  const w=snelWoorden(rc.naam);
+  return (S.recepten||[]).filter(r=>r&&r.id!==rc.id&&smaakActief(r)&&smaakGevuld(r))
+    .map(r=>({r,s:snelWoorden(r.naam).filter(x=>w.includes(x)).length*2+(r.chocolade===rc.chocolade?1:0)}))
+    .filter(x=>x.s>0).sort((a,b)=>b.s-a.s||a.r.naam.localeCompare(b.r.naam,'nl')).slice(0,max||3).map(x=>x.r) }
+function beginVanaf(id){
+  const bron=(S.recepten||[]).find(r=>r.id===id); if(!bron) return;
+  const oud=JSON.parse(JSON.stringify(R.onderdelen||[]));
+  R.onderdelen=JSON.parse(JSON.stringify(bron.onderdelen||[]));
+  R.onderdelen.forEach(o=>{ if(isSchelp(o)&&bron.chocolade!==R.chocolade) o.ing=[{naam:schelpIngVoorKey(R.chocolade),deel:'100'}];
+    laagGeleiGoedzetten(o,R.naam) });
+  if(!R.malId&&bron.malId) R.malId=bron.malId;
+  if(!R.tht&&bron.tht) R.tht=bron.tht;
+  smaakOpslaan(); smaakHub();
+  toast('Lagen van '+bron.naam+' staan erin. Pas aan wat anders is.',()=>{ R.onderdelen=oud; smaakOpslaan(); smaakHub() });
+}
+function sheetBeginVanaf(){
+  const l=smakenDieLijken(R,20), rest=(S.recepten||[]).filter(r=>r&&r.id!==R.id&&smaakActief(r)&&smaakGevuld(r)&&!l.includes(r)).sort((a,b)=>a.naam.localeCompare(b.naam,'nl'));
+  const rij=r=>`<button type="button" class="shrij" data-bv="${r.id}"><i class="schijf ${esc(r.chocolade||'')}" style="width:10px;height:10px;flex:none"></i>
+    <span class="shn">${esc(r.naam)}<small>${esc((r.onderdelen||[]).filter(o=>o&&o.naam).map(o=>o.naam).join(' · '))}</small></span>${svg(I.pijl,'2')}</button>`;
+  sheet('Begin vanaf',
+    l.length||rest.length?`${l.length?`<div class="gl">${l.map(rij).join('')}</div>`:''}
+      ${rest.length?`<div class="smsect" style="margin-top:18px"><b>Andere smaken</b></div><div class="gl">${rest.map(rij).join('')}</div>`:''}`
+      :'<p class="lgsom">Nog geen smaak met een ingevuld recept. Vul er eerst één in.</p>','');
+  sheetTerugZet(smaakHub);
+  $$('#sheetBody [data-bv]').forEach(b=>b.onclick=()=>beginVanaf(b.dataset.bv));
+}
+let RTEKST='';
+function sheetReceptTekst(){
+  sheet('Typ of spreek het recept',
+    `<textarea class="inp" id="rtT" rows="7" style="min-height:190px;line-height:1.45" placeholder="Bijv. ganache 6 gram: room 100, witte chocolade 200, vanille 2. Gelei blauwe bessen 1,25 gram.">${esc(RTEKST)}</textarea>
+     <p class="lgsom">Inspreken: tik op de microfoon van je toetsenbord. Per laag de naam, grammen per bonbon en de ingrediënten met hun grammen. Je controleert alles voordat het erin gaat.</p>`,
+    `<button class="prim" style="margin-top:0" id="rtOk">Uitlezen</button>`);
+  sheetTerugZet(()=>{ RTEKST=$('#rtT').value; smaakHub() });
+  setTimeout(()=>{ const x=$('#rtT'); if(x&&!RTEKST) x.focus() },250);
+  $('#rtOk').onclick=async()=>{
+    const tx=$('#rtT').value.trim(); RTEKST=tx; if(tx.length<4) return toast('Typ eerst het recept.');
+    const k=$('#rtOk'); k.disabled=true; k.innerHTML='<span class="espin"></span>Recept lezen…';
+    try{
+      const namen=[...new Set(alleIngredienten().concat(grondVoorraad().filter(v=>artSoort(v.product)==='ingredient').map(v=>v.product)))];
+      const r=await roep('leesReceptFoto',{tekst:tx,ingredienten:namen.slice(0,400),smaak:R.naam||''});
+      const rs=(r&&r.recepten)||[];
+      if(!rs.length){ toast((r&&r.tip)||'Ik kon er geen recept uit halen. Noem per laag de ingrediënten met grammen.'); k.disabled=false; k.textContent='Uitlezen'; return }
+      RTEKST=''; receptFotoCheck(rs,0,(r&&r.tip)||'');
+    }catch(e){ toast((e&&e.message)||'Uitlezen lukte niet.'); const k2=$('#rtOk'); if(k2){ k2.disabled=false; k2.textContent='Opnieuw uitlezen' } }
+  };
+}
+
 /* ═══════════ v865: de juiste gelei bij de juiste smaak ═══════════
    Een nieuwe laag nam de laag met dezelfde naam van een andere smaak over.
    Voor een gelei is dat fout: Vanille & blauwe bessen kreeg de aardbeiengelei
