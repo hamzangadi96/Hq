@@ -48,6 +48,11 @@ const OPDRACHT =
   'Het allerbelangrijkste: verzin niets. Lotnummer en THT worden gebruikt voor ' +
   'voedselveiligheid. Kun je een teken niet met zekerheid lezen, zet dan het veld ' +
   'leeg of zet het in "twijfel". Een leeg veld is goed, een fout veld is slecht.\n\n' +
+  'Lotnummer: alleen de code zelf. Een tijdstip (zoals 19:58) of een datum die ernaast ' +
+  'gedrukt staat hoort er niet bij. Zuivel en supermarktproducten printen vaak THT, tijd en ' +
+  'lot op één regel; haal die uit elkaar.\n\n' +
+  'Inhoud: de netto inhoud van één verpakking zoals op het etiket staat (bijvoorbeeld 200 ml ' +
+  'of 1 kg), nooit een totaal van meerdere verpakkingen. Room en slagroom in ml geef je als ml.\n\n' +
   'Datums: geef ze als JJJJ-MM-DD. Europese etiketten schrijven meestal ' +
   'dag-maand-jaar. Staat er alleen maand en jaar, neem dan de laatste dag van ' +
   'die maand. THT is "best before", "ten minste houdbaar tot", "BBE", "MHD", ' +

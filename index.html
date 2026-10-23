@@ -5143,7 +5143,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v839 · 23 okt 2026';
+const APPVERSIE='v840 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19844,6 +19844,157 @@ function sheetVerpPrijs(product,terug){
 /* Dit scherm was tien blokken lang met vier verschillende opslaanknoppen.
    Nu toont hij standaard alleen het overzicht; boeken, instellingen en
    historie zitten elk achter hun eigen rij. */
+/* ═══════════ partijen en producten beheren (v840) ═══════════
+   Een scan kan ernaast zitten: een tijd in het lotnummer, 19,2 kg slagroom
+   waar 200 g bedoeld was. Dan wil je de partij kunnen rechtzetten of weggooien,
+   en een product dat er niet hoort helemaal kunnen verwijderen. Alles met
+   "ongedaan maken" in de melding. */
+const TERUGVELDEN=['gmut','lots','ontvangsten','artikelen','ingredienten','ingArchief','recepten',
+  'prijzen','prijsBron','prijsHist','ingLink','allerg','voeding','samenstelling','drempels',
+  'levertijden','etiketCodes','boodschappen'];
+
+function partijenVan(product){
+  const k=gKey(product);
+  (S.lots||[]).forEach(l=>{ if(l&&!l.id) l.id=uid() });
+  return (S.lots||[]).filter(l=>l&&gKey(l.product)===k)
+    .sort((a,b)=>String(b.ontvangen||'').localeCompare(String(a.ontvangen||'')));
+}
+/* in welke batches is dit lot gebruikt? dan hoort het bij je traceerbaarheid */
+function lotInBatches(lot){
+  const s=String(lot||'').trim(); if(!s) return [];
+  return (S.batches||[]).filter(b=>Object.values(b.lots||{}).some(v=>
+    (Array.isArray(v)?v:[v]).some(x=>String(x||'').trim()===s))).map(b=>b.code||'batch');
+}
+const isOntvMut=(m,l)=>gKey(m.product)===gKey(l.product)&&String(m.lot||'')===String(l.lot||'')
+  &&/^ontvangst/i.test(m.reden||'');
+const isOntvRec=(o,l)=>gKey(o.product)===gKey(l.product)&&String(o.lot||'')===String(l.lot||'');
+
+function sheetPartij(product,id){
+  const l=(S.lots||[]).find(x=>x.id===id); if(!l) return sheetGrondstof(product);
+  const batches=lotInBatches(l.lot);
+  const eenh=['kg','g','l','ml','st'];
+  sheet('Partij',
+    `${batches.length?`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}<span>
+       Gebruikt in ${esc(batches.join(', '))}. Aanpassen kan; verwijderen niet, want dan klopt je
+       traceerbaarheid niet meer.</span></div>`:''}
+     ${(l.fotos||[]).length?`<div class="estrip">${l.fotos.map(u=>`<img src="${esc(u)}" alt="" data-pgroot>`).join('')}</div>
+       <img class="egroot" id="pGroot" alt="">`:''}
+     <div class="veld"><label>Lotnummer</label><input class="inp" id="pL" value="${esc(l.lot||'')}" autocomplete="off"></div>
+     <div class="veld" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+       <div><label>THT</label><input class="inp" id="pT" type="date" value="${esc(l.tht||'')}"></div>
+       <div><label>Productiedatum</label><input class="inp" id="pP" type="date" value="${esc(l.productie||'')}"></div></div>
+     <div class="veld" style="display:grid;grid-template-columns:1fr 92px;gap:12px">
+       <div><label>Hoeveelheid ontvangen</label><input class="inp" id="pH" type="text" inputmode="decimal"
+         value="${l.hoeveel?komma(l.hoeveel):''}" placeholder="0"></div>
+       <div><label>Eenheid</label><select class="inp" id="pE" style="text-align:center">${eenh.map(e=>
+         `<option${(l.eenheid||'kg')===e?' selected':''}>${e}</option>`).join('')}</select></div></div>
+     <div class="veld"><label>Leverancier</label><input class="inp" id="pV" value="${esc(l.leverancier||'')}" autocomplete="off"></div>
+     ${batches.length?'':`<button class="sec" id="pWeg" style="color:var(--rood)">${svg(I.kruis,'2')}Partij verwijderen</button>`}`,
+    `<button class="prim" style="margin-top:0" id="pOk">Opslaan</button>
+     <button class="sec" id="pTerug">Terug</button>`);
+  sheetTerugZet(()=>sheetGrondstof(product));
+  $('#pTerug').onclick=()=>sheetGrondstof(product);
+  $$('[data-pgroot]').forEach(x=>x.onclick=()=>{ const g=$('#pGroot');
+    const al=g.style.display==='block'&&g.src===x.src; g.src=x.src; g.style.display=al?'none':'block' });
+  $('#pOk').onclick=()=>{
+    const lot=$('#pL').value.trim(), h=getalIn($('#pH').value), e=$('#pE').value;
+    if(!lot) return toast('Een partij heeft een lotnummer nodig.');
+    if(h===null||h<0) return toast('Vul een hoeveelheid in.');
+    const herstel=terugpunt(TERUGVELDEN);
+    const oud=Object.assign({},l);
+    /* de ontvangstboeking en de HACCP-regel horen bij dit lot: die gaan mee */
+    (S.gmut||[]).forEach(m=>{ if(isOntvMut(m,oud)){ m.lot=lot; m.aantal=h; m.eenheid=e } });
+    (S.ontvangsten||[]).forEach(o=>{ if(isOntvRec(o,oud)){ o.lot=lot; o.tht=$('#pT').value||''; o.hoeveel=String(h); o.eenheid=e;
+      if($('#pV').value.trim()) o.leverancier=$('#pV').value.trim() } });
+    /* geen ontvangstboeking gevonden maar wel een hoeveelheid? dan alsnog boeken */
+    if(!(S.gmut||[]).some(m=>isOntvMut(m,{product:oud.product,lot}))&&h)
+      gBoek(oud.product,h,e,'Ontvangst '+($('#pV').value.trim()||oud.leverancier||''),lot);
+    Object.assign(l,{lot,tht:$('#pT').value||'',hoeveel:h,eenheid:e,leverancier:$('#pV').value.trim()});
+    if($('#pP').value) l.productie=$('#pP').value; else delete l.productie;
+    bewaarNu(); render(); sheetGrondstof(product);
+    toast('Partij aangepast.',herstel);
+  };
+  if($('#pWeg')) $('#pWeg').onclick=()=>{
+    const herstel=terugpunt(TERUGVELDEN);
+    S.gmut=(S.gmut||[]).filter(m=>!isOntvMut(m,l));
+    S.ontvangsten=(S.ontvangsten||[]).filter(o=>!isOntvRec(o,l));
+    S.lots=(S.lots||[]).filter(x=>x!==l);
+    bewaarNu(); render();
+    if(grondVoorraad().some(x=>gKey(x.product)===gKey(product))) sheetGrondstof(product); else dicht();
+    toast('Partij verwijderd.',herstel);
+  };
+}
+
+function sheetGrondNaam(product){
+  sheet('Naam aanpassen',
+    `<div class="veld"><label>Nieuwe naam</label>
+       <input class="inp" id="gnN" value="${esc(product)}" autocomplete="off"></div>
+     <div class="hint" style="margin:0">De naam verandert overal: voorraad, partijen, smaken,
+       prijzen, voedingswaarde en allergenen.</div>`,
+    `<button class="prim" style="margin-top:0" id="gnOk">Opslaan</button>
+     <button class="sec" id="gnT">Terug</button>`);
+  setTimeout(()=>{const e=$('#gnN'); if(e){e.focus();e.select()}},120);
+  $('#gnT').onclick=()=>sheetGrondstof(product);
+  $('#gnOk').onclick=()=>{
+    const nieuw=$('#gnN').value.trim();
+    if(!nieuw) return toast('Vul een naam in.');
+    if(nieuw===product) return sheetGrondstof(product);
+    if(grondVoorraad().some(x=>gKey(x.product)===gKey(nieuw)&&gKey(x.product)!==gKey(product)))
+      return toast(nieuw+' bestaat al.');
+    const herstel=terugpunt(TERUGVELDEN);
+    /* ingHernoem doet de smaken en ingrediëntgegevens; hij weigert als de
+       naam alleen in je voorraad staat en niet als ingrediënt, dan doen we
+       de voorraad hier zelf */
+    if(alleIngredienten().some(x=>gKey(x)===gKey(product))){
+      const r=ingHernoem(product,nieuw);
+      if(r==='bestaat') return toast(nieuw+' bestaat al.');
+    }
+    const ok=gKey(product), nk=gKey(nieuw);
+    (S.gmut||[]).forEach(m=>{ if(gKey(m.product)===ok) m.product=nieuw });
+    (S.lots||[]).forEach(l=>{ if(gKey(l.product)===ok) l.product=nieuw });
+    (S.ontvangsten||[]).forEach(o=>{ if(gKey(o.product)===ok) o.product=nieuw });
+    (S.boodschappen||[]).forEach(b=>{ if(gKey(b.product)===ok) b.product=nieuw });
+    if(S.artikelen&&S.artikelen[ok]){ S.artikelen[nk]=Object.assign({},S.artikelen[ok],{naam:nieuw}); if(nk!==ok) delete S.artikelen[ok] }
+    ['drempels','levertijden'].forEach(f=>{ if(S[f]&&S[f][ok]!==undefined&&nk!==ok){ S[f][nk]=S[f][ok]; delete S[f][ok] } });
+    Object.values(S.etiketCodes||{}).forEach(c=>{ if(c&&gKey(c.product)===ok) c.product=nieuw });
+    bewaarNu(); render(); sheetGrondstof(nieuw);
+    toast('Heet nu '+nieuw+'.',herstel);
+  };
+}
+
+function sheetGrondWeg(product){
+  const smaken=ingGebruikt(product);
+  const ps=partijenVan(product);
+  const vast=ps.filter(l=>lotInBatches(l.lot).length);
+  sheet('Helemaal verwijderen?',
+    `<div class="melding rood" style="margin-bottom:14px">${svg(I.alarm,'2')}<span>
+       <b>${esc(product)}</b> verdwijnt uit je voorraad en ingrediënten, met prijzen,
+       voedingswaarde, allergenen en ${ps.length-vast.length} partij${ps.length-vast.length===1?'':'en'}.</span></div>
+     ${smaken.length?`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}<span>
+       Zit in ${esc(smaken.join(', '))}. Daar wordt de regel leeggemaakt; de smaak zelf blijft.</span></div>`:''}
+     ${vast.length?`<div class="hint" style="margin:0">${vast.length} partij${vast.length===1?'':'en'} blijft in je
+       HACCP-administratie staan, omdat ${vast.length===1?'hij':'ze'} in een batch gebruikt ${vast.length===1?'is':'zijn'}.</div>`:''}`,
+    `<button class="prim" style="margin-top:0;background:var(--rood)" id="gwJa">Ja, verwijderen</button>
+     <button class="sec" id="gwNee">Toch niet</button>`);
+  $('#gwNee').onclick=()=>sheetGrondstof(product);
+  $('#gwJa').onclick=()=>{
+    const herstel=terugpunt(TERUGVELDEN);
+    const k=gKey(product);
+    const houd=new Set(vast.map(l=>l.id));
+    ps.forEach(l=>{ if(!houd.has(l.id)) S.ontvangsten=(S.ontvangsten||[]).filter(o=>!isOntvRec(o,l)) });
+    S.lots=(S.lots||[]).filter(l=>gKey(l.product)!==k||houd.has(l.id));
+    S.gmut=(S.gmut||[]).filter(m=>gKey(m.product)!==k);
+    if(S.artikelen) delete S.artikelen[k];
+    if(S.drempels) delete S.drempels[k];
+    if(S.levertijden) delete S.levertijden[k];
+    Object.keys(S.etiketCodes||{}).forEach(c=>{ if(gKey((S.etiketCodes[c]||{}).product)===k) delete S.etiketCodes[c] });
+    S.boodschappen=(S.boodschappen||[]).filter(b=>gKey(b.product)!==k);
+    if(alleIngredienten().some(x=>gKey(x)===k)) ingWeg(alleIngredienten().find(x=>gKey(x)===k));
+    bewaarNu(); dicht(); render();
+    toast(product+' verwijderd.',herstel);
+  };
+}
+
 function sheetGrondstof(product,deel){
   const D=deel||'kort';
   const v=grondVoorraad().find(x=>gKey(x.product)===gKey(product));
@@ -19997,7 +20148,28 @@ function sheetGrondstof(product,deel){
            (()=>{const g=verpWaarGebruikt(product);
              return g.length? 'zit in '+g.join(', ') : 'zit in geen enkele doos'})()}</small></span>
          <span class="pijl">${svg(I.pijl,'2')}</span></button>
-     </div>`:''}`}`,
+     </div>`:''}
+     ${isVerp?'':(()=>{
+       const ps=partijenVan(product);
+       return `${ps.length?`<div class="blokkop" style="margin-top:18px"><span class="eyebrow">Partijen</span></div>
+       <div class="paneel">${ps.map(l=>`<button class="arij" data-partij="${esc(l.id)}">
+         <span class="naam">Lot ${esc(l.lot||'—')}<small>${[
+           l.hoeveel?komma(l.hoeveel)+' '+(l.eenheid||''):'',
+           l.tht?'THT '+kort(new Date(l.tht)):'',
+           String(l.ontvangen||'').split(' ')[0]?'ontvangen '+kort(new Date(String(l.ontvangen).split(' ')[0])):''
+         ].filter(Boolean).join(' · ')}</small></span>
+         <span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`:''}
+       <div class="paneel" style="margin-top:14px">
+         <button class="arij" data-gnaam>
+           <span class="ivak">${svg(I.doc)}</span>
+           <span class="naam">Naam aanpassen<small>overal: voorraad, smaken, etiket</small></span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>
+         <button class="arij" data-gweg>
+           <span class="ivak" style="color:var(--rood)">${svg(I.kruis,'2')}</span>
+           <span class="naam" style="color:var(--rood)">Helemaal verwijderen<small>${
+             (()=>{const g=ingGebruikt(product); return g.length?'zit in '+g.join(', '):'zit in geen enkele smaak'})()}</small></span>
+           <span class="pijl">${svg(I.pijl,'2')}</span></button>
+       </div>`})()}`}`,
     D==='boeken'
       ? `<button class="prim" style="margin-top:0" id="gOk">Vastleggen</button>
          <button class="sec" data-gnaar="kort">Terug</button>`
@@ -20065,6 +20237,9 @@ function sheetGrondstof(product,deel){
     toast((k==='bij'?'Bijgeboekt: ':'Afgeboekt: ')+getal(n)+' '+e+'.');
   };
 
+  $$('#sheetBody [data-partij]').forEach(b=>b.onclick=()=>sheetPartij(product,b.dataset.partij));
+  $$('#sheetBody [data-gnaam]').forEach(b=>b.onclick=()=>sheetGrondNaam(product));
+  $$('#sheetBody [data-gweg]').forEach(b=>b.onclick=()=>sheetGrondWeg(product));
   $$('#sheetBody [data-vnaam]').forEach(b=>b.onclick=()=>{
     sheet('Naam aanpassen',
       `<div class="veld"><label>Nieuwe naam</label>
