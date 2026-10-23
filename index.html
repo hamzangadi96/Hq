@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v866 · 23 okt 2026';
+const APPVERSIE='v867 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9509,7 +9509,21 @@ function vpStartdag(){
 }
 const OPENINGSDAG='2026-11-01';
 /* geen maximum per dag (op verzoek): elke chocoladesoort op één dag */
-const vpCap=()=>Infinity;
+/* v867: hoeveel mallen je op één dag kunt vullen (je hebt er zoveel). Leeg = geen grens. */
+const vpCap=()=>{ const n=parseInt(S.malCapaciteit,10); return n>0?n:Infinity };
+/* open plannen uit een eerdere voorspelling: een nieuw plan vervangt die */
+const vpOudePlannen=()=>(S.planning||[]).filter(p=>p&&p.bron==='voorspelling'&&(!p.datum||p.datum>=vandaag()));
+function sheetMalCap(){
+  sheet('Mallen per dag',
+    `<p class="lgsom" style="margin:0 4px 14px">Hoeveel mallen kun je op één dag vullen? Past een chocoladesoort er niet in, dan krijgt hij vanzelf een dag erbij.</p>
+     <input class="inp" id="mcN" type="number" inputmode="numeric" min="1" step="1" value="${parseInt(S.malCapaciteit,10)>0?parseInt(S.malCapaciteit,10):''}" placeholder="Bijv. 77" style="font-size:22px;font-weight:700;text-align:center">
+     ${parseInt(S.malCapaciteit,10)>0?'<div class="lgvoet bvoet"><button type="button" id="mcWeg">Geen grens</button></div>':''}`,
+    `<button class="prim" style="margin-top:0" id="mcOk">Klaar</button>`);
+  sheetTerugZet(sheetVoorspelPlan);
+  setTimeout(()=>{ const x=$('#mcN'); if(x) x.focus() },250);
+  $('#mcOk').onclick=()=>{ const n=parseInt($('#mcN').value,10); S.malCapaciteit=n>0?n:null; bewaarNu(); sheetVoorspelPlan() };
+  if($('#mcWeg')) $('#mcWeg').onclick=()=>{ S.malCapaciteit=null; bewaarNu(); sheetVoorspelPlan() };
+}
 /* Verdeel de mallen over dagen: elke chocoladesoort op eigen dagen, nooit meer
    dan je maximum per dag. Een soort die erboven gaat krijgt vanzelf een dag erbij. */
 function vpDagen(per,soortLijst){
@@ -9586,7 +9600,10 @@ function sheetVoorspelPlan(){
          <span class="shw">${vtP.n?vtP.n+' · '+vtP.bonbons+' st':'toevoegen'}</span>${svg(I.pijl,'2')}</button>
        <button type="button" class="shrij" id="vpOpb"><span class="shn">Verwachting<small>vorig jaar${aP.orders?' + '+aP.orders+' uit aanmeldingen':''} + stempelkaarten</small></span>
          <span class="shw">±${(vP.modelOrders||0)+(aP.orders||0)} best.</span>${svg(I.pijl,'2')}</button>
+       <button type="button" class="shrij" id="vpCap"><span class="shn">Mallen per dag<small>zoveel kun je op één dag vullen</small></span>
+         <span class="shw${vpCap()<Infinity?'':' let'}">${vpCap()<Infinity?vpCap():'instellen'}</span>${svg(I.pijl,'2')}</button>
      </div>
+     ${vpOudePlannen().length?`<p class="lgsom" style="margin:-4px 4px 14px">Je huidige plan (${vpOudePlannen().length} ${vpOudePlannen().length===1?'dag':'dagen'}) wordt vervangen als je dit inplant.</p>`:''}
      ${voorraad?`<div class="vbon">
          <div class="vbrij"><span>Nodig</span><b>${g(nodig)}</b></div>
          <div class="vbrij"><span>− op voorraad</span><b>−${g(voorraad)}</b></div>
@@ -9667,6 +9684,7 @@ function sheetVoorspelPlan(){
     const d=new Date(j,m-1+parseInt(b.dataset.vpkm,10),1); VP.kalM=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); opnieuw() });
   $$('[data-vpkd]').forEach(b=>b.onclick=()=>{ VP.dag[VP.kal]=b.dataset.vpkd; VP.kal=null; opnieuw() });
 
+  if($('#vpCap')) $('#vpCap').onclick=sheetMalCap;
   if($('#vpOk')) $('#vpOk').onclick=()=>{
     const knop=$('#vpOk'); if(knop.dataset.bezig) return;
     const zd=dagen.find(d=>!d.datum);
@@ -9674,10 +9692,12 @@ function sheetVoorspelPlan(){
       const el=$(`[data-vpkal="${zd.soort.key}"]`); if(el) el.scrollIntoView({block:'start',behavior:'smooth'}); return }
     knop.dataset.bezig='1';
     S.planning=S.planning||[];
+    const herstelPlan=terugpunt(['planning']), oudeIds=new Set(vpOudePlannen().map(p=>p.id));
+    S.planning=S.planning.filter(p=>!oudeIds.has(p.id));
     dagen.forEach(d=>S.planning.push({id:uid(),datum:d.datum,chocolade:d.soort.key,regels:d.regels,
       levertijd:levertijdVoor(d.regels)||0,voorbereiding:[],gemaakt:vandaag(),bron:'voorspelling'}));
     bewaarNu(); VP=null;
-    try{ dicht(); render(); toast(dagen.length+(dagen.length===1?' productiedag':' productiedagen')+' ingepland — check eerst je spullen');
+    try{ dicht(); render(); toast(dagen.length+(dagen.length===1?' productiedag':' productiedagen')+' ingepland'+(oudeIds.size?', je vorige plan is vervangen':' — check eerst je spullen'),oudeIds.size?herstelPlan:undefined);
       const per=productiePeriodes().find(x=>x.start<=dagen[0].datum&&x.eind>=dagen[0].datum); if(per) setTimeout(()=>sheetSpullen(per),350); }
     catch(e){ toast('Ingepland.'); }
   };
