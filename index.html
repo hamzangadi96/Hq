@@ -4523,6 +4523,12 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
 .vulblok{margin-bottom:26px}
+.rkkop{display:flex;align-items:center;gap:8px;margin:20px 4px 8px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs)}
+.rkkop:first-child{margin-top:0}.rkkop .schijf{width:12px;height:12px}
+.rkrij{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;border:0;background:none;font:inherit;color:var(--ink);text-align:left;padding:6px 8px 6px 14px;cursor:pointer}
+.rkrij .shn{font-size:16px}.rkrij.aan{min-height:60px}.rkrij.aan .shn{font-weight:600}
+.rkplus{width:40px;height:40px;display:grid;place-items:center;color:var(--grijs);flex:none}.rkplus svg{width:16px;height:16px}
+.rkleeg{text-align:center;color:var(--grijs);font-size:14px;padding:12px 0}
 .rktop{display:flex;flex-direction:column;gap:2px;margin:0 2px 4px}
 .rktop b{font-size:22px;letter-spacing:-.01em}.rktop span{font-size:14px;color:var(--grijs)}
 .rkuit{margin-top:28px;padding-top:20px;border-top:1px solid var(--lijn)}
@@ -5076,7 +5082,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v833 · 23 okt 2026';
+const APPVERSIE='v834 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10335,43 +10341,51 @@ function basisPerBonbon(id){
    en zie meteen wat dat vraagt — de vullingen om te maken en alles wat je
    afweegt of moet kopen. Er wordt niets ingepland of opgeslagen. */
 let REK={mallen:{}};
+const rekRegels=()=>(S.recepten||[]).filter(smaakActief).filter(r=>(REK.mallen[r.id]||0)>0)
+  .map(r=>({receptId:r.id,mallen:REK.mallen[r.id],aantal:REK.mallen[r.id]*malHoltes(r.id)}));
+/* v834: twee schermen. Eerst kiezen: een korte lijst namen, tik = één mal
+   erbij, pas dan verschijnt de teller. Daarna één knop naar wat je nodig hebt. */
 function sheetRekenen(){
   const g=n=>Math.round(n).toLocaleString('nl-NL');
-  const act=(S.recepten||[]).filter(smaakActief);
-  const regels=act.filter(r=>(REK.mallen[r.id]||0)>0).map(r=>({receptId:r.id,mallen:REK.mallen[r.id],aantal:REK.mallen[r.id]*malHoltes(r.id)}));
+  const act=(S.recepten||[]).filter(smaakActief), regels=rekRegels();
   const totB=regels.reduce((s,x)=>s+x.aantal,0), totM=regels.reduce((s,x)=>s+x.mallen,0);
   const groepen=soorten().map(c=>({c,l:act.filter(r=>r.chocolade===c.key)})).filter(x=>x.l.length);
-  const lijst=groepen.map(({c,l})=>`<div class="vpk2" style="margin-top:18px"><i class="schijf ${c.key}"></i><span class="vpk2n"><b>${esc(c.naam)}</b></span></div>
-    <div class="gl">${l.map(r=>{ const m=REK.mallen[r.id]||0, af=smaakStatus(r).k!=='leeg';
-      return `<div class="vprij3${m?'':' uit'}"><span class="shn">${esc(r.naam)}<small>${!af?'<b class="lglet">geen recept</b>':m?g(m*malHoltes(r.id))+' bonbons':malHoltes(r.id)+' per mal'}</small></span>
-        <div class="vpstep3"><button type="button" data-rkm="${r.id}"${m?'':' disabled'} aria-label="Mal minder">${svg(I.min)}</button><b>${m}</b>
-        <button type="button" data-rkp="${r.id}" aria-label="Mal erbij">${svg(I.plus)}</button></div></div>` }).join('')}</div>`).join('');
-  let uit='';
-  if(regels.length){
-    /* vullingen die je eerst maakt */
-    const vul=halfRecepten().map(b=>{ const tot=basisPerBonbon(b.id).reduce((s,x)=>s+x.g*((regels.find(y=>y.receptId===x.r.id)||{}).aantal||0),0);
-      const bi=alsLijst(b.ing).filter(y=>y.naam), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0); return {b,tot,bi,bs} }).filter(x=>x.tot>0);
-    const dek=dekkingGrond(regels).sort((a,b)=>b.nodig-a.nodig);
-    uit=`<div class="rkuit">
-      ${vul.map(v=>`<div class="vulkop" style="margin-top:6px"><b>${esc(v.b.naam)} maken</b><span>${g(v.tot)} g</span></div>
-        ${v.bs?`<div class="gl" style="margin-bottom:18px">${v.bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw">${g(v.tot*getalIn0(y.deel)/v.bs)} g</span></div>`).join('')}</div>`
-          :`<p class="lgsom" style="margin:0 2px 18px">Vul het recept van ${esc(v.b.naam.toLowerCase())} in bij Vullingen, dan zie je wat je afweegt.</p>`}`).join('')}
-      <div class="vulkop" style="margin-top:6px"><b>Alles bij elkaar</b><span>${dek.length} ${dek.length===1?'ingrediënt':'ingrediënten'}</span></div>
-      <div class="gl">${dek.map(x=>`<div class="shrij"><span class="shn">${esc(x.naam)}<small${x.tekort?' class="lglet"':''}>${x.onbekend?'niet op voorraad':x.tekort?'je hebt '+toonHoeveel(x.op,'g')+' · '+toonHoeveel(x.tekort,'g')+' tekort':'genoeg in huis'}</small></span>
-        <span class="shw vbw">${toonHoeveel(x.nodig,'g')}</span></div>`).join('')}</div>
-      ${act.some(r=>(REK.mallen[r.id]||0)>0&&smaakStatus(r).k==='leeg')?'<p class="lgsom">Smaken zonder recept tellen niet mee.</p>':''}
-    </div>`;
-  }
-  sheet('Wat heb ik nodig?',
-    `<div class="rktop">${regels.length?`<b>${g(totB)} bonbons</b><span>${totM} ${totM===1?'mal':'mallen'} · ${regels.length} ${regels.length===1?'smaak':'smaken'}</span>`
-      :`<b>Tik + bij wat je wilt maken</b><span>per mal · er wordt niets ingepland</span>`}</div>
-     ${lijst}${uit}
+  const rij=r=>{ const m=REK.mallen[r.id]||0, leeg=smaakStatus(r).k==='leeg';
+    return m?`<div class="rkrij aan"><span class="shn">${esc(r.naam)}<small>${g(m*malHoltes(r.id))} bonbons</small></span>
+        <div class="vpstep3"><button type="button" data-rkm="${r.id}" aria-label="Mal minder">${svg(I.min)}</button><b>${m}</b>
+        <button type="button" data-rkp="${r.id}" aria-label="Mal erbij">${svg(I.plus)}</button></div></div>`
+      :`<button type="button" class="rkrij" data-rkp="${r.id}"><span class="shn">${esc(r.naam)}${leeg?'<small class="lglet">geen recept</small>':''}</span><i class="rkplus">${svg(I.plus)}</i></button>` };
+  sheet('Wat wil je maken?',
+    `${groepen.map(({c,l})=>`<div class="rkkop"><i class="schijf ${c.key}"></i>${esc(c.naam)}</div>
+       <div class="gl">${l.map(rij).join('')}</div>`).join('')}
      ${regels.length?`<div class="lgvoet bvoet"><button type="button" id="rkLeeg">Leegmaken</button></div>`:''}`,
-    regels.length&&dekkingGrond(regels).some(x=>x.tekort>0)?`<button class="prim" style="margin-top:0" id="rkBood">Tekorten op de boodschappenlijst</button>`:'');
+    regels.length?`<button class="prim" style="margin-top:0" id="rkUit">Wat heb ik nodig? · ${g(totB)} bonbons</button>`
+      :`<div class="rkleeg">Tik een smaak aan · elke tik is één mal</div>`);
   const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetRekenen(); $('#sheetBody').scrollTop=st };
   $$('#sheetBody [data-rkp]').forEach(b=>b.onclick=()=>{ REK.mallen[b.dataset.rkp]=(REK.mallen[b.dataset.rkp]||0)+1; opnieuw() });
   $$('#sheetBody [data-rkm]').forEach(b=>b.onclick=()=>{ REK.mallen[b.dataset.rkm]=Math.max(0,(REK.mallen[b.dataset.rkm]||0)-1); opnieuw() });
   if($('#rkLeeg')) $('#rkLeeg').onclick=()=>{ REK={mallen:{}}; sheetRekenen() };
+  if($('#rkUit')) $('#rkUit').onclick=sheetRekenUit;
+}
+function sheetRekenUit(){
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+  const regels=rekRegels(); if(!regels.length) return sheetRekenen();
+  const totB=regels.reduce((s,x)=>s+x.aantal,0);
+  const vul=halfRecepten().map(b=>{ const tot=basisPerBonbon(b.id).reduce((s,x)=>s+x.g*((regels.find(y=>y.receptId===x.r.id)||{}).aantal||0),0);
+    const bi=alsLijst(b.ing).filter(y=>y.naam), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0); return {b,tot,bi,bs} }).filter(x=>x.tot>0);
+  const dek=dekkingGrond(regels).sort((a,b)=>b.nodig-a.nodig), tk=dek.filter(x=>x.tekort>0).length;
+  const zonder=regels.filter(x=>smaakStatus(recept(x.receptId)).k==='leeg').map(x=>recept(x.receptId).naam);
+  sheet('Wat heb ik nodig?',
+    `<div class="rktop"><b>${g(totB)} bonbons</b><span>${regels.map(x=>esc(recept(x.receptId).naam)+' '+x.mallen+'×').join(' · ')}</span></div>
+     ${zonder.length?`<p class="lgsom" style="margin:6px 2px 0"><b class="lglet">Zonder recept, telt niet mee: ${esc(zonder.join(', '))}</b></p>`:''}
+     ${vul.map(v=>`<div class="vulkop" style="margin-top:22px"><b>${esc(v.b.naam)} maken</b><span>${g(v.tot)} g</span></div>
+       ${v.bs?`<div class="gl">${v.bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw">${g(v.tot*getalIn0(y.deel)/v.bs)} g</span></div>`).join('')}</div>`
+         :`<p class="lgsom" style="margin:0 2px">Vul het recept in bij Vullingen, dan zie je wat je afweegt.</p>`}`).join('')}
+     <div class="vulkop" style="margin-top:24px"><b>Alles bij elkaar</b><span>${tk?'<span class="lglet">'+tk+' tekort</span>':''}</span></div>
+     <div class="gl">${dek.map(x=>`<div class="shrij"><span class="shn">${esc(x.naam)}${x.tekort?`<small class="lglet">${x.onbekend?'niet in huis':toonHoeveel(x.tekort,'g')+' tekort'}</small>`:''}</span>
+       <span class="shw vbw">${toonHoeveel(x.nodig,'g')}</span></div>`).join('')}</div>`,
+    tk?`<button class="prim" style="margin-top:0" id="rkBood">Tekort op de boodschappenlijst</button>`:'');
+  sheetTerugZet(sheetRekenen);
   if($('#rkBood')) $('#rkBood').onclick=()=>{ const r=boodschapUitBatch(regels); bewaarNu(); render();
     toast(r.toegevoegd?r.toegevoegd+(r.toegevoegd===1?' product':' producten')+' op je lijst gezet.':'Stond al op je lijst.'); sheetBoodschappen() };
 }
