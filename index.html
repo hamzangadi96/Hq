@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v867 · 24 okt 2026';
+const APPVERSIE='v868 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9618,7 +9618,8 @@ function sheetVoorspelPlan(){
        const bon=rs.reduce((n,r)=>n+(VP.mallen[r.id]||0)*malHoltes(r.id),0);
        return `<div class="vpsoort2">
          <div class="vpk2"><i class="schijf ${c.key}"></i>
-           <span class="vpk2n"><b>${esc(c.naam)}</b><small>${sm?sm+' mallen · '+g(bon)+' bonbons':'niets'}</small></span>
+           <span class="vpk2n"><b>${esc(c.naam)}</b><small>${sm?sm+' mallen · '+g(bon)+' bonbons':'niets'}</small>
+             ${dd.length>1?`<small class="lglet">past niet op één dag: ${dd.map(d=>d.mallen).join(' + ')} mallen, ${dd.length} dagen</small>`:''}</span>
            <button type="button" class="vpdag2${VP.dag[c.key]?'':' leeg'}" data-vpkal="${c.key}">${VP.dag[c.key]?dagKort(VP.dag[c.key]):'Kies dag'}</button></div>
          ${VP.kal===c.key?vpKalHTML(c.key):''}
          <div class="gl">${rs.map(r=>{const m=VP.mallen[r.id]||0, uit=vpUit(r.id)&&!m;
@@ -9626,7 +9627,7 @@ function sheetVoorspelPlan(){
              <span class="shn">${esc(r.naam)}<small>${uit?'niet maken':g(m*malHoltes(r.id))+' bonbons'}</small></span>
              <div class="vpstep3"><button type="button" data-vpm="${r.id}" aria-label="Mal minder"${m?'':' disabled'}>${svg(I.min)}</button>
                <b>${m}</b><button type="button" data-vpp="${r.id}" aria-label="Mal erbij">${svg(I.plus)}</button></div></div>`}).join('')}</div>
-         ${dd.length>1?`<div class="lgsom" style="color:var(--amber)">Past niet op één dag — verdeeld over ${dd.length} dagen</div>`:''}
+         ${dd.length>1?`<div class="lgvoet bvoet"><button type="button" data-vpfit="${c.key}">Terugbrengen naar ${vpCap()} mallen (één dag)</button></div>`:''}
        </div>`}).join('')}
      <div class="lgsom" style="margin-top:18px">Samen <b>${g(gepland)} bonbons</b> · ${verschil>=0?(verschil?g(verschil)+' meer dan nodig':'precies genoeg'):`<b class="lglet">${g(-verschil)} te weinig</b>`}${
        laatste&&laatste>=OPENINGSDAG?' · <b class="lglet">laatste dag valt na de opening</b>':''}</div>`;
@@ -9685,6 +9686,15 @@ function sheetVoorspelPlan(){
   $$('[data-vpkd]').forEach(b=>b.onclick=()=>{ VP.dag[VP.kal]=b.dataset.vpkd; VP.kal=null; opnieuw() });
 
   if($('#vpCap')) $('#vpCap').onclick=sheetMalCap;
+  /* v868: een soort die over je mallen per dag gaat, naar rato terugbrengen */
+  $$('[data-vpfit]').forEach(b=>b.onclick=()=>{ const cap=vpCap(), rs=(per[b.dataset.vpfit]||[]).filter(r=>VP.mallen[r.id]>0);
+    const tot=rs.reduce((n,r)=>n+VP.mallen[r.id],0); if(!(cap<Infinity)||tot<=cap) return;
+    const oud=Object.assign({},VP.mallen), f=cap/tot;
+    const del=rs.map(r=>({id:r.id,x:VP.mallen[r.id]*f})); del.forEach(d=>VP.mallen[d.id]=Math.floor(d.x));
+    let over=cap-del.reduce((n,d)=>n+VP.mallen[d.id],0);
+    del.sort((a,b)=>(b.x%1)-(a.x%1)).forEach(d=>{ if(over>0){ VP.mallen[d.id]++; over-- } });
+    vpDoelUitMallen(); opnieuw();
+    toast('Teruggebracht naar '+cap+' mallen.',()=>{ VP.mallen=oud; vpDoelUitMallen(); opnieuw() }) });
   if($('#vpOk')) $('#vpOk').onclick=()=>{
     const knop=$('#vpOk'); if(knop.dataset.bezig) return;
     const zd=dagen.find(d=>!d.datum);
