@@ -4523,6 +4523,9 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
 .vulblok{margin-bottom:26px}
+.rktop{display:flex;flex-direction:column;gap:2px;margin:0 2px 4px}
+.rktop b{font-size:22px;letter-spacing:-.01em}.rktop span{font-size:14px;color:var(--grijs)}
+.rkuit{margin-top:28px;padding-top:20px;border-top:1px solid var(--lijn)}
 .vulkop{display:flex;align-items:baseline;gap:10px;margin:0 2px 10px}
 .vulkop b{font-size:18px;flex:1}.vulkop span{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
 .lgbasis{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--grijs);background:var(--card);border-radius:6px;padding:2px 6px;flex:none}
@@ -5073,7 +5076,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v832 · 23 okt 2026';
+const APPVERSIE='v833 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7014,6 +7017,7 @@ const SNELITEMS=[
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
+  {key:'rekenen',label:'Wat heb ik nodig?',icon:'vorm',soort:'sheet',doe:()=>sheetRekenen()},
   /* v831: Mail even verborgen op verzoek; code blijft staan. Terugzetten = deze regel weer aanzetten.
   {key:'inbox',label:'Mail',icon:'post',soort:'sheet',doe:()=>sheetInbox()}, */
   {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
@@ -10326,6 +10330,51 @@ function basisPerBonbon(id){
   });
   return uit;
 }
+/* ═══════════ v833: Wat heb ik nodig? ═══════════
+   Los van planning en batches: tik aan wat je zou willen maken, in mallen,
+   en zie meteen wat dat vraagt — de vullingen om te maken en alles wat je
+   afweegt of moet kopen. Er wordt niets ingepland of opgeslagen. */
+let REK={mallen:{}};
+function sheetRekenen(){
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+  const act=(S.recepten||[]).filter(smaakActief);
+  const regels=act.filter(r=>(REK.mallen[r.id]||0)>0).map(r=>({receptId:r.id,mallen:REK.mallen[r.id],aantal:REK.mallen[r.id]*malHoltes(r.id)}));
+  const totB=regels.reduce((s,x)=>s+x.aantal,0), totM=regels.reduce((s,x)=>s+x.mallen,0);
+  const groepen=soorten().map(c=>({c,l:act.filter(r=>r.chocolade===c.key)})).filter(x=>x.l.length);
+  const lijst=groepen.map(({c,l})=>`<div class="vpk2" style="margin-top:18px"><i class="schijf ${c.key}"></i><span class="vpk2n"><b>${esc(c.naam)}</b></span></div>
+    <div class="gl">${l.map(r=>{ const m=REK.mallen[r.id]||0, af=smaakStatus(r).k!=='leeg';
+      return `<div class="vprij3${m?'':' uit'}"><span class="shn">${esc(r.naam)}<small>${!af?'<b class="lglet">geen recept</b>':m?g(m*malHoltes(r.id))+' bonbons':malHoltes(r.id)+' per mal'}</small></span>
+        <div class="vpstep3"><button type="button" data-rkm="${r.id}"${m?'':' disabled'} aria-label="Mal minder">${svg(I.min)}</button><b>${m}</b>
+        <button type="button" data-rkp="${r.id}" aria-label="Mal erbij">${svg(I.plus)}</button></div></div>` }).join('')}</div>`).join('');
+  let uit='';
+  if(regels.length){
+    /* vullingen die je eerst maakt */
+    const vul=halfRecepten().map(b=>{ const tot=basisPerBonbon(b.id).reduce((s,x)=>s+x.g*((regels.find(y=>y.receptId===x.r.id)||{}).aantal||0),0);
+      const bi=alsLijst(b.ing).filter(y=>y.naam), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0); return {b,tot,bi,bs} }).filter(x=>x.tot>0);
+    const dek=dekkingGrond(regels).sort((a,b)=>b.nodig-a.nodig);
+    uit=`<div class="rkuit">
+      ${vul.map(v=>`<div class="vulkop" style="margin-top:6px"><b>${esc(v.b.naam)} maken</b><span>${g(v.tot)} g</span></div>
+        ${v.bs?`<div class="gl" style="margin-bottom:18px">${v.bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw">${g(v.tot*getalIn0(y.deel)/v.bs)} g</span></div>`).join('')}</div>`
+          :`<p class="lgsom" style="margin:0 2px 18px">Vul het recept van ${esc(v.b.naam.toLowerCase())} in bij Vullingen, dan zie je wat je afweegt.</p>`}`).join('')}
+      <div class="vulkop" style="margin-top:6px"><b>Alles bij elkaar</b><span>${dek.length} ${dek.length===1?'ingrediënt':'ingrediënten'}</span></div>
+      <div class="gl">${dek.map(x=>`<div class="shrij"><span class="shn">${esc(x.naam)}<small${x.tekort?' class="lglet"':''}>${x.onbekend?'niet op voorraad':x.tekort?'je hebt '+toonHoeveel(x.op,'g')+' · '+toonHoeveel(x.tekort,'g')+' tekort':'genoeg in huis'}</small></span>
+        <span class="shw vbw">${toonHoeveel(x.nodig,'g')}</span></div>`).join('')}</div>
+      ${act.some(r=>(REK.mallen[r.id]||0)>0&&smaakStatus(r).k==='leeg')?'<p class="lgsom">Smaken zonder recept tellen niet mee.</p>':''}
+    </div>`;
+  }
+  sheet('Wat heb ik nodig?',
+    `<div class="rktop">${regels.length?`<b>${g(totB)} bonbons</b><span>${totM} ${totM===1?'mal':'mallen'} · ${regels.length} ${regels.length===1?'smaak':'smaken'}</span>`
+      :`<b>Tik + bij wat je wilt maken</b><span>per mal · er wordt niets ingepland</span>`}</div>
+     ${lijst}${uit}
+     ${regels.length?`<div class="lgvoet bvoet"><button type="button" id="rkLeeg">Leegmaken</button></div>`:''}`,
+    regels.length&&dekkingGrond(regels).some(x=>x.tekort>0)?`<button class="prim" style="margin-top:0" id="rkBood">Tekorten op de boodschappenlijst</button>`:'');
+  const opnieuw=()=>{ const st=$('#sheetBody').scrollTop; sheetRekenen(); $('#sheetBody').scrollTop=st };
+  $$('#sheetBody [data-rkp]').forEach(b=>b.onclick=()=>{ REK.mallen[b.dataset.rkp]=(REK.mallen[b.dataset.rkp]||0)+1; opnieuw() });
+  $$('#sheetBody [data-rkm]').forEach(b=>b.onclick=()=>{ REK.mallen[b.dataset.rkm]=Math.max(0,(REK.mallen[b.dataset.rkm]||0)-1); opnieuw() });
+  if($('#rkLeeg')) $('#rkLeeg').onclick=()=>{ REK={mallen:{}}; sheetRekenen() };
+  if($('#rkBood')) $('#rkBood').onclick=()=>{ const r=boodschapUitBatch(regels); bewaarNu(); render();
+    toast(r.toegevoegd?r.toegevoegd+(r.toegevoegd===1?' product':' producten')+' op je lijst gezet.':'Stond al op je lijst.'); sheetBoodschappen() };
+}
 let VUL=null;
 function sheetVullingen(){
   const bas=halfRecepten();
@@ -11448,6 +11497,7 @@ function prodTegelsHTML(a){
     <div class="gl">
       ${rij(gOnaf?'smaakVolgendeOnaf()':"homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
       ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
+      ${rij('sheetRekenen()','<b>Wat heb ik nodig?</b>','')}
       ${rij('VUL=null;sheetVullingen()','Vullingen',(()=>{ const n=halfRecepten().filter(b=>basisPerBonbon(b.id).length).length; return n?n+' basis':'' })())}
       ${rij("homeTegel('vv')",'Voedselveiligheid',ij?svg(I.vink,'2.6'):'thermometer ijken',!ij)}
       ${rij("homeTegel('lst')",'Instellen','')}
@@ -35957,6 +36007,7 @@ function sheetMeer(){
     if(it.key==='productie'){const n=lopende().length;
       return n?n+(n===1?' batch loopt':' batches lopen'):'niets onderweg'}
     if(it.key==='ontvangst') return 'levering vastleggen';
+    if(it.key==='rekenen') return 'aanvinken wat je maakt, zien wat je nodig hebt';
     if(it.key==='inbox') return INBOX.lijst?(INBOX.lijst.filter(m=>!m.beantwoord).length+' onbeantwoord'):'klantmails beantwoorden';
     if(it.key==='traceren') return 'lot of batch terugzoeken';
     if(it.key==='b2b') return (S.recepten||[]).length?'consument en zakelijk':'eerst een smaak toevoegen';
