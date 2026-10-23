@@ -1630,6 +1630,33 @@ nav#tabbar{view-transition-name:tabbalk}
 .espin{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;
   display:inline-block;margin-right:8px;animation:espin .8s linear infinite;vertical-align:-3px}
 @keyframes espin{to{transform:rotate(360deg)}}
+/* eigen camera: foto na foto zonder het bevestigingsscherm van iOS (v841) */
+.ecam{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;color:#fff}
+.ecam video,.ecam .ecamvoor{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ecam .ecamvoor{display:none;object-fit:contain;background:#000}
+.ecam.voor .ecamvoor{display:block}
+.ecamkop{position:relative;z-index:2;display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;background:linear-gradient(#000a,#0000)}
+.ecamkop span{flex:1;font-size:14px;font-weight:600;line-height:1.35}
+.ecamkop small{display:block;font-weight:500;opacity:.75;font-size:12.5px}
+.ecamx{width:40px;height:40px;border-radius:50%;background:#fff3;color:#fff;display:grid;place-items:center;flex:none}
+.ecamx svg{width:18px;height:18px}
+.ecamvoet{position:relative;z-index:2;margin-top:auto;padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 18px);
+  background:linear-gradient(#0000,#000c);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.ecamduim{width:52px;height:52px;border-radius:12px;overflow:hidden;border:2px solid #fff;background:#222;position:relative}
+.ecamduim img{width:100%;height:100%;object-fit:cover;display:block}
+.ecamduim b{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;border-radius:11px;background:#15803d;
+  color:#fff;font-size:12px;display:grid;place-items:center;padding:0 5px}
+.ecamsluit{width:76px;height:76px;border-radius:50%;border:4px solid #fff;background:#fff3;justify-self:center}
+.ecamsluit:active{transform:scale(.92)}
+.ecamklaar{justify-self:end;height:44px;padding:0 18px;border-radius:22px;background:#fff;color:#18181b;font-weight:700;font-size:15px}
+.ecamklaar[disabled]{opacity:.35}
+.ecamkeus{display:none;grid-column:1/-1;grid-template-columns:1fr 1.3fr 1fr;gap:8px}
+.ecam.voor .ecamkeus{display:grid}
+.ecam.voor .ecamduim,.ecam.voor .ecamsluit,.ecam.voor .ecamklaar{display:none}
+.ecamkeus button{height:52px;border-radius:14px;font-size:15px;font-weight:700;background:#fff3;color:#fff;text-align:center}
+.ecamkeus button.hoofd{background:#fff;color:#18181b}
+.ecamflits{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:3;transition:opacity .25s}
 .eet{margin-top:12px;border-top:1px solid #ececee;padding-top:12px}
 .eetkop{display:flex;align-items:center;gap:10px}
 .eetkop .evink{width:28px;height:28px}
@@ -5143,7 +5170,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v840 · 23 okt 2026';
+const APPVERSIE='v841 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -26384,13 +26411,87 @@ function etiketScan(fotos,meteenCamera){
   };
   $('#eCam').onchange=e=>voegToe([...(e.target.files||[])]);
   $('#eAlb').onchange=e=>voegToe([...(e.target.files||[])]);
-  if($('#eMeer')) $('#eMeer').onclick=()=>$('#eCam').click();
+  if($('#eMeer')) $('#eMeer').onclick=()=>etiketCamera();
   if($('#eKies')) $('#eKies').onclick=()=>$('#eAlb').click();
   $$('[data-wisfoto]').forEach(x=>x.onclick=()=>{
     etiketFotos.splice(+x.dataset.wisfoto,1); etiketUrls=[]; etiketScan();
   });
   $('#eLees').onclick=etiketLees;
-  if(meteenCamera) $('#eCam').click();
+  if(meteenCamera) etiketCamera();
+}
+
+/* ═══════════ eigen camera (v841) ═══════════
+   De iPhone-camera vraagt na elke foto "Opnieuw / Gebruik foto" en gooit je
+   daarna terug naar de app. Voor drie foto's per product is dat drie keer
+   heen en weer. Hier blijf je in de zoeker: na elke foto kies je Opnieuw,
+   Nog een foto of Klaar. Kan de camera niet open (geen toestemming, oude
+   browser), dan valt hij terug op de gewone iPhone-camera. */
+const kanEigenCamera=()=>!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+
+async function etiketCamera(){
+  if(!kanEigenCamera()) return $('#eCam')&&$('#eCam').click();
+  if(etiketFotos.length>=ETIKET_MAX) return toast('Zes foto\'s is het maximum per keer.');
+  let stroom=null;
+  try{
+    stroom=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},
+      width:{ideal:2560},height:{ideal:1920}}});
+  }catch(e){
+    toast('De camera mag niet open — ik gebruik de gewone camera.');
+    return $('#eCam')&&$('#eCam').click();
+  }
+  const tips=['Eerst de naam van het product','Nu lot en THT, van dichtbij','Nu voedingswaarde en ingrediënten'];
+  const laag=document.createElement('div');
+  laag.className='ecam';
+  laag.innerHTML=`<video autoplay playsinline muted></video><img class="ecamvoor" alt="">
+    <div class="ecamflits"></div>
+    <div class="ecamkop"><button class="ecamx" aria-label="Sluiten">${svg(I.kruis,'2.4')}</button>
+      <span id="ecamTip"></span></div>
+    <div class="ecamvoet">
+      <div class="ecamduim" id="ecamDuim"></div>
+      <button class="ecamsluit" aria-label="Foto maken"></button>
+      <button class="ecamklaar" id="ecamKlaar">Klaar</button>
+      <div class="ecamkeus">
+        <button data-k="opnieuw">Opnieuw</button>
+        <button data-k="nog" class="hoofd">Nog een foto</button>
+        <button data-k="klaar">Klaar</button></div>
+    </div>`;
+  document.body.appendChild(laag);
+  const vid=laag.querySelector('video'), voor=laag.querySelector('.ecamvoor');
+  vid.srcObject=stroom;
+  try{ await vid.play() }catch(e){}
+  let laatste=null;     /* de foto die je net nam, nog niet bevestigd */
+  const toon=()=>{
+    const n=etiketFotos.length;
+    $('#ecamTip').innerHTML=`${esc(tips[n%3])}<small>Foto ${n+1} van max. ${ETIKET_MAX}</small>`;
+    const d=$('#ecamDuim');
+    d.innerHTML=n?`<img src="${etiketFotos[n-1]}" alt=""><b>${n}</b>`:'';
+    $('#ecamKlaar').disabled=!n;
+    const keus=laag.querySelector('[data-k="nog"]');
+    keus.disabled=n+1>=ETIKET_MAX;
+    keus.textContent=n+1>=ETIKET_MAX?'Maximum bereikt':'Nog een foto';
+  };
+  const stop=()=>{ stroom.getTracks().forEach(x=>x.stop()); laag.remove(); etiketUrls=[]; etiketScan() };
+  const neem=()=>{
+    const w=vid.videoWidth, h=vid.videoHeight; if(!w||!h) return;
+    const s=Math.min(1,1800/Math.max(w,h));
+    const c=document.createElement('canvas'); c.width=Math.round(w*s); c.height=Math.round(h*s);
+    c.getContext('2d').drawImage(vid,0,0,c.width,c.height);
+    let d=c.toDataURL('image/jpeg',.82);
+    if(d.length>1300000) d=c.toDataURL('image/jpeg',.7);
+    laatste=d; voor.src=d; laag.classList.add('voor');
+    const f=laag.querySelector('.ecamflits'); f.style.opacity='.8'; setTimeout(()=>f.style.opacity='0',60);
+  };
+  const bewaar=()=>{ if(laatste){ etiketFotos.push(laatste); laatste=null } laag.classList.remove('voor'); toon() };
+  laag.querySelector('.ecamsluit').onclick=neem;
+  laag.querySelector('.ecamx').onclick=()=>{ laatste=null; stop() };
+  $('#ecamKlaar').onclick=stop;
+  laag.querySelectorAll('.ecamkeus button').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.k;
+    if(k==='opnieuw'){ laatste=null; laag.classList.remove('voor'); return }
+    bewaar();
+    if(k==='klaar'||etiketFotos.length>=ETIKET_MAX) stop();
+  });
+  toon();
 }
 
 async function etiketLees(){
