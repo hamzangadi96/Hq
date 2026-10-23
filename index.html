@@ -4646,6 +4646,10 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
 .vulblok{margin-bottom:26px}
+.wknr{width:24px;height:24px;border-radius:50%;background:var(--card);font-size:13px;font-weight:700;display:grid;place-items:center;flex:none;align-self:flex-start;margin-top:1px}
+.wktxt{font-size:15px;line-height:1.4}
+.wkkop{padding:14px 16px 4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute,#71717a)}.wktxt small{margin-top:4px}
+.shrij .wktxt{white-space:normal}
 .sklbol{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .rkkop{display:flex;align-items:center;gap:8px;margin:20px 4px 8px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs)}
 .rkkop:first-child{margin-top:0}.rkkop .schijf{width:12px;height:12px}
@@ -5206,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v859 · 23 okt 2026';
+const APPVERSIE='v860 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10398,17 +10402,71 @@ const HALF_STANDAARD=[{id:'karamel',naam:'Gezouten karamel',stappen:KARAMEL_STAP
 /* Je gezouten karamel krijgt eenmalig deze werkwijze: glucose eerst, suiker in delen (op verzoek, na een bittere karamel). */
 let karamelGecheckt=false;
 function karamelBijwerken(){
-  if(karamelGecheckt||!S.halfRecepten||!S.halfRecepten.length) return;
-  karamelGecheckt=true;
+  if(!S.halfRecepten||!S.halfRecepten.length) return;
   /* eenmalig per recept (vlag op het recept zelf), daarna blijven jouw eigen aanpassingen staan */
   let gewijzigd=false;
-  S.halfRecepten.filter(r=>r&&(r.id==='karamel'||/gezouten\s*karamel/i.test(r.naam||''))&&!r.werkwijzeRoom).forEach(r=>{
+  S.halfRecepten.filter(r=>r&&!r.werkwijzeRoom&&(r.id==='karamel'||/gezouten\s*karamel/i.test(r.naam||'')||/^suiker droog karamelliseren/i.test(((alsLijst(r.stappen)[0])||{}).tekst||''))).forEach(r=>{
     r.stappen=JSON.parse(JSON.stringify(KARAMEL_STAPPEN)); r.werkwijze835=true; r.werkwijzeGlucose=true; r.werkwijzeMix=true; r.werkwijze1000=true; r.werkwijzeRoom=true; gewijzigd=true });
   if(gewijzigd) setTimeout(()=>bewaarNu(),0);
 }
 /* De smaak Gezouten karamel krijgt dezelfde werkwijze als werkinstructies,
    eenmalig (vlag op de smaak). Bij een stap uit je werkplan over vullingen
    hangen ze daaraan, zodat je ze tijdens het maken vanzelf ziet. */
+/* ═══════════ v860: werkinstructies als één lijst ═══════════
+   Elke instructie had een eigen invulveld met een rij van zes knoppen eronder:
+   per regel een halve schermhoogte. Nu een genummerde lijst; tik op een regel
+   om hem aan te passen, en daar kies je ook bij welke stap hij hoort. */
+const wkTekst=x=>typeof x==='string'?x:(x&&x.t)||'';
+const wkStap=x=>(x&&typeof x!=='string'&&x.stap)||'';
+function sheetWerkLijst(){
+  R.stappen=(R.stappen||[]).filter(x=>wkTekst(x).trim());
+  const L=R.stappen, bas=werkBasissen();
+  sheet('Werkinstructies',
+    `<div class="gl">${L.map((x,i)=>{ const m=wkTekst(x).match(/^([A-Za-zÀ-ÿ]+):\s*(.*)$/s), kop=m?m[1]:'', vk=i?((wkTekst(L[i-1]).match(/^([A-Za-zÀ-ÿ]+):/)||[])[1]||''):'';
+        return `${kop&&kop!==vk?`<div class="wkkop">${esc(kop)}</div>`:''}<button type="button" class="shrij" data-wk="${i}">
+        <span class="wknr">${i+1}</span>
+        <span class="shn wktxt">${esc(m?m[2]:wkTekst(x))}${wkStap(x)?`<small>bij ${esc(wkStap(x).toLowerCase())}</small>`:''}</span>${svg(I.pijl,'2')}</button>` }).join('')}
+      <button type="button" class="lgnieuw" id="wkN">${svg(I.plus)}Instructie</button></div>
+     ${L.length?'':'<p class="lgsom">Noem je een tijd of temperatuur, dan leest HQ die eruit.</p>'}
+     <div class="lgvoet bvoet">${bas.map(b=>`<button type="button" data-wwb="${esc(b.id)}">Werkwijze ${esc(b.naam.toLowerCase())} overnemen</button>`).join('')}
+       ${L.length?'<button type="button" id="wkWis">Alles wissen</button>':''}</div>`,
+    `<button class="prim" style="margin-top:0" id="wkOk">Klaar</button>`);
+  const terug=()=>{ bewaarSmaak(); bewaarNu(); smaakHub() };
+  sheetTerugZet(terug); $('#wkOk').onclick=terug;
+  $$('#sheetBody [data-wk]').forEach(b=>b.onclick=()=>sheetWerkStap(+b.dataset.wk));
+  $('#wkN').onclick=()=>sheetWerkStap(-1);
+  $$('#sheetBody [data-wwb]').forEach(b=>b.onclick=()=>{ const bs=basisVan(b.dataset.wwb); if(!bs) return;
+    const bij=(S.werkplan||[]).find(w=>/vulling|karamel/i.test(w))||'';
+    const kop=bs.naam.split(/\s+/).pop(), kopH=kop.charAt(0).toUpperCase()+kop.slice(1);
+    const oud=R.stappen.slice(), re=new RegExp('^'+kopH+':','i');
+    R.stappen=R.stappen.filter(x=>!re.test(wkTekst(x))).concat(alsLijst(bs.stappen).map(s=>bij?{t:kopH+': '+s.tekst,stap:bij}:kopH+': '+s.tekst));
+    bewaarSmaak(); bewaarNu(); sheetWerkLijst();
+    toast('Werkwijze '+bs.naam.toLowerCase()+' staat erin.',()=>{ R.stappen=oud; bewaarSmaak(); bewaarNu(); sheetWerkLijst() }) });
+  if($('#wkWis')) $('#wkWis').onclick=()=>{ const oud=R.stappen.slice(); R.stappen=[]; bewaarSmaak(); bewaarNu(); sheetWerkLijst();
+    toast('Gewist.',()=>{ R.stappen=oud; bewaarSmaak(); bewaarNu(); sheetWerkLijst() }) };
+}
+function sheetWerkStap(i){
+  const x=i>=0?R.stappen[i]:null;
+  let bij=x?wkStap(x):'';
+  const teken=()=>{
+    sheet(i>=0?'Instructie '+(i+1):'Nieuwe instructie',
+      `<textarea class="inp" id="wsT" rows="4" style="min-height:110px;line-height:1.45" placeholder="Bijv. tempereren tot 31,5 °C">${esc(x?wkTekst(x):'')}</textarea>
+       <div class="rkkop" style="margin-top:18px">Bij welke stap?</div>
+       <div class="chips lgsoort"><button type="button" class="chip klein ${bij?'':'aan'}" data-wsb="">Los</button>
+         ${(S.werkplan||[]).map(w=>`<button type="button" class="chip klein ${bij===w?'aan':''}" data-wsb="${esc(w)}">${esc(w)}</button>`).join('')}</div>
+       ${i>=0?'<div class="lgvoet bvoet"><button type="button" id="wsWeg">Weghalen</button></div>':''}`,
+      `<button class="prim" style="margin-top:0" id="wsOk">Klaar</button>`);
+    sheetTerugZet(()=>sheetWerkLijst());
+    $$('#sheetBody [data-wsb]').forEach(b=>b.onclick=()=>{ const tx=$('#wsT').value; bij=b.dataset.wsb; teken(); $('#wsT').value=tx });
+    $('#wsOk').onclick=()=>{ const tx=$('#wsT').value.trim();
+      if(tx){ const n=bij?{t:tx,stap:bij}:tx; if(i>=0) R.stappen[i]=n; else R.stappen.push(n) }
+      else if(i>=0) R.stappen.splice(i,1);
+      bewaarSmaak(); bewaarNu(); sheetWerkLijst() };
+    if($('#wsWeg')) $('#wsWeg').onclick=()=>{ const oud=R.stappen.slice(); R.stappen.splice(i,1); bewaarSmaak(); bewaarNu(); sheetWerkLijst();
+      toast('Weggehaald.',()=>{ R.stappen=oud; bewaarSmaak(); bewaarNu(); sheetWerkLijst() }) };
+  };
+  teken();
+}
 /* basisrecepten met stappen die bij deze smaak horen: gebruikt in een laag,
    of met dezelfde naam als de smaak */
 function werkBasissen(){
@@ -10419,14 +10477,18 @@ function werkBasissen(){
 }
 let smaakKaramelGecheckt=false;
 function smaakKaramelStappen(){
-  if(smaakKaramelGecheckt||!S.recepten||!S.recepten.length) return;
-  smaakKaramelGecheckt=true;
+  if(!S.recepten||!S.recepten.length) return;
   const bij=(S.werkplan||[]).find(w=>/vulling|karamel/i.test(w))||'';
   let gewijzigd=false;
-  S.recepten.filter(r=>r&&/gezouten\s*karamel/i.test(r.naam||'')&&!r.werkwijzeKaramel).forEach(r=>{
-    const oud=alsLijst(r.stappen).filter(x=>(typeof x==='string'?x:(x&&x.t)||'').trim());
-    if(!oud.length) r.stappen=KARAMEL_STAPPEN.map(s=>bij?{t:'Karamel: '+s.tekst,stap:bij}:'Karamel: '+s.tekst);
-    r.werkwijzeKaramel=true; gewijzigd=true });
+  const tekst=x=>typeof x==='string'?x:(x&&x.t)||'';
+  S.recepten.forEach(r=>{ if(!r) return;
+    const st=alsLijst(r.stappen);
+    /* oude standaardstappen ("Karamel: Suiker droog karamelliseren…") vervangen door je werkwijze */
+    const kl=st.filter(x=>/^karamel:/i.test(tekst(x)));
+    if(!kl.length||kl.some(x=>/bijna vloeibaar/i.test(tekst(x)))) return;
+    r.stappen=st.filter(x=>!/^karamel:/i.test(tekst(x))).concat(KARAMEL_STAPPEN.map(s=>bij?{t:'Karamel: '+s.tekst,stap:bij}:'Karamel: '+s.tekst));
+    try{ if(R.id===r.id) R.stappen=r.stappen.slice() }catch(e){}
+    gewijzigd=true });
   if(gewijzigd) setTimeout(()=>bewaarNu(),0);
 }
 const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
@@ -32045,6 +32107,7 @@ function sheetLaagKopie(n){
 
 /* Eén onderwerp per keer. Wat je hier invult gaat terug naar het overzicht. */
 function smaakDeel(deel){
+  if(deel==='werk') return sheetWerkLijst();
   const stapTekst=x=>typeof x==='string'?x:(x&&x.t)||'';
   const stapBij=x=>(x&&typeof x!=='string'&&x.stap)||'';
   const stapRij=(s2,i)=>`<div class="insblok">
