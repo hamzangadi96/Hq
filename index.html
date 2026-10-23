@@ -1591,6 +1591,45 @@ nav#tabbar{view-transition-name:tabbalk}
 .voetduo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .voetduo .prim,.voetduo .sec{margin-top:0}
 .sec.los{margin-top:0}
+/* ═══ levering scannen met de camera (v835) ═══ */
+.fotoknop{width:100%;display:flex;align-items:center;gap:14px;padding:16px;border-radius:18px;
+  background:var(--accent);color:var(--accentTekst);text-align:left;margin:0 0 18px}
+.fotoknop svg{width:28px;height:28px;flex:none}
+.fotoknop span{display:flex;flex-direction:column;font-size:15.5px;font-weight:600}
+.fotoknop small{font-size:13px;font-weight:500;opacity:.75;margin-top:2px}
+.escanleeg{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;padding:36px 16px;
+  border-radius:18px;border:2px dashed var(--grijs3);color:var(--ink);font-size:15.5px}
+.escanleeg svg{width:40px;height:40px}
+.escanleeg span{color:var(--grijs);font-size:13.5px}
+.ethumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ethumb{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:var(--bg)}
+.ethumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ethumb .wisbtn{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;
+  background:rgba(24,24,27,.72);color:#fff}
+.ethumb .wisbtn svg{width:14px;height:14px}
+.estrip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}
+.estrip img{width:54px;height:54px;object-fit:cover;border-radius:10px;flex:none;cursor:pointer}
+.estrip img.aan{outline:2px solid var(--ink);outline-offset:1px}
+.egroot{width:100%;border-radius:14px;margin:0 0 12px;display:none}
+.ecard{border:1px solid #ececee;border-radius:18px;padding:14px;margin:0 0 12px;background:#fff;transition:opacity .15s}
+.ecard.uit{opacity:.4}
+.ekop{display:flex;gap:10px;align-items:center}
+.evink{width:34px;height:34px;border-radius:50%;border:2px solid var(--grijs3);flex:none;
+  display:flex;align-items:center;justify-content:center;color:#fff}
+.evink.aan{background:#15803d;border-color:#15803d}
+.evink svg{width:16px;height:16px}
+.esub{font-size:12.5px;color:var(--grijs);margin:8px 0 0 44px;line-height:1.4}
+.esub b{color:#15803d;font-weight:600}
+.egrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.egrid .breed{grid-column:1/-1}
+.egrid label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);margin:0 0 6px}
+.egrid .erij{display:flex;gap:6px}
+.egrid .erij select{width:70px;flex:none;padding:0 6px;text-align:center}
+.egrid .inp{min-width:0}
+.inp.twijfel{box-shadow:inset 0 0 0 2px #b45309;background:#fffbeb}
+.espin{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;
+  display:inline-block;margin-right:8px;animation:espin .8s linear infinite;vertical-align:-3px}
+@keyframes espin{to{transform:rotate(360deg)}}
 .sec{width:100%;height:48px;border-radius:14px;background:var(--bg);font-size:15px;font-weight:600;
   margin-top:8px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
 /* zonder maat schaalt een svg op tot de hoogte van de knop */
@@ -5082,7 +5121,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v834 · 23 okt 2026';
+const APPVERSIE='v835 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5344,7 +5383,7 @@ const S={
   recepten:[], vasteBestellingen:[], halfRecepten:[], halfBatches:[], werkdag:{}, meetpunten:[], checks:[], zones:[], middelen:[], leveranciers:[], lots:[], activiteiten:[], werkplan:[],
   klanten:[], orders:[], verkoop:{}, doosjes:[], doosPrijzen:{}, uurtarief:null, ritten:[], rit:null, kmStand:null, plekken:[], bonnen:[], autoSoort:'prive',
   klussen:[], klus:null, klussoorten:[], urennorm:1225,
-  gmut:[], drempels:{}, artikelen:{}, controleur:'', boodschappen:[], planning:[], taken:[], tedoen:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
+  gmut:[], drempels:{}, artikelen:{}, etiketCodes:{}, controleur:'', boodschappen:[], planning:[], taken:[], tedoen:[], verzendgrens:14, balk:[], levertijden:{}, opslagplekken:['Koeling','Klimaatkast','Vriezer','Droge opslag','Werkbank'], branche:'chocolaterie',
   ontvangsten:[], ijkingen:[],
   /* Content: wat je op een dag doet. Sleutel is de datum, waarde de
      activiteiten. Hieruit volgt welke beelden je die dag moet schieten. */
@@ -5398,7 +5437,7 @@ const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','ro
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
-'samenstelling','halfRecepten','halfBatches','werkdag',
+'samenstelling','halfRecepten','halfBatches','werkdag','etiketCodes',
   /* Nieuw veld in S? Dan hoort hij hier ook. Staat hij er niet, dan wordt hij
      niet bewaard én bij de eerstvolgende sync uit S gewist — je invoer lijkt
      dan te verdwijnen zodra je het toetsenbord sluit. */
@@ -25869,6 +25908,8 @@ function sheetOntvangst(vooraf){
   sheet('Ontvangst goederen',
     `<p class="hint">Leg de partij hier één keer vast. Bij het loggen van je ingrediënten kies je 'm daarna uit een lijst.${
        b?'':' Er loopt nu geen batch, dus dit wordt los vastgelegd.'}</p>
+     <button type="button" class="fotoknop" id="oFoto">${svg(I.camera,'1.8')}<span>Foto van het etiket
+       <small>De app leest product, lot en THT voor je uit</small></span></button>
      <div class="veld"><label>Leverancier</label>
       <div class="chips" id="oC">${(S.leveranciers||[]).map((l,i)=>`<button class="chip ${
         vooraf.leverancier?(l===vooraf.leverancier?'aan':''):(i?'':'aan')
@@ -25908,6 +25949,7 @@ function sheetOntvangst(vooraf){
       <textarea class="inp" id="oA" placeholder="Bijv. doos beschadigd, geweigerd en gemeld"></textarea></div>`,
     `<button class="prim" style="margin-top:0" id="oOk">Partij vastleggen</button>`);
   chips('#oC'); chips('#oPl');
+  $('#oFoto').onclick=()=>etiketScan([],true);
   koppelInline('oNieuw','oForm','oFN',()=>{
     const v=$('#oFN').value.trim(); if(!v) return toast('Vul een naam in.');
     S.leveranciers=S.leveranciers||[];
@@ -25928,44 +25970,317 @@ function sheetOntvangst(vooraf){
     if(!l) return toast('Lotnummer is nodig voor traceerbaarheid.');
     if(gekoeld==='ja'&&tmp==='') return toast('Vul de temperatuur bij ontvangst in.');
     if(staat==='fout'&&!a) return toast('Beschrijf kort wat er mis was.');
-    if(staat==='ok'){
-      S.lots=S.lots||[];
-      S.lots.push({id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:getalIn0(h),eenheid:e,
-        plek:chipV('#oPl')||'',ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''});
-      /* "2,5 kg" werd hier 2 kg: parseFloat kapt af op de komma. De prijs ging
-         al door getalIn0, de voorraad nog niet — dus je bon klopte wel en je
-         voorraad niet. */
-      if(h) gBoek(p,getalIn0(h),e,'Ontvangst '+lev,l);
-      const pr=getalIn0($('#oPr').value);
-      if(pr>0&&h){ const basisAantal=naarBasis(getalIn0(h),e);
-        if(basisAantal>0) zetArt(p,{prijs:pr/basisAantal});
-        /* Ook je eigen prijs bijwerken. Deed hij dat niet, dan bleef een ooit
-           handmatig ingevulde prijs voorgaan op wat je vandaag betaald hebt —
-           je kostprijs rekende dan jaren door met een oud bedrag. Zo komt het
-           bovendien netjes in je prijsverloop te staan. */
-        if(PRIJSEENHEID[e]&&!PRIJSEENHEID[e].perStuk) prijsBronZet(p,pr,h,e);
-      }
-      /* gehaald? dan van de boodschappenlijst af */
-      if(S.boodschappen&&S.boodschappen.length){
-        const voor=S.boodschappen.length;
-        S.boodschappen=S.boodschappen.filter(x=>gKey(x.product)!==gKey(p));
-        if(S.boodschappen.length<voor) setTimeout(()=>toast(p+' van je boodschappenlijst gehaald.'),1200);
-      }
-    }
+    boekPartij({lev,p,l,t,h,e,plek:chipV('#oPl')||'',gekoeld,tmp,staat,a,pr:getalIn0($('#oPr').value)},b);
+    bewaarNu();
     if(!b){
-      S.ontvangsten=S.ontvangsten||[];
-      S.ontvangsten.push({id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
-        hoeveel:h,eenheid:e,temp:gekoeld==='ja'?tmp:'',staat,actie:a});
-      bewaarNu(); dicht(); render();
+      dicht(); render();
       return toast(staat==='ok'?'Partij vastgelegd.':'Levering geweigerd en vastgelegd.');
     }
+    klaarSheet(staat==='ok'?'Partij vastgelegd — te kiezen bij je ingrediënten.':'Levering geweigerd en vastgelegd.');
+  };
+}
+
+/* ═══════════ één partij inboeken (v835) ═══════════
+   Het formulier en de foto-route boeken precies hetzelfde: lot, voorraad,
+   prijs, boodschappenlijst en de HACCP-ontvangst. Daarom staat het hier één
+   keer. Stond het twee keer, dan liep er vroeg of laat één achter.
+   Geeft true terug als het product van je boodschappenlijst is gehaald. */
+function boekPartij(r,b){
+  const lev=r.lev, p=r.p, l=r.l, t=r.t, h=r.h, e=r.e, gekoeld=r.gekoeld, tmp=r.tmp, staat=r.staat, a=r.a;
+  let vanLijst=false;
+  if(staat==='ok'){
+    S.lots=S.lots||[];
+    const lot={id:uid(),product:p,leverancier:lev,lot:l,tht:t||'',hoeveel:getalIn0(h),eenheid:e,
+      plek:r.plek||'',ontvangen:vandaag()+' '+nu(),temp:gekoeld==='ja'?tmp:''};
+    if(r.prod) lot.productie=r.prod;
+    if(r.code) lot.code=r.code;
+    S.lots.push(lot);
+    /* "2,5 kg" werd hier 2 kg: parseFloat kapt af op de komma. De prijs ging
+       al door getalIn0, de voorraad nog niet — dus je bon klopte wel en je
+       voorraad niet. */
+    if(h) gBoek(p,getalIn0(h),e,'Ontvangst '+lev,l);
+    const pr=r.pr||0;
+    if(pr>0&&h){ const basisAantal=naarBasis(getalIn0(h),e);
+      if(basisAantal>0) zetArt(p,{prijs:pr/basisAantal});
+      /* Ook je eigen prijs bijwerken. Deed hij dat niet, dan bleef een ooit
+         handmatig ingevulde prijs voorgaan op wat je vandaag betaald hebt —
+         je kostprijs rekende dan jaren door met een oud bedrag. Zo komt het
+         bovendien netjes in je prijsverloop te staan. */
+      if(PRIJSEENHEID[e]&&!PRIJSEENHEID[e].perStuk) prijsBronZet(p,pr,h,e);
+    }
+    /* gehaald? dan van de boodschappenlijst af */
+    if(S.boodschappen&&S.boodschappen.length){
+      const voor=S.boodschappen.length;
+      S.boodschappen=S.boodschappen.filter(x=>gKey(x.product)!==gKey(p));
+      if(S.boodschappen.length<voor){
+        vanLijst=true;
+        if(!r.stil) setTimeout(()=>toast(p+' van je boodschappenlijst gehaald.'),1200);
+      }
+    }
+  }
+  if(!b){
+    S.ontvangsten=S.ontvangsten||[];
+    const o={id:uid(),datum:vandaag(),tijd:nu(),leverancier:lev,product:p,lot:l,tht:t||'',
+      hoeveel:h,eenheid:e,temp:gekoeld==='ja'?tmp:'',staat,actie:a};
+    if(r.foto) o.viaFoto=true;
+    S.ontvangsten.push(o);
+  } else {
     bLog(b,{type:'ontvangst',titel:lev+' · '+p,
       sub:'Lot '+l+(t?' · THT '+kort(new Date(t)):'')+(h?' · '+h+' '+e:'')+
           (gekoeld==='ja'?' · '+komma(tmp)+' °C':'')+(staat==='ok'?'':' — '+a),
       status:staat==='ok'?'ok':'fout'});
-    bewaarNu();
-    klaarSheet(staat==='ok'?'Partij vastgelegd — te kiezen bij je ingrediënten.':'Levering geweigerd en vastgelegd.');
+  }
+  return vanLijst;
+}
+
+/* ═══════════ levering scannen (v835) ═══════════
+   Typen van lotnummers en datums van een doos die op de grond staat was het
+   traagste stuk van een levering. Nu: foto van de dozen, close-up van elk
+   etiket, Claude leest het uit, jij kijkt het na en legt alles in één keer
+   vast. Wat Claude niet zeker weet staat amber. De artikelcode onthoudt de
+   app, dus de tweede keer kent hij het product al. */
+let etiketFotos=[];
+const ETIKET_MAX=6;
+const codeKey=c=>String(c||'').trim().toLowerCase().replace(/[.#$\/\[\]\s]+/g,'_').slice(0,40);
+
+function verkleinFoto(bestand){
+  return new Promise((ok,nee)=>{
+    const url=URL.createObjectURL(bestand), img=new Image();
+    img.onload=()=>{
+      /* Lang genoeg om kleine print te lezen, klein genoeg om snel te versturen. */
+      const maak=(max,q)=>{
+        const s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+        const c=document.createElement('canvas');
+        c.width=Math.round(img.naturalWidth*s); c.height=Math.round(img.naturalHeight*s);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        return c.toDataURL('image/jpeg',q);
+      };
+      let d=maak(1800,.82);
+      if(d.length>1300000) d=maak(1500,.72);
+      URL.revokeObjectURL(url); ok(d);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);nee(new Error('Deze foto kan ik niet openen.'))};
+    img.src=url;
+  });
+}
+
+function etiketScan(fotos,meteenCamera){
+  if(Array.isArray(fotos)) etiketFotos=fotos;
+  const n=etiketFotos.length;
+  sheet('Levering scannen',
+    `<input type="file" accept="image/*" capture="environment" id="eCam" hidden>
+     <input type="file" accept="image/*" multiple id="eAlb" hidden>
+     <div class="hint" style="margin:0 0 14px">Eén foto van de dozen en een close-up van elk etiket.
+       Lotnummer en THT staan klein: houd je telefoon er een hand boven.</div>
+     ${n?`<div class="ethumbs">${etiketFotos.map((f,i)=>`<div class="ethumb"><img src="${f}" alt="Foto ${i+1}">
+           <button type="button" class="wisbtn" data-wisfoto="${i}" aria-label="Foto weghalen">${svg(I.kruis,'2.4')}</button></div>`).join('')}</div>
+         ${n<ETIKET_MAX?`<div class="voetduo" style="margin-top:12px">
+           <button type="button" class="sec los" id="eMeer">${svg(I.camera)}Nog een foto</button>
+           <button type="button" class="sec los" id="eKies">Uit je foto's</button></div>`
+           :`<div class="hint" style="margin:12px 0 0">Zes foto's is het maximum per keer.</div>`}`
+        :`<button type="button" class="escanleeg" id="eMeer">${svg(I.camera,'1.6')}<b>Maak een foto</b>
+           <span>van de doos of het etiket</span></button>
+          <button type="button" class="sec" id="eKies">Kies uit je foto's</button>`}`,
+    `<button class="prim" style="margin-top:0" id="eLees"${n?'':' disabled'}>${
+      n?'Uitlezen · '+n+(n===1?' foto':" foto's"):'Uitlezen'}</button>`);
+  sheetTerugZet(()=>sheetOntvangst());
+  const voegToe=async lijst=>{
+    const ruimte=ETIKET_MAX-etiketFotos.length;
+    if(lijst.length>ruimte) toast('Maximaal '+ETIKET_MAX+" foto's per keer.");
+    for(const f of lijst.slice(0,Math.max(0,ruimte))){
+      try{ etiketFotos.push(await verkleinFoto(f)) }catch(e){ toast(e.message) }
+    }
+    etiketScan();
   };
+  $('#eCam').onchange=e=>voegToe([...(e.target.files||[])]);
+  $('#eAlb').onchange=e=>voegToe([...(e.target.files||[])]);
+  if($('#eMeer')) $('#eMeer').onclick=()=>$('#eCam').click();
+  if($('#eKies')) $('#eKies').onclick=()=>$('#eAlb').click();
+  $$('[data-wisfoto]').forEach(x=>x.onclick=()=>{
+    etiketFotos.splice(+x.dataset.wisfoto,1); etiketScan();
+  });
+  $('#eLees').onclick=etiketLees;
+  if(meteenCamera) $('#eCam').click();
+}
+
+async function etiketLees(){
+  const k=$('#eLees'); if(!k||k.disabled||!etiketFotos.length) return;
+  k.disabled=true; k.innerHTML='<span class="espin"></span>Etiketten lezen…';
+  try{
+    const r=await roep('leesEtiket',{
+      beelden:etiketFotos.map(f=>f.split(',')[1]),
+      producten:grondVoorraad().map(x=>x.product).filter(Boolean).slice(0,300),
+      leveranciers:(S.leveranciers||[]).slice(0,60)});
+    const ps=((r&&r.partijen)||[]).map(etiketHerken);
+    if(!ps.length){
+      toast((r&&r.tip)||'Ik kon geen etiket lezen. Maak een scherpere close-up.');
+      return etiketScan();
+    }
+    etiketCheck(ps,(r&&r.tip)||'');
+  }catch(e){
+    toast((e&&e.message)||'Uitlezen lukte niet.');
+    const k2=$('#eLees');
+    if(k2){ k2.disabled=false; k2.textContent='Opnieuw uitlezen' }
+  }
+}
+
+/* wat de app al kent gaat voor wat Claude raadt */
+function etiketHerken(p){
+  p=Object.assign({product:'',leverancier:'',lot:'',tht:'',hoeveel:null,eenheid:'kg',aantal:1,twijfel:[]},p);
+  const m=(S.etiketCodes||{})[codeKey(p.artikelcode)];
+  if(p.artikelcode&&m){
+    if(m.product) p.product=m.product;
+    if(m.leverancier) p.leverancier=m.leverancier;
+    if(!p.hoeveel&&m.hoeveel){ p.hoeveel=m.hoeveel; p.eenheid=m.eenheid||p.eenheid }
+    p.twijfel=p.twijfel.filter(x=>x!=='product'&&x!=='leverancier'&&x!=='hoeveel');
+    p.bekend=true;
+  }
+  const lv=(S.leveranciers||[]).find(x=>gKey(x)===gKey(p.leverancier));
+  if(lv) p.leverancier=lv;
+  const pv=grondVoorraad().find(x=>gKey(x.product)===gKey(p.product));
+  if(pv) p.product=pv.product;
+  p.aan=true;
+  return p;
+}
+
+function etiketCheck(ps,tip){
+  const b=batch();
+  const twijfel=(p,v,leeg)=>((p.twijfel||[]).includes(v)||leeg)?' twijfel':'';
+  const nakijken=ps.some(p=>(p.twijfel||[]).length||!p.lot||!p.tht);
+  const kaart=(p,i)=>`<div class="ecard${p.aan?'':' uit'}" data-i="${i}">
+     <div class="ekop"><button type="button" class="evink${p.aan?' aan':''}" data-aan="${i}"
+         aria-label="Meenemen">${p.aan?svg(I.vink,'2.6'):''}</button>
+       <input class="inp${twijfel(p,'product',!p.product)}" data-f="product" value="${esc(p.product)}"
+         placeholder="Product" list="eProd" autocomplete="off"></div>
+     ${p.omschrijving||p.artikelcode||p.bekend?`<div class="esub">${esc([p.omschrijving,p.artikelcode].filter(Boolean).join(' · '))}${
+       p.bekend?(p.omschrijving||p.artikelcode?' · ':'')+'<b>herkend</b>':''}</div>`:''}
+     <div class="egrid">
+       <div><label>Lotnummer</label><input class="inp${twijfel(p,'lot',!p.lot)}" data-f="lot"
+         value="${esc(p.lot)}" placeholder="Niet gelezen" autocomplete="off"></div>
+       <div><label>THT</label><input class="inp${twijfel(p,'tht',!p.tht)}" data-f="tht" type="date"
+         value="${esc(p.tht)}"></div>
+       <div><label>Aantal</label><input class="inp${twijfel(p,'aantal')}" data-f="aantal" type="text"
+         inputmode="numeric" value="${p.aantal||1}"></div>
+       <div><label>Inhoud per stuk</label><div class="erij">
+         <input class="inp${twijfel(p,'hoeveel',!p.hoeveel)}" data-f="hoeveel" type="text" inputmode="decimal"
+           value="${p.hoeveel!=null&&p.hoeveel!==''?komma(p.hoeveel):''}" placeholder="0">
+         <select class="inp" data-f="eenheid">${['kg','g','l','ml','st'].map(e=>
+           `<option${p.eenheid===e?' selected':''}>${e}</option>`).join('')}</select></div></div>
+       <div class="breed"><label>Leverancier</label><input class="inp${twijfel(p,'leverancier',!p.leverancier)}"
+         data-f="leverancier" value="${esc(p.leverancier)}" placeholder="Leverancier" list="eLev" autocomplete="off"></div>
+     </div></div>`;
+  sheet('Levering nakijken',
+    `<datalist id="eProd">${grondVoorraad().map(x=>`<option value="${esc(x.product)}">`).join('')}</datalist>
+     <datalist id="eLev">${(S.leveranciers||[]).map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
+     ${etiketFotos.length?`<div class="estrip">${etiketFotos.map((f,i)=>
+       `<img src="${f}" data-groot="${i}" alt="Foto ${i+1}">`).join('')}</div>
+       <img class="egroot" id="eGroot" alt="">`:''}
+     ${tip?`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}<span>${esc(tip)}</span></div>`:''}
+     ${nakijken?`<div class="hint" style="margin:0 0 12px">Amber is even nakijken: vergelijk het met het etiket.
+       Tik op een foto om hem groot te zien.</div>`:''}
+     <div id="eKaarten">${ps.map(kaart).join('')}</div>
+     <div class="veld"><label>Waar leg je het neer?</label>
+       <div class="chips" id="ePl">${(S.opslagplekken||[]).map((x,i)=>
+         `<button class="chip ${i?'':'aan'}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}
+         <button class="chip" data-v="">Niet nu</button></div></div>
+     <div class="veld"><label>Gekoeld geleverd?</label>
+       <div class="duo" id="eK"><button data-v="nee" class="aan">Niet gekoeld</button><button data-v="ja">Gekoeld</button></div>
+       <div id="eKV" style="display:none;margin-top:12px">
+         <label>Temperatuur bij ontvangst</label>
+         <input class="inp" id="eTemp" type="text" inputmode="decimal" placeholder="°C"></div></div>
+     <div class="veld"><label>Staat van de levering</label>
+       <div class="duo" id="eS"><button class="aan" data-v="ok">In orde</button><button data-v="fout">Niet in orde</button></div></div>
+     <div class="veld" id="eAV" style="display:none"><label>Wat was er mis en wat deed je?</label>
+       <textarea class="inp" id="eA" placeholder="Bijv. doos beschadigd, geweigerd en gemeld"></textarea></div>`,
+    `<div class="voetduo"><button class="sec" id="eTerug">Foto's</button>
+       <button class="prim" id="eOk"></button></div>`);
+  sheetTerugZet(()=>etiketScan());
+  chips('#ePl');
+
+  const telKnop=()=>{
+    const n=ps.filter(p=>p.aan).length;
+    $('#eOk').textContent=n===1?'1 partij vastleggen':n+' partijen vastleggen';
+  };
+  const lees=()=>{
+    $$('#eKaarten .ecard').forEach(c=>{
+      const p=ps[+c.dataset.i]; if(!p) return;
+      c.querySelectorAll('[data-f]').forEach(v=>{
+        const f=v.dataset.f, w=v.value.trim();
+        if(f==='hoeveel') p.hoeveel=getalIn(w);
+        else if(f==='aantal'){ const a=Math.round(getalIn0(w)); p.aantal=a>0?a:1 }
+        else p[f]=w;
+      });
+    });
+  };
+  /* wat je zelf aanraakt is nagekeken: dan hoeft het niet meer amber */
+  $$('#eKaarten [data-f]').forEach(v=>v.addEventListener('input',()=>{
+    if(v.value.trim()) v.classList.remove('twijfel');
+  }));
+  $$('[data-aan]').forEach(x=>x.onclick=()=>{
+    const p=ps[+x.dataset.aan]; p.aan=!p.aan;
+    x.classList.toggle('aan',p.aan); x.innerHTML=p.aan?svg(I.vink,'2.6'):'';
+    x.closest('.ecard').classList.toggle('uit',!p.aan);
+    telKnop();
+  });
+  $$('[data-groot]').forEach(x=>x.onclick=()=>{
+    const g=$('#eGroot'), al=x.classList.contains('aan');
+    $$('[data-groot]').forEach(y=>y.classList.remove('aan'));
+    if(al){ g.style.display='none'; return }
+    x.classList.add('aan'); g.src=x.src; g.style.display='block';
+  });
+  let staat='ok', gekoeld='nee';
+  $$('#eS button').forEach(x=>x.onclick=()=>{sluitToetsenbord();$$('#eS button').forEach(y=>y.classList.remove('aan'));
+    x.classList.add('aan');staat=x.dataset.v;$('#eAV').style.display=staat==='ok'?'none':'block'});
+  $$('#eK button').forEach(x=>x.onclick=()=>{sluitToetsenbord();$$('#eK button').forEach(y=>y.classList.remove('aan'));
+    x.classList.add('aan');gekoeld=x.dataset.v;$('#eKV').style.display=gekoeld==='ja'?'block':'none'});
+  $('#eTerug').onclick=()=>{ lees(); etiketScan() };
+
+  const foutVeld=(p,f,msg)=>{
+    const c=$(`#eKaarten .ecard[data-i="${ps.indexOf(p)}"]`), v=c&&c.querySelector(`[data-f="${f}"]`);
+    if(v){ v.classList.add('twijfel'); v.scrollIntoView({block:'center',behavior:'smooth'}); setTimeout(()=>v.focus(),250) }
+    toast(msg);
+  };
+  $('#eOk').onclick=()=>{
+    lees();
+    const kies=ps.filter(p=>p.aan);
+    if(!kies.length) return toast('Vink minstens één partij aan.');
+    for(const p of kies){
+      const naam=p.product||'deze partij';
+      if(!p.product) return foutVeld(p,'product','Vul het product in.');
+      if(!p.lot) return foutVeld(p,'lot','Lotnummer is nodig voor traceerbaarheid — '+naam+'.');
+      if(!p.leverancier) return foutVeld(p,'leverancier','Vul de leverancier in bij '+naam+'.');
+    }
+    const tmp=$('#eTemp').value, a=$('#eA').value.trim(), plek=chipV('#ePl')||'';
+    if(gekoeld==='ja'&&tmp==='') return toast('Vul de temperatuur bij ontvangst in.');
+    if(staat==='fout'&&!a) return toast('Beschrijf kort wat er mis was.');
+    S.leveranciers=S.leveranciers||[]; S.etiketCodes=S.etiketCodes||{};
+    let vanLijst=0;
+    kies.forEach(p=>{
+      if(!S.leveranciers.some(x=>gKey(x)===gKey(p.leverancier))) S.leveranciers.push(p.leverancier);
+      /* onthoud de artikelcode: volgende keer is het product meteen goed */
+      const ck=codeKey(p.artikelcode);
+      if(ck){
+        const m={product:p.product,leverancier:p.leverancier,eenheid:p.eenheid};
+        if(p.hoeveel) m.hoeveel=p.hoeveel;
+        S.etiketCodes[ck]=m;
+      }
+      const totaal=(p.hoeveel||0)*(p.aantal||1);
+      const h=totaal?String(Math.round(totaal*1000)/1000):'';
+      if(boekPartij({lev:p.leverancier,p:p.product,l:p.lot,t:p.tht,h,e:p.eenheid,plek,gekoeld,tmp,staat,a,
+        pr:0,prod:p.productiedatum||'',code:p.artikelcode||'',stil:true,foto:true},b)) vanLijst++;
+    });
+    bewaarNu();
+    etiketFotos=[];
+    const n=kies.length;
+    const msg=staat==='ok'
+      ?(n===1?'Partij vastgelegd.':n+' partijen vastgelegd.')
+      :'Levering geweigerd en vastgelegd.';
+    if(!b){ dicht(); render(); toast(msg) }
+    else klaarSheet(msg+(staat==='ok'?' Te kiezen bij je ingrediënten.':''));
+    if(vanLijst) setTimeout(()=>toast(vanLijst===1?'Eén product van je boodschappenlijst gehaald.'
+      :vanLijst+' producten van je boodschappenlijst gehaald.'),1400);
+  };
+  telKnop();
 }
 
 function sheetIngredienten(){

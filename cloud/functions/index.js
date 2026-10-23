@@ -1743,6 +1743,9 @@ Object.assign(exports, require('./analyseerClip'));
 /* De regie: van bekeken clips een montageplan maken. Ook apart. */
 Object.assign(exports, require('./maakRegie'));
 
+/* Etiketten lezen: een levering inboeken met de camera. Ook apart. */
+Object.assign(exports, require('./leesEtiket'));
+
 /* ═══════════════════════════════════════════════════════════════════
    Claude laten meelezen
 
