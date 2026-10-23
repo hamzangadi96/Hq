@@ -5188,7 +5188,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v845 · 23 okt 2026';
+const APPVERSIE='v846 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6333,10 +6333,18 @@ const BEDRIJF={
 };
 
 /* ingrediënten van één smaak, per bonbon, van zwaar naar licht */
+/* v846: een basisrecept (bijv. Gezouten karamel) in een laag is zelf geen
+   product. Voor kostprijs, voedingswaarde, allergenen en etiket rekenen we
+   door naar wat erin zit, naar verhouding. */
+function basisUitklap(x){
+  const b=x&&x.basis&&basisVan(x.basis), bi=b?alsLijst(b.ing).filter(y=>y.naam&&!y.basis):[];
+  const bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
+  return bs?bi.map(y=>({naam:y.naam,gram:x.gram*getalIn0(y.deel)/bs})):[x];
+}
 function smaakIngredienten(r){
   const map={};
   (r.onderdelen||[]).forEach(o=>{
-    verdeel(o,getalIn0(o.gram)).forEach(x=>{if(x.naam)map[x.naam]=(map[x.naam]||0)+x.gram});
+    verdeel(o,getalIn0(o.gram)).forEach(x0=>basisUitklap(x0).forEach(x=>{if(x.naam)map[x.naam]=(map[x.naam]||0)+x.gram}));
   });
   const tot=Object.values(map).reduce((a,b)=>a+b,0)||1;
   return Object.keys(map).map(n=>({naam:n,gram:map[n],pct:map[n]/tot*100}))
@@ -31629,7 +31637,7 @@ function sheetLaagNieuw(){
   $$('#sheetBody [data-nl]').forEach(b=>b.onclick=()=>{
     const naam=b.dataset.nl;
     let o=naam?nieuweLaag(naam):{naam:'',gram:'',ing:[]};
-    o=Object.assign({},o,{naam,ing:(o.ing||[]).map(x=>({naam:x.naam||'',deel:x.deel||'',...(x.rol?{rol:x.rol}:{})})).filter(x=>x.naam)});
+    o=Object.assign({},o,{naam,ing:(o.ing||[]).map(x=>({naam:x.naam||'',deel:x.deel||'',...(x.rol?{rol:x.rol}:{}),...(x.basis?{basis:x.basis}:{})})).filter(x=>x.naam)});
     if(naam==='Schelp'&&!o.ing.length) o.ing=[{naam:schelpIngVoor(R.chocolade),deel:'100'}];
     if(!o.gram){ const s0=ondSoort(naam); if(s0) o.gram=String(s0.gram) }
     if(!o.stap) o.stap=ondStapVoor(naam);
@@ -31637,6 +31645,47 @@ function sheetLaagNieuw(){
     sheetLaag(R.onderdelen.length-1);
     if(o._van) toast('Overgenomen van '+o._van+'. Pas aan wat anders is.');
   });
+}
+
+/* ═══════════ laag opslaan als basisrecept (v846) ═══════════
+   Je gezouten karamel is overal dezelfde. Leg hem één keer vast als
+   basisrecept; elke bonbon die hem gebruikt rekent dan naar zijn eigen gram
+   per bonbon, en een aanpassing aan het basisrecept geldt overal. */
+function sheetLaagAlsBasis(n){
+  const o=R.onderdelen[n]; if(!o) return smaakHub();
+  const bestaand=halfRecepten();
+  const lijkt=bestaand.find(b=>gKey(b.naam)===gKey(R.naam))
+    ||bestaand.find(b=>gKey(R.naam).indexOf(gKey(b.naam))>=0||gKey(b.naam).indexOf(gKey(o.naam))>=0);
+  const voorstel=lijkt?lijkt.naam:(o.naam||'Basisrecept');
+  sheet('Opslaan als basisrecept',
+    `<div class="veld"><label>Naam van het basisrecept</label>
+       <input class="inp" id="lbN" value="${esc(voorstel)}" autocomplete="off"></div>
+     ${bestaand.length?`<div class="chips" id="lbC" style="margin:-6px 0 16px">${bestaand.map(b=>
+       `<button type="button" class="chip klein${lijkt&&b.id===lijkt.id?' aan':''}" data-v="${esc(b.naam)}">${esc(b.naam)}</button>`).join('')}</div>`:''}
+     <div class="hint" id="lbH" style="margin:0 0 16px"></div>
+     <div class="veld"><label>Deze bonbon eraan koppelen?</label>
+       <div class="duo" id="lbK"><button class="aan" data-v="ja">Ja</button><button data-v="nee">Nee, alleen opslaan</button></div></div>
+     <div class="gl">${(o.ing||[]).filter(x=>x.naam&&!x.basis).map(x=>`<div class="shrij"><span class="shn">${esc(x.naam)}</span>
+       <span class="shw">${fijn(getDeel(x))} g</span></div>`).join('')}</div>`,
+    `<button class="prim" style="margin-top:0" id="lbOk">Opslaan</button>`);
+  sheetTerugZet(()=>sheetLaag(n));
+  const uitleg=()=>{ const nm=$('#lbN').value.trim(), b=bestaand.find(x=>gKey(x.naam)===gKey(nm));
+    $('#lbH').textContent=b?(alsLijst(b.ing).some(y=>y.naam)?'Bestaat al: het recept van '+b.naam+' wordt vervangen door deze verhouding. Stappen blijven staan.'
+      :b.naam+' heeft nog geen ingrediënten; deze verhouding wordt het recept.'):'Wordt een nieuw basisrecept.' };
+  uitleg(); $('#lbN').oninput=uitleg;
+  $$('#lbC [data-v]').forEach(c=>c.onclick=()=>{ $$('#lbC .chip').forEach(y=>y.classList.remove('aan')); c.classList.add('aan'); $('#lbN').value=c.dataset.v; uitleg() });
+  chips('#lbK');
+  $('#lbOk').onclick=()=>{
+    const nm=$('#lbN').value.trim(); if(!nm) return toast('Geef het basisrecept een naam.');
+    const herstel=terugpunt(['halfRecepten','recepten']);
+    const lijst=basisZeker();
+    let b=lijst.find(x=>gKey(x.naam)===gKey(nm));
+    const ingKopie=(o.ing||[]).filter(x=>x.naam&&!x.basis).map(x=>({naam:x.naam,deel:x.deel||''}));
+    if(b) b.ing=ingKopie; else { b={id:uid(),naam:nm,stappen:[],ing:ingKopie}; lijst.push(b) }
+    if(chipV('#lbK')==='ja') o.ing=[{naam:b.naam,deel:'100',basis:b.id}];
+    smaakOpslaan(); bewaarNu(); sheetLaag(n);
+    toast(b.naam+' staat bij je basisrecepten.',()=>{ herstel(); sheetReceptForm(R.id) });
+  };
 }
 
 let LG={plak:false,plakTekst:''};
@@ -31670,6 +31719,15 @@ function sheetLaag(n){
      ${LG.plak?`<div class="rsplak"><textarea id="lgPlakTxt" rows="5" placeholder="Eén ingrediënt per regel, bijv.&#10;200 g slagroom&#10;300 g witte chocolade">${esc(LG.plakTekst||'')}</textarea>
        <button type="button" class="prim" style="margin-top:8px" id="lgPlakOk">Omzetten</button></div>`:''}
      <div class="lgsom" id="lgSom">${somTekst()}</div>
+     ${(()=>{ const bk=ing.length===1&&ing[0].basis&&basisVan(ing[0].basis);
+       if(bk) return `<div class="melding groen" style="margin-top:12px">${svg(I.vink,'2')}<span>Gebruikt het basisrecept
+         <b>${esc(bk.naam)}</b>. Pas je dat aan, dan verandert het in elke bonbon mee.
+         <span class="smkeus"><button type="button" class="chip klein" id="lgBasisOpen">Basisrecept openen</button></span></span></div>`;
+       const vrij=halfRecepten().filter(b=>alsLijst(b.ing).some(y=>y.naam&&getalIn0(y.deel)>0));
+       if(!ing.length&&vrij.length) return `<div class="veld" style="margin-top:14px"><label>Basisrecept gebruiken</label>
+         <div class="chips">${vrij.map(b=>`<button type="button" class="chip" data-lgbas="${esc(b.id)}">${esc(b.naam)}</button>`).join('')}</div></div>`;
+       return ing.filter(x=>!x.basis).length>1?`<button type="button" class="sec" id="lgAlsBasis" style="margin-top:12px">Opslaan als basisrecept</button>`:'';
+     })()}
      <div class="lgvoet">
        <button type="button" id="lgPlak">Plakken</button>
        <button type="button" id="lgKopie">Kopiëren</button>
@@ -31706,6 +31764,11 @@ function sheetLaag(n){
       if(bk){ o.ing[k].naam=bk.naam; o.ing[k].basis=bk.id } else if(keuze){ o.ing[k].naam=keuze; delete o.ing[k].basis }
       smaakOpslaan(); sheetLaag(n) },{weg:true,basis:true}) });
   $('#lgPlak').onclick=()=>{ lees(); LG.plak=!LG.plak; LG.plakTekst=''; opnieuw() };
+  $$('[data-lgbas]').forEach(b=>b.onclick=()=>{ lees(); const bk=basisVan(b.dataset.lgbas); if(!bk) return;
+    o.ing=[{naam:bk.naam,deel:'100',basis:bk.id}]; smaakOpslaan(); sheetLaag(n);
+    toast(bk.naam+' gekoppeld — rekent mee naar de grammen van deze bonbon.',()=>{ o.ing=[]; smaakOpslaan(); sheetLaag(n) }) });
+  if($('#lgAlsBasis')) $('#lgAlsBasis').onclick=()=>{ lees(); smaakOpslaan(); sheetLaagAlsBasis(n) };
+  if($('#lgBasisOpen')) $('#lgBasisOpen').onclick=()=>{ lees(); smaakOpslaan(); sheetBasisIng(o.ing[0].basis,()=>sheetLaag(n)) };
   if($('#lgPlakOk')) $('#lgPlakOk').onclick=()=>{ lees();
     const rijen=receptPlakLees(LG.plakTekst||''); if(!rijen.length) return toast('Ik herken geen ingrediënten. Zet per regel een hoeveelheid en een naam.');
     rijen.forEach(x=>ingToevoegen(x.naam));
@@ -33531,9 +33594,9 @@ function bestelAdvies(v){
 function batchesUitVoorraad(recept){
   const nodig={};
   (recept.onderdelen||[]).forEach(o=>{
-    verdeel(o,parseFloat(o.gram)||0).forEach(x=>{
+    verdeel(o,parseFloat(o.gram)||0).forEach(x0=>basisUitklap(x0).forEach(x=>{
       if(x.naam) nodig[x.naam]=(nodig[x.naam]||0)+x.gram;
-    });
+    }));
   });
   const vrd=grondVoorraad();
   let minst=null, knelpunt='';
