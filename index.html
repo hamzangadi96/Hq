@@ -4646,6 +4646,7 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .lgsom b.lglet{color:var(--amber)}
 .vpsoort2{margin-top:22px}
 .vulblok{margin-bottom:26px}
+.sklbol{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .rkkop{display:flex;align-items:center;gap:8px;margin:20px 4px 8px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--grijs)}
 .rkkop:first-child{margin-top:0}.rkkop .schijf{width:12px;height:12px}
 .rkrij{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;border:0;background:none;font:inherit;color:var(--ink);text-align:left;padding:6px 8px 6px 14px;cursor:pointer}
@@ -5205,7 +5206,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v854 · 23 okt 2026';
+const APPVERSIE='v855 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15514,6 +15515,47 @@ function kleurInhoud(kleur,diep){
   return uit;
 }
 
+/* ═══════════ v855: kleuren als voorraad en per smaak ═══════════
+   Een potje is cacaoboter + kleurstof. Voor je voorraad en inkoop splitsen
+   we elk potje (ook een mengsel, via zijn basiskleuren) uit naar twee
+   producten: "Cacaoboter" en "Kleurstof <naam>". Die boek je net als je
+   andere grondstoffen in bij Ontvangst, en ze tellen mee in Wat heb ik
+   nodig, de dekking en je boodschappen. */
+let KLEURTERUG=null;
+const kleurstofNaam=k=>'Kleurstof '+(k.naam||'?').toLowerCase();
+const KLEURBOTER='Cacaoboter';
+function kleurUitsplitsen(k,gram,map,diep){
+  if(!k||!(gram>0)||diep>4) return;
+  if(k.soort!=='mix'){
+    const bo=Math.max(0,parseFloat(k.boterG)||0), kl=Math.max(0,parseFloat(k.kleurG)||0), pot=bo+kl;
+    if(!pot) return;
+    map[KLEURBOTER]=(map[KLEURBOTER]||0)+gram*bo/pot;
+    const n=kleurstofNaam(k); map[n]=(map[n]||0)+gram*kl/pot;
+    return;
+  }
+  const delen=(k.delen||[]).filter(d=>d.id&&parseFloat(d.gram)>0), tot=delen.reduce((s,d)=>s+parseFloat(d.gram),0);
+  delen.forEach(d=>kleurUitsplitsen(kleurVan(d.id),gram*parseFloat(d.gram)/tot,map,diep+1));
+}
+/* per smaak aanvinken welke kleuren erop gaan */
+function sheetSmaakKleuren(){
+  kleurenIjken();
+  R.kleuren=alsLijst(R.kleuren);
+  const l=kleurLijst();
+  sheet('Kleuren op '+(R.naam||'deze smaak').toLowerCase(),
+    `<div class="gl">${l.map(k=>{ const aan=R.kleuren.includes(k.id), r=kleurReken(k,1);
+        return `<button type="button" class="shrij" data-skl="${esc(k.id)}">
+          <span class="smst ${aan?'ok':''}">${aan?svg(I.vink,'3'):''}</span>
+          <i class="sklbol" style="background:${esc(k.hex||'#d4d4d8')}"></i>
+          <span class="shn">${esc(k.naam)}<small>${r.perBonbon?fijn(r.perBonbon)+' g per bonbon':'verbruik nog invullen'}${k.soort==='mix'?' · gemengd':''}${r.enrs.length?' · '+esc(r.enrs.join(', ')):''}</small></span></button>` }).join('')}
+      <button type="button" class="lgnieuw" id="sklN">${svg(I.plus)}Nieuwe kleur</button></div>
+     <p class="lgsom">Het verbruik per bonbon komt uit de kleur zelf. Bij Wat heb ik nodig en je inkoop wordt het uitgesplitst naar cacaoboter en kleurstof.</p>`,
+    `<button class="prim" style="margin-top:0" id="sklOk">Klaar</button>`);
+  const terug=()=>{ bewaarSmaak(); bewaarNu(); smaakHub() };
+  sheetTerugZet(terug); $('#sklOk').onclick=terug;
+  $$('#sheetBody [data-skl]').forEach(b=>b.onclick=()=>{ const id=b.dataset.skl, i=R.kleuren.indexOf(id);
+    if(i>=0) R.kleuren.splice(i,1); else R.kleuren.push(id); bewaarSmaak(); bewaarNu(); sheetSmaakKleuren() });
+  $('#sklN').onclick=()=>{ bewaarSmaak(); KLEURTERUG=id=>{ if(id&&!R.kleuren.includes(id)) R.kleuren.push(id); bewaarSmaak(); bewaarNu(); sheetSmaakKleuren() }; sheetKleur(null) };
+}
 /* Rekent een kleur door voor een aantal bonbons. */
 function kleurReken(kleur,bonbons){
   const n=Math.max(0,parseFloat(bonbons)||0);
@@ -16163,7 +16205,7 @@ function sheetKleur(idx){
       if(!k.id) k.id=uid();
       delete k.naamAuto;              /* alleen nodig tijdens het invullen */
       if(nieuw) kleurLijst().push(k); else Object.assign(kleurLijst()[idx],k);
-      bewaarNu(); sheetKleuren(); toast(nieuw?'Kleur toegevoegd.':'Bewaard.');
+      bewaarNu(); if(KLEURTERUG){ const f=KLEURTERUG; KLEURTERUG=null; f(k.id) } else sheetKleuren(); toast(nieuw?'Kleur toegevoegd.':'Bewaard.');
     };
     if($('#kwWeg')) $('#kwWeg').onclick=()=>{
       kleurLijst().splice(idx,1); bewaarNu(); sheetKleuren(); toast('Verwijderd.');
@@ -20583,6 +20625,10 @@ function nodigVoor(regels,receptenBron){
         map[x.naam]=(map[x.naam]||0)+x.gram;
       });
     });
+    /* v855: kleuren van deze smaak — gram mengsel per bonbon uit je eigen verbruik */
+    alsLijst(r.kleuren).forEach(id=>{ const k=kleurVan(id); if(!k) return;
+      const per=kleurReken(k,1).perBonbon; if(!(per>0)) return;
+      kleurUitsplitsen(k,per*rg.aantal,map,0) });
   });
   return Object.keys(map).map(n=>({naam:n,gram:map[n]}));
 }
@@ -25740,7 +25786,7 @@ const R={id:null,naam:'',chocolade:'melk',tht:14,onderdelen:[],stappen:[],wizard
 /* bewaart de smaak zodra hij een naam heeft — niets gaat verloren bij sluiten */
 function bewaarSmaak(){
   if(!R.naam) return false;
-  const d={naam:R.naam,chocolade:R.chocolade,tht:R.tht,onderdelen:R.onderdelen,stappen:R.stappen};
+  const d={naam:R.naam,chocolade:R.chocolade,tht:R.tht,onderdelen:R.onderdelen,stappen:R.stappen,kleuren:alsLijst(R.kleuren)};
   if(R.id&&S.recepten.find(x=>x.id===R.id)) Object.assign(S.recepten.find(x=>x.id===R.id),d);
   else { R.id=uid(); S.recepten.push(Object.assign({id:R.id},d)); }
   return true;
@@ -30589,6 +30635,7 @@ function sheetReceptForm(id,voorChoc){
   R.tht=best?best.tht:(vaakTht()||14);
   R.onderdelen=best?JSON.parse(JSON.stringify(best.onderdelen||[])):[];
   R.stappen=best?(best.stappen||[]).slice():[];
+  R.kleuren=best?alsLijst(best.kleuren).slice():[];
   R.wizard=null; R.voorstel='';
   if(best) tekenRecept(); else sheetSmaakWizard(1);
 }
@@ -31694,6 +31741,7 @@ function smaakHub(){
 
      <div class="lglijst" style="margin-top:24px">
        ${gr('choc','Chocolade',chocNaam(R.chocolade)||'kiezen',!R.chocolade)}
+       ${gr('kleur','Kleuren',alsLijst(R.kleuren).map(id=>(kleurVan(id)||{}).naam).filter(Boolean).join(', ')||'geen',false)}
        ${gr('mal',vakHoofd('mal')||'Mal',mal?mal.naam:'kiezen',!mal)}
        ${gr('tht','Houdbaar',R.tht?R.tht+' dagen':'invullen',!R.tht)}
        ${gr('werk','Werkinstructies',ins?String(ins):'',false)}
@@ -31719,6 +31767,7 @@ function smaakHub(){
   $$('#sheetBody [data-sh]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.sh;
     if(k==='etiket'){ leesRecept(); bewaarSmaak(); return sheetProductEtiket(R.id) }
+    if(k==='kleur'){ bewaarSmaak(); return sheetSmaakKleuren() }
     smaakDeel(k);
   });
 }
