@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v863 · 23 okt 2026';
+const APPVERSIE='v864 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11759,28 +11759,21 @@ function prodSmakenHTML(){
       .sort((a,b)=>(gp.has(b.id)-gp.has(a.id))||(vlg(a)-vlg(b))||a.naam.localeCompare(b.naam,'nl'));
     const klaar=act.filter(r=>smaakStatus(r).k==='ok')
       .sort((a,b)=>(vlg(a)-vlg(b))||a.naam.localeCompare(b.naam,'nl'));
-    const pct=act.length?Math.round(klaar.length/act.length*100):0;
-    const lagenVan=rc=>(rc.onderdelen||[]).filter(o=>o&&o.naam);
-    const rij=(rc,af)=>{
-      const st=smaakStatus(rc), lg=lagenVan(rc);
-      /* half ingevuld? zeg dan welke laag nog leeg is, anders niets extra */
-      const leeg=lg.filter(o=>!isSchelp(o)&&!(o.ing||[]).some(i=>i.naam)).map(o=>o.naam);
-      const deels=!af&&lg.some(o=>!isSchelp(o)&&(o.ing||[]).some(i=>i.naam));
-      const sub=af
-        ?[lg.map(o=>o.naam).join(' · '),gramPerBonbon(rc)?fijn(gramPerBonbon(rc))+' g':''].filter(Boolean).join(' · ')
-        :(deels?(leeg.length?leeg.join(', ')+' nog invullen':st.t):(st.k==='let'&&st.t!=='geen ingrediënten'?st.t:lg.filter(o=>!isSchelp(o)).map(o=>o.naam).join(' · ')));
-      return `<div class="smrij2">
-        <button class="smrij" data-recept="${rc.id}">
-          ${af?`<span class="smst ok">${svg(I.vink,'3')}</span>`:`<i class="schijf ${esc(rc.chocolade||'')}"></i>`}
-          <span class="smnm"><span>${esc(rc.naam)}</span>${(()=>{ const s2=[!af&&gp.has(rc.id)?'gepland':'',sub].filter(Boolean).join(' · '); return s2?`<small>${esc(s2)}</small>`:'' })()}</span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>
-      </div>`;
-    };
-    h+=`<p class="lgsom" style="margin:0 4px 14px">${todo.length?klaar.length+' van '+act.length+' ingevuld'+(todo.some(r=>gp.has(r.id))?' · geplande smaken staan bovenaan':''):'Alle '+act.length+' smaken zijn ingevuld'}</p>`;
-    if(todo.length) h+=`<div class="smsect"><b>Nog invullen</b><small>${todo.length}</small></div>
-      <div class="smlijst" style="margin-bottom:18px">${todo.map(r=>rij(r,false)).join('')}</div>`;
-    if(klaar.length) h+=`<div class="smsect"><b>Klaar</b><small>${klaar.length}</small></div>
-      <div class="smlijst" style="margin-bottom:18px">${klaar.map(r=>rij(r,true)).join('')}</div>`;
+    /* v864: per chocoladesoort, één regel per smaak. Rechts een vinkje als hij
+       af is, anders een oranje stip. Onder de naam alleen wat er nog mist. */
+    const rij=rc=>{ const af=smaakStatus(rc).k==='ok';
+      const lg=(rc.onderdelen||[]).filter(o=>o&&o.naam&&!isSchelp(o));
+      const leeg=lg.filter(o=>!(o.ing||[]).some(i=>i.naam)).map(o=>o.naam.toLowerCase());
+      const sub=af?'':!lg.length?'nog geen lagen':leeg.length?leeg.join(', ')+' nog leeg':smaakStatus(rc).t;
+      return `<button type="button" class="shrij" data-recept="${rc.id}">
+        <span class="shn">${esc(rc.naam)}${sub?`<small>${esc(sub)}</small>`:''}</span>
+        ${af?`<span class="smst ok">${svg(I.vink,'3')}</span>`:'<span class="smst let"></span>'}</button>` };
+    h+=`<p class="lgsom" style="margin:0 4px 14px">${todo.length?'Nog '+todo.length+' van '+act.length+' invullen':'Alle '+act.length+' smaken zijn ingevuld'}</p>`;
+    soorten().forEach(c=>{ const l=act.filter(r=>r.chocolade===c.key).sort((a,b)=>a.naam.localeCompare(b.naam,'nl')); if(!l.length) return;
+      h+=`<div class="smsect"><b><i class="schijf ${esc(c.key)}" style="display:inline-block;width:10px;height:10px;margin-right:8px"></i>${esc(c.naam)}</b><small>${l.length}</small></div>
+        <div class="gl" style="margin-bottom:18px">${l.map(rij).join('')}</div>` });
+    { const rest=act.filter(r=>!soorten().some(c=>c.key===r.chocolade)); if(rest.length)
+      h+=`<div class="smsect"><b>Overig</b><small>${rest.length}</small></div><div class="gl" style="margin-bottom:18px">${rest.map(rij).join('')}</div>` }
     h+=`<div class="gl"><button type="button" class="lgnieuw" onclick="sheetSmaakSnel()">${svg(I.plus)}Smaak</button></div>
         <div class="lgvoet"><button type="button" data-sheet="recepten">Archief en meer</button>
           <button type="button" onclick="sheetReceptRegelsLeeg()">Receptregels leegmaken</button></div>`;
