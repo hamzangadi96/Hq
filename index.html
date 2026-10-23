@@ -5210,7 +5210,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v861 · 23 okt 2026';
+const APPVERSIE='v862 · 23 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10501,7 +10501,8 @@ const GELEI_STANDAARD=[
   {naam:'Rode vruchtengelei',fruit:'Rode vruchten',zeef:true},
   {naam:'Blauwe bessengelei',fruit:'Blauwe bessen',zeef:false}];
 function geleiStappen(zeef){ return [
-  {tekst:'Doe het fruit en 330 g suiker in de pan. Vuur op 500 en laat 45 minuten koken.',min:45},
+  {tekst:'Meng het fruit met 330 g suiker en laat minimaal 4 uur weken.',min:240},
+  {tekst:'Zet de pan op het vuur op 500 en laat 45 minuten koken.',min:45},
   {tekst:zeef?'Staafmix tot glad en zeef het daarna. Zet het gezeefde terug op het vuur.':'Staafmix tot glad. Laat de pan op het vuur staan.'},
   {tekst:'Strooi het pectinemengsel (15 g pectine gemengd met 60 g suiker) erdoor en staafmix.'},
   {tekst:'Voeg de citroen toe en laat nog 2 minuten koken.',min:2},
@@ -10513,7 +10514,14 @@ function ingUitLijst(woord){
   if(Array.isArray(S.ingredienten)&&(!S.ingredienten.length||typeof S.ingredienten[0]==='string')) S.ingredienten.push(woord);
   return woord }
 function geleienToevoegen(){
-  if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.geleiStandaard)) return;
+  if(!S.halfRecepten||!S.halfRecepten.length) return;
+  /* v862: weken toegevoegd aan geleien die de oude eerste stap nog hebben */
+  let weg=false;
+  S.halfRecepten.forEach(r=>{ const st=r&&alsLijst(r.stappen);
+    if(st&&st[0]&&/^doe het fruit en 330 g suiker in de pan/i.test(st[0].tekst||'')){
+      r.stappen=[{tekst:'Meng het fruit met 330 g suiker en laat minimaal 4 uur weken.',min:240},{tekst:'Zet de pan op het vuur op 500 en laat 45 minuten koken.',min:45}].concat(st.slice(1)); weg=true } });
+  if(weg) setTimeout(()=>bewaarNu(),0);
+  if(S.halfRecepten.some(r=>r&&r.geleiStandaard)) return;
   const sui=ingUitLijst('Kristalsuiker'), cit=ingUitLijst('Citroensap'), pec=ingUitLijst('Pectine');
   GELEI_STANDAARD.forEach(g=>{ const ing=[{naam:ingUitLijst(g.fruit),deel:'1000'},{naam:sui,deel:'390'},{naam:pec,deel:'15'},{naam:cit,deel:'15'}];
     const r=S.halfRecepten.find(r=>r&&String(r.naam||'').trim().toLowerCase()===g.naam.toLowerCase());
