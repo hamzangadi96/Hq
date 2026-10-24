@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v902 · 24 okt 2026';
+const APPVERSIE='v903 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10809,23 +10809,30 @@ function sheetVullingen(){
     /* v901: zelf invullen hoeveel mallen je maakt; dat gaat voor de planning */
     VUL.mal=VUL.mal||{}; const ml=VUL.mal[b.id]||{}, holtes=parseInt(S.malGrootte,10)||24, marge=(S.vulMarge===10||typeof S.vulMarge!=='number'?(S.vulMarge=20):S.vulMarge);
     const gpb=getalIn0(ml.g)||(bs&&bs<=10?bs:((geb[0]||{}).g||4));
-    const opMal=ml.m>0, tot=opMal?ml.m*holtes*gpb*(1+marge/100):geb.reduce((s,x)=>s+x.g*(VUL.aantal[x.r.id]||0),0);
+    /* v903: of uitgaan van pakjes slagroom (altijd 400 g): de rest schaalt mee */
+    const roomIng=bi.find(y=>/room/i.test(y.naam)&&!/boter/i.test(y.naam)), roomFr=roomIng&&bs?getalIn0(roomIng.deel)/bs:0;
+    const opPak=roomFr>0&&ml.p>0, opMal=!opPak&&ml.m>0;
+    const tot=opPak?ml.p*400/roomFr:opMal?ml.m*holtes*gpb*(1+marge/100):geb.reduce((s,x)=>s+x.g*(VUL.aantal[x.r.id]||0),0);
+    const pakBonbons=opPak?Math.floor(tot/(1+marge/100)/gpb):0;
     return `<div class="vulblok">
       <div class="vulkop"><b>${esc(b.naam)}</b><span data-vultot="${esc(b.id)}">${tot?g(tot)+' g maken':''}</span></div>
       <div class="gl" style="margin-bottom:6px">
+        ${roomFr?`<div class="vprij3"><span class="shn">Pakjes slagroom<small>${opPak?'= '+g(pakBonbons)+' bonbons · '+komma(Math.floor(pakBonbons/holtes*10)/10)+' mallen':'400 g per pak'}</small></span>
+          <label class="lgin"><input data-vulpak="${esc(b.id)}" type="text" inputmode="numeric" value="${ml.p||''}" placeholder="0"><em>st</em></label></div>`:''}
         <div class="vprij3"><span class="shn">Mallen<small>${opMal?'= '+g(ml.m*holtes)+' bonbons':holtes+' per mal'}</small></span>
           <label class="lgin"><input data-vulmal="${esc(b.id)}" type="text" inputmode="numeric" value="${ml.m||''}" placeholder="0"><em>st</em></label></div>
         <div class="vprij3"><span class="shn">Per bonbon</span>
           <label class="lgin"><input data-vulgpb="${esc(b.id)}" type="text" inputmode="decimal" value="${komma(Math.round(gpb*100)/100)}"><em>g</em></label></div>
       </div>
       ${opMal?`<p class="lgsom" style="margin:0 4px 12px">${ml.m} mallen × ${holtes} × ${komma(Math.round(gpb*100)/100)} g + ${marge}% marge</p>`:''}
+      ${opPak?`<p class="lgsom" style="margin:0 4px 12px">${ml.p} × 400 g slagroom · daar is de rest op afgestemd (${marge}% marge meegerekend in het aantal bonbons)</p>`:''}
       ${opMal?'':geb.length?`<div class="gl">${geb.map(x=>`<div class="vprij3">
           <span class="shn">${esc(x.r.naam)}<small data-vulsub="${esc(b.id)}:${esc(x.r.id)}">${fijn(x.g)} g per bonbon${VUL.aantal[x.r.id]?' · '+g(x.g*VUL.aantal[x.r.id])+' g':''}</small></span>
           <label class="lgin"><input data-vula="${esc(x.r.id)}" type="text" inputmode="numeric" value="${VUL.aantal[x.r.id]||''}" placeholder="0"><em>st</em></label></div>`).join('')}</div>`
         :''}
-      ${bs?`<div class="blokkop" style="margin-top:14px"><span class="eyebrow">${tot?(opMal?'Afwegen voor '+ml.m+' mallen':'Afwegen'):bs<=10?'Per bonbon · samen '+fijn(bs)+' g':'Recept · samen '+fijn(bs)+' g'}</span></div>
+      ${bs?`<div class="blokkop" style="margin-top:14px"><span class="eyebrow">${tot?(opPak?'Afwegen voor '+ml.p+(ml.p===1?' pak':' pakken')+' slagroom':opMal?'Afwegen voor '+ml.m+' mallen':'Afwegen'):bs<=10?'Per bonbon · samen '+fijn(bs)+' g':'Recept · samen '+fijn(bs)+' g'}</span></div>
         <div class="gl">${bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw" data-vuling="${esc(b.id)}" data-deel="${getalIn0(y.deel)/bs}" data-g="${getalIn0(y.deel)}">${tot?g(tot*getalIn0(y.deel)/bs)+' g':fijn(getalIn0(y.deel))+' g'}</span></div>`).join('')}</div>`:''}
-      <div class="lgvoet bvoet">${bs&&geb.length&&!opMal?`<button type="button" data-vulmaak="${esc(b.id)}"><b style="font-size:inherit">Maken</b></button>`:''}<button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
+      <div class="lgvoet bvoet">${bs&&geb.length&&!opMal&&!opPak?`<button type="button" data-vulmaak="${esc(b.id)}"><b style="font-size:inherit">Maken</b></button>`:''}<button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
     </div>`;
   };
   /* v895: eerst een rustige lijst; tik op een basisrecept voor afwegen en maken */
@@ -10850,8 +10857,10 @@ function sheetVullingen(){
       const kt=document.querySelector(`[data-vultot="${b.id}"]`); if(kt) kt.textContent=tot?g(tot)+' g maken':'';
       $$(`[data-vuling="${b.id}"]`).forEach(e=>e.textContent=tot?g(tot*parseFloat(e.dataset.deel))+' g':fijn(parseFloat(e.dataset.g))+' g') });
   };
+  $$('#sheetBody [data-vulpak]').forEach(el=>el.onchange=()=>{ const id=el.dataset.vulpak; VUL.mal=VUL.mal||{};
+    VUL.mal[id]=Object.assign({},VUL.mal[id],{p:Math.max(0,parseInt(el.value,10)||0),m:0}); const st=$('#sheetBody').scrollTop; sheetVullingen(); $('#sheetBody').scrollTop=st });
   $$('#sheetBody [data-vulmal]').forEach(el=>el.onchange=()=>{ const id=el.dataset.vulmal; VUL.mal=VUL.mal||{};
-    VUL.mal[id]=Object.assign({},VUL.mal[id],{m:Math.max(0,parseInt(el.value,10)||0)}); const st=$('#sheetBody').scrollTop; sheetVullingen(); $('#sheetBody').scrollTop=st });
+    VUL.mal[id]=Object.assign({},VUL.mal[id],{m:Math.max(0,parseInt(el.value,10)||0),p:0}); const st=$('#sheetBody').scrollTop; sheetVullingen(); $('#sheetBody').scrollTop=st });
   $$('#sheetBody [data-vulgpb]').forEach(el=>el.onchange=()=>{ const id=el.dataset.vulgpb; VUL.mal=VUL.mal||{};
     VUL.mal[id]=Object.assign({},VUL.mal[id],{g:getalIn(el.value)||''}); const st=$('#sheetBody').scrollTop; sheetVullingen(); $('#sheetBody').scrollTop=st });
   $$('#sheetBody [data-vula]').forEach(el=>el.oninput=()=>{ VUL.aantal[el.dataset.vula]=Math.max(0,parseInt(el.value,10)||0); live() });
