@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v904 · 24 okt 2026';
+const APPVERSIE='v905 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10666,7 +10666,25 @@ function cappuccinoPer4(){
       s&&/vul aan tot 600 g/.test(s.tekst||'')?Object.assign({},s,{tekst:'Zeef de koffiebonen eruit. Weeg de room en vul aan tot het oorspronkelijke gewicht met verse slagroom.'}):s);
     r.per4g900=true; setTimeout(()=>bewaarNu(),0) });
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+/* v905: dubaivulling als basisrecept, per bonbon. Recept voor 18 mallen (432 bonbons):
+   1000 witte chocolade, 220 cacaoboter, 150 tahin + voorstel 400 pistachepasta en 250 kadayif. Eenmalig. */
+function dubaiBasis(){
+  if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.dubai905)) return;
+  const rec=[['wit',1000],['Cacaoboter',220],['Tahin',150],['Pistachepasta',400],['Kadayif',250]];
+  const ing=rec.map(([n,g])=>({naam:n==='wit'?schelpIngVoorKey('wit'):ingUitLijst(n),deel:String(Math.round(g/432*1000)/1000)}));
+  const stappen=[
+    {tekst:'Rooster de kadayif goudbruin in een droge koekenpan en laat afkoelen. Breek hem in kleine stukjes.'},
+    {tekst:'Smelt de witte chocolade en de cacaoboter tot 40–45 °C.',temp:45},
+    {tekst:'Roer de tahin en de pistachepasta erdoor tot het glad is.'},
+    {tekst:'Laat afkoelen tot 30 °C en spatel de kadayif erdoor.',temp:30},
+    {tekst:'Direct vullen, de vulling zet snel op.'}];
+  let b=S.halfRecepten.find(x=>x&&/^dubai/i.test(String(x.naam||'').trim()));
+  if(!b){ b={id:uid(),naam:'Dubaivulling',stappen,ing}; S.halfRecepten.push(b) }
+  else { if(!alsLijst(b.ing).some(y=>y&&y.naam)) b.ing=ing; if(!alsLijst(b.stappen).length) b.stappen=stappen }
+  S.halfRecepten.forEach(x=>{ if(x) x.dubai905=true });
+  setTimeout(()=>bewaarNu(),0);
+}
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
