@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v903 · 24 okt 2026';
+const APPVERSIE='v904 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10798,6 +10798,7 @@ function sheetRekenUit(){
     toast(r.toegevoegd?r.toegevoegd+(r.toegevoegd===1?' product':' producten')+' op je lijst gezet.':'Stond al op je lijst.'); sheetBoodschappen() };
 }
 let VUL=null;
+const PAKROOM=200;   /* v904: één pak slagroom = 200 g (2 pakken = 400 g) */
 function sheetVullingen(){
   const bas=halfRecepten();
   if(!VUL){ VUL={aantal:{}}; const v0=vandaag();
@@ -10809,15 +10810,15 @@ function sheetVullingen(){
     /* v901: zelf invullen hoeveel mallen je maakt; dat gaat voor de planning */
     VUL.mal=VUL.mal||{}; const ml=VUL.mal[b.id]||{}, holtes=parseInt(S.malGrootte,10)||24, marge=(S.vulMarge===10||typeof S.vulMarge!=='number'?(S.vulMarge=20):S.vulMarge);
     const gpb=getalIn0(ml.g)||(bs&&bs<=10?bs:((geb[0]||{}).g||4));
-    /* v903: of uitgaan van pakjes slagroom (altijd 400 g): de rest schaalt mee */
+    /* v903/v904: of uitgaan van pakjes slagroom (200 g per pak): de rest schaalt mee */
     const roomIng=bi.find(y=>/room/i.test(y.naam)&&!/boter/i.test(y.naam)), roomFr=roomIng&&bs?getalIn0(roomIng.deel)/bs:0;
     const opPak=roomFr>0&&ml.p>0, opMal=!opPak&&ml.m>0;
-    const tot=opPak?ml.p*400/roomFr:opMal?ml.m*holtes*gpb*(1+marge/100):geb.reduce((s,x)=>s+x.g*(VUL.aantal[x.r.id]||0),0);
+    const tot=opPak?ml.p*PAKROOM/roomFr:opMal?ml.m*holtes*gpb*(1+marge/100):geb.reduce((s,x)=>s+x.g*(VUL.aantal[x.r.id]||0),0);
     const pakBonbons=opPak?Math.floor(tot/(1+marge/100)/gpb):0;
     return `<div class="vulblok">
       <div class="vulkop"><b>${esc(b.naam)}</b><span data-vultot="${esc(b.id)}">${tot?g(tot)+' g maken':''}</span></div>
       <div class="gl" style="margin-bottom:6px">
-        ${roomFr?`<div class="vprij3"><span class="shn">Pakjes slagroom<small>${opPak?'= '+g(pakBonbons)+' bonbons · '+komma(Math.floor(pakBonbons/holtes*10)/10)+' mallen':'400 g per pak'}</small></span>
+        ${roomFr?`<div class="vprij3"><span class="shn">Pakjes slagroom<small>${opPak?'= '+g(pakBonbons)+' bonbons · '+komma(Math.floor(pakBonbons/holtes*10)/10)+' mallen':PAKROOM+' g per pak'}</small></span>
           <label class="lgin"><input data-vulpak="${esc(b.id)}" type="text" inputmode="numeric" value="${ml.p||''}" placeholder="0"><em>st</em></label></div>`:''}
         <div class="vprij3"><span class="shn">Mallen<small>${opMal?'= '+g(ml.m*holtes)+' bonbons':holtes+' per mal'}</small></span>
           <label class="lgin"><input data-vulmal="${esc(b.id)}" type="text" inputmode="numeric" value="${ml.m||''}" placeholder="0"><em>st</em></label></div>
@@ -10825,7 +10826,7 @@ function sheetVullingen(){
           <label class="lgin"><input data-vulgpb="${esc(b.id)}" type="text" inputmode="decimal" value="${komma(Math.round(gpb*100)/100)}"><em>g</em></label></div>
       </div>
       ${opMal?`<p class="lgsom" style="margin:0 4px 12px">${ml.m} mallen × ${holtes} × ${komma(Math.round(gpb*100)/100)} g + ${marge}% marge</p>`:''}
-      ${opPak?`<p class="lgsom" style="margin:0 4px 12px">${ml.p} × 400 g slagroom · daar is de rest op afgestemd (${marge}% marge meegerekend in het aantal bonbons)</p>`:''}
+      ${opPak?`<p class="lgsom" style="margin:0 4px 12px">${ml.p} × ${PAKROOM} g slagroom · daar is de rest op afgestemd (${marge}% marge meegerekend in het aantal bonbons)</p>`:''}
       ${opMal?'':geb.length?`<div class="gl">${geb.map(x=>`<div class="vprij3">
           <span class="shn">${esc(x.r.naam)}<small data-vulsub="${esc(b.id)}:${esc(x.r.id)}">${fijn(x.g)} g per bonbon${VUL.aantal[x.r.id]?' · '+g(x.g*VUL.aantal[x.r.id])+' g':''}</small></span>
           <label class="lgin"><input data-vula="${esc(x.r.id)}" type="text" inputmode="numeric" value="${VUL.aantal[x.r.id]||''}" placeholder="0"><em>st</em></label></div>`).join('')}</div>`
