@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v901 · 24 okt 2026';
+const APPVERSIE='v902 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10807,7 +10807,7 @@ function sheetVullingen(){
     const geb=basisPerBonbon(b.id);
     const bi=alsLijst(b.ing).filter(y=>y.naam), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
     /* v901: zelf invullen hoeveel mallen je maakt; dat gaat voor de planning */
-    VUL.mal=VUL.mal||{}; const ml=VUL.mal[b.id]||{}, holtes=parseInt(S.malGrootte,10)||24, marge=typeof S.vulMarge==='number'?S.vulMarge:10;
+    VUL.mal=VUL.mal||{}; const ml=VUL.mal[b.id]||{}, holtes=parseInt(S.malGrootte,10)||24, marge=(S.vulMarge===10||typeof S.vulMarge!=='number'?(S.vulMarge=20):S.vulMarge);
     const gpb=getalIn0(ml.g)||(bs&&bs<=10?bs:((geb[0]||{}).g||4));
     const opMal=ml.m>0, tot=opMal?ml.m*holtes*gpb*(1+marge/100):geb.reduce((s,x)=>s+x.g*(VUL.aantal[x.r.id]||0),0);
     return `<div class="vulblok">
@@ -10878,7 +10878,7 @@ function sheetBasisMaken(id,terug){
   basisZeker(); const b=basisVan(id); if(!b) return terug&&terug();
   vulAantallenZeker();
   if(!MK||MK.id!==id) MK={id,af:new Set()};
-  const marge=typeof S.vulMarge==='number'?S.vulMarge:10;
+  const marge=(S.vulMarge===10||typeof S.vulMarge!=='number'?(S.vulMarge=20):S.vulMarge);
   const bi=alsLijst(b.ing).filter(y=>y.naam&&!y.basis), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
   const geb=basisPerBonbon(id);
   const g=n=>Math.round(n).toLocaleString('nl-NL');
@@ -10894,7 +10894,7 @@ function sheetBasisMaken(id,terug){
         <span class="mkg" data-mkg="${esc(x.r.id)}">${VUL.aantal[x.r.id]?g(x.g*VUL.aantal[x.r.id])+' g':'—'}</span></div>`).join('')
        :`<div class="geen" style="padding:14px">Nog geen bonbon gebruikt dit basisrecept.</div>`}</div>
      <div class="veld" style="margin-top:16px"><label>Marge voor pan, spuitzak en verdamping</label>
-       <div class="chips" id="mkM">${[0,10,15,20].map(m=>`<button type="button" class="chip${m===marge?' aan':''}" data-v="${m}">${m?m+'%':'geen'}</button>`).join('')}</div></div>
+       <div class="chips" id="mkM">${[0,10,20,25].map(m=>`<button type="button" class="chip${m===marge?' aan':''}" data-v="${m}">${m?m+'%':'geen'}</button>`).join('')}</div></div>
      <div class="blokkop"><span class="eyebrow">Afwegen</span></div>
      <div class="gl" id="mkWeeg">${bs?bi.map((y,i)=>`<button type="button" class="mkweeg${MK.af.has(y.naam)?' af':''}" data-mkw="${esc(y.naam)}">
         <span class="smst${MK.af.has(y.naam)?' ok':''}">${MK.af.has(y.naam)?svg(I.vink,'3'):''}</span>
