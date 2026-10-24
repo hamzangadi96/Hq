@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v875 · 24 okt 2026';
+const APPVERSIE='v876 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15685,6 +15685,13 @@ function kleurenStandaard(){
       r.kleurPlan=alsLijst(r.kleurPlan).concat(pl.naam); n++;
       try{ if(R.id===r.id){ R.kleuren=alsLijst(R.kleuren); if(!R.kleuren.includes(k.id)) R.kleuren.push(k.id); R.kleurPlan=r.kleurPlan.slice() } }catch(e){} });
   });
+  /* v876: oranje voor stroopwafel = 7 g geel + 3 g rood op 100 g cacaoboter */
+  L.forEach(k=>{ if(!k||k.naam!=='Oranje'||k.oranje876||k.soort==='mix') return;
+    k.boterG=100; k.kleurG=10; k.hex='#ff6600';
+    const ber=alsLijst(k.bereiding).slice(), eerste='Weeg af: 100 g cacaoboter en 10 g kleurstof = 7 g geel en 3 g rood (Hollands oranje).';
+    if(ber.length&&/^weeg/i.test(ber[0])) ber[0]=eerste; else ber.unshift(eerste);
+    if(!ber.some(s=>/proefje/i.test(s))) ber.splice(3,0,'Maak een proefje op folie. Te geel: 0,5 g rood erbij. Te rood: 1 g geel erbij.');
+    k.bereiding=ber; k.oranje876=true; n++ });
   /* v875: gemeten verbruik rood op cappuccino hazelnoot: 13 g voor 13 mallen van 24 */
   L.forEach(k=>{ if(!k||k.naam!=='Rood'||k.verbruik875) return; k.verbruikG=13; k.verbruikBonbons=312; k.verbruik875=true; n++ });
   L.forEach(k=>{ const pc=k&&KLEUR_PCT[k.naam]; if(!pc||k.pct874||k.soort==='mix') return;
