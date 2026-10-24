@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v873 · 24 okt 2026';
+const APPVERSIE='v874 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15660,14 +15660,24 @@ const KLEUR_PLAN=[
   {sm:r=>/dubai/i.test(r.naam)&&!/\bwit\b/i.test(r.naam)&&r.chocolade!=='wit', naam:'Lichtgroen', hex:'#9ccc65'},
   {sm:r=>/gezouten\s*karamel/i.test(r.naam), naam:'Blauw', hex:'#1f5fbf'},
   {sm:r=>/stroopwafel/i.test(r.naam), naam:'Oranje', hex:'#e67e22'},
-  {sm:r=>/pinda/i.test(r.naam), naam:'Goud', hex:'#d4a017'}];
+  {sm:r=>/pinda/i.test(r.naam), naam:'Goud', hex:'#d4a017'},
+  {sm:r=>/biscoff/i.test(r.naam), naam:'Koraal', hex:'#ff7f50', kg:20, ber:[
+    'Weeg af: 100 g cacaoboter en 20 g kleurstof = 12 g wit, 6 g rood en 2 g oranje.',
+    'Smelt de cacaoboter tot 40–45 °C.',
+    'Voeg alle kleurstof tegelijk toe en staafmix 1–2 minuten tot er geen klontjes meer zijn. Staafmix onder het oppervlak.',
+    'Maak een proefje op folie. Te roze: 1 g oranje erbij. Te fel: 2 g wit erbij.',
+    'Zeef het als je nog puntjes ziet.',
+    'Laat afkoelen tot 29–30 °C en roer af en toe. Gebruik op 29–30 °C.']}];
+/* v874: op verzoek 20% kleurstof bij koraal, blauw en lichtgroen (eenmalig per kleur) */
+const KLEUR_PCT={Koraal:20,Blauw:20,Lichtgroen:20};
 function kleurenStandaard(){
   const L=kleurLijst(); let n=0;
   KLEUR_PLAN.forEach(pl=>{
     const rs=(S.recepten||[]).filter(r=>r&&r.naam&&pl.sm(r)&&!alsLijst(r.kleurPlan).includes(pl.naam)&&!(pl.oud&&r[pl.oud]));
     if(!rs.length) return;
     let k=L.find(x=>x&&new RegExp('^'+pl.naam+'\\b','i').test(x.naam||''));
-    if(!k){ k={id:uid(),naam:pl.naam,hex:pl.hex,enr:'',boterG:100,kleurG:10,verbruikG:40,verbruikBonbons:360,prijsBoter:'',prijsKleur:''}; L.push(k) }
+    if(!k){ k={id:uid(),naam:pl.naam,hex:pl.hex,enr:'',boterG:100,kleurG:pl.kg||10,verbruikG:40,verbruikBonbons:360,prijsBoter:'',prijsKleur:''}; L.push(k) }
+    if(pl.ber&&!alsLijst(k.bereiding).length) k.bereiding=pl.ber.slice();
     if(!k.id) k.id=uid();
     if(k.soort!=='mix'&&(!(parseFloat(k.boterG)>0)||!(parseFloat(k.kleurG)>0))){ k.boterG=100; k.kleurG=10 }
     if(!alsLijst(k.bereiding).length) k.bereiding=KLEUR_BEREIDING.slice();
@@ -15675,6 +15685,10 @@ function kleurenStandaard(){
       r.kleurPlan=alsLijst(r.kleurPlan).concat(pl.naam); n++;
       try{ if(R.id===r.id){ R.kleuren=alsLijst(R.kleuren); if(!R.kleuren.includes(k.id)) R.kleuren.push(k.id); R.kleurPlan=r.kleurPlan.slice() } }catch(e){} });
   });
+  L.forEach(k=>{ const pc=k&&KLEUR_PCT[k.naam]; if(!pc||k.pct874||k.soort==='mix') return;
+    k.boterG=100; k.kleurG=pc; k.pct874=true;
+    if(alsLijst(k.bereiding)[0]&&/10 g kleurstof op 100 g/.test(k.bereiding[0])) k.bereiding[0]=k.bereiding[0].replace('10 g kleurstof op 100 g','20 g kleurstof op 100 g');
+    n++ });
   if(n) setTimeout(()=>bewaarNu(),0);
 }
 
