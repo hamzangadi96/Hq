@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v892 · 24 okt 2026';
+const APPVERSIE='v893 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10584,7 +10584,20 @@ function geleienToevoegen(){
   S.halfRecepten.forEach(r=>{ if(r) r.geleiStandaard=true });
   setTimeout(()=>bewaarNu(),0);
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+/* v893: vanilleganache als basisrecept, in gram per bonbon (4 g). Recept: 1630 wit, 800 room,
+   320 boter, 256 cacaoboter, 80 glucose, 53 invertsuiker, 13 vanillepasta, 6,5 zout. Eenmalig. */
+function vanilleBasis(){
+  if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.vanilleStandaard)) return;
+  const rec=[['wit',1630],['Slagroom',800],['Roomboter',320],['Cacaoboter',256],['Glucose',80],['Invertsuiker',53],['Vanillepasta',13],['Zout',6.5]];
+  const tot=rec.reduce((s,x)=>s+x[1],0);
+  const ing=rec.map(([n,g])=>({naam:n==='wit'?schelpIngVoorKey('wit'):ingUitLijst(n),deel:String(Math.round(g*4/tot*1000)/1000)}));
+  let r=S.halfRecepten.find(x=>x&&/^vanille\s*ganache$/i.test(String(x.naam||'').trim()));
+  if(!r){ r={id:uid(),naam:'Vanilleganache',stappen:[],ing}; S.halfRecepten.push(r) }
+  else if(!alsLijst(r.ing).some(y=>y&&y.naam)) r.ing=ing;
+  S.halfRecepten.forEach(x=>{ if(x) x.vanilleStandaard=true });
+  setTimeout(()=>bewaarNu(),0);
+}
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
