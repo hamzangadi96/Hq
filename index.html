@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v886 · 24 okt 2026';
+const APPVERSIE='v887 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15670,6 +15670,8 @@ const KLEUR_PLAN=[
     'Laat afkoelen tot 29–30 °C en roer af en toe. Gebruik op 29–30 °C.']}];
 /* v874: op verzoek 20% kleurstof bij koraal, blauw en lichtgroen (eenmalig per kleur) */
 const KLEUR_PCT={Koraal:20,Blauw:20,Lichtgroen:20};
+/* v887: kleurnamen ruim herkennen (hoofdletters, spaties, 'goud glans') */
+const kNaamIs=(k,n)=>String((k&&k.naam)||'').trim().toLowerCase().startsWith(n.toLowerCase());
 function kleurenStandaard(){
   const L=kleurLijst(); let n=0;
   KLEUR_PLAN.forEach(pl=>{
@@ -15686,7 +15688,7 @@ function kleurenStandaard(){
       try{ if(R.id===r.id){ R.kleuren=alsLijst(R.kleuren); if(!R.kleuren.includes(k.id)) R.kleuren.push(k.id); R.kleurPlan=r.kleurPlan.slice() } }catch(e){} });
   });
   /* v877: koraal minder rood — 15 g wit, 3 g geel, 2 g rood (rood stap voor stap) */
-  L.forEach(k=>{ if(!k||k.naam!=='Koraal'||k.koraal877||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Koraal')||k.koraal877||k.soort==='mix') return;
     k.boterG=100; k.kleurG=20;
     k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 15 g wit, 3 g geel en 2 g rood. Begin met maar 1 g rood.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15696,14 +15698,14 @@ function kleurenStandaard(){
       'Laat afkoelen tot 27 °C, daarna terug naar 29–30 °C. Mestest, dan gebruiken.'];
     k.koraal877=true; k.pct874=true; n++ });
   /* v876: oranje voor stroopwafel = 7 g geel + 3 g rood op 100 g cacaoboter */
-  L.forEach(k=>{ if(!k||k.naam!=='Oranje'||k.oranje876||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Oranje')||k.oranje876||k.soort==='mix') return;
     k.boterG=100; k.kleurG=10; k.hex='#ff6600';
     const ber=alsLijst(k.bereiding).slice(), eerste='Weeg af: 100 g cacaoboter en 10 g kleurstof = 7 g geel en 3 g rood (Hollands oranje).';
     if(ber.length&&/^weeg/i.test(ber[0])) ber[0]=eerste; else ber.unshift(eerste);
     if(!ber.some(s=>/proefje/i.test(s))) ber.splice(3,0,'Maak een proefje op folie. Te geel: 0,5 g rood erbij. Te rood: 1 g geel erbij.');
     k.bereiding=ber; k.oranje876=true; n++ });
   /* v886: zeeblauw voor gezouten karamel: 25% = 15 g wit + 10 g blauw */
-  L.forEach(k=>{ if(!k||!/^(zee)?blauw$/i.test(k.naam||'')||k.blauw886||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!/^(zee)?blauw\b/i.test(String(k.naam||'').trim())||k.blauw886||k.soort==='mix') return;
     k.naam='Zeeblauw'; k.boterG=100; k.kleurG=25; k.hex='#2f80c0';
     k.bereiding=['Weeg af: 100 g cacaoboter en 25 g kleurstof = 15 g wit en 10 g blauw. Begin met 8 g blauw.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15713,7 +15715,7 @@ function kleurenStandaard(){
       'Laat afkoelen tot 27 °C, daarna terug naar 29–30 °C. Mestest, dan gebruiken.'];
     k.blauw886=true; k.pct874=true; n++ });
   /* v885: goud voor pinda & karamel definitief: 8 g goud + 8 g wit (16%) */
-  L.forEach(k=>{ if(!k||k.naam!=='Goud'||k.goud885||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Goud')||k.goud885||k.soort==='mix') return;
     k.boterG=100; k.kleurG=16; k.hex='#dcc27a';
     k.bereiding=['Weeg af: 100 g cacaoboter en 16 g kleurstof = 8 g goudpoeder en 8 g wit.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15723,7 +15725,7 @@ function kleurenStandaard(){
       'Goud zakt snel naar de bodem: roer of schud vlak voor elke mal.'];
     k.goud883=true; k.goud884=true; k.goud885=true; k.pct874=true; n++ });
   /* v884: goud op verzoek 12 g goud + 8 g wit */
-  L.forEach(k=>{ if(!k||k.naam!=='Goud'||k.goud884||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Goud')||k.goud884||k.soort==='mix') return;
     k.boterG=100; k.kleurG=20; k.hex='#d9b44a';
     k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 12 g goudpoeder en 8 g wit.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15733,7 +15735,7 @@ function kleurenStandaard(){
       'Goud zakt snel naar de bodem: roer of schud vlak voor elke mal.'];
     k.goud883=true; k.goud884=true; k.pct874=true; n++ });
   /* v883: goud voor pinda & karamel: 18 g goud + 2 g wit op 100 g cacaoboter */
-  L.forEach(k=>{ if(!k||k.naam!=='Goud'||k.goud883||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Goud')||k.goud883||k.soort==='mix') return;
     k.boterG=100; k.kleurG=20; k.hex='#d4a017';
     k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 18 g goudpoeder en 2 g wit.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15743,7 +15745,7 @@ function kleurenStandaard(){
       'Goud zakt snel naar de bodem: roer of schud vlak voor elke mal.'];
     k.goud883=true; k.pct874=true; n++ });
   /* v881: Hamza's eigen lichtgroen voor Dubai: 10 wit, 2 donkergroen, 5 geel op 100 g cacaoboter */
-  L.forEach(k=>{ if(!k||k.naam!=='Lichtgroen'||k.groen881||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Lichtgroen')||k.groen881||k.soort==='mix') return;
     k.boterG=100; k.kleurG=17; k.hex='#8bc34a';
     k.bereiding=['Weeg af: 100 g cacaoboter en 17 g kleurstof = 10 g wit, 2 g donkergroen en 5 g geel.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15753,7 +15755,7 @@ function kleurenStandaard(){
       'Laat afkoelen tot 27 °C, daarna terug naar 29–30 °C. Mestest, dan gebruiken.'];
     k.groen879=true; k.groen880=true; k.groen881=true; k.pct874=true; n++ });
   /* v880: lichtgroen echt groen (geen mint, niet gelig): 12 wit, 6 donkergroen, 2 geel */
-  L.forEach(k=>{ if(!k||k.naam!=='Lichtgroen'||k.groen880||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Lichtgroen')||k.groen880||k.soort==='mix') return;
     k.boterG=100; k.kleurG=20; k.hex='#5cb85c';
     k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 12 g wit, 6 g donkergroen en 2 g geel. Begin met 4 g donkergroen.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15763,7 +15765,7 @@ function kleurenStandaard(){
       'Laat afkoelen tot 27 °C, daarna terug naar 29–30 °C. Mestest, dan gebruiken.'];
     k.groen879=true; k.groen880=true; k.pct874=true; n++ });
   /* v879: lichtgroen geelachtig (pistache), geen mint: 12 g wit, 6 g geel, 2 g donkergroen op 100 g */
-  L.forEach(k=>{ if(!k||k.naam!=='Lichtgroen'||k.groen879||k.soort==='mix') return;
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Lichtgroen')||k.groen879||k.soort==='mix') return;
     k.boterG=100; k.kleurG=20; k.hex='#a4c639';
     k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 12 g wit, 6 g geel en 2 g donkergroen. Begin met maar 1 g donkergroen.',
       'Smelt de cacaoboter tot 40–45 °C.',
@@ -15773,9 +15775,9 @@ function kleurenStandaard(){
       'Laat afkoelen tot 27 °C, daarna terug naar 29–30 °C. Mestest, dan gebruiken.'];
     k.groen879=true; n++ });
   /* v878: gemeten verbruik oranje op stroopwafel: 10 g voor 13 mallen van 24 */
-  L.forEach(k=>{ if(!k||k.naam!=='Oranje'||k.verbruik878) return; k.verbruikG=10; k.verbruikBonbons=312; k.verbruik878=true; n++ });
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Oranje')||k.verbruik878) return; k.verbruikG=10; k.verbruikBonbons=312; k.verbruik878=true; n++ });
   /* v875: gemeten verbruik rood op cappuccino hazelnoot: 13 g voor 13 mallen van 24 */
-  L.forEach(k=>{ if(!k||k.naam!=='Rood'||k.verbruik875) return; k.verbruikG=13; k.verbruikBonbons=312; k.verbruik875=true; n++ });
+  L.forEach(k=>{ if(!k||!kNaamIs(k,'Rood')||k.verbruik875) return; k.verbruikG=13; k.verbruikBonbons=312; k.verbruik875=true; n++ });
   L.forEach(k=>{ const pc=k&&KLEUR_PCT[k.naam]; if(!pc||k.pct874||k.soort==='mix') return;
     k.boterG=100; k.kleurG=pc; k.pct874=true;
     if(alsLijst(k.bereiding)[0]&&/10 g kleurstof op 100 g/.test(k.bereiding[0])) k.bereiding[0]=k.bereiding[0].replace('10 g kleurstof op 100 g','20 g kleurstof op 100 g');
