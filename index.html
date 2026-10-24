@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v882 · 24 okt 2026';
+const APPVERSIE='v883 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15702,6 +15702,16 @@ function kleurenStandaard(){
     if(ber.length&&/^weeg/i.test(ber[0])) ber[0]=eerste; else ber.unshift(eerste);
     if(!ber.some(s=>/proefje/i.test(s))) ber.splice(3,0,'Maak een proefje op folie. Te geel: 0,5 g rood erbij. Te rood: 1 g geel erbij.');
     k.bereiding=ber; k.oranje876=true; n++ });
+  /* v883: goud voor pinda & karamel: 18 g goud + 2 g wit op 100 g cacaoboter */
+  L.forEach(k=>{ if(!k||k.naam!=='Goud'||k.goud883||k.soort==='mix') return;
+    k.boterG=100; k.kleurG=20; k.hex='#d4a017';
+    k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 18 g goudpoeder en 2 g wit.',
+      'Smelt de cacaoboter tot 40–45 °C.',
+      'Voeg het goud en wit toe en staafmix 1 minuut onder het oppervlak. Niet te lang: goud hoeft niet zo fijn als andere kleuren.',
+      'Maak een proefje op folie. Te dof: 2 g goud erbij. Glanst hij goed maar zie je de chocolade erdoor: 1 g wit erbij.',
+      'Laat afkoelen tot 27 °C, daarna terug naar 29–30 °C. Mestest.',
+      'Goud zakt snel naar de bodem: roer of schud vlak voor elke mal.'];
+    k.goud883=true; k.pct874=true; n++ });
   /* v881: Hamza's eigen lichtgroen voor Dubai: 10 wit, 2 donkergroen, 5 geel op 100 g cacaoboter */
   L.forEach(k=>{ if(!k||k.naam!=='Lichtgroen'||k.groen881||k.soort==='mix') return;
     k.boterG=100; k.kleurG=17; k.hex='#8bc34a';
