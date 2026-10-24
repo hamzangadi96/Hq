@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v879 · 24 okt 2026';
+const APPVERSIE='v880 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15702,6 +15702,16 @@ function kleurenStandaard(){
     if(ber.length&&/^weeg/i.test(ber[0])) ber[0]=eerste; else ber.unshift(eerste);
     if(!ber.some(s=>/proefje/i.test(s))) ber.splice(3,0,'Maak een proefje op folie. Te geel: 0,5 g rood erbij. Te rood: 1 g geel erbij.');
     k.bereiding=ber; k.oranje876=true; n++ });
+  /* v880: lichtgroen echt groen (geen mint, niet gelig): 12 wit, 6 donkergroen, 2 geel */
+  L.forEach(k=>{ if(!k||k.naam!=='Lichtgroen'||k.groen880||k.soort==='mix') return;
+    k.boterG=100; k.kleurG=20; k.hex='#5cb85c';
+    k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 12 g wit, 6 g donkergroen en 2 g geel. Begin met 4 g donkergroen.',
+      'Smelt de cacaoboter tot 40–45 °C.',
+      'Voeg het wit en geel toe, plus 4 g donkergroen. Staafmix 2 minuten onder het oppervlak, schuin, zodat er geen lucht in komt.',
+      'Maak een proefje op folie en laat het hard worden. Te licht: 1 g donkergroen erbij. Te mint of blauwig: 0,5 g geel erbij. Te donker: 2 g wit erbij.',
+      'Zeef het door een fijne zeef.',
+      'Laat afkoelen tot 27 °C, daarna terug naar 29–30 °C. Mestest, dan gebruiken.'];
+    k.groen879=true; k.groen880=true; n++ });
   /* v879: lichtgroen geelachtig (pistache), geen mint: 12 g wit, 6 g geel, 2 g donkergroen op 100 g */
   L.forEach(k=>{ if(!k||k.naam!=='Lichtgroen'||k.groen879||k.soort==='mix') return;
     k.boterG=100; k.kleurG=20; k.hex='#a4c639';
