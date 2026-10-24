@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v869 · 24 okt 2026';
+const APPVERSIE='v870 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9538,8 +9538,10 @@ function sheetMalCap(){
   sheetTerugZet(sheetVoorspelPlan);
   setTimeout(()=>{ const x=$('#mcN'); if(x) x.focus() },250);
   $('#mcOk').onclick=()=>{ const n=parseInt($('#mcN').value,10); S.malCapaciteit=n>0?n:null; bewaarNu();
-    if(VP){ if(!(n>0)) VP.opMallen=false; vpVoorstel() } sheetVoorspelPlan() };
-  if($('#mcWeg')) $('#mcWeg').onclick=()=>{ S.malCapaciteit=null; bewaarNu(); sheetVoorspelPlan() };
+    /* v870: mallen invullen = plannen op mallen; de bonbons volgen meteen */
+    if(VP){ VP.opMallen=n>0; if(n>0) VP.opDoel=false; vpVoorstel() } S.vpOpMallen=n>0; bewaarNu(); sheetVoorspelPlan();
+    if(n>0) toast('Plan staat op '+n+' mallen per chocoladesoort.') };
+  if($('#mcWeg')) $('#mcWeg').onclick=()=>{ S.malCapaciteit=null; S.vpOpMallen=false; if(VP){ VP.opMallen=false; vpVoorstel() } bewaarNu(); sheetVoorspelPlan() };
 }
 /* Verdeel de mallen over dagen: elke chocoladesoort op eigen dagen, nooit meer
    dan je maximum per dag. Een soort die erboven gaat krijgt vanzelf een dag erbij. */
