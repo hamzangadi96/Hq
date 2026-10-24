@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v895 · 24 okt 2026';
+const APPVERSIE='v896 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10561,7 +10561,9 @@ function geleiStappen(zeef){ return [
   {tekst:'Haal van het vuur en laat afkoelen tot 30 °C.',temp:30}] }
 function ingUitLijst(woord){
   const L=(S.ingredienten||[]).map(x=>typeof x==='string'?x:(x&&x.naam)||'').filter(Boolean);
-  const k=woord.toLowerCase(), hit=L.find(n=>n.toLowerCase().startsWith(k))||L.find(n=>n.toLowerCase().includes(k));
+  /* v896: alleen aan het begin van een woord; "zout" vond eerst "Ongezouten roomboter" */
+  const k=woord.toLowerCase(), re=new RegExp('(^|[\\s\\-–—/(])'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  const hit=L.find(n=>n.toLowerCase().startsWith(k))||L.find(n=>re.test(n.toLowerCase()));
   if(hit) return hit;
   if(Array.isArray(S.ingredienten)&&(!S.ingredienten.length||typeof S.ingredienten[0]==='string')) S.ingredienten.push(woord);
   return woord }
@@ -10586,7 +10588,14 @@ function geleienToevoegen(){
 }
 /* v893: vanilleganache als basisrecept, in gram per bonbon (4 g). Recept: 1630 wit, 800 room,
    320 boter, 256 cacaoboter, 80 glucose, 53 invertsuiker, 13 vanillepasta, 6,5 zout. Eenmalig. */
+function vanilleZoutHerstel(){
+  (S.halfRecepten||[]).forEach(r=>{ if(!r||!/^vanille\s*ganache$/i.test(String(r.naam||'').trim())||r.zout896) return;
+    const z=alsLijst(r.ing).find(y=>y&&String(y.deel)==='0.008'&&!/^zout/i.test(y.naam||''));
+    if(z){ z.naam=ingUitLijst('Zout'); setTimeout(()=>bewaarNu(),0) }
+    r.zout896=true });
+}
 function vanilleBasis(){
+  vanilleZoutHerstel();
   if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.vanilleStandaard)) return;
   const rec=[['wit',1630],['Slagroom',800],['Roomboter',320],['Cacaoboter',256],['Glucose',80],['Invertsuiker',53],['Vanillepasta',13],['Zout',6.5]];
   const tot=rec.reduce((s,x)=>s+x[1],0);
@@ -10744,7 +10753,7 @@ function sheetVullingen(){
           <label class="lgin"><input data-vula="${esc(x.r.id)}" type="text" inputmode="numeric" value="${VUL.aantal[x.r.id]||''}" placeholder="0"><em>st</em></label></div>`).join('')}</div>`
         :`<p class="lgsom" style="margin-top:0">Nog in geen enkele smaak gebruikt. Kies hem in een laag als ingrediënt — onder <b>Basisrecepten</b> — met zijn aandeel.</p>`}
       ${bs?`<div class="blokkop" style="margin-top:14px"><span class="eyebrow">Afwegen</span></div>
-        <div class="gl">${bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw" data-vuling="${esc(b.id)}" data-deel="${getalIn0(y.deel)/bs}">${tot?g(tot*getalIn0(y.deel)/bs)+' g':'—'}</span></div>`).join('')}</div>`:''}
+        <div class="gl">${bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw" data-vuling="${esc(b.id)}" data-deel="${getalIn0(y.deel)/bs}">${tot?g(tot*getalIn0(y.deel)/bs)+' g':Math.round(getalIn0(y.deel)/bs*1000)/10+'%'}</span></div>`).join('')}</div>`:''}
       <div class="lgvoet bvoet">${bs&&geb.length?`<button type="button" data-vulmaak="${esc(b.id)}"><b style="font-size:inherit">Maken</b></button>`:''}<button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
     </div>`;
   };
@@ -10768,7 +10777,7 @@ function sheetVullingen(){
       geb.forEach(x=>{ const n=VUL.aantal[x.r.id]||0; tot+=x.g*n;
         const s=document.querySelector(`[data-vulsub="${b.id}:${x.r.id}"]`); if(s) s.textContent=fijn(x.g)+' g per bonbon'+(n?' · '+g(x.g*n)+' g':'') });
       const kt=document.querySelector(`[data-vultot="${b.id}"]`); if(kt) kt.textContent=tot?g(tot)+' g maken':'';
-      $$(`[data-vuling="${b.id}"]`).forEach(e=>e.textContent=tot?g(tot*parseFloat(e.dataset.deel))+' g':'—') });
+      $$(`[data-vuling="${b.id}"]`).forEach(e=>e.textContent=tot?g(tot*parseFloat(e.dataset.deel))+' g':Math.round(parseFloat(e.dataset.deel)*1000)/10+'%') });
   };
   $$('#sheetBody [data-vula]').forEach(el=>el.oninput=()=>{ VUL.aantal[el.dataset.vula]=Math.max(0,parseInt(el.value,10)||0); live() });
   $$('#sheetBody [data-vulrec]').forEach(b=>b.onclick=()=>sheetBasisIng(b.dataset.vulrec,sheetVullingen));
