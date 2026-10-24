@@ -4403,6 +4403,9 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .vpkeus button small{font-size:12.5px;color:var(--grijs)}
 .vpkeus button.aan{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
 .vpkeus button.aan small{color:var(--grijs)}
+.vpkeus{grid-template-columns:repeat(3,minmax(0,1fr))}
+.vpkeus>button{flex-direction:column;gap:0;height:46px;line-height:1.15}
+.vpkeus:has(.vpdoelseg){grid-template-columns:.9fr 1.7fr .9fr}
 .vptabs{gap:6px;margin:10px 0 16px}
 .vptabs button{padding:9px 12px;border-radius:12px;border-width:1.5px}
 .vptabs button b{font-size:18px}
@@ -5210,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v868 · 24 okt 2026';
+const APPVERSIE='v869 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5522,7 +5525,7 @@ const MIDDELVOORSTELLEN=['Heet water en zeep','Allesreiniger','Alcohol 70%','Des
 
 /* ================= opslag: lokale buffer + Firebase ================= */
 const SLEUTEL='cacaoboetiek-hq';
-const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','route','vpUit','vpAanmeldPct','mailInfo','vasteBestellingen','orderDoel','malCapaciteit','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
+const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','route','vpUit','vpAanmeldPct','mailInfo','vasteBestellingen','orderDoel','malCapaciteit','vpOpMallen','stempelBonbons','stempelMix','recepten','meetpunten','checks','zones','middelen','leveranciers','malGrootte','batches',
   'dagOpening','dagOpeningDatum','checksGezet','lots','schoonmaakGezet','activiteiten','werkGezet','werkGezet2',
   'werkplan','planGezet','ontvangsten','ijkingen','labelVel','kook','allerg','controles','mutaties','klanten','orders','prijzen','ritten','rit','kmStand','kmTarief','plekken','autoSoort','bonnen','kaartFont','bedrijf','gmut','drempels','gmutGezet','branche','brancheGezet','artikelen','opslagplekken','levertijden','verkoop','doosPrijzen','doosjes','uurtarief','controleur','boodschappen','planning','taken','tedoen','verzendgrens','balk','vasteLasten','prodPerMaand','derving','vormen','staffel','b2bMarge','consMarge','vormGezet','afspraken',
   'klussen','klus','klussoorten','urennorm','badgeGevraagd','zonderAccount','seizoen',
@@ -9456,6 +9459,7 @@ function vpNodig(){
 }
 /* mallen met de hand aangepast → het doel (bestellingen) rekent mee (v744) */
 function vpDoelUitMallen(){
+  if(VP&&VP.opMallen) return;
   const a=voorspelAdvies(), v=voorspelStand(); if(!a||!a.bruto||!v.verwachtOrders) return;
   const vn=(v.vast&&v.vast.n)||0, vrij=v.verwachtOrders-vn;
   if(vrij<=0||a.bruto<=a.vastBruto) return;
@@ -9502,6 +9506,18 @@ function vpVoorstel(){
     lijst.forEach(r=>{const n=(VP.mallen[r.id]||0)*malHoltes(r.id); if(n<bestN){bestN=n;best=r}});
     VP.mallen[best.id]=(VP.mallen[best.id]||0)+1; tot+=malHoltes(best.id);
   }
+  if(VP.opMallen&&vpCap()<Infinity) soorten().forEach(c=>vpNaarCap(c.key,lijst));
+}
+/* v869: de mallen van één chocoladesoort naar rato op precies je mallen per dag zetten */
+function vpNaarCap(key,lijst){
+  const cap=vpCap(); if(!(cap<Infinity)) return;
+  const rs=(lijst||vpSmaken().filter(r=>!vpUit(r.id))).filter(r=>r.chocolade===key);
+  if(!rs.length) return;
+  let tot=rs.reduce((n,r)=>n+(VP.mallen[r.id]||0),0);
+  const w=r=>tot?(VP.mallen[r.id]||0):1, wt=tot||rs.length;
+  const del=rs.map(r=>({id:r.id,x:w(r)*cap/wt})); del.forEach(d=>VP.mallen[d.id]=Math.floor(d.x));
+  let over=cap-del.reduce((n,d)=>n+VP.mallen[d.id],0);
+  del.sort((a,b)=>(b.x%1)-(a.x%1)).forEach(d=>{ if(over>0){ VP.mallen[d.id]++; over-- } });
 }
 function vpStartdag(){
   const morgen=datumPlus(vandaag(),1);
@@ -9521,7 +9537,8 @@ function sheetMalCap(){
     `<button class="prim" style="margin-top:0" id="mcOk">Klaar</button>`);
   sheetTerugZet(sheetVoorspelPlan);
   setTimeout(()=>{ const x=$('#mcN'); if(x) x.focus() },250);
-  $('#mcOk').onclick=()=>{ const n=parseInt($('#mcN').value,10); S.malCapaciteit=n>0?n:null; bewaarNu(); sheetVoorspelPlan() };
+  $('#mcOk').onclick=()=>{ const n=parseInt($('#mcN').value,10); S.malCapaciteit=n>0?n:null; bewaarNu();
+    if(VP){ if(!(n>0)) VP.opMallen=false; vpVoorstel() } sheetVoorspelPlan() };
   if($('#mcWeg')) $('#mcWeg').onclick=()=>{ S.malCapaciteit=null; bewaarNu(); sheetVoorspelPlan() };
 }
 /* Verdeel de mallen over dagen: elke chocoladesoort op eigen dagen, nooit meer
@@ -9543,7 +9560,7 @@ function vpDagen(per,soortLijst){
 }
 function sheetVoorspelPlan(){
   if(!voorspelAdvies()) return toast('Nog geen voorspelling. Tik eerst op opnieuw.');
-  if(!VP){ VP={opDoel:false,mallen:{},dag:{}}; vpVoorstel(); }
+  if(!VP){ VP={opDoel:false,opMallen:!!S.vpOpMallen&&vpCap()<Infinity,mallen:{},dag:{}}; vpVoorstel(); }
   VP.dag=VP.dag||{};
   const v=voorspelStand();
   const nodig=vpNodig(), voorraad=vpVoorraad(), nogMaken=Math.max(0,nodig-voorraad);
@@ -9567,7 +9584,7 @@ function sheetVoorspelPlan(){
   const dek=alle.length?dekkingGrond(alle):[];
   const lt=alle.length?(levertijdVoor(alle)||0):0;
   const uiterlijk=lt&&VP.start?datumPlus(VP.start,-(lt+1)):null;
-  const G=voorspelGeld(VP.opDoel&&v.verwachtOrders?orderDoel()/v.verwachtOrders:1);
+  const G=voorspelGeld(VP.opMallen&&nodig?(gepland+voorraad)/nodig:VP.opDoel&&v.verwachtOrders?orderDoel()/v.verwachtOrders:1);
   const splits=naam=>{
     const lev=leverancierVan(naam), m=String(naam).split(/\s+[-–—]\s+/);
     if(m.length>1) return {lev:lev||m.slice(1).join(' - '),prod:m[0]};
@@ -9586,7 +9603,7 @@ function sheetVoorspelPlan(){
   const tab=(k,label,groot,onder)=>`<button type="button" class="${VP.tab===k?'aan':''}" data-vptab="${k}">
     <span>${label}</span><b>${groot}</b><small>${onder}</small></button>`;
   const tabs=`<div class="vptabs">
-    ${tab('maken','Maken',g(nogMaken),mallenTot+' mallen')}
+    ${tab('maken','Maken',g(VP.opMallen?gepland:nogMaken),mallenTot+' mallen')}
     ${tab('inkoop','Inkopen',koop.length?String(koop.length):(grondOk||verpOk?svg(I.vink,'2.6'):'?'),
       koop.length?(koop.length===1?'artikel':'artikelen'):(grondOk||verpOk?'alles in huis':'nog instellen'))}
     ${tab('geld','Omzet',G?euroRond(G.omzet):'—','incl. btw')}
@@ -9651,12 +9668,13 @@ function sheetVoorspelPlan(){
 
   sheet('Productieplan',
     `<div class="vpkeus">
-       <button type="button" class="${VP.opDoel?'':'aan'}" data-vpdoel="0">Verwachting<small>±${v.verwachtOrders}</small></button>
+       <button type="button" class="${VP.opDoel||VP.opMallen?'':'aan'}" data-vpdoel="0">Verwachting<small>±${v.verwachtOrders}</small></button>
        ${VP.opDoel?`<div class="aan vpdoelseg"><span>Doel</span>
            <button type="button" data-vpd="-5" aria-label="Doel lager">${svg(I.min)}</button>
            <input class="vpdoelin2" id="vpDoel" type="number" inputmode="numeric" min="5" step="5" value="${orderDoel()}" aria-label="Doel bestellingen">
            <button type="button" data-vpd="5" aria-label="Doel hoger">${svg(I.plus)}</button></div>`
          :`<button type="button" data-vpdoel="1">Doel<small>${orderDoel()}</small></button>`}
+       <button type="button" class="${VP.opMallen?'aan':''}" data-vpmal="1">Mallen<small>${vpCap()<Infinity?vpCap()+' per dag':'instellen'}</small></button>
      </div>
      ${tabs}
      <div class="vptabinhoud">${inhoud}</div>`,
@@ -9668,7 +9686,9 @@ function sheetVoorspelPlan(){
   if($('#vpVast')) $('#vpVast').onclick=()=>{ const voor=JSON.stringify(vastTelling());
     sheetVasteLijst(()=>{ if(JSON.stringify(vastTelling())!==voor){ vpVoorstel(); toast('Plan bijgewerkt met je vaste bestellingen.') } sheetVoorspelPlan() }) };
   if($('#vpOpb')) $('#vpOpb').onclick=()=>homeTegel('vsp');
-  $$('[data-vpdoel]').forEach(b=>b.onclick=()=>{ VP.opDoel=b.dataset.vpdoel==='1'; vpVoorstel(); opnieuw() });
+  $$('[data-vpdoel]').forEach(b=>b.onclick=()=>{ VP.opDoel=b.dataset.vpdoel==='1'; VP.opMallen=false; S.vpOpMallen=false; bewaarNu(); vpVoorstel(); opnieuw() });
+  $$('[data-vpmal]').forEach(b=>b.onclick=()=>{ VP.opMallen=true; VP.opDoel=false; S.vpOpMallen=true; bewaarNu();
+    if(!(vpCap()<Infinity)) return sheetMalCap(); vpVoorstel(); opnieuw() });
   $$('[data-vptab]').forEach(b=>b.onclick=()=>{ VP.tab=b.dataset.vptab; sheetVoorspelPlan(); $('#sheetBody').scrollTop=0 });
   $$('[data-vpd]').forEach(b=>b.onclick=()=>{ orderDoelZet(orderDoel()+parseInt(b.dataset.vpd,10)); vpVoorstel(); opnieuw() });
   if($('#vpDoel')) $('#vpDoel').onchange=()=>{ orderDoelZet(parseInt($('#vpDoel').value,10)); vpVoorstel(); opnieuw() };
