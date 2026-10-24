@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v871 · 24 okt 2026';
+const APPVERSIE='v872 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11783,7 +11783,7 @@ function receptSnelBewaar(streng){
   return '';
 }
 function prodSmakenHTML(){
-  try{ schelpenAanvullen() }catch(e){}
+  try{ schelpenAanvullen(); kleurenStandaard() }catch(e){}
   /* v822: de grote zwarte knop is een regel "+ Smaak" onderaan geworden */
   let h=(S.recepten||[]).length?'':`<button class="prim" style="margin:0 0 14px" onclick="sheetSmaakSnel()">${svg(I.plus)}Eerste smaak</button>`;
   if(false){ const act=(S.recepten||[]).filter(smaakActief), leeg=act.filter(r=>smaakStatus(r).k!=='ok').length;
@@ -15642,8 +15642,31 @@ const kleurLijst=()=>S.kleuren||(S.kleuren=[]);
    kenmerk. */
 function kleurenIjken(){
   (S.kleuren||[]).forEach(k=>{ if(!k.id) k.id=uid() });
+  try{ kleurenStandaard() }catch(e){}
 }
 const kleurVan=id=>(S.kleuren||[]).find(k=>k.id===id);
+/* ═══════════ v872: bereiding per kleur + rood op cappuccino hazelnoot ═══════════ */
+const KLEUR_BEREIDING=[
+  'Weeg de cacaoboter en de kleurstof af (10 g kleurstof op 100 g cacaoboter).',
+  'Smelt de cacaoboter tot 40–45 °C.',
+  'Voeg de kleurstof toe en staafmix 1–2 minuten tot er geen klontjes meer zijn. Staafmix onder het oppervlak, zodat er geen lucht in komt.',
+  'Zeef het door een fijne zeef als je nog puntjes ziet.',
+  'Laat afkoelen tot 29–30 °C en roer af en toe, zodat de boter getempereerd is.',
+  'Schud of roer kort voor gebruik. Spuit of kwast hem op 29–30 °C in de mal.'];
+function kleurenStandaard(){
+  const r=(S.recepten||[]).find(x=>x&&/cappuccino/i.test(x.naam||'')&&/hazelno/i.test(x.naam||''));
+  if(!r||r.roodGezet) return;
+  const L=kleurLijst();
+  let k=L.find(x=>x&&/^rood\b/i.test(x.naam||''));
+  if(!k){ k={id:uid(),naam:'Rood',hex:'#c0392b',enr:'',boterG:100,kleurG:10,verbruikG:40,verbruikBonbons:360,prijsBoter:'',prijsKleur:''}; L.push(k) }
+  if(!k.id) k.id=uid();
+  if(!(parseFloat(k.boterG)>0)||!(parseFloat(k.kleurG)>0)){ k.boterG=100; k.kleurG=10 }
+  if(!alsLijst(k.bereiding).length) k.bereiding=KLEUR_BEREIDING.slice();
+  r.kleuren=alsLijst(r.kleuren); if(!r.kleuren.includes(k.id)) r.kleuren.push(k.id);
+  r.roodGezet=true;
+  try{ if(R.id===r.id){ R.kleuren=alsLijst(R.kleuren); if(!R.kleuren.includes(k.id)) R.kleuren.push(k.id); R.roodGezet=true } }catch(e){}
+  setTimeout(()=>bewaarNu(),0);
+}
 
 /* Wat zit er in één potje van deze kleur? Bij een mengsel tellen we de
    onderdelen naar rato op. De app voorspelt géén kleur — welke tint eruit
@@ -16233,6 +16256,8 @@ function sheetKleur(idx){
          <input class="inp" id="kwE" value="${esc(k.enr)}" placeholder="Bijv. E120 of karmijn">
          <div class="hint" style="margin:6px 0 0">Dit komt op je etiket. Kleurstoffen
            zijn declaratieplichtig.</div></div>
+       <div class="veld"><label>Bereiding <span style="font-weight:400">— één stap per regel</span></label>
+         <textarea class="inp" id="kwBer" rows="6" style="min-height:150px;line-height:1.45" placeholder="Bijv. Smelt de cacaoboter tot 45 °C…">${esc(alsLijst(k.bereiding).join('\n'))}</textarea></div>
 
        <div class="veld" style="margin-top:20px"><label>Wat voor kleur is dit?</label>
          <div class="chips" id="kwS">
@@ -16309,6 +16334,7 @@ function sheetKleur(idx){
     /* meelezen zodat de tussenstand meteen klopt */
     const lees=()=>{
       k.naam=$('#kwN').value.trim(); k.enr=$('#kwE').value.trim();
+      if($('#kwBer')) k.bereiding=$('#kwBer').value.split('\n').map(s=>s.trim()).filter(Boolean);
       if($('#kwHx')&&hexRgb($('#kwHx').value.trim())) k.hex=$('#kwHx').value.trim();
       ['B:boterG','K:kleurG','V:verbruikG','Vb:verbruikBonbons','Pb:prijsBoter','Pk:prijsKleur']
         .forEach(x=>{const [id,veld]=x.split(':'); const el=$('#kw'+id);
@@ -31870,7 +31896,7 @@ function receptFotoCheck(rs,keus,tip){
 }
 
 function smaakHub(){
-  geleienRechtzetten(); schelpenAanvullen();
+  geleienRechtzetten(); schelpenAanvullen(); try{ kleurenStandaard() }catch(e){}
   const totaal=gramPerBonbon(R);
   const rij=(id,ico,naam,waarde,mist)=>`<button class="arij" data-sh="${id}">
     <span class="ivak${mist?' amber':''}">${svg(ico)}</span>
