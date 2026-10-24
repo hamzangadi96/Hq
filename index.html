@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v897 · 24 okt 2026';
+const APPVERSIE='v898 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10606,7 +10606,40 @@ function vanilleBasis(){
   S.halfRecepten.forEach(x=>{ if(x) x.vanilleStandaard=true });
   setTimeout(()=>bewaarNu(),0);
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+/* v898: stroopwafel- en speculoosganache als basisrecept (recept op 400 g slagroom),
+   en de laag in de smaak gekoppeld aan dat basisrecept. Eenmalig. */
+const GANACHE_STAPPEN=stroop=>[
+  {tekst:'Verwarm de slagroom met de glucose'+(stroop?' en invertsuiker':'')+' tot 80 °C.',temp:80},
+  {tekst:'Giet het in 3 keer over de chocolade'+(stroop?'':' en de speculoospasta')+'.'},
+  {tekst:'Staafmix tot glad en glanzend. Mixer onder het oppervlak.'},
+  {tekst:'Mix op 35 °C de roomboter erdoor.',temp:35},
+  ...(stroop?[{tekst:'Spatel de gemalen stroopwafels er als laatste door.'}]:[]),
+  {tekst:'Folie direct op de ganache en laten afkoelen. Spuiten op 28–30 °C.',temp:30}];
+function ganacheBasissen(){
+  if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.ganacheBasis898)) return;
+  const maak=(smaakRe,laagRe,naam,stroop,valIng)=>{
+    const r=(S.recepten||[]).find(x=>x&&smaakRe.test(x.naam||''));
+    const o=r&&(r.onderdelen||[]).find(l=>l&&laagRe.test(l.naam||''));
+    let ing=o?alsLijst(o.ing).filter(y=>y&&y.naam&&!y.basis).map(y=>({naam:y.naam,deel:getalIn0(y.deel)})):[];
+    if(!ing.length) ing=valIng();
+    const room=ing.find(y=>/room/i.test(y.naam)&&!/boter/i.test(y.naam)), f=room&&room.deel?400/room.deel:1;
+    ing=ing.map(y=>({naam:y.naam,deel:String(Math.round(y.deel*f))}));
+    let b=S.halfRecepten.find(x=>x&&String(x.naam||'').trim().toLowerCase()===naam.toLowerCase());
+    if(!b){ b={id:uid(),naam,stappen:GANACHE_STAPPEN(stroop),ing}; S.halfRecepten.push(b) }
+    else { if(!alsLijst(b.ing).some(y=>y&&y.naam)) b.ing=ing; if(!alsLijst(b.stappen).length) b.stappen=GANACHE_STAPPEN(stroop) }
+    const koppel=x=>{ const l=(x.onderdelen||[]).find(l=>l&&laagRe.test(l.naam||'')); if(l) l.ing=[{naam:b.naam,deel:'100',basis:b.id}] };
+    if(r){ koppel(r); try{ if(R.id===r.id) koppel(R) }catch(e){} }
+  };
+  maak(/stroopwafel/i,/stroopwafelganache/i,'Stroopwafelganache',true,()=>[
+    {naam:schelpIngVoorKey('melk'),deel:800},{naam:ingUitLijst('Slagroom'),deel:400},{naam:ingUitLijst('Stroopwafel'),deel:180},
+    {naam:ingUitLijst('Roomboter'),deel:80},{naam:ingUitLijst('Glucose'),deel:36},{naam:ingUitLijst('Invertsuiker'),deel:36}]);
+  maak(/biscoff/i,/speculoosganache/i,'Speculoosganache',false,()=>[
+    {naam:schelpIngVoorKey('wit'),deel:800},{naam:ingUitLijst('Slagroom'),deel:400},{naam:ingUitLijst('Speculoospasta'),deel:267},
+    {naam:ingUitLijst('Roomboter'),deel:80},{naam:ingUitLijst('Glucose'),deel:53}]);
+  S.halfRecepten.forEach(x=>{ if(x) x.ganacheBasis898=true });
+  setTimeout(()=>bewaarNu(),0);
+}
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
