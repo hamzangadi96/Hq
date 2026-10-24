@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v893 · 24 okt 2026';
+const APPVERSIE='v895 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10748,10 +10748,21 @@ function sheetVullingen(){
       <div class="lgvoet bvoet">${bs&&geb.length?`<button type="button" data-vulmaak="${esc(b.id)}"><b style="font-size:inherit">Maken</b></button>`:''}<button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
     </div>`;
   };
-  sheet('Vullingen',
+  /* v895: eerst een rustige lijst; tik op een basisrecept voor afwegen en maken */
+  if(!VUL.open){
+    sheet('Basisrecepten',
+      `<div class="gl">${bas.slice().sort((x,y)=>x.naam.localeCompare(y.naam,'nl')).map(b=>{ const n=alsLijst(b.ing).filter(y=>y&&y.naam).length, s=basisPerBonbon(b.id).length;
+          return `<button type="button" class="shrij" data-vulopen="${esc(b.id)}"><span class="shn">${esc(b.naam)}<small>${n?n+(n===1?' ingrediënt':' ingrediënten'):'<span class="lglet">recept invullen</span>'}${s?' · in '+s+(s===1?' smaak':' smaken'):''}</small></span>${svg(I.pijl,'2')}</button>` }).join('')}
+         <button type="button" class="lgnieuw" id="vulNw">${svg(I.plus)}Basisrecept</button></div>`,'');
+    $$('#sheetBody [data-vulopen]').forEach(x=>x.onclick=()=>{ VUL.open=x.dataset.vulopen; sheetVullingen() });
+    $('#vulNw').onclick=()=>{ const lijst=basisZeker(), id=uid(); lijst.push({id,naam:'Nieuw basisrecept',stappen:[{tekst:'Stappen invullen'}],ing:[]}); bewaarNu(); sheetBasisIng(id,sheetVullingen) };
+    return;
+  }
+  const open=bas.filter(b=>b.id===VUL.open);
+  sheet((open[0]||{}).naam||'Basisrecept',
     `<p class="hint" style="margin-top:0">Aantallen komen uit je planning. Pas ze aan om één smaak los te berekenen.</p>
-     ${bas.map(blok).join('')}
-     <div class="lgvoet bvoet"><button type="button" id="vulNw">Nieuw basisrecept</button><button type="button" id="vulRst">Aantallen uit planning</button></div>`,'');
+     ${open.map(blok).join('')}
+     <div class="lgvoet bvoet"><button type="button" id="vulRst">Aantallen uit planning</button></div>`,'');
   const live=()=>{
     bas.forEach(b=>{ const geb=basisPerBonbon(b.id); let tot=0;
       geb.forEach(x=>{ const n=VUL.aantal[x.r.id]||0; tot+=x.g*n;
@@ -10762,8 +10773,8 @@ function sheetVullingen(){
   $$('#sheetBody [data-vula]').forEach(el=>el.oninput=()=>{ VUL.aantal[el.dataset.vula]=Math.max(0,parseInt(el.value,10)||0); live() });
   $$('#sheetBody [data-vulrec]').forEach(b=>b.onclick=()=>sheetBasisIng(b.dataset.vulrec,sheetVullingen));
   $$('#sheetBody [data-vulmaak]').forEach(b=>b.onclick=()=>sheetBasisMaken(b.dataset.vulmaak,sheetVullingen));
-  $('#vulRst').onclick=()=>{ VUL=null; sheetVullingen() };
-  $('#vulNw').onclick=()=>{ const lijst=basisZeker(), id=uid(); lijst.push({id,naam:'Nieuw basisrecept',stappen:[{tekst:'Stappen invullen'}],ing:[]}); bewaarNu(); sheetBasisIng(id,sheetVullingen) };
+  sheetTerugZet(()=>{ VUL.open=null; sheetVullingen() });
+  $('#vulRst').onclick=()=>{ const o=VUL.open; VUL=null; vulAantallenZeker(); VUL.open=o; sheetVullingen() };
 }
 /* het recept van een basis: wat je afweegt voor één pan, in gram */
 /* ═══════════ hoeveel basisrecept maken (v851) ═══════════
@@ -11936,7 +11947,7 @@ function prodTegelsHTML(a){
       ${rij("homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
       ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
       ${rij('sheetRekenen()','<b>Wat heb ik nodig?</b>','')}
-      ${rij('VUL=null;sheetVullingen()','Vullingen',(()=>{ const n=halfRecepten().filter(b=>basisPerBonbon(b.id).length).length; return n?n+' basis':'' })())}
+      ${rij('VUL=null;sheetVullingen()','Basisrecepten',(()=>{ const n=halfRecepten().length; return n?n+' '+(n===1?'recept':'recepten'):'' })())}
       ${rij("homeTegel('vv')",'Voedselveiligheid',ij?svg(I.vink,'2.6'):'thermometer ijken',!ij)}
       ${rij("homeTegel('lst')",'Instellen','')}
     </div>`;
