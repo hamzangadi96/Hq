@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v896 · 24 okt 2026';
+const APPVERSIE='v897 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10752,8 +10752,8 @@ function sheetVullingen(){
           <span class="shn">${esc(x.r.naam)}<small data-vulsub="${esc(b.id)}:${esc(x.r.id)}">${fijn(x.g)} g per bonbon${VUL.aantal[x.r.id]?' · '+g(x.g*VUL.aantal[x.r.id])+' g':''}</small></span>
           <label class="lgin"><input data-vula="${esc(x.r.id)}" type="text" inputmode="numeric" value="${VUL.aantal[x.r.id]||''}" placeholder="0"><em>st</em></label></div>`).join('')}</div>`
         :`<p class="lgsom" style="margin-top:0">Nog in geen enkele smaak gebruikt. Kies hem in een laag als ingrediënt — onder <b>Basisrecepten</b> — met zijn aandeel.</p>`}
-      ${bs?`<div class="blokkop" style="margin-top:14px"><span class="eyebrow">Afwegen</span></div>
-        <div class="gl">${bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw" data-vuling="${esc(b.id)}" data-deel="${getalIn0(y.deel)/bs}">${tot?g(tot*getalIn0(y.deel)/bs)+' g':Math.round(getalIn0(y.deel)/bs*1000)/10+'%'}</span></div>`).join('')}</div>`:''}
+      ${bs?`<div class="blokkop" style="margin-top:14px"><span class="eyebrow">${tot?'Afwegen':bs<=10?'Per bonbon · samen '+fijn(bs)+' g':'Recept · samen '+fijn(bs)+' g'}</span></div>
+        <div class="gl">${bi.map(y=>`<div class="shrij"><span class="shn">${esc(y.naam)}</span><span class="shw vbw" data-vuling="${esc(b.id)}" data-deel="${getalIn0(y.deel)/bs}" data-g="${getalIn0(y.deel)}">${tot?g(tot*getalIn0(y.deel)/bs)+' g':fijn(getalIn0(y.deel))+' g'}</span></div>`).join('')}</div>`:''}
       <div class="lgvoet bvoet">${bs&&geb.length?`<button type="button" data-vulmaak="${esc(b.id)}"><b style="font-size:inherit">Maken</b></button>`:''}<button type="button" data-vulrec="${esc(b.id)}">${bs?'Recept aanpassen':'<b class="lglet" style="font-size:inherit">Recept invullen</b>'}</button></div>
     </div>`;
   };
@@ -10777,7 +10777,7 @@ function sheetVullingen(){
       geb.forEach(x=>{ const n=VUL.aantal[x.r.id]||0; tot+=x.g*n;
         const s=document.querySelector(`[data-vulsub="${b.id}:${x.r.id}"]`); if(s) s.textContent=fijn(x.g)+' g per bonbon'+(n?' · '+g(x.g*n)+' g':'') });
       const kt=document.querySelector(`[data-vultot="${b.id}"]`); if(kt) kt.textContent=tot?g(tot)+' g maken':'';
-      $$(`[data-vuling="${b.id}"]`).forEach(e=>e.textContent=tot?g(tot*parseFloat(e.dataset.deel))+' g':Math.round(parseFloat(e.dataset.deel)*1000)/10+'%') });
+      $$(`[data-vuling="${b.id}"]`).forEach(e=>e.textContent=tot?g(tot*parseFloat(e.dataset.deel))+' g':fijn(parseFloat(e.dataset.g))+' g') });
   };
   $$('#sheetBody [data-vula]').forEach(el=>el.oninput=()=>{ VUL.aantal[el.dataset.vula]=Math.max(0,parseInt(el.value,10)||0); live() });
   $$('#sheetBody [data-vulrec]').forEach(b=>b.onclick=()=>sheetBasisIng(b.dataset.vulrec,sheetVullingen));
