@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v889 · 24 okt 2026';
+const APPVERSIE='v890 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11783,7 +11783,7 @@ function receptSnelBewaar(streng){
   return '';
 }
 function prodSmakenHTML(){
-  try{ schelpenAanvullen(); kleurenStandaard(); stroopwafelGanache() }catch(e){}
+  try{ schelpenAanvullen(); kleurenStandaard(); stroopwafelGanache(); biscoffGanache() }catch(e){}
   /* v822: de grote zwarte knop is een regel "+ Smaak" onderaan geworden */
   let h=(S.recepten||[]).length?'':`<button class="prim" style="margin:0 0 14px" onclick="sheetSmaakSnel()">${svg(I.plus)}Eerste smaak</button>`;
   if(false){ const act=(S.recepten||[]).filter(smaakActief), leeg=act.filter(r=>smaakStatus(r).k!=='ok').length;
@@ -32023,7 +32023,7 @@ function receptFotoCheck(rs,keus,tip){
 }
 
 function smaakHub(){
-  geleienRechtzetten(); schelpenAanvullen(); try{ kleurenStandaard(); stroopwafelGanache() }catch(e){}
+  geleienRechtzetten(); schelpenAanvullen(); try{ kleurenStandaard(); stroopwafelGanache(); biscoffGanache() }catch(e){}
   const totaal=gramPerBonbon(R);
   const rij=(id,ico,naam,waarde,mist)=>`<button class="arij" data-sh="${id}">
     <span class="ivak${mist?' amber':''}">${svg(ico)}</span>
@@ -32118,6 +32118,20 @@ function stroopwafelGanache(){
     let o=x.onderdelen.find(l=>l&&/ganache/i.test(l.naam||''));
     if(!o){ o={naam:'Ganache',gram:'4',ing:[]}; x.onderdelen.push(o) }
     o.naam='Stroopwafelganache'; o.gram='4'; o.ing=JSON.parse(JSON.stringify(ing)); x.ganache888=true };
+  zet(r); try{ if(R.id===r.id) zet(R) }catch(e){}
+  setTimeout(()=>bewaarNu(),0);
+}
+/* v890: biscoffganache met gemalen koekjes (recept voor ±475 bonbons, 4 g per bonbon) */
+function biscoffGanache(){
+  const r=(S.recepten||[]).find(x=>x&&/biscoff/i.test(x.naam||''));
+  if(!r||r.ganache890) return;
+  const choc=schelpIngVoorKey(r.chocolade||'melk');
+  const ing=[{naam:choc,deel:'1000'},{naam:ingUitLijst('Slagroom'),deel:'500'},{naam:ingUitLijst('Biscoff'),deel:'225'},
+    {naam:ingUitLijst('Roomboter'),deel:'100'},{naam:ingUitLijst('Glucose'),deel:'45'},{naam:ingUitLijst('Invertsuiker'),deel:'45'},{naam:ingUitLijst('Zout'),deel:'2'}];
+  const zet=x=>{ x.onderdelen=x.onderdelen||[];
+    let o=x.onderdelen.find(l=>l&&/ganache/i.test(l.naam||''));
+    if(!o){ o={naam:'Ganache',gram:'4',ing:[]}; x.onderdelen.push(o) }
+    o.naam='Biscoffganache'; o.gram='4'; o.ing=JSON.parse(JSON.stringify(ing)); x.ganache890=true };
   zet(r); try{ if(R.id===r.id) zet(R) }catch(e){}
   setTimeout(()=>bewaarNu(),0);
 }
