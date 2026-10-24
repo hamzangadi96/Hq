@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v870 · 24 okt 2026';
+const APPVERSIE='v871 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9562,7 +9562,7 @@ function vpDagen(per,soortLijst){
 }
 function sheetVoorspelPlan(){
   if(!voorspelAdvies()) return toast('Nog geen voorspelling. Tik eerst op opnieuw.');
-  if(!VP){ VP={opDoel:false,opMallen:!!S.vpOpMallen&&vpCap()<Infinity,mallen:{},dag:{}}; vpVoorstel(); }
+  if(!VP){ VP={opDoel:false,opMallen:S.vpOpMallen!==false&&vpCap()<Infinity,mallen:{},dag:{}}; vpVoorstel(); }
   VP.dag=VP.dag||{};
   const v=voorspelStand();
   const nodig=vpNodig(), voorraad=vpVoorraad(), nogMaken=Math.max(0,nodig-voorraad);
