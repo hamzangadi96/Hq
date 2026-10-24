@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v891 · 24 okt 2026';
+const APPVERSIE='v892 · 24 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11783,7 +11783,7 @@ function receptSnelBewaar(streng){
   return '';
 }
 function prodSmakenHTML(){
-  try{ schelpenAanvullen(); kleurenStandaard(); stroopwafelGanache(); biscoffGanache() }catch(e){}
+  try{ schelpenAanvullen(); kleurenStandaard(); stroopwafelGanache(); biscoffGanache(); ganachePerBonbon() }catch(e){}
   /* v822: de grote zwarte knop is een regel "+ Smaak" onderaan geworden */
   let h=(S.recepten||[]).length?'':`<button class="prim" style="margin:0 0 14px" onclick="sheetSmaakSnel()">${svg(I.plus)}Eerste smaak</button>`;
   if(false){ const act=(S.recepten||[]).filter(smaakActief), leeg=act.filter(r=>smaakStatus(r).k!=='ok').length;
@@ -32023,7 +32023,7 @@ function receptFotoCheck(rs,keus,tip){
 }
 
 function smaakHub(){
-  geleienRechtzetten(); schelpenAanvullen(); try{ kleurenStandaard(); stroopwafelGanache(); biscoffGanache() }catch(e){}
+  geleienRechtzetten(); schelpenAanvullen(); try{ kleurenStandaard(); stroopwafelGanache(); biscoffGanache(); ganachePerBonbon() }catch(e){}
   const totaal=gramPerBonbon(R);
   const rij=(id,ico,naam,waarde,mist)=>`<button class="arij" data-sh="${id}">
     <span class="ivak${mist?' amber':''}">${svg(ico)}</span>
@@ -32134,6 +32134,21 @@ function biscoffGanache(){
     o.naam='Speculoosganache'; o.gram='4'; o.ing=JSON.parse(JSON.stringify(ing)); x.ganache890=true; x.ganache891=true };
   zet(r); try{ if(R.id===r.id) zet(R) }catch(e){}
   setTimeout(()=>bewaarNu(),0);
+}
+/* v892: ganache van stroopwafel en biscoff in gram per bonbon in plaats van receptgrammen.
+   De verhouding blijft gelijk; samen precies het laaggewicht (4 g). */
+function ganachePerBonbon(){
+  let n=0;
+  const zet=x=>{ (x.onderdelen||[]).forEach(o=>{
+    if(!o||!/^(stroopwafel|speculoos)ganache$/i.test(o.naam||'')||o.perBonbon892) return;
+    const g=parseFloat(String(o.gram).replace(',','.'))||0, ing=(o.ing||[]).filter(i=>i&&i.naam&&!i.basis);
+    const tot=ing.reduce((s,i)=>s+(parseFloat(String(i.deel).replace(',','.'))||0),0);
+    if(!(g>0)||!(tot>0)) return;
+    ing.forEach(i=>{ const v=(parseFloat(String(i.deel).replace(',','.'))||0)*g/tot; i.deel=String(Math.round(v*1000)/1000) });
+    o.perBonbon892=true; n++ }) };
+  (S.recepten||[]).forEach(r=>{ if(r) zet(r) });
+  try{ if(R&&R.id) zet(R) }catch(e){}
+  if(n) setTimeout(()=>bewaarNu(),0);
 }
 function schelpenAanvullen(){
   let n=0;
@@ -32332,7 +32347,7 @@ function sheetLaag(n){
   const somTekst=()=>{ if(o.ing.length===1&&o.ing[0].basis) return ''; const som=o.ing.reduce((s,i)=>s+getDeel(i),0), gram=parseFloat(String(o.gram||'').replace(',','.'))||0;
     const genoeg=gram&&som?Math.floor(som/gram):0;
     return som?`Samen <b>${som>=1000?fijn(som/1000)+' kg':fijn(som)+' g'}</b>${
-      !gram?' · vul hierboven de gram per bonbon in':genoeg>=1?' · genoeg voor <b>'+genoeg.toLocaleString('nl-NL')+'</b> bonbons':''}`:'' };
+      !gram?' · vul hierboven de gram per bonbon in':genoeg===1?' · dat is <b>per bonbon</b>':genoeg>=1?' · genoeg voor <b>'+genoeg.toLocaleString('nl-NL')+'</b> bonbons':''}`:'' };
   const pctTekst=k=>{ const som=o.ing.reduce((s,i)=>s+getDeel(i),0), g=getDeel(o.ing[k]);
     if(!(som&&g&&o.ing.length>1)) return ''; const p=Math.round(g/som*100); return (p<1?'<1':p)+'%' };
 
