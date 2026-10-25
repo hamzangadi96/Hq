@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v909 · 25 okt 2026';
+const APPVERSIE='v910 · 25 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10708,6 +10708,24 @@ function pindaBasis(){
 /* v908: zoals Hamza hem echt maakte: 50 g tahin in plaats van 137 g (rest gelijk), 6 g per bonbon */
 /* v909: hazelnootganache, zelfde opbouw als de pindaganache (op 400 g slagroom): 800 melk, 400 room,
    250 hazelnootpasta, 50 boter, 40 glucose, 30 invertsuiker, 4 zout. Per bonbon 4 g. Eenmalig. */
+/* v910: hazelnootpasta (praliné) als basisrecept: hazelnoten roosteren 8 min op 160 °C,
+   suiker (de helft van het gewicht van de noten) karamelliseren, mengen, afkoelen en malen. Eenmalig. */
+function hazelnootPastaBasis(){
+  if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.hzpasta910)) return;
+  const ing=[{naam:ingUitLijst('Hazelnoten'),deel:'1000'},{naam:ingUitLijst('Kristalsuiker'),deel:'500'}];
+  const stappen=[
+    {tekst:'Rooster de hazelnoten 8 minuten op 160 °C. Laat ze iets afkoelen en wrijf de velletjes eraf.',temp:160,min:8},
+    {tekst:'Karamelliseer de suiker in een pan tot een amberkleurige karamel (± 170 °C). Zwenk de pan, niet roeren.',temp:170},
+    {tekst:'Doe de warme noten in de karamel en schep alles goed om.'},
+    {tekst:'Stort het op een bakmat, verdeel dun en laat helemaal afkoelen. Breek het in stukken.'},
+    {tekst:'Maal het in de molen tot een gladde pasta. Tussendoor de molen laten afkoelen, dan wordt hij niet te warm.'},
+    {tekst:'Bewaar afgesloten op kamertemperatuur. Roer voor gebruik door, de olie kan bovenop komen.'}];
+  let b=S.halfRecepten.find(x=>x&&/^hazelnoot\s*(pasta|praliné|praline)$/i.test(String(x.naam||'').trim()));
+  if(!b){ b={id:uid(),naam:'Hazelnootpasta',stappen,ing}; S.halfRecepten.push(b) }
+  else { if(!alsLijst(b.ing).some(y=>y&&y.naam)) b.ing=ing; if(!alsLijst(b.stappen).length) b.stappen=stappen }
+  S.halfRecepten.forEach(x=>{ if(x) x.hzpasta910=true });
+  setTimeout(()=>bewaarNu(),0);
+}
 function hazelnootBasis(){
   if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.hazelnoot909)) return;
   const rec=[['melk',800],['Slagroom',400],['Hazelnootpasta',250],['Roomboter',50],['Glucose',40],['Invertsuiker',30],['Zout',4]];
@@ -10746,7 +10764,7 @@ function dubaiV907(){
       {tekst:'Meteen vullen, de vulling zet snel op.'}];
     r.dubai907=true; setTimeout(()=>bewaarNu(),0) });
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); hazelnootBasis(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); hazelnootBasis(); hazelnootPastaBasis(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
