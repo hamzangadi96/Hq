@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v907 · 25 okt 2026';
+const APPVERSIE='v908 · 25 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10705,6 +10705,14 @@ function pindaBasis(){
 }
 /* v907: dubaivulling vervangen door Hamza's aangepaste recept (minder tahin, geen cacaoboter):
    626 pistachepasta, 1350 witte chocolade, 137 tahin, 234,5 kadayif, voor 6 g per bonbon. Eenmalig. */
+/* v908: zoals Hamza hem echt maakte: 50 g tahin in plaats van 137 g (rest gelijk), 6 g per bonbon */
+function dubaiV908(){
+  (S.halfRecepten||[]).forEach(r=>{ if(!r||!/^dubai/i.test(String(r.naam||'').trim())||r.dubai908||!r.dubai907) return;
+    const g={pistache:626,wit:1350,tahin:50,kadayif:234.5}, tot=626+1350+50+234.5;
+    alsLijst(r.ing).forEach(y=>{ if(!y||!y.naam) return; const k=/pistache/i.test(y.naam)?'pistache':/tahin/i.test(y.naam)?'tahin':/kadayif|kataifi/i.test(y.naam)?'kadayif':/wit/i.test(y.naam)?'wit':null;
+      if(k) y.deel=String(Math.round(g[k]*6/tot*1000)/1000) });
+    r.dubai908=true; setTimeout(()=>bewaarNu(),0) });
+}
 function dubaiV907(){
   (S.halfRecepten||[]).forEach(r=>{ if(!r||!/^dubai/i.test(String(r.naam||'').trim())||r.dubai907) return;
     const rec=[['Pistachepasta',626],['wit',1350],['Tahin',137],['Kadayif',234.5]], tot=rec.reduce((s,x)=>s+x[1],0);
@@ -10718,7 +10726,7 @@ function dubaiV907(){
       {tekst:'Meteen vullen, de vulling zet snel op.'}];
     r.dubai907=true; setTimeout(()=>bewaarNu(),0) });
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
