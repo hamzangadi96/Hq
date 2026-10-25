@@ -3138,6 +3138,36 @@ body.wlaan #vversknop,body.wlaan #zweefknop{opacity:0!important;pointer-events:n
 .wl-balk .wl-rechts{display:flex;gap:8px}
 .wl.open .wd7{transition-delay:3.4s}
 .wl.wlreset .wlr{transition:none!important;opacity:0!important;transform:translateY(14px)!important}
+/* v912: wachtlijst met het logo — bruin zoals het logo, de bonbon loopt vol */
+.wl{background:#512e24}
+.wl::before{background:radial-gradient(circle,rgba(255,236,220,.10) 0%,rgba(255,236,220,0) 65%)}
+.wl-in{text-align:center;margin-top:20px}
+.wl-lab{color:rgba(255,240,228,.62);justify-content:center}
+.wl-lab em{margin-left:14px;color:rgba(255,240,228,.42)}
+.wl-logo{width:min(70vw,300px);margin:26px auto 0}
+.wl-logo svg{display:block;width:100%;height:auto;overflow:visible}
+.wl-omlijn{fill:none;stroke:#fff;stroke-width:37;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
+.wl.open .wl-omlijn{animation:wlteken 1.5s cubic-bezier(.6,.05,.3,1) .25s forwards}
+@keyframes wlteken{to{stroke-dashoffset:0}}
+.wl-golf{fill:#f6e9dc}
+.wl-golfx{animation:wlgolf 3.2s linear infinite}
+@keyframes wlgolf{from{transform:translateX(0)}to{transform:translateX(220px)}}
+#wlVul{transition:transform .25s ease-out}
+.wl-tel{justify-content:center;margin-top:26px}
+.wl-num{font-size:clamp(84px,26vw,118px);margin-left:0}
+.wl-max{color:rgba(255,240,228,.42)}
+.wl-sub{color:rgba(255,240,228,.7);text-align:left}
+.wl-leg{justify-content:center;color:rgba(255,240,228,.7)}
+.wl-leg i{background:#f6e9dc}.wl-leg i.vr{background:rgba(255,240,228,.18)}
+.wl-over{background:rgba(255,240,228,.08);border-color:rgba(255,240,228,.14);text-align:left}
+.wl-over b{color:#fff}
+.wl-over small{color:rgba(255,240,228,.62)}
+.wl-onder small{color:rgba(255,240,228,.7)}
+.wl-cta{color:#512e24}
+.wl-balk button{background:rgba(255,240,228,.12);color:#fff}
+.wl-balk span{color:rgba(255,240,228,.4)}
+.wl.vol .wl-golf{fill:#f3d27a}
+
 </style>
 <style id="kaartstijl">
 /* ══ kaartstijl v1 ══ donkere hoofdkaart, snelacties, kaartrijen met balk.
@@ -5213,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v911 · 25 okt 2026';
+const APPVERSIE='v912 · 25 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9051,6 +9081,8 @@ function mailDagHTML(){
 const WL_OPENING='2026-11-01';
 /* v809: maximaal 250 plekken voor deze drop (zelfde doel als MAILDOEL) */
 const WL_MAX=MAILDOEL.doel;
+/* v912: het logo (bonbon-omlijning) loopt vol naarmate er aanmeldingen bij komen */
+const WL_LOGO='M 397.8 224.1 C 400.8 229.9 403.9 236.0 406.7 242.5 C 409.6 248.9 412.6 255.8 414.8 262.8 C 417.0 269.9 419.2 277.4 420.0 284.7 C 420.8 292.1 421.0 299.8 419.7 306.8 C 418.3 313.8 415.8 320.7 412.1 326.7 C 408.3 332.7 402.8 337.9 397.3 342.5 C 391.8 347.1 385.2 350.9 378.9 354.4 C 372.6 357.9 366.0 360.8 359.5 363.5 C 353.1 366.2 346.7 368.5 340.3 370.6 C 334.0 372.7 327.8 374.4 321.6 376.1 C 315.5 377.7 309.6 379.2 303.7 380.5 C 297.8 381.7 291.9 382.7 286.2 383.7 C 280.5 384.7 274.9 385.5 269.3 386.3 C 263.7 387.0 258.2 387.8 252.8 388.3 C 247.3 388.9 241.8 389.0 236.4 389.5 C 230.9 389.9 225.5 390.5 220.1 390.8 C 214.6 391.1 209.1 391.2 203.6 391.1 C 198.1 391.0 192.6 390.6 187.0 390.3 C 181.4 390.0 175.8 389.7 170.0 389.2 C 164.2 388.7 158.3 388.3 152.4 387.4 C 146.5 386.5 140.7 385.3 134.6 384.0 C 128.5 382.8 122.3 381.4 116.0 379.9 C 109.7 378.3 103.1 376.7 96.6 374.6 C 90.1 372.5 83.4 370.1 76.9 367.3 C 70.4 364.4 63.8 361.2 57.6 357.4 C 51.4 353.6 44.9 349.6 39.7 344.6 C 34.5 339.6 29.7 333.9 26.5 327.6 C 23.3 321.3 21.4 314.0 20.3 306.8 C 19.2 299.7 19.7 292.0 20.0 284.8 C 20.3 277.6 21.1 270.4 22.2 263.5 C 23.3 256.5 24.9 249.7 26.5 243.1 C 28.2 236.6 30.2 230.2 32.2 224.1 C 34.2 217.9 36.3 212.0 38.5 206.2 C 40.8 200.4 43.2 194.8 45.6 189.4 C 48.1 183.9 50.6 178.6 53.2 173.5 C 55.8 168.3 58.6 163.3 61.3 158.3 C 64.1 153.4 66.7 148.4 69.7 143.7 C 72.6 138.9 75.7 134.3 78.9 129.7 C 82.0 125.1 85.2 120.6 88.5 116.1 C 91.9 111.7 95.5 107.4 99.1 103.1 C 102.7 98.8 106.3 94.4 110.1 90.1 C 114.0 85.9 118.2 81.9 122.3 77.7 C 126.4 73.5 130.4 68.9 135.0 64.8 C 139.5 60.7 144.4 57.1 149.4 53.3 C 154.4 49.6 159.5 45.6 164.9 42.2 C 170.4 38.8 176.1 35.6 182.1 33.0 C 188.0 30.3 194.3 28.0 200.6 26.2 C 206.9 24.3 213.5 23.0 220.1 21.9 C 226.7 20.9 233.5 19.9 240.2 20.0 C 246.9 20.1 253.6 21.3 260.2 22.6 C 266.7 23.9 273.4 25.3 279.7 27.7 C 285.9 30.1 292.0 33.2 297.6 37.0 C 303.1 40.8 308.4 45.3 313.0 50.3 C 317.6 55.3 321.7 61.0 325.1 66.9 C 328.5 72.9 331.0 79.7 333.5 85.9 C 336.0 92.1 338.0 98.3 340.0 104.1 C 342.1 110.0 343.9 115.5 345.7 121.0 C 347.5 126.4 349.0 131.7 350.8 136.7 C 352.6 141.8 354.3 146.6 356.3 151.3 C 358.4 156.0 360.6 160.4 363.0 164.9 C 365.4 169.4 367.8 173.9 370.5 178.4 C 373.3 183.0 376.3 187.6 379.3 192.4 C 382.3 197.3 385.5 202.2 388.6 207.5 C 391.6 212.8 394.7 218.3 397.8 224.1 Z';
 let wlTik=null, wlRaf=null, wlGetal=0, mailLang=false;
 function wlData(){
   let m=(S.werk||{}).mailinglijst;
@@ -9071,9 +9103,15 @@ function wlEl(){
       <span>tik = opnieuw</span><span class="wl-rechts"><button type="button" id="wlAdr">Adressen</button><button type="button" id="wlDet">Details</button></span></div>
     <div class="wl-in">
       <div class="wl-lab wlr wd1"><i class="wl-live"></i><span id="wlLab">Drop · 1 november</span><em>Cacaoboetiek</em></div>
-      <div class="wl-tel wlr wd2"><span class="wl-num" id="wlNum">0</span>
+      <div class="wl-logo wlr wd2"><svg viewBox="0 0 440 412" aria-hidden="true">
+          <defs><clipPath id="wlClip"><path d="${WL_LOGO}"/></clipPath></defs>
+          <g clip-path="url(#wlClip)"><g id="wlVul" transform="translate(0 412)"><g class="wl-golfx">
+            <path class="wl-golf" d="M-440 0 Q-385 -16 -330 0 T-220 0 T-110 0 T0 0 T110 0 T220 0 T330 0 T440 0 T550 0 T660 0 T770 0 T880 0 V520 H-440 Z"/></g></g></g>
+          <path class="wl-omlijn" pathLength="1" d="${WL_LOGO}"/>
+        </svg></div>
+      <div class="wl-tel wlr wd3"><span class="wl-num" id="wlNum">0</span>
         <span class="wl-naast"><span class="wl-max">/${WL_MAX}</span><span class="wl-sub">plekken<br>bezet</span></span></div>
-      <div class="wl-raster wlr wd3" id="wlRaster">${'<i></i>'.repeat(WL_MAX)}</div>
+      <div id="wlRaster" hidden></div>
       <div class="wl-leg wlr wd4" id="wlLeg"></div>
       <div class="wl-over wlr wd4"><div><b id="wlOver">${WL_MAX}</b><small id="wlOverT">plekken vrij</small></div>
         <div class="r"><b id="wlWeek">0</b><small>deze week</small></div>
@@ -9105,6 +9143,8 @@ function wlZet(n){
     for(let i=0;i<st.length;i++){
       const c=i<n?(i>=vanaf?'nw':'on'):'';
       if(st[i].className!==c) st[i].className=c } }
+  const vul=document.getElementById('wlVul');
+  if(vul){ const f=Math.min(n/WL_MAX,1); vul.setAttribute('transform','translate(0 '+(398-f*384).toFixed(1)+')') }
   const over=Math.max(WL_MAX-n,0), o=document.getElementById('wlOver');
   if(o) o.textContent=over>0?over:'Vol';
   const ot=document.getElementById('wlOverT');
@@ -9141,7 +9181,7 @@ function wlOpen(){
   document.body.classList.add('wlaan');
   el.classList.add('wlreset'); void el.offsetWidth; el.classList.remove('wlreset');
   void el.offsetWidth; el.classList.add('open');
-  setTimeout(()=>wlTel(d.totaal),300);
+  setTimeout(()=>wlTel(d.totaal),1500);
   clearInterval(wlTik);
   /* zolang hij openstaat: elke 2 min Shopify opnieuw tellen, elke 5 s kijken
      of er een nieuw getal is — komt er iemand bij, dan springt het op */
