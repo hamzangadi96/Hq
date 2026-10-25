@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v910 · 25 okt 2026';
+const APPVERSIE='v911 · 25 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6175,7 +6175,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -13933,6 +13933,46 @@ async function eenmaligRittenRecon2025(){
     bewaarNu(); render();
     toast(n+' ritten 2025 toegevoegd als reconstructie.');
   } finally { rittenRecon25Bezig=false; }
+}
+/* v911: productie za 24 okt achteraf vastleggen (kleurstof bleef plakken in de mallen).
+   Melk-planning eruit, één afgeronde batch met per smaak goed en afkeur. Eenmalig. */
+function eenmaligBatch24okt(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.batch24okt) return false;
+  const R0=(S.recepten||[]).filter(r=>r&&r.naam);
+  const vind=f=>R0.find(f);
+  const plan=[
+    [vind(r=>/cappuccino/i.test(r.naam)),13,6],
+    [vind(r=>/stroopwafel/i.test(r.naam)),12,6],
+    [vind(r=>/biscoff/i.test(r.naam)),12,6],
+    [vind(r=>/dubai/i.test(r.naam)&&!/wit/i.test(r.naam)&&r.chocolade!=='wit'),12,5],
+    [vind(r=>/gezouten\s*karamel/i.test(r.naam)),12,11],
+    [vind(r=>/pinda/i.test(r.naam)),12,9.5]].filter(x=>x[0]);
+  if(!plan.length) return false;
+  S.eenmalig.batch24okt=Date.now();
+  /* planning van de melkchocolade-dag(en) eruit */
+  S.planning=(S.planning||[]).filter(p=>!(p&&p.chocolade==='melk'&&(!p.datum||p.datum>='2026-10-24')));
+  const regels=plan.map(([r,m])=>{ const h=malHoltes(r.id)||24; return {receptId:r.id,mallen:m,aantal:m*h} });
+  const perSmaak=plan.map(([r,m,ok])=>{ const h=malHoltes(r.id)||24, goed=Math.round(ok*h); return {receptId:r.id,goed,afkeur:m*h-goed} });
+  const goed=perSmaak.reduce((s,x)=>s+x.goed,0), afk=perSmaak.reduce((s,x)=>s+x.afkeur,0);
+  const kopie={}; plan.forEach(([r])=>{ kopie[r.id]=JSON.parse(JSON.stringify(r)) });
+  const voor='CB-20261024-', nr=(S.batches||[]).filter(b=>b&&b.code&&b.code.indexOf(voor)===0).length+1;
+  S.batches=S.batches||[];
+  const b={id:uid(),code:voor+String(nr).padStart(2,'0'),chocolade:'melk',regels,gestart:'09:00',startDatum:'2026-10-24',
+    status:'klaar',dagen:[],lots:{},logs:[],recepten:kopie,werkplan:(S.werkplan||[]).slice(),
+    resultaat:{goed,afkeur:afk,perSmaak},eind:'22:00',eindDatum:'2026-10-24',handmatig:true};
+  S.batches.push(b);
+  const naam=id=>(kopie[id]||{}).naam||'';
+  try{ perSmaak.filter(ps=>ps.goed>0).forEach(ps=>muteer({soort:'batch',receptId:ps.receptId,lot:b.code,
+    tht:iso(thtVan(b,receptVan(b,ps.receptId))),aantal:ps.goed,reden:'batch '+b.code+' afgerond'})) }catch(e){}
+  try{ perSmaak.filter(ps=>ps.afkeur>0).forEach(ps=>muteer({soort:'breuk',receptId:ps.receptId,lot:b.code,
+    tht:iso(thtVan(b,receptVan(b,ps.receptId))),aantal:0,reden:ps.afkeur+' afkeur bij productie: kleurstof bleef plakken in de mal'})) }catch(e){}
+  try{ boekVerbruik(b) }catch(e){}
+  try{ batchKostenVast(b) }catch(e){}
+  bLog(b,{type:'afronden',titel:goed+' goed, '+afk+' afkeur',
+    sub:perSmaak.map(p=>naam(p.receptId)+' '+p.goed).join(' · ')+' — kleurstof bleef plakken in de mallen',status:'let'});
+  setTimeout(()=>toast('Batch '+b.code+' van 24 okt vastgelegd: '+goed+' goed, '+afk+' afkeur.'),1500);
+  return true;
 }
 function eenmaligZondagGepland(){
   S.eenmalig=S.eenmalig||{};
