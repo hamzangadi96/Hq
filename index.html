@@ -5213,7 +5213,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v908 · 25 okt 2026';
+const APPVERSIE='v909 · 25 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10706,6 +10706,26 @@ function pindaBasis(){
 /* v907: dubaivulling vervangen door Hamza's aangepaste recept (minder tahin, geen cacaoboter):
    626 pistachepasta, 1350 witte chocolade, 137 tahin, 234,5 kadayif, voor 6 g per bonbon. Eenmalig. */
 /* v908: zoals Hamza hem echt maakte: 50 g tahin in plaats van 137 g (rest gelijk), 6 g per bonbon */
+/* v909: hazelnootganache, zelfde opbouw als de pindaganache (op 400 g slagroom): 800 melk, 400 room,
+   250 hazelnootpasta, 50 boter, 40 glucose, 30 invertsuiker, 4 zout. Per bonbon 4 g. Eenmalig. */
+function hazelnootBasis(){
+  if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.hazelnoot909)) return;
+  const rec=[['melk',800],['Slagroom',400],['Hazelnootpasta',250],['Roomboter',50],['Glucose',40],['Invertsuiker',30],['Zout',4]];
+  const tot=rec.reduce((s,x)=>s+x[1],0);
+  const ing=rec.map(([n,g])=>({naam:n==='melk'?schelpIngVoorKey('melk'):ingUitLijst(n),deel:String(Math.round(g*4/tot*1000)/1000)}));
+  const stappen=[
+    {tekst:'Doe de melkchocolade en de hazelnootpasta samen in een kom. Is de pasta stijf: 10–15 seconden in de magnetron.'},
+    {tekst:'Verwarm de slagroom met de glucose en invertsuiker tot 80 °C.',temp:80},
+    {tekst:'Giet de room in 3 keer over de chocolade en hazelnootpasta.'},
+    {tekst:'Staafmix tot glad en glanzend. Mixer onder het oppervlak.'},
+    {tekst:'Mix op 35 °C de roomboter en het zout erdoor.',temp:35},
+    {tekst:'Folie direct op de ganache en laten afkoelen. Spuiten op 28–30 °C.',temp:30}];
+  let b=S.halfRecepten.find(x=>x&&/^hazelnoot\s*ganache$/i.test(String(x.naam||'').trim()));
+  if(!b){ b={id:uid(),naam:'Hazelnootganache',stappen,ing}; S.halfRecepten.push(b) }
+  else { if(!alsLijst(b.ing).some(y=>y&&y.naam)) b.ing=ing; if(!alsLijst(b.stappen).length) b.stappen=stappen }
+  S.halfRecepten.forEach(x=>{ if(x) x.hazelnoot909=true });
+  setTimeout(()=>bewaarNu(),0);
+}
 function dubaiV908(){
   (S.halfRecepten||[]).forEach(r=>{ if(!r||!/^dubai/i.test(String(r.naam||'').trim())||r.dubai908||!r.dubai907) return;
     const g={pistache:626,wit:1350,tahin:50,kadayif:234.5}, tot=626+1350+50+234.5;
@@ -10726,7 +10746,7 @@ function dubaiV907(){
       {tekst:'Meteen vullen, de vulling zet snel op.'}];
     r.dubai907=true; setTimeout(()=>bewaarNu(),0) });
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); hazelnootBasis(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
