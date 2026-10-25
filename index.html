@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v916 · 25 okt 2026';
+const APPVERSIE='v917 · 25 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10774,6 +10774,22 @@ function hazelnootPastaBasis(){
    voor 312 bonbons → 1,41 g per bonbon in de hazelnootlaag van Cappuccino & hazelnoot. Eenmalig. */
 /* v916: karamel 24 okt: 3 kg suiker, 1 kg slagroom, 600 g invertsuiker → ± 4.576 g na inkoken (85% droge stof),
    145 g over → 4.431 g over 3 × 288 = 864 bonbons ≈ 5,1 g per bonbon. Karamellaag in die drie smaken. Eenmalig. */
+/* v917: karamel was gemaakt voor 5 smaken × 313 bonbons (ook Stroopwafel en Karamel & crunch).
+   ± 4.576 g − 145 g over = 4.431 g ÷ 1.565 = 2,85 g per bonbon. Stroopwafel krijgt een karamellaag. Eenmalig. */
+function karamel917(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.karamel917||!(S.recepten||[]).length) return;
+  const kb=(S.halfRecepten||[]).find(x=>x&&(x.id==='karamel'||/gezouten\s*karamel/i.test(x.naam||'')));
+  const zet=x=>{ if(!x||!/(gezouten\s*karamel|pinda|biscoff|stroopwafel|karamel\s*&?\s*crunch)/i.test(x.naam||'')) return;
+    x.onderdelen=x.onderdelen||[];
+    let l=x.onderdelen.find(o=>o&&/karamel/i.test(o.naam||'')&&!isSchelp(o));
+    if(!l&&/stroopwafel/i.test(x.naam||'')&&kb){ l={naam:'Karamel',gram:'2.85',ing:[{naam:kb.naam,deel:'100',basis:kb.id}]};
+      const i=x.onderdelen.findIndex(o=>o&&!isSchelp(o)); x.onderdelen.splice(i<0?x.onderdelen.length:i,0,l) }
+    if(l) l.gram='2.85' };
+  (S.recepten||[]).forEach(zet); try{ if(R&&R.id) zet(R) }catch(e){}
+  S.eenmalig.karamel917=Date.now();
+  setTimeout(()=>bewaarNu(),0);
+}
 function karamel916(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.karamel916||!(S.recepten||[]).length) return;
@@ -10868,7 +10884,7 @@ function dubaiV907(){
       {tekst:'Meteen vullen, de vulling zet snel op.'}];
     r.dubai907=true; setTimeout(()=>bewaarNu(),0) });
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); hazelnootBasis(); hazelnootPastaBasis(); echtVerbruik913(); cappuccino914(); hazelnoot915(); karamel916(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); hazelnootBasis(); hazelnootPastaBasis(); echtVerbruik913(); cappuccino914(); hazelnoot915(); karamel916(); karamel917(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
