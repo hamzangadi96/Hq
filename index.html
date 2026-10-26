@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v922 · 26 okt 2026';
+const APPVERSIE='v923 · 26 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7329,6 +7329,8 @@ let vtBezig=false;
    knop, en geen manier om je gegevens er nog uit te krijgen. Nu vangen we hem
    op, laten we zien wat er misging, en kun je altijd nog exporteren. */
 function render(){
+  /* v923: aanvulling van de batch ook na het laden van je gegevens, niet alleen bij het eerste serverantwoord */
+  try{ if(window.hqDataGeladen&&S.eenmalig&&S.eenmalig.batch24okt&&!S.eenmalig.stroop24b&&eenmaligStroop24()) setTimeout(bewaarNu,500) }catch(e){}
   if(zoektAan&&S.tab!=='dashboard') zoekDicht();
   ritHervatten();
   try{ ritUI(); }catch(e){}
@@ -14107,7 +14109,7 @@ function eenmaligStroop24(){
   if(!b){ setTimeout(()=>toast('Batch van 24 okt niet gevonden.'),2000); return false }
   if(!r){ setTimeout(()=>toast('Smaak Stroopwafel niet gevonden in je smaken.'),2000); return false }
   S.eenmalig.stroop24b=Date.now();
-  const al=(S.mutaties||[]).filter(m=>m&&m.lot===b.code&&m.receptId===r.id).reduce((s,m)=>s+(+m.aantal||0),0);
+  const al=(S.mutaties||[]).filter(m=>m&&m.receptId===r.id).reduce((s,m)=>s+(+m.aantal||0),0);
   if(al>0){ setTimeout(()=>toast('Stroopwafel stond al in je voorraad ('+al+').'),2000); return true }
   const h=malHoltes(r.id)||24, goed=6*h, afk=12*h-goed;
   if(!b.regels.some(x=>x.receptId===r.id)) b.regels.push({receptId:r.id,mallen:12,aantal:12*h});
