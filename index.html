@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v924 · 26 okt 2026';
+const APPVERSIE='v925 · 26 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11799,8 +11799,74 @@ function dashboardHTML(){
   if(t.soort==='route'&&!S.dienst) h=h.replace(/<div class="rtnu([^"]*)">/,(m,c)=>`<div class="rtnu${c}">`+hkKlokHTML());
   const morgenAlInKaart=t.soort!=='bezig'&&h.indexOf('Volgende: <b style="color:var(--ink);font-weight:600">morgen')>=0;
   /* De week bovenaan (8 okt): eerst zien waar je staat, dan wat je nu doet. */
-  return voorHeld+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+h+homeTegelsHTML()+kpiHTML();
+  return voorHeld+weekstripHTML(7)+(morgenAlInKaart?'':morgenHTML())+h+witKaartHTML()+homeTegelsHTML()+kpiHTML();
 }
+/* ═══════════ v925: witte productie op het dashboard ═══════════
+   Per witte smaak: hoeveel je maakt en met welke vullingen, en daaronder
+   per vulling hoeveel gram je moet maken (met je marge). Aantallen uit het
+   eerstvolgende witte plan, anders 10 mallen per smaak. */
+const WIT_VUL=[
+  [/matcha/i,'Matchaganache',3,/matcha/i],[/pistache/i,'Pistacheganache',3,/pistache/i],[/amandel/i,'Amandelganache',3,/amandel/i],[/vanille/i,'Vanilleganache',3,/vanille/i],
+  [/hazelno/i,'Hazelnootpasta',1.41,/hazel|pralin/i],[/dubai/i,'Dubaivulling',4.9,/dubai|vulling/i],[/karamel/i,'Gezouten karamel',2,/karamel/i]];
+function witKoppel925(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.wit925||!(S.halfRecepten||[]).length) return false;
+  const bas=n=>(S.halfRecepten||[]).find(x=>x&&String(x.naam||'').trim().toLowerCase()===n.toLowerCase());
+  const koppel=(x,b,g,re)=>{ x.onderdelen=x.onderdelen||[];
+    if(x.onderdelen.some(o=>o&&(o.ing||[]).some(i=>i&&i.basis===b.id))) return;
+    let l=x.onderdelen.find(o=>o&&!isSchelp(o)&&re.test(o.naam||''));
+    if(l&&(l.ing||[]).some(i=>i&&i.naam)) return;   /* eigen invulling: laten staan */
+    if(!l) l=x.onderdelen.find(o=>o&&!isSchelp(o)&&/ganache|vulling/i.test(o.naam||'')&&/ganache|pasta|vulling/i.test(b.naam)&&!(o.ing||[]).some(i=>i&&i.naam));
+    if(!l){ l={naam:b.naam,gram:String(g),ing:[]}; x.onderdelen.push(l) }
+    if(!(parseFloat(l.gram)>0)) l.gram=String(g);
+    l.ing=[{naam:b.naam,deel:'100',basis:b.id}] };
+  const doe=x=>{ if(!x||x.chocolade!=='wit'||!smaakActief(x)) return;
+    WIT_VUL.forEach(([re,n,g,lre])=>{ if(!re.test(x.naam||'')) return;
+      const b=bas(n)||(n==='Gezouten karamel'?(S.halfRecepten||[]).find(y=>y&&y.id==='karamel'):null); if(b) koppel(x,b,g,lre) });
+    const gl=geleiVoorSmaak(x.naam); if(gl) koppel(x,gl,1.25,/gelei/i) };
+  (S.recepten||[]).forEach(doe); try{ if(R&&R.id) doe(R) }catch(e){}
+  S.eenmalig.wit925=Date.now(); setTimeout(()=>bewaarNu(),0);
+  return true;
+}
+function witPlanAantallen(){
+  const wit=(S.recepten||[]).filter(r=>r&&r.chocolade==='wit'&&smaakActief(r));
+  const p=planLijst().filter(x=>x.chocolade==='wit').sort((a,b)=>String(a.datum).localeCompare(String(b.datum)));
+  const v0=vandaag(), komend=p.filter(x=>!x.datum||x.datum>=v0), bron=komend.length?komend:p.slice(-1);
+  const uit={}; let datum=null;
+  if(bron.length){ bron.forEach(x=>(x.regels||[]).forEach(rg=>{ uit[rg.receptId]=(uit[rg.receptId]||0)+(rg.aantal||0) })); datum=bron[0].datum }
+  else wit.forEach(r=>{ uit[r.id]=10*(malHoltes(r.id)||24) });
+  return {aantal:uit,datum,uitPlan:!!bron.length,verlopen:!!(bron.length&&!komend.length)};
+}
+function witKaartHTML(){
+  try{ witKoppel925() }catch(e){}
+  const wit=(S.recepten||[]).filter(r=>r&&r.chocolade==='wit'&&smaakActief(r));
+  if(!wit.length) return '';
+  const P=witPlanAantallen(), marge=(S.vulMarge===10||typeof S.vulMarge!=='number'?20:S.vulMarge);
+  const g=n=>Math.round(n).toLocaleString('nl-NL');
+  const rijen=wit.filter(r=>P.aantal[r.id]>0).sort((a,b)=>a.naam.localeCompare(b.naam,'nl'));
+  if(!rijen.length) return '';
+  const vul={};
+  const smaakRij=r=>{ const n=P.aantal[r.id], h=malHoltes(r.id)||24, lagen=[];
+    (r.onderdelen||[]).forEach(o=>{ if(!o||isSchelp(o)) return; const gr=parseFloat(o.gram)||0;
+      const bi=(o.ing||[]).find(i=>i&&i.basis), b=bi&&basisVan(bi.basis);
+      const naam=b?b.naam:(o.naam||'laag'); lagen.push(esc(naam)+(gr?' '+fijn(gr)+' g':''));
+      const k=b?b.id:'los:'+naam; vul[k]=vul[k]||{naam,id:b?b.id:null,g:0,leeg:!b&&!(o.ing||[]).some(i=>i&&i.naam)}; vul[k].g+=gr*n });
+    return `<button type="button" class="shrij" onclick="homeTegel('smk');setTimeout(()=>{const e=document.querySelector('[data-recept=&quot;${r.id}&quot;]');if(e)e.click()},250)">
+      <span class="shn">${esc(r.naam)}<small>${Math.round(n/h)} mallen · ${g(n)} st${lagen.length?' · '+lagen.join(' + '):' · <span class="lglet">nog geen vulling</span>'}</small></span>${svg(I.pijl,'2')}</button>` };
+  const sm=rijen.map(smaakRij).join('');
+  const vl=Object.values(vul).sort((a,b)=>b.g-a.g);
+  const datTxt=P.datum?new Date(P.datum+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'}):'';
+  return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Witte productie</span>
+      <span class="tel">${P.uitPlan?(P.verlopen?'plan '+esc(datTxt)+' · verlopen':esc(datTxt)):'10 mallen per smaak'}</span></div>
+    <div class="gl">${sm}</div>
+    <div class="blokkop" style="margin-top:16px"><span class="eyebrow">Vullingen maken</span><span class="tel">incl. ${marge}% marge</span></div>
+    <div class="gl">${vl.map(v=>`<button type="button" class="shrij"${v.id?` data-witvul="${esc(v.id)}"`:''}>
+        <span class="shn">${esc(v.naam)}${v.id?'':`<small class="lglet">${v.leeg?'nog geen recept':'eigen laag'}</small>`}</span>
+        <span class="shw">${v.g?g(v.g*(1+marge/100))+' g':'—'}</span>${v.id?svg(I.pijl,'2'):''}</button>`).join('')}</div>
+    <div class="lgvoet bvoet"><button type="button" onclick="VP=null;sheetVoorspelPlan()">${P.uitPlan&&!P.verlopen?'Plan aanpassen':'Witte dag inplannen'}</button></div>`;
+}
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-witvul]'); if(!b) return;
+  const P=witPlanAantallen(); VUL={aantal:Object.assign({},P.aantal),open:b.dataset.witvul}; sheetVullingen() });
 
 /* datum klein, groet groot, en de signalen die er nu toe doen eronder */
 function groetNu(){
