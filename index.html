@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v923 · 26 okt 2026';
+const APPVERSIE='v924 · 26 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6205,7 +6205,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligStroop24()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -7330,7 +7330,7 @@ let vtBezig=false;
    op, laten we zien wat er misging, en kun je altijd nog exporteren. */
 function render(){
   /* v923: aanvulling van de batch ook na het laden van je gegevens, niet alleen bij het eerste serverantwoord */
-  try{ if(window.hqDataGeladen&&S.eenmalig&&S.eenmalig.batch24okt&&!S.eenmalig.stroop24b&&eenmaligStroop24()) setTimeout(bewaarNu,500) }catch(e){}
+  try{ if(window.hqDataGeladen&&S.eenmalig&&S.eenmalig.batch24okt&&!S.eenmalig.stroof924&&stroofwafel924()) setTimeout(bewaarNu,500) }catch(e){}
   if(zoektAan&&S.tab!=='dashboard') zoekDicht();
   ritHervatten();
   try{ ritUI(); }catch(e){}
@@ -14101,11 +14101,46 @@ async function eenmaligRittenRecon2025(){
 /* v911: productie za 24 okt achteraf vastleggen (kleurstof bleef plakken in de mallen).
    Melk-planning eruit, één afgeronde batch met per smaak goed en afkeur. Eenmalig. */
 /* v921: Stroopwafel ontbrak in de batch van 24 okt (voorraad 900 i.p.v. 1.044). Aanvullen. Eenmalig. */
+/* v924: de smaak heette "Stroofwafel" (tikfout). Daardoor sloegen alle aanpassingen voor
+   Stroopwafel hem over. Naam rechtzetten en alles in één keer goedzetten:
+   voorraad uit de batch, oranje kleur, karamel 2 g, stroopwafelganache 2,14 g. Eenmalig. */
+function stroofwafel924(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.stroof924) return false;
+  const r=(S.recepten||[]).find(x=>x&&/stro+[a-z]?f?wafel|stroofwafel|stroopwafel/i.test(String(x.naam||'')));
+  if(!r){ setTimeout(()=>toast('Smaak Stroopwafel niet gevonden in je smaken.'),2000); return false }
+  S.eenmalig.stroof924=Date.now();
+  const doe=x=>{
+    if(!x) return;
+    x.naam=String(x.naam).replace(/stro+[a-z]?f?wafel|stroofwafel/i,'Stroopwafel');
+    /* kleur oranje */
+    const k=(S.kleuren||[]).find(y=>kNaamIs(y,'Oranje'));
+    if(k){ x.kleuren=alsLijst(x.kleuren); if(!x.kleuren.includes(k.id)) x.kleuren.push(k.id); x.kleurPlan=alsLijst(x.kleurPlan); if(!x.kleurPlan.includes('Oranje')) x.kleurPlan.push('Oranje') }
+    x.onderdelen=x.onderdelen||[];
+    /* karamel 2 g */
+    const kb=(S.halfRecepten||[]).find(y=>y&&(y.id==='karamel'||/gezouten\s*karamel/i.test(y.naam||'')));
+    let kl=x.onderdelen.find(o=>o&&/karamel/i.test(o.naam||'')&&!isSchelp(o));
+    if(!kl&&kb){ kl={naam:'Karamel',gram:'2',ing:[{naam:kb.naam,deel:'100',basis:kb.id}]}; x.onderdelen.push(kl) }
+    if(kl) kl.gram='2';
+    /* stroopwafelganache 2,14 g, gekoppeld aan het basisrecept */
+    const gb=(S.halfRecepten||[]).find(y=>y&&/^stroopwafel\s*ganache$/i.test(String(y.naam||'').trim()));
+    let gl=x.onderdelen.find(o=>o&&!isSchelp(o)&&!/karamel/i.test(o.naam||'')&&/ganache|stroop|stroof/i.test(o.naam||''))
+      ||x.onderdelen.find(o=>o&&!isSchelp(o)&&!/karamel/i.test(o.naam||'')&&!(o.ing||[]).some(i=>i&&i.naam));
+    if(!gl){ gl={naam:'Stroopwafelganache',gram:'2.14',ing:[]}; x.onderdelen.push(gl) }
+    gl.naam='Stroopwafelganache'; gl.gram='2.14'; if(gb) gl.ing=[{naam:gb.naam,deel:'100',basis:gb.id}];
+  };
+  doe(r); try{ if(R&&R.id===r.id) doe(R) }catch(e){}
+  /* voorraad uit de batch van 24 okt */
+  S.eenmalig.stroop24b=0; delete S.eenmalig.stroop24b;
+  const ok=eenmaligStroop24();
+  if(!ok) setTimeout(()=>toast('Stroopwafel rechtgezet (naam, kleur, karamel en ganache).'),2200);
+  return true;
+}
 function eenmaligStroop24(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.stroop24b) return false;
   const b=(S.batches||[]).find(x=>x&&/^CB-20261024-/.test(x.code||''));
-  const r=(S.recepten||[]).find(x=>x&&/stroop/i.test(String(x.naam||'')));
+  const r=(S.recepten||[]).find(x=>x&&/stroopwafel|stroofwafel|stro+[a-z]?f?wafel/i.test(String(x.naam||'')));
   if(!b){ setTimeout(()=>toast('Batch van 24 okt niet gevonden.'),2000); return false }
   if(!r){ setTimeout(()=>toast('Smaak Stroopwafel niet gevonden in je smaken.'),2000); return false }
   S.eenmalig.stroop24b=Date.now();
