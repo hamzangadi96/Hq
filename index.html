@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v921 · 26 okt 2026';
+const APPVERSIE='v922 · 26 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -14101,13 +14101,14 @@ async function eenmaligRittenRecon2025(){
 /* v921: Stroopwafel ontbrak in de batch van 24 okt (voorraad 900 i.p.v. 1.044). Aanvullen. Eenmalig. */
 function eenmaligStroop24(){
   S.eenmalig=S.eenmalig||{};
-  if(S.eenmalig.stroop24||!S.eenmalig.batch24okt) return false;
-  const b=(S.batches||[]).find(x=>x&&/^CB-20261024-/.test(x.code||'')&&x.handmatig);
-  const r=(S.recepten||[]).find(x=>x&&/stroop/i.test(x.naam||''));
-  if(!b||!r) return false;
-  S.eenmalig.stroop24=Date.now();
-  const al=(S.mutaties||[]).some(m=>m&&m.lot===b.code&&m.receptId===r.id&&m.soort==='batch');
-  if(al) return true;
+  if(S.eenmalig.stroop24b) return false;
+  const b=(S.batches||[]).find(x=>x&&/^CB-20261024-/.test(x.code||''));
+  const r=(S.recepten||[]).find(x=>x&&/stroop/i.test(String(x.naam||'')));
+  if(!b){ setTimeout(()=>toast('Batch van 24 okt niet gevonden.'),2000); return false }
+  if(!r){ setTimeout(()=>toast('Smaak Stroopwafel niet gevonden in je smaken.'),2000); return false }
+  S.eenmalig.stroop24b=Date.now();
+  const al=(S.mutaties||[]).filter(m=>m&&m.lot===b.code&&m.receptId===r.id).reduce((s,m)=>s+(+m.aantal||0),0);
+  if(al>0){ setTimeout(()=>toast('Stroopwafel stond al in je voorraad ('+al+').'),2000); return true }
   const h=malHoltes(r.id)||24, goed=6*h, afk=12*h-goed;
   if(!b.regels.some(x=>x.receptId===r.id)) b.regels.push({receptId:r.id,mallen:12,aantal:12*h});
   b.recepten=b.recepten||{}; if(!b.recepten[r.id]) b.recepten[r.id]=JSON.parse(JSON.stringify(r));
