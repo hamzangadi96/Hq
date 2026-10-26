@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v919 · 25 okt 2026';
+const APPVERSIE='v920 · 26 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -11836,8 +11836,9 @@ function productieHTML(){
   const loopt=S.batches.filter(b=>b.status!=='klaar');
   const af=S.batches.filter(b=>b.status==='klaar').slice()
     .sort((a,b2)=>String(b2.eindDatum||'').localeCompare(String(a.eindDatum||'')));
-  const afVandaag=af.filter(b=>b.eindDatum===vandaag());
-  const rest=af.filter(b=>b.eindDatum!==vandaag());
+  /* v920: batches van de laatste 3 dagen blijven gewoon zichtbaar, bovenaan als 'Laatste productie' */
+  const afVandaag=af.filter(b=>b.eindDatum&&dagenTussen(b.eindDatum,vandaag())<=3);
+  const rest=af.filter(b=>!afVandaag.includes(b));
 
   let h='';
   if(!S.recepten.length) h+=`<div class="melding amber" style="margin-bottom:14px">${svg(I.alarm,'2')}
@@ -11872,6 +11873,13 @@ function productieHTML(){
     if(loopt.length>1) h+=`<div class="paneel" style="margin-top:12px">${
       loopt.slice(1).map(bRij).join('')}</div>`;
   }
+  if(!loopt.length&&afVandaag.length){
+    h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Laatste productie</span></div>
+      <div class="paneel">${afVandaag.map(b=>{ const r=b.resultaat||{}, dt=new Date((b.eindDatum||vandaag())+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
+        return `<button class="arij" data-batch="${b.id}"><span class="ivak ${r.afkeur>r.goed/4?'amber':'groen'}">${svg(I.vink)}</span>
+          <span class="naam">${esc(dt)} · ${esc(chocNaam(b.chocolade).toLowerCase())}<small>${b.code} · ${(r.goed||0).toLocaleString('nl-NL')} goed${r.afkeur?' · '+r.afkeur.toLocaleString('nl-NL')+' afkeur':''}</small></span>
+          <span class="pijl">${svg(I.pijl,'2')}</span></button>` }).join('')}</div>`;
+  }
   const plans=planLijst().slice().sort((x,y)=>String(x.datum).localeCompare(String(y.datum)));
   if(!S.recepten.length&&!loopt.length){
     h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Planning</span></div>
@@ -11892,7 +11900,8 @@ function productieHTML(){
       return veegRij(`<div class="pldag${n<=0?' nu':''}" data-planning>
         ${dk(p2.datum)}
         <span class="plnm"><b>${esc(chocNaam(p2.chocolade)||'Productie')}</b><small>${sub}</small></span>
-        ${n<=0&&!(nu&&nu.k==='prod:'+p2.id&&!loopt.length)?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
+        ${n<0?`<span class="plwnr laat">verlopen</span>`
+          :n===0&&!(nu&&nu.k==='prod:'+p2.id&&!loopt.length)?`<button class="miniknop" data-planstart="${p2.id}">Starten</button>`
           :`<span class="plwnr${n<0?' laat':''}">${wnr(n)}${tk?`<button type="button" class="plbest" data-plbest="${p2.id}">${tk} bestellen</button>`:''}</span>`}
       </div>`,'data-planwis="'+p2.id+'"')};
     if(held) h+=`<div style="margin-top:${loopt.length?24:8}px">${held}</div>`;
@@ -11948,10 +11957,11 @@ function productieHTML(){
   }
 
   /* ── Afgerond: vandaag staat open, eerdere dagen klap je erbij ── */
-  if(af.length){
+  if(rest.length||(loopt.length&&afVandaag.length)){
+    const toon=loopt.length?afVandaag:[];
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Afgerond</span>
         <span class="tel">${af.length}</span></div>
-      <div class="paneel">${(S.toonEerder?af:afVandaag).map(bRij).join('')}
+      <div class="paneel">${(S.toonEerder?af:toon).map(bRij).join('')}
         ${rest.length?`<button class="meer" data-eerder="${S.toonEerder?'dicht':'open'}">${
           S.toonEerder?'Inklappen'
             :rest.length+' eerdere '+(rest.length===1?'batch':'batches')+' tonen'}</button>`:''}</div>`;
@@ -12270,11 +12280,11 @@ function sheetPlanBestel(id){
 function planStandHTML(plans,loopt){
   const a=voorspelAdvies(); if(!a) return '';
   const v0=vandaag();
-  const gepland=plans.filter(p=>p.datum>=v0||!p.datum).reduce((n,p)=>n+(p.regels||[]).reduce((x,y)=>x+(y.aantal||0),0),0)
-    +loopt.reduce((n,b)=>n+bTotaal(b),0)+vpVoorraad();
+  const ingepland=plans.filter(p=>p.datum>=v0||!p.datum).reduce((n,p)=>n+(p.regels||[]).reduce((x,y)=>x+(y.aantal||0),0),0)
+    +loopt.reduce((n,b)=>n+bTotaal(b),0), opv=vpVoorraad(), gepland=ingepland+opv;
   const nodig=a.bruto, gat=nodig-gepland, g=n=>Math.round(n).toLocaleString('nl-NL');
   return `<button type="button" class="plstand${gat>0?' let':''}" onclick="homeTegel('vsp')">
-    <span><b>${gat>0?g(gat)+' te weinig gepland':'Genoeg gepland'}</b><small>${g(gepland)} gepland · ${g(nodig)} nodig</small></span>
+    <span><b>${gat>0?'Nog '+g(gat)+' bonbons inplannen':'Genoeg gepland'}</b><small>nodig ${g(nodig)} · op voorraad ${g(opv)} · gepland ${g(ingepland)}</small></span>
     <em>${gat>0?'':svg(I.vink,'2.6')}</em>${svg(I.pijl,'2')}</button>`;
 }
 /* v826: vier tegels werden één lijst "Klaarzetten"; de voorspelling zit nu
@@ -21560,7 +21570,8 @@ const planLijst=()=>(S.planning||[]).slice()
 /* ===== Route naar productie (v747) =====
    Een planning alleen is een datum. Wat er vóór die datum moet gebeuren —
    bestellen, grote schoonmaak, vullingen — rekent de app hier uit, op volgorde. */
-function routePlans(){ const v=vandaag(); return planLijst().filter(p=>p.datum>=datumPlus(v,-3)) }
+/* v920: verlopen plannen sturen je niet meer aan ("13 dagen te laat bestellen") */
+function routePlans(){ const v=vandaag(); return planLijst().filter(p=>p.datum>=v) }
 function routeStappen(){
   const v=vandaag(), plans=routePlans(), uit=[], klaar=S.route||{};
   if(!plans.length) return uit;
