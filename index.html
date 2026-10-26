@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v926 · 26 okt 2026';
+const APPVERSIE='v927 · 26 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7331,6 +7331,7 @@ let vtBezig=false;
 function render(){
   /* v923: aanvulling van de batch ook na het laden van je gegevens, niet alleen bij het eerste serverantwoord */
   try{ if(window.hqDataGeladen&&S.eenmalig&&S.eenmalig.batch24okt&&!S.eenmalig.stroof924&&stroofwafel924()) setTimeout(bewaarNu,500) }catch(e){}
+  try{ if(window.hqDataGeladen&&!(S.eenmalig&&S.eenmalig.todoWit927)&&todoWit927()) setTimeout(bewaarNu,500) }catch(e){}
   if(zoektAan&&S.tab!=='dashboard') zoekDicht();
   ritHervatten();
   try{ ritUI(); }catch(e){}
@@ -8310,6 +8311,34 @@ const tdVolgende=t=>tdStappen(t).find(s=>!s.klaar)||null;
 const tdFilms=t=>tdStappen(t).filter(s=>s.film).length;
 const tdHeeftFilm=t=>!!(t&&(t.film||tdFilms(t)));
 
+/* v927: to-do voor de witte batch, met wat al klaar is afgevinkt (ganaches behalve pistache). Eenmalig. */
+function todoWit927(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.todoWit927) return false;
+  S.eenmalig.todoWit927=Date.now();
+  const st=(tekst,klaar)=>({id:uid(),tekst,klaar:!!klaar});
+  const t={id:uid(),titel:'Witte productie',gemaakt:Date.now(),klaar:false,stappen:[
+    st('Matchaganache maken',1),st('Vanilleganache maken',1),st('Amandelganache maken',1),
+    st('Pistacheganache maken'),
+    st('Hazelnootpasta klaar (Vanille & hazelnoot)'),
+    st('Geleien: aardbei, blauwe bessen, rode vruchten'),
+    st('Mangogelei (Amandel & mango)'),
+    st('Karamel (Karamel & crunch)'),
+    st('Crunch maken'),
+    st('Kadayif roosteren (Dubai wit)'),
+    st('Proefmal: kleur getempereerd, morgen lost hij?'),
+    st('Kleuren tempereren (27 → 29–30 °C) en mallen kleuren'),
+    st('Schelpen gieten'),
+    st('Ganaches op 28–30 °C en vullen'),
+    st('Geleien en tweede lagen vullen'),
+    st('Dubaivulling mengen en direct vullen'),
+    st('Afdekken, 12 uur laten kristalliseren'),
+    st('Afsluiten'),
+    st('Ontvormen, tellen en batch afronden in HQ')]};
+  S.tedoen=[t].concat(S.tedoen||[]);
+  setTimeout(()=>toast('Witte productie staat op je lijst: 3 van 19 al af.'),1500);
+  return true;
+}
 function tdToevoegen(titel){
   const tekst=String(titel||'').trim();
   if(!tekst) return null;
