@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v928 · 26 okt 2026';
+const APPVERSIE = 'v929 · 27 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10811,6 +10811,39 @@ function hazelnootPastaBasis(){
    ± 4.576 g − 145 g over = 4.431 g ÷ 1.565 = 2,85 g per bonbon. Stroopwafel krijgt een karamellaag. Eenmalig. */
 /* v918: karamel per smaak zoals Hamza het doet: 6 g in Gezouten karamel, 2 g in de rest. Eenmalig. */
 /* v919: ganaches voor de witte smaken, zelfde opbouw als de andere (op 400 g slagroom). Eenmalig. */
+/* ═══════════ v929: tempereren als basisrecepten (Wheelie 14 + kleur) ═══════════
+   Uit de handleiding van de Wheelie 14 (Chocolate World), kort gemaakt.
+   Staat bij Basisrecepten, met temperaturen zodat je de stappen ziet tijdens het werk. */
+function tempereren929(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.tempereren929||!S.halfRecepten||!S.halfRecepten.length) return;
+  const nieuw=(naam,stappen)=>{ if(S.halfRecepten.some(x=>x&&String(x.naam||'').trim().toLowerCase()===naam.toLowerCase())) return;
+    S.halfRecepten.push({id:uid(),naam,stappen,ing:[],werkwijze:true}) };
+  nieuw('Tempereren Wheelie 14',[
+    {tekst:'Smelten: knop D op D3 (wiel staat stil). Groene temperatuur op 45 °C, bij puur mag 50 °C. Deksel erop.',temp:45},
+    {tekst:'Sneller smelten: begin met ± 5 kg, zet het wiel even aan (E op E3) en voeg kleine stukken of callets steeds bij. Zo is ± 15 kg in ± 1 uur gesmolten. Tip: de avond ervoor aanzetten op 45 °C.'},
+    {tekst:'Pas verder als alles vloeibaar is, zonder stukjes.'},
+    {tekst:'Tempereren: knop D op D1, wiel aan (E op E3, groen lampje brandt). Groene temperatuur op werktemperatuur: puur 31–32 °C, melk 29–30 °C, wit 27–28 °C.',temp:30},
+    {tekst:'Voeg 10–15% verse callets toe (bijv. 1–1,5 kg op 10 kg). Alleen verse callets, geen oude schilfers.'},
+    {tekst:'Wacht tot rood = groen (± 10 minuten).',min:10},
+    {tekst:'Meet zelf met je thermometer, het display kan afwijken.'},
+    {tekst:'Spateltest: binnen 5 minuten hard en glanzend? Dan kun je beginnen.',min:5},
+    {tekst:'Wordt de chocolade dik? Zet hem hoger (puur 34, melk 32, wit 30 °C) of blaas 2–5 minuten met een föhn erop.'},
+    {tekst:'Laat de bak nooit onder de helft komen en laat het wiel niet lang leeg draaien.'},
+    {tekst:'Werkruimte 18–20 °C, koeling 8–12 °C. Holle schelpen eerst laten drogen voor de koeling, volle chocolade direct de koeling in.'},
+    {tekst:'Schoonmaken: stekker eruit terwijl hij nog warm is, leeg maken, natte doek. Wiel eraf via de twee schroeven en de ringetjes.'}]);
+  nieuw('Kleur tempereren (cacaoboter)',[
+    {tekst:'Smelt de kleur helemaal tot 45 °C, tot er geen vaste stukjes meer in zitten.',temp:45},
+    {tekst:'Goed mixen of schudden, zodat het pigment van de bodem weer door de kleur gaat. Het liefst met een staafmixer, zonder luchtbellen.'},
+    {tekst:'Afkoelen tot 27 °C op een theedoek (niet op RVS), al roerend.',temp:27},
+    {tekst:'Opwarmen tot 29–30 °C. Smeltbak op 27–28 °C en meet in de kleur zelf.',temp:30},
+    {tekst:'Folietest: streepje op folie binnen 5 minuten hard en mat? Dan is hij goed.',min:5},
+    {tekst:'Mallen schoon, gepoetst met watten en op kamertemperatuur (20–22 °C).'},
+    {tekst:'Dunne laag aanbrengen en 10–15 minuten laten uitharden op kamertemperatuur, niet in de koelkast.',min:15},
+    {tekst:'Kleur 31 °C of warmer? Niet doorgaan: terug naar afkoelen tot 27 °C en opnieuw opwarmen tot 30 °C. Snelle noodoplossing: een paar uitgeharde schilfertjes van dezelfde kleur erdoor roeren.'}]);
+  S.eenmalig.tempereren929=Date.now();
+  setTimeout(()=>bewaarNu(),0);
+}
 function witteGanaches919(){
   if(!S.halfRecepten||!S.halfRecepten.length||S.halfRecepten.some(r=>r&&r.wit919)) return;
   const wit=schelpIngVoorKey('wit');
@@ -10957,7 +10990,7 @@ function dubaiV907(){
       {tekst:'Meteen vullen, de vulling zet snel op.'}];
     r.dubai907=true; setTimeout(()=>bewaarNu(),0) });
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); matcha926(); hazelnootBasis(); hazelnootPastaBasis(); echtVerbruik913(); cappuccino914(); hazelnoot915(); karamel916(); karamel917(); karamel918(); witteGanaches919(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); matcha926(); hazelnootBasis(); hazelnootPastaBasis(); echtVerbruik913(); cappuccino914(); hazelnoot915(); karamel916(); karamel917(); karamel918(); witteGanaches919(); tempereren929(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
@@ -11096,6 +11129,8 @@ function sheetVullingen(){
     (S.planning||[]).filter(p=>!p.datum||p.datum>=v0).forEach(p=>(p.regels||[]).forEach(rg=>{ VUL.aantal[rg.receptId]=(VUL.aantal[rg.receptId]||0)+(rg.aantal||0) })) }
   const g=n=>Math.round(n).toLocaleString('nl-NL');
   const blok=b=>{
+    /* v929: werkwijze zonder ingrediënten (tempereren): alleen de stappen */
+    if(b.werkwijze&&!alsLijst(b.ing).some(y=>y&&y.naam)) return `<div class="gl">${alsLijst(b.stappen).map((x,i)=>`<div class="shrij" style="align-items:flex-start"><span class="wknr">${i+1}</span><span class="shn wktxt" style="white-space:normal">${esc(x.tekst||'')}</span></div>`).join('')}</div>`;
     const geb=basisPerBonbon(b.id);
     const bi=alsLijst(b.ing).filter(y=>y.naam), bs=bi.reduce((s,y)=>s+getalIn0(y.deel),0);
     /* v901: zelf invullen hoeveel mallen je maakt; dat gaat voor de planning */
@@ -11131,7 +11166,7 @@ function sheetVullingen(){
   if(!VUL.open){
     sheet('Basisrecepten',
       `<div class="gl">${bas.slice().sort((x,y)=>x.naam.localeCompare(y.naam,'nl')).map(b=>{ const n=alsLijst(b.ing).filter(y=>y&&y.naam).length, s=basisPerBonbon(b.id).length;
-          return `<button type="button" class="shrij" data-vulopen="${esc(b.id)}"><span class="shn">${esc(b.naam)}<small>${n?n+(n===1?' ingrediënt':' ingrediënten'):'<span class="lglet">recept invullen</span>'}${s?' · in '+s+(s===1?' smaak':' smaken'):''}</small></span>${svg(I.pijl,'2')}</button>` }).join('')}
+          return `<button type="button" class="shrij" data-vulopen="${esc(b.id)}"><span class="shn">${esc(b.naam)}<small>${b.werkwijze&&!n?'werkwijze · '+alsLijst(b.stappen).length+' stappen':n?n+(n===1?' ingrediënt':' ingrediënten'):'<span class="lglet">recept invullen</span>'}${s?' · in '+s+(s===1?' smaak':' smaken'):''}</small></span>${svg(I.pijl,'2')}</button>` }).join('')}
          <button type="button" class="lgnieuw" id="vulNw">${svg(I.plus)}Basisrecept</button></div>`,'');
     $$('#sheetBody [data-vulopen]').forEach(x=>x.onclick=()=>{ VUL.open=x.dataset.vulopen; sheetVullingen() });
     $('#vulNw').onclick=()=>{ const lijst=basisZeker(), id=uid(); lijst.push({id,naam:'Nieuw basisrecept',stappen:[{tekst:'Stappen invullen'}],ing:[]}); bewaarNu(); sheetBasisIng(id,sheetVullingen) };
@@ -11139,9 +11174,9 @@ function sheetVullingen(){
   }
   const open=bas.filter(b=>b.id===VUL.open);
   sheet((open[0]||{}).naam||'Basisrecept',
-    `<p class="hint" style="margin-top:0">Aantallen komen uit je planning. Pas ze aan om één smaak los te berekenen.</p>
-     ${open.map(blok).join('')}
-     <div class="lgvoet bvoet"><button type="button" id="vulRst">Aantallen uit planning</button></div>`,'');
+    (open[0]&&open[0].werkwijze?'':`<p class="hint" style="margin-top:0">Aantallen komen uit je planning. Pas ze aan om één smaak los te berekenen.</p>`)+
+    `${open.map(blok).join('')}`+
+    (open[0]&&open[0].werkwijze?'':`<div class="lgvoet bvoet"><button type="button" id="vulRst">Aantallen uit planning</button></div>`),'');
   const live=()=>{
     bas.forEach(b=>{ const geb=basisPerBonbon(b.id); let tot=0;
       geb.forEach(x=>{ const n=VUL.aantal[x.r.id]||0; tot+=x.g*n;
@@ -11159,7 +11194,7 @@ function sheetVullingen(){
   $$('#sheetBody [data-vulrec]').forEach(b=>b.onclick=()=>sheetBasisIng(b.dataset.vulrec,sheetVullingen));
   $$('#sheetBody [data-vulmaak]').forEach(b=>b.onclick=()=>sheetBasisMaken(b.dataset.vulmaak,sheetVullingen));
   sheetTerugZet(()=>{ VUL.open=null; sheetVullingen() });
-  $('#vulRst').onclick=()=>{ const o=VUL.open; VUL=null; vulAantallenZeker(); VUL.open=o; sheetVullingen() };
+  if($('#vulRst')) $('#vulRst').onclick=()=>{ const o=VUL.open; VUL=null; vulAantallenZeker(); VUL.open=o; sheetVullingen() };
 }
 /* het recept van een basis: wat je afweegt voor één pan, in gram */
 /* ═══════════ hoeveel basisrecept maken (v851) ═══════════
