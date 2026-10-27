@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v933 · 27 okt 2026';
+const APPVERSIE = 'v934 · 27 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16320,11 +16320,11 @@ const KLEUR_PLAN=[
     'Proefje op folie, laten hard worden. Te roze: 0,5 g blauw. Te blauw: 0,5 g rood. Te donker: 2 g wit.',
     'Zeef het als je nog puntjes ziet.',
     'Tempereren: al roerend afkoelen tot 27 °C, opwarmen tot 29–30 °C. Folietest, dan gebruiken.',
-    'Over? Maak er bessenpaars van voor Matcha blauwe bessen.']},
+  ]},
   /* v933: eigen kleur voor Matcha blauwe bessen */
   {sm:r=>(/matcha/i.test(r.naam)&&/blauwe\s*bes/i.test(r.naam)), naam:'Bessenpaars', hex:'#7d4a8c', kg:21, ber:[
     'Weeg af: 100 g cacaoboter en 21 g kleurstof = 12 g wit, 5 g blauw en 4 g rood. Begin met 3 g blauw en 3 g rood.',
-    'Of van restje lila: smelt het tot 45 °C en voeg per 100 g ± 2 g blauw en 1,5 g rood toe, met 0,5 g per keer.',
+    'Voor ± 13 mallen is een bakje van 50 g cacaoboter genoeg: 6 g wit, 2,5 g blauw en 2 g rood (begin met 1,5 g van beide).',
     'Smelt de cacaoboter tot 45 °C.',
     'Voeg wit, 3 g blauw en 3 g rood toe. Staafmix 1–2 minuten onder het oppervlak.',
     'Proefje op folie, laten hard worden. Te roze: 0,5 g blauw. Te blauw: 0,5 g rood. Te licht: 0,5 g van beide. Te donker: 2 g wit. Niet boven 25% kleurstof.',
@@ -16336,6 +16336,11 @@ const KLEUR_PCT={Koraal:20,Blauw:20,Lichtgroen:20};
 const kNaamIs=(k,n)=>String((k&&k.naam)||'').trim().toLowerCase().startsWith(n.toLowerCase());
 function kleurenStandaard(){
   const L=kleurLijst(); let n=0;
+  /* v934: eigen bakje bessenpaars, geen restje lila */
+  L.forEach(k=>{ if(!k||k.bes934) return; const b=alsLijst(k.bereiding); if(!b.length) return;
+    if(kNaamIs(k,'Bessenpaars')) k.bereiding=b.map(x=>/^Of van restje lila/.test(x)?'Voor ± 13 mallen is een bakje van 50 g cacaoboter genoeg: 6 g wit, 2,5 g blauw en 2 g rood (begin met 1,5 g van beide).':x);
+    else if(kNaamIs(k,'Lila')) k.bereiding=b.filter(x=>!/^Over\? Maak er bessenpaars/.test(x));
+    else return; k.bes934=true; n++ });
   /* v933: Matcha blauwe bessen krijgt eigen kleur; matchagroen en lila eraf (eenmalig) */
   (S.recepten||[]).forEach(r=>{ if(!r||!r.naam||r.mbb933||!(/matcha/i.test(r.naam)&&/blauwe\s*bes/i.test(r.naam))) return;
     const weg=new Set(L.filter(k=>k&&(kNaamIs(k,'Matchagroen')||kNaamIs(k,'Lila'))).map(k=>k.id));
