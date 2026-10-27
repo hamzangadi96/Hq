@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v936 · 27 okt 2026';
+const APPVERSIE = 'v937 · 27 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10832,6 +10832,25 @@ const WHEELIE936=[
   {tekst:'Werkruimte 18–20 °C, koeling 8–12 °C. Holle schelpen eerst laten drogen voor de koeling, volle chocolade direct de koeling in.'},
   {tekst:'Schoonmaken: stekker eruit terwijl hij nog warm is, leeg maken, natte doek. Wiel eraf via de twee schroeven en de ringetjes.'}];
 /* v936: snelle werkwijze met vloeibare basis (handleiding p. 5) */
+/* v937: echt verbruik Pistache rode vruchten: 350 g gemaakt, 115 g over = 235 g op 288 bonbons (12 mallen) = 0,82 g per bonbon */
+function pistache937(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.pistache937||!S.recepten||!S.recepten.length) return;
+  const G=0.82, isP=x=>/pistache/i.test(x||'');
+  const basisVan=id=>S.halfRecepten&&S.halfRecepten.find(b=>b&&b.id===id);
+  const zet=x=>{ if(!x||!/pistache/i.test(x.naam||'')||!/rode\s*vrucht/i.test(x.naam||'')) return false;
+    const l=(x.onderdelen||[]).find(o=>o&&!isSchelp(o)&&!/gelei/i.test(o.naam||'')&&(isP(o.naam)||alsLijst(o.ing).some(y=>y&&(isP(y.naam)||(y.basis&&isP((basisVan(y.basis)||{}).naam))))));
+    if(!l) return false;
+    const ing=alsLijst(l.ing).filter(y=>y&&y.naam), som=ing.reduce((s,y)=>s+getalIn0(y.deel),0);
+    const p=ing.find(y=>y.basis&&isP((basisVan(y.basis)||{}).naam))||ing.find(y=>isP(y.naam));
+    const fr=ing.length>1&&p&&som?getalIn0(p.deel)/som:1;
+    l.gram=String(Math.round(G/(fr||1)*100)/100); return l.naam||'vulling' };
+  let laag=false; (S.recepten||[]).forEach(x=>{ const z=zet(x); if(z) laag=z });
+  try{ if(R&&R.id) zet(R) }catch(e){}
+  if(!laag) return;
+  S.eenmalig.pistache937=Date.now();
+  setTimeout(()=>{ bewaarNu(); toast('Pistache rode vruchten: '+String(laag).toLowerCase()+' nu 0,82 g per bonbon.') },1200);
+}
 function wheelie936(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.wheelie936||!S.halfRecepten) return;
@@ -11011,7 +11030,7 @@ function dubaiV907(){
       {tekst:'Meteen vullen, de vulling zet snel op.'}];
     r.dubai907=true; setTimeout(()=>bewaarNu(),0) });
 }
-const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); matcha926(); hazelnootBasis(); hazelnootPastaBasis(); echtVerbruik913(); cappuccino914(); hazelnoot915(); karamel916(); karamel917(); karamel918(); witteGanaches919(); tempereren929(); wiel930(); wheelie936(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
+const halfRecepten=()=>{ karamelBijwerken(); smaakKaramelStappen(); geleienToevoegen(); vanilleBasis(); ganacheBasissen(); cappuccinoBasis(); cappuccinoPer4(); dubaiBasis(); pindaBasis(); dubaiV907(); dubaiV908(); matcha926(); hazelnootBasis(); hazelnootPastaBasis(); echtVerbruik913(); cappuccino914(); hazelnoot915(); karamel916(); karamel917(); karamel918(); witteGanaches919(); tempereren929(); wiel930(); wheelie936(); pistache937(); return (S.halfRecepten&&S.halfRecepten.length)?S.halfRecepten:HALF_STANDAARD };
 const halfBezig=()=>(S.halfBatches||[]).find(x=>!x.klaar);
 const halfVoorTaak=tekst=>{const k=String(tekst||'').toLowerCase();
   return halfRecepten().find(r=>k.indexOf(r.naam.toLowerCase())>=0)};
