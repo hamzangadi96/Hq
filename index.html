@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v934 · 27 okt 2026';
+const APPVERSIE = 'v935 · 27 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16336,6 +16336,11 @@ const KLEUR_PCT={Koraal:20,Blauw:20,Lichtgroen:20};
 const kNaamIs=(k,n)=>String((k&&k.naam)||'').trim().toLowerCase().startsWith(n.toLowerCase());
 function kleurenStandaard(){
   const L=kleurLijst(); let n=0;
+  /* v935: bessenpaars = het bakje van 27 okt (16 wit, 2 rood, 1 blauw); lila voor Blauwe bessen vanille veel lichter */
+  L.forEach(k=>{ if(!k||k.kl935||k.soort==='mix') return;
+    if(kNaamIs(k,'Bessenpaars')){ k.boterG=100; k.kleurG=19; k.hex='#8e6f86'; k.bereiding=['Weeg af: 100 g cacaoboter en 19 g kleurstof = 16 g wit, 2 g rood en 1 g blauw (dit is het bakje van 27 okt).','Smelt de cacaoboter tot 45 °C.','Voeg alles toe en staafmix 1–2 minuten onder het oppervlak.','Proefje op folie, laten hard worden. Te roze: 0,5 g blauw. Te blauw: 0,5 g rood. Te donker: 2 g wit.','Zeef het als je nog puntjes ziet.','Tempereren: al roerend afkoelen tot 27 °C, opwarmen tot 29–30 °C. Folietest, dan gebruiken.'] }
+    else if(kNaamIs(k,'Lila')){ k.boterG=100; k.kleurG=20; k.hex='#d9c6e8'; k.bereiding=['Weeg af: 100 g cacaoboter en 20 g kleurstof = 18 g wit, 1 g blauw en 1 g rood. Begin met 0,5 g blauw en 0,5 g rood.','Smelt de cacaoboter tot 45 °C.','Voeg het wit toe en staafmix tot egaal wit. Dan 0,5 g blauw en 0,5 g rood erbij en weer mixen.','Proefje op folie, laten hard worden. Nog te wit: 0,25 g blauw en 0,25 g rood erbij. Te roze: 0,25 g blauw. Te grijs of grauw: niet meer kleur, maar 2 g wit erbij.','Zeef het als je nog puntjes ziet.','Tempereren: al roerend afkoelen tot 27 °C, opwarmen tot 29–30 °C. Folietest, dan gebruiken.'] }
+    else return; k.kl935=true; k.bes934=true; n++ });
   /* v934: eigen bakje bessenpaars, geen restje lila */
   L.forEach(k=>{ if(!k||k.bes934) return; const b=alsLijst(k.bereiding); if(!b.length) return;
     if(kNaamIs(k,'Bessenpaars')) k.bereiding=b.map(x=>/^Of van restje lila/.test(x)?'Voor ± 13 mallen is een bakje van 50 g cacaoboter genoeg: 6 g wit, 2,5 g blauw en 2 g rood (begin met 1,5 g van beide).':x);
