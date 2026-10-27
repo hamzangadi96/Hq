@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v932 · 27 okt 2026';
+const APPVERSIE = 'v933 · 27 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -16297,7 +16297,7 @@ const KLEUR_PLAN=[
     'Zeef het als je nog puntjes ziet.',
     'Laat afkoelen tot 29–30 °C en roer af en toe. Gebruik op 29–30 °C.']},
   /* v931: matchagroen voor Matcha (aardbei), bruin voor Vanille & hazelnoot */
-  {sm:r=>/matcha/i.test(r.naam), naam:'Matchagroen', hex:'#8fa34a', kg:19.5, ber:[
+  {sm:r=>/matcha/i.test(r.naam)&&!/blauwe\s*bes/i.test(r.naam), naam:'Matchagroen', hex:'#8fa34a', kg:19.5, ber:[
     'Weeg af: 100 g cacaoboter en ± 20 g kleurstof = 10 g wit, 6 g geel, 3 g donkergroen en 0,5 g rood (rood los houden).',
     'Smelt de cacaoboter tot 45 °C.',
     'Voeg wit, geel en donkergroen toe. Staafmix 1–2 minuten onder het oppervlak.',
@@ -16313,20 +16313,34 @@ const KLEUR_PLAN=[
     'Zeef het als je nog puntjes ziet.',
     'Tempereren: al roerend afkoelen tot 27 °C, opwarmen tot 29–30 °C. Folietest, dan gebruiken.']},
   /* v932: lila voor blauwe bessen (ook als spetters bij Matcha blauwe bessen) */
-  {sm:r=>/blauwe\s*bes/i.test(r.naam), naam:'Lila', hex:'#c8a2d6', kg:19, ber:[
+  {sm:r=>/blauwe\s*bes/i.test(r.naam)&&!/matcha/i.test(r.naam), naam:'Lila', hex:'#c8a2d6', kg:19, ber:[
     'Weeg af: 100 g cacaoboter en 19 g kleurstof = 16 g wit, 2 g rood en 1 g blauw.',
     'Smelt de cacaoboter tot 45 °C.',
     'Voeg alles toe en staafmix 1–2 minuten onder het oppervlak.',
     'Proefje op folie, laten hard worden. Te roze: 0,5 g blauw. Te blauw: 0,5 g rood. Te donker: 2 g wit.',
     'Zeef het als je nog puntjes ziet.',
     'Tempereren: al roerend afkoelen tot 27 °C, opwarmen tot 29–30 °C. Folietest, dan gebruiken.',
-    'Bij Matcha blauwe bessen: eerst lila spetters (kwast tikken of tandenborstel), even laten uitharden, daarna een volle laag matchagroen.']}];
+    'Over? Maak er bessenpaars van voor Matcha blauwe bessen.']},
+  /* v933: eigen kleur voor Matcha blauwe bessen */
+  {sm:r=>(/matcha/i.test(r.naam)&&/blauwe\s*bes/i.test(r.naam)), naam:'Bessenpaars', hex:'#7d4a8c', kg:21, ber:[
+    'Weeg af: 100 g cacaoboter en 21 g kleurstof = 12 g wit, 5 g blauw en 4 g rood. Begin met 3 g blauw en 3 g rood.',
+    'Of van restje lila: smelt het tot 45 °C en voeg per 100 g ± 2 g blauw en 1,5 g rood toe, met 0,5 g per keer.',
+    'Smelt de cacaoboter tot 45 °C.',
+    'Voeg wit, 3 g blauw en 3 g rood toe. Staafmix 1–2 minuten onder het oppervlak.',
+    'Proefje op folie, laten hard worden. Te roze: 0,5 g blauw. Te blauw: 0,5 g rood. Te licht: 0,5 g van beide. Te donker: 2 g wit. Niet boven 25% kleurstof.',
+    'Zeef het als je nog puntjes ziet.',
+    'Tempereren: al roerend afkoelen tot 27 °C, opwarmen tot 29–30 °C. Folietest, dan gebruiken.']}];
 /* v874: op verzoek 20% kleurstof bij koraal, blauw en lichtgroen (eenmalig per kleur) */
 const KLEUR_PCT={Koraal:20,Blauw:20,Lichtgroen:20};
 /* v887: kleurnamen ruim herkennen (hoofdletters, spaties, 'goud glans') */
 const kNaamIs=(k,n)=>String((k&&k.naam)||'').trim().toLowerCase().startsWith(n.toLowerCase());
 function kleurenStandaard(){
   const L=kleurLijst(); let n=0;
+  /* v933: Matcha blauwe bessen krijgt eigen kleur; matchagroen en lila eraf (eenmalig) */
+  (S.recepten||[]).forEach(r=>{ if(!r||!r.naam||r.mbb933||!(/matcha/i.test(r.naam)&&/blauwe\s*bes/i.test(r.naam))) return;
+    const weg=new Set(L.filter(k=>k&&(kNaamIs(k,'Matchagroen')||kNaamIs(k,'Lila'))).map(k=>k.id));
+    r.kleuren=alsLijst(r.kleuren).filter(id=>!weg.has(id)); r.kleurPlan=alsLijst(r.kleurPlan).filter(x=>x!=='Matchagroen'&&x!=='Lila'); r.mbb933=true; n++;
+    try{ if(R.id===r.id){ R.kleuren=r.kleuren.slice(); R.kleurPlan=r.kleurPlan.slice(); R.mbb933=true } }catch(e){} });
   KLEUR_PLAN.forEach(pl=>{
     const rs=(S.recepten||[]).filter(r=>r&&r.naam&&pl.sm(r)&&!alsLijst(r.kleurPlan).includes(pl.naam)&&!(pl.oud&&r[pl.oud]));
     if(!rs.length) return;
