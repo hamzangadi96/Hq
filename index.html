@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v937 · 27 okt 2026';
+const APPVERSIE = 'v938 · 28 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10819,16 +10819,17 @@ const WIEL930='Sneller smelten: op D3 kan het wiel niet draaien. Smelt eerst ± 
 const WHEELIE936=[
   {tekst:'Vloeibare basis: smelt 3–5 kg callets in de magnetron, in een grote kom. Steeds 1 minuut verwarmen en roeren, het laatste stuk per 30 seconden. Wit maximaal 45 °C.',temp:45},
   {tekst:'Giet de vloeibare chocolade in de Wheelie. Knop D op D1, groene temperatuur op 45 °C, wiel aan (E op E3, groen lampje brandt). Deksel erop.',temp:45},
-  {tekst:'Voeg de rest in kleine porties callets toe, een handje tegelijk. Pas een nieuwe portie als de vorige bijna weg is. Houd 1–1,5 kg callets apart om te entten. Zo is ± 15 kg in ± 1 uur gesmolten.',min:60},
-  {tekst:'Geen magnetron? Zet de machine de avond ervoor aan: D3 (wiel draait daar niet), 45 °C, deksel erop. Niet vanaf vaste chocolade op de dag zelf: dat duurt 6 uur of meer, omdat de voeler onderin al op 45 °C is en er niet geroerd wordt.'},
+  {tekst:'Voeg de rest in kleine porties callets toe, een handje tegelijk. Pas een nieuwe portie als de vorige bijna weg is. Houd 10% callets apart om te entten (1 kg op 10 kg).',min:60},
+  {tekst:'Geen magnetron? Zet de machine de avond ervoor aan: D3 (wiel draait daar niet), 45 °C, deksel erop. Niet vanaf vaste chocolade op de dag zelf: dat duurt 6 uur of meer.'},
   {tekst:'Nooit het wiel aan met grote vaste stukken. Altijd callets, nooit blokken.'},
-  {tekst:'Alles vloeibaar? Groene temperatuur op werktemperatuur: puur 31–32 °C, melk 29–30 °C, wit 27–28 °C.',temp:30},
-  {tekst:'Voeg de apart gehouden callets toe (10–15%, bijv. 1–1,5 kg op 10 kg). Alleen verse callets, geen oude schilfers.'},
-  {tekst:'Wacht tot rood = groen (± 10 minuten).',min:10},
-  {tekst:'Meet zelf met je thermometer, het display kan afwijken.'},
-  {tekst:'Spateltest: binnen 5 minuten hard en glanzend? Dan kun je beginnen.',min:5},
-  {tekst:'Wordt de chocolade dik? Zet hem hoger (puur 34, melk 32, wit 30 °C) of blaas 2–5 minuten met een föhn erop.'},
-  {tekst:'Laat de bak nooit onder de helft komen en laat het wiel niet lang leeg draaien.'},
+  {tekst:'Afkoelen: deksel eraf, wiel aan, groen op werktemperatuur (puur 31–32, melk 29–30, wit 27–28 °C). De machine kan niet koelen: wacht tot hij vanzelf zakt naar ± 34 °C (puur), 33 °C (melk) of 32 °C (wit). Dit duurt even, begin op tijd.',temp:32},
+  {tekst:'Pas dan de apart gehouden callets erbij (10%). Callets zijn om te entten, niet om af te koelen.'},
+  {tekst:'Na 10 minuten spateltest: binnen 5 minuten hard en glanzend? Dan is hij getempereerd, ook als het display nog een paar graden boven de werktemperatuur staat. Meteen gieten.',min:10},
+  {tekst:'Niet goed? Nog 5–10 minuten draaien en opnieuw testen. Pas dan eventueel een handje callets.'},
+  {tekst:'Getempereerde chocolade niet uren laten draaien: dan groeien de kristallen en wordt hij dik (overkristallisatie). Wit doet dat het snelst.'},
+  {tekst:'Wordt hij dik? 10% warme, gesmolten chocolade (± 40 °C) erdoor, of 1–2 minuten föhnen terwijl het wiel draait. Daarna spateltest. Nooit callets erbij als hij dik is.'},
+  {tekst:'Bovengrens: puur 34–34,5, melk 32–32,5, wit 30–30,5 °C. Nooit hoger: daarboven ben je je temper kwijt en smelt je kleurlaag op, waardoor de kleur in de mal blijft.'},
+  {tekst:'Te dik en niets helpt? Opnieuw beginnen: alles naar 45 °C en opnieuw tempereren. Dat kost ± 30 minuten, maar is zeker.'},
   {tekst:'Werkruimte 18–20 °C, koeling 8–12 °C. Holle schelpen eerst laten drogen voor de koeling, volle chocolade direct de koeling in.'},
   {tekst:'Schoonmaken: stekker eruit terwijl hij nog warm is, leeg maken, natte doek. Wiel eraf via de twee schroeven en de ringetjes.'}];
 /* v936: snelle werkwijze met vloeibare basis (handleiding p. 5) */
@@ -10853,9 +10854,9 @@ function pistache937(){
 }
 function wheelie936(){
   S.eenmalig=S.eenmalig||{};
-  if(S.eenmalig.wheelie936||!S.halfRecepten) return;
+  if(S.eenmalig.wheelie938||!S.halfRecepten) return;
   S.halfRecepten.forEach(x=>{ if(x&&/wheelie/i.test(x.naam||'')) x.stappen=JSON.parse(JSON.stringify(WHEELIE936)) });
-  S.eenmalig.wheelie936=Date.now();
+  S.eenmalig.wheelie936=S.eenmalig.wheelie938=Date.now();
   setTimeout(()=>bewaarNu(),0);
 }
 function wiel930(){
