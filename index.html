@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v940 · 28 okt 2026';
+const APPVERSIE = 'v941 · 28 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6205,7 +6205,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -14377,6 +14377,50 @@ function eenmaligBatch24okt(){
   bLog(b,{type:'afronden',titel:goed+' goed, '+afk+' afkeur',
     sub:perSmaak.map(p=>naam(p.receptId)+' '+p.goed).join(' · ')+' — kleurstof bleef plakken in de mallen',status:'let'});
   setTimeout(()=>toast('Batch '+b.code+' van 24 okt vastgelegd: '+goed+' goed, '+afk+' afkeur.'),1500);
+  return true;
+}
+/* v941: witte batch 27 okt: alleen de geredde mallen (kleurstof bleef in de mal) */
+function eenmaligBatch27okt(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.batch27okt) return false;
+  const R0=(S.recepten||[]).filter(r=>r&&r.naam);
+  const vind=f=>R0.find(f);
+  const plan=[
+    [vind(r=>/matcha/i.test(r.naam)&&/blauwe\s*bes/i.test(r.naam)),7],
+    [vind(r=>/vanille/i.test(r.naam)&&/blauwe\s*bes/i.test(r.naam)),6],
+    [vind(r=>/pistache/i.test(r.naam)&&/rode/i.test(r.naam)),3],
+    [vind(r=>/vanille/i.test(r.naam)&&/hazelno/i.test(r.naam)),2.5],
+    [vind(r=>/matcha/i.test(r.naam)&&/aardbei/i.test(r.naam)),1.5]].filter(x=>x[0]);
+  if(!plan.length) return false;
+  S.batches=S.batches||[];
+  if(S.batches.some(b=>b&&b.startDatum==='2026-10-27'&&b.status==='klaar')){ S.eenmalig.batch27okt=Date.now(); return true }
+  S.eenmalig.batch27okt=Date.now();
+  const open=S.batches.find(b=>b&&b.status==='bezig'&&b.startDatum==='2026-10-27');
+  const perSmaak=plan.map(([r,m])=>{ const h=malHoltes(r.id)||24, goed=Math.round(m*h);
+    const gepland=open?((alsLijst(open.regels).find(x=>x.receptId===r.id)||{}).aantal||0):0;
+    return {receptId:r.id,goed,afkeur:Math.max(0,gepland-goed)} });
+  if(open) alsLijst(open.regels).forEach(x=>{ if(!perSmaak.some(p=>p.receptId===x.receptId)) perSmaak.push({receptId:x.receptId,goed:0,afkeur:x.aantal||0}) });
+  const goed=perSmaak.reduce((s,x)=>s+x.goed,0), afk=perSmaak.reduce((s,x)=>s+x.afkeur,0);
+  let b=open;
+  if(!b){
+    const regels=plan.map(([r,m])=>({receptId:r.id,mallen:m,aantal:Math.round(m*(malHoltes(r.id)||24))}));
+    const kopie={}; plan.forEach(([r])=>{ kopie[r.id]=JSON.parse(JSON.stringify(r)) });
+    const voor='CB-20261027-', nr=S.batches.filter(x=>x&&x.code&&x.code.indexOf(voor)===0).length+1;
+    b={id:uid(),code:voor+String(nr).padStart(2,'0'),chocolade:'wit',regels,gestart:'09:00',startDatum:'2026-10-27',
+      dagen:[],lots:{},logs:[],recepten:kopie,werkplan:(S.werkplan||[]).slice(),handmatig:true};
+    S.batches.push(b);
+  }
+  Object.assign(b,{status:'klaar',resultaat:{goed,afkeur:afk,perSmaak},eind:'23:30',eindDatum:'2026-10-27'});
+  const naam=id=>((b.recepten&&b.recepten[id])||R0.find(r=>r.id===id)||{}).naam||'';
+  try{ perSmaak.filter(ps=>ps.goed>0).forEach(ps=>muteer({soort:'batch',receptId:ps.receptId,lot:b.code,
+    tht:iso(thtVan(b,receptVan(b,ps.receptId))),aantal:ps.goed,reden:'batch '+b.code+' afgerond (geredde mallen)'})) }catch(e){}
+  try{ perSmaak.filter(ps=>ps.afkeur>0).forEach(ps=>muteer({soort:'breuk',receptId:ps.receptId,lot:b.code,
+    tht:iso(thtVan(b,receptVan(b,ps.receptId))),aantal:0,reden:ps.afkeur+' afkeur bij productie: kleurstof bleef in de mal'})) }catch(e){}
+  if(!open){ try{ boekVerbruik(b) }catch(e){} }
+  try{ batchKostenVast(b) }catch(e){}
+  bLog(b,{type:'afronden',titel:goed+' goed'+(afk?', '+afk+' afkeur':''),
+    sub:perSmaak.filter(p=>p.goed).map(p=>naam(p.receptId)+' '+p.goed).join(' · ')+' — kleurstof bleef in de mal, dit zijn de geredde mallen',status:'let'});
+  setTimeout(()=>toast('Batch '+b.code+' van 27 okt vastgelegd: '+goed+' bonbons in voorraad.'),1500);
   return true;
 }
 function eenmaligZondagGepland(){
