@@ -5243,7 +5243,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v941 · 28 okt 2026';
+const APPVERSIE = 'v942 · 29 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19771,10 +19771,12 @@ function sheetKoppelingen(){
       de Shopify-tab, niet meer hier.</p>
      <div class="paneel">
        ${rij('myparcel','MyParcel','voor je verzendlabels')}
+       ${rij('instagram','Instagram','Reels posten vanuit Content')}
+       ${rij('tiktok','TikTok','video als concept naar je inbox')}
        ${rij('bonscan','Bonnen scannen','leest je kassabonnen uit')}
        ${rij('meelezen','Claude laten meelezen','Claude kan je gegevens lezen, niet wijzigen')}
      </div>`,'');
-  $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():x.dataset.kop==='mail'?sheetMailKoppel():sheetKoppel(x.dataset.kop));
+  $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():x.dataset.kop==='mail'?sheetMailKoppel():(x.dataset.kop==='instagram'||x.dataset.kop==='tiktok')?sheetSocial(x.dataset.kop):sheetKoppel(x.dataset.kop));
 }
 
 /* ═══════════ v830: Mail (info@ bij Strato) ═══════════
@@ -30182,6 +30184,188 @@ function cwRegelsHTML(v,veld,kop,plaats,vink){
           style="width:48px;flex:none;padding:0">${svg(I.plus)}</button></div></div>`;
 }
 
+/* ═════ v942: één video naar Instagram + TikTok ═════
+   Instagram gaat direct live als Reel. TikTok komt als concept in je
+   TikTok-inbox: direct live zetten mag pas als TikTok de app goedkeurt.
+   Jij opent TikTok, plakt de caption en tikt op posten.
+   De video gaat van de telefoon rechtstreeks naar de opslag, de server
+   stuurt hem door. Sleutels staan op de server, niet hier. */
+const SOC={bestand:{}, geupload:{}, bezig:false, stap:''};
+const SOCNAAM={instagram:'Instagram', tiktok:'TikTok'};
+const socKop=()=>{ const k=koppeling(); return {instagram:!!k.instagram, tiktok:!!k.tiktok} };
+const socUitslag=id=>(((S.werk||{}).posts)||{})[id]||{};
+
+async function roepLang(naam,gegevens){
+  if(!fbUser) throw new Error('Log eerst in.');
+  const f=firebase.app().functions('europe-west1').httpsCallable(naam,{timeout:560000});
+  const r=await f(gegevens||{}); return r.data;
+}
+
+function socUpload(url,bestand){
+  return new Promise((ok,nee)=>{
+    const x=new XMLHttpRequest();
+    x.open('PUT',url);
+    x.setRequestHeader('Content-Type',bestand.type||'video/mp4');
+    x.upload.onprogress=e=>{ if(e.lengthComputable) socStap('Uploaden '+Math.round(e.loaded/e.total*100)+'%') };
+    x.onload=()=>x.status>=200&&x.status<300?ok():nee(new Error('Upload mislukt ('+x.status+').'));
+    x.onerror=()=>nee(new Error('Upload mislukt. Check je verbinding.'));
+    x.send(bestand);
+  });
+}
+function socStap(t){ SOC.stap=t; const b=$('#socPost'); if(b) b.textContent=t }
+
+function socRijHTML(k,u,aan){
+  const kop=socKop()[k];
+  const st=!kop?'koppel':u.status||'';
+  const tekst=!kop?'niet gekoppeld — tik om te koppelen'
+    :st==='klaar'?(k==='tiktok'?'staat als concept in je TikTok-inbox':'staat live')
+    :st==='fout'?esc(u.fout||'mislukt')
+    :st==='bezig'?'bezig…'
+    :(k==='tiktok'?'komt als concept, jij tikt op posten':'gaat direct live als Reel');
+  const bol=st==='klaar'||(kop&&aan)?'af':'';
+  const kleur=st==='fout'?' style="color:var(--rood)"':st==='koppel'?' style="color:var(--amber)"':'';
+  return `<button class="arij" data-socrij="${k}">
+    <span class="bol ${bol}">${st==='klaar'?svg(I.vink,'2.6'):(kop&&aan?svg(I.vink,'2.2'):'')}</span>
+    <span class="naam">${SOCNAAM[k]}<small${kleur}>${tekst}</small></span>
+    <span class="pijl">${kop?(aan?'aan':'uit'):svg(I.pijl,'2')}</span></button>`;
+}
+
+function sheetPost(id){
+  const v=cwVid(id); if(!v) return;
+  if(!v.kanalen) v.kanalen={instagram:true,tiktok:true};
+  const kop=socKop(), u=socUitslag(id);
+  const f=SOC.bestand[id];
+  const waar=['instagram','tiktok'].filter(k=>kop[k]&&v.kanalen[k]);
+  const ttKlaar=(u.tiktok||{}).status==='klaar';
+  const knop=SOC.bezig?esc(SOC.stap||'Bezig…')
+    :!f&&!SOC.geupload[id]?'Kies eerst je video'
+    :!waar.length?'Koppel eerst een kanaal'
+    :'Post naar '+waar.map(k=>SOCNAAM[k]).join(' + ');
+  sheet('Posten',
+    `<p class="hint">Eén video, één caption, beide kanalen. Instagram gaat meteen live.
+      TikTok komt als concept in je inbox: open TikTok, plak de caption en tik op posten.
+      Zo hoeft TikTok je app niet eerst goed te keuren.</p>
+     <div class="veld"><label>Video</label>
+       <button class="knop2" id="socKies" style="justify-content:center;gap:8px">
+         ${svg(I.camera,'2')}<span id="socNaam">${f?esc(f.name)+' · '+Math.round(f.size/1048576)+' MB'
+           :SOC.geupload[id]?'Al geüpload — opnieuw kiezen kan':'Kies uit je filmrol'}</span>
+</button>
+       <input type="file" id="socBestand" accept="video/mp4,video/quicktime,video/*" style="display:none"></div>
+     <div class="veld"><label>Caption</label>
+       <textarea class="inp" id="socCap" rows="5" maxlength="2200"
+         placeholder="Wat er onder de video komt, met hashtags">${esc(v.caption||'')}</textarea></div>
+     <div class="veld"><label>Waar naartoe</label>
+       <div class="paneel">${socRijHTML('instagram',u.instagram||{},v.kanalen.instagram)}
+         ${socRijHTML('tiktok',u.tiktok||{},v.kanalen.tiktok)}</div></div>
+     ${ttKlaar?`<button class="knop2" id="socKopie" style="margin-top:4px">Kopieer caption voor TikTok</button>`:''}
+     <button class="knop2" id="socZelf" style="margin-top:18px">Zelf al gepost — zet op gepost</button>`,
+    `<button class="prim" style="margin-top:0" id="socPost"${SOC.bezig||(!f&&!SOC.geupload[id])||!waar.length?' disabled':''}>${knop}</button>`);
+
+  const capBewaar=()=>{ const c=$('#socCap'); if(c&&c.value!==(v.caption||'')){ v.caption=c.value; bewaarNu() } };
+  bijSluiten=capBewaar;
+  $('#socCap').onblur=capBewaar;
+  $('#socKies').onclick=()=>$('#socBestand').click();
+  $('#socBestand').onchange=e=>{
+    const b=e.target.files&&e.target.files[0]; if(!b) return;
+    if(b.size>1024*1048576) return toast('Video is groter dan 1 GB. Exporteer kleiner.');
+    capBewaar(); SOC.bestand[id]=b; delete SOC.geupload[id]; sheetPost(id);
+  };
+  $$('[data-socrij]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.socrij;
+    if(!socKop()[k]) return sheetSocial(k,id);
+    capBewaar(); v.kanalen[k]=!v.kanalen[k]; bewaarNu(); sheetPost(id);
+  });
+  if($('#socKopie')) $('#socKopie').onclick=()=>{
+    const x=$('#socCap').value||'';
+    (navigator.clipboard?navigator.clipboard.writeText(x):Promise.reject())
+      .then(()=>toast('Gekopieerd. Open TikTok en plak hem bij je concept.'))
+      .catch(()=>{ const t=$('#socCap'); t.focus(); t.select(); toast('Geselecteerd — kopieer met je vinger.') });
+  };
+  $('#socZelf').onclick=()=>{ capBewaar(); bijSluiten=null; dicht(); if(v.bak!=='gepost') cwSchuifStil(id) };
+  $('#socPost').onclick=async()=>{
+    capBewaar();
+    SOC.bezig=true; socStap('Voorbereiden…'); $('#socPost').disabled=true;
+    try{
+      if(SOC.bestand[id]&&!SOC.geupload[id]){
+        const b=SOC.bestand[id];
+        const p=await roep('socialUploadPlek',{video:id,type:b.type,origin:location.origin});
+        await socUpload(p.url,b);
+        SOC.geupload[id]=true;
+      }
+      socStap(waar.includes('instagram')?'Instagram verwerkt de video… (1–3 min)':'Naar TikTok…');
+      const r=await roepLang('socialPost',{video:id,caption:v.caption||'',kanalen:waar});
+      const mis=waar.filter(k=>(r[k]||{}).status!=='klaar');
+      SOC.bezig=false;
+      if(!mis.length){
+        if(v.bak!=='gepost'){ v.bak='gepost'; v.gepostOp=iso(new Date()); bewaarNu(); render() }
+        toast(waar.includes('tiktok')?'Instagram live. TikTok staat in je inbox.':'Gepost.');
+      } else toast(mis.map(k=>SOCNAAM[k]).join(' en ')+' niet gelukt — zie hieronder.');
+      sheetPost(id);
+    }catch(e){
+      SOC.bezig=false; toast(fout(e)); sheetPost(id);
+    }
+  };
+}
+
+async function sheetSocial(k,terugNaar){
+  const naam=SOCNAAM[k];
+  sheet(naam+' koppelen','<p class="klein" style="color:var(--grijs2)">Even kijken…</p>','');
+  let st={};
+  try{ st=await roep('socialStand') }catch(e){ return toast(fout(e)) }
+  const stand=st[k];
+  const uitleg=k==='instagram'
+    ?`Maak in Meta for Developers een app met het product <b>Instagram</b> (Instagram Login). Daar vind je de
+      Instagram-app-ID en het app-geheim. Zet de link hieronder bij <b>OAuth-omleidings-URI's</b>.`
+    :`Maak in TikTok for Developers een app met <b>Login Kit</b> en <b>Content Posting API</b>. Daar vind je
+      de Client key en het Client secret. Zet de link hieronder bij <b>Redirect URI</b>.`;
+  sheet(naam+' koppelen',
+    `<p class="hint">${uitleg}</p>
+     ${stand==='gekoppeld'?`<div class="paneel"><div class="arij"><span class="bol af">${svg(I.vink,'2.6')}</span>
+        <span class="naam">Gekoppeld<small>${esc(st[k+'_naam']||naam)}</small></span></div></div>`:''}
+     <div class="veld"><label>Terugkeerlink (kopieer naar je app)</label>
+       <button class="knop2" id="soLink" style="font-size:12.5px;height:auto;padding:12px;word-break:break-all;text-align:left">${esc(st.terug||'')}</button></div>
+     ${stand==='leeg'||!stand?`
+     <div class="veld"><label>${k==='instagram'?'Instagram-app-ID':'Client key'}</label>
+       <input class="inp" id="soId" autocapitalize="off" autocomplete="off"></div>
+     <div class="veld"><label>${k==='instagram'?'App-geheim':'Client secret'}</label>
+       <input class="inp" id="soG" type="password" autocapitalize="off" autocomplete="off"></div>`
+     :`<button class="knop2" id="soNieuw">Andere app-gegevens invullen</button>`}
+     ${stand&&stand!=='leeg'?`<button class="sec" id="soWeg" style="color:var(--rood)">Koppeling verwijderen</button>`:''}`,
+    `<button class="prim" style="margin-top:0" id="soOk">${stand==='gekoppeld'?'Opnieuw inloggen':'Inloggen bij '+naam}</button>`);
+
+  $('#soLink').onclick=()=>{
+    (navigator.clipboard?navigator.clipboard.writeText(st.terug):Promise.reject())
+      .then(()=>toast('Link gekopieerd.')).catch(()=>toast('Kopieer de link met je vinger.'));
+  };
+  if($('#soNieuw')) $('#soNieuw').onclick=async()=>{
+    try{ await roep('socialWis',{kanaal:k}); sheetSocial(k,terugNaar) }catch(e){ toast(fout(e)) }
+  };
+  if($('#soWeg')) $('#soWeg').onclick=async()=>{
+    try{ await roep('socialWis',{kanaal:k});
+      if(S.werk&&S.werk.koppeling) delete S.werk.koppeling[k];
+      toast(naam+' ontkoppeld.'); terugNaar?sheetPost(terugNaar):sheetKoppelingen() }catch(e){ toast(fout(e)) }
+  };
+  $('#soOk').onclick=async()=>{
+    const knop=$('#soOk'); knop.disabled=true; knop.textContent='Bezig…';
+    /* Het venster moet openen in dezelfde tik, anders blokkeert iOS het. */
+    const venster=window.open('about:blank','_blank');
+    try{
+      if($('#soId')){
+        const id=$('#soId').value.trim(), g=$('#soG').value.trim();
+        if(!id||!g) throw new Error('Vul beide velden in.');
+        await roep('socialApp',{kanaal:k,id,geheim:g});
+      }
+      const r=await roep('socialStart',{kanaal:k});
+      if(venster) venster.location.href=r.url; else location.href=r.url;
+      knop.textContent='Log in en kom terug';
+      toast('Log in bij '+naam+'. Daarna staat hij hier vanzelf op gekoppeld.');
+    }catch(e){
+      if(venster) venster.close();
+      toast(fout(e)); knop.disabled=false; knop.textContent='Inloggen bij '+naam;
+    }
+  };
+}
+
 function sheetCw(id){
   const v=cwVid(id); if(!v) return;
   const bak=CWBAK.find(x=>x.k===v.bak)||CWBAK[0];
@@ -30233,7 +30417,7 @@ function sheetCw(id){
        staat: de knop komt vrij zodra er een kern of een shot is. */
     (v.bak==='idee'&&!(v.kern||'').trim()&&!cwVeld(v,'shots').length
       ? `<button class="prim" style="margin-top:0" disabled>Vul eerst in waar het over gaat</button>`
-      : `<button class="prim" style="margin-top:0" id="cwDoor">${bak.doe}</button>`));
+      : `<button class="prim" style="margin-top:0" id="cwDoor">${v.bak==='klaar'?'Posten':bak.doe}</button>`));
 
   const opslaan=()=>{
     const tl=$('#cwTitel'), kr=$('#cwKern'), sc=$('#cwScript');
@@ -30311,7 +30495,7 @@ function sheetCw(id){
     const s=cwVeld(v,d[0])[+d[1]]; if(!s) return;
     s.klaar=!s.klaar; bewaarNu(); render(); sheetCw(id);
   });
-  if($('#cwDoor')) $('#cwDoor').onclick=()=>{ opslaan(); bijSluiten=null; cwSchuif(id,true) };
+  if($('#cwDoor')) $('#cwDoor').onclick=()=>{ opslaan(); bijSluiten=null; v.bak==='klaar'?sheetPost(id):cwSchuif(id,true) };
   if($('#cwTerug')) $('#cwTerug').onclick=()=>{ opslaan(); bijSluiten=null; cwSchuif(id,false) };
   $('#cwWeg').onclick=()=>{
     const herstel=terugpunt(['vids']);

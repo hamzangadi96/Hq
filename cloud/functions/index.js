@@ -1749,6 +1749,9 @@ Object.assign(exports, require('./leesEtiket'));
 /* Receptfoto lezen: je schrift in HQ. */
 Object.assign(exports, require('./leesReceptFoto'));
 
+/* Eén video naar Instagram en TikTok — zie social.js */
+Object.assign(exports, require('./social'));
+
 /* ═══════════════════════════════════════════════════════════════════
    Claude laten meelezen
 
