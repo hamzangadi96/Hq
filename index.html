@@ -5257,7 +5257,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v948 · 30 okt 2026';
+const APPVERSIE = 'v949 · 30 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12017,7 +12017,17 @@ function witPlanAantallen(){
   else wit.forEach(r=>{ uit[r.id]=10*(malHoltes(r.id)||24) });
   return {aantal:uit,datum,uitPlan:!!bron.length,verlopen:!!(bron.length&&!komend.length)};
 }
+/* v949: op Home één regel; de hele lijst (smaken + vullingen) opent in een sheet */
 function witKaartHTML(){
+  const vol=witKaartVolHTML(); if(!vol) return '';
+  const P=witPlanAantallen(), wit=(S.recepten||[]).filter(r=>r&&r.chocolade==='wit'&&smaakActief(r)&&P.aantal[r.id]>0);
+  const st=wit.reduce((t,r)=>t+P.aantal[r.id],0), ml=wit.reduce((t,r)=>t+Math.round(P.aantal[r.id]/(malHoltes(r.id)||24)),0);
+  const dat=P.datum?new Date(P.datum+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'}):'';
+  return `<div class="gl" style="margin-top:16px"><button type="button" class="shrij" onclick="sheetWitKaart()">
+    <span class="shn">Witte productie${dat?' · '+esc(dat):''}<small>${wit.length} ${wit.length===1?'smaak':'smaken'} · ${ml} mallen · ${st.toLocaleString('nl-NL')} bonbons · vullingen</small></span>${svg(I.pijl,'2')}</button></div>`;
+}
+function sheetWitKaart(){ const vol=witKaartVolHTML(); if(!vol) return; sheet('Witte productie',vol.replace('<div class="blokkop" style="margin-top:24px">','<div class="blokkop" style="margin-top:0">').replace('<span class="eyebrow">Witte productie</span>','<span class="eyebrow">Smaken</span>'),'') }
+function witKaartVolHTML(){
   try{ witKoppel925() }catch(e){}
   const wit=(S.recepten||[]).filter(r=>r&&r.chocolade==='wit'&&smaakActief(r));
   if(!wit.length) return '';
