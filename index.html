@@ -5244,7 +5244,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v945 · 30 okt 2026';
+const APPVERSIE = 'v946 · 30 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10483,6 +10483,8 @@ function stempelPas(id,stempels,kaarten){
       render(); if(k&&stempelOpen===id) stempelKlantOpen(id) });
 }
 function homeTegel(k){
+  /* v946: voorraadtegel springt naar Voorraad, tab Gereed */
+  if(k==='vrd'){ S.tab='voorraad'; try{ VRTAB='gereed' }catch(e){} S.batchId=null; S.open=null; render(); $('#scherm').scrollTop=0; return }
   if(k==='mail'&&!mailLang){ wlOpen(); return }
   if(k==='mail'){ mailLang=false; mailDag=null }
   if(!HOMESHEETS[k]) return;
@@ -10505,9 +10507,14 @@ function homeTegelsHTML(){
     :open?tg('td','Vandaag',String(open),sub(open===1?'klus na deze':'klussen na deze'))
     :tg('td','Vandaag','Klaar',sub('alles af'),svg(I.vink,'2.4'),'var(--groen)');
 
-  /* hygiëne */
-  let hyg;
-  if(!isWerkdag()) hyg=tg('hyg','Hygiëne','—',sub('geen werkdag'));
+  /* v946: voorraad in één oogopslag: bonbons en hoeveel dozen dat is (half 16, half 25) */
+  const vTot=voorraadGereed().reduce((t,v)=>t+(v.aantal>0?v.aantal:0),0);
+  const vDoos=vTot?Math.floor(vTot/41)*2+(vTot%41>=16?1:0):0;
+  const vrd=vTot?tg('vrd','Voorraad',vTot.toLocaleString('nl-NL'),sub('bonbons · ± '+vDoos+' dozen')):'';
+
+  /* hygiëne (v946: op een dag zonder productie niet tonen: een streepje zegt niets) */
+  let hyg='';
+  if(!isWerkdag()) hyg='';
   else{
     const w=wdWat(), p=wdPunten(), af=p.filter(x=>x.af).length;
     if(!w.length) hyg=tg('hyg','Hygiëne','?',sub('wat doe je vandaag?'),'<i class="htstip"></i>');
@@ -10542,7 +10549,10 @@ function homeTegelsHTML(){
         sub(toon.length===1?'controle open':'controles open'),'<i class="htstip"></i>','var(--amber)')
     :tg('ctl','Controles',svg(I.vink,'2.6').replace('<svg ','<svg width="30" height="30" '),sub('alles op tijd'),'','var(--groen)');
 
-  return `<div class="htegels">${td}${hyg}${mail}${ctl}${stempelTegelHTML(tg,sub)}</div>`;
+  /* v946: stempelkaarten alleen als er iets te doen is */
+  const stS=stempelStand(), stA=stS&&(stS.open||(S.werk||{}).giftcardTeControleren);
+  const stp=stA?stempelTegelHTML(tg,sub):(setTimeout(()=>stempelVerversen(false),0),'');
+  return `<div class="htegels">${td}${vrd}${hyg}${mail}${ctl}${stp}</div>`;
 }
 
 /* ═══════════ Halffabricaten: karamel, gelei, notenpasta ═══════════
