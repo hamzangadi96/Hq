@@ -295,6 +295,19 @@ main>.blokkop:first-child{margin-top:8px}
 .tegel .tk{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;
   letter-spacing:.08em;text-transform:uppercase;color:var(--grijs2)}
 .tegel .tk svg{width:15px;height:15px;flex-shrink:0}
+/* v948: productietab, raster Klaarzetten */
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pgt{background:var(--card);border:0;border-radius:18px;padding:14px 12px 12px;display:flex;flex-direction:column;align-items:flex-start;
+  gap:2px;min-height:96px;text-align:left;font:inherit;color:var(--ink);cursor:pointer;
+  box-shadow:0 1px 2px rgba(24,24,27,.03),0 12px 26px -20px rgba(24,24,27,.18)}
+.pgt:active{background:var(--bg)}
+.pgi{width:34px;height:34px;border-radius:11px;background:var(--bg);display:grid;place-items:center;margin-bottom:auto}
+.pgi svg{width:18px;height:18px}
+.pgn{font-size:13.5px;font-weight:600;letter-spacing:-.01em;margin-top:10px;line-height:1.2}
+.pgw{font-size:12px;color:var(--grijs);display:flex;align-items:center;gap:3px}
+.pgw svg{width:13px;height:13px;color:var(--groen)}
+.pgw.let{color:var(--amber)}
+.shw .pgaf{display:block;font-size:12px;color:var(--amber);font-weight:500}
 .tegel .tw{font-size:25px;font-weight:600;letter-spacing:-.04em;line-height:1.1;margin-top:auto;
   font-variant-numeric:tabular-nums}
 .tegel .tw.nul{color:var(--grijs3)}
@@ -5244,7 +5257,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v947 · 30 okt 2026';
+const APPVERSIE = 'v948 · 30 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12112,9 +12125,8 @@ function productieHTML(){
   }
   /* v947: 'Laatste productie' en 'Afgerond' waren twee lijsten met dezelfde batches; nu één lijst onder Planning */
   const afRij=b=>{ const r=b.resultaat||{}, dt=new Date((b.eindDatum||b.startDatum||vandaag())+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
-    return `<button class="arij" data-batch="${b.id}"><span class="ivak ${b.afgebroken?'rood':r.afkeur>r.goed/4?'amber':'groen'}">${svg(b.afgebroken?I.kruis:I.vink)}</span>
-      <span class="naam">${esc(dt)} · ${esc(chocNaam(b.chocolade).toLowerCase())}<small>${b.code} · ${(r.goed||0).toLocaleString('nl-NL')} goed${r.afkeur?' · '+r.afkeur.toLocaleString('nl-NL')+' afkeur':''}</small></span>
-      <span class="pijl">${svg(I.pijl,'2')}</span></button>` };
+    return `<button type="button" class="shrij" data-batch="${b.id}"><span class="shn">${esc(chocNaam(b.chocolade))}<small>${esc(dt)} · ${b.code}</small></span>
+      <span class="shw">${(r.goed||0).toLocaleString('nl-NL')} goed${r.afkeur?`<small class="pgaf">${r.afkeur.toLocaleString('nl-NL')} afkeur</small>`:''}</span>${svg(I.pijl,'2')}</button>` };
   const plans=planLijst().slice().sort((x,y)=>String(x.datum).localeCompare(String(y.datum)));
   if(!S.recepten.length&&!loopt.length){
     h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Planning</span></div>
@@ -12140,13 +12152,11 @@ function productieHTML(){
           :`<span class="plwnr${n<0?' laat':''}">${wnr(n)}${tk?`<button type="button" class="plbest" data-plbest="${p2.id}">${tk} bestellen</button>`:''}</span>`}
       </div>`,'data-planwis="'+p2.id+'"')};
     if(held) h+=`<div style="margin-top:${loopt.length?24:8}px">${held}</div>`;
-    h+=`<div class="blokkop" style="margin-top:${held||loopt.length?24:8}px"><span class="eyebrow">Planning</span></div>
+    h+=`<div class="blokkop" style="margin-top:${held||loopt.length?24:8}px"><span class="eyebrow">Planning</span>
+        <button class="kopknop" onclick="VP=null;sheetVoorspelPlan()">${svg(I.plus)}Plan</button></div>
       ${planStandHTML(plans,loopt)}
       <div class="plkaart">${plans.slice(0,4).map(plRij).join('')}
-        ${plans.length>4?`<button class="plmeer" data-planning>+${plans.length-4} meer</button>`:''}</div>
-      <div class="lgvoet bvoet"><button type="button" data-planning>Hele planning</button>
-        <button type="button" onclick="VP=null;sheetVoorspelPlan()">Nieuw plan</button>
-        ${loopt.length?'':'<button type="button" data-sheet="nieuwbatch">Losse batch</button>'}</div>`;
+        ${plans.length>4?`<button class="plmeer" data-planning>+${plans.length-4} meer</button>`:''}</div>`;
   } else if(!loopt.length){
     h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Planning</span></div>
       <div class="prodvolg"><b>Niets gepland</b><span>Maak een productieplan vanuit je voorspelling, of start meteen een batch.</span>
@@ -12195,7 +12205,7 @@ function productieHTML(){
   if(af.length){
     const top=af.slice(0,2), ouder=af.slice(2);
     h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Afgerond</span></div>
-      <div class="paneel">${(S.toonEerder?af:top).map(afRij).join('')}
+      <div class="gl">${(S.toonEerder?af:top).map(afRij).join('')}
         ${ouder.length?`<button class="meer" data-eerder="${S.toonEerder?'dicht':'open'}">${
           S.toonEerder?'Inklappen'
             :ouder.length+' eerdere '+(ouder.length===1?'batch':'batches')+' tonen'}</button>`:''}</div>`;
@@ -12524,20 +12534,25 @@ function planStandHTML(plans,loopt){
 /* v826: vier tegels werden één lijst "Klaarzetten"; de voorspelling zit nu
    in de planning (nodig · gepland). */
 function prodTegelsHTML(a){
+  /* v948: acht vaste plekken als raster met iconen: herkennen in plaats van lezen */
   const act=(S.recepten||[]).filter(smaakActief), sOnaf=act.filter(r=>smaakStatus(r).k!=='ok').length;
   const gp=geplandeSmaken(), gOnaf=act.filter(r=>gp.has(r.id)&&smaakStatus(r).k!=='ok').length;
   const ings=alleIngredienten().filter(n=>!ingGearchiveerd(n)), iOnaf=ingOnaf().length;
-  const ij=laatsteIjking();
-  const rij=(on,n,w,let2)=>`<button type="button" class="shrij" onclick="${on}"><span class="shn">${n}</span>
-    <span class="shw${let2?' let':''}">${w}</span>${svg(I.pijl,'2')}</button>`;
+  const ij=laatsteIjking(), nB=halfRecepten().length, nK=(()=>{ try{ return kleurLijst().length }catch(e){ return 0 } })();
+  const vk=svg(I.vink,'2.6');
+  const t=(on,ico,n,w,let2)=>`<button type="button" class="pgt" onclick="${on}"><span class="pgi">${svg(I[ico]||I.lijst)}</span>
+    <span class="pgn">${n}</span><span class="pgw${let2?' let':''}">${w||'&nbsp;'}</span></button>`;
+  const loopt=(S.batches||[]).some(b=>b.status!=='klaar');
   return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Klaarzetten</span></div>
-    <div class="gl">
-      ${rij('VUL=null;sheetVullingen()','Basisrecepten',(()=>{ const n=halfRecepten().length; return n?n+' '+(n===1?'recept':'recepten'):'' })())}
-      ${rij("homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
-      ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
-      ${rij('sheetRekenen()','Wat heb ik nodig?','')}
-      ${rij("homeTegel('vv')",'Voedselveiligheid',ij?svg(I.vink,'2.6'):'thermometer ijken',!ij)}
-      ${rij("homeTegel('lst')",'Instellingen','mallen, stappen')}
+    <div class="pgrid">
+      ${t('VUL=null;sheetVullingen()','pot','Basisrecepten',nB?String(nB):'')}
+      ${t("homeTegel('smk')",'bonbon','Smaken',!act.length?'toevoegen':gOnaf?gOnaf+' niet af':sOnaf?sOnaf+' niet af':act.length+' '+vk,!act.length||gOnaf||sOnaf)}
+      ${t('sheetKleuren()','palet','Kleuren',nK?String(nK):'')}
+      ${t('sheetIngredientenLijst(false)','doos','Ingrediënten',!ings.length?'':iOnaf?iOnaf+' niet af':ings.length+' '+vk,iOnaf)}
+      ${t('sheetRekenen()','loep','Wat nodig?','')}
+      ${loopt?'':t("sheetNieuweBatch()",'plus','Losse batch','')}
+      ${t("homeTegel('vv')",'klembord','HACCP',ij?vk:'ijken',!ij)}
+      ${t("homeTegel('lst')",'instel','Instellingen','')}
     </div>`;
 }
 function prodTegelsOudHTML(a){
