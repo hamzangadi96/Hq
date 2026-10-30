@@ -294,6 +294,7 @@ main>.blokkop:first-child{margin-top:8px}
 .tegel:active{background:var(--bg)}
 .tegel .tk{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;
   letter-spacing:.08em;text-transform:uppercase;color:var(--grijs2)}
+.tegel .tk svg{width:15px;height:15px;flex-shrink:0}
 .tegel .tw{font-size:25px;font-weight:600;letter-spacing:-.04em;line-height:1.1;margin-top:auto;
   font-variant-numeric:tabular-nums}
 .tegel .tw.nul{color:var(--grijs3)}
@@ -5243,7 +5244,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v944 · 30 okt 2026';
+const APPVERSIE = 'v945 · 30 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6205,7 +6206,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -11997,7 +11998,9 @@ function witKaartHTML(){
   try{ witKoppel925() }catch(e){}
   const wit=(S.recepten||[]).filter(r=>r&&r.chocolade==='wit'&&smaakActief(r));
   if(!wit.length) return '';
-  const P=witPlanAantallen(), marge=(S.vulMarge===10||typeof S.vulMarge!=='number'?20:S.vulMarge);
+  /* v945: alleen tonen als er een witte dag ingepland staat (de witte batch van 27 okt is klaar) */
+  const P0=witPlanAantallen(); if(!P0.uitPlan||P0.verlopen) return '';
+  const P=P0, marge=(S.vulMarge===10||typeof S.vulMarge!=='number'?20:S.vulMarge);
   const g=n=>Math.round(n).toLocaleString('nl-NL');
   const rijen=wit.filter(r=>P.aantal[r.id]>0).sort((a,b)=>a.naam.localeCompare(b.naam,'nl'));
   if(!rijen.length) return '';
@@ -14503,6 +14506,15 @@ function eenmaligBatches942(){
   return true;
 }
 /* v943: HACCP-gegevens productieperiode 24–28 okt (opgegeven door Hamza op 29 okt) */
+function eenmaligGroot945(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.groot945) return false;
+  S.eenmalig.groot945=Date.now();
+  (S.batches||[]).forEach(b=>(b&&b.logs||[]).forEach(l=>{ if(!l||l.type!=='schoonmaak'||l.groot) return;
+    if(/productieperiode 24–28 okt/.test(l.sub||'')){ l.groot=/^voor/i.test(l.soort||'')?'voor':'na';
+      l.soort=l.groot==='voor'?'Grote schoonmaak vóór productie':'Grote schoonmaak na productie' } }));
+  return true;
+}
 function eenmaligEnten944(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.enten944) return false;
@@ -19255,7 +19267,7 @@ function geldHTML(){
      bij elke inkoop erbij en dat mag geen tik dieper. */
   const cfMist=cijferStand().filter(x=>!x.ok).length;
   const inzicht=`
-    ${cfMist?`<button class="melding rood" data-cijfers style="width:100%;text-align:left;
+    ${cfMist?`<button class="melding amber" data-cijfers style="width:100%;text-align:left;
        font:inherit;font-size:13.5px;border:0;cursor:pointer;margin:12px 0 0">
        ${svg(I.alarm,'2')}<span>${cfMist} ${cfMist===1?'cijfer ontbreekt':'cijfers ontbreken'}.
        Zolang dat zo is rekenen je marge, je uurloon en je adviesprijzen met halve getallen.</span>
@@ -19271,10 +19283,7 @@ function geldHTML(){
           k.gem!==null?euro(k.gem):'', k.gem===null)})()}
       ${gt('data-gloopt',I.spark,'Hoe draait het',pu?euro(pu.perUur):'')}
       ${gt('data-gbelasting',I.doc,'Belasting','')}
-      ${(()=>{const n=(S.bonnen||[]).length;
-        const z=(S.bonnen||[]).filter(x=>!x.foto).length;
-        return gt('data-bonnen',I.vracht,'Bonnen',
-          n?(z?z+' zonder foto':String(n)):'', z>0)})()}
+      ${/* v945: Bonnen stond hier én als tegel onder Kwartaal; die tegel blijft */''}
     </div>`;
 
   /* een lopende rit heeft sinds v720 een eigen scherm (ritUI) */
