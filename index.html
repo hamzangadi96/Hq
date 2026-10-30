@@ -5244,7 +5244,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v946 · 30 okt 2026';
+const APPVERSIE = 'v947 · 30 okt 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12110,13 +12110,11 @@ function productieHTML(){
     if(loopt.length>1) h+=`<div class="paneel" style="margin-top:12px">${
       loopt.slice(1).map(bRij).join('')}</div>`;
   }
-  if(!loopt.length&&afVandaag.length){
-    h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Laatste productie</span></div>
-      <div class="paneel">${afVandaag.map(b=>{ const r=b.resultaat||{}, dt=new Date((b.eindDatum||vandaag())+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
-        return `<button class="arij" data-batch="${b.id}"><span class="ivak ${r.afkeur>r.goed/4?'amber':'groen'}">${svg(I.vink)}</span>
-          <span class="naam">${esc(dt)} · ${esc(chocNaam(b.chocolade).toLowerCase())}<small>${b.code} · ${(r.goed||0).toLocaleString('nl-NL')} goed${r.afkeur?' · '+r.afkeur.toLocaleString('nl-NL')+' afkeur':''}</small></span>
-          <span class="pijl">${svg(I.pijl,'2')}</span></button>` }).join('')}</div>`;
-  }
+  /* v947: 'Laatste productie' en 'Afgerond' waren twee lijsten met dezelfde batches; nu één lijst onder Planning */
+  const afRij=b=>{ const r=b.resultaat||{}, dt=new Date((b.eindDatum||b.startDatum||vandaag())+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
+    return `<button class="arij" data-batch="${b.id}"><span class="ivak ${b.afgebroken?'rood':r.afkeur>r.goed/4?'amber':'groen'}">${svg(b.afgebroken?I.kruis:I.vink)}</span>
+      <span class="naam">${esc(dt)} · ${esc(chocNaam(b.chocolade).toLowerCase())}<small>${b.code} · ${(r.goed||0).toLocaleString('nl-NL')} goed${r.afkeur?' · '+r.afkeur.toLocaleString('nl-NL')+' afkeur':''}</small></span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>` };
   const plans=planLijst().slice().sort((x,y)=>String(x.datum).localeCompare(String(y.datum)));
   if(!S.recepten.length&&!loopt.length){
     h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Planning</span></div>
@@ -12193,15 +12191,14 @@ function productieHTML(){
       <div class="paneel">${temaken.slice(0,6).map(x=>orderRij(x.order)).join('')}</div>`;
   }
 
-  /* ── Afgerond: vandaag staat open, eerdere dagen klap je erbij ── */
-  if(rest.length||(loopt.length&&afVandaag.length)){
-    const toon=loopt.length?afVandaag:[];
-    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Afgerond</span>
-        <span class="tel">${af.length}</span></div>
-      <div class="paneel">${(S.toonEerder?af:toon).map(bRij).join('')}
-        ${rest.length?`<button class="meer" data-eerder="${S.toonEerder?'dicht':'open'}">${
+  /* ── Afgerond (v947): de laatste twee altijd in beeld, de rest klap je erbij ── */
+  if(af.length){
+    const top=af.slice(0,2), ouder=af.slice(2);
+    h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Afgerond</span></div>
+      <div class="paneel">${(S.toonEerder?af:top).map(afRij).join('')}
+        ${ouder.length?`<button class="meer" data-eerder="${S.toonEerder?'dicht':'open'}">${
           S.toonEerder?'Inklappen'
-            :rest.length+' eerdere '+(rest.length===1?'batch':'batches')+' tonen'}</button>`:''}</div>`;
+            :ouder.length+' eerdere '+(ouder.length===1?'batch':'batches')+' tonen'}</button>`:''}</div>`;
   }
 
   /* ── Wat je niet elke dag nodig hebt: vier tegels, details in een sheet (v717).
@@ -12535,12 +12532,12 @@ function prodTegelsHTML(a){
     <span class="shw${let2?' let':''}">${w}</span>${svg(I.pijl,'2')}</button>`;
   return `<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Klaarzetten</span></div>
     <div class="gl">
+      ${rij('VUL=null;sheetVullingen()','Basisrecepten',(()=>{ const n=halfRecepten().length; return n?n+' '+(n===1?'recept':'recepten'):'' })())}
       ${rij("homeTegel('smk')",'Smaken',!act.length?'eerste toevoegen':gOnaf?gOnaf+' gepland, niet af':sOnaf?sOnaf+' niet af':act.length+' '+svg(I.vink,'2.6'),!act.length||gOnaf)}
       ${rij('sheetIngredientenLijst(false)','Ingrediënten',!ings.length?'—':iOnaf?iOnaf+' niet af':ings.length+' '+svg(I.vink,'2.6'),iOnaf)}
-      ${rij('sheetRekenen()','<b>Wat heb ik nodig?</b>','')}
-      ${rij('VUL=null;sheetVullingen()','Basisrecepten',(()=>{ const n=halfRecepten().length; return n?n+' '+(n===1?'recept':'recepten'):'' })())}
+      ${rij('sheetRekenen()','Wat heb ik nodig?','')}
       ${rij("homeTegel('vv')",'Voedselveiligheid',ij?svg(I.vink,'2.6'):'thermometer ijken',!ij)}
-      ${rij("homeTegel('lst')",'Instellen','')}
+      ${rij("homeTegel('lst')",'Instellingen','mallen, stappen')}
     </div>`;
 }
 function prodTegelsOudHTML(a){
