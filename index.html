@@ -2957,6 +2957,45 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
   border:1.1mm solid #7a9a6a;color:#7a9a6a;border-radius:3mm;padding:3mm 8mm;
   font-family:'Inter',sans-serif;font-size:15pt;font-weight:800;letter-spacing:.2em;opacity:.82}
 .vel.factuurvel{width:210mm;min-height:297mm;padding:0;display:block;background:#fffdfa}
+/* v957: factuur in de nieuwe huisstijl (zoals het voorbeeld van 2 nov) */
+.vel.factuurvel{background:#fff}
+.fact2{width:210mm;min-height:297mm;background:#fff;color:#1d1d1f;box-sizing:border-box;padding:16mm 15mm 14mm;
+  font-family:Helvetica,Arial,'Inter',sans-serif;font-size:8.3pt;line-height:1.55;position:relative;display:flex;flex-direction:column}
+.fact2 .f2kop{display:flex;justify-content:space-between;align-items:flex-start}
+.fact2 .f2titel{font-size:21pt;font-weight:700;letter-spacing:-.01em;line-height:1}
+.fact2 .f2merk{text-align:right;line-height:1}
+.fact2 .f2merk b{display:block;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-weight:500;font-size:15pt;letter-spacing:.16em;color:#1d1d1f}
+.fact2 .f2merk small{display:block;font-size:4.6pt;letter-spacing:.62em;color:#71717a;margin-top:1.4mm;padding-right:2mm}
+.fact2 .f2rij{display:flex;justify-content:space-between;gap:10mm;margin-top:7mm}
+.fact2 .f2rij .l{flex:1}
+.fact2 .f2rij .r{width:80mm}
+.fact2 .f2kv{display:flex;justify-content:space-between}
+.fact2 .f2kv span{color:#71717a}
+.fact2 .f2kv b{font-weight:700}
+.fact2 .f2klant b{font-size:9.6pt}
+.fact2 .f2klant{font-size:8.8pt;line-height:1.75}
+.fact2 hr{border:0;border-top:.25mm solid #d4d4d8;margin:5mm 0 0}
+.fact2 .f2banner{background:#ecf6ee;color:#1f7a3a;font-weight:700;font-size:9pt;padding:3.4mm 4mm;margin-top:3.5mm}
+.fact2 table{width:100%;border-collapse:collapse;margin-top:5mm}
+.fact2 th{background:#efeff0;font-weight:700;font-size:7.6pt;padding:2.6mm 3mm;text-align:left;vertical-align:middle;line-height:1.3}
+.fact2 th small{display:block;font-weight:400;font-size:6.4pt;color:#52525b}
+.fact2 td{padding:3.2mm 3mm;vertical-align:top}
+.fact2 .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.fact2 .c{text-align:center;white-space:nowrap}
+.fact2 td.kort{color:#1f7a3a;font-weight:700}
+.fact2 td.bed{font-weight:700}
+.fact2 .f2noot{border-top:.25mm solid #d4d4d8;margin-top:1mm;padding:2.4mm 3mm 0;font-size:6.6pt;color:#71717a}
+.fact2 .f2tot{margin-left:auto;width:82mm;margin-top:4mm}
+.fact2 .f2tot div{display:flex;justify-content:space-between;padding:1.6mm 3mm}
+.fact2 .f2eind{border-top:.25mm solid #d4d4d8;margin-top:3mm;padding-top:3mm!important;font-weight:700;font-size:10.5pt}
+.fact2 .f2eind span:last-child{font-size:12pt}
+.fact2 .f2bet{display:flex;gap:20mm;margin-top:9mm}
+.fact2 .f2bet b{width:20mm}
+.fact2 .f2bet a,.fact2 .f2bet .lnk{color:#1f7a3a;text-decoration:none}
+.fact2 .f2stempel{position:absolute;top:88mm;right:22mm;transform:rotate(-12deg);border:.9mm solid #1f7a3a;color:#1f7a3a;
+  border-radius:2mm;padding:2mm 6mm;font-weight:700;font-size:15pt;letter-spacing:.14em}
+.fact2 .f2voet{margin-top:auto;border-top:.25mm solid #d4d4d8;padding-top:2.4mm;display:flex;justify-content:space-between;font-size:6.6pt;color:#71717a}
+
 .et-partij{width:73mm;height:47mm;padding:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .et-partij .kop{padding:1.6mm 3mm 1.2mm;border-bottom:.35mm solid #000;text-align:center;flex:none}
 .et-partij .merkregel{font-family:'Cormorant Garamond',Georgia,serif;font-size:8pt;font-weight:600;
@@ -5288,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v956 · 2 nov 2026';
+const APPVERSIE = 'v957 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18876,12 +18915,59 @@ function sheetUurtarief(){
 /* ---------- de factuur ----------
    Eigen huisstijl: woordmerk, Cormorant, btw gesplitst in 9% en 21%.
    Het woord HQ komt hier nergens voor — dat is alleen de naam van de app. */
-/* v956: één nummerreeks voor orderfacturen en betaallinkfacturen */
+/* v957: factuurnummer per dag, zoals 20261102-001; orders en betaallinks delen de reeks */
 function volgendFactuurNr(){
-  const jr=new Date().getFullYear(), voor='F-'+jr+'-';
+  const voor=vandaag().replace(/-/g,'')+'-';
   const nrs=(S.orders||[]).map(x=>x.factuurNr).concat(alsLijst(S.betaallinks).map(x=>x.factuurNr))
     .filter(x=>x&&String(x).indexOf(voor)===0).map(x=>parseInt(String(x).slice(voor.length),10)||0);
-  return voor+pad((nrs.length?Math.max.apply(null,nrs):0)+1);
+  return voor+String((nrs.length?Math.max.apply(null,nrs):0)+1).padStart(3,'0');
+}
+/* f: {nr, datum, klant:{naam,regels:[],kvk}, regels:[{oms,aantal,prijs(incl),btw,korting(%)}],
+       extraKorting:{bedrag(incl), btw, tekst}, banner, betaling:{tekst,url}, betaald}
+   Bedragen kloppen met wat de klant betaalt: per regel incl. btw, daarna terug naar excl. */
+const r2=n=>Math.round((n+Number.EPSILON)*100)/100;
+function factuur2HTML(f){
+  const b=bedrijf();
+  const adres=String(b.adres||'').split(/\n|,\s*/).map(x=>x.trim()).filter(Boolean);
+  const rg=(f.regels||[]).map(x=>{ const pct=x.korting||0, incl=r2((x.prijs||0)*(x.aantal||1)*(1-pct/100));
+    return Object.assign({},x,{stukExcl:r2((x.prijs||0)/(1+x.btw)),incl,excl:r2(incl/(1+x.btw))}) });
+  if(f.extraKorting&&f.extraKorting.bedrag){ const k=f.extraKorting, btw=k.btw||BTW_ETEN;
+    rg.push({oms:k.tekst||'Korting',aantal:'',btw,incl:-r2(k.bedrag),excl:-r2(k.bedrag/(1+btw)),isKorting:true}) }
+  const tarieven=[...new Set(rg.map(x=>x.btw))].sort();
+  const sub=r2(rg.reduce((t,x)=>t+x.excl,0));
+  const perT=tarieven.map(t=>{ const inc=rg.filter(x=>x.btw===t).reduce((s2,x)=>s2+x.incl,0), ex=rg.filter(x=>x.btw===t).reduce((s2,x)=>s2+x.excl,0); return {t,btw:r2(inc-ex)} });
+  const tot=r2(rg.reduce((t,x)=>t+x.incl,0));
+  const pc=t=>Math.round(t*100)+'%';
+  const heeftKort=rg.some(x=>x.korting);
+  const k=f.klant||{};
+  return `<div class="fact2">
+    <div class="f2kop"><div class="f2titel">FACTUUR</div>
+      <div class="f2merk">${b.logo?`<img src="${b.logo}" alt="" style="max-height:14mm;max-width:60mm">`:`<b>${esc(merkNaam())}</b><small>${esc((b.regel||'Raffinement').toUpperCase())}</small>`}</div></div>
+    <div class="f2rij">
+      <div class="l"><b>${esc(b.naam||'Cacaoboetiek')}</b><br>${adres.map(esc).join('<br>')}${b.contact?'<br>'+esc(String(b.contact).split('·')[0].trim()):''}${b.kvk?'<br>KvK '+esc(b.kvk):''}${b.btw?'<br>Btw-id '+esc(b.btw):''}</div>
+      <div class="r"><div class="f2kv"><span>Factuurnummer</span><b>${esc(f.nr||'')}</b></div>
+        <div class="f2kv"><span>Factuurdatum</span><b>${esc(new Date((f.datum||vandaag())+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'}))}</b></div>
+        ${f.referentie?`<div class="f2kv"><span>Referentie</span><b>${esc(f.referentie)}</b></div>`:''}</div>
+    </div>
+    ${(k.naam||(k.regels||[]).length)?`<div class="f2rij f2klant">
+      <div class="l">${k.naam?`<b>${esc(k.naam)}</b>`:''}${(k.regels||[]).filter(Boolean).map(x=>'<br>'+esc(x)).join('')}</div>
+      <div class="r">${k.kvk?`<div class="f2kv"><span>KvK</span><span style="color:#1d1d1f">${esc(k.kvk)}</span></div>`:''}</div></div>`:''}
+    <hr>
+    ${f.banner?`<div class="f2banner">${esc(f.banner)}</div>`:''}
+    <table>
+      <tr><th>Omschrijving</th><th class="c">Aantal</th><th class="n">Stukprijs<small>excl. btw</small></th>${heeftKort?'<th class="c">Korting</th>':''}<th class="c">Btw</th><th class="n">Bedrag<small>excl. btw</small></th></tr>
+      ${rg.map(x=>`<tr><td>${esc(x.oms)}</td><td class="c">${x.aantal}</td><td class="n">${x.isKorting?'':euro(x.stukExcl)}</td>
+        ${heeftKort?`<td class="c kort">${x.korting?x.korting+'%':''}</td>`:''}<td class="c">${pc(x.btw)}</td>
+        <td class="n bed">${x.excl<0?'− '+euro(-x.excl):euro(x.excl)}</td></tr>`).join('')}
+    </table>
+    <div class="f2noot">${heeftKort?'Stukprijzen vóór korting. Regelbedragen na korting, exclusief btw.':'Regelbedragen exclusief btw.'}</div>
+    <div class="f2tot"><div><span>Subtotaal</span><span>${euro(sub)}</span></div>
+      ${perT.map(x=>`<div><span>Btw ${pc(x.t)}</span><span>${euro(x.btw)}</span></div>`).join('')}
+      <div class="f2eind"><span>Totaal te betalen</span><span>${euro(tot)}</span></div></div>
+    ${f.betaald?`<div class="f2stempel">BETAALD</div>`:''}
+    <div class="f2bet"><b>Betaling</b>${f.betaling&&f.betaling.url&&!f.betaald?`<a class="lnk" data-pdflink="${esc(f.betaling.url)}" href="${esc(f.betaling.url)}">${esc(f.betaling.tekst||'Betaal via Shopify')}</a>`:`<span>${esc((f.betaling&&f.betaling.tekst)||'')}</span>`}</div>
+    <div class="f2voet"><span>${[b.naam||'Cacaoboetiek'].concat(adres).concat(b.kvk?['KvK '+b.kvk]:[]).map(esc).join(' | ')}</span><span>1 / 1</span></div>
+  </div>`;
 }
 const factuurNr=o=>o.factuurNr||volgendFactuurNr();
 
@@ -18890,66 +18976,18 @@ function factuurHTML(o){
   const k=o.klant||(S.klanten||[]).find(x=>x.id===o.klantId)||{};
   const totStuks=(o.regels||[]).reduce((n,x)=>n+(x.aantal||0),0);
   const regels=(o.regels||[]).map(r=>{
-    /* komt de regel van je webshop, dan staan naam en prijs er al in */
-    if(r.naam&&r.prijs!=null){
-      const p=+r.prijs;
-      return {naam:r.naam,aantal:r.aantal,prijs:p,bedrag:p*r.aantal};
-    }
-    /* heeft deze klant een prijsafspraak, dan geldt die — met de staffel over
-       het hele orderaantal, niet per regel */
+    if(r.naam&&r.prijs!=null) return {oms:r.naam,aantal:r.aantal,prijs:+r.prijs,btw:BTW_ETEN};
     const pr=prijsVoor(o.klantId,r.receptId,totStuks);
-    return {naam:smaakNaam(r.receptId),aantal:r.aantal,prijs:pr,bedrag:pr===null?null:pr*r.aantal};
+    return {oms:smaakNaam(r.receptId),aantal:r.aantal,prijs:pr===null?0:pr,btw:BTW_ETEN};
   });
-  const laag=regels.reduce((n,r)=>n+(r.bedrag||0),0);
   const verz=parseFloat(o.verzending)||0, kado=parseFloat(o.kado)||0;
-  const hoog=verz+kado;
-  const laagExcl=laag/(1+BTW_ETEN), hoogExcl=hoog/(1+BTW_REST);
+  if(verz) regels.push({oms:'Verzending',aantal:1,prijs:verz,btw:BTW_REST});
+  if(kado) regels.push({oms:'Kado-opties',aantal:1,prijs:kado,btw:BTW_REST});
   const datum=o.factuurDatum||o.ingepakt||o.datum||iso(new Date());
-
-  return `<div class="factuur">
-    <div class="fkop">
-      <div class="fmerk">${b.logo?`<img src="${b.logo}" alt="">`:esc(merkNaam())}</div>
-      ${!b.logo&&b.regel?`<div class="fsub">${esc(b.regel.toUpperCase())}</div>`:''}
-    </div>
-
-    <div class="frij">
-      <div><h4>Aan</h4>${esc(k.naam||klantNaam(o.klantId))}${
-        k.adres?'<br>'+esc(k.adres).replace(/\n/g,'<br>'):''}${
-        k.email?'<br>'+esc(k.email):''}</div>
-      <div style="text-align:right"><h4>Factuur</h4>
-        ${esc(factuurNr(o))}<br>${kort(new Date(datum))}<br>
-        ${esc(o.nummer||'')}</div>
-    </div>
-
-    <div class="ftitel">Factuur</div>
-    <table>
-      <tr><th>Omschrijving</th><th class="n">Aantal</th><th class="n">Stuksprijs</th><th class="n">Bedrag</th></tr>
-      ${regels.map(r=>`<tr><td>${esc(r.naam)}</td><td class="n">${r.aantal}</td>
-        <td class="n">${r.prijs===null?'—':euro(r.prijs)}</td>
-        <td class="n">${r.bedrag===null?'—':euro(r.bedrag)}</td></tr>`).join('')}
-      ${verz?`<tr><td>Verzending</td><td class="n">1</td><td class="n">${euro(verz)}</td>
-        <td class="n">${euro(verz)}</td></tr>`:''}
-      ${kado?`<tr><td>Kado-opties</td><td class="n">1</td><td class="n">${euro(kado)}</td>
-        <td class="n">${euro(kado)}</td></tr>`:''}
-    </table>
-
-    <div class="ftot">
-      <div><span>Subtotaal 9%</span><span>${euro(laagExcl)}</span></div>
-      <div><span>Btw 9%</span><span>${euro(laag-laagExcl)}</span></div>
-      ${hoog?`<div><span>Subtotaal 21%</span><span>${euro(hoogExcl)}</span></div>
-        <div><span>Btw 21%</span><span>${euro(hoog-hoogExcl)}</span></div>`:''}
-      <div class="eind"><span>Totaal</span><span>${euro(laag+hoog)}</span></div>
-    </div>
-
-    ${o.betaald?`<div class="stempel">BETAALD</div>`:''}
-
-    <div class="fvoet">
-      <span>${esc(b.naam||'')}<br>${esc(b.adres||'')}<br>${esc(b.contact||'')}</span>
-      <span style="text-align:right">${merkNummers()?esc(merkNummers())+'<br>':''}${
-        b.iban?'IBAN '+esc(b.iban):'IBAN nog invullen bij Bedrijfsprofiel'}<br>
-        ${o.betaald?'Voldaan op '+kort(new Date(o.betaald)):'Betaling binnen 14 dagen'}</span>
-    </div>
-  </div>`;
+  return factuur2HTML({nr:factuurNr(o),datum,referentie:o.nummer||'',
+    klant:{naam:k.naam||klantNaam(o.klantId),regels:String(k.adres||'').split(/\n/).concat(k.email?[k.email]:[])},
+    regels,betaald:!!o.betaald,
+    betaling:{tekst:o.betaald?'Voldaan op '+kort(new Date(o.betaald)):(b.iban?'Overmaken naar '+b.iban+' o.v.v. het factuurnummer, binnen 14 dagen':'Betaling binnen 14 dagen')}});
 }
 
 /* ═══════════ alle facturen bij elkaar ═══════════
@@ -20496,7 +20534,7 @@ function sheetBetaallink(){
         verzending:{soort:BL.vz,prijs:BL.vzPrijs},notitie:BL.notitie,korting:BL.kW>0?{soort:BL.kS,waarde:BL.kW}:null});
       const l=Object.assign({},res.link,{datum:vandaag(),
         regels:BL.regels.map(x=>({titel:x.titel+(x.variant&&!String(x.titel).includes(x.variant)?' · '+x.variant:''),aantal:x.aantal,prijs:x.prijs})),
-        korting:blKorting(),kortingTekst:BL.kW>0&&BL.kS==='pct'?String(BL.kW).replace('.',',')+'%':'',
+        korting:blKorting(),kortingTekst:BL.kW>0&&BL.kS==='pct'?String(BL.kW).replace('.',',')+'%':'',kortingPct:BL.kW>0&&BL.kS==='pct'?BL.kW:0,
         verzending:BL.vz==='verzenden'?(BL.vzPrijs||0):0,ophalen:BL.vz==='ophalen'});
       S.betaallinks=alsLijst(S.betaallinks).concat([l]).slice(-50); bewaarNu();
       BL=null; sheetBetaallinkKlaar(l);
@@ -20530,54 +20568,35 @@ function blWhatsApp(l,tel){
 /* v956: factuur bij een betaallink, als pdf mee te sturen via WhatsApp.
    De naam van de klant komt alleen op de pdf en wordt niet bewaard. */
 function blFactuurHTML(l,klant){
-  const b=bedrijf();
   if(!l.factuurNr){ l.factuurNr=volgendFactuurNr(); l.factuurDatum=vandaag(); bewaarNu() }
-  const regels=alsLijst(l.regels);
-  const laag=regels.reduce((t,x)=>t+(x.prijs||0)*(x.aantal||1),0)-(l.korting||0);
-  const hoog=l.verzending||0;
-  const laagExcl=laag/(1+BTW_ETEN), hoogExcl=hoog/(1+BTW_REST);
-  const betaald=l.status==='COMPLETED';
-  return `<div class="factuur">
-    <div class="fkop"><div class="fmerk">${b.logo?`<img src="${b.logo}" alt="">`:esc(merkNaam())}</div>
-      ${!b.logo?`<div class="fsub">${esc((b.regel||'Raffinement').toUpperCase())}</div>`:''}</div>
-    <div class="frij">
-      <div><h4>Aan</h4>${klant?esc(klant):'—'}</div>
-      <div style="text-align:right"><h4>Factuur</h4>${esc(l.factuurNr)}<br>${kort(new Date(l.factuurDatum||l.datum||vandaag()))}<br>${esc(l.naam||'')}</div>
-    </div>
-    <div class="ftitel">Factuur</div>
-    <table>
-      <tr><th>Omschrijving</th><th class="n">Aantal</th><th class="n">Stuksprijs</th><th class="n">Bedrag</th></tr>
-      ${regels.map(x=>`<tr><td>${esc(x.titel)}</td><td class="n">${x.aantal}</td><td class="n">${euro(x.prijs||0)}</td><td class="n">${euro((x.prijs||0)*(x.aantal||1))}</td></tr>`).join('')}
-      ${l.korting?`<tr><td>Korting${l.kortingTekst?' '+esc(l.kortingTekst):''}</td><td class="n"></td><td class="n"></td><td class="n">− ${euro(l.korting)}</td></tr>`:''}
-      ${hoog?`<tr><td>Verzending</td><td class="n">1</td><td class="n">${euro(hoog)}</td><td class="n">${euro(hoog)}</td></tr>`:''}
-      ${l.ophalen?`<tr><td>Ophalen in Drunen</td><td class="n"></td><td class="n"></td><td class="n">${euro(0)}</td></tr>`:''}
-    </table>
-    <div class="ftot">
-      <div><span>Subtotaal 9%</span><span>${euro(laagExcl)}</span></div>
-      <div><span>Btw 9%</span><span>${euro(laag-laagExcl)}</span></div>
-      ${hoog?`<div><span>Subtotaal 21%</span><span>${euro(hoogExcl)}</span></div><div><span>Btw 21%</span><span>${euro(hoog-hoogExcl)}</span></div>`:''}
-      <div class="eind"><span>Totaal</span><span>${euro(laag+hoog)}</span></div>
-    </div>
-    ${betaald?`<div class="stempel">BETAALD</div>`:`<div style="margin-top:10mm;font-family:'Inter',sans-serif;font-size:8.6pt;line-height:1.6;color:#4a403a">
-      <b>Betalen</b> via de betaallink die je via WhatsApp hebt ontvangen:<br><span style="word-break:break-all;color:#3a2f28">${esc(l.url||'')}</span></div>`}
-    <div class="fvoet">
-      <span>${esc(b.naam||'')}<br>${esc(b.adres||'')}<br>${esc(b.contact||'')}</span>
-      <span style="text-align:right">${merkNummers()?esc(merkNummers())+'<br>':''}${b.iban?'IBAN '+esc(b.iban)+'<br>':''}${betaald?'Voldaan':'Betaling via betaallink'}</span>
-    </div>
-  </div>`;
+  const kl=klant&&typeof klant==='object'?klant:{naam:klant||''};
+  const pct=l.kortingPct||0;
+  const regels=alsLijst(l.regels).map(x=>({oms:x.titel,aantal:x.aantal,prijs:x.prijs,btw:BTW_ETEN,korting:pct}));
+  if(l.verzending) regels.push({oms:'Verzending',aantal:1,prijs:l.verzending,btw:BTW_REST});
+  if(l.ophalen) regels.push({oms:'Ophalen in Drunen',aantal:1,prijs:0,btw:BTW_ETEN});
+  return factuur2HTML({nr:l.factuurNr,datum:l.factuurDatum||l.datum,referentie:l.naam||'',
+    klant:{naam:kl.naam||'',regels:String(kl.adres||'').split(/\n/),kvk:kl.kvk||''},
+    banner:pct?String(pct).replace('.',',')+'% korting op ieder onderdeel':(l.korting?'Korting '+euro(l.korting)+' op je bestelling':''),
+    regels,extraKorting:!pct&&l.korting?{bedrag:l.korting,btw:BTW_ETEN,tekst:'Korting'}:null,
+    betaald:l.status==='COMPLETED',betaling:{tekst:l.status==='COMPLETED'?'Voldaan via Shopify':'Betaal via Shopify',url:l.url}});
 }
-function laadScript(src){ return new Promise((ok,nee)=>{ if(document.querySelector('script[src="'+src+'"]')&&(window.html2canvas||window.jspdf)) return ok();
+function laadPdfScript(src){ return new Promise((ok,nee)=>{
   const x=document.createElement('script'); x.src=src; x.onload=()=>ok(); x.onerror=()=>nee(new Error('Kon de pdf-maker niet laden. Heb je internet?')); document.head.appendChild(x) }) }
 async function factuurPdfBlob(html){
-  if(!window.html2canvas) await laadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
-  if(!window.jspdf) await laadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-  const box=document.createElement('div'); box.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;background:#fffdfa';
+  if(!window.html2canvas) await laadPdfScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+  if(!window.jspdf) await laadPdfScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+  const box=document.createElement('div'); box.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;background:#fff';
   box.innerHTML=html; document.body.appendChild(box);
   try{
     try{ await document.fonts.ready }catch(e){}
-    const c=await window.html2canvas(box.firstElementChild,{scale:2,backgroundColor:'#fffdfa',useCORS:true,logging:false});
+    const root=box.firstElementChild;
+    const c=await window.html2canvas(root,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',compress:true});
     pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,Math.min(297,c.height*210/c.width));
+    /* de betaallink echt klikbaar maken in de pdf */
+    const rr=root.getBoundingClientRect(), mm=210/rr.width;
+    root.querySelectorAll('[data-pdflink]').forEach(a=>{ const q=a.getBoundingClientRect();
+      try{ pdf.link((q.left-rr.left)*mm,(q.top-rr.top)*mm,q.width*mm,q.height*mm,{url:a.dataset.pdflink}) }catch(e){} });
     return pdf.output('blob');
   }finally{ box.remove() }
 }
@@ -20585,13 +20604,15 @@ function blTekst(l){ return 'Hoi, hierbij de betaallink voor je bestelling bij C
 let BLF=null;
 function sheetBetaallinkKlaar(l){
   const kanDelen=!!(navigator.canShare&&window.File);
-  BLF={id:l.id,met:kanDelen&&BLF&&BLF.id===l.id?BLF.met:kanDelen,klant:BLF&&BLF.id===l.id?BLF.klant:'',file:null,bezig:false};
+  BLF={id:l.id,met:kanDelen&&BLF&&BLF.id===l.id?BLF.met:kanDelen,klant:BLF&&BLF.id===l.id&&typeof BLF.klant==='object'?BLF.klant:{naam:'',adres:'',kvk:''},file:null,bezig:false};
   sheet('Betaallink klaar',
     `<div class="shrij"><span class="shn"><b>${esc(l.naam)}</b><small>${esc(l.url)}</small></span><span class="shw"><b>${blEuro(l.totaal)}</b></span></div>
      ${kanDelen?`<div class="veld"><label>Factuur meesturen</label>
        <div class="duo" id="blFm"><button data-v="ja" class="${BLF.met?'aan':''}">Ja, als pdf</button><button data-v="nee" class="${BLF.met?'':'aan'}">Nee</button></div></div>`:''}
-     <div id="blFvak">${BLF.met?`<div class="veld"><label>Naam op de factuur <span style="text-transform:none;font-weight:500">(wordt niet bewaard)</span></label>
-       <input class="inp" id="blKl" placeholder="Bijv. Fatima de Vries" value="${esc(BLF.klant)}"></div>
+     <div id="blFvak">${BLF.met?`<div class="veld"><label>Klant op de factuur <span style="text-transform:none;font-weight:500">(wordt niet bewaard)</span></label>
+       <input class="inp" id="blKl" placeholder="Naam of bedrijf" value="${esc(BLF.klant.naam||'')}">
+       <textarea class="inp" id="blAd" rows="3" style="margin-top:8px" placeholder="Adres (optioneel)">${esc(BLF.klant.adres||'')}</textarea>
+       <input class="inp" id="blKvk" style="margin-top:8px" inputmode="numeric" placeholder="KvK (optioneel, bij een bedrijf)" value="${esc(BLF.klant.kvk||'')}"></div>
        <p class="hint" id="blFst">Factuur maken…</p>`:`<div class="veld"><label>Telefoonnummer <span style="text-transform:none;font-weight:500">(mag leeg: dan kies je in WhatsApp)</span></label>
        <input class="inp" id="blTel" type="tel" inputmode="tel" placeholder="06 12345678"></div>`}</div>
      <div class="lgvoet bvoet"><button type="button" id="blKopie">Link kopiëren</button>${BLF.met?'<button type="button" id="blFbk">Factuur bekijken</button>':''}</div>`,
@@ -20604,7 +20625,8 @@ function sheetBetaallinkKlaar(l){
     }catch(e){ if($('#blFst')) $('#blFst').textContent=fout(e) } finally{ BLF.bezig=false } };
   $$('#blFm button').forEach(b=>b.onclick=()=>{ BLF.met=b.dataset.v==='ja'; sheetBetaallinkKlaar(l) });
   let tmr=null;
-  if($('#blKl')) $('#blKl').oninput=()=>{ BLF.klant=$('#blKl').value.trim(); clearTimeout(tmr); $('#blWa').disabled=true; tmr=setTimeout(maak,700) };
+  const kIn=()=>{ BLF.klant={naam:$('#blKl').value.trim(),adres:$('#blAd').value.trim(),kvk:$('#blKvk').value.trim()}; clearTimeout(tmr); $('#blWa').disabled=true; tmr=setTimeout(maak,700) };
+  ['#blKl','#blAd','#blKvk'].forEach(id=>{ if($(id)) $(id).oninput=kIn });
   $('#blKopie').onclick=async()=>{ try{ await navigator.clipboard.writeText(l.url); toast('Link gekopieerd.') }catch(e){ toast('Kopiëren lukte niet.') } };
   if($('#blFbk')) $('#blFbk').onclick=()=>drukAf(`<div class="vel factuurvel">${blFactuurHTML(l,BLF.klant)}</div>`,'Factuur '+l.factuurNr,'@page{size:A4;margin:0}');
   $('#blWa').onclick=async()=>{
