@@ -1862,6 +1862,37 @@ const DRAFT_VELDEN = 'id name status invoiceUrl totalPriceSet{shopMoney{amount}}
 const netteDraft = d => ({ id: d.id, naam: d.name, status: d.status, url: d.invoiceUrl,
   totaal: Number(((d.totalPriceSet || {}).shopMoney || {}).amount || 0), order: d.order ? d.order.name : '' });
 
+/* v960: klant aan een betaallink hangen via zijn mailadres, zodat de order
+   (en dus de stempels) bij die klant terechtkomt. Bestaat de klant nog niet,
+   dan maken we hem aan, zonder hem op de mailinglijst te zetten. */
+const goedMail = m => { m = String(m || '').trim().toLowerCase(); return /^[^\s@"]+@[^\s@"]+\.[a-z]{2,}$/.test(m) && m.length < 120 ? m : ''; };
+async function klantVoorMail(gql, email, naam) {
+  const z = await gql('query($q:String!){customers(first:1,query:$q){nodes{id displayName}}}', { q: 'email:"' + email + '"' });
+  const al = z.customers && z.customers.nodes && z.customers.nodes[0];
+  if (al) return { id: al.id, naam: al.displayName, nieuw: false };
+  const input = { email };
+  const n = blTekst(naam, 80);
+  if (n) { const d = n.split(' '); input.firstName = d.shift(); if (d.length) input.lastName = d.join(' '); }
+  const c = (await gql('mutation($i:CustomerInput!){customerCreate(input:$i){customer{id displayName} userErrors{message}}}', { i: input })).customerCreate;
+  if (c.userErrors && c.userErrors.length) throw new HttpsError('internal', 'Klant aanmaken lukte niet: ' + fouten(c.userErrors));
+  return { id: c.customer.id, naam: c.customer.displayName, nieuw: true };
+}
+
+exports.betaallinkKlant = binnen('betaallinkKlant', async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const id = String(d.id || '');
+  if (!/^gid:\/\/shopify\/DraftOrder\/\d+$/.test(id)) throw new HttpsError('invalid-argument', 'Onbekende betaallink.');
+  const email = goedMail(d.email);
+  if (!email) throw new HttpsError('invalid-argument', 'Dit mailadres klopt niet.');
+  const gql = await shopifyGql(uid, 'write_draft_orders');
+  const k = await klantVoorMail(gql, email, d.naam);
+  const r = (await gql('mutation($id:ID!,$i:DraftOrderInput!){draftOrderUpdate(id:$id,input:$i){draftOrder{' + DRAFT_VELDEN + '} userErrors{message}}}',
+    { id, i: { email, purchasingEntity: { customerId: k.id } } })).draftOrderUpdate;
+  if (r.userErrors && r.userErrors.length) throw new HttpsError('internal', 'Koppelen lukte niet: ' + fouten(r.userErrors));
+  return { link: netteDraft(r.draftOrder), klant: k.naam, nieuw: k.nieuw };
+});
+
 exports.betaalProducten = binnen('betaalProducten', async req => {
   const uid = wieBenJe(req);
   const gql = await shopifyGql(uid, 'read_products');
@@ -1904,9 +1935,12 @@ exports.maakBetaallink = binnen('maakBetaallink', async req => {
   }
 
   const gql = await shopifyGql(uid, 'write_draft_orders');
+  const email = goedMail(d.email);
+  let klant = null;
+  if (email) { klant = await klantVoorMail(gql, email, d.naam); input.email = email; input.purchasingEntity = { customerId: klant.id }; }
   const r = (await gql('mutation($i:DraftOrderInput!){draftOrderCreate(input:$i){draftOrder{' + DRAFT_VELDEN + '} userErrors{message}}}', { i: input })).draftOrderCreate;
   if (r.userErrors && r.userErrors.length) throw new HttpsError('internal', 'Betaallink maken lukte niet: ' + fouten(r.userErrors));
-  return { link: netteDraft(r.draftOrder) };
+  return { link: netteDraft(r.draftOrder), klant: klant ? klant.naam : '', nieuw: !!(klant && klant.nieuw) };
 });
 
 exports.betaallinkStatus = binnen('betaallinkStatus', async req => {
