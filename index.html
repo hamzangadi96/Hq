@@ -2999,6 +2999,22 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .et-batch .ing{font-size:6pt}
 .et-batch .r{font-size:6pt}
 .et-batch{overflow:hidden}
+.vel.a6{width:210mm;height:297mm;padding:9mm 5mm;box-sizing:border-box;display:grid;
+  grid-template-columns:repeat(2,99.1mm);grid-template-rows:repeat(2,139mm);gap:0 2mm;justify-content:center;align-content:start}
+.vel.a6 .etiket{outline:.12mm dashed #b8b8b8;outline-offset:0}
+.et-doos{width:99.1mm;height:139mm;padding:5mm 5.5mm;display:flex;flex-direction:column;gap:1.4mm;overflow:hidden}
+.et-doos .ewm{display:flex;flex-direction:column;align-items:center;line-height:1;margin-bottom:.6mm}
+.et-doos .ewm b{font-size:13pt;font-weight:700;letter-spacing:.26em;padding-left:.26em}
+.et-doos .ewm small{font-size:5.6pt;font-weight:600;letter-spacing:.64em;padding-left:.64em;color:#52525b;margin-top:1mm}
+.et-doos .en{font-size:9.5pt;font-weight:700;text-align:center;border-top:.25mm solid #d4d4d8;padding-top:1.4mm}
+.et-doos .eb2{font-size:6.6pt;text-align:center;color:#3f3f46;margin-top:-.6mm}
+.et-doos .smk{font-size:6.6pt;line-height:1.35}
+.et-doos .ing{font-size:5.9pt;line-height:1.32}
+.et-doos .r{font-size:6.2pt;line-height:1.35}
+.et-doos .vtab{width:100%;border-collapse:collapse;font-size:5.8pt;line-height:1.25}
+.et-doos .vtab td:last-child{text-align:right}
+.et-doos .er{display:flex;justify-content:space-between;gap:3mm}
+.et-doos .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .et-product .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .schaal{transform-origin:top left}
 .qrmini svg{width:26px!important;height:24px!important;display:block}
@@ -5272,7 +5288,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v950 · 2 nov 2026';
+const APPVERSIE = 'v951 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -28760,7 +28776,8 @@ function qrSvg(tekst,mm){
 
 const VELLEN={
   a4:{naam:'A4-vel',per:10,mm:[210,297]},
-  postnl:{naam:'PostNL-vel 152 × 102 mm',per:4,mm:[152,102]}
+  postnl:{naam:'PostNL-vel 152 × 102 mm',per:4,mm:[152,102]},
+  a6:{naam:'A4 met 4 etiketten (A6)',per:4,mm:[210,297]}
 };
 function printEtiketten(bron,n,vel){
   const v=VELLEN[vel]||VELLEN.a4, maak=(typeof bron==='function')?bron:()=>bron;
@@ -28901,42 +28918,64 @@ function etiketBatchesBij(batchId){
   return S.batches.filter(x=>x&&x.status==='klaar'&&x.startDatum&&Math.abs(dagenTussen(x.startDatum,d0))<=7)
     .sort((a,c)=>String(a.startDatum).localeCompare(String(c.startDatum)));
 }
+/* v951: één etiket voor de hele productie: smaken bovenaan, daarna alle
+   ingrediënten samen van zwaar naar licht (gewogen naar wat er echt gemaakt is) */
+function etiketAssortimentHTML(d,lots,tht,chocs){
+  const b=bedrijf();
+  const g=d.allergenen||[];
+  const gem=d.stuks?d.totaal/d.stuks:0;
+  const net=gem?`Netto: doos 16 st ± ${Math.round(gem*16)} g · doos 25 st ± ${Math.round(gem*25)} g`:'Netto: zie doos';
+  const vw=d.voeding;
+  return `<div class="etiket et-doos">
+    <div class="ewm"><b>${esc(merkNaam())}</b><small>${esc((b.regel||'Raffinement').toUpperCase())}</small></div>
+    <div class="en">Handgemaakte bonbons</div>
+    <div class="eb2">Assortiment bonbons van ${esc(chocs)} met diverse vullingen</div>
+    <div class="smk"><b>Smaken:</b> ${d.posten.map(x=>esc(x.r.naam)).join(' · ')}</div>
+    <div class="ing"><b>Ingrediënten:</b> ${doosDeclaratie(d)}</div>
+    ${g.length?`<div class="r"><b>Bevat:</b> ${g.map(k=>esc(alNaam(k).toLowerCase())).join(', ')}.</div>`:''}
+    ${vw?`<table class="vtab"><tr><td colspan="2"><b>Voedingswaarde per 100 g</b></td></tr>
+      <tr><td>Energie</td><td>${Math.round(vw.kj)} kJ / ${Math.round(vw.kcal)} kcal</td></tr>
+      <tr><td>Vetten / waarvan verzadigd</td><td>${komma(getal(vw.vet))} g / ${komma(getal(vw.verz))} g</td></tr>
+      <tr><td>Koolhydraten / waarvan suikers</td><td>${komma(getal(vw.koolh))} g / ${komma(getal(vw.suik))} g</td></tr>
+      <tr><td>Eiwitten · Zout</td><td>${komma(getal(vw.eiwit))} g · ${komma(getal(vw.zout))} g</td></tr></table>`:''}
+    <div class="r">${esc((d.posten[0]&&etiketData(d.posten[0].r).bewaar)||'Koel en droog bewaren, 15 – 18 °C')}</div>
+    <div class="r">${net}</div>
+    <div class="er r"><span><b>Ten minste houdbaar tot ${tht?kort(new Date(tht)):'—'}</b></span></div>
+    <div class="er r"><span>Lot</span><b>${lots.map(esc).join(' · ')}</b></div>
+    <div class="voet">${esc(BEDRIJF.naam)} · ${esc(BEDRIJF.adres)}<br>${esc(BEDRIJF.contact)}</div>
+  </div>`;
+}
 let ETB=null;
 function sheetBatchEtiketten(batchId){
   const bs=etiketBatchesBij(batchId); if(!bs.length) return;
-  if(!ETB||ETB.id!==batchId) ETB={id:batchId,tht:datumPlus(vandaag(),35),per:1};
-  const rijen=[];
+  if(!ETB||ETB.id!==batchId) ETB={id:batchId,tht:datumPlus(vandaag(),35),n:4};
+  const regels=[];
   bs.forEach(b=>(b.regels||[]).forEach(rg=>{ const ps=((b.resultaat||{}).perSmaak||[]).find(x=>x.receptId===rg.receptId);
-    if(ps&&!ps.goed) return; const r=recept(rg.receptId); if(!r) return;
-    rijen.push({b,r,goed:ps?ps.goed:rg.aantal}) }));
-  const mist=rijen.map(x=>{ const e=etiketData(x.r), m=[];
-    if(!smaakIngredienten(x.r).length) m.push('ingrediënten'); if(!e.benaming) m.push('benaming'); if(!e.netto) m.push('netto gewicht');
-    return m.length?{r:x.r,m}:null }).filter(Boolean);
-  const voorbeeld=rijen.length?etiketBatchHTML(rijen[0].r.id,rijen[0].b.code,ETB.tht):'';
-  const n=rijen.length*ETB.per;
-  sheet('Etiketten',
-    `<p class="hint" style="margin-top:0">${rijen.length} smaken uit ${bs.map(b=>b.code).join(' en ')}. Lotnummer = batchcode.</p>
-     <div class="etvoorbeeld"><div class="schaal" id="etbSchaal">${voorbeeld}</div></div>
+    const n=ps?ps.goed:rg.aantal; if(n>0&&recept(rg.receptId)) regels.push({receptId:rg.receptId,aantal:n}) }));
+  const d=doosInhoud(regels);
+  if(!d) return toast('Geen smaken met ingrediënten gevonden.');
+  const chocs=[...new Set(bs.map(b=>(chocNaam(b.chocolade)||'').toLowerCase()).filter(Boolean))].join(' en ');
+  const lots=bs.map(b=>b.code);
+  const label=etiketAssortimentHTML(d,lots,ETB.tht,chocs);
+  const mist=d.posten.filter(x=>!smaakIngredienten(x.r).length).map(x=>x.r.naam);
+  sheet('Etiket',
+    `<p class="hint" style="margin-top:0">Eén etiket voor alle ${d.posten.length} smaken uit ${lots.join(' en ')}. Ingrediënten van zwaar naar licht, gewogen naar wat je gemaakt hebt; allergenen vet.</p>
+     <div class="etvoorbeeld"><div class="schaal" id="etbSchaal">${label}</div></div>
+     ${mist.length?`<div class="melding amber">${svg(I.alarm,'2')}<span>Nog geen ingrediënten bij ${mist.map(esc).join(', ')}. Vul ze aan via Smaken.</span></div>`:''}
      <div class="veld"><label>Ten minste houdbaar tot</label>
        <input class="inp" id="etbTht" type="date" value="${ETB.tht}"></div>
-     <div class="veld"><label>Etiketten per smaak</label>
+     <div class="veld"><label>Aantal etiketten</label>
        <div class="stepper"><button class="stepbtn" id="etbMin">${svg(I.min)}</button>
-         <div class="stepval"><input id="etbPer" type="number" inputmode="numeric" value="${ETB.per}" min="1" max="500"><span class="eenh">st</span></div>
-         <button class="stepbtn" id="etbPlus">${svg(I.plus)}</button></div></div>
-     ${mist.length?`<div class="melding amber">${svg(I.alarm,'2')}<span>Nog aanvullen bij ${mist.map(x=>`<b>${esc(x.r.naam)}</b> (${x.m.join(', ')})`).join('; ')}. Tik op een smaak in Smaken → Etiket.</span></div>`:''}
-     <div class="gl" style="margin-top:12px">${rijen.map(x=>`<div class="shrij"><span class="shn">${esc(x.r.naam)}<small>${x.b.code} · ${x.goed} bonbons</small></span></div>`).join('')}</div>
-     <div class="veld"><label>Waar print je op?</label>
-       <div class="duo" id="etbVel"><button data-v="a4" class="${(S.labelVel||'a4')==='a4'?'aan':''}">A4-vel (10 per vel)</button>
-         <button data-v="postnl" class="${S.labelVel==='postnl'?'aan':''}">PostNL-vel (4)</button></div></div>`,
-    `<button class="prim" style="margin-top:0" id="etbPrint">${svg(I.doc)}${n} ${n===1?'etiket':'etiketten'} printen</button>`);
+         <div class="stepval"><input id="etbN" type="number" inputmode="numeric" value="${ETB.n}" min="1" max="1000"><span class="eenh">st</span></div>
+         <button class="stepbtn" id="etbPlus">${svg(I.plus)}</button></div>
+       <div class="geen" style="padding-top:8px">4 per A4-vel (A6-formaat) · ${Math.ceil(ETB.n/4)} ${Math.ceil(ETB.n/4)===1?'vel':'vellen'}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="etbPrint">${svg(I.doc)}${ETB.n} ${ETB.n===1?'etiket':'etiketten'} printen</button>`);
   setTimeout(()=>pasSchaal('etbSchaal'),20);
   $('#etbTht').onchange=()=>{ ETB.tht=$('#etbTht').value||ETB.tht; sheetBatchEtiketten(batchId) };
-  const zet=v=>{ ETB.per=Math.max(1,Math.min(500,v)); sheetBatchEtiketten(batchId) };
-  $('#etbMin').onclick=()=>zet(ETB.per-1); $('#etbPlus').onclick=()=>zet(ETB.per+1);
-  $('#etbPer').onchange=()=>zet(parseInt($('#etbPer').value,10)||1);
-  $$('#etbVel button').forEach(x=>x.onclick=()=>{ S.labelVel=x.dataset.v; bewaarNu(); sheetBatchEtiketten(batchId) });
-  $('#etbPrint').onclick=()=>{ const lijst=[]; rijen.forEach(x=>{ for(let i=0;i<ETB.per;i++) lijst.push(x) });
-    printEtiketten(i=>{ const x=lijst[i-1]; return x?etiketBatchHTML(x.r.id,x.b.code,ETB.tht):'' },lijst.length,S.labelVel||'a4') };
+  const zet=v=>{ ETB.n=Math.max(1,Math.min(1000,v)); sheetBatchEtiketten(batchId) };
+  $('#etbMin').onclick=()=>zet(ETB.n-1); $('#etbPlus').onclick=()=>zet(ETB.n+1);
+  $('#etbN').onchange=()=>zet(parseInt($('#etbN').value,10)||1);
+  $('#etbPrint').onclick=()=>printEtiketten(label,ETB.n,'a6');
 }
 /* welke etiketten horen bij deze order? */
 function etikettenVan(o){
