@@ -5288,7 +5288,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v955 · 2 nov 2026';
+const APPVERSIE = 'v956 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18876,8 +18876,14 @@ function sheetUurtarief(){
 /* ---------- de factuur ----------
    Eigen huisstijl: woordmerk, Cormorant, btw gesplitst in 9% en 21%.
    Het woord HQ komt hier nergens voor — dat is alleen de naam van de app. */
-const factuurNr=o=>o.factuurNr||('F-'+new Date().getFullYear()+'-'+pad(
-  ((S.orders||[]).filter(x=>x.factuurNr).length)+1));
+/* v956: één nummerreeks voor orderfacturen en betaallinkfacturen */
+function volgendFactuurNr(){
+  const jr=new Date().getFullYear(), voor='F-'+jr+'-';
+  const nrs=(S.orders||[]).map(x=>x.factuurNr).concat(alsLijst(S.betaallinks).map(x=>x.factuurNr))
+    .filter(x=>x&&String(x).indexOf(voor)===0).map(x=>parseInt(String(x).slice(voor.length),10)||0);
+  return voor+pad((nrs.length?Math.max.apply(null,nrs):0)+1);
+}
+const factuurNr=o=>o.factuurNr||volgendFactuurNr();
 
 function factuurHTML(o){
   const b=bedrijf();
@@ -20488,7 +20494,10 @@ function sheetBetaallink(){
     try{
       const res=await roep('maakBetaallink',{regels:BL.regels.map(x=>x.variantId?{variantId:x.variantId,aantal:x.aantal}:{titel:x.titel,prijs:x.prijs,aantal:x.aantal}),
         verzending:{soort:BL.vz,prijs:BL.vzPrijs},notitie:BL.notitie,korting:BL.kW>0?{soort:BL.kS,waarde:BL.kW}:null});
-      const l=Object.assign({},res.link,{datum:vandaag()});
+      const l=Object.assign({},res.link,{datum:vandaag(),
+        regels:BL.regels.map(x=>({titel:x.titel+(x.variant&&!String(x.titel).includes(x.variant)?' · '+x.variant:''),aantal:x.aantal,prijs:x.prijs})),
+        korting:blKorting(),kortingTekst:BL.kW>0&&BL.kS==='pct'?String(BL.kW).replace('.',',')+'%':'',
+        verzending:BL.vz==='verzenden'?(BL.vzPrijs||0):0,ophalen:BL.vz==='ophalen'});
       S.betaallinks=alsLijst(S.betaallinks).concat([l]).slice(-50); bewaarNu();
       BL=null; sheetBetaallinkKlaar(l);
     }catch(e){ k.disabled=false; k.innerHTML=svg(I.euro)+'Betaallink maken'; toast(fout(e)) }
@@ -20514,19 +20523,97 @@ function sheetBetaalEigen(){
     BL.regels.push({titel:t,prijs:Math.round(v*100)/100,aantal:1}); sheetBetaallink() };
 }
 function blWhatsApp(l,tel){
-  const t='Hoi, hierbij de betaallink voor je bestelling bij Cacaoboetiek ('+blEuro(l.totaal)+'):\n'+l.url+'\n\nNa betaling ontvang je een bevestiging per mail.';
+  const t=blTekst(l);
   let n=String(tel||'').replace(/[^0-9+]/g,''); if(n.startsWith('+')) n=n.slice(1); else if(n.startsWith('06')) n='31'+n.slice(1); else if(n.startsWith('00')) n=n.slice(2);
   window.open('https://wa.me/'+(n.length>=10?n:'')+'?text='+encodeURIComponent(t),'_blank');
 }
+/* v956: factuur bij een betaallink, als pdf mee te sturen via WhatsApp.
+   De naam van de klant komt alleen op de pdf en wordt niet bewaard. */
+function blFactuurHTML(l,klant){
+  const b=bedrijf();
+  if(!l.factuurNr){ l.factuurNr=volgendFactuurNr(); l.factuurDatum=vandaag(); bewaarNu() }
+  const regels=alsLijst(l.regels);
+  const laag=regels.reduce((t,x)=>t+(x.prijs||0)*(x.aantal||1),0)-(l.korting||0);
+  const hoog=l.verzending||0;
+  const laagExcl=laag/(1+BTW_ETEN), hoogExcl=hoog/(1+BTW_REST);
+  const betaald=l.status==='COMPLETED';
+  return `<div class="factuur">
+    <div class="fkop"><div class="fmerk">${b.logo?`<img src="${b.logo}" alt="">`:esc(merkNaam())}</div>
+      ${!b.logo?`<div class="fsub">${esc((b.regel||'Raffinement').toUpperCase())}</div>`:''}</div>
+    <div class="frij">
+      <div><h4>Aan</h4>${klant?esc(klant):'—'}</div>
+      <div style="text-align:right"><h4>Factuur</h4>${esc(l.factuurNr)}<br>${kort(new Date(l.factuurDatum||l.datum||vandaag()))}<br>${esc(l.naam||'')}</div>
+    </div>
+    <div class="ftitel">Factuur</div>
+    <table>
+      <tr><th>Omschrijving</th><th class="n">Aantal</th><th class="n">Stuksprijs</th><th class="n">Bedrag</th></tr>
+      ${regels.map(x=>`<tr><td>${esc(x.titel)}</td><td class="n">${x.aantal}</td><td class="n">${euro(x.prijs||0)}</td><td class="n">${euro((x.prijs||0)*(x.aantal||1))}</td></tr>`).join('')}
+      ${l.korting?`<tr><td>Korting${l.kortingTekst?' '+esc(l.kortingTekst):''}</td><td class="n"></td><td class="n"></td><td class="n">− ${euro(l.korting)}</td></tr>`:''}
+      ${hoog?`<tr><td>Verzending</td><td class="n">1</td><td class="n">${euro(hoog)}</td><td class="n">${euro(hoog)}</td></tr>`:''}
+      ${l.ophalen?`<tr><td>Ophalen in Drunen</td><td class="n"></td><td class="n"></td><td class="n">${euro(0)}</td></tr>`:''}
+    </table>
+    <div class="ftot">
+      <div><span>Subtotaal 9%</span><span>${euro(laagExcl)}</span></div>
+      <div><span>Btw 9%</span><span>${euro(laag-laagExcl)}</span></div>
+      ${hoog?`<div><span>Subtotaal 21%</span><span>${euro(hoogExcl)}</span></div><div><span>Btw 21%</span><span>${euro(hoog-hoogExcl)}</span></div>`:''}
+      <div class="eind"><span>Totaal</span><span>${euro(laag+hoog)}</span></div>
+    </div>
+    ${betaald?`<div class="stempel">BETAALD</div>`:`<div style="margin-top:10mm;font-family:'Inter',sans-serif;font-size:8.6pt;line-height:1.6;color:#4a403a">
+      <b>Betalen</b> via de betaallink die je via WhatsApp hebt ontvangen:<br><span style="word-break:break-all;color:#3a2f28">${esc(l.url||'')}</span></div>`}
+    <div class="fvoet">
+      <span>${esc(b.naam||'')}<br>${esc(b.adres||'')}<br>${esc(b.contact||'')}</span>
+      <span style="text-align:right">${merkNummers()?esc(merkNummers())+'<br>':''}${b.iban?'IBAN '+esc(b.iban)+'<br>':''}${betaald?'Voldaan':'Betaling via betaallink'}</span>
+    </div>
+  </div>`;
+}
+function laadScript(src){ return new Promise((ok,nee)=>{ if(document.querySelector('script[src="'+src+'"]')&&(window.html2canvas||window.jspdf)) return ok();
+  const x=document.createElement('script'); x.src=src; x.onload=()=>ok(); x.onerror=()=>nee(new Error('Kon de pdf-maker niet laden. Heb je internet?')); document.head.appendChild(x) }) }
+async function factuurPdfBlob(html){
+  if(!window.html2canvas) await laadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+  if(!window.jspdf) await laadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+  const box=document.createElement('div'); box.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;background:#fffdfa';
+  box.innerHTML=html; document.body.appendChild(box);
+  try{
+    try{ await document.fonts.ready }catch(e){}
+    const c=await window.html2canvas(box.firstElementChild,{scale:2,backgroundColor:'#fffdfa',useCORS:true,logging:false});
+    const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',compress:true});
+    pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,Math.min(297,c.height*210/c.width));
+    return pdf.output('blob');
+  }finally{ box.remove() }
+}
+function blTekst(l){ return 'Hoi, hierbij de betaallink voor je bestelling bij Cacaoboetiek ('+blEuro(l.totaal)+'):\n'+l.url+'\n\nNa betaling ontvang je een bevestiging per mail.' }
+let BLF=null;
 function sheetBetaallinkKlaar(l){
+  const kanDelen=!!(navigator.canShare&&window.File);
+  BLF={id:l.id,met:kanDelen&&BLF&&BLF.id===l.id?BLF.met:kanDelen,klant:BLF&&BLF.id===l.id?BLF.klant:'',file:null,bezig:false};
   sheet('Betaallink klaar',
     `<div class="shrij"><span class="shn"><b>${esc(l.naam)}</b><small>${esc(l.url)}</small></span><span class="shw"><b>${blEuro(l.totaal)}</b></span></div>
-     <div class="veld"><label>Telefoonnummer <span style="text-transform:none;font-weight:500">(mag leeg: dan kies je in WhatsApp)</span></label>
-       <input class="inp" id="blTel" type="tel" inputmode="tel" placeholder="06 12345678"></div>
-     <div class="lgvoet bvoet"><button type="button" id="blKopie">Link kopiëren</button></div>`,
-    `<button class="prim" style="margin-top:0" id="blWa">${svg(I.praat)}Sturen via WhatsApp</button>`);
-  $('#blWa').onclick=()=>blWhatsApp(l,$('#blTel').value);
+     ${kanDelen?`<div class="veld"><label>Factuur meesturen</label>
+       <div class="duo" id="blFm"><button data-v="ja" class="${BLF.met?'aan':''}">Ja, als pdf</button><button data-v="nee" class="${BLF.met?'':'aan'}">Nee</button></div></div>`:''}
+     <div id="blFvak">${BLF.met?`<div class="veld"><label>Naam op de factuur <span style="text-transform:none;font-weight:500">(wordt niet bewaard)</span></label>
+       <input class="inp" id="blKl" placeholder="Bijv. Fatima de Vries" value="${esc(BLF.klant)}"></div>
+       <p class="hint" id="blFst">Factuur maken…</p>`:`<div class="veld"><label>Telefoonnummer <span style="text-transform:none;font-weight:500">(mag leeg: dan kies je in WhatsApp)</span></label>
+       <input class="inp" id="blTel" type="tel" inputmode="tel" placeholder="06 12345678"></div>`}</div>
+     <div class="lgvoet bvoet"><button type="button" id="blKopie">Link kopiëren</button>${BLF.met?'<button type="button" id="blFbk">Factuur bekijken</button>':''}</div>`,
+    `<button class="prim" style="margin-top:0" id="blWa" ${BLF.met?'disabled':''}>${svg(I.praat)}${BLF.met?'Factuur + link delen':'Sturen via WhatsApp'}</button>`);
+  const maak=async()=>{ if(!BLF.met) return; BLF.bezig=true; BLF.file=null; $('#blWa').disabled=true; if($('#blFst')) $('#blFst').textContent='Factuur maken…';
+    try{ const blob=await factuurPdfBlob(blFactuurHTML(l,BLF.klant)); if(!sheetOpen||BLF.id!==l.id) return;
+      BLF.file=new File([blob],'Factuur '+l.factuurNr+'.pdf',{type:'application/pdf'});
+      if($('#blFst')) $('#blFst').textContent='Factuur '+l.factuurNr+' staat klaar. Kies bij delen WhatsApp en dan de klant.';
+      if($('#blWa')) $('#blWa').disabled=false;
+    }catch(e){ if($('#blFst')) $('#blFst').textContent=fout(e) } finally{ BLF.bezig=false } };
+  $$('#blFm button').forEach(b=>b.onclick=()=>{ BLF.met=b.dataset.v==='ja'; sheetBetaallinkKlaar(l) });
+  let tmr=null;
+  if($('#blKl')) $('#blKl').oninput=()=>{ BLF.klant=$('#blKl').value.trim(); clearTimeout(tmr); $('#blWa').disabled=true; tmr=setTimeout(maak,700) };
   $('#blKopie').onclick=async()=>{ try{ await navigator.clipboard.writeText(l.url); toast('Link gekopieerd.') }catch(e){ toast('Kopiëren lukte niet.') } };
+  if($('#blFbk')) $('#blFbk').onclick=()=>drukAf(`<div class="vel factuurvel">${blFactuurHTML(l,BLF.klant)}</div>`,'Factuur '+l.factuurNr,'@page{size:A4;margin:0}');
+  $('#blWa').onclick=async()=>{
+    if(!BLF.met) return blWhatsApp(l,$('#blTel')?$('#blTel').value:'');
+    if(!BLF.file) return;
+    try{ await navigator.share({files:[BLF.file],text:blTekst(l)}) }
+    catch(e){ if(e&&e.name==='AbortError') return; toast('Delen lukte niet: '+fout(e)+'. Je kunt de link ook los sturen.') }
+  };
+  if(BLF.met) maak();
 }
 async function blStatus(){
   const l=alsLijst(S.betaallinks); if(!l.length) return;
