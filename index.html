@@ -2991,6 +2991,14 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .et-product .eb2.mist{color:#b45309;font-style:italic}
 .et-product .ing{font-size:6.5pt;line-height:1.3}
 .et-product .r{font-size:6.5pt;line-height:1.35}
+.et-batch .ewm{display:flex;flex-direction:column;align-items:center;margin:-1mm 0 .6mm;line-height:1}
+.et-batch .ewm b{font-size:9.5pt;font-weight:700;letter-spacing:.24em;padding-left:.24em}
+.et-batch .ewm small{font-size:4.6pt;font-weight:600;letter-spacing:.62em;padding-left:.62em;color:#52525b;margin-top:.7mm}
+.et-batch .en{font-size:10pt;font-weight:700;text-align:center;border-top:.25mm solid #d4d4d8;padding-top:1mm}
+.et-batch .eb2{text-align:center}
+.et-batch .ing{font-size:6pt}
+.et-batch .r{font-size:6pt}
+.et-batch{overflow:hidden}
 .et-product .voet{margin-top:auto;font-size:6pt;line-height:1.3;color:#333;border-top:.3mm solid #ccc;padding-top:1.2mm}
 .schaal{transform-origin:top left}
 .qrmini svg{width:26px!important;height:24px!important;display:block}
@@ -12794,6 +12802,7 @@ function batchHTML(){
         ${loopt?ln('data-bstatus',b.status==='pauze'?'Hervatten':'Onderbreken'):''}
         ${loopt&&dagNummer(b)>=1?ln('data-bdag','Werkdag afsluiten'):''}
         ${ln('data-rapport="batch"','Batchrapport')}
+        ${b.status==='klaar'?`<button type="button" onclick="sheetBatchEtiketten('${b.id}')">Etiketten</button>`:''}
         ${ln('data-rapport="dag"','Dagrapport')}
         ${ln('data-dossier','HACCP-dossier')}
         ${ln('data-bkopie="'+b.id+'"','Kopie als nieuwe batch')}
@@ -28877,6 +28886,58 @@ function etiketVoor(receptId,lot,tht){
   </div>`;
 }
 
+/* ═══════════ v950: ingrediëntenetiketten per smaak voor een productie ═══════════
+   Met woordmerk, wettelijke benaming, ingrediënten (allergenen vet), bewaaradvies,
+   THT, lot (batchcode) en bedrijfsgegevens. Alles komt uit je eigen smaken en
+   ingrediënten; ontbreekt er iets, dan zegt het scherm welke smaak. */
+function etiketBatchHTML(receptId,lot,tht){
+  const h=etiketVoor(receptId,lot,tht); if(!h) return '';
+  const b=bedrijf();
+  return h.replace('<div class="etiket et-product">',`<div class="etiket et-product et-batch"><div class="ewm"><b>${esc(merkNaam())}</b><small>${esc((b.regel||'Raffinement').toUpperCase())}</small></div>`);
+}
+function etiketBatchesBij(batchId){
+  const b0=S.batches.find(x=>x.id===batchId); if(!b0) return [];
+  const d0=b0.startDatum||vandaag();
+  return S.batches.filter(x=>x&&x.status==='klaar'&&x.startDatum&&Math.abs(dagenTussen(x.startDatum,d0))<=7)
+    .sort((a,c)=>String(a.startDatum).localeCompare(String(c.startDatum)));
+}
+let ETB=null;
+function sheetBatchEtiketten(batchId){
+  const bs=etiketBatchesBij(batchId); if(!bs.length) return;
+  if(!ETB||ETB.id!==batchId) ETB={id:batchId,tht:datumPlus(vandaag(),35),per:1};
+  const rijen=[];
+  bs.forEach(b=>(b.regels||[]).forEach(rg=>{ const ps=((b.resultaat||{}).perSmaak||[]).find(x=>x.receptId===rg.receptId);
+    if(ps&&!ps.goed) return; const r=recept(rg.receptId); if(!r) return;
+    rijen.push({b,r,goed:ps?ps.goed:rg.aantal}) }));
+  const mist=rijen.map(x=>{ const e=etiketData(x.r), m=[];
+    if(!smaakIngredienten(x.r).length) m.push('ingrediënten'); if(!e.benaming) m.push('benaming'); if(!e.netto) m.push('netto gewicht');
+    return m.length?{r:x.r,m}:null }).filter(Boolean);
+  const voorbeeld=rijen.length?etiketBatchHTML(rijen[0].r.id,rijen[0].b.code,ETB.tht):'';
+  const n=rijen.length*ETB.per;
+  sheet('Etiketten',
+    `<p class="hint" style="margin-top:0">${rijen.length} smaken uit ${bs.map(b=>b.code).join(' en ')}. Lotnummer = batchcode.</p>
+     <div class="etvoorbeeld"><div class="schaal" id="etbSchaal">${voorbeeld}</div></div>
+     <div class="veld"><label>Ten minste houdbaar tot</label>
+       <input class="inp" id="etbTht" type="date" value="${ETB.tht}"></div>
+     <div class="veld"><label>Etiketten per smaak</label>
+       <div class="stepper"><button class="stepbtn" id="etbMin">${svg(I.min)}</button>
+         <div class="stepval"><input id="etbPer" type="number" inputmode="numeric" value="${ETB.per}" min="1" max="500"><span class="eenh">st</span></div>
+         <button class="stepbtn" id="etbPlus">${svg(I.plus)}</button></div></div>
+     ${mist.length?`<div class="melding amber">${svg(I.alarm,'2')}<span>Nog aanvullen bij ${mist.map(x=>`<b>${esc(x.r.naam)}</b> (${x.m.join(', ')})`).join('; ')}. Tik op een smaak in Smaken → Etiket.</span></div>`:''}
+     <div class="gl" style="margin-top:12px">${rijen.map(x=>`<div class="shrij"><span class="shn">${esc(x.r.naam)}<small>${x.b.code} · ${x.goed} bonbons</small></span></div>`).join('')}</div>
+     <div class="veld"><label>Waar print je op?</label>
+       <div class="duo" id="etbVel"><button data-v="a4" class="${(S.labelVel||'a4')==='a4'?'aan':''}">A4-vel (10 per vel)</button>
+         <button data-v="postnl" class="${S.labelVel==='postnl'?'aan':''}">PostNL-vel (4)</button></div></div>`,
+    `<button class="prim" style="margin-top:0" id="etbPrint">${svg(I.doc)}${n} ${n===1?'etiket':'etiketten'} printen</button>`);
+  setTimeout(()=>pasSchaal('etbSchaal'),20);
+  $('#etbTht').onchange=()=>{ ETB.tht=$('#etbTht').value||ETB.tht; sheetBatchEtiketten(batchId) };
+  const zet=v=>{ ETB.per=Math.max(1,Math.min(500,v)); sheetBatchEtiketten(batchId) };
+  $('#etbMin').onclick=()=>zet(ETB.per-1); $('#etbPlus').onclick=()=>zet(ETB.per+1);
+  $('#etbPer').onchange=()=>zet(parseInt($('#etbPer').value,10)||1);
+  $$('#etbVel button').forEach(x=>x.onclick=()=>{ S.labelVel=x.dataset.v; bewaarNu(); sheetBatchEtiketten(batchId) });
+  $('#etbPrint').onclick=()=>{ const lijst=[]; rijen.forEach(x=>{ for(let i=0;i<ETB.per;i++) lijst.push(x) });
+    printEtiketten(i=>{ const x=lijst[i-1]; return x?etiketBatchHTML(x.r.id,x.b.code,ETB.tht):'' },lijst.length,S.labelVel||'a4') };
+}
 /* welke etiketten horen bij deze order? */
 function etikettenVan(o){
   const uit=[];
