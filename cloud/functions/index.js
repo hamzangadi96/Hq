@@ -1910,6 +1910,30 @@ function terugInfo(d) {
 const schrijfFout = e => /ACCESS_DENIED|write_orders|access/i.test(String(e && e.message || e))
   ? new HttpsError('permission-denied', 'HQ mag nog geen orders terugbetalen. Zet in het Shopify Dev Dashboard de scope write_orders aan, geef een nieuwe versie vrij en keur hem goed in je Shopify-admin. Tik daarna in HQ bij Shopify op Ververs.')
   : e;
+/* v963: korte link op je eigen domein, bijv. www.cacaoboetiek.nl/betalen/d14.
+   Shopify stuurt die door naar de echte betaalpagina. Vraagt de scope
+   write_online_store_navigation; lukt het niet, dan blijft de lange link gewoon werken. */
+async function korteLink(gql, draft) {
+  try {
+    const u = new URL(draft.invoiceUrl);
+    const pad = '/betalen/' + String(draft.name || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    if (pad === '/betalen/') return '';
+    const r = (await gql('mutation($r:UrlRedirectInput!){urlRedirectCreate(urlRedirect:$r){urlRedirect{path} userErrors{message}}}',
+      { r: { path: pad, target: u.pathname + u.search } })).urlRedirectCreate;
+    if (r.userErrors && r.userErrors.length && !/already|bestaat|taken/i.test(fouten(r.userErrors))) return '';
+    return u.host + pad;
+  } catch (e) { return ''; }
+}
+exports.betaallinkKort = binnen('betaallinkKort', async req => {
+  const uid = wieBenJe(req);
+  const id = String((req.data || {}).id || '');
+  if (!/^gid:\/\/shopify\/DraftOrder\/\d+$/.test(id)) throw new HttpsError('invalid-argument', 'Onbekende betaallink.');
+  const gql = await shopifyGql(uid, 'write_online_store_navigation');
+  const d = (await gql('query($id:ID!){draftOrder(id:$id){name invoiceUrl}}', { id })).draftOrder;
+  if (!d) return { kort: '' };
+  return { kort: await korteLink(gql, d) };
+});
+
 exports.betaallinkTerug = binnen('betaallinkTerug', async req => {
   const uid = wieBenJe(req);
   const d = req.data || {};
@@ -2009,7 +2033,8 @@ exports.maakBetaallink = binnen('maakBetaallink', async req => {
   if (email) { klant = await klantVoorMail(gql, email, d.naam); input.email = email; input.purchasingEntity = { customerId: klant.id }; }
   const r = (await gql('mutation($i:DraftOrderInput!){draftOrderCreate(input:$i){draftOrder{' + DRAFT_VELDEN + '} userErrors{message}}}', { i: input })).draftOrderCreate;
   if (r.userErrors && r.userErrors.length) throw new HttpsError('internal', 'Betaallink maken lukte niet: ' + fouten(r.userErrors));
-  return { link: netteDraft(r.draftOrder), klant: klant ? klant.naam : '', nieuw: !!(klant && klant.nieuw) };
+  const kort = await korteLink(gql, r.draftOrder);
+  return { link: Object.assign(netteDraft(r.draftOrder), { kort }), klant: klant ? klant.naam : '', nieuw: !!(klant && klant.nieuw) };
 });
 
 exports.betaallinkStatus = binnen('betaallinkStatus', async req => {

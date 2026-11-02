@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v962 · 2 nov 2026';
+const APPVERSIE = 'v963 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20604,7 +20604,20 @@ async function factuurPdfBlob(html){
     return pdf.output('blob');
   }finally{ box.remove() }
 }
-function blTekst(l){ return 'Hoi, hierbij de betaallink voor je bestelling bij Cacaoboetiek ('+blEuro(l.totaal)+'):\n'+l.url+'\n\nNa betaling ontvang je een bevestiging per mail.' }
+/* v963: nette WhatsApp-tekst met de bestelling op een rij en een korte link */
+function blTekst(l,metFactuur){
+  const e=n=>blEuro(n).replace(' ','\u00a0');
+  const regels=alsLijst(l.regels).map(x=>x.aantal+'× '+x.titel+'  '+e(x.prijs*x.aantal));
+  if(l.korting) regels.push('Korting'+(l.kortingTekst?' '+l.kortingTekst:'')+'  −\u00a0'+e(l.korting));
+  if(l.verzending) regels.push('Verzending  '+e(l.verzending));
+  if(l.ophalen) regels.push('Ophalen in Drunen');
+  const link=l.kort?(String(l.kort).startsWith('http')?l.kort:'https://'+l.kort):l.url;
+  return '*Cacaoboetiek* · bestelling '+(l.naam||'')+'\n\n'
+    +(regels.length?regels.join('\n')+'\n':'')
+    +'*Totaal  '+e(l.totaal)+'*\n\n'
+    +'Betalen via deze link:\n'+link+'\n\n'
+    +(metFactuur?'De factuur zit in de bijlage. ':'')+'Na betaling ontvang je een bevestiging per mail.';
+}
 let BLF=null;
 /* v958: plak alle klantgegevens in één keer; dit zet ze op de juiste plek.
    Werkt met regels onder elkaar én met alles op één regel (komma's, |, ·). */
@@ -20645,9 +20658,11 @@ function klantUitTekst(t){
 }
 function sheetBetaallinkKlaar(l){
   const kanDelen=!!(navigator.canShare&&window.File);
+  if(!l.kort&&!l.kortTry&&/DraftOrder/.test(l.id)){ l.kortTry=true;
+    roep('betaallinkKort',{id:l.id}).then(r=>{ if(r&&r.kort){ l.kort=r.kort; bewaarNu(); const el=$('#blUrl'); if(el&&BLF&&BLF.id===l.id) el.textContent=l.kort } }).catch(()=>{}) }
   BLF={id:l.id,met:kanDelen&&BLF&&BLF.id===l.id?BLF.met:kanDelen,klant:BLF&&BLF.id===l.id&&typeof BLF.klant==='object'?BLF.klant:{naam:'',adres:'',kvk:'',btw:'',contact:''},file:null,bezig:false};
   sheet('Betaallink klaar',
-    `<div class="shrij"><span class="shn"><b>${esc(l.naam)}</b><small>${esc(l.url)}</small></span><span class="shw"><b>${blEuro(l.totaal)}</b></span></div>
+    `<div class="shrij"><span class="shn"><b>${esc(l.naam)}</b><small id="blUrl">${esc(l.kort||l.url)}</small></span><span class="shw"><b>${blEuro(l.totaal)}</b></span></div>
      ${kanDelen?`<div class="veld"><label>Factuur meesturen</label>
        <div class="duo" id="blFm"><button data-v="ja" class="${BLF.met?'aan':''}">Ja, als pdf</button><button data-v="nee" class="${BLF.met?'':'aan'}">Nee</button></div></div>`:''}
      <div id="blFvak">${BLF.met?`<div class="veld"><label>Klant op de factuur <span style="text-transform:none;font-weight:500">(wordt niet bewaard)</span></label>
@@ -20704,12 +20719,12 @@ function sheetBetaallinkKlaar(l){
       toast(res.nieuw?'Nieuwe klant aangemaakt: '+res.klant:'Gekoppeld aan '+res.klant); sheetBetaallinkKlaar(l);
     }catch(e){ b.disabled=false; b.textContent='Koppel'; toast(fout(e)) } };
   $('#blTerugB').onclick=()=>sheetBlTerug(l);
-  $('#blKopie').onclick=async()=>{ try{ await navigator.clipboard.writeText(l.url); toast('Link gekopieerd.') }catch(e){ toast('Kopiëren lukte niet.') } };
+  $('#blKopie').onclick=async()=>{ try{ await navigator.clipboard.writeText(l.kort?'https://'+l.kort:l.url); toast('Link gekopieerd.') }catch(e){ toast('Kopiëren lukte niet.') } };
   if($('#blFbk')) $('#blFbk').onclick=()=>drukAf(`<div class="vel factuurvel">${blFactuurHTML(l,BLF.klant)}</div>`,'Factuur '+l.factuurNr,'@page{size:A4;margin:0}');
   $('#blWa').onclick=async()=>{
     if(!BLF.met) return blWhatsApp(l,$('#blTel')?$('#blTel').value:'');
     if(!BLF.file) return;
-    try{ await navigator.share({files:[BLF.file],text:blTekst(l)}) }
+    try{ await navigator.share({files:[BLF.file],text:blTekst(l,true)}) }
     catch(e){ if(e&&e.name==='AbortError') return; toast('Delen lukte niet: '+fout(e)+'. Je kunt de link ook los sturen.') }
   };
   if(BLF.met) maak();
