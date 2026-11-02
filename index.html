@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v963 · 2 nov 2026';
+const APPVERSIE = 'v964 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20612,11 +20612,12 @@ function blTekst(l,metFactuur){
   if(l.verzending) regels.push('Verzending  '+e(l.verzending));
   if(l.ophalen) regels.push('Ophalen in Drunen');
   const link=l.kort?(String(l.kort).startsWith('http')?l.kort:'https://'+l.kort):l.url;
-  return '*Cacaoboetiek* · bestelling '+(l.naam||'')+'\n\n'
+  return 'Hoi,\n\nBedankt voor je bestelling bij Cacaoboetiek. Hieronder zie je wat je besteld hebt'+(metFactuur?' (de factuur zit in de bijlage)':'')+'. Je kunt betalen via de link onderaan.\n\n'
+    +'*Bestelling '+(l.naam||'')+'*\n'
     +(regels.length?regels.join('\n')+'\n':'')
     +'*Totaal  '+e(l.totaal)+'*\n\n'
-    +'Betalen via deze link:\n'+link+'\n\n'
-    +(metFactuur?'De factuur zit in de bijlage. ':'')+'Na betaling ontvang je een bevestiging per mail.';
+    +'Betalen:\n'+link+'\n\n'
+    +'Na betaling ontvang je een bevestiging per mail.\n\nGroet,\nHamza\nCacaoboetiek';
 }
 let BLF=null;
 /* v958: plak alle klantgegevens in één keer; dit zet ze op de juiste plek.
