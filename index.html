@@ -5288,7 +5288,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v954 · 2 nov 2026';
+const APPVERSIE = 'v955 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9060,7 +9060,8 @@ setInterval(()=>{
   if(document.visibilityState==='visible'&&S.tab==='dashboard') mailVerversen(false);
 },2*60*1000+5000);
 function mailKaartHTML(){
-  if(vandaag()>MAILDOEL.tot) return '';
+  /* v955: na 1 nov blijft de kaart (en de sheet met dagen en adressen) gewoon werken;
+     de strook loopt door tot vandaag */
   /* De kaart staat er altijd: eerst met de laatst bekende telling (ook vlak
      na het openen, voordat Firebase of Shopify iets terugzegt), en anders
      met "tellen…" in dezelfde vorm. Hij verdwijnt nooit meer en springt niet. */
@@ -9109,7 +9110,8 @@ function mailKaartHTML(){
     /* de hele campagne als strook: wat geweest is in grijs, vandaag zwart,
        de dagen die nog komen als lichte stompjes — zo zie je ook hoeveel tijd er nog is */
     const dagen=[]; let d=MAILDOEL.sinds;
-    for(let i=0;i<looptijd;i++){ dagen.push(d); d=iso(new Date(new Date(d+'T12:00:00').getTime()+864e5)) }
+    const eindStrook=vandaag()>MAILDOEL.tot?dagenTussen(MAILDOEL.sinds,vandaag())+1:looptijd;
+    for(let i=0;i<eindStrook;i++){ dagen.push(d); d=iso(new Date(new Date(d+'T12:00:00').getTime()+864e5)) }
     const max=Math.max(1,...dagen.map(x=>m.perDag[x]||0));
     if(mailInSheet){
       const kies=mailDag||vandaag();
@@ -9117,12 +9119,12 @@ function mailKaartHTML(){
         return `<span class="mlkol${later?' later':''}${x===kies?' kies':x===vandaag()?' vandaag':''}"${
           later?'':` onclick="event.stopPropagation();mailDagKies('${x}')"`}><i style="height:${
           later?6:n?Math.max(8,Math.round(n/max*100)):6}%"></i></span>`}).join('')}</span>
-      <span class="mlas"><span>1 okt</span><span>1 nov</span></span>`;
+      <span class="mlas"><span>1 okt</span><span>${vandaag()>MAILDOEL.tot?'vandaag':'1 nov'}</span></span>`;
     } else
     staven=`<span class="mlstaven">${dagen.map(x=>{const n=m.perDag[x]||0, later=x>vandaag();
       return `<span class="${x===vandaag()?'nu':later?'later':''}" style="height:${
         later?6:n?Math.max(8,Math.round(n/max*100)):6}%"></span>`}).join('')}</span>
-      <span class="mlas"><span>1 okt</span><span>1 nov</span></span>`;
+      <span class="mlas"><span>1 okt</span><span>${vandaag()>MAILDOEL.tot?'vandaag':'1 nov'}</span></span>`;
   }
 
   return `<div class="blokkop"><span class="eyebrow">Mailinglijst</span>
