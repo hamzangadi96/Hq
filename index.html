@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v957 · 2 nov 2026';
+const APPVERSIE = 'v958 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -18951,7 +18951,7 @@ function factuur2HTML(f){
     </div>
     ${(k.naam||(k.regels||[]).length)?`<div class="f2rij f2klant">
       <div class="l">${k.naam?`<b>${esc(k.naam)}</b>`:''}${(k.regels||[]).filter(Boolean).map(x=>'<br>'+esc(x)).join('')}</div>
-      <div class="r">${k.kvk?`<div class="f2kv"><span>KvK</span><span style="color:#1d1d1f">${esc(k.kvk)}</span></div>`:''}</div></div>`:''}
+      <div class="r">${k.kvk?`<div class="f2kv"><span>KvK</span><span style="color:#1d1d1f">${esc(k.kvk)}</span></div>`:''}${k.btw?`<div class="f2kv"><span>Btw-id</span><span style="color:#1d1d1f">${esc(k.btw)}</span></div>`:''}</div></div>`:''}
     <hr>
     ${f.banner?`<div class="f2banner">${esc(f.banner)}</div>`:''}
     <table>
@@ -20575,7 +20575,7 @@ function blFactuurHTML(l,klant){
   if(l.verzending) regels.push({oms:'Verzending',aantal:1,prijs:l.verzending,btw:BTW_REST});
   if(l.ophalen) regels.push({oms:'Ophalen in Drunen',aantal:1,prijs:0,btw:BTW_ETEN});
   return factuur2HTML({nr:l.factuurNr,datum:l.factuurDatum||l.datum,referentie:l.naam||'',
-    klant:{naam:kl.naam||'',regels:String(kl.adres||'').split(/\n/),kvk:kl.kvk||''},
+    klant:{naam:kl.naam||'',regels:String(kl.adres||'').split(/\n/).concat(kl.contact?String(kl.contact).split(/\n/):[]),kvk:kl.kvk||'',btw:kl.btw||''},
     banner:pct?String(pct).replace('.',',')+'% korting op ieder onderdeel':(l.korting?'Korting '+euro(l.korting)+' op je bestelling':''),
     regels,extraKorting:!pct&&l.korting?{bedrag:l.korting,btw:BTW_ETEN,tekst:'Korting'}:null,
     betaald:l.status==='COMPLETED',betaling:{tekst:l.status==='COMPLETED'?'Voldaan via Shopify':'Betaal via Shopify',url:l.url}});
@@ -20602,17 +20602,59 @@ async function factuurPdfBlob(html){
 }
 function blTekst(l){ return 'Hoi, hierbij de betaallink voor je bestelling bij Cacaoboetiek ('+blEuro(l.totaal)+'):\n'+l.url+'\n\nNa betaling ontvang je een bevestiging per mail.' }
 let BLF=null;
+/* v958: plak alle klantgegevens in één keer; dit zet ze op de juiste plek.
+   Werkt met regels onder elkaar én met alles op één regel (komma's, |, ·). */
+function klantUitTekst(t){
+  const uit={naam:'',adres:'',kvk:'',btw:'',contact:''};
+  let delen=String(t||'').split(/\n|\s[|·•]\s|;|,(?!\d)/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const straat=[], pc=[], extra=[], cont=[];
+  const LBL=/^(bedrijfs?naam|naam|bedrijf|organisatie|adres|bezoekadres|postadres|factuuradres|straat|postcode|plaats|woonplaats|vestigingsplaats|land)\s*[:\-]?\s*/i;
+  for(let i=0;i<delen.length;i++){
+    let x=delen[i];
+    const btw=x.replace(/[\s.]/g,'').match(/NL\d{9}B\d{2}/i);
+    if(btw||/^(btw|vat|omzetbelasting)/i.test(x)){ if(btw) uit.btw=btw[0].toUpperCase(); else{ const m=x.match(/[A-Z]{2}[\dA-Z\s.]{8,}/i); if(m) uit.btw=m[0].replace(/[\s.]/g,'').toUpperCase() } continue }
+    if(/^(iban|rekening|bank|bic)/i.test(x)||/^NL\d{2}[A-Z]{4}\d{10}$/i.test(x.replace(/\s/g,''))) continue;
+    const mail=x.match(/[^\s:]+@[^\s]+\.[a-z]{2,}/i);
+    if(mail){ cont.push(mail[0]); continue }
+    if(/^(kvk|k\.v\.k|kamer van koophandel|coc)/i.test(x)){ const d=x.replace(/\D/g,''); if(d.length>=8) uit.kvk=d.slice(0,8); continue }
+    if(/^\d{8}$/.test(x.replace(/[\s.]/g,''))&&!uit.kvk){ uit.kvk=x.replace(/[\s.]/g,''); continue }
+    if(/^(tel|telefoon|mobiel|phone|gsm)/i.test(x)||/^(\+31|0031|0)[\d\s\-()]{8,}$/.test(x)){ const n=x.replace(/^[^\d+]*/,'').trim(); if(n) cont.push(n); continue }
+    if(/^(www\.|https?:)/i.test(x)) continue;
+    x=x.replace(LBL,'');
+    if(!x) continue;
+    const m=x.match(/\b(\d{4})\s?([a-z]{2})\b\s*(.*)$/i);
+    if(m&&!pc.length){
+      const voor=x.slice(0,m.index).trim();
+      if(voor) straat.push(voor);
+      let plaats=m[3].trim();
+      if(!plaats&&delen[i+1]&&!/\d/.test(delen[i+1])&&!/@/.test(delen[i+1])){ plaats=delen[i+1].replace(LBL,''); i++ }
+      pc.push(m[1]+' '+m[2].toUpperCase()+(plaats?'  '+plaats.toUpperCase():''));
+      continue }
+    if(/^postbus\s*\d+/i.test(x)||/^[a-zà-ÿ'.\- ]+\s\d+\s?[a-z]?(\s?[-\/]?\s?\w{1,4})?$/i.test(x)&&!straat.length&&uit.naam){ straat.push(x); continue }
+    if(/^(nederland|the netherlands|netherlands|nl)$/i.test(x)) continue;
+    if(!uit.naam){ uit.naam=x; continue }
+    extra.push(x);
+  }
+  uit.adres=extra.concat(straat,pc).join('\n');
+  uit.contact=cont.join('\n');
+  return uit;
+}
 function sheetBetaallinkKlaar(l){
   const kanDelen=!!(navigator.canShare&&window.File);
-  BLF={id:l.id,met:kanDelen&&BLF&&BLF.id===l.id?BLF.met:kanDelen,klant:BLF&&BLF.id===l.id&&typeof BLF.klant==='object'?BLF.klant:{naam:'',adres:'',kvk:''},file:null,bezig:false};
+  BLF={id:l.id,met:kanDelen&&BLF&&BLF.id===l.id?BLF.met:kanDelen,klant:BLF&&BLF.id===l.id&&typeof BLF.klant==='object'?BLF.klant:{naam:'',adres:'',kvk:'',btw:'',contact:''},file:null,bezig:false};
   sheet('Betaallink klaar',
     `<div class="shrij"><span class="shn"><b>${esc(l.naam)}</b><small>${esc(l.url)}</small></span><span class="shw"><b>${blEuro(l.totaal)}</b></span></div>
      ${kanDelen?`<div class="veld"><label>Factuur meesturen</label>
        <div class="duo" id="blFm"><button data-v="ja" class="${BLF.met?'aan':''}">Ja, als pdf</button><button data-v="nee" class="${BLF.met?'':'aan'}">Nee</button></div></div>`:''}
      <div id="blFvak">${BLF.met?`<div class="veld"><label>Klant op de factuur <span style="text-transform:none;font-weight:500">(wordt niet bewaard)</span></label>
+       <textarea class="inp" id="blDump" rows="3" placeholder="Plak hier alles in één keer: naam, adres, KvK, btw-id, mail…"></textarea>
+       <p class="hint" style="margin:6px 0 10px">Ik zet het hieronder op de juiste plek. Klopt iets niet? Pas het daar aan.</p>
        <input class="inp" id="blKl" placeholder="Naam of bedrijf" value="${esc(BLF.klant.naam||'')}">
-       <textarea class="inp" id="blAd" rows="3" style="margin-top:8px" placeholder="Adres (optioneel)">${esc(BLF.klant.adres||'')}</textarea>
-       <input class="inp" id="blKvk" style="margin-top:8px" inputmode="numeric" placeholder="KvK (optioneel, bij een bedrijf)" value="${esc(BLF.klant.kvk||'')}"></div>
+       <textarea class="inp" id="blAd" rows="3" style="margin-top:8px" placeholder="Adres">${esc(BLF.klant.adres||'')}</textarea>
+       <div class="duo2" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+         <input class="inp" id="blKvk" inputmode="numeric" placeholder="KvK" value="${esc(BLF.klant.kvk||'')}">
+         <input class="inp" id="blBtw" autocapitalize="characters" placeholder="Btw-id" value="${esc(BLF.klant.btw||'')}"></div>
+       <textarea class="inp" id="blCo" rows="1" style="margin-top:8px" placeholder="Mail / telefoon (optioneel)">${esc(BLF.klant.contact||'')}</textarea></div>
        <p class="hint" id="blFst">Factuur maken…</p>`:`<div class="veld"><label>Telefoonnummer <span style="text-transform:none;font-weight:500">(mag leeg: dan kies je in WhatsApp)</span></label>
        <input class="inp" id="blTel" type="tel" inputmode="tel" placeholder="06 12345678"></div>`}</div>
      <div class="lgvoet bvoet"><button type="button" id="blKopie">Link kopiëren</button>${BLF.met?'<button type="button" id="blFbk">Factuur bekijken</button>':''}</div>`,
@@ -20625,8 +20667,10 @@ function sheetBetaallinkKlaar(l){
     }catch(e){ if($('#blFst')) $('#blFst').textContent=fout(e) } finally{ BLF.bezig=false } };
   $$('#blFm button').forEach(b=>b.onclick=()=>{ BLF.met=b.dataset.v==='ja'; sheetBetaallinkKlaar(l) });
   let tmr=null;
-  const kIn=()=>{ BLF.klant={naam:$('#blKl').value.trim(),adres:$('#blAd').value.trim(),kvk:$('#blKvk').value.trim()}; clearTimeout(tmr); $('#blWa').disabled=true; tmr=setTimeout(maak,700) };
-  ['#blKl','#blAd','#blKvk'].forEach(id=>{ if($(id)) $(id).oninput=kIn });
+  const kIn=()=>{ BLF.klant={naam:$('#blKl').value.trim(),adres:$('#blAd').value.trim(),kvk:$('#blKvk').value.replace(/\D/g,''),btw:$('#blBtw').value.replace(/[\s.]/g,'').toUpperCase(),contact:$('#blCo').value.trim()}; clearTimeout(tmr); $('#blWa').disabled=true; tmr=setTimeout(maak,700) };
+  ['#blKl','#blAd','#blKvk','#blBtw','#blCo'].forEach(id=>{ if($(id)) $(id).oninput=kIn });
+  if($('#blDump')) $('#blDump').oninput=()=>{ const k=klantUitTekst($('#blDump').value);
+    $('#blKl').value=k.naam; $('#blAd').value=k.adres; $('#blKvk').value=k.kvk; $('#blBtw').value=k.btw; $('#blCo').value=k.contact; kIn() };
   $('#blKopie').onclick=async()=>{ try{ await navigator.clipboard.writeText(l.url); toast('Link gekopieerd.') }catch(e){ toast('Kopiëren lukte niet.') } };
   if($('#blFbk')) $('#blFbk').onclick=()=>drukAf(`<div class="vel factuurvel">${blFactuurHTML(l,BLF.klant)}</div>`,'Factuur '+l.factuurNr,'@page{size:A4;margin:0}');
   $('#blWa').onclick=async()=>{
