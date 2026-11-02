@@ -1867,15 +1867,19 @@ const netteDraft = d => ({ id: d.id, naam: d.name, status: d.status, url: d.invo
    dan maken we hem aan, zonder hem op de mailinglijst te zetten. */
 const goedMail = m => { m = String(m || '').trim().toLowerCase(); return /^[^\s@"]+@[^\s@"]+\.[a-z]{2,}$/.test(m) && m.length < 120 ? m : ''; };
 async function klantVoorMail(gql, email, naam) {
-  const z = await gql('query($q:String!){customers(first:1,query:$q){nodes{id displayName}}}', { q: 'email:"' + email + '"' });
+  const z = await gql('query($q:String!){customers(first:1,query:$q){nodes{id displayName cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}', { q: 'email:"' + email + '"' });
   const al = z.customers && z.customers.nodes && z.customers.nodes[0];
-  if (al) return { id: al.id, naam: al.displayName, nieuw: false };
+  if (al) {
+    let spaar = 0;
+    try { spaar = Math.max(0, Math.min(15000, parseInt(JSON.parse(al.cb.value).cardCents, 10) || 0)); } catch (e) { spaar = 0; }
+    return { id: al.id, naam: al.displayName, nieuw: false, spaar };
+  }
   const input = { email };
   const n = blTekst(naam, 80);
   if (n) { const d = n.split(' '); input.firstName = d.shift(); if (d.length) input.lastName = d.join(' '); }
   const c = (await gql('mutation($i:CustomerInput!){customerCreate(input:$i){customer{id displayName} userErrors{message}}}', { i: input })).customerCreate;
   if (c.userErrors && c.userErrors.length) throw new HttpsError('internal', 'Klant aanmaken lukte niet: ' + fouten(c.userErrors));
-  return { id: c.customer.id, naam: c.customer.displayName, nieuw: true };
+  return { id: c.customer.id, naam: c.customer.displayName, nieuw: true, spaar: 0 };
 }
 
 exports.betaallinkKlant = binnen('betaallinkKlant', async req => {
@@ -1890,7 +1894,7 @@ exports.betaallinkKlant = binnen('betaallinkKlant', async req => {
   const r = (await gql('mutation($id:ID!,$i:DraftOrderInput!){draftOrderUpdate(id:$id,input:$i){draftOrder{' + DRAFT_VELDEN + '} userErrors{message}}}',
     { id, i: { email, purchasingEntity: { customerId: k.id } } })).draftOrderUpdate;
   if (r.userErrors && r.userErrors.length) throw new HttpsError('internal', 'Koppelen lukte niet: ' + fouten(r.userErrors));
-  return { link: netteDraft(r.draftOrder), klant: k.naam, nieuw: k.nieuw };
+  return { link: netteDraft(r.draftOrder), klant: k.naam, nieuw: k.nieuw, spaar: k.spaar };
 });
 
 /* v962: een betaallink terugdraaien vanuit HQ.
@@ -2011,7 +2015,7 @@ exports.maakBetaallink = binnen('maakBetaallink', async req => {
   }).filter(Boolean);
   if (!lineItems.length) throw new HttpsError('invalid-argument', 'Kies minstens één product of vul een bedrag in.');
 
-  const input = { lineItems, tags: ['hq-betaallink'] };
+  const input = { lineItems, tags: d.geenStempels ? ['hq-betaallink', 'geen-stempels'] : ['hq-betaallink'] };
   const notitie = blTekst(d.notitie, 400);
   if (notitie) input.note = notitie;
   /* korting over de producten (niet over de verzending) */
@@ -2034,7 +2038,7 @@ exports.maakBetaallink = binnen('maakBetaallink', async req => {
   const r = (await gql('mutation($i:DraftOrderInput!){draftOrderCreate(input:$i){draftOrder{' + DRAFT_VELDEN + '} userErrors{message}}}', { i: input })).draftOrderCreate;
   if (r.userErrors && r.userErrors.length) throw new HttpsError('internal', 'Betaallink maken lukte niet: ' + fouten(r.userErrors));
   const kort = await korteLink(gql, r.draftOrder);
-  return { link: Object.assign(netteDraft(r.draftOrder), { kort }), klant: klant ? klant.naam : '', nieuw: !!(klant && klant.nieuw) };
+  return { link: Object.assign(netteDraft(r.draftOrder), { kort }), klant: klant ? klant.naam : '', nieuw: !!(klant && klant.nieuw), spaar: klant ? klant.spaar : null };
 });
 
 exports.betaallinkStatus = binnen('betaallinkStatus', async req => {

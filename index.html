@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v964 · 2 nov 2026';
+const APPVERSIE = 'v966 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20485,6 +20485,8 @@ const blEuro=n=>'€ '+(Math.round(n*100)/100).toFixed(2).replace('.',',');
 function blSub(){ return BL.regels.reduce((t,x)=>t+(x.prijs||0)*(x.aantal||1),0) }
 function blKorting(){ const sub=blSub(), w=BL.kW||0; if(!(w>0)) return 0; return Math.min(sub, BL.kS==='pct'?Math.round(sub*Math.min(w,100))/100:w) }
 function blTotaal(){ return blSub()-blKorting()+(BL.vz==='verzenden'?(BL.vzPrijs||0):0) }
+/* stempels: standaard ja, maar nee zodra er korting op zit (tenzij je zelf kiest) */
+const blStempelsAan=()=>typeof BL.st==='boolean'?BL.st:!(BL.kW>0);
 function sheetBetaallink(){
   if(!BL) BL={regels:[],vz:S.blVz||'verzenden',vzPrijs:typeof S.blVzPrijs==='number'?S.blVzPrijs:6.95,notitie:'',kS:'pct',kW:0};
   const rij=(x,i)=>`<div class="shrij" style="gap:10px"><span class="shn">${esc(x.titel)}${x.variant?`<small>${esc(x.variant)}</small>`:''}<small>${blEuro(x.prijs)} per stuk</small></span>
@@ -20508,7 +20510,10 @@ function sheetBetaallink(){
          <input class="inp" id="blKw" type="text" inputmode="decimal" style="width:110px;text-align:right" placeholder="0" value="${BL.kW?String(BL.kW).replace('.',','):''}"></div></div>
      <div class="veld"><label>Notitie bij de order <span style="text-transform:none;font-weight:500">(bijv. smaken)</span></label>
        <textarea class="inp" id="blNot" rows="2" placeholder="Bijv. 4× matcha aardbei, 4× pinda">${esc(BL.notitie)}</textarea></div>
-     <div class="veld"><label>Mailadres klant <span style="text-transform:none;font-weight:500">(optioneel: dan krijgt hij stempels)</span></label>
+     <div class="veld"><label>Stempels geven</label>
+       <div class="duo" id="blSt"><button data-v="ja" class="${blStempelsAan()?'aan':''}">Ja</button><button data-v="nee" class="${blStempelsAan()?'':'aan'}">Nee</button></div>
+       <p class="hint" style="margin-top:6px">${blStempelsAan()?'De klant ziet in het bericht hoeveel stempels hij verdient.':'Geen stempels in het bericht'+(BL.kW>0?' (standaard bij korting)':'')+'. De order krijgt het label geen-stempels.'}</p></div>
+     <div class="veld"><label>Mailadres klant <span style="text-transform:none;font-weight:500">(optioneel${blStempelsAan()?': dan sparen de stempels op zijn kaart':''})</span></label>
        <input class="inp" id="blMail" type="email" inputmode="email" autocapitalize="off" placeholder="klant@voorbeeld.nl" value="${esc(BL.mail||'')}"></div>
      ${blKorting()?`<div class="shrij"><span class="shn">Korting${BL.kS==='pct'?' '+String(BL.kW).replace('.',',')+'%':''}</span><span class="shw" style="color:var(--groen)">− ${blEuro(blKorting())}</span></div>`:''}
      <div class="shrij"><span class="shn"><b>Totaal</b><small>btw zit in de prijs</small></span><span class="shw"><b>${blEuro(blTotaal())}</b></span></div>
@@ -20524,6 +20529,7 @@ function sheetBetaallink(){
   if($('#blVzP')) $('#blVzP').onchange=()=>{ const v=getalIn($('#blVzP').value); if(!isNaN(v)&&v>=0){ BL.vzPrijs=v; S.blVzPrijs=v; bewaarNu() } sheetBetaallink() };
   $('#blNot').oninput=()=>{ BL.notitie=$('#blNot').value };
   $('#blMail').oninput=()=>{ BL.mail=$('#blMail').value.trim() };
+  $$('#blSt button').forEach(b=>b.onclick=()=>{ BL.st=b.dataset.v==='ja'; sheetBetaallink() });
   $$('#blKs button').forEach(b=>b.onclick=()=>{ BL.kS=b.dataset.v; sheetBetaallink() });
   $('#blKw').onchange=()=>{ const v=getalIn($('#blKw').value); BL.kW=!isNaN(v)&&v>0?Math.round(v*100)/100:0; if(BL.kS==='pct'&&BL.kW>100) BL.kW=100; sheetBetaallink() };
   $('#blProd').onclick=sheetBetaalProducten;
@@ -20534,11 +20540,12 @@ function sheetBetaallink(){
     const k=$('#blMaak'); k.disabled=true; k.textContent='Link maken…';
     try{
       const res=await roep('maakBetaallink',{regels:BL.regels.map(x=>x.variantId?{variantId:x.variantId,aantal:x.aantal}:{titel:x.titel,prijs:x.prijs,aantal:x.aantal}),
-        verzending:{soort:BL.vz,prijs:BL.vzPrijs},notitie:BL.notitie,korting:BL.kW>0?{soort:BL.kS,waarde:BL.kW}:null,email:BL.mail||''});
+        verzending:{soort:BL.vz,prijs:BL.vzPrijs},notitie:BL.notitie,korting:BL.kW>0?{soort:BL.kS,waarde:BL.kW}:null,email:BL.mail||'',geenStempels:!blStempelsAan()});
       const l=Object.assign({},res.link,{datum:vandaag(),
         regels:BL.regels.map(x=>({titel:x.titel+(x.variant&&!String(x.titel).includes(x.variant)?' · '+x.variant:''),aantal:x.aantal,prijs:x.prijs})),
         korting:blKorting(),kortingTekst:BL.kW>0&&BL.kS==='pct'?String(BL.kW).replace('.',',')+'%':'',kortingPct:BL.kW>0&&BL.kS==='pct'?BL.kW:0,
-        verzending:BL.vz==='verzenden'?(BL.vzPrijs||0):0,ophalen:BL.vz==='ophalen',stempels:res.klant?{klant:res.klant}:null});
+        verzending:BL.vz==='verzenden'?(BL.vzPrijs||0):0,ophalen:BL.vz==='ophalen',stempels:res.klant&&blStempelsAan()?{spaar:res.spaar||0}:null,geenStempels:!blStempelsAan()});
+      if(res.klant) BLKLANT[res.link.id]=res.klant;
       if(res.klant) toast(res.nieuw?'Nieuwe klant aangemaakt; stempels gaan naar '+res.klant+'.':'Gekoppeld aan '+res.klant+'; die krijgt de stempels.');
       S.betaallinks=alsLijst(S.betaallinks).concat([l]).slice(-50); bewaarNu();
       BL=null; sheetBetaallinkKlaar(l);
@@ -20612,14 +20619,30 @@ function blTekst(l,metFactuur){
   if(l.verzending) regels.push('Verzending  '+e(l.verzending));
   if(l.ophalen) regels.push('Ophalen in Drunen');
   const link=l.kort?(String(l.kort).startsWith('http')?l.kort:'https://'+l.kort):l.url;
+  /* stempels: €25 aan producten (na korting, zonder verzending) = 1 stempel, max 6 per kaart */
+  const elig=Math.max(0,Math.round((alsLijst(l.regels).reduce((t,x)=>t+x.prijs*x.aantal,0)-(l.korting||0))*100));
+  let st='';
+  if(l.geenStempels) st='';
+  else if(l.stempels&&typeof l.stempels.spaar==='number'){
+    const oud=Math.min(15000,l.stempels.spaar), nieuw=Math.min(15000,oud+elig), voor=Math.floor(oud/2500), na=Math.floor(nieuw/2500), bij=na-voor;
+    st=voor>=6?'Je spaarkaart is al vol: je giftcard van €\u00a025 kun je verzilveren via de stempelkaart op onze website.'
+      :bij>0?'Met deze bestelling verdien je *'+bij+' '+(bij===1?'stempel':'stempels')+'* op je spaarkaart. Je hebt er dan '+na+' van 6'+(na>=6?', dus je kaart is vol en je verdient een giftcard van €\u00a025!':'.')
+      :'Deze bestelling telt mee voor je spaarkaart (€\u00a025 = 1 stempel). Je hebt er nu '+voor+' van 6.';
+  } else {
+    const n=Math.min(6,Math.floor(elig/2500));
+    st=n>0?'Met deze bestelling verdien je minstens *'+n+' '+(n===1?'stempel':'stempels')+'* op je spaarkaart (€\u00a025 = 1 stempel). Betaal met je vaste mailadres, dan sparen ze automatisch door.'
+      :'Ook deze bestelling telt mee voor je spaarkaart (€\u00a025 = 1 stempel). Betaal met je vaste mailadres, dan spaar je automatisch door.';
+  }
   return 'Hoi,\n\nBedankt voor je bestelling bij Cacaoboetiek. Hieronder zie je wat je besteld hebt'+(metFactuur?' (de factuur zit in de bijlage)':'')+'. Je kunt betalen via de link onderaan.\n\n'
     +'*Bestelling '+(l.naam||'')+'*\n'
     +(regels.length?regels.join('\n')+'\n':'')
     +'*Totaal  '+e(l.totaal)+'*\n\n'
     +'Betalen:\n'+link+'\n\n'
+    +(st?st+'\n\n':'')
     +'Na betaling ontvang je een bevestiging per mail.\n\nGroet,\nHamza\nCacaoboetiek';
 }
 let BLF=null;
+const BLKLANT={};   /* klantnaam alleen in het geheugen, niet in Firebase (AVG) */
 /* v958: plak alle klantgegevens in één keer; dit zet ze op de juiste plek.
    Werkt met regels onder elkaar én met alles op één regel (komma's, |, ·). */
 function klantUitTekst(t){
@@ -20679,8 +20702,8 @@ function sheetBetaallinkKlaar(l){
        <textarea class="inp" id="blCo" rows="1" style="margin-top:8px" placeholder="Mail / telefoon (optioneel)">${esc(BLF.klant.contact||'')}</textarea></div>
        <p class="hint" id="blFst">Factuur maken…</p>`:`<div class="veld"><label>Telefoonnummer <span style="text-transform:none;font-weight:500">(mag leeg: dan kies je in WhatsApp)</span></label>
        <input class="inp" id="blTel" type="tel" inputmode="tel" placeholder="06 12345678"></div>`}</div>
-     ${l.status==='COMPLETED'&&!l.stempels?'':`<div class="veld" id="blStVak"><label>Stempels</label>${l.stempels
-       ?`<div class="shrij"><span class="shn" style="color:var(--groen)">✓ Stempels gaan naar <b style="color:#18181b">${esc(l.stempels.klant||'de klant')}</b><small>zodra hij betaalt</small></span></div>`
+     ${l.geenStempels?`<div class="veld"><label>Stempels</label><p class="hint">Geen stempels bij deze bestelling.</p></div>`:l.status==='COMPLETED'&&!l.stempels?'':`<div class="veld" id="blStVak"><label>Stempels</label>${l.stempels
+       ?`<div class="shrij"><span class="shn" style="color:var(--groen)">✓ Stempels gaan naar <b style="color:#18181b">${esc(BLKLANT[l.id]||'de klant')}</b><small>zodra hij betaalt</small></span></div>`
        :`<div style="display:flex;gap:8px"><input class="inp" id="blStM" type="email" inputmode="email" autocapitalize="off" style="flex:1" placeholder="Mailadres klant" value="${esc(BLF.stMail||'')}">
           <button type="button" class="kopknop" id="blStOk" style="flex:none">Koppel</button></div>
         <p class="hint" style="margin-top:6px">Dan komt de order op zijn naam in Shopify en telt hij mee voor zijn spaarkaart.</p>`}</div>`}
@@ -20716,7 +20739,7 @@ function sheetBetaallinkKlaar(l){
   if($('#blStOk')) $('#blStOk').onclick=async()=>{ const m=$('#blStM').value.trim(); if(!/^\S+@\S+\.\S+$/.test(m)) return toast('Vul een geldig mailadres in.');
     const b=$('#blStOk'); b.disabled=true; b.textContent='Bezig…';
     try{ const res=await roep('betaallinkKlant',{id:l.id,email:m,naam:BLF.klant&&BLF.klant.naam||''});
-      l.stempels={klant:res.klant}; if(res.link&&res.link.url) l.url=res.link.url; bewaarNu();
+      l.stempels={spaar:res.spaar||0}; BLKLANT[l.id]=res.klant; if(res.link&&res.link.url) l.url=res.link.url; bewaarNu();
       toast(res.nieuw?'Nieuwe klant aangemaakt: '+res.klant:'Gekoppeld aan '+res.klant); sheetBetaallinkKlaar(l);
     }catch(e){ b.disabled=false; b.textContent='Koppel'; toast(fout(e)) } };
   $('#blTerugB').onclick=()=>sheetBlTerug(l);
