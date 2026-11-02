@@ -1,34 +1,69 @@
 {% comment %}
-  Cacaoboetiek — spaarkaart-status in de orderbevestiging.
-  Plakken in: Shopify admin › Instellingen › Meldingen › Klantmeldingen ›
-  Orderbevestiging › Code bewerken, direct onder de productenlijst
-  (boven de regel met "Subtotaal"/"subtotal_line" of onder de hele bestellingstabel).
-  Leest het spaarsaldo van de klant (cbx.spaarsaldo): € 25 = 1 stempel, 6 stempels = volle kaart.
+  Cacaoboetiek — stempelkaart in de orderbevestiging, in dezelfde stijl als
+  de stempelkaart op de website (snippets/cb-stamps-content.liquid).
+  Plakken in: Shopify › Instellingen › Meldingen › Orderbevestiging › Code bewerken,
+  direct onder de productenlijst.
+  Rekent net als de website: custom.cb_stamps (stand vóór deze bestelling) + wat
+  deze bestelling na kortingen toevoegt, zonder verzending en giftcards. €25 = 1 stempel.
+  Nieuwe stempels "ploppen" erin (GIF, speelt één keer). Apple Mail laat de kaart
+  ook rustig inschuiven en pulseren bij een volle kaart, net als op de site.
 {% endcomment %}
-{% if customer and customer.metafields.cbx.spaarsaldo %}
-  {% assign cb_saldo = customer.metafields.cbx.spaarsaldo.value | plus: 0 %}
-  {% assign cb_stempels = cb_saldo | divided_by: 25 | floor %}
-  {% assign cb_opkaart = cb_stempels | modulo: 6 %}
-  {% assign cb_nog = 6 | minus: cb_opkaart %}
-  {% assign cb_euro_nog = cb_stempels | plus: 1 | times: 25 | minus: cb_saldo %}
-  <table class="row" style="width:100%;margin:28px 0 8px;border-collapse:collapse">
-    <tr><td style="background:#f4f4f5;border-radius:14px;padding:20px 22px;font-family:Inter,Helvetica,Arial,sans-serif;color:#18181b">
-      <p style="margin:0 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#71717a">Jouw spaarkaart</p>
-      <p style="margin:0 0 14px;font-size:18px;font-weight:600">{{ cb_opkaart }} van de 6 stempels</p>
-      <table style="border-collapse:separate;border-spacing:6px 0;margin:0 0 14px -6px"><tr>
-        {% for i in (1..6) %}
-          {% if i <= cb_opkaart %}
-            <td style="width:34px;height:34px;border-radius:17px;background:#18181b;color:#fff;text-align:center;font-size:16px;line-height:34px">&#10003;</td>
-          {% else %}
-            <td style="width:32px;height:32px;border-radius:17px;border:1px solid #d4d4d8;background:#fff"></td>
-          {% endif %}
-        {% endfor %}
-      </tr></table>
-      {% if cb_opkaart == 0 and cb_stempels >= 6 %}
-        <p style="margin:0;font-size:14px;line-height:1.5"><b>Je kaart is vol!</b> Je cadeaubon van € 24,95 krijg je in een aparte mail. Je nieuwe kaart begint nu.</p>
-      {% else %}
-        <p style="margin:0;font-size:14px;line-height:1.5;color:#3f3f46">Nog {{ cb_nog }} {% if cb_nog == 1 %}stempel{% else %}stempels{% endif %} tot een cadeaubon van € 24,95. Elke € 25 aan bonbons is één stempel (verzendkosten tellen niet mee); voor de volgende stempel nog {{ cb_euro_nog | times: 100 | round | money }}.</p>
-      {% endif %}
-    </td></tr>
-  </table>
-{% endif %}
+{%- if customer and customer.metafields.custom.cb_stamps -%}
+{%- liquid
+  assign cbs_img = 'https://cdn.shopify.com/s/files/CBS_MAP/'
+  assign cbs_auto = shop.metafields.custom.cb_stamps_automatic.value
+  assign cbs_state = customer.metafields.custom.cb_stamps.value
+  assign cbs_saved = cbs_state.cardCents | default: 0 | at_least: 0 | at_most: 15000
+  assign cbs_rem = cbs_state.remainingCents | default: 15000 | at_least: 0
+  assign cbs_elig = 0
+  for line in line_items
+    unless line.gift_card
+      assign cbs_l = line.original_line_price
+      for a in line.discount_allocations
+        assign cbs_l = cbs_l | minus: a.amount
+      endfor
+      assign cbs_l = cbs_l | at_least: 0
+      assign cbs_elig = cbs_elig | plus: cbs_l
+    endunless
+  endfor
+  assign cbs_debt = cbs_rem | minus: 15000 | at_least: 0
+  assign cbs_proj = cbs_saved | plus: cbs_elig | minus: cbs_debt | at_least: 0 | at_most: 15000
+  assign cbs_earned = cbs_saved | divided_by: 2500 | floor
+  assign cbs_total = cbs_proj | divided_by: 2500 | floor
+  assign cbs_added = cbs_total | minus: cbs_earned | at_least: 0
+  assign cbs_resid = cbs_proj | modulo: 2500
+  assign cbs_next = 2500 | minus: cbs_resid
+-%}
+<style>
+  @keyframes cbs-enter{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes cbs-card-complete{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+  .cbs-mail{animation:cbs-enter 420ms cubic-bezier(.22,1,.36,1) both}
+  .cbs-mail-vol{animation:cbs-card-complete 650ms ease-in-out 1900ms both}
+  @media(prefers-reduced-motion:reduce){.cbs-mail,.cbs-mail-vol{animation:none!important}}
+</style>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 8px;border-collapse:collapse">
+<tr><td align="center">
+<table role="presentation" class="cbs-mail" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px;border:1px solid #e3e5e8;border-radius:16px;background:#ffffff;border-collapse:separate">
+<tr><td align="center" style="padding:28px 24px 24px;font-family:'Instrument Sans',Arial,sans-serif;color:#512f25;text-align:center">
+  <h2 style="margin:0 0 9px;font-family:'Libre Baskerville',Georgia,serif;font-size:26px;line-height:1.2;font-weight:400;color:#512f25">{% if cbs_total == 6 %}Je stempelkaart is vol{% else %}Een bedankje voor jou{% endif %}</h2>
+  <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:#321e1e">{% if cbs_total == 6 %}{% if cbs_auto == true %}Je giftcard van €25 wordt verwerkt{% else %}Je hebt een giftcard van €25 verdiend{% endif %}{% else %}6 stempels voor een giftcard van €25{% endif %}</p>
+  <table role="presentation" class="{% if cbs_total == 6 %}cbs-mail-vol{% endif %}" cellpadding="0" cellspacing="0" style="margin:0 auto;border-collapse:collapse"><tr>
+  {%- assign cbs_k = 0 -%}
+  {%- for i in (1..6) -%}
+    {%- if i <= cbs_earned -%}{%- assign cbs_src = 'vol.png' -%}
+    {%- elsif i <= cbs_total -%}{%- assign cbs_k = cbs_k | plus: 1 -%}{%- assign cbs_src = 'nieuw-' | append: cbs_k | append: '.gif' -%}
+    {%- else -%}{%- assign cbs_src = 'leeg.png' -%}{%- endif -%}
+    <td style="padding:0 3px"><img src="{{ cbs_img }}{{ cbs_src }}" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border:0"></td>
+  {%- endfor -%}
+  </tr></table>
+  {% if cbs_added > 0 %}<p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#321e1e">Deze bestelling: <strong style="font-weight:600;color:#512f25">+{{ cbs_added }} {% if cbs_added == 1 %}stempel{% else %}stempels{% endif %}</strong> · je hebt er nu {{ cbs_total }} van 6.</p>{% endif %}
+  {% if cbs_total == 6 %}
+    <p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:#321e1e">{% if cbs_auto == true %}Je ontvangt je giftcard automatisch per e-mail zodra je betaling is verwerkt. Je resterende spaarbedrag telt mee op je volgende kaart.{% else %}Zodra je betaling is verwerkt, kun je je giftcard verzilveren via de stempelkaart op onze website.{% endif %}</p>
+  {% elsif cbs_resid > 0 %}
+    <p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:#321e1e">Nog {{ cbs_next | money_without_trailing_zeros }} tot je volgende stempel.</p>
+  {% endif %}
+  <a href="{{ shop.url }}" style="display:block;margin:24px 0 0;padding:14px 10px;border-radius:4px;background:#512f25;color:#ffffff;text-decoration:none;font-size:14px">Bekijk je stempelkaart</a>
+  <p style="margin:18px 0 0;font-size:12px;color:#321e1e">€25 = 1 stempel</p>
+</td></tr></table>
+</td></tr></table>
+{%- endif -%}
