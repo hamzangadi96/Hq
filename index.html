@@ -5288,7 +5288,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v951 · 2 nov 2026';
+const APPVERSIE = 'v952 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20421,6 +20421,100 @@ async function labelDoen(o){
   }catch(e){ toast(fout(e)) }
 }
 
+/* ═══════════ v952: betaallinks via WhatsApp ═══════════
+   Je kiest producten (of een eigen bedrag), HQ maakt in Shopify een
+   conceptorder met afrekenlink, en jij stuurt die via WhatsApp. Betaalt de
+   klant, dan staat het als gewone order in Shopify. Telefoonnummer en naam
+   worden niet bewaard. */
+let BL=null, BLP=null;
+const blEuro=n=>'€ '+(Math.round(n*100)/100).toFixed(2).replace('.',',');
+function blTotaal(){ return BL.regels.reduce((t,x)=>t+(x.prijs||0)*(x.aantal||1),0)+(BL.vz==='verzenden'?(BL.vzPrijs||0):0) }
+function sheetBetaallink(){
+  if(!BL) BL={regels:[],vz:S.blVz||'verzenden',vzPrijs:typeof S.blVzPrijs==='number'?S.blVzPrijs:6.95,notitie:''};
+  const rij=(x,i)=>`<div class="shrij" style="gap:10px"><span class="shn">${esc(x.titel)}${x.variant?`<small>${esc(x.variant)}</small>`:''}<small>${blEuro(x.prijs)} per stuk</small></span>
+    <span style="display:flex;align-items:center;gap:6px;flex:none">
+      <button type="button" class="stepbtn" style="width:38px;height:38px" data-blmin="${i}">${svg(I.min)}</button>
+      <b style="min-width:20px;text-align:center">${x.aantal}</b>
+      <button type="button" class="stepbtn" style="width:38px;height:38px" data-blplus="${i}">${svg(I.plus)}</button></span></div>`;
+  const recent=alsLijst(S.betaallinks).slice(-5).reverse();
+  sheet('Betaallink',
+    `<div class="gl">${BL.regels.map(rij).join('')}
+       <button type="button" class="lgnieuw" id="blProd">${svg(I.plus)}Product</button>
+       <button type="button" class="lgnieuw" id="blEigen">${svg(I.plus)}Eigen bedrag</button></div>
+     <div class="veld"><label>Bezorgen</label>
+       <div class="duo" id="blVz"><button data-v="verzenden" class="${BL.vz==='verzenden'?'aan':''}">Verzenden</button>
+         <button data-v="ophalen" class="${BL.vz==='ophalen'?'aan':''}">Ophalen</button></div>
+       ${BL.vz==='verzenden'?`<div style="display:flex;align-items:center;gap:8px;margin-top:10px"><span class="geen" style="flex:1">Verzendkosten</span>
+         <input class="inp" id="blVzP" type="text" inputmode="decimal" style="width:110px;text-align:right" value="${String(BL.vzPrijs).replace('.',',')}"></div>`:''}</div>
+     <div class="veld"><label>Notitie bij de order <span style="text-transform:none;font-weight:500">(bijv. smaken)</span></label>
+       <textarea class="inp" id="blNot" rows="2" placeholder="Bijv. 4× matcha aardbei, 4× pinda">${esc(BL.notitie)}</textarea></div>
+     <div class="shrij"><span class="shn"><b>Totaal</b><small>btw zit in de prijs</small></span><span class="shw"><b>${blEuro(blTotaal())}</b></span></div>
+     ${recent.length?`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">Laatst gestuurd</span>
+        <button class="kopknop" id="blVers">${svg(I.ververs||I.klok)}Status</button></div>
+       <div class="gl">${recent.map(x=>`<div class="shrij"><span class="shn">${esc(x.naam)} · ${blEuro(x.totaal)}<small>${esc(x.datum||'')}${x.order?' · order '+esc(x.order):''}</small></span>
+         <span class="shw${x.status==='COMPLETED'?'':' let'}">${x.status==='COMPLETED'?'betaald':'open'}</span>
+         <button type="button" class="kopknop" data-blopn="${esc(x.id)}">WhatsApp</button></div>`).join('')}</div>`:''}`,
+    `<button class="prim" style="margin-top:0" id="blMaak" ${BL.regels.length?'':'disabled'}>${svg(I.euro)}Betaallink maken</button>`);
+  $$('#sheetBody [data-blmin]').forEach(b=>b.onclick=()=>{ const x=BL.regels[+b.dataset.blmin]; x.aantal--; if(x.aantal<1) BL.regels.splice(+b.dataset.blmin,1); sheetBetaallink() });
+  $$('#sheetBody [data-blplus]').forEach(b=>b.onclick=()=>{ BL.regels[+b.dataset.blplus].aantal++; sheetBetaallink() });
+  $$('#blVz button').forEach(b=>b.onclick=()=>{ BL.vz=b.dataset.v; S.blVz=BL.vz; bewaarNu(); sheetBetaallink() });
+  if($('#blVzP')) $('#blVzP').onchange=()=>{ const v=getalIn($('#blVzP').value); if(!isNaN(v)&&v>=0){ BL.vzPrijs=v; S.blVzPrijs=v; bewaarNu() } sheetBetaallink() };
+  $('#blNot').oninput=()=>{ BL.notitie=$('#blNot').value };
+  $('#blProd').onclick=sheetBetaalProducten;
+  $('#blEigen').onclick=sheetBetaalEigen;
+  if($('#blVers')) $('#blVers').onclick=blStatus;
+  $$('#sheetBody [data-blopn]').forEach(b=>b.onclick=()=>{ const x=alsLijst(S.betaallinks).find(y=>y.id===b.dataset.blopn); if(x) sheetBetaallinkKlaar(x) });
+  $('#blMaak').onclick=async()=>{
+    const k=$('#blMaak'); k.disabled=true; k.textContent='Link maken…';
+    try{
+      const res=await roep('maakBetaallink',{regels:BL.regels.map(x=>x.variantId?{variantId:x.variantId,aantal:x.aantal}:{titel:x.titel,prijs:x.prijs,aantal:x.aantal}),
+        verzending:{soort:BL.vz,prijs:BL.vzPrijs},notitie:BL.notitie});
+      const l=Object.assign({},res.link,{datum:vandaag()});
+      S.betaallinks=alsLijst(S.betaallinks).concat([l]).slice(-50); bewaarNu();
+      BL=null; sheetBetaallinkKlaar(l);
+    }catch(e){ k.disabled=false; k.innerHTML=svg(I.euro)+'Betaallink maken'; toast(fout(e)) }
+  };
+}
+async function sheetBetaalProducten(){
+  if(!BLP){ sheet('Product kiezen','<p class="wdleeg">Producten ophalen uit Shopify…</p>','');
+    try{ BLP=(await roep('betaalProducten',{})).producten||[] }catch(e){ toast(fout(e)); return sheetBetaallink() } }
+  sheet('Product kiezen',`<div class="gl">${BLP.map((p,i)=>`<button type="button" class="shrij" data-blp="${i}">
+      <span class="shn">${esc(p.titel)}${p.variant?`<small>${esc(p.variant)}</small>`:''}</span><span class="shw">${blEuro(p.prijs)}</span>${svg(I.plus)}</button>`).join('')||'<p class="wdleeg">Geen actieve producten.</p>'}</div>`,'');
+  sheetTerugZet(sheetBetaallink);
+  $$('#sheetBody [data-blp]').forEach(b=>b.onclick=()=>{ const p=BLP[+b.dataset.blp];
+    const al=BL.regels.find(x=>x.variantId===p.variantId); if(al) al.aantal++; else BL.regels.push({variantId:p.variantId,titel:p.titel,variant:p.variant,prijs:p.prijs,aantal:1});
+    sheetBetaallink() });
+}
+function sheetBetaalEigen(){
+  sheet('Eigen bedrag',`<div class="veld"><label>Omschrijving</label><input class="inp" id="beT" placeholder="Bijv. Bonbons op maat"></div>
+    <div class="veld"><label>Bedrag (incl. btw)</label><input class="inp" id="beP" type="text" inputmode="decimal" placeholder="0,00"></div>`,
+    `<button class="prim" style="margin-top:0" id="beOk">Toevoegen</button>`);
+  sheetTerugZet(sheetBetaallink);
+  $('#beOk').onclick=()=>{ const t=$('#beT').value.trim(), v=getalIn($('#beP').value);
+    if(!t) return toast('Vul een omschrijving in.'); if(isNaN(v)||v<=0) return toast('Vul een bedrag in.');
+    BL.regels.push({titel:t,prijs:Math.round(v*100)/100,aantal:1}); sheetBetaallink() };
+}
+function blWhatsApp(l,tel){
+  const t='Hoi, hierbij de betaallink voor je bestelling bij Cacaoboetiek ('+blEuro(l.totaal)+'):\n'+l.url+'\n\nNa betaling ontvang je een bevestiging per mail.';
+  let n=String(tel||'').replace(/[^0-9+]/g,''); if(n.startsWith('+')) n=n.slice(1); else if(n.startsWith('06')) n='31'+n.slice(1); else if(n.startsWith('00')) n=n.slice(2);
+  window.open('https://wa.me/'+(n.length>=10?n:'')+'?text='+encodeURIComponent(t),'_blank');
+}
+function sheetBetaallinkKlaar(l){
+  sheet('Betaallink klaar',
+    `<div class="shrij"><span class="shn"><b>${esc(l.naam)}</b><small>${esc(l.url)}</small></span><span class="shw"><b>${blEuro(l.totaal)}</b></span></div>
+     <div class="veld"><label>Telefoonnummer <span style="text-transform:none;font-weight:500">(mag leeg: dan kies je in WhatsApp)</span></label>
+       <input class="inp" id="blTel" type="tel" inputmode="tel" placeholder="06 12345678"></div>
+     <div class="lgvoet bvoet"><button type="button" id="blKopie">Link kopiëren</button></div>`,
+    `<button class="prim" style="margin-top:0" id="blWa">${svg(I.praat)}Sturen via WhatsApp</button>`);
+  $('#blWa').onclick=()=>blWhatsApp(l,$('#blTel').value);
+  $('#blKopie').onclick=async()=>{ try{ await navigator.clipboard.writeText(l.url); toast('Link gekopieerd.') }catch(e){ toast('Kopiëren lukte niet.') } };
+}
+async function blStatus(){
+  const l=alsLijst(S.betaallinks); if(!l.length) return;
+  try{ const res=await roep('betaallinkStatus',{ids:l.slice(-20).map(x=>x.id)});
+    (res.links||[]).forEach(n=>{ const x=l.find(y=>y.id===n.id); if(x) Object.assign(x,{status:n.status,order:n.order,totaal:n.totaal}) });
+    bewaarNu(); sheetBetaallink(); toast('Status bijgewerkt.') }catch(e){ toast(fout(e)) }
+}
 function ordersHTML(){
   const alle=(S.orders||[]).slice().sort((a,b2)=>(a.leverdatum||'9').localeCompare(b2.leverdatum||'9'));
   const open=alle.filter(o=>oStatus(o)==='nieuw');
@@ -20429,7 +20523,8 @@ function ordersHTML(){
 
   let h='';
 
-  h+=`<button class="sec" data-nieuweorder>${svg(I.plus)}&nbsp; Order handmatig aanmaken</button>`;
+  h+=`<button class="prim" style="margin-top:0" onclick="sheetBetaallink()">${svg(I.euro)}&nbsp; Betaallink sturen</button>
+    <button class="sec" data-nieuweorder>${svg(I.plus)}&nbsp; Order handmatig aanmaken</button>`;
 
   if(krap.length) h+=`<div class="melding amber" style="margin:20px 0 0">${svg(I.alarm,'2')}
     <span>${krap.length===1?'Eén order heeft':krap.length+' orders hebben'} niet genoeg voorraad.

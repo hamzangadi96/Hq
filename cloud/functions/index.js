@@ -1847,6 +1847,73 @@ exports.meldVerzonden = onCall(async req => {
   return { ok: true, barcode };
 });
 
+/* ═══════════════════════════════════════════════════════════════════
+   Betaallinks (v952)
+   Een conceptorder in Shopify met een eigen afrekenlink. HQ stuurt die link
+   via WhatsApp; betaalt de klant, dan wordt het een gewone Shopify-order.
+   Naam en telefoonnummer gaan niet via deze functie en niet naar Firebase.
+   ═══════════════════════════════════════════════════════════════════ */
+const blTekst = (x, max) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, max);
+function blBedrag(x, max) {
+  const n = Number(String(x == null ? '' : x).replace(',', '.'));
+  return isFinite(n) && n >= 0 && n <= max ? Math.round(n * 100) / 100 : null;
+}
+const DRAFT_VELDEN = 'id name status invoiceUrl totalPriceSet{shopMoney{amount}} createdAt order{name}';
+const netteDraft = d => ({ id: d.id, naam: d.name, status: d.status, url: d.invoiceUrl,
+  totaal: Number(((d.totalPriceSet || {}).shopMoney || {}).amount || 0), order: d.order ? d.order.name : '' });
+
+exports.betaalProducten = binnen('betaalProducten', async req => {
+  const uid = wieBenJe(req);
+  const gql = await shopifyGql(uid, 'read_products');
+  const d = await gql('query{products(first:100,query:"status:active",sortKey:TITLE){nodes{title variants(first:20){nodes{id title price}}}}}');
+  const uit = [];
+  ((d.products || {}).nodes || []).forEach(p => ((p.variants || {}).nodes || []).forEach(v => uit.push({
+    variantId: v.id, titel: p.title, variant: v.title === 'Default Title' ? '' : v.title, prijs: Number(v.price) })));
+  return { producten: uit };
+});
+
+exports.maakBetaallink = binnen('maakBetaallink', async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const lineItems = (Array.isArray(d.regels) ? d.regels : []).slice(0, 30).map(r => {
+    r = r || {};
+    const aantal = Math.max(1, Math.min(500, parseInt(r.aantal, 10) || 1));
+    if (typeof r.variantId === 'string' && /^gid:\/\/shopify\/ProductVariant\/\d+$/.test(r.variantId))
+      return { variantId: r.variantId, quantity: aantal };
+    const titel = blTekst(r.titel, 80), prijs = blBedrag(r.prijs, 5000);
+    if (!titel || !prijs) return null;
+    return { title: titel, quantity: aantal, taxable: true, requiresShipping: true,
+      originalUnitPriceWithCurrency: { amount: String(prijs), currencyCode: 'EUR' } };
+  }).filter(Boolean);
+  if (!lineItems.length) throw new HttpsError('invalid-argument', 'Kies minstens één product of vul een bedrag in.');
+
+  const input = { lineItems, tags: ['hq-betaallink'] };
+  const notitie = blTekst(d.notitie, 400);
+  if (notitie) input.note = notitie;
+  const vz = d.verzending || {};
+  if (vz.soort === 'verzenden') {
+    const prijs = blBedrag(vz.prijs, 100);
+    input.shippingLine = { title: blTekst(vz.titel, 60) || 'Verzending', priceWithCurrency: { amount: String(prijs || 0), currencyCode: 'EUR' } };
+  } else if (vz.soort === 'ophalen') {
+    input.shippingLine = { title: 'Ophalen in Drunen', priceWithCurrency: { amount: '0', currencyCode: 'EUR' } };
+  }
+
+  const gql = await shopifyGql(uid, 'write_draft_orders');
+  const r = (await gql('mutation($i:DraftOrderInput!){draftOrderCreate(input:$i){draftOrder{' + DRAFT_VELDEN + '} userErrors{message}}}', { i: input })).draftOrderCreate;
+  if (r.userErrors && r.userErrors.length) throw new HttpsError('internal', 'Betaallink maken lukte niet: ' + fouten(r.userErrors));
+  return { link: netteDraft(r.draftOrder) };
+});
+
+exports.betaallinkStatus = binnen('betaallinkStatus', async req => {
+  const uid = wieBenJe(req);
+  const ids = (Array.isArray((req.data || {}).ids) ? req.data.ids : [])
+    .filter(x => typeof x === 'string' && /^gid:\/\/shopify\/DraftOrder\/\d+$/.test(x)).slice(0, 50);
+  if (!ids.length) return { links: [] };
+  const gql = await shopifyGql(uid, 'read_draft_orders');
+  const d = await gql('query($ids:[ID!]!){nodes(ids:$ids){... on DraftOrder{' + DRAFT_VELDEN + '}}}', { ids });
+  return { links: (d.nodes || []).filter(Boolean).map(netteDraft) };
+});
+
 /* Ondertitels staan in een eigen bestand ernaast, zodat dit bestand niet nog
    langer wordt. Deze regel haalt ze binnen. */
 Object.assign(exports, require('./maakOndertitels'));
