@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v966 · 2 nov 2026';
+const APPVERSIE = 'v967 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12641,6 +12641,7 @@ function prodTegelsHTML(a){
       ${t('sheetIngredientenLijst(false)','doos','Ingrediënten',!ings.length?'':iOnaf?iOnaf+' niet af':ings.length+' '+vk,iOnaf)}
       ${t('sheetRekenen()','loep','Wat nodig?','')}
       ${loopt?'':t("sheetNieuweBatch()",'plus','Losse batch','')}
+      ${t('sheetProductinfo()','lijst','Website-info','')}
       ${t("homeTegel('vv')",'klembord','HACCP',ij?vk:'ijken',!ij)}
       ${t("homeTegel('lst')",'instel','Instellingen','')}
     </div>`;
@@ -29335,6 +29336,55 @@ function etiketAssortimentHTML(d,lots,tht,chocs){
     <div class="er r"><span>Lot</span><b>${lots.map(esc).join(' · ')}</b></div>
     <div class="voet">${esc(BEDRIJF.naam)} · ${esc(BEDRIJF.adres)}<br>${esc(BEDRIJF.contact)}</div>
   </div>`;
+}
+/* v967: productinformatie per smaak voor op de website, uit je recepten.
+   Standaard de smaken uit je laatste twee afgeronde batches. */
+function productinfoSmaken(){
+  const kl=(S.batches||[]).filter(b=>b&&b.status==='klaar').sort((a,b2)=>String(b2.eindDatum||b2.startDatum||'').localeCompare(String(a.eindDatum||a.startDatum||''))).slice(0,2);
+  const ids=[], van={};
+  kl.forEach(b=>(b.regels||[]).forEach(x=>{ if(x&&x.receptId&&ids.indexOf(x.receptId)<0){ ids.push(x.receptId); van[x.receptId]=b } }));
+  return {batches:kl, smaken:ids.map(id=>{ const r0=(S.recepten||[]).find(r=>r.id===id)||(van[id].recepten||{})[id]; return r0&&r0.naam?{r:r0,b:van[id]}:null }).filter(Boolean)};
+}
+function productinfo(r){
+  const al=smaakAllergenen(r).map(k=>alNaam(k).toLowerCase());
+  const ch=(CHOCSTANDAARD.find(c=>c.key===r.chocolade)||{}).naam||'';
+  const g=gramPerBonbon(r);
+  let vw=null; try{ const v=voedingVanSmaak(r); vw=v&&v.per100 }catch(e){}
+  let bew='Koel en droog bewaren, 15 – 18 °C'; try{ bew=etiketData(r).bewaar||bew }catch(e){}
+  const wk=r.tht?(r.tht%7===0?(r.tht/7)+' weken':r.tht+' dagen'):'';
+  const decl=declaratie(r);
+  const rijen=[
+    ['Smaak',r.naam],
+    ch&&['Chocolade',ch+(g?' · ca. '+Math.round(g)+' g per bonbon':'')],
+    decl&&['Ingrediënten',decl],
+    ['Allergenen',al.length?'Bevat '+al.join(', ')+'.':'Geen allergenen uit de wettelijke lijst.'],
+    vw&&['Voedingswaarde per 100 g','Energie '+Math.round(vw.kj)+' kJ / '+Math.round(vw.kcal)+' kcal · vetten '+komma(getal(vw.vet))+' g (waarvan verzadigd '+komma(getal(vw.verz))+' g) · koolhydraten '+komma(getal(vw.koolh))+' g (waarvan suikers '+komma(getal(vw.suik))+' g) · eiwitten '+komma(getal(vw.eiwit))+' g · zout '+komma(getal(vw.zout))+' g'],
+    wk&&['Houdbaarheid',wk+' na productie'],
+    ['Bewaren',bew],
+    ['Overig','Handgemaakt in Drunen · halal · zonder alcohol']
+  ].filter(Boolean);
+  const html='<p><strong>'+esc(r.naam)+'</strong></p>'+rijen.slice(1).map(([k,v])=>'<p><strong>'+esc(k)+':</strong> '+(k==='Ingrediënten'?v.replace(/<b>/g,'<strong>').replace(/<\/b>/g,'</strong>'):esc(v))+'</p>').join('');
+  const tekst=r.naam+'\n'+rijen.slice(1).map(([k,v])=>k+': '+String(v).replace(/<\/?b>/g,'').replace(/&amp;/g,'&')).join('\n');
+  return {rijen,html,tekst};
+}
+async function kopieerRijk(html,tekst){
+  try{ if(window.ClipboardItem&&navigator.clipboard.write){
+      await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([tekst],{type:'text/plain'})})]); return true } }catch(e){}
+  try{ await navigator.clipboard.writeText(tekst); return true }catch(e){ return false }
+}
+function sheetProductinfo(){
+  const {batches,smaken}=productinfoSmaken();
+  const lijst=smaken.map(x=>({x,p:productinfo(x.r)}));
+  sheet('Website-info',
+    `<p class="hint">${batches.length?'Smaken uit '+batches.map(b=>esc(b.code)).join(' en ')+'. ':''}Tik op Kopieer en plak het in Shopify bij je product. Vetgedrukte allergenen gaan mee.</p>
+     ${lijst.length?lijst.map((y,i)=>`<div class="paneel" style="padding:16px;margin-top:12px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b style="flex:1;font-size:16px">${esc(y.x.r.naam)}</b>
+          <button type="button" class="kopknop" data-pik="${i}">Kopieer</button></div>
+        ${y.p.rijen.slice(1).map(([k,v])=>`<p style="margin:6px 0;font-size:13px;line-height:1.5"><span style="color:var(--grijs,#71717a)">${esc(k)}</span><br>${k==='Ingrediënten'?v:esc(v)}</p>`).join('')}
+      </div>`).join(''):'<p class="wdleeg">Nog geen afgeronde batches.</p>'}`,
+    lijst.length?`<button class="prim" style="margin-top:0" id="pikAlles">${svg(I.lijst)} Alles kopiëren (${lijst.length} smaken)</button>`:'');
+  $$('#sheetBody [data-pik]').forEach(b=>b.onclick=async()=>{ const y=lijst[+b.dataset.pik]; toast(await kopieerRijk(y.p.html,y.p.tekst)?y.x.r.naam+' gekopieerd.':'Kopiëren lukte niet.') });
+  if($('#pikAlles')) $('#pikAlles').onclick=async()=>{ toast(await kopieerRijk(lijst.map(y=>y.p.html).join('<hr>'),lijst.map(y=>y.p.tekst).join('\n\n'))?'Alle smaken gekopieerd.':'Kopiëren lukte niet.') };
 }
 let ETB=null;
 function sheetBatchEtiketten(batchId){
