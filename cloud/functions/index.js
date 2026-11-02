@@ -1893,6 +1893,75 @@ exports.betaallinkKlant = binnen('betaallinkKlant', async req => {
   return { link: netteDraft(r.draftOrder), klant: k.naam, nieuw: k.nieuw };
 });
 
+/* v962: een betaallink terugdraaien vanuit HQ.
+   info        status + wat er nog terug kan
+   intrekken   nog niet betaald: concept weggooien, de link werkt dan niet meer
+   annuleren   betaald: order annuleren en alles terug naar de klant
+   terugbetalen betaald: (deel)bedrag terug, order blijft staan (retour)
+   Annuleren en terugbetalen vragen de scope write_orders. */
+const TERUG_ORDER = 'id name cancelledAt displayFinancialStatus totalPriceSet{shopMoney{amount}} totalRefundedSet{shopMoney{amount}} transactions{id kind status gateway amountSet{shopMoney{amount}}}';
+function terugInfo(d) {
+  const o = d.order;
+  if (!o) return { status: d.status, betaald: false };
+  const tot = Number(o.totalPriceSet.shopMoney.amount || 0), terug = Number(o.totalRefundedSet.shopMoney.amount || 0);
+  return { status: d.status, betaald: true, order: o.name, geannuleerd: !!o.cancelledAt, financieel: o.displayFinancialStatus,
+    totaal: tot, terugbetaald: terug, kanTerug: Math.max(0, Math.round((tot - terug) * 100) / 100) };
+}
+const schrijfFout = e => /ACCESS_DENIED|write_orders|access/i.test(String(e && e.message || e))
+  ? new HttpsError('permission-denied', 'HQ mag nog geen orders terugbetalen. Zet in het Shopify Dev Dashboard de scope write_orders aan, geef een nieuwe versie vrij en keur hem goed in je Shopify-admin. Tik daarna in HQ bij Shopify op Ververs.')
+  : e;
+exports.betaallinkTerug = binnen('betaallinkTerug', async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const id = String(d.id || '');
+  if (!/^gid:\/\/shopify\/DraftOrder\/\d+$/.test(id)) throw new HttpsError('invalid-argument', 'Onbekende betaallink.');
+  const gql = await shopifyGql(uid, 'write_draft_orders');
+  const dr = (await gql('query($id:ID!){draftOrder(id:$id){id status order{' + TERUG_ORDER + '}}}', { id })).draftOrder;
+  if (!dr) return { status: 'WEG', betaald: false };
+  const actie = d.actie || 'info';
+  if (actie === 'info') return terugInfo(dr);
+
+  if (actie === 'intrekken') {
+    if (dr.order) throw new HttpsError('failed-precondition', 'Deze link is al betaald. Kies terugbetalen of annuleren.');
+    const r = (await gql('mutation($i:DraftOrderDeleteInput!){draftOrderDelete(input:$i){deletedId userErrors{message}}}', { i: { id } })).draftOrderDelete;
+    if (r.userErrors && r.userErrors.length) throw new HttpsError('internal', 'Intrekken lukte niet: ' + fouten(r.userErrors));
+    return { status: 'WEG', betaald: false };
+  }
+
+  const o = dr.order;
+  if (!o) throw new HttpsError('failed-precondition', 'Deze link is nog niet betaald. Je kunt hem alleen intrekken.');
+  if (o.cancelledAt) throw new HttpsError('failed-precondition', 'Deze order is al geannuleerd.');
+  const bericht = d.bericht !== false;
+  const gqlO = await shopifyGql(uid, 'write_orders');
+
+  if (actie === 'annuleren') {
+    let r;
+    try {
+      r = (await gqlO('mutation($o:ID!,$n:Boolean){orderCancel(orderId:$o,reason:CUSTOMER,restock:true,notifyCustomer:$n,refundMethod:{originalPaymentMethodsRefund:true},staffNote:"Geannuleerd via HQ"){job{id} orderCancelUserErrors{message}}}', { o: o.id, n: bericht })).orderCancel;
+    } catch (e) { throw schrijfFout(e); }
+    if (r.orderCancelUserErrors && r.orderCancelUserErrors.length) throw schrijfFout(new HttpsError('internal', 'Annuleren lukte niet: ' + fouten(r.orderCancelUserErrors)));
+    return Object.assign(terugInfo(dr), { geannuleerd: true, bezig: true, terugbetaald: terugInfo(dr).totaal, kanTerug: 0 });
+  }
+
+  if (actie === 'terugbetalen') {
+    const info = terugInfo(dr);
+    const bedrag = Math.round(Number(d.bedrag) * 100) / 100;
+    if (!(bedrag > 0)) throw new HttpsError('invalid-argument', 'Vul een bedrag in.');
+    if (bedrag > info.kanTerug + 0.001) throw new HttpsError('invalid-argument', 'Er kan nog maximaal € ' + info.kanTerug.toFixed(2).replace('.', ',') + ' terug.');
+    const ouder = (o.transactions || []).find(t => (t.kind === 'SALE' || t.kind === 'CAPTURE') && t.status === 'SUCCESS');
+    if (!ouder) throw new HttpsError('failed-precondition', 'Ik vind de betaling bij deze order niet.');
+    let r;
+    try {
+      r = (await gqlO('mutation($i:RefundInput!){refundCreate(input:$i){refund{id totalRefundedSet{shopMoney{amount}}} userErrors{message}}}', { i: {
+        orderId: o.id, notify: bericht, note: blTekst(d.reden, 200) || 'Terugbetaald via HQ',
+        transactions: [{ orderId: o.id, parentId: ouder.id, gateway: ouder.gateway, kind: 'REFUND', amount: bedrag.toFixed(2) }] } })).refundCreate;
+    } catch (e) { throw schrijfFout(e); }
+    if (r.userErrors && r.userErrors.length) throw schrijfFout(new HttpsError('internal', 'Terugbetalen lukte niet: ' + fouten(r.userErrors)));
+    return Object.assign(info, { terugbetaald: Math.round((info.terugbetaald + bedrag) * 100) / 100, kanTerug: Math.round((info.kanTerug - bedrag) * 100) / 100 });
+  }
+  throw new HttpsError('invalid-argument', 'Onbekende actie.');
+});
+
 exports.betaalProducten = binnen('betaalProducten', async req => {
   const uid = wieBenJe(req);
   const gql = await shopifyGql(uid, 'read_products');
