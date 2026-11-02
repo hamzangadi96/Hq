@@ -8,7 +8,7 @@
   Nieuwe stempels "ploppen" erin (GIF, speelt één keer). Apple Mail laat de kaart
   ook rustig inschuiven en pulseren bij een volle kaart, net als op de site.
 {% endcomment %}
-{%- if customer and customer.metafields.custom.cb_stamps -%}
+{%- if customer and customer.email != blank -%}
 {%- liquid
   assign cbs_img = 'https://cdn.shopify.com/s/files/1/0856/3284/4120/files/cbs-mail-'
   assign cbs_auto = shop.metafields.custom.cb_stamps_automatic.value
@@ -62,7 +62,9 @@
   {% elsif cbs_resid > 0 %}
     <p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:#321e1e">Nog {{ cbs_next | money_without_trailing_zeros }} tot je volgende stempel.</p>
   {% endif %}
-  <a href="{{ shop.url }}" style="display:block;margin:24px 0 0;padding:14px 10px;border-radius:4px;background:#512f25;color:#ffffff;text-decoration:none;font-size:14px">Bekijk je stempelkaart</a>
+  <p style="margin:20px 0 0;padding:14px 16px;border-radius:12px;background:#f7f8f8;font-size:13px;line-height:1.6;color:#321e1e">Je stempels horen bij <strong style="font-weight:600;color:#512f25;word-break:break-all">{{ customer.email }}</strong>. Bestel altijd met dit mailadres, dan spaar je automatisch verder. Een account is niet nodig.</p>
+  <a href="{{ shop.url }}/account" style="display:block;margin:20px 0 0;padding:14px 10px;border-radius:4px;background:#512f25;color:#ffffff;text-decoration:none;font-size:14px">Bekijk je stempelkaart</a>
+  <p style="margin:8px 0 0;font-size:12px;color:#71717a">Inloggen gaat met een code per mail, zonder wachtwoord.</p>
   <p style="margin:18px 0 0;font-size:12px;color:#321e1e">€25 = 1 stempel</p>
 </td></tr></table>
 </td></tr></table>
