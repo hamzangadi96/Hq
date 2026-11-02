@@ -2912,14 +2912,21 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .etiket .er{display:flex;justify-content:space-between;gap:8px}
 .etiket .ek{color:#444}
 .etiket .eb{font-weight:700}
-.wenskaart{width:210mm;height:148mm;background:#fff;position:relative;
+.wenskaart{width:105mm;height:148mm;background:#fff;position:relative;
   display:flex;flex-direction:column;justify-content:center;align-items:center;
-  padding:22mm 26mm;box-sizing:border-box;color:#1a1a1a}
+  padding:16mm 12mm 20mm;box-sizing:border-box;color:#1a1a1a;overflow:hidden}
 .wktekst{text-align:center;max-width:100%;word-wrap:break-word}
-.wkmerk{position:absolute;bottom:14mm;left:0;right:0;text-align:center;
+.wenskaart .wktekst{flex:none;text-align:center;min-width:0}
+.wkmerk{position:absolute;bottom:9mm;left:0;right:0;text-align:center;
   font-family:'Cormorant Garamond',Georgia,serif;font-size:7.5pt;font-weight:600;
   letter-spacing:.34em;padding-left:.34em;color:#8a8a8a}
-.vel.wenskaartvel{width:210mm;height:148mm;padding:0;display:block}
+.vel.wenskaartvel{width:105mm;height:148mm;padding:0;display:block}
+/* vier A6-kaarten op één A4, met dunne snijlijnen */
+.wkvel{width:210mm;height:296mm;display:grid;grid-template-columns:105mm 105mm;
+  grid-template-rows:148mm 148mm;page-break-after:always;break-after:page;background:#fff}
+.wkvel:last-child{page-break-after:auto;break-after:auto}
+.wkvel .wenskaart{outline:.2mm dashed #d4d4d8;outline-offset:-.1mm}
+.wkvel .wkleeg{width:105mm;height:148mm}
 
 /* ── het factuurdocument: eigen huisstijl, warm en rustig ── */
 .factuur{width:210mm;min-height:297mm;background:#fffdfa;color:#2a2320;box-sizing:border-box;
@@ -5257,7 +5264,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v949 · 30 okt 2026';
+const APPVERSIE = 'v950 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12865,9 +12872,18 @@ function kaartRegels(tekst){
 function kaartGrootte(tekst,font){
   const regels=kaartRegels(tekst);
   const langste=regels.reduce((n,r)=>Math.max(n,r.length),0);
-  let pt=font.basis;
-  while(pt>18&&(langste*pt*0.46>860||regels.length*pt*font.hoog>640)) pt-=2;
-  return Math.max(18,pt);
+  /* A6 staand (v950): de helft van de oude A5-breedte, dus kleinere basis */
+  /* Lange regels lopen door naar de volgende regel; we tellen hoeveel regels
+     dat wordt en krimpen pas als het niet meer in de hoogte past. */
+  const BREED=230, HOOG=300;               /* tekstvlak van een A6 in pt */
+  let pt=Math.round(font.basis*0.62);
+  const past=g=>{
+    const lijnen=regels.reduce((n,r)=>n+Math.max(1,Math.ceil(r.length*g*0.5/BREED)),0);
+    const woord=regels.reduce((n,r)=>Math.max(n,...r.split(/\s+/).map(w=>w.length)),0);
+    return lijnen*g*font.hoog<=HOOG && woord*g*0.5<=BREED;
+  };
+  while(pt>11&&!past(pt)) pt-=1;
+  return Math.max(11,pt);
 }
 /* ---------- de wenskaart als afbeelding ----------
    Printen via de browser werkt niet in een app op je telefoon: een webview
@@ -12878,7 +12894,7 @@ const mmNaarPx=mm=>Math.round(mm/25.4*KAART_DPI);
 
 async function kaartCanvas(tekst,font,pt){
   const f=font||kaartFont(), g=pt||kaartGrootte(tekst,f);
-  const B=mmNaarPx(210), H=mmNaarPx(148);
+  const B=mmNaarPx(105), H=mmNaarPx(148);
   const c=document.createElement('canvas');
   c.width=B; c.height=H;
   const x=c.getContext('2d');
@@ -12895,7 +12911,18 @@ async function kaartCanvas(tekst,font,pt){
   x.textBaseline='middle';
   x.font=`${groot}px ${fam}`;
 
-  const regels=kaartRegels(tekst);
+  /* lange regels laten omslaan binnen de marges van de A6 */
+  const maxB=B-2*mmNaarPx(12);
+  const regels=[];
+  kaartRegels(tekst).forEach(r=>{
+    if(!r.trim()){ regels.push(''); return }
+    let rij='';
+    r.split(/\s+/).forEach(w=>{
+      const proef=rij?rij+' '+w:w;
+      if(rij&&x.measureText(proef).width>maxB){ regels.push(rij); rij=w } else rij=proef;
+    });
+    regels.push(rij);
+  });
   const regelHoogte=groot*f.hoog;
   const totaal=regels.length*regelHoogte;
   let y=H/2-totaal/2+regelHoogte/2;
@@ -12910,7 +12937,7 @@ async function kaartCanvas(tekst,font,pt){
   const breedte=naam.split('').reduce((n,ch)=>n+x.measureText(ch).width+sp,0)-sp;
   let mx=B/2-breedte/2;
   x.textAlign='left';
-  naam.split('').forEach(ch=>{ x.fillText(ch,mx,H-mmNaarPx(14)); mx+=x.measureText(ch).width+sp });
+  naam.split('').forEach(ch=>{ x.fillText(ch,mx,H-mmNaarPx(9)); mx+=x.measureText(ch).width+sp });
 
   return c;
 }
@@ -12990,7 +13017,7 @@ function sheetWenskaart(vooraf){
     const tekst=($('#wkT')&&$('#wkT').value)||vooraf||'';
     const f=kaartFont(), pt=kaartGrootte(tekst,f);
     sheet('Wenskaart',
-      `<p class="hint">A5 liggend, klaar om te printen. De tekst past zichzelf aan:
+      `<p class="hint">A6 staand, klaar om te printen. De tekst past zichzelf aan:
         hij wordt kleiner als je meer schrijft, nooit groter.</p>
        <div class="etvoorbeeld" style="padding:12px"><div class="schaal" id="wkSchaal">${kaartHTML(tekst,f,pt)}</div></div>
        <div class="veld"><label>Wat komt erop?</label>
@@ -13031,10 +13058,69 @@ function sheetWenskaart(vooraf){
       const t=$('#wkT').value;
       if(!t.trim()) return toast('Schrijf eerst iets.');
       drukAf(`<div class="vel wenskaartvel">${kaartHTML(t,kaartFont(),kaartGrootte(t,kaartFont()))}</div>`,
-        'Wenskaart','@page{size:210mm 148mm;margin:0}');
+        'Wenskaart','@page{size:105mm 148mm;margin:0}');
     };
   };
   teken();
+}
+
+/* ═══════════ Wenskaarten in één keer (v950) ═══════════
+   Haalt de kaartteksten van de gekozen orders bij Shopify (nergens bewaard),
+   zet ze vier per A4 en opent het printvenster. Jij hoeft alleen te printen
+   en te snijden. Kaarten zonder tekst staan in de lijst, maar niet op het vel. */
+function wkVellen(kaarten){
+  const f=kaartFont(), vellen=[];
+  for(let i=0;i<kaarten.length;i+=4){
+    const vier=kaarten.slice(i,i+4);
+    while(vier.length<4) vier.push(null);
+    vellen.push(`<div class="wkvel">${vier.map(k=>k
+      ?kaartHTML(k.tekst,f,kaartGrootte(k.tekst,f))
+      :'<div class="wkleeg"></div>').join('')}</div>`);
+  }
+  return vellen.join('');
+}
+
+async function wenskaartenPrinten(orders){
+  const lijst=(orders||[]).filter(Boolean);
+  if(!lijst.length) return toast('Geen orders met een wenskaart.');
+  toast('Kaartteksten ophalen\u2026');
+  let r;
+  try{ r=await roep('haalKaarten',{orders:lijst.map(o=>o.shopifyId||o.nummer)}) }
+  catch(e){ return toast(fout(e)) }
+  const alle=r.kaarten||[];
+  const goed=alle.filter(k=>k.tekst), mist=alle.filter(k=>!k.tekst);
+  const vellen=Math.ceil(goed.length/4);
+  S.kaartFont=S.kaartFont||KAARTFONTS[0].k;
+  sheet('Wenskaarten printen',
+    `<p class="hint">${goed.length} ${goed.length===1?'kaart':'kaarten'} op ${vellen} A4
+       ${vellen===1?'vel':'vellen'}, vier A6-kaarten per vel. Snijden langs de stippellijn.
+       Ze staan in deze volgorde op het vel:</p>
+     <div class="paneel" style="margin-bottom:20px">${goed.map((k,i)=>`<div class="item">
+       <span class="t">${i+1}</span><span class="b">#${esc(k.nummer)}${k.voor?' · voor '+esc(k.voor):''}
+       <em>${esc(k.bij)}</em></span></div>`).join('')||'<div class="geen">Geen kaarten met tekst.</div>'}</div>
+     ${mist.length?`<div class="melding amber" style="margin-bottom:20px">${svg(I.alarm,'2')}
+       <span>Zonder tekst, niet op het vel: ${mist.map(k=>'#'+esc(k.nummer)).join(', ')}.
+       Vraag de tekst na bij de klant.</span></div>`:''}
+     <div class="veld"><label>Handschrift</label>
+       <div class="chips" id="wkbF">${KAARTFONTS.map(x=>
+         `<button class="chip klein ${x.k===kaartFont().k?'aan':''}" data-wkbf="${x.k}"
+           style="font-family:${x.css};font-size:15px">${x.n}</button>`).join('')}</div></div>`,
+    `<button class="prim" style="margin-top:0" id="wkbPrint" ${goed.length?'':'disabled'}>${svg(I.doc)}Printen</button>
+     <button class="sec" id="wkbDicht">Terug</button>`);
+  $$('[data-wkbf]').forEach(c=>c.onclick=()=>{
+    S.kaartFont=c.dataset.wkbf; bewaarNu();
+    $$('[data-wkbf]').forEach(y=>y.classList.remove('aan')); c.classList.add('aan');
+  });
+  $('#wkbDicht').onclick=dicht;
+  $('#wkbPrint').onclick=()=>{
+    drukAf(wkVellen(goed),'Wenskaarten','@page{size:A4;margin:0}');
+    /* onthouden dat ze geprint zijn, zodat de knop ze niet nog eens aanbiedt */
+    if(fbUser){
+      const ids=[...new Set(goed.map(k=>k.shopifyId))];
+      const upd={}; ids.forEach(id=>upd[id+'/kaart_geprint']=Date.now());
+      firebase.database().ref('werkvloer/'+fbUser.uid+'/orders').update(upd).catch(()=>{});
+    }
+  };
 }
 
 function sheetBon(id){
@@ -20213,7 +20299,10 @@ function sheetMacOrder(nr){
        ${rij('label','Verzendlabel',o.myparcel_id?'af':'',
           o.afhaal?'niet nodig, wordt afgehaald'
                  :(o.myparcel_id?'aangemeld bij MyParcel':'nog aanmelden bij MyParcel'))}
-       ${o.wenskaart_gevraagd?rij('kaart','Wenskaart','','tekst uit je webshop'):''}
+       ${o.wenskaart_gevraagd?rij('kaart',(o.wenskaarten>1?o.wenskaarten+' wenskaarten':'Wenskaart'),o.kaart_geprint?'af':'',
+          o.kaart_geprint?'geprint':'tekst uit je webshop, A6'):''}
+       ${!o.afhaal&&o.myparcel_id?rij('verzonden','Verzonden melden',o.verzonden?'af':'',
+          o.verzonden?'klant heeft track &amp; trace':'zet Shopify op verzonden, klant krijgt track &amp; trace'):''}
        ${rij('etiket','Ingredi\u00ebntenetiket','','kies eerst een partij')}
      </div>
      <div class="geen" style="padding-top:12px">${esc(o.periode||'')}</div>`,
@@ -20237,6 +20326,10 @@ function docOpenen(o,welk){
     return labelDoen(o);
   }
   if(welk==='etiket')  return toast('Kies bij Productie eerst uit welke partij je pakt.');
+  if(welk==='kaart'){
+    if((o.wenskaarten||1)>1) return wenskaartenPrinten([o]);
+  }
+  if(welk==='verzonden') return verzondenMelden(o);
 
   toast('Ophalen\u2026');
   orderPapieren(o).then(p=>{
@@ -20265,6 +20358,16 @@ function factuurTonen(o,p){
   setTimeout(()=>pasSchaal('fcSchaal'),30);
   $('#fcDicht').onclick=dicht;
   $('#fcPrint').onclick=()=>drukAf(html,'Factuur '+p.nummer,'@page{size:A4;margin:0}');
+}
+
+async function verzondenMelden(o){
+  if(o.verzonden) return toast('Al gemeld. De klant heeft zijn track & trace.');
+  if(!confirm('Order '+o.nummer+' op verzonden zetten? De klant krijgt dan een mail met track & trace.')) return;
+  toast('Melden bij Shopify\u2026');
+  try{
+    const r=await roep('meldVerzonden',{order:o.shopifyId||o.nummer});
+    klaarSheet(r.alGedaan?'Stond al op verzonden in Shopify.':'Verzonden gemeld. Barcode '+r.barcode+'.');
+  }catch(e){ toast(fout(e)) }
 }
 
 async function labelDoen(o){
@@ -20405,6 +20508,15 @@ function shopifyHTML(){
        zonder factuur meteen werd afgevinkt. */
     const teDoen=mo.filter(x=>!x.afgehandeld);
     const gedaan=mo.filter(x=>!teDoen.includes(x));
+    const kaartOpen=teDoen.filter(x=>x.wenskaart_gevraagd&&!x.kaart_geprint);
+    if(kaartOpen.length){
+      const n=kaartOpen.reduce((s,x)=>s+(x.wenskaarten||1),0);
+      h+=`<button class="arij" id="wkAlle" style="margin-top:16px;background:#fff;border-radius:18px">
+        <span class="bol">${svg(I.doc,'2')}</span>
+        <span class="naam">Wenskaarten printen<small>${n} ${n===1?'kaart':'kaarten'} uit ${kaartOpen.length}
+          ${kaartOpen.length===1?'order':'orders'}, vier per A4</small></span>
+        <span class="pijl">${svg(I.pijl,'2')}</span></button>`;
+    }
     const kaart=x=>{
       const af=x.afgehandeld;
       const wat=(x.regels||[]).map(r=>esc(r.aantal+'× '+r.naam+(r.variant?' '+r.variant:'')));
@@ -20421,7 +20533,7 @@ function shopifyHTML(){
           ${x.afgehandeld?'':`<span class="odocs">
             <i class="${x.factuur?'aan':''}" title="factuur">F</i>
             <i class="${x.afhaal?'aan':(x.label?'aan':'')}" title="verzendlabel">L</i>
-            ${x.wenskaart_gevraagd?`<i class="${x.boodschap?'aan':''}" title="wenskaart">W</i>`:''}
+            ${x.wenskaart_gevraagd?`<i class="${(x.boodschap||x.kaart_geprint)?'aan':''}" title="wenskaart">W</i>`:''}
           </span>`}
         </div>
       </button>`;
@@ -26377,6 +26489,8 @@ function bind(){
   $$('[data-nieuweorder]').forEach(x=>x.onclick=sheetNieuweOrder);
   $$('[data-order]').forEach(x=>x.onclick=()=>sheetOrder(x.dataset.order));
   $$('[data-macorder]').forEach(x=>x.onclick=()=>sheetMacOrder(x.dataset.macorder));
+  if($('#wkAlle')) $('#wkAlle').onclick=()=>wenskaartenPrinten(
+    macOrders().filter(x=>!x.afgehandeld&&x.wenskaart_gevraagd&&!x.kaart_geprint));
   $$('[data-kopalles]').forEach(x=>x.onclick=sheetKoppelingen);
   $$('[data-kopshopify]').forEach(x=>x.onclick=()=>sheetKoppel('shopify'));
   if($('#spVoorraadKnop')) $('#spVoorraadKnop').onclick=()=>sheetVoorraadShopify();
@@ -39291,7 +39405,7 @@ const SCHERMUITLEG=[
   {t:"Batch Status",u:"Deze batch staat sinds stil. Hervatten zet hem weer op lopend; je gaat verder waar je gebleven was.",f:"sheetBatchStatus"},
   {t:"Smaken",u:"Nog geen smaken. Een smaak is de opbouw van één bonbon: de schelp, de lagen erin, en hoeveel gram elk onderdeel weegt. Hoeveel bonbons je maakt kies je pas bij een batch.",f:"sheetRecepten"},
   {t:"Alles meenemen",u:"Een bestand met al je gegevens. Bewaar het ergens veilig, of gebruik het om alles naar een ander toestel te halen.",f:"sheetData"},
-    {t:"Wenskaart",u:"A5 liggend, klaar om te printen. De tekst past zichzelf aan: hij wordt kleiner als je meer schrijft, nooit groter.",f:"sheetWenskaart"},
+    {t:"Wenskaart",u:"A6 staand, klaar om te printen. De tekst past zichzelf aan: hij wordt kleiner als je meer schrijft, nooit groter.",f:"sheetWenskaart"},
     {t:"Wanneer wil je maken?",u:"Kies de dag waarop je deze batch wil draaien. De app rekent uit wanneer je boodschappen moet doen om op tijd alles in huis te hebben.",f:"sheetPlanBatch"},
       {t:"Traceerbaarheidsrapport",u:"Op A4. Tik Printen en kies in het deelmenu van je telefoon voor Bewaar in Bestanden om er een pdf van te maken.",f:"sheetTrace"},
   {t:"Temperatuur",u:"Je hebt nog geen meetpunten. Voeg je koelkast, vriezer of werkruimte toe met de grenzen die jij aanhoudt.",f:"sheetTemp"},

@@ -183,10 +183,59 @@ function kenmerken(o) {
   return uit;
 }
 
+/* ═══════════ Wenskaarten (v950) ═══════════
+   De webshop zet de kaarttekst bij de doos zelf, als eigenschap van de
+   orderregel: "Tekst kaartje" (nu) of "Persoonlijke boodschap" (ouder).
+   Eén order kan dus meerdere kaarten hebben: één per doos.
+   De ordernotitie gebruiken we NIET meer: daar staan ook factuurgegevens
+   in, en die horen niet op een kaart. */
+const KAARTTEKST = ['tekst kaartje', 'persoonlijke boodschap', 'boodschap', 'wenskaart', 'kaartje', 'kaarttekst'];
+const KAARTREGEL = /kaartje|wenskaart/i;
+
+function regelKenmerken(li) {
+  const uit = {};
+  (li.properties || []).forEach(a => {
+    if (a && a.name && !String(a.name).startsWith('_')) uit[String(a.name).toLowerCase().trim()] = a.value;
+  });
+  return uit;
+}
+
+function kaartTekstUit(k) {
+  for (const sl of KAARTTEKST) {
+    const v = String(k[sl] || '').trim();
+    if (v) return v;
+  }
+  return '';
+}
+
+/* Alle kaarten van één order: tekst, voor wie, bij welke doos.
+   Een betaald kaartje zonder tekst telt ook mee — dan weet je dat er
+   nog iets ontbreekt in plaats van dat je hem vergeet. */
+function kaartenVan(o) {
+  const kaarten = [];
+  (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
+    const k = regelKenmerken(li);
+    const tekst = kaartTekstUit(k);
+    if (!tekst) return;
+    const n = Math.max(1, Number(li.quantity) || 1);
+    for (let i = 0; i < n; i++) {
+      kaarten.push({ tekst, voor: String(k['voor'] || '').trim(), bij: String(li.title || '') });
+    }
+  });
+  const ok = kaartTekstUit(kenmerken(o));
+  if (ok && !kaarten.some(x => x.tekst === ok)) kaarten.push({ tekst: ok, voor: '', bij: 'order' });
+
+  if (!kaarten.length) {
+    (o.line_items || []).filter(li => KAARTREGEL.test(String(li.title || ''))).forEach(li => {
+      kaarten.push({ tekst: '', voor: '', bij: String(li.title || ''), ontbreekt: true });
+    });
+  }
+  return kaarten;
+}
+
 function boodschapVan(o) {
-  const k = kenmerken(o);
-  return String(o.note || k['boodschap'] || k['wenskaart'] ||
-    k['persoonlijke boodschap'] || k['kaartje'] || '').trim();
+  const k = kaartenVan(o).find(x => x.tekst);
+  return k ? k.tekst : '';
 }
 
 const MAAND = 30 * 24 * 3600 * 1000;
@@ -214,7 +263,8 @@ function veiligeOrder(o) {
     stuks: regels.reduce((s, r) => s + r.aantal, 0),
     regels,
     afhaal: !o.shipping_address || AFHALEN.test(verzendwijze),
-    wenskaart_gevraagd: !!boodschapVan(o),
+    wenskaart_gevraagd: kaartenVan(o).length > 0,
+    wenskaarten: kaartenVan(o).length,
     betaald: o.financial_status === 'paid',
     afgehandeld,
     verwijderNa: Date.now() + (afgehandeld ? 24 * MAAND : MAAND)
@@ -1608,6 +1658,21 @@ exports.haalBoodschap = onCall(async req => {
   return { boodschap: boodschapVan(o) };
 });
 
+/* Alle wenskaarten van een rij orders in één keer, om samen te printen.
+   Alleen tekst en voor wie — geen adres. Wordt nergens bewaard. */
+exports.haalKaarten = onCall(async req => {
+  const uid = wieBenJe(req);
+  const lijst = ((req.data || {}).orders || []).slice(0, 40);
+  if (!lijst.length) throw new HttpsError('invalid-argument', 'Welke orders?');
+  const uit = [];
+  for (const nr of lijst) {
+    const o = await zoekOrder(uid, nr);
+    const nummer = String(o.name || o.order_number || '').replace(/^#/, '');
+    kaartenVan(o).forEach((k, i) => uit.push(Object.assign({ nummer, shopifyId: String(o.id), volg: i + 1 }, k)));
+  }
+  return { kaarten: uit };
+});
+
 /* Alles wat je documenten nodig hebben, in één keer opgehaald bij Shopify.
    Hier zit wél naam en adres in — dat moet, want een factuur zonder adres is
    geen geldige factuur. Het gaat rechtstreeks naar jouw toestel en wordt
@@ -1726,6 +1791,60 @@ exports.labelPdf = onCall(async req => {
   if (!bytes.length) throw new HttpsError('internal', 'Het label kwam leeg terug.');
 
   return { pdf: bytes.toString('base64'), naam: 'verzendlabel-' + (nr || id) + '.pdf' };
+});
+
+/* ═══════════ Verzonden melden met track & trace (v950) ═══════════
+   Na het printen van het label: de barcode bij MyParcel ophalen, de order
+   in Shopify op verzonden zetten met die barcode, en Shopify mailt de klant
+   de track & trace. Zo zijn Shopify en MyParcel aan elkaar gekoppeld zonder
+   de losse MyParcel-app — die zou dubbele zendingen kunnen maken. */
+exports.meldVerzonden = onCall(async req => {
+  const uid = wieBenJe(req);
+  const g = await leesGeheim(uid, 'myparcel');
+  if (!g) throw new HttpsError('failed-precondition', 'MyParcel is nog niet gekoppeld.');
+
+  const o = await zoekOrder(uid, (req.data || {}).order);
+  const pad = werkRef(uid).child('orders/' + o.id);
+  const mpId = (await pad.child('myparcel_id').once('value')).val();
+  if (!mpId) throw new HttpsError('failed-precondition', 'Meld eerst een zending aan bij MyParcel.');
+
+  const r = await mpRoep(g.sleutel, 'shipments/' + encodeURIComponent(mpId), { headers: mpKoppen(g.sleutel) });
+  if (!r.ok) throw new HttpsError('internal', 'MyParcel antwoordde met ' + r.status + '.');
+  const z = (((await r.json()).data || {}).shipments || [])[0] || {};
+  const barcode = String(z.barcode || '').trim();
+  if (!barcode) throw new HttpsError('failed-precondition', 'Er is nog geen barcode. Print eerst het label, dan maakt MyParcel hem aan.');
+
+  const a = o.shipping_address || {};
+  const pc = String(a.zip || '').replace(/\s+/g, '').toUpperCase();
+  const land = String(a.country_code || 'NL').toUpperCase();
+  const url = 'https://jouw.postnl.nl/track-and-trace/' + encodeURIComponent(barcode) + '-' + land + '-' + encodeURIComponent(pc);
+
+  if (o.fulfillment_status === 'fulfilled') {
+    await pad.update({ verzonden: true, barcode, afgehandeld: true });
+    return { ok: true, alGedaan: true, barcode };
+  }
+
+  let fo;
+  try { fo = await shopify(uid, 'orders/' + o.id + '/fulfillment_orders.json'); }
+  catch (e) {
+    throw new HttpsError('permission-denied',
+      'Shopify laat HQ nog geen orders op verzonden zetten. Zet in het Dev Dashboard bij je app de rechten ' +
+      'read_merchant_managed_fulfillment_orders en write_merchant_managed_fulfillment_orders aan, ' +
+      'en tik daarna bij Koppelingen op Token verversen.');
+  }
+  const open = (fo.fulfillment_orders || []).filter(f => ['open', 'in_progress'].includes(f.status));
+  if (!open.length) throw new HttpsError('failed-precondition', 'Shopify heeft voor deze order niets meer open staan om te verzenden.');
+
+  await shopifySchrijf(uid, 'fulfillments.json', {
+    fulfillment: {
+      line_items_by_fulfillment_order: open.map(f => ({ fulfillment_order_id: f.id })),
+      tracking_info: { number: barcode, company: 'PostNL', url },
+      notify_customer: true
+    }
+  });
+
+  await pad.update({ verzonden: true, barcode, afgehandeld: true, verzondenOp: Date.now() });
+  return { ok: true, barcode };
 });
 
 /* Ondertitels staan in een eigen bestand ernaast, zodat dit bestand niet nog
