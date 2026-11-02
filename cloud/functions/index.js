@@ -1940,6 +1940,9 @@ Object.assign(exports, require('./leesEtiket'));
 /* Receptfoto lezen: je schrift in HQ. */
 Object.assign(exports, require('./leesReceptFoto'));
 
+/* Bedrijfsgegevens van een screenshot: factuur bij een betaallink. */
+Object.assign(exports, require('./leesBedrijf'));
+
 /* Eén video naar Instagram en TikTok — zie social.js */
 Object.assign(exports, require('./social'));
 

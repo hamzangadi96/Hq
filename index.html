@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v958 · 2 nov 2026';
+const APPVERSIE = 'v959 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20647,8 +20647,10 @@ function sheetBetaallinkKlaar(l){
      ${kanDelen?`<div class="veld"><label>Factuur meesturen</label>
        <div class="duo" id="blFm"><button data-v="ja" class="${BLF.met?'aan':''}">Ja, als pdf</button><button data-v="nee" class="${BLF.met?'':'aan'}">Nee</button></div></div>`:''}
      <div id="blFvak">${BLF.met?`<div class="veld"><label>Klant op de factuur <span style="text-transform:none;font-weight:500">(wordt niet bewaard)</span></label>
-       <textarea class="inp" id="blDump" rows="3" placeholder="Plak hier alles in één keer: naam, adres, KvK, btw-id, mail…"></textarea>
-       <p class="hint" style="margin:6px 0 10px">Ik zet het hieronder op de juiste plek. Klopt iets niet? Pas het daar aan.</p>
+       <button type="button" class="sec" id="blFoto" style="margin:0 0 8px">${svg(I.camera||I.plus)}&nbsp; Screenshot van de gegevens</button>
+       <input type="file" id="blFotoIn" accept="image/*" hidden>
+       <textarea class="inp" id="blDump" rows="3" placeholder="…of plak hier alles in één keer: naam, adres, KvK, btw-id, mail"></textarea>
+       <p class="hint" id="blDumpH" style="margin:6px 0 10px">Ik zet het hieronder op de juiste plek. Klopt iets niet? Pas het daar aan.</p>
        <input class="inp" id="blKl" placeholder="Naam of bedrijf" value="${esc(BLF.klant.naam||'')}">
        <textarea class="inp" id="blAd" rows="3" style="margin-top:8px" placeholder="Adres">${esc(BLF.klant.adres||'')}</textarea>
        <div class="duo2" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
@@ -20669,6 +20671,16 @@ function sheetBetaallinkKlaar(l){
   let tmr=null;
   const kIn=()=>{ BLF.klant={naam:$('#blKl').value.trim(),adres:$('#blAd').value.trim(),kvk:$('#blKvk').value.replace(/\D/g,''),btw:$('#blBtw').value.replace(/[\s.]/g,'').toUpperCase(),contact:$('#blCo').value.trim()}; clearTimeout(tmr); $('#blWa').disabled=true; tmr=setTimeout(maak,700) };
   ['#blKl','#blAd','#blKvk','#blBtw','#blCo'].forEach(id=>{ if($(id)) $(id).oninput=kIn });
+  if($('#blFoto')){ $('#blFoto').onclick=()=>$('#blFotoIn').click();
+    $('#blFotoIn').onchange=async ev=>{ const f=ev.target.files&&ev.target.files[0]; ev.target.value=''; if(!f) return;
+      const knop=$('#blFoto'), h=$('#blDumpH'); knop.disabled=true; knop.textContent='Lezen…';
+      try{ const foto=await verkleinFoto(f); const k=await roep('leesBedrijf',{foto}); if(!sheetOpen||BLF.id!==l.id) return;
+        const pc=[k.postcode,(k.plaats||'').toUpperCase()].filter(Boolean).join('  ');
+        $('#blKl').value=k.naam||''; $('#blAd').value=[k.tav?'t.a.v. '+k.tav:'',k.straat,pc,k.land].filter(Boolean).join('\n');
+        $('#blKvk').value=k.kvk||''; $('#blBtw').value=k.btw||''; $('#blCo').value=[k.mail,k.tel].filter(Boolean).join('\n');
+        kIn(); if(h) h.textContent='Gelezen van je screenshot. Loop het even na en pas aan waar nodig.';
+      }catch(e){ const m=fout(e); toast(/Claude-sleutel/.test(m)?'Koppel eerst Claude (Instellingen › Koppelingen › Claude laten meelezen).':'Lezen lukte niet: '+m) }
+      finally{ if($('#blFoto')){ $('#blFoto').disabled=false; $('#blFoto').innerHTML=svg(I.camera||I.plus)+'&nbsp; Screenshot van de gegevens' } } } }
   if($('#blDump')) $('#blDump').oninput=()=>{ const k=klantUitTekst($('#blDump').value);
     $('#blKl').value=k.naam; $('#blAd').value=k.adres; $('#blKvk').value=k.kvk; $('#blBtw').value=k.btw; $('#blCo').value=k.contact; kIn() };
   $('#blKopie').onclick=async()=>{ try{ await navigator.clipboard.writeText(l.url); toast('Link gekopieerd.') }catch(e){ toast('Kopiëren lukte niet.') } };
