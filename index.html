@@ -5288,7 +5288,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v952 · 2 nov 2026';
+const APPVERSIE = 'v953 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10569,7 +10569,15 @@ function homeTegelsHTML(){
 
   /* mailinglijst */
   let mail='';
-  if(vandaag()<=MAILDOEL.tot){
+  /* v953: na de campagne blijft de mailinglijst staan, met het totaal aantal abonnees */
+  if(vandaag()>MAILDOEL.tot){
+    let m=(S.werk||{}).mailinglijst;
+    if(!m){ try{ m=JSON.parse(localStorage.getItem('hq-mailinglijst')||'null') }catch(e){ m=null } }
+    setTimeout(()=>mailVerversen(false),0);
+    mail=!m?tg('mail','Mailinglijst','…',sub(mailFout?'tik om te tellen':'tellen…'))
+      :tg('mail','Mailinglijst',(m.totaal||0).toLocaleString('nl-NL'),sub(m.vandaag?'abonnees · +'+m.vandaag+' vandaag':'abonnees'));
+  }
+  else if(vandaag()<=MAILDOEL.tot){
     let m=(S.werk||{}).mailinglijst;
     if(!m){ try{ m=JSON.parse(localStorage.getItem('hq-mailinglijst')||'null') }catch(e){ m=null } }
     setTimeout(()=>mailVerversen(false),0);
