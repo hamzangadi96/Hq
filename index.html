@@ -5288,7 +5288,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE = 'v953 · 2 nov 2026';
+const APPVERSIE = 'v954 · 2 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20436,9 +20436,11 @@ async function labelDoen(o){
    worden niet bewaard. */
 let BL=null, BLP=null;
 const blEuro=n=>'€ '+(Math.round(n*100)/100).toFixed(2).replace('.',',');
-function blTotaal(){ return BL.regels.reduce((t,x)=>t+(x.prijs||0)*(x.aantal||1),0)+(BL.vz==='verzenden'?(BL.vzPrijs||0):0) }
+function blSub(){ return BL.regels.reduce((t,x)=>t+(x.prijs||0)*(x.aantal||1),0) }
+function blKorting(){ const sub=blSub(), w=BL.kW||0; if(!(w>0)) return 0; return Math.min(sub, BL.kS==='pct'?Math.round(sub*Math.min(w,100))/100:w) }
+function blTotaal(){ return blSub()-blKorting()+(BL.vz==='verzenden'?(BL.vzPrijs||0):0) }
 function sheetBetaallink(){
-  if(!BL) BL={regels:[],vz:S.blVz||'verzenden',vzPrijs:typeof S.blVzPrijs==='number'?S.blVzPrijs:6.95,notitie:''};
+  if(!BL) BL={regels:[],vz:S.blVz||'verzenden',vzPrijs:typeof S.blVzPrijs==='number'?S.blVzPrijs:6.95,notitie:'',kS:'pct',kW:0};
   const rij=(x,i)=>`<div class="shrij" style="gap:10px"><span class="shn">${esc(x.titel)}${x.variant?`<small>${esc(x.variant)}</small>`:''}<small>${blEuro(x.prijs)} per stuk</small></span>
     <span style="display:flex;align-items:center;gap:6px;flex:none">
       <button type="button" class="stepbtn" style="width:38px;height:38px" data-blmin="${i}">${svg(I.min)}</button>
@@ -20454,8 +20456,13 @@ function sheetBetaallink(){
          <button data-v="ophalen" class="${BL.vz==='ophalen'?'aan':''}">Ophalen</button></div>
        ${BL.vz==='verzenden'?`<div style="display:flex;align-items:center;gap:8px;margin-top:10px"><span class="geen" style="flex:1">Verzendkosten</span>
          <input class="inp" id="blVzP" type="text" inputmode="decimal" style="width:110px;text-align:right" value="${String(BL.vzPrijs).replace('.',',')}"></div>`:''}</div>
+     <div class="veld"><label>Korting <span style="text-transform:none;font-weight:500">(over de producten)</span></label>
+       <div style="display:flex;gap:8px;align-items:center">
+         <div class="duo" id="blKs" style="flex:1"><button data-v="pct" class="${BL.kS==='pct'?'aan':''}">%</button><button data-v="euro" class="${BL.kS==='euro'?'aan':''}">€</button></div>
+         <input class="inp" id="blKw" type="text" inputmode="decimal" style="width:110px;text-align:right" placeholder="0" value="${BL.kW?String(BL.kW).replace('.',','):''}"></div></div>
      <div class="veld"><label>Notitie bij de order <span style="text-transform:none;font-weight:500">(bijv. smaken)</span></label>
        <textarea class="inp" id="blNot" rows="2" placeholder="Bijv. 4× matcha aardbei, 4× pinda">${esc(BL.notitie)}</textarea></div>
+     ${blKorting()?`<div class="shrij"><span class="shn">Korting${BL.kS==='pct'?' '+String(BL.kW).replace('.',',')+'%':''}</span><span class="shw" style="color:var(--groen)">− ${blEuro(blKorting())}</span></div>`:''}
      <div class="shrij"><span class="shn"><b>Totaal</b><small>btw zit in de prijs</small></span><span class="shw"><b>${blEuro(blTotaal())}</b></span></div>
      ${recent.length?`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">Laatst gestuurd</span>
         <button class="kopknop" id="blVers">${svg(I.ververs||I.klok)}Status</button></div>
@@ -20468,6 +20475,8 @@ function sheetBetaallink(){
   $$('#blVz button').forEach(b=>b.onclick=()=>{ BL.vz=b.dataset.v; S.blVz=BL.vz; bewaarNu(); sheetBetaallink() });
   if($('#blVzP')) $('#blVzP').onchange=()=>{ const v=getalIn($('#blVzP').value); if(!isNaN(v)&&v>=0){ BL.vzPrijs=v; S.blVzPrijs=v; bewaarNu() } sheetBetaallink() };
   $('#blNot').oninput=()=>{ BL.notitie=$('#blNot').value };
+  $$('#blKs button').forEach(b=>b.onclick=()=>{ BL.kS=b.dataset.v; sheetBetaallink() });
+  $('#blKw').onchange=()=>{ const v=getalIn($('#blKw').value); BL.kW=!isNaN(v)&&v>0?Math.round(v*100)/100:0; if(BL.kS==='pct'&&BL.kW>100) BL.kW=100; sheetBetaallink() };
   $('#blProd').onclick=sheetBetaalProducten;
   $('#blEigen').onclick=sheetBetaalEigen;
   if($('#blVers')) $('#blVers').onclick=blStatus;
@@ -20476,7 +20485,7 @@ function sheetBetaallink(){
     const k=$('#blMaak'); k.disabled=true; k.textContent='Link maken…';
     try{
       const res=await roep('maakBetaallink',{regels:BL.regels.map(x=>x.variantId?{variantId:x.variantId,aantal:x.aantal}:{titel:x.titel,prijs:x.prijs,aantal:x.aantal}),
-        verzending:{soort:BL.vz,prijs:BL.vzPrijs},notitie:BL.notitie});
+        verzending:{soort:BL.vz,prijs:BL.vzPrijs},notitie:BL.notitie,korting:BL.kW>0?{soort:BL.kS,waarde:BL.kW}:null});
       const l=Object.assign({},res.link,{datum:vandaag()});
       S.betaallinks=alsLijst(S.betaallinks).concat([l]).slice(-50); bewaarNu();
       BL=null; sheetBetaallinkKlaar(l);

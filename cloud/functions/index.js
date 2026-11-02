@@ -1890,6 +1890,11 @@ exports.maakBetaallink = binnen('maakBetaallink', async req => {
   const input = { lineItems, tags: ['hq-betaallink'] };
   const notitie = blTekst(d.notitie, 400);
   if (notitie) input.note = notitie;
+  /* korting over de producten (niet over de verzending) */
+  const kt = d.korting || {};
+  const kw = blBedrag(kt.waarde, kt.soort === 'pct' ? 100 : 5000);
+  if (kw && kw > 0) input.appliedDiscount = { title: blTekst(kt.titel, 40) || 'Korting', value: kw,
+    valueType: kt.soort === 'pct' ? 'PERCENTAGE' : 'FIXED_AMOUNT' };
   const vz = d.verzending || {};
   if (vz.soort === 'verzenden') {
     const prijs = blBedrag(vz.prijs, 100);
