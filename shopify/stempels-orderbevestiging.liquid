@@ -1,0 +1,34 @@
+{% comment %}
+  Cacaoboetiek — spaarkaart-status in de orderbevestiging.
+  Plakken in: Shopify admin › Instellingen › Meldingen › Klantmeldingen ›
+  Orderbevestiging › Code bewerken, direct onder de productenlijst
+  (boven de regel met "Subtotaal"/"subtotal_line" of onder de hele bestellingstabel).
+  Leest het spaarsaldo van de klant (cbx.spaarsaldo): € 25 = 1 stempel, 6 stempels = volle kaart.
+{% endcomment %}
+{% if customer and customer.metafields.cbx.spaarsaldo %}
+  {% assign cb_saldo = customer.metafields.cbx.spaarsaldo.value | plus: 0 %}
+  {% assign cb_stempels = cb_saldo | divided_by: 25 | floor %}
+  {% assign cb_opkaart = cb_stempels | modulo: 6 %}
+  {% assign cb_nog = 6 | minus: cb_opkaart %}
+  {% assign cb_euro_nog = cb_stempels | plus: 1 | times: 25 | minus: cb_saldo %}
+  <table class="row" style="width:100%;margin:28px 0 8px;border-collapse:collapse">
+    <tr><td style="background:#f4f4f5;border-radius:14px;padding:20px 22px;font-family:Inter,Helvetica,Arial,sans-serif;color:#18181b">
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#71717a">Jouw spaarkaart</p>
+      <p style="margin:0 0 14px;font-size:18px;font-weight:600">{{ cb_opkaart }} van de 6 stempels</p>
+      <table style="border-collapse:separate;border-spacing:6px 0;margin:0 0 14px -6px"><tr>
+        {% for i in (1..6) %}
+          {% if i <= cb_opkaart %}
+            <td style="width:34px;height:34px;border-radius:17px;background:#18181b;color:#fff;text-align:center;font-size:16px;line-height:34px">&#10003;</td>
+          {% else %}
+            <td style="width:32px;height:32px;border-radius:17px;border:1px solid #d4d4d8;background:#fff"></td>
+          {% endif %}
+        {% endfor %}
+      </tr></table>
+      {% if cb_opkaart == 0 and cb_stempels >= 6 %}
+        <p style="margin:0;font-size:14px;line-height:1.5"><b>Je kaart is vol!</b> Je cadeaubon van € 24,95 krijg je in een aparte mail. Je nieuwe kaart begint nu.</p>
+      {% else %}
+        <p style="margin:0;font-size:14px;line-height:1.5;color:#3f3f46">Nog {{ cb_nog }} {% if cb_nog == 1 %}stempel{% else %}stempels{% endif %} tot een cadeaubon van € 24,95. Elke € 25 aan bonbons is één stempel (verzendkosten tellen niet mee); voor de volgende stempel nog {{ cb_euro_nog | times: 100 | round | money }}.</p>
+      {% endif %}
+    </td></tr>
+  </table>
+{% endif %}
