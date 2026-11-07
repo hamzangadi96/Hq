@@ -1990,6 +1990,61 @@ exports.betaallinkTerug = binnen('betaallinkTerug', async req => {
   throw new HttpsError('invalid-argument', 'Onbekende actie.');
 });
 
+/* ═══════════ v968: cadeaustempels voor alle aangemelde mensen ═══════════
+   Iedereen die zich voor de mail heeft aangemeld (marketing: SUBSCRIBED) krijgt
+   X stempels cadeau. Per stempel €25 erbij op cbx.spaarsaldo (zoals HQ altijd
+   telt) én op de stempelkaart van de website (custom.cb_stamps), met een
+   berichtje dat op de kaart verschijnt. Een kaart gaat nooit boven de 6.
+   Per actie (campagne) houdt HQ bij wie hem al kreeg, dus twee keer drukken
+   geeft niemand dubbel. Werkt in porties van 50, zodat niets vastloopt. */
+const CADEAU_PORTIE = 100;
+exports.stempelsCadeau = binnen('stempelsCadeau', async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const aantal = Math.max(1, Math.min(6, parseInt(d.aantal, 10) || 2));
+  const campagne = String(d.campagne || '').replace(/[^a-z0-9-]/gi, '').slice(0, 40) || 'cadeau';
+  const proef = d.proef !== false;
+  const gql = await shopifyGql(uid, 'write_customers');
+  const klaarRef = werkRef(uid).child('cadeauStempels').child(campagne);
+  const al = (await klaarRef.child('klanten').once('value')).val() || {};
+
+  const r = (await gql('query($n:Int!,$na:String){customers(first:$n,after:$na){pageInfo{hasNextPage endCursor} nodes{id emailMarketingConsent{marketingState} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}',
+    { n: CADEAU_PORTIE, na: d.vanaf || null })).customers;
+  const nodes = (r.nodes || []).filter(c => c.emailMarketingConsent && c.emailMarketingConsent.marketingState === 'SUBSCRIBED');
+
+  let nieuw = 0, overgeslagen = 0, vol = 0;
+  const m = [], klaar = {};
+  nodes.forEach(c => {
+    const nr = String(c.id).split('/').pop();
+    if (al[nr]) { overgeslagen++; return; }
+    nieuw++;
+    const saldo = c.s ? (parseFloat(c.s.value) || 0) : 0;
+    let st = {}; try { st = c.cb ? JSON.parse(c.cb.value) || {} : {}; } catch (e) { st = {}; }
+    const kaart = Math.max(0, Math.min(15000, parseInt(st.cardCents, 10) || 0));
+    const naKaart = Math.min(15000, kaart + aantal * 2500);
+    if (naKaart >= 15000) vol++;
+    if (proef) return;
+    const nst = Object.assign({ version: 1 }, st, {
+      cardCents: naKaart, remainingCents: 15000 - naKaart,
+      status: naKaart >= 15000 && (!st.status || st.status === 'active') ? 'claim_available' : (st.status || 'active'),
+      courtesyMessage: 'Cadeau van Cacaoboetiek: ' + aantal + ' ' + (aantal === 1 ? 'stempel' : 'stempels') + ' erbij.'
+    });
+    m.push({ ownerId: c.id, namespace: 'cbx', key: 'spaarsaldo', type: 'number_decimal', value: (Math.round((saldo + aantal * STEMPEL_EURO) * 100) / 100).toFixed(2) });
+    m.push({ ownerId: c.id, namespace: 'custom', key: 'cb_stamps', type: 'json', value: JSON.stringify(nst) });
+    klaar[nr] = Date.now();
+  });
+
+  if (!proef && m.length) {
+    for (let i = 0; i < m.length; i += 24) {
+      const u = (await gql('mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){userErrors{field message}}}', { m: m.slice(i, i + 24) })).metafieldsSet;
+      if (u.userErrors && u.userErrors.length) throw new HttpsError('internal', 'Shopify weigerde: ' + u.userErrors.map(x => x.message).join(', ').slice(0, 200));
+    }
+    await klaarRef.child('klanten').update(klaar);
+    await klaarRef.update({ aantal, laatst: Date.now() });
+  }
+  return { nieuw, overgeslagen, vol, verder: r.pageInfo.hasNextPage ? r.pageInfo.endCursor : null, aantal, campagne };
+});
+
 exports.betaalProducten = binnen('betaalProducten', async req => {
   const uid = wieBenJe(req);
   const gql = await shopifyGql(uid, 'read_products');
