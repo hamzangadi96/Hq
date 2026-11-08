@@ -13,6 +13,9 @@ jobs:
           printf '%s' "$FIREBASE_SLEUTEL" > "$RUNNER_TEMP/s.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/s.json"
           npm i -g firebase-tools >/dev/null 2>&1
-          echo "STATUS $(firebase database:get /geheim/_systeem/testmailDrop8b --project cacaoboetiek-hq 2>&1 | tail -3)"
-          firebase functions:log --only testmailDrop8 --project cacaoboetiek-hq 2>&1 | tail -15 | sed 's/^/LOG /'
+          firebase database:get /werkvloer --shallow --project cacaoboetiek-hq > w.json 2>/dev/null
+          for u in $(node -e "console.log(Object.keys(require('./w.json')).join(' '))"); do
+            firebase database:get /werkvloer/$u/dropMail/drop-8-nov/verstuurd --project cacaoboetiek-hq 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const o=JSON.parse(s||'null')||{};const t=Object.values(o).sort();console.log('VERSTUURD',Object.keys(o).length,'eerste',new Date(t[0]||0).toISOString(),'laatste',new Date(t[t.length-1]||0).toISOString())})"
+          done
+          firebase functions:log --only dropMailStuur --project cacaoboetiek-hq 2>&1 | grep -v "^$" | tail -40 | cut -c1-300 | sed 's/^/LOG /'
           rm -f "$RUNNER_TEMP/s.json"
