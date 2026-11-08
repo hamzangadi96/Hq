@@ -13,6 +13,6 @@ jobs:
           printf '%s' "$FIREBASE_SLEUTEL" > "$RUNNER_TEMP/s.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/s.json"
           npm i -g firebase-tools >/dev/null 2>&1
-          echo "STATUS $(firebase database:get /geheim/_systeem/testmailDrop8 --project cacaoboetiek-hq 2>&1 | tail -3)"
+          echo "STATUS $(firebase database:get /geheim/_systeem/testmailDrop8b --project cacaoboetiek-hq 2>&1 | tail -3)"
           firebase functions:log --only testmailDrop8 --project cacaoboetiek-hq 2>&1 | tail -15 | sed 's/^/LOG /'
           rm -f "$RUNNER_TEMP/s.json"

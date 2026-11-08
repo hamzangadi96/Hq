@@ -2755,12 +2755,12 @@ exports.webVoorraadZet = binnen('webVoorraadZet', async req => {
    Draait elke minuut maar verstuurt maar één keer (vlag in geheim/_systeem).
    Gaat via info@ (Strato). Wordt na de test weer verwijderd. */
 exports.testmailDrop8 = onSchedule({ schedule: 'every 1 minutes', timeZone: 'Europe/Amsterdam', timeoutSeconds: 60 }, async () => {
-  const vlag = db().ref('geheim/_systeem/testmailDrop8');
+  const vlag = db().ref('geheim/_systeem/testmailDrop8b');
   if ((await vlag.once('value')).val()) return;
-  await vlag.set({ start: Date.now() });
   const g = (await db().ref('geheim').once('value')).val() || {};
   const uid = Object.keys(g).find(k => !k.startsWith('_') && g[k] && g[k].mail && g[k].mail.wachtwoord);
-  if (!uid) { await vlag.update({ fout: 'geen mailkoppeling' }); return; }
+  if (!uid) return;   /* wacht tot info@ in HQ gekoppeld is, dan gaat hij binnen een minuut */
+  await vlag.set({ start: Date.now() });
   const m = g[uid].mail;
   let html = await (await fetch('https://cacaoboetiek-hq.web.app/shopify/mail/drop-8-november.html?t=' + Date.now())).text();
   html = html.replace('{{ unsubscribe_url }}', 'https://www.cacaoboetiek.nl/');
