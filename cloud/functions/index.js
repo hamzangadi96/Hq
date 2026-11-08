@@ -2810,6 +2810,22 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   const d = req.data || {};
   const ref = werkRef(uid).child('dropMail').child(DROPMAIL.campagne);
   const al = (await ref.child('verstuurd').once('value')).val() || {};
+  /* v980: wie de drop-mail kreeg en zich daarna afmeldde (via onze link of anders) */
+  if (d.afgemeld) {
+    const nrs = Object.keys(al), gql0 = await shopifyGql(uid, 'read_customers'), uit = [];
+    for (let i = 0; i < nrs.length; i += 100) {
+      const r0 = await gql0('query($i:[ID!]!){nodes(ids:$i){... on Customer{id defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}}}}',
+        { i: nrs.slice(i, i + 100).map(n => 'gid://shopify/Customer/' + n) });
+      (r0.nodes || []).forEach(c => {
+        if (!c || !c.id) return;
+        const e = c.defaultEmailAddress, nr = String(c.id).split('/').pop();
+        if (!e) uit.push({ id: nr, email: '(verwijderd)', op: null, gemaild: al[nr] });
+        else if (e.marketingState !== 'SUBSCRIBED') uit.push({ id: nr, email: e.emailAddress, op: e.marketingUpdatedAt || null, gemaild: al[nr] });
+      });
+    }
+    uit.sort((a, b) => String(b.op || '').localeCompare(String(a.op || '')));
+    return { afgemeld: uit, gemaild: nrs.length };
+  }
   if (!Array.isArray(d.ids) || !d.ids.length) return { verstuurdIds: Object.keys(al), verstuurdOp: al };
   const ids = [...new Set(d.ids.map(x => String(x).replace(/\D/g, '')).filter(Boolean))].slice(0, 25);
   const mg = await leesGeheim(uid, 'mail');
