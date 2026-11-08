@@ -1,0 +1,13 @@
+        "colors": [
+          {%- assign cbx_kv = shop.metafields.cbx.dooskleur_voorraad.value -%}
+          {%- assign cbx_eerste = true -%}
+          {%- assign cbx_lijst = 'bordeaux:Bordeaux:#69343b,donkerblauw:Donkerblauw:#253955,groen:Groen:#405a52,paars:Paars:#584571,rood:Rood:#c73e42,lichtblauw:Lichtblauw:#35afe0' | split: ',' -%}
+          {%- for cbx_c in cbx_lijst -%}
+            {%- assign cbx_d = cbx_c | split: ':' -%}
+            {%- assign cbx_n = cbx_kv[cbx_d[0]] -%}
+            {%- if cbx_n == nil or cbx_n > 0 -%}
+              {%- unless cbx_eerste -%},{%- endunless -%}["{{ cbx_d[0] }}","{{ cbx_d[1] }}","{{ cbx_d[2] }}"]
+              {%- assign cbx_eerste = false -%}
+            {%- endif -%}
+          {%- endfor -%}
+        ],
