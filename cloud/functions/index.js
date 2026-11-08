@@ -2750,3 +2750,26 @@ exports.webVoorraadZet = binnen('webVoorraadZet', async req => {
   await werkRef(uid).child('webVoorraad').update({ bijgewerkt: Date.now() });
   return Object.assign({ smaken: smaken.map(({ id, ...s }) => s) }, d);
 });
+
+/* ═══ Eenmalig (8 nov): TESTmail drop 8 november, alleen naar h.ngadi@cacaoboetiek.nl ═══
+   Draait elke minuut maar verstuurt maar één keer (vlag in geheim/_systeem).
+   Gaat via info@ (Strato). Wordt na de test weer verwijderd. */
+exports.testmailDrop8 = onSchedule({ schedule: 'every 1 minutes', timeZone: 'Europe/Amsterdam', timeoutSeconds: 60 }, async () => {
+  const vlag = db().ref('geheim/_systeem/testmailDrop8');
+  if ((await vlag.once('value')).val()) return;
+  await vlag.set({ start: Date.now() });
+  const g = (await db().ref('geheim').once('value')).val() || {};
+  const uid = Object.keys(g).find(k => !k.startsWith('_') && g[k] && g[k].mail && g[k].mail.wachtwoord);
+  if (!uid) { await vlag.update({ fout: 'geen mailkoppeling' }); return; }
+  const m = g[uid].mail;
+  let html = await (await fetch('https://cacaoboetiek-hq.web.app/shopify/mail/drop-8-november.html?t=' + Date.now())).text();
+  html = html.replace('{{ unsubscribe_url }}', 'https://www.cacaoboetiek.nl/');
+  const nodemailer = require('nodemailer');
+  const t = nodemailer.createTransport({ host: 'smtp.strato.de', port: 465, secure: true, auth: { user: m.adres, pass: m.wachtwoord } });
+  try {
+    await t.sendMail({ from: { name: 'Cacaoboetiek', address: m.adres }, to: 'h.ngadi@cacaoboetiek.nl',
+      subject: '[TEST] Vanavond om 19:00 gaat de drop live', html,
+      text: 'De drop van 8 november begint om 19:00. Voor je aanmelding krijg je twee gratis stempels. https://www.cacaoboetiek.nl/' });
+    await vlag.update({ verstuurd: Date.now() });
+  } catch (e) { await vlag.update({ fout: String(e && e.message || e).slice(0, 200) }); }
+});
