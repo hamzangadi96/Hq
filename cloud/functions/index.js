@@ -1997,7 +1997,7 @@ exports.betaallinkTerug = binnen('betaallinkTerug', async req => {
    berichtje dat op de kaart verschijnt. Een kaart gaat nooit boven de 6.
    Per actie (campagne) houdt HQ bij wie hem al kreeg, dus twee keer drukken
    geeft niemand dubbel. Werkt in porties van 50, zodat niets vastloopt. */
-const CADEAU_PORTIE = 100;
+const CADEAU_PORTIE = 50;
 exports.stempelsCadeau = binnen('stempelsCadeau', async req => {
   const uid = wieBenJe(req);
   const d = req.data || {};
@@ -2008,9 +2008,13 @@ exports.stempelsCadeau = binnen('stempelsCadeau', async req => {
   const klaarRef = werkRef(uid).child('cadeauStempels').child(campagne);
   const al = (await klaarRef.child('klanten').once('value')).val() || {};
 
-  const r = (await gql('query($n:Int!,$na:String){customers(first:$n,after:$na){pageInfo{hasNextPage endCursor} nodes{id emailMarketingConsent{marketingState} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}',
+  const r = (await gql('query($n:Int!,$na:String){customers(first:$n,after:$na){pageInfo{hasNextPage endCursor} nodes{id emailMarketingConsent{marketingState} eerste:orders(first:1,sortKey:CREATED_AT){nodes{createdAt}} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}',
     { n: CADEAU_PORTIE, na: d.vanaf || null })).customers;
-  const nodes = (r.nodes || []).filter(c => c.emailMarketingConsent && c.emailMarketingConsent.marketingState === 'SUBSCRIBED');
+  /* v973: wie vóór 1 oktober 2026 al eens bestelde, krijgt geen cadeaustempels */
+  const grens = Date.parse(d.klantSinds || '2026-10-01T00:00:00+02:00');
+  let oudeKlant = 0;
+  const nodes = (r.nodes || []).filter(c => c.emailMarketingConsent && c.emailMarketingConsent.marketingState === 'SUBSCRIBED')
+    .filter(c => { const o = c.eerste && c.eerste.nodes && c.eerste.nodes[0]; if (o && Date.parse(o.createdAt) < grens) { oudeKlant++; return false; } return true; });
 
   let nieuw = 0, overgeslagen = 0, vol = 0;
   const m = [], klaar = {};
@@ -2042,7 +2046,7 @@ exports.stempelsCadeau = binnen('stempelsCadeau', async req => {
     await klaarRef.child('klanten').update(klaar);
     await klaarRef.update({ aantal, laatst: Date.now() });
   }
-  return { nieuw, overgeslagen, vol, verder: r.pageInfo.hasNextPage ? r.pageInfo.endCursor : null, aantal, campagne };
+  return { nieuw, overgeslagen, vol, oudeKlant, verder: r.pageInfo.hasNextPage ? r.pageInfo.endCursor : null, aantal, campagne };
 });
 
 exports.betaalProducten = binnen('betaalProducten', async req => {

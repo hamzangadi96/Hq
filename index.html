@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v972 · 8 nov 2026';
+const APPVERSIE='v973 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10327,10 +10327,10 @@ let cbBezig=false, cbVraag=false, cbBedrag=25;
    niemand ze twee keer. */
 let CS=null;
 async function csLoop(proef,opVoortgang){
-  let vanaf=null, tot={nieuw:0,overgeslagen:0,vol:0};
+  let vanaf=null, tot={nieuw:0,overgeslagen:0,vol:0,oudeKlant:0};
   for(let i=0;i<60;i++){
     const r=await roep('stempelsCadeau',{aantal:CS.aantal,campagne:CS.campagne,proef,vanaf});
-    tot.nieuw+=r.nieuw; tot.overgeslagen+=r.overgeslagen; tot.vol+=r.vol;
+    tot.nieuw+=r.nieuw; tot.overgeslagen+=r.overgeslagen; tot.vol+=r.vol; tot.oudeKlant+=r.oudeKlant||0;
     if(opVoortgang) opVoortgang(tot);
     if(!r.verder) break; vanaf=r.verder;
   }
@@ -10355,8 +10355,9 @@ function cadeauStempelsTeken(){
         :CS.fout?`<p class="hint" style="color:var(--rood)">${esc(CS.fout)}</p>`
         :t?`<div class="shrij"><span class="shn"><b>${t.nieuw} ${t.nieuw===1?'persoon':'mensen'}</b><small>krijgen ${st(n)} (€${25*n} spaartegoed)</small></span></div>
             ${t.vol?`<div class="shrij"><span class="shn"><b>${t.vol}</b><small>${t.vol===1?'krijgt':'krijgen'} een volle kaart</small></span></div>`:''}
+            ${t.oudeKlant?`<div class="shrij"><span class="shn"><b>${t.oudeKlant}</b><small>bestelden al vóór 1 oktober (geen cadeau)</small></span></div>`:''}
             ${t.overgeslagen?`<div class="shrij"><span class="shn"><b>${t.overgeslagen}</b><small>${t.overgeslagen===1?'kreeg':'kregen'} hem al (overgeslagen)</small></span></div>`:''}`:''}</div>
-      <p class="hint" style="margin-top:10px">Alleen mensen die zich voor je mail hebben aangemeld. Een kaart gaat nooit boven de 6 stempels. Ze krijgen hier geen mail van; zet het zelf in je nieuwsbrief.</p>`;
+      <p class="hint" style="margin-top:10px">Alleen mensen die zich voor je mail hebben aangemeld én niet al vóór 1 oktober bestelden. Een kaart gaat nooit boven de 6 stempels. Ze krijgen hier geen mail van; zet het zelf in je nieuwsbrief.</p>`;
   const kan=!CS.klaar&&!CS.bezig&&t&&t.nieuw>0;
   sheet('Cadeaustempels',body,CS.klaar?'':`<button class="prim" style="margin-top:0" id="csGo" ${kan?'':'disabled'}>${svg(I.vink,'2.4')}${CS.zeker?'Zeker weten? Tik nog een keer':t?'Geef '+st(n)+' aan '+t.nieuw+' mensen':'Tellen…'}</button>`);
   sheetTerugZet(()=>homeTegel('stp'));
