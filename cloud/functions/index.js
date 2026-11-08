@@ -706,6 +706,16 @@ exports.mailAdressen = onCall(async req => {
     const uid = wieBenJe(req);
     /* v812: weghalen loopt via deze functie, die al bereikbaar is */
     if ((req.data || {}).weg) return await adresWeghalen(uid, req.data.weg);
+    /* v982: tikfout in een klantadres verbeteren (bijv. hotmail.comm → hotmail.com) */
+    if ((req.data || {}).wijzig) {
+      const w = req.data.wijzig, nr = String(w.id || '').replace(/\D/g, ''), email = String(w.email || '').trim().toLowerCase();
+      if (!nr || !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(email)) throw new HttpsError('invalid-argument', 'Dat mailadres klopt niet.');
+      const gql = await shopifyGql(uid, 'write_customers');
+      const r = (await gql('mutation($i:CustomerInput!){customerUpdate(input:$i){customer{id} userErrors{field message}}}', { i: { id: 'gid://shopify/Customer/' + nr, email } })).customerUpdate;
+      if (r.userErrors && r.userErrors.length) throw new HttpsError('invalid-argument', 'Shopify: ' + r.userErrors.map(x => x.message).join(', ').slice(0, 200));
+      await werkRef(uid).child('dropMail').child('drop-8-nov').child('ongeldig').child(nr).remove();
+      return { ok: true, email };
+    }
     const sinds = /^\d{4}-\d{2}-\d{2}$/.test((req.data || {}).sinds || '') ? req.data.sinds : '2000-01-01';
     const { winkel, token: t } = await token(uid);
     const uit = []; let na = null;

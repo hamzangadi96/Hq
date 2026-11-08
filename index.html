@@ -4890,6 +4890,7 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .machips button{flex:1;border:1px solid #e4e4e7;border-radius:99px;background:#f4f4f5;color:var(--ink);font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 6px;white-space:nowrap}
 .machips button:active{background:#e4e4e7}
 .machips button:disabled{opacity:.4}
+.malink.mawz{padding:0;font-size:inherit;font-weight:600;color:var(--ink)}
 .malink{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--ink);text-decoration:underline;padding:6px 0}
 .sp2rij.makies .sp2nm{overflow-wrap:anywhere;font-size:15px}
 .sp2rij.makies{cursor:pointer}
@@ -5347,7 +5348,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v981 · 8 nov 2026';
+const APPVERSIE='v982 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9453,7 +9454,7 @@ function maTeken(){
       return `${maWeergave==='al'?'<div style="height:6px"></div>':`<div class="sp2kop"><span>${bi*50+1}–${bi*50+bl.length}</span>${ids.length?`<button type="button" class="malink" data-mablok="${bi}">${alAan?'uitvinken':'aanvinken'}</button>`:''}</div>`}
       <div class="sp2lijst">${bl.map(x=>{ const isG=gm(x), aan=maKies.has(String(x.id));
         const isO=!isG&&ong(x);
-        return `<div class="sp2rij makies${aan?' aan':''}${isG||isO?' gemaild':''}" ${isG||isO?'':`data-makies="${esc(x.id)}"`} role="checkbox" aria-checked="${aan}"><span class="mavink${isO?' maaf':''}">${isO?'×':isG||aan?svg(I.vink,'2.6'):''}</span><span class="sp2nm">${esc(x.email)}<small>${isO?'<b style="color:#c0392b">adres bestaat niet</b> · '+dag(x):isG?wanneer(x)+' · aangemeld '+dag(x):dag(x)}${x.orders?' · '+x.orders+'× besteld':''}</small></span></div>` }).join('')}</div>` }).join('')
+        return `<div class="sp2rij makies${aan?' aan':''}${isG||isO?' gemaild':''}" ${isG||isO?'':`data-makies="${esc(x.id)}"`} role="checkbox" aria-checked="${aan}"><span class="mavink${isO?' maaf':''}">${isO?'×':isG||aan?svg(I.vink,'2.6'):''}</span><span class="sp2nm">${esc(x.email)}<small>${isO?'<b style="color:#c0392b">adres bestaat niet</b> · '+dag(x):isG?wanneer(x)+' · aangemeld '+dag(x):dag(x)}${x.orders?' · '+x.orders+'× besteld':''}${!isG?` · <button type="button" class="malink mawz" data-mawijzig="${esc(x.id)}">${isO?'verbeteren':'wijzig'}</button>`:''}</small></span></div>` }).join('')}</div>` }).join('')
       :`<p class="wdleeg">${maWeergave==='al'?'Nog niemand in deze groep heeft de drop-mail gekregen.':groep.length?'Iedereen in deze groep is al gemaild.':'Niemand in deze groep.'}</p>`}`;
   $('#sheetVoet').innerHTML=maWeergave==='af'?'':sel?`<button class="prim" style="margin-top:0" id="maStuur">Drop-mail sturen naar ${sel}</button>`
     :l.length?`<button class="sec" style="margin-top:0;width:100%" id="maKop">${l.length} adressen kopiëren</button>`:'';
@@ -9466,7 +9467,8 @@ function maTeken(){
   $$('[data-mablok]').forEach(b=>b.onclick=()=>{ const bl=blokken[+b.dataset.mablok]; const ids=bl.filter(x=>x.id&&!gm(x)&&!ong(x)).map(x=>String(x.id));
     if(ids.every(id=>maKies.has(id))) ids.forEach(id=>maKies.delete(id)); else ids.forEach(id=>maKies.add(id)); maTeken() });
   $$('[data-maw]').forEach(b=>b.onclick=()=>{ maWeergave=b.dataset.maw; if(maWeergave==='af') maAfgemeldLaden(); maTeken(); $('#sheetBody').scrollTop=0 });
-  $$('[data-makies]').forEach(r=>r.onclick=e=>{ if(e.target.closest('[data-maweg]')) return; const id=r.dataset.makies; maKies.has(id)?maKies.delete(id):maKies.add(id); maTeken() });
+  $$('[data-mawijzig]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); maAdresWijzig(b.dataset.mawijzig) });
+  $$('[data-makies]').forEach(r=>r.onclick=e=>{ if(e.target.closest('[data-maweg],[data-mawijzig]')) return; const id=r.dataset.makies; maKies.has(id)?maKies.delete(id):maKies.add(id); maTeken() });
   if($('#maStuur')) $('#maStuur').onclick=()=>sheetDropMail();
   $$('[data-map]').forEach(b=>b.onclick=()=>{ maPeriode=b.dataset.map; maTeken() });
   $$('[data-maf]').forEach(b=>b.onclick=()=>{ maFilter=b.dataset.maf; maTeken() });
@@ -9477,6 +9479,20 @@ function maTeken(){
 /* v811: testadres weghalen. Nooit besteld → gewist uit Shopify,
    wel besteld → afgemeld (Shopify laat wissen dan niet toe). */
 let maWegBezig=null;
+function maAdresWijzig(id){
+  const x=(maLijst||[]).find(a=>String(a.id)===String(id)); if(!x) return;
+  const voorstel=x.email.replace(/\.(comm|con|cm|cmo|nll)$/i,m=>({'.comm':'.com','.con':'.com','.cm':'.com','.cmo':'.com','.nll':'.nl'})[m.toLowerCase()]||m);
+  sheet('Mailadres verbeteren',
+    `<p class="hint">Wordt ook in Shopify aangepast. Daarna kun je hem gewoon aanvinken en versturen.</p>
+     <div class="veld"><label>Was</label><input class="inp" value="${esc(x.email)}" disabled></div>
+     <div class="veld"><label>Wordt</label><input class="inp" id="mwE" value="${esc(voorstel)}" autocapitalize="off" inputmode="email"></div>`,
+    `<button class="prim" style="margin-top:0" id="mwOk">Opslaan</button>`);
+  sheetTerugZet(()=>sheetMailAdressen());
+  $('#mwOk').onclick=async()=>{ const k=$('#mwOk'); k.disabled=true; k.textContent='Opslaan…';
+    try{ const r=await roep('mailAdressen',{wijzig:{id:String(x.id),email:$('#mwE').value}});
+      x.email=r.email; maOngeldig.delete(String(x.id)); toast('Aangepast'); sheetMailAdressen() }
+    catch(e){ toast((e&&e.message)||'Opslaan lukte niet'); k.disabled=false; k.textContent='Opslaan' } };
+}
 function maAdresWeg(id){
   const x=(maLijst||[]).find(a=>a.id===id); if(!x||maWegBezig) return;
   const vraag=x.orders
