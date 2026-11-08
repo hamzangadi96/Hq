@@ -2599,7 +2599,7 @@ async function ordersBijwerken(uid) {
   return { bijgewerkt: orders.length, nieuw: nieuw.length };
 }
 
-exports.ordersBewaken = onSchedule({ schedule: 'every 5 minutes', timeZone: 'Europe/Amsterdam', timeoutSeconds: 120 }, async () => {
+exports.ordersBewaken = onSchedule({ schedule: 'every 1 minutes', timeZone: 'Europe/Amsterdam', timeoutSeconds: 120 }, async () => {
   const g = (await db().ref('geheim').once('value')).val() || {};
   for (const uid of Object.keys(g)) {
     if (uid.startsWith('_') || !g[uid] || !g[uid].shopify) continue;
