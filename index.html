@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v968 · 7 nov 2026';
+const APPVERSIE='v969 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20126,7 +20126,59 @@ async function roep(naam,gegevens){
 }
 const koppeling=()=>((S.werk||{}).koppeling)||{};
 
+/* v969: één controle voor alles wat met orders te maken heeft:
+   orders binnen, wenskaarten, MyParcel-labels en meldingen op je telefoon */
+let KC=null;
+function kcRij(ok,naam,uitleg,knop){
+  return `<div class="arij" style="cursor:default"><span class="bol ${ok===true?'af':''}" style="${ok===false?'background:var(--rood);border-color:var(--rood);color:#fff':''}">${ok===true?svg(I.vink,'2.6'):ok===false?'!':''}</span>
+    <span class="naam">${naam}<small>${uitleg}</small></span>${knop||''}</div>`;
+}
+function kcHTML(){
+  if(!KC) return kcRij(null,'Nakijken…','HQ vraagt het na bij Shopify en MyParcel');
+  if(KC.fout) return kcRij(false,'Nakijken lukte niet',esc(KC.fout));
+  const sh=KC.shopify||{}, mp=KC.myparcel||{}, me=KC.meldingen||{};
+  const dt=sh.laatste?new Date(sh.laatste).toLocaleString('nl-NL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  const pushKan='PushManager' in window&&'serviceWorker' in navigator;
+  return kcRij(!sh.gekoppeld?false:sh.fout?false:true,'Orders van Shopify',!sh.gekoppeld?'niet gekoppeld (Shopify-tab)':sh.fout?esc(sh.fout):'komen elke 5 min vanzelf binnen · '+(sh.open||0)+' open'+(dt?' · laatste '+dt:''))
+    +kcRij(!sh.gekoppeld?false:true,'Wenskaarten',sh.gekoppeld?(sh.kaarten?sh.kaarten+' nog te printen (Orders-tab › Wenskaarten printen)':'geen kaarten te printen'):'komen mee met de orders')
+    +kcRij(!mp.gekoppeld?false:mp.fout?false:true,'MyParcel-labels',!mp.gekoppeld?'niet gekoppeld: tik hieronder op MyParcel':mp.fout?esc(mp.fout):'gekoppeld en bereikbaar · label printen in de order')
+    +kcRij(me.telefoons?true:false,'Melding bij nieuwe order',me.telefoons?'aan op '+me.telefoons+(me.telefoons===1?' telefoon':' telefoons'):pushKan?'nog uit':'kan alleen in de app op je beginscherm',
+      pushKan?`<button type="button" class="kopknop" id="kcPush" style="flex:none">${me.telefoons?'Test':'Aanzetten'}</button>`:'');
+}
+async function kcLaad(){
+  KC=null; if($('#kcVak')) $('#kcVak').innerHTML=kcHTML();
+  try{ KC=await roep('koppelingCheck') }catch(e){ KC={fout:fout(e)} }
+  const v=$('#kcVak'); if(v){ v.innerHTML=kcHTML(); kcKnoppen() }
+}
+function kcKnoppen(){
+  const b=$('#kcPush'); if(!b) return;
+  b.onclick=async()=>{
+    b.disabled=true; const oud=b.textContent; b.textContent='Bezig…';
+    try{
+      if(!(KC.meldingen||{}).telefoons||oud==='Aanzetten'){ await meldingenAan(); toast('Meldingen staan aan.') }
+      await roep('pushTest'); toast('Testmelding verstuurd.');
+      KC.meldingen=Object.assign({},KC.meldingen,{telefoons:Math.max(1,(KC.meldingen||{}).telefoons||0)});
+    }catch(e){ toast(fout(e)) }
+    const v=$('#kcVak'); if(v){ v.innerHTML=kcHTML(); kcKnoppen() }
+  };
+}
+const b64naarBytes=b=>{ const p='='.repeat((4-b.length%4)%4), s2=atob((b+p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from([...s2].map(c=>c.charCodeAt(0))) };
+async function meldingenAan(){
+  if(!('Notification' in window)) throw new Error('Meldingen werken alleen als je HQ vanaf je beginscherm opent.');
+  const ok=await Notification.requestPermission();
+  if(ok!=='granted') throw new Error('Je telefoon staat meldingen voor HQ niet toe. Zet ze aan bij Instellingen › Meldingen › HQ.');
+  const reg=await navigator.serviceWorker.ready;
+  const {sleutel}=await roep('pushSleutel');
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64naarBytes(sleutel)});
+  await roep('pushAanmelden',{sub:sub.toJSON()});
+}
+if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('message',e=>{
+  if(e.data&&e.data.soort==='naar'&&/orders/.test(e.data.url||'')){ S.tab='orders'; S.batchId=null; try{ navigator.clearAppBadge&&navigator.clearAppBadge() }catch(x){} render() }
+});
+if(/#orders/.test(location.hash)) setTimeout(()=>{ S.tab='orders'; render(); try{ history.replaceState(null,'',location.pathname) }catch(e){} },800);
 function sheetKoppelingen(){
+  setTimeout(kcLaad,0);
   const k=koppeling();
   const rij=(sleutel,naam,uitleg)=>`<button class="arij" data-kop="${sleutel}">
     <span class="bol ${k[sleutel]?'af':''}">${k[sleutel]?svg(I.vink,'2.6'):''}</span>
@@ -20136,6 +20188,9 @@ function sheetKoppelingen(){
     `<p class="hint">Je sleutels worden op de server bewaard, niet in deze app.
       Zo kan niemand die de pagina opent erbij. Shopify staat sinds kort bij
       de Shopify-tab, niet meer hier.</p>
+     <div class="sp2kop"><span>Werkt alles?</span></div>
+     <div class="paneel" id="kcVak">${kcHTML()}</div>
+     <div class="sp2kop"><span>Koppelingen</span></div>
      <div class="paneel">
        ${rij('myparcel','MyParcel','voor je verzendlabels')}
        ${rij('instagram','Instagram','Reels posten vanuit Content')}

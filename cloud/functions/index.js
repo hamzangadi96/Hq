@@ -2491,3 +2491,115 @@ exports.mailVerstuur = onCall({ timeoutSeconds: 90 }, async req => {
   const mail = await MAIL.lees(g, id);
   return await MAIL.verstuur(g, mail, tekst);
 });
+
+/* ═══════════ v969: orders vanzelf binnen + melding op je telefoon ═══════════
+   Elke 5 minuten kijkt HQ bij Shopify of er orders zijn bijgekomen of
+   veranderd, ook als de app dicht is. Een nieuwe order zet hij meteen in je
+   orderlijst en je krijgt een melding (pushbericht) op je telefoon.
+   In de melding staat geen klantnaam: alleen ordernummer en wat erin zit. */
+const webpush = require('web-push');
+const pushRef = uid => geheimRef(uid).child('push');
+
+async function vapid() {
+  const ref = db().ref('geheim/_systeem/vapid');
+  let v = (await ref.once('value')).val();
+  if (!v || !v.publicKey) { v = webpush.generateVAPIDKeys(); await ref.set(v); }
+  return v;
+}
+
+exports.pushSleutel = onCall(async req => {
+  wieBenJe(req);
+  return { sleutel: (await vapid()).publicKey };
+});
+
+exports.pushAanmelden = binnen('pushAanmelden', async req => {
+  const uid = wieBenJe(req);
+  const sub = (req.data || {}).sub;
+  if (!sub || typeof sub.endpoint !== 'string' || !/^https:\/\//.test(sub.endpoint) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth)
+    throw new HttpsError('invalid-argument', 'Ongeldige aanmelding.');
+  const sleutel = require('crypto').createHash('sha256').update(sub.endpoint).digest('hex').slice(0, 24);
+  await pushRef(uid).child(sleutel).set({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth }, sinds: Date.now() });
+  await werkRef(uid).child('meldingen').update({ aan: true, sinds: Date.now() });
+  return { ok: true };
+});
+
+async function stuurPush(uid, bericht) {
+  const v = await vapid();
+  webpush.setVapidDetails('mailto:info@cacaoboetiek.nl', v.publicKey, v.privateKey);
+  const subs = (await pushRef(uid).once('value')).val() || {};
+  let n = 0;
+  for (const k of Object.keys(subs)) {
+    try { await webpush.sendNotification(subs[k], JSON.stringify(bericht), { TTL: 24 * 3600, urgency: 'high' }); n++; }
+    catch (e) {
+      if (e && (e.statusCode === 404 || e.statusCode === 410)) await pushRef(uid).child(k).remove();
+      else console.error('push', e && e.statusCode, e && e.body);
+    }
+  }
+  return n;
+}
+
+exports.pushTest = binnen('pushTest', async req => {
+  const uid = wieBenJe(req);
+  const n = await stuurPush(uid, { titel: 'Meldingen staan aan', tekst: 'Zo ziet een melding van een nieuwe order eruit.', url: './#orders' });
+  if (!n) throw new HttpsError('failed-precondition', 'Er is nog geen telefoon aangemeld voor meldingen.');
+  return { n };
+});
+
+function orderMelding(v) {
+  const wat = (v.regels || []).slice(0, 3).map(r => r.aantal + '× ' + r.naam).join(', ');
+  return {
+    titel: 'Nieuwe order #' + v.nummer,
+    tekst: (wat || v.stuks + ' stuks') + (v.afhaal ? ' · afhalen' : ' · verzenden') + (v.wenskaart_gevraagd ? ' · met wenskaart' : ''),
+    url: './#orders', tag: 'order-' + v.shopifyId
+  };
+}
+
+async function ordersBijwerken(uid) {
+  const w = werkRef(uid);
+  const laatst = (await w.child('laatstOpgehaald').once('value')).val() || (Date.now() - 2 * 3600 * 1000);
+  const vanaf = new Date(laatst - 10 * 60 * 1000).toISOString();
+  const { gegevens } = await shopifyPagina(uid, 'orders.json?status=any&limit=250&updated_at_min=' + encodeURIComponent(vanaf));
+  const orders = gegevens.orders || [];
+  const bestaand = (await w.child('orders').once('value')).val() || {};
+  const upd = {}, nieuw = [];
+  orders.forEach(o => {
+    const v = veiligeOrder(o);
+    if (!bestaand[v.shopifyId] && !v.afgehandeld && Date.parse(o.created_at || 0) > Date.now() - 24 * 3600 * 1000) nieuw.push(v);
+    upd[v.shopifyId] = Object.assign({}, bestaand[v.shopifyId] || {}, v);
+  });
+  if (Object.keys(upd).length) await w.child('orders').update(upd);
+  await w.update({ laatstOpgehaald: Date.now() });
+  for (const v of nieuw) await stuurPush(uid, orderMelding(v));
+  return { bijgewerkt: orders.length, nieuw: nieuw.length };
+}
+
+exports.ordersBewaken = onSchedule({ schedule: 'every 5 minutes', timeZone: 'Europe/Amsterdam', timeoutSeconds: 120 }, async () => {
+  const g = (await db().ref('geheim').once('value')).val() || {};
+  for (const uid of Object.keys(g)) {
+    if (uid.startsWith('_') || !g[uid] || !g[uid].shopify) continue;
+    try { await ordersBijwerken(uid); } catch (e) { console.error('ordersBewaken', uid, e && e.message); }
+  }
+});
+
+/* Overzicht voor de app: wat is er gekoppeld en werkt het? */
+exports.koppelingCheck = binnen('koppelingCheck', async req => {
+  const uid = wieBenJe(req);
+  const g = (await geheimRef(uid).once('value')).val() || {};
+  const w = (await werkRef(uid).once('value')).val() || {};
+  const uit = { shopify: { gekoppeld: !!g.shopify }, myparcel: { gekoppeld: !!g.myparcel }, meldingen: { telefoons: Object.keys(g.push || {}).length } };
+  if (g.shopify) {
+    try { const r = await ordersBijwerken(uid); uit.shopify.ok = true; uit.shopify.nieuw = r.nieuw; }
+    catch (e) { uit.shopify.fout = String(e && e.message || e).slice(0, 200); }
+    const os = Object.values(w.orders || {});
+    uit.shopify.open = os.filter(o => o && !o.afgehandeld).length;
+    uit.shopify.kaarten = os.filter(o => o && !o.afgehandeld && o.wenskaart_gevraagd && !o.kaart_geprint).length;
+    uit.shopify.laatste = os.map(o => o && o.geplaatst).filter(Boolean).sort().pop() || null;
+  }
+  if (g.myparcel) {
+    try {
+      const r = await mpRoep(g.myparcel.sleutel, 'shipments?size=1', { headers: mpKoppen(g.myparcel.sleutel) });
+      uit.myparcel.ok = r.ok; if (!r.ok) uit.myparcel.fout = 'MyParcel antwoordde met ' + r.status + '.';
+    } catch (e) { uit.myparcel.fout = String(e && e.message || e).slice(0, 200); }
+  }
+  return uit;
+});

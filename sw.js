@@ -1,6 +1,6 @@
 /* Cacaoboetiek HQ — service worker
    Verhoog VERSIE bij elke nieuwe upload. */
-const VERSIE = 'hq-v968';
+const VERSIE = 'hq-v969';
 
 /* ═══════════ een leeg antwoord is geen antwoord ═══════════
    Een mislukte upload leverde een bestand van nul bytes op. De server gaf
@@ -154,4 +154,25 @@ self.addEventListener('fetch', e => {
       return res;
     }))
   );
+});
+
+/* v969: melding van een nieuwe order, ook als HQ dicht is */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { titel: 'Cacaoboetiek HQ', tekst: e.data ? e.data.text() : '' }; }
+  e.waitUntil(Promise.all([
+    self.registration.showNotification(d.titel || 'Cacaoboetiek HQ', {
+      body: d.tekst || '', icon: './icon-192.png', badge: './icon-192.png',
+      tag: d.tag || undefined, data: { url: d.url || './' }
+    }),
+    (self.navigator && 'setAppBadge' in self.navigator) ? self.navigator.setAppBadge(1).catch(() => {}) : null
+  ]));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(l => {
+    for (const c of l) { if ('focus' in c) { c.postMessage({ soort: 'naar', url }); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
 });
