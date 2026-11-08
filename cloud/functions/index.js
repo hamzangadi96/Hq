@@ -2804,7 +2804,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   const mg = await leesGeheim(uid, 'mail');
   if (!mg || !mg.adres) throw new HttpsError('failed-precondition', 'Koppel eerst info@ bij Koppelingen › Mail.');
   const gql = await shopifyGql(uid, 'write_customers');
-  const r = await gql('query($i:[ID!]!){nodes(ids:$i){... on Customer{id defaultEmailAddress{emailAddress marketingState} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}',
+  const r = await gql('query($i:[ID!]!){nodes(ids:$i){... on Customer{id defaultEmailAddress{emailAddress marketingState} eerste:orders(first:1,sortKey:CREATED_AT){nodes{createdAt}} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}',
     { i: ids.map(n => 'gid://shopify/Customer/' + n) });
   const klanten = (r.nodes || []).filter(c => c && c.id && c.defaultEmailAddress && c.defaultEmailAddress.emailAddress);
   let overgeslagen = ids.length - klanten.length, nietIngeschreven = 0;
@@ -2816,7 +2816,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   });
 
   /* 1. stempels (optioneel) */
-  let stempels = 0;
+  let stempels = 0, oudeKlant = 0;
   if (d.stempels) {
     const sRef = werkRef(uid).child('cadeauStempels').child(DROPMAIL.campagne);
     const sAl = (await sRef.child('klanten').once('value')).val() || {};
@@ -2824,6 +2824,9 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
     lijst.forEach(c => {
       const nr = String(c.id).split('/').pop();
       if (sAl[nr]) return;
+      /* zoals afgesproken: wie vóór 1 oktober al eens bestelde, krijgt geen cadeaustempels */
+      const o1 = c.eerste && c.eerste.nodes && c.eerste.nodes[0];
+      if (o1 && Date.parse(o1.createdAt) < Date.parse('2026-10-01T00:00:00+02:00')) { oudeKlant++; return; }
       const saldo = c.s ? (parseFloat(c.s.value) || 0) : 0;
       let st = {}; try { st = c.cb ? JSON.parse(c.cb.value) || {} : {}; } catch (e) { st = {}; }
       const kaart = Math.max(0, Math.min(15000, parseInt(st.cardCents, 10) || 0));
@@ -2865,5 +2868,5 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   }
   t.close();
   if (ok) await ref.child('verstuurd').update(gelukt);
-  return { verstuurd: ok, mislukt: mis, fout, overgeslagen, nietIngeschreven, stempels, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)) };
+  return { verstuurd: ok, mislukt: mis, fout, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)) };
 });
