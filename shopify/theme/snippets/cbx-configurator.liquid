@@ -1,0 +1,112 @@
+{% doc %}
+  On-page gift and personal box configurator. Catalog and prices come from Shopify.
+  @param {section} section
+{% enddoc %}
+{%- liquid
+  assign cfg = section.settings
+  assign small_product = cfg.cfg_small_product | default: all_products['stel-zelf-samen-16-pralines']
+  assign large_product = cfg.cfg_large_product | default: all_products['coffret-vert-foret-25-pralines-stel-zelf-samen']
+  assign card_product = cfg.cfg_card_product | default: all_products['persoonlijk-bericht']
+  assign ribbon_product = cfg.cfg_ribbon_product | default: all_products['cadeaulint-personalisatie']
+  assign color_keys = 'bordeaux,donkerblauw,groen,paars,rood,lichtblauw' | split: ','
+-%}
+{{ 'cbx-home-box.css' | asset_url | stylesheet_tag }}
+{{ 'cbx-configurator.css' | asset_url | stylesheet_tag }}
+<dialog id="cbx-configurator-{{ section.id }}" class="cbx-configurator-dialog" aria-label="Stel je Cacaoboetiek doos samen" data-cbx-dialog>
+  <section data-cbx-config data-section-id="{{ section.id }}">
+    <header class="cb-header">
+      <img class="cb-brand" data-cb="cb-brand" src="{{ 'cbx-configurator-logo.svg' | asset_url }}" width="209" height="32" alt="Cacaoboetiek Raffinement">
+      <div class="cb-header-actions">
+        <button class="cb-recipient-edit" type="button" data-action="edit-recipient" aria-label="Naam ontvanger wijzigen"><span data-cb="cb-recipient-label">Cadeau 1</span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg></button>
+        <span class="cb-self-label" data-cb="cb-self-label" hidden>Voor mezelf</span>
+        <button class="cb-bag" type="button" data-action="basket"><span data-cb="cb-bag-label">Je dozen</span></button><button class="cb-close" type="button" data-action="close" aria-label="Configurator sluiten">×</button>
+      </div>
+    </header>
+    <ol class="cb-steps" data-cb="cb-steps" aria-label="Stappen van je samenstelling"></ol>
+    <div class="cb-layout" data-cb="cb-layout">
+      <aside class="cb-visual" data-cb="cb-preview" aria-label="Voorbeeld van jouw doos"></aside>
+      <div class="cb-content" data-cb="cb-main"></div>
+    </div>
+    <div data-cb="cb-cart" hidden></div>
+    <footer class="cb-footer" data-cb="cb-footer"></footer>
+    <div class="cb-sr" data-cb="cb-announcement" aria-live="polite"></div>
+    <script type="application/json" data-cbx-data>
+      {%- capture configurator_data -%}
+      {
+        "sectionId": {{ section.id | json }},
+        "currency": {{ cart.currency.iso_code | default: shop.currency | json }},
+        "cartUrl": {{ routes.cart_url | json }},
+        "rootUrl": {{ routes.root_url | json }},
+        "products": {
+          "16": {% render 'cbx-configurator-product', product: small_product %},
+          "25": {% render 'cbx-configurator-product', product: large_product %},
+          "card": {% render 'cbx-configurator-product', product: card_product %},
+          "ribbon": {% render 'cbx-configurator-product', product: ribbon_product %}
+        },
+        "colors": [
+          {%- assign cbx_kv = shop.metafields.cbx.dooskleur_voorraad.value -%}
+          {%- assign cbx_eerste = true -%}
+          {%- assign cbx_lijst = 'bordeaux:Bordeaux:#69343b,donkerblauw:Donkerblauw:#253955,groen:Groen:#405a52,paars:Paars:#584571,rood:Rood:#c73e42,lichtblauw:Lichtblauw:#35afe0' | split: ',' -%}
+          {%- for cbx_c in cbx_lijst -%}
+            {%- assign cbx_d = cbx_c | split: ':' -%}
+            {%- assign cbx_n = cbx_kv[cbx_d[0]] -%}
+            {%- if cbx_n == nil or cbx_n > 0 -%}
+              {%- unless cbx_eerste -%},{%- endunless -%}["{{ cbx_d[0] }}","{{ cbx_d[1] }}","{{ cbx_d[2] }}"]
+              {%- assign cbx_eerste = false -%}
+            {%- endif -%}
+          {%- endfor -%}
+        ],
+        "assets": {
+          "giftBonbonIcon": {{ 'cbx-gift-bonbon-bottom-smooth.svg' | asset_url | json }},
+          "kersenBastogneCutout": {{ 'cbx-kersen-bastogne-approved.webp' | asset_url | json }},
+          "kokosAnanasCutout": {{ 'cbx-kokos-ananas-approved.webp' | asset_url | json }},
+          "pistacheRedCutout": {{ 'cbx-pistache-rode-approved.webp' | asset_url | json }},
+          "cappuccinoCutout": {{ 'cbx-cappuccino-approved.webp' | asset_url | json }},
+          "box3dModule": {{ 'cbx-box3d.js' | asset_url | json }},
+          "threeModule": {{ 'cbx-three.module.js' | asset_url | json }},
+          "model16": {{ 'cbx-box-16.json' | asset_url | json }},
+          "model25": {{ 'cbx-box-25.json' | asset_url | json }},
+          "lid-groen": {{ 'cbx-lid-groen.png' | asset_url | json }},
+"lid-paars": {{ 'cbx-lid-paars.png' | asset_url | json }},
+"lid-rood": {{ 'cbx-lid-rood.png' | asset_url | json }},
+          "lid-lichtblauw": {{ 'cbx-lid-lichtblauw.png' | asset_url | json }},
+"lid-bordeaux": {{ 'cbx-lid-bordeaux.png' | asset_url | json }},
+"lid-donkerblauw": {{ 'cbx-lid-donkerblauw.png' | asset_url | json }},
+          "logo": {{ 'cbx-configurator-logo.svg' | asset_url | json }}
+          {%- for color in color_keys -%}
+            {%- assign color_asset = 'cbm-v5-fan-' | append: color | append: '.webp' -%},
+            "box-{{ color }}": {{ color_asset | asset_url | json }}
+          {%- endfor -%}
+        },
+        "allergensVerified": {{ cfg.cfg_allergens_verified | default: false | json }},
+        "crossContact": {{ cfg.cfg_cross_contact | default: '' | json }},
+        "allergenNotice": {{ cfg.cfg_allergen_notice | default: 'Bij een allergie: neem voor je bestelt contact met ons op over ingrediënten en mogelijke sporen.' | json }},
+        "profileOverrides": {{ cfg.cfg_taste_profiles | default: '' | json }},
+        "flavors": [
+          {%- assign emitted_flavor = false -%}
+          {%- for flavor in shop.metaobjects.cbx_smaak.values limit: 50 -%}
+            {%- assign flavor_key = flavor.sleutel.value | default: flavor.system.handle -%}
+            {%- if emitted_flavor -%},{%- endif -%}
+            {
+              "id": {{ flavor_key | json }},
+              "name": {{ flavor.naam.value | json }},
+              "description": {{ flavor.omschrijving.value | json }},
+              "chocolate": {{ flavor.chocolade.value | json }},
+              "allergens": {{ flavor.allergenen.value | json }},
+              "traces": {{ flavor.sporen.value | json }},
+              "available": {{ flavor.leverbaar.value | default: false | json }},
+              "stock": {{ flavor.voorraad.value | json }},
+              "image": {% if flavor.foto.value != blank %}{{ flavor.foto.value | image_url: width: 400 | json }}{% elsif flavor_key == 'pinda-karamel' %}{{ 'cbx-pinda-smakenboek.png' | asset_url | json }}{% else %}null{% endif %}
+            }
+            {%- assign emitted_flavor = true -%}
+          {%- endfor -%}
+        ]
+      }
+      {%- endcapture -%}
+      {{ configurator_data | replace: '</', '<\/' }}
+    </script>
+  </section>
+</dialog>
+<script src="{{ 'cbx-configurator-core.js' | asset_url }}" defer></script>
+<script src="{{ 'cbx-configurator-cart.js' | asset_url }}" defer></script>
+<script src="{{ 'cbx-configurator.js' | asset_url }}" defer></script>
