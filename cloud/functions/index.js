@@ -2810,6 +2810,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   const d = req.data || {};
   const ref = werkRef(uid).child('dropMail').child(DROPMAIL.campagne);
   const al = (await ref.child('verstuurd').once('value')).val() || {};
+  const alOngeldig = (await ref.child('ongeldig').once('value')).val() || {};
   /* v980: wie de drop-mail kreeg en zich daarna afmeldde (via onze link of anders) */
   if (d.afgemeld) {
     const nrs = Object.keys(al), gql0 = await shopifyGql(uid, 'read_customers'), uit = [];
@@ -2826,7 +2827,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
     uit.sort((a, b) => String(b.op || '').localeCompare(String(a.op || '')));
     return { afgemeld: uit, gemaild: nrs.length };
   }
-  if (!Array.isArray(d.ids) || !d.ids.length) return { verstuurdIds: Object.keys(al), verstuurdOp: al };
+  if (!Array.isArray(d.ids) || !d.ids.length) return { verstuurdIds: Object.keys(al), verstuurdOp: al, ongeldigIds: Object.keys(alOngeldig) };
   const ids = [...new Set(d.ids.map(x => String(x).replace(/\D/g, '')).filter(Boolean))].slice(0, 25);
   const mg = await leesGeheim(uid, 'mail');
   if (!mg || !mg.adres) throw new HttpsError('failed-precondition', 'Koppel eerst info@ bij Koppelingen › Mail.');
@@ -2882,7 +2883,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   const afzenders = [mg, mg2].filter(x => x && x.adres && x.wachtwoord).map(x => ({ adres: x.adres,
     t: nodemailer.createTransport({ host: 'smtp.strato.de', port: 465, secure: true, pool: true, maxConnections: 1, auth: { user: x.adres, pass: x.wachtwoord } }) }));
   let ai = 0, ok = 0, mis = 0, fout = '';
-  const gelukt = {}, perAfzender = {};
+  const gelukt = {}, perAfzender = {}, ongeldig = {};
   for (const c of lijst) {
     const nr = String(c.id).split('/').pop();
     const url = 'https://europe-west1-cacaoboetiek-hq.cloudfunctions.net/afmelden?k=' + nr + '&t=' + afmeldHash(k, nr);
@@ -2897,16 +2898,23 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
           text: DROPMAIL.tekst + ' Afmelden: ' + url });
         ok++; gelukt[nr] = Date.now(); perAfzender[a.adres] = (perAfzender[a.adres] || 0) + 1; klaar = true;
       } catch (e) {
-        fout = a.adres.split('@')[0] + ': ' + String(e && e.message || e).replace(/[^\s<>@]+@[^\s<>]+/g, '[adres]').slice(0, 200);
+        const msg = String(e && e.message || e);
+        /* v981: ligt het aan het ADRES van de klant (bestaat niet, tikfout)? Dan alleen
+           die overslaan en gewoon doorgaan met dezelfde afzender. */
+        if ((e && e.code === 'EENVELOPE' && e.rejected && e.rejected.length) || /\b5\.1\.[0-9]\b|does not exist|user unknown|no such user|mailbox unavailable/i.test(msg)) {
+          ongeldig[nr] = Date.now(); klaar = true; break;
+        }
+        fout = a.adres.split('@')[0] + ': ' + msg.replace(/[^\s<>@]+@[^\s<>]+/g, '[adres]').slice(0, 200);
         console.warn('dropMailStuur fout', (e && e.responseCode) || '', fout);
         ai++;   /* deze afzender weigert: volgende proberen voor dezelfde ontvanger */
       }
     }
-    if (!klaar) { mis = lijst.length - ok; break; }
+    if (!klaar) { mis = lijst.length - ok - Object.keys(ongeldig).length; break; }
     await new Promise(z => setTimeout(z, 1200));
   }
   afzenders.forEach(a => a.t.close());
   if (ok) await ref.child('verstuurd').update(gelukt);
+  if (Object.keys(ongeldig).length) await ref.child('ongeldig').update(ongeldig);
   if (mis) await ref.update({ laatsteFout: fout, laatsteFoutOp: Date.now() });
-  return { verstuurd: ok, mislukt: mis, fout, perAfzender, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)), verstuurdOp: Object.assign({}, al, gelukt) };
+  return { verstuurd: ok, mislukt: mis, fout, perAfzender, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)), verstuurdOp: Object.assign({}, al, gelukt), ongeldig: Object.keys(ongeldig).length, ongeldigIds: Object.keys(Object.assign({}, alOngeldig, ongeldig)) };
 });
