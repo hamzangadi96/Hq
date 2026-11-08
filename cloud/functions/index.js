@@ -2773,3 +2773,108 @@ exports.testmailDrop8 = onSchedule({ schedule: 'every 1 minutes', timeZone: 'Eur
     await vlag.update({ verstuurd: Date.now() });
   } catch (e) { await vlag.update({ fout: String(e && e.message || e).slice(0, 200) }); }
 });
+
+/* ═══════════ 8 nov: drop-mail naar de eerste 50 aanmelders vanaf 1 okt ═══════════
+   Eenmalig. Geeft eerst 2 cadeaustempels (zelfde boekhouding als de HQ-knop, campagne
+   drop-8-nov, dus de knop geeft ze later niet dubbel), dan de mail via info@ met een
+   eigen afmeldlink. In de database komen alleen tellingen, geen namen of adressen. */
+async function afmeldSleutel() {
+  const r = db().ref('geheim/_systeem/afmeldSleutel');
+  let k = (await r.once('value')).val();
+  if (!k) { k = crypto.randomBytes(24).toString('hex'); await r.set(k); }
+  return k;
+}
+const afmeldHash = (k, nr) => crypto.createHmac('sha256', k).update('afmelden:' + nr).digest('hex').slice(0, 24);
+
+exports.afmelden = onRequest({ invoker: 'public', cors: false }, async (req, res) => {
+  const nr = String(req.query.k || '').replace(/\D/g, ''), t = String(req.query.t || '');
+  const pagina = (kop, tekst) => res.status(200).set('Content-Type', 'text/html; charset=utf-8').send(
+    '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cacaoboetiek</title>' +
+    '<body style="margin:0;font-family:Georgia,serif;background:#f7f3ee;color:#512f25;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px">' +
+    '<div><p style="letter-spacing:.3em;font-size:13px;margin:0 0 18px">CACAOBOETIEK</p><h1 style="font-weight:400;font-size:26px;margin:0 0 12px">' + kop + '</h1>' +
+    '<p style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;margin:0">' + tekst + '</p>' +
+    '<p style="margin:26px 0 0"><a href="https://www.cacaoboetiek.nl" style="color:#512f25">www.cacaoboetiek.nl</a></p></div>');
+  try {
+    if (!nr || afmeldHash(await afmeldSleutel(), nr) !== t) return pagina('Deze link klopt niet', 'Afmelden kan ook door te mailen naar info@cacaoboetiek.nl.');
+    const g = (await db().ref('geheim').once('value')).val() || {};
+    const uid = Object.keys(g).find(k => !k.startsWith('_') && g[k] && g[k].shopify);
+    const gql = await shopifyGql(uid, 'write_customers');
+    const u = (await gql('mutation($i:CustomerEmailMarketingConsentUpdateInput!){customerEmailMarketingConsentUpdate(input:$i){userErrors{message}}}',
+      { i: { customerId: 'gid://shopify/Customer/' + nr, emailMarketingConsent: { marketingState: 'UNSUBSCRIBED' } } })).customerEmailMarketingConsentUpdate;
+    if (u.userErrors && u.userErrors.length) throw new Error(u.userErrors[0].message);
+    await db().ref('geheim/_systeem/afmeldingen').transaction(n => (n || 0) + 1);
+    return pagina('Je bent afgemeld', 'Je ontvangt geen nieuwsbrieven meer van Cacaoboetiek. Je stempels blijven gewoon staan.');
+  } catch (e) {
+    return pagina('Dat lukte even niet', 'Mail ons op info@cacaoboetiek.nl, dan melden we je direct af.');
+  }
+});
+
+exports.dropMailEerste50 = onSchedule({ schedule: 'every 1 minutes', timeZone: 'Europe/Amsterdam', timeoutSeconds: 540, memory: '512MiB' }, async () => {
+  const vlag = db().ref('geheim/_systeem/dropMailEerste50');
+  if ((await vlag.once('value')).val()) return;
+  const g = (await db().ref('geheim').once('value')).val() || {};
+  const uid = Object.keys(g).find(k => !k.startsWith('_') && g[k] && g[k].mail && g[k].mail.wachtwoord && g[k].shopify);
+  if (!uid) return;
+  await vlag.set({ start: Date.now() });
+  try {
+    const gql = await shopifyGql(uid, 'write_customers');
+    const r = (await gql('query{customers(first:250,sortKey:CREATED_AT,query:"tag:heropening-nov AND email_marketing_state:SUBSCRIBED AND created_at:>=2026-10-01"){nodes{id createdAt email emailMarketingConsent{marketingState} eerste:orders(first:1,sortKey:CREATED_AT){nodes{createdAt}} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}')).customers;
+    const grens = Date.parse('2026-10-01T00:00:00+02:00');
+    const lijst = (r.nodes || [])
+      .filter(c => c.email && c.emailMarketingConsent && c.emailMarketingConsent.marketingState === 'SUBSCRIBED' && Date.parse(c.createdAt) >= grens)
+      .filter(c => { const o = c.eerste && c.eerste.nodes && c.eerste.nodes[0]; return !(o && Date.parse(o.createdAt) < grens); })
+      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+      .slice(0, 50);
+    await vlag.update({ gevonden: lijst.length });
+
+    /* 1. stempels */
+    const klaarRef = werkRef(uid).child('cadeauStempels').child('drop-8-nov');
+    const al = (await klaarRef.child('klanten').once('value')).val() || {};
+    const m = [], klaar = {};
+    lijst.forEach(c => {
+      const nr = String(c.id).split('/').pop();
+      if (al[nr]) return;
+      const saldo = c.s ? (parseFloat(c.s.value) || 0) : 0;
+      let st = {}; try { st = c.cb ? JSON.parse(c.cb.value) || {} : {}; } catch (e) { st = {}; }
+      const kaart = Math.max(0, Math.min(15000, parseInt(st.cardCents, 10) || 0));
+      const na = Math.min(15000, kaart + 2 * 2500);
+      const nst = Object.assign({ version: 1 }, st, { cardCents: na, remainingCents: 15000 - na,
+        status: na >= 15000 && (!st.status || st.status === 'active') ? 'claim_available' : (st.status || 'active'),
+        courtesyMessage: 'Cadeau van Cacaoboetiek: 2 stempels erbij.' });
+      m.push({ ownerId: c.id, namespace: 'cbx', key: 'spaarsaldo', type: 'number_decimal', value: (Math.round((saldo + 2 * STEMPEL_EURO) * 100) / 100).toFixed(2) });
+      m.push({ ownerId: c.id, namespace: 'custom', key: 'cb_stamps', type: 'json', value: JSON.stringify(nst) });
+      klaar[nr] = Date.now();
+    });
+    for (let i = 0; i < m.length; i += 24) {
+      const u = (await gql('mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){userErrors{field message}}}', { m: m.slice(i, i + 24) })).metafieldsSet;
+      if (u.userErrors && u.userErrors.length) throw new Error('stempels: ' + u.userErrors.map(x => x.message).join(', ').slice(0, 200));
+    }
+    if (Object.keys(klaar).length) { await klaarRef.child('klanten').update(klaar); await klaarRef.update({ aantal: 2, laatst: Date.now() }); }
+    await vlag.update({ stempels: Object.keys(klaar).length });
+
+    /* 2. mail */
+    const k = await afmeldSleutel();
+    const basis = await (await fetch('https://cacaoboetiek-hq.web.app/shopify/mail/drop-8-november.html?t=' + Date.now())).text();
+    const mg = g[uid].mail;
+    const nodemailer = require('nodemailer');
+    const t = nodemailer.createTransport({ host: 'smtp.strato.de', port: 465, secure: true, pool: true, maxConnections: 1, auth: { user: mg.adres, pass: mg.wachtwoord } });
+    let ok = 0, mis = 0, laatsteFout = '';
+    for (const c of lijst) {
+      const nr = String(c.id).split('/').pop();
+      const url = 'https://europe-west1-cacaoboetiek-hq.cloudfunctions.net/afmelden?k=' + nr + '&t=' + afmeldHash(k, nr);
+      try {
+        await t.sendMail({ from: { name: 'Cacaoboetiek', address: mg.adres }, to: c.email,
+          subject: 'Vanavond om 19:00 gaat de drop live',
+          headers: { 'List-Unsubscribe': '<' + url + '>, <mailto:info@cacaoboetiek.nl?subject=Afmelden>' },
+          html: basis.split('{{ unsubscribe_url }}').join(url),
+          text: 'Vanavond om 19:00 gaat de drop live op www.cacaoboetiek.nl. Voor je aanmelding krijg je twee gratis stempels. Afmelden: ' + url });
+        ok++;
+      } catch (e) { mis++; laatsteFout = String(e && e.message || e).slice(0, 150); }
+      await new Promise(z => setTimeout(z, 1500));
+    }
+    t.close();
+    await vlag.update({ verstuurd: ok, mislukt: mis, fout: laatsteFout || null, klaar: Date.now() });
+  } catch (e) {
+    await vlag.update({ fout: String(e && e.message || e).slice(0, 200) });
+  }
+});
