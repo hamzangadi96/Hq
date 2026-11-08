@@ -5354,7 +5354,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v987 · 8 nov 2026';
+const APPVERSIE='v988 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10785,15 +10785,15 @@ function webVoorraadTeken(){
   let h;
   if(!d) h=`<p class="wdleeg">${WV.fout?esc(WV.fout):'Ophalen bij Shopify…'}</p>`;
   else {
-    const lev=d.smaken.filter(x=>x.leverbaar).sort((a,b)=>(b.voorraad||0)-(a.voorraad||0));
+    const lev=d.smaken.filter(x=>x.leverbaar).sort((a,b)=>((a.voorraad===0)-(b.voorraad===0))||(b.voorraad||0)-(a.voorraad||0));
     const tot=lev.reduce((n,x)=>n+Math.max(0,WV.wijz[x.sleutel]!==undefined?WV.wijz[x.sleutel]:(x.voorraad||0)),0);
     h=`<div class="sp2get"><div><b>${tot.toLocaleString('nl-NL')}</b><span>bonbons</span><small>te koop</small></div>
         <div><b>${Math.floor(tot/16)}</b><span>dozen van 16</span><small>max</small></div>
         <div><b>${Math.floor(tot/25)}</b><span>dozen van 25</span><small>max</small></div></div>
       <p class="hint" style="margin:10px 0">Webshop-orders gaan er vanzelf af. Betaallink of nieuwe batch? Pas het hier aan.</p>
       <div class="paneel">${lev.map(x=>{ const v=WV.wijz[x.sleutel]!==undefined?WV.wijz[x.sleutel]:(x.voorraad===null?'':x.voorraad);
-        const laag=v!==''&&v<=24;
-        return `<div class="arij" style="cursor:default"><span class="naam">${esc(x.naam)}<small style="${laag?'color:#b45309':''}">${x.voorraad===null?'onbeperkt':laag?'bijna op':x.chocolade}</small></span>
+        const laag=v!==''&&v<=24, op=v===0;
+        return `<div class="arij" style="cursor:default"><span class="naam">${esc(x.naam)}<small style="${op?'color:var(--rood);font-weight:600':laag?'color:#b45309':''}">${x.voorraad===null?'onbeperkt':op?'uitverkocht':laag?'bijna op':x.chocolade}</small></span>
           <input class="inp" data-wv="${esc(x.sleutel)}" type="text" inputmode="numeric" value="${v}" style="width:84px;text-align:right;flex:none"></div>` }).join('')}</div>
       <div class="sp2kop" style="margin-top:18px"><span>Dooskleuren</span><small>${Object.values(d.kleuren||{}).reduce((n,v)=>n+v,0)} dozen</small></div>
       <div class="paneel">${WV_KLEUREN.map(([k,nm])=>{ const v=WV.kw[k]!==undefined?WV.kw[k]:((d.kleuren||{})[k]??''); const op=v===0;
@@ -21765,6 +21765,9 @@ function voorraadHTML(){
   h+=`<div class="vrkop">
       <button class="vrknop donker" data-sheet="ontvangst">${svg(I.plus)}Levering</button>
       <button class="vrknop" onclick="sheetTellijst(VRTAB==='verp'?'verp':'grond',0)">${svg(I.vink,'2.2')}Tellen</button></div>
+    <div class="paneel" style="margin:0 0 12px"><button class="arij" onclick="sheetWebVoorraad()"><span class="bol">${svg(I.doos,'2')}</span>
+      <span class="naam">Webshop-voorraad<small>per smaak en dooskleur · nieuwe batch? pas het hier aan</small></span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button></div>
     <div class="vrtabs">
       ${[['grond','Grondstoffen',aand(ingr)?aand(ingr)+' bijna op':ingr.length+' producten',aand(ingr)],
          ['verp','Verpakking',aand(verp)?aand(verp)+' bijna op':verp.length?verp.length+' artikelen':'nog leeg',aand(verp)],
