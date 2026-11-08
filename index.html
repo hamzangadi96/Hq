@@ -4878,25 +4878,16 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .sp2rij+.sp2rij{border-top:1px solid #e4e4e7}
 .sp2nm{flex:1;min-width:0;display:flex;flex-direction:column;font-size:15.5px;font-weight:600}
 .sp2nm small{font-size:12.5px;font-weight:400;color:var(--grijs)}
-.mafil{margin-top:8px}
-.mafil button b{font-weight:700;opacity:.6}
-.mastat{display:flex;align-items:center;gap:12px;justify-content:space-between;background:#fff;border-radius:18px;padding:12px 16px;margin:10px 0 0;font-size:14px;color:#52525b}
-.mastat b{color:var(--ink)}
-.mabalk{flex:0 0 90px;height:8px;border-radius:99px;background:#ececee;overflow:hidden}
-.mabalk i{display:block;height:100%;background:#15803d;border-radius:99px}
-.masel{position:sticky;top:-1px;z-index:3;background:#18181b;color:#fff;border-radius:18px;padding:12px 12px 12px 16px;margin:10px 0 4px}
-.maseltop{display:flex;align-items:center;justify-content:space-between;font-size:14px;margin-bottom:10px}
-.maseltop b{font-size:20px;margin-right:2px}
-.masel .malink{color:#d4d4d8}
-.machips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.machips button{border:0;border-radius:12px;background:#3f3f46;color:#fff;font:inherit;font-size:13px;font-weight:600;min-height:44px;padding:6px 4px}
-.machips button:active{background:#52525b}
-.machips button:disabled{opacity:.35}
-.malink{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--ink);text-decoration:underline;padding:8px 0;min-height:36px}
-.manr{flex:none;width:26px;text-align:right;font-size:12px;color:#a1a1aa;font-variant-numeric:tabular-nums}
-.matool{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 10px;font-size:14px;color:#52525b}
-.matool b{color:var(--ink)}
-.matool button{border:1px solid #e4e4e7;background:#fff;border-radius:99px;padding:8px 14px;font:inherit;font-weight:600;color:var(--ink);min-height:40px}
+.masel{position:sticky;top:-1px;z-index:3;background:#fff;border:1px solid #ececee;border-radius:18px;padding:12px;margin:0 0 6px;box-shadow:0 6px 16px -12px rgba(0,0,0,.25)}
+.maseltop{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 4px 10px;font-size:14px;color:#52525b}
+.maseltop b{font-size:18px;color:var(--ink)}
+.maseltop small{font-size:13px;color:#71717a}
+.machips{display:flex;gap:6px}
+.machips button{flex:1;border:1px solid #e4e4e7;border-radius:99px;background:#f4f4f5;color:var(--ink);font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 6px;white-space:nowrap}
+.machips button:active{background:#e4e4e7}
+.machips button:disabled{opacity:.4}
+.malink{border:0;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--ink);text-decoration:underline;padding:6px 0}
+.sp2rij.makies .sp2nm{overflow-wrap:anywhere;font-size:15px}
 .sp2rij.makies{cursor:pointer}
 .sp2rij.makies.gemaild{cursor:default;opacity:.55}
 .mavink{flex:none;width:26px;height:26px;border-radius:8px;border:2px solid #d4d4d8;display:grid;place-items:center;color:#fff}
@@ -5352,7 +5343,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v976 · 8 nov 2026';
+const APPVERSIE='v977 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9401,7 +9392,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') wlDicht() });
 })();
 /* v773: je abonnees — alles uit Shopify, alleen in het geheugen (niet opgeslagen).
    Kies de groep (heropening of alles sinds 2025) en of ze al eens bestelden. */
-let maLijst=null, maPeriode='alles', maFilter='alle', maBezig=false, maFout='';
+let maLijst=null, maPeriode='heropening', maFilter='nooit', maBezig=false, maFout='';
 /* v975: drop-mail — zelf adressen aanvinken en vanuit HQ versturen */
 let maKies=new Set(), maGemaild=null, maStuurBezig=false, maVoortgang='';
 function maGemaildLaden(){ roep('dropMailStuur',{}).then(r=>{ maGemaild=new Set((r&&r.verstuurdIds)||[]); maTeken() }).catch(()=>{ maGemaild=maGemaild||new Set() }) }
@@ -9421,27 +9412,29 @@ function maTeken(){
   const vrijIds=vrij.map(x=>String(x.id));
   const sel=vrijIds.filter(id=>maKies.has(id)).length;
   const pc=groep.length?Math.round(nGem/groep.length*100):0;
-  const seg=(var_,k,n,c)=>`<button type="button" class="${(var_==='p'?maPeriode:maFilter)===k?'aan':''}" data-ma${var_}="${k}">${n}${c!==''?` <b>${c}</b>`:''}</button>`;
+  const seg=(k,n)=>`<button type="button" class="${maPeriode===k?'aan':''}" data-map="${k}">${n}</button>`;
+  const tegel=(k,n,t1,t2)=>`<button type="button" class="${maFilter===k?'aan':''}" data-maf="${k}"><b>${n}</b><span>${t1}</span><small>${t2}</small></button>`;
   const blokken=[]; for(let i=0;i<l.length;i+=50) blokken.push(l.slice(i,i+50));
+  const ditJaar=String(new Date().getFullYear());
+  const dag=x=>new Date(x.datum+'T12:00:00').toLocaleDateString('nl-NL',x.datum.slice(0,4)===ditJaar?{day:'numeric',month:'short'}:{day:'numeric',month:'short',year:'numeric'});
   $('#sheetBody').innerHTML=`
-    <div class="sp2seg" style="margin-top:0">${seg('p','alles','Alle abonnees','')}${seg('p','heropening','Sinds 1 okt','')}</div>
-    <div class="sp2seg mafil">${seg('f','nooit','Nooit besteld',g.nooit.length)}${seg('f','wel','Al klant',g.wel.length)}${seg('f','alle','Iedereen',g.alle.length)}</div>
-    <div class="mastat"><div><b>${nGem}</b> gemaild · <b>${vrij.length}</b> nog niet</div><span class="mabalk"><i style="width:${pc}%"></i></span></div>
+    <div class="sp2seg" style="margin-top:0">${seg('heropening','Sinds 1 okt')}${seg('alles','Alle abonnees')}</div>
+    <div class="sp2get" style="margin:0 0 14px">
+      ${tegel('nooit',g.nooit.length,'nooit besteld','nog geen klant')}${tegel('wel',g.wel.length,'al klant','besteld')}${tegel('alle',g.alle.length,'samen','op de lijst')}
+    </div>
     <div class="masel">
-      <div class="maseltop"><span><b>${sel}</b> aangevinkt</span>${nGem?`<button type="button" class="malink" id="maVerberg">${maVerberg?'Gemaild tonen':'Gemaild verbergen'}</button>`:''}</div>
+      <div class="maseltop"><span><b>${sel}</b> aangevinkt</span><small>${nGem} van ${groep.length} gemaild${nGem?` · <button type="button" class="malink" id="maVerberg">${maVerberg?'toon':'verberg'}</button>`:''}</small></div>
       <div class="machips">
         <button type="button" data-masel="50">Eerste 50</button>
-        <button type="button" data-masel="plus">+50 erbij</button>
-        <button type="button" data-masel="alles">Alles (${vrij.length})</button>
-        <button type="button" data-masel="geen" ${sel?'':'disabled'}>Niemand</button>
+        <button type="button" data-masel="plus">+50</button>
+        <button type="button" data-masel="alles">Alles</button>
+        <button type="button" data-masel="geen" ${sel?'':'disabled'}>Wis</button>
       </div>
     </div>
     ${l.length?blokken.map((bl,bi)=>{ const ids=bl.filter(x=>x.id&&!gm(x)).map(x=>String(x.id)), alAan=ids.length&&ids.every(id=>maKies.has(id));
-      return `<div class="sp2kop"><span>${bi*50+1}–${bi*50+bl.length}</span>${ids.length?`<button type="button" class="malink" data-mablok="${bi}">${alAan?'Blok uitvinken':'Dit blok aanvinken'}</button>`:'<small>gemaild</small>'}</div>
-      <div class="sp2lijst">${bl.map((x,xi)=>{ const isG=gm(x), aan=maKies.has(String(x.id));
-        return `<div class="sp2rij makies${aan?' aan':''}${isG?' gemaild':''}" ${isG?'':`data-makies="${esc(x.id)}"`} role="checkbox" aria-checked="${aan}"><span class="manr">${bi*50+xi+1}</span><span class="mavink">${isG||aan?svg(I.vink,'2.6'):''}</span><span class="sp2nm" style="overflow-wrap:anywhere">${esc(x.email)}<small>${
-        new Date(x.datum+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'short'})}${x.orders?' · '+x.orders+'× besteld':''}${isG?' · gemaild':''}</small></span>${
-        x.id?`<button type="button" class="maweg" aria-label="Weghalen" data-maweg="${esc(x.id)}" ${maWegBezig===x.id?'disabled':''}>${svg(I.prul)}</button>`:''}</div>` }).join('')}</div>` }).join('')
+      return `<div class="sp2kop"><span>${bi*50+1}–${bi*50+bl.length}</span>${ids.length?`<button type="button" class="malink" data-mablok="${bi}">${alAan?'uitvinken':'aanvinken'}</button>`:''}</div>
+      <div class="sp2lijst">${bl.map(x=>{ const isG=gm(x), aan=maKies.has(String(x.id));
+        return `<div class="sp2rij makies${aan?' aan':''}${isG?' gemaild':''}" ${isG?'':`data-makies="${esc(x.id)}"`} role="checkbox" aria-checked="${aan}"><span class="mavink">${isG||aan?svg(I.vink,'2.6'):''}</span><span class="sp2nm">${esc(x.email)}<small>${dag(x)}${x.orders?' · '+x.orders+'× besteld':''}${isG?' · gemaild':''}</small></span></div>` }).join('')}</div>` }).join('')
       :`<p class="wdleeg">${groep.length?'Iedereen in deze groep is al gemaild.':'Niemand in deze groep.'}</p>`}`;
   $('#sheetVoet').innerHTML=sel?`<button class="prim" style="margin-top:0" id="maStuur">Drop-mail sturen naar ${sel}</button>`
     :l.length?`<button class="sec" style="margin-top:0;width:100%" id="maKop">${l.length} adressen kopiëren</button>`:'';
@@ -9516,7 +9509,6 @@ async function dropMailVersturen(stempels){
 }
 function sheetMailAdressen(){
   sheet('Abonnees','','');
-  sheetTerugZet(()=>mailDetails());
   maGemaildLaden();
   maTeken();
   if(maBezig) return;
@@ -10762,7 +10754,8 @@ function webVoorraadTeken(){
 function homeTegel(k){
   /* v946: voorraadtegel springt naar Voorraad, tab Gereed */
   if(k==='vrd'){ S.tab='voorraad'; try{ VRTAB='gereed' }catch(e){} S.batchId=null; S.open=null; render(); $('#scherm').scrollTop=0; return }
-  if(k==='mail'&&!mailLang){ wlOpen(); return }
+  /* v977: voorlopig direct naar de lijst (drop-animatie en statistiekpagina even weg) */
+  if(k==='mail'){ sheetMailAdressen(); return }
   if(k==='mail'){ mailLang=false; mailDag=null }
   if(!HOMESHEETS[k]) return;
   sheet(HOMESHEETS[k][0],homeSheetBody(k),
