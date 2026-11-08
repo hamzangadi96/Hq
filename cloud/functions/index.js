@@ -2759,7 +2759,14 @@ exports.webVoorraadLees = binnen('webVoorraadLees', async req => {
   const smaken = await webSmaken(gql);
   const tot = smaken.filter(s => s.leverbaar && s.voorraad !== null).reduce((n, s) => n + Math.max(0, s.voorraad), 0);
   let kleuren = {}; try { kleuren = (await kleurVoorraad(gql)).v; } catch (e) { kleuren = {}; }
-  return { smaken: smaken.map(({ id, ...s }) => s), kleuren, totaal: tot, doos16: Math.floor(tot / 16), doos25: Math.floor(tot / 25) };
+  /* v989: ook de echte dozenvoorraad uit Shopify */
+  let dozen = {};
+  try {
+    const gp = await shopifyGql(uid, 'read_products');
+    const r = await gp('query{a:productByIdentifier(identifier:{handle:"stel-zelf-samen-16-pralines"}){totalInventory} b:productByIdentifier(identifier:{handle:"coffret-vert-foret-25-pralines-stel-zelf-samen"}){totalInventory}}');
+    dozen = { d16: r.a ? r.a.totalInventory : null, d25: r.b ? r.b.totalInventory : null };
+  } catch (e) { dozen = {}; }
+  return { smaken: smaken.map(({ id, ...s }) => s), kleuren, dozen, totaal: tot, doos16: Math.floor(tot / 16), doos25: Math.floor(tot / 25), op: Date.now() };
 });
 
 /* per smaak: {sleutel, aantal} (precies zetten) of {sleutel, erbij} (erbij/eraf) */
