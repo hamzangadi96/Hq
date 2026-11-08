@@ -2570,6 +2570,7 @@ async function ordersBijwerken(uid) {
   if (Object.keys(upd).length) await w.child('orders').update(upd);
   await w.update({ laatstOpgehaald: Date.now() });
   for (const v of nieuw) await stuurPush(uid, orderMelding(v));
+  try { await webVoorraadVerwerk(uid, orders); } catch (e) { console.error('webVoorraad', uid, e && e.message); }
   return { bijgewerkt: orders.length, nieuw: nieuw.length };
 }
 
@@ -2602,4 +2603,108 @@ exports.koppelingCheck = binnen('koppelingCheck', async req => {
     } catch (e) { uit.myparcel.fout = String(e && e.message || e).slice(0, 200); }
   }
   return uit;
+});
+
+/* ═══════════ v970: webshop-voorraad per smaak ═══════════
+   De samensteller op de website leest per smaak cbx_smaak.voorraad en laat
+   niemand meer kiezen dan er is. HQ houdt dat getal bij:
+   - elke webshop-order: de smaken uit _cbx_configuration eraf
+   - geannuleerde order: weer erbij
+   - daarna de dozen: 16 = totaal ÷ 16, 25 = totaal ÷ 25
+   Jij past in HQ per smaak aan (nieuwe batch, reserve, betaallink). */
+const DOOS_HANDLES = { 16: 'stel-zelf-samen-16-pralines', 25: 'coffret-vert-foret-25-pralines-stel-zelf-samen' };
+
+async function webSmaken(gql) {
+  const r = (await gql('{metaobjects(type:"cbx_smaak",first:50){nodes{id handle naam:field(key:"naam"){value} sleutel:field(key:"sleutel"){value} v:field(key:"voorraad"){value} l:field(key:"leverbaar"){value} c:field(key:"chocolade"){value}}}}')).metaobjects.nodes;
+  return r.map(m => ({ id: m.id, sleutel: (m.sleutel && m.sleutel.value) || m.handle, naam: (m.naam && m.naam.value) || m.handle,
+    voorraad: m.v && m.v.value !== null && m.v.value !== '' ? parseInt(m.v.value, 10) : null,
+    leverbaar: !!(m.l && m.l.value === 'true'), chocolade: (m.c && m.c.value) || '' }));
+}
+async function webZetSmaak(gql, s, aantal) {
+  const n = Math.max(0, Math.round(aantal));
+  const u = (await gql('mutation($id:ID!,$f:[MetaobjectFieldInput!]!){metaobjectUpdate(id:$id,metaobject:{fields:$f}){userErrors{message}}}',
+    { id: s.id, f: [{ key: 'voorraad', value: String(n) }] })).metaobjectUpdate;
+  if (u.userErrors && u.userErrors.length) throw new HttpsError('internal', 'Voorraad zetten lukte niet: ' + fouten(u.userErrors));
+  s.voorraad = n;
+}
+async function webDozen(uid, gql, smaken) {
+  const tot = smaken.filter(s => s.leverbaar && s.voorraad !== null).reduce((n, s) => n + Math.max(0, s.voorraad), 0);
+  const uit = { totaal: tot };
+  const loc = await shopifyLocatie(uid);
+  for (const maat of [16, 25]) {
+    const p = (await gql('query($h:String!){productByIdentifier(identifier:{handle:$h}){variants(first:1){nodes{inventoryItem{legacyResourceId}}}}}', { h: DOOS_HANDLES[maat] })).productByIdentifier;
+    const ii = p && p.variants.nodes[0] && p.variants.nodes[0].inventoryItem.legacyResourceId;
+    if (!ii) continue;
+    const n = Math.floor(tot / maat);
+    await shopifySchrijf(uid, 'inventory_levels/set.json', { location_id: loc, inventory_item_id: Number(ii), available: n });
+    uit['doos' + maat] = n;
+  }
+  return uit;
+}
+function smakenUitOrder(o) {
+  const tel = {};
+  (o.line_items || []).forEach(li => {
+    const p = (li.properties || []).find(x => x && x.name === '_cbx_configuration');
+    if (!p) return;
+    let c = {}; try { c = JSON.parse(p.value) || {}; } catch (e) { return; }
+    const q = Number(li.quantity) || 1;
+    Object.keys(c.counts || {}).forEach(k => { const n = parseInt(c.counts[k], 10) || 0; if (n > 0) tel[k] = (tel[k] || 0) + n * q; });
+  });
+  return tel;
+}
+/* aangeroepen vanuit ordersBijwerken met de orders die Shopify net gaf */
+async function webVoorraadVerwerk(uid, orders) {
+  const ref = werkRef(uid).child('webVoorraad/geteld');
+  /* alleen orders van ná de start tellen: oudere zitten al in je beginstand */
+  const startRef = werkRef(uid).child('webVoorraad/start');
+  let start = (await startRef.once('value')).val();
+  if (!start) { start = Date.parse('2026-11-08T08:00:00Z'); await startRef.set(start); }
+  orders = orders.filter(o => Date.parse(o.created_at || 0) >= start);
+  const geteld = (await ref.once('value')).val() || {};
+  const mut = {}, upd = {};
+  orders.forEach(o => {
+    const id = String(o.id), tel = smakenUitOrder(o);
+    if (!Object.keys(tel).length) return;
+    const g = geteld[id];
+    if (!g && !o.cancelled_at && o.financial_status !== 'voided') {
+      Object.keys(tel).forEach(k => { mut[k] = (mut[k] || 0) - tel[k]; }); upd[id] = { tel, t: Date.now() };
+    } else if (g && !g.terug && o.cancelled_at) {
+      Object.keys(g.tel || {}).forEach(k => { mut[k] = (mut[k] || 0) + g.tel[k]; }); upd[id] = Object.assign({}, g, { terug: Date.now() });
+    }
+  });
+  if (!Object.keys(mut).length) return null;
+  const gql = await shopifyGql(uid, 'write_metaobjects');
+  const smaken = await webSmaken(gql);
+  for (const k of Object.keys(mut)) {
+    const s = smaken.find(x => x.sleutel === k);
+    if (s && s.voorraad !== null) await webZetSmaak(gql, s, s.voorraad + mut[k]);
+  }
+  await ref.update(upd);
+  return webDozen(uid, gql, smaken);
+}
+
+exports.webVoorraadLees = binnen('webVoorraadLees', async req => {
+  const uid = wieBenJe(req);
+  const gql = await shopifyGql(uid, 'read_metaobjects');
+  const smaken = await webSmaken(gql);
+  const tot = smaken.filter(s => s.leverbaar && s.voorraad !== null).reduce((n, s) => n + Math.max(0, s.voorraad), 0);
+  return { smaken: smaken.map(({ id, ...s }) => s), totaal: tot, doos16: Math.floor(tot / 16), doos25: Math.floor(tot / 25) };
+});
+
+/* per smaak: {sleutel, aantal} (precies zetten) of {sleutel, erbij} (erbij/eraf) */
+exports.webVoorraadZet = binnen('webVoorraadZet', async req => {
+  const uid = wieBenJe(req);
+  const lijst = ((req.data || {}).wijzigingen || []).slice(0, 50);
+  if (!lijst.length) throw new HttpsError('invalid-argument', 'Niets om aan te passen.');
+  const gql = await shopifyGql(uid, 'write_metaobjects');
+  const smaken = await webSmaken(gql);
+  for (const w of lijst) {
+    const s = smaken.find(x => x.sleutel === w.sleutel);
+    if (!s) continue;
+    const nieuw = typeof w.aantal === 'number' ? w.aantal : (s.voorraad || 0) + (Number(w.erbij) || 0);
+    await webZetSmaak(gql, s, nieuw);
+  }
+  const d = await webDozen(uid, gql, smaken);
+  await werkRef(uid).child('webVoorraad').update({ bijgewerkt: Date.now() });
+  return Object.assign({ smaken: smaken.map(({ id, ...s }) => s) }, d);
 });

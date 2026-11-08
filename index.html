@@ -5327,7 +5327,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v969 · 8 nov 2026';
+const APPVERSIE='v970 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -10616,6 +10616,47 @@ function stempelPas(id,stempels,kaarten){
     .finally(()=>{ stempelWerkt=false;
       const k=(stempelKlanten||[]).find(x=>x.id===id);
       render(); if(k&&stempelOpen===id) stempelKlantOpen(id) });
+}
+/* v970: webshop-voorraad per smaak. Dit getal staat in Shopify (cbx_smaak.voorraad);
+   de samensteller op de site laat niemand meer kiezen dan er is. Webshop-orders
+   gaan er vanzelf af; hier zet je een nieuwe batch erbij of trek je een
+   betaallink af. De dozen (16 en 25) rekent HQ er zelf uit. */
+let WV=null;
+async function sheetWebVoorraad(){
+  WV={data:null,wijz:{},bezig:true};
+  webVoorraadTeken();
+  try{ WV.data=await roep('webVoorraadLees') }catch(e){ WV.fout=fout(e) }
+  WV.bezig=false; if(sheetOpen) webVoorraadTeken();
+}
+function webVoorraadTeken(){
+  const d=WV.data;
+  let h;
+  if(!d) h=`<p class="wdleeg">${WV.fout?esc(WV.fout):'Ophalen bij Shopify…'}</p>`;
+  else {
+    const lev=d.smaken.filter(x=>x.leverbaar).sort((a,b)=>(b.voorraad||0)-(a.voorraad||0));
+    const tot=lev.reduce((n,x)=>n+Math.max(0,WV.wijz[x.sleutel]!==undefined?WV.wijz[x.sleutel]:(x.voorraad||0)),0);
+    h=`<div class="sp2get"><div><b>${tot.toLocaleString('nl-NL')}</b><span>bonbons</span><small>te koop</small></div>
+        <div><b>${Math.floor(tot/16)}</b><span>dozen van 16</span><small>max</small></div>
+        <div><b>${Math.floor(tot/25)}</b><span>dozen van 25</span><small>max</small></div></div>
+      <p class="hint" style="margin:10px 0">Webshop-orders gaan er vanzelf af. Betaallink of nieuwe batch? Pas het hier aan.</p>
+      <div class="paneel">${lev.map(x=>{ const v=WV.wijz[x.sleutel]!==undefined?WV.wijz[x.sleutel]:(x.voorraad===null?'':x.voorraad);
+        const laag=v!==''&&v<=24;
+        return `<div class="arij" style="cursor:default"><span class="naam">${esc(x.naam)}<small style="${laag?'color:#b45309':''}">${x.voorraad===null?'onbeperkt':laag?'bijna op':x.chocolade}</small></span>
+          <input class="inp" data-wv="${esc(x.sleutel)}" type="text" inputmode="numeric" value="${v}" style="width:84px;text-align:right;flex:none"></div>` }).join('')}</div>
+      ${d.smaken.some(x=>!x.leverbaar)?`<p class="hint" style="margin-top:10px">Niet leverbaar: ${d.smaken.filter(x=>!x.leverbaar).map(x=>esc(x.naam)).join(', ')}.</p>`:''}`;
+  }
+  const n=Object.keys(WV.wijz).length;
+  sheet('Webshop-voorraad',h,d?`<button class="prim" style="margin-top:0" id="wvOk" ${n&&!WV.bezig?'':'disabled'}>${svg(I.vink,'2.4')}${WV.bezig?'Opslaan…':n?n+' '+(n===1?'smaak':'smaken')+' opslaan':'Niets gewijzigd'}</button>`:'');
+  $$('#sheetBody [data-wv]').forEach(i=>{ i.onchange=()=>{ const k=i.dataset.wv, v=parseInt(String(i.value).replace(/\D/g,''),10);
+      const oud=(WV.data.smaken.find(x=>x.sleutel===k)||{}).voorraad;
+      if(isNaN(v)||v===oud) delete WV.wijz[k]; else WV.wijz[k]=v; webVoorraadTeken() } });
+  if($('#wvOk')) $('#wvOk').onclick=async()=>{
+    WV.bezig=true; webVoorraadTeken();
+    try{ const r=await roep('webVoorraadZet',{wijzigingen:Object.keys(WV.wijz).map(k=>({sleutel:k,aantal:WV.wijz[k]}))});
+      WV.data=Object.assign({},WV.data,{smaken:r.smaken}); WV.wijz={}; toast('Opgeslagen. Webshop: '+r.doos16+'× doos van 16, '+r.doos25+'× doos van 25.');
+    }catch(e){ toast(fout(e)) }
+    WV.bezig=false; if(sheetOpen) webVoorraadTeken();
+  };
 }
 function homeTegel(k){
   /* v946: voorraadtegel springt naar Voorraad, tab Gereed */
@@ -21017,6 +21058,9 @@ function shopifyHTML(){
     <button class="arij" data-kopshopify><span class="bol af">${svg(I.vink,'2.6')}</span>
       <span class="naam">Koppeling<small>${esc(k.winkel||'gekoppeld')}</small></span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>
+    <button class="arij" id="spWebVrd"><span class="bol">${svg(I.doos,'2')}</span>
+      <span class="naam">Webshop-voorraad per smaak<small>wat klanten in de samensteller kunnen kiezen</small></span>
+      <span class="pijl">${svg(I.pijl,'2')}</span></button>
     <button class="arij" id="spVoorraadKnop"><span class="bol">${svg(I.doos,'2')}</span>
       <span class="naam">Voorraad op de site<small>bijwerken en naar Shopify sturen</small></span>
       <span class="pijl">${svg(I.pijl,'2')}</span></button>
@@ -27016,6 +27060,7 @@ function bind(){
   $$('[data-kopalles]').forEach(x=>x.onclick=sheetKoppelingen);
   $$('[data-kopshopify]').forEach(x=>x.onclick=()=>sheetKoppel('shopify'));
   if($('#spVoorraadKnop')) $('#spVoorraadKnop').onclick=()=>sheetVoorraadShopify();
+  if($('#spWebVrd')) $('#spWebVrd').onclick=()=>sheetWebVoorraad();
   $$('[data-haalorders]').forEach(x=>x.onclick=async()=>{
     x.disabled=true; const oud=x.textContent; x.textContent='Ophalen…';
     try{ const r=await roep('haalOrders'); toast(r.aantal+' orders opgehaald.'); render(); }
