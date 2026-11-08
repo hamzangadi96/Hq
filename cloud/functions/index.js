@@ -574,6 +574,17 @@ exports.zetKoppeling = onCall(async req => {
     return { ok: true };
   }
 
+  /* v979: reserve-mailbox (bijv. h.ngadi@) voor als info@ aan de verzendlimiet zit */
+  if (d.mail2) {
+    const adres = String(d.mail2.adres || '').trim().toLowerCase();
+    const wachtwoord = String(d.mail2.wachtwoord || '');
+    if (!adres || !wachtwoord) throw new HttpsError('invalid-argument', 'Vul het mailadres en wachtwoord in.');
+    await MAIL.testInlog(adres, wachtwoord);
+    await geheimRef(uid).child('mail2').set({ adres, wachtwoord });
+    await werkRef(uid).child('koppeling').update({ mail2: true });
+    return { ok: true, adres };
+  }
+
   if (d.mail) {
     const adres = String(d.mail.adres || '').trim().toLowerCase();
     const wachtwoord = String(d.mail.wachtwoord || '');
@@ -602,7 +613,7 @@ exports.shopifyTokenVersen = onCall(async req => {
 exports.wisKoppeling = onCall(async req => {
   const uid = wieBenJe(req);
   const welke = String((req.data || {}).welke || '');
-  if (!['shopify', 'myparcel', 'claude', 'mail'].includes(welke)) {
+  if (!['shopify', 'myparcel', 'claude', 'mail', 'mail2'].includes(welke)) {
     throw new HttpsError('invalid-argument', 'Onbekende koppeling.');
   }
   await geheimRef(uid).child(welke).remove();
@@ -2803,6 +2814,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   const ids = [...new Set(d.ids.map(x => String(x).replace(/\D/g, '')).filter(Boolean))].slice(0, 25);
   const mg = await leesGeheim(uid, 'mail');
   if (!mg || !mg.adres) throw new HttpsError('failed-precondition', 'Koppel eerst info@ bij Koppelingen › Mail.');
+  const mg2 = await leesGeheim(uid, 'mail2');
   const gql = await shopifyGql(uid, 'write_customers');
   const r = await gql('query($i:[ID!]!){nodes(ids:$i){... on Customer{id defaultEmailAddress{emailAddress marketingState} eerste:orders(first:1,sortKey:CREATED_AT){nodes{createdAt}} s:metafield(namespace:"cbx",key:"spaarsaldo"){value} cb:metafield(namespace:"custom",key:"cb_stamps"){value}}}}',
     { i: ids.map(n => 'gid://shopify/Customer/' + n) });
@@ -2850,26 +2862,35 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   const k = await afmeldSleutel();
   const basis = await (await fetch(DROPMAIL.html + '?t=' + Date.now())).text();
   const nodemailer = require('nodemailer');
-  const t = nodemailer.createTransport({ host: 'smtp.strato.de', port: 465, secure: true, pool: true, maxConnections: 1, auth: { user: mg.adres, pass: mg.wachtwoord } });
-  let ok = 0, mis = 0, fout = '';
-  const gelukt = {};
+  /* v979: eerst info@; weigert die (limiet), dan door met de reserve-mailbox */
+  const afzenders = [mg, mg2].filter(x => x && x.adres && x.wachtwoord).map(x => ({ adres: x.adres,
+    t: nodemailer.createTransport({ host: 'smtp.strato.de', port: 465, secure: true, pool: true, maxConnections: 1, auth: { user: x.adres, pass: x.wachtwoord } }) }));
+  let ai = 0, ok = 0, mis = 0, fout = '';
+  const gelukt = {}, perAfzender = {};
   for (const c of lijst) {
     const nr = String(c.id).split('/').pop();
     const url = 'https://europe-west1-cacaoboetiek-hq.cloudfunctions.net/afmelden?k=' + nr + '&t=' + afmeldHash(k, nr);
-    try {
-      await t.sendMail({ from: { name: 'Cacaoboetiek', address: mg.adres }, to: c.defaultEmailAddress.emailAddress,
-        subject: DROPMAIL.onderwerp,
-        headers: { 'List-Unsubscribe': '<' + url + '>, <mailto:info@cacaoboetiek.nl?subject=Afmelden>' },
-        html: basis.split('{{ unsubscribe_url }}').join(url),
-        text: DROPMAIL.tekst + ' Afmelden: ' + url });
-      ok++; gelukt[nr] = Date.now();
-    } catch (e) { mis++; fout = String(e && e.message || e).replace(/[^\s<>@]+@[^\s<>]+/g, '[adres]').slice(0, 200);
-      console.warn('dropMailStuur fout', (e && e.responseCode) || '', fout);
-      if (mis >= 3 && !ok) break;   /* Strato weigert alles: niet doorhameren */ }
+    let klaar = false;
+    while (!klaar && ai < afzenders.length) {
+      const a = afzenders[ai];
+      try {
+        await a.t.sendMail({ from: { name: 'Cacaoboetiek', address: a.adres }, replyTo: 'info@cacaoboetiek.nl', to: c.defaultEmailAddress.emailAddress,
+          subject: DROPMAIL.onderwerp,
+          headers: { 'List-Unsubscribe': '<' + url + '>, <mailto:info@cacaoboetiek.nl?subject=Afmelden>' },
+          html: basis.split('{{ unsubscribe_url }}').join(url),
+          text: DROPMAIL.tekst + ' Afmelden: ' + url });
+        ok++; gelukt[nr] = Date.now(); perAfzender[a.adres] = (perAfzender[a.adres] || 0) + 1; klaar = true;
+      } catch (e) {
+        fout = a.adres.split('@')[0] + ': ' + String(e && e.message || e).replace(/[^\s<>@]+@[^\s<>]+/g, '[adres]').slice(0, 200);
+        console.warn('dropMailStuur fout', (e && e.responseCode) || '', fout);
+        ai++;   /* deze afzender weigert: volgende proberen voor dezelfde ontvanger */
+      }
+    }
+    if (!klaar) { mis = lijst.length - ok; break; }
     await new Promise(z => setTimeout(z, 1200));
   }
-  t.close();
+  afzenders.forEach(a => a.t.close());
   if (ok) await ref.child('verstuurd').update(gelukt);
   if (mis) await ref.update({ laatsteFout: fout, laatsteFoutOp: Date.now() });
-  return { verstuurd: ok, mislukt: mis, fout, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)), verstuurdOp: Object.assign({}, al, gelukt) };
+  return { verstuurd: ok, mislukt: mis, fout, perAfzender, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)), verstuurdOp: Object.assign({}, al, gelukt) };
 });

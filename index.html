@@ -5345,7 +5345,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v978 · 8 nov 2026';
+const APPVERSIE='v979 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9498,18 +9498,19 @@ function sheetDropMail(){
 }
 async function dropMailVersturen(stempels){
   if(maStuurBezig) return; maStuurBezig=true;
-  const ids=[...maKies]; let ok=0, mis=0, over=0, st=0, fout='';
+  const ids=[...maKies]; let ok=0, mis=0, over=0, st=0, fout=''; const perAf={};
   const knop=$('#dmGo'); if(knop){ knop.disabled=true }
   try{
     for(let i=0;i<ids.length;i+=20){
       if($('#dmStatus')) $('#dmStatus').textContent='Bezig… '+Math.min(i,ids.length)+' van '+ids.length;
       if(knop) knop.textContent='Versturen… '+Math.min(i,ids.length)+'/'+ids.length;
       const r=await roepLang('dropMailStuur',{ids:ids.slice(i,i+20),stempels});
-      ok+=r.verstuurd||0; mis+=r.mislukt||0; over+=(r.overgeslagen||0)+(r.nietIngeschreven||0); st+=r.stempels||0; if(r.fout) fout=r.fout;
+      ok+=r.verstuurd||0; mis+=r.mislukt||0; over+=(r.overgeslagen||0)+(r.nietIngeschreven||0); st+=r.stempels||0; if(r.fout) fout=r.fout; Object.entries(r.perAfzender||{}).forEach(([a,n])=>perAf[a]=(perAf[a]||0)+n);
       maGemaild=new Set(r.verstuurdIds||[]); maGemaildOp=r.verstuurdOp||maGemaildOp;
       ids.slice(i,i+20).forEach(id=>{ if(maGemaild.has(id)) maKies.delete(id) });
     }
-    toast(ok+' verstuurd'+(st?' · '+st+'× stempels':'')+(over?' · '+over+' overgeslagen':'')+(mis?' · '+mis+' mislukt':''));
+    const via=Object.keys(perAf).length>1?' ('+Object.entries(perAf).map(([a,n])=>n+' via '+a.split('@')[0]).join(', ')+')':'';
+    toast(ok+' verstuurd'+via+(st?' · '+st+'× stempels':'')+(over?' · '+over+' overgeslagen':'')+(mis?' · '+mis+' mislukt':''));
     if(mis&&fout) setTimeout(()=>toast('Fout: '+fout),2500);
   }catch(e){ toast((e&&e.message)||'Versturen lukte niet') }
   finally{ maStuurBezig=false; sheetMailAdressen() }
@@ -20339,9 +20340,10 @@ function sheetKoppelingen(){
        ${rij('tiktok','TikTok','video als concept naar je inbox')}
        ${rij('bonscan','Bonnen scannen','leest je kassabonnen uit')}
        ${rij('mail','Mail (info@)','om mails te versturen vanuit HQ')}
+       ${rij('mail2','Reserve-mailbox','neemt het over als info@ aan de verzendlimiet zit')}
        ${rij('meelezen','Claude laten meelezen','Claude kan je gegevens lezen, niet wijzigen')}
      </div>`,'');
-  $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():x.dataset.kop==='mail'?sheetMailKoppel():(x.dataset.kop==='instagram'||x.dataset.kop==='tiktok')?sheetSocial(x.dataset.kop):sheetKoppel(x.dataset.kop));
+  $$('[data-kop]').forEach(x=>x.onclick=()=>x.dataset.kop==='meelezen'?sheetMeelezen():x.dataset.kop==='mail'?sheetMailKoppel():x.dataset.kop==='mail2'?sheetMail2Koppel():(x.dataset.kop==='instagram'||x.dataset.kop==='tiktok')?sheetSocial(x.dataset.kop):sheetKoppel(x.dataset.kop));
 }
 
 /* ═══════════ v830: Mail (info@ bij Strato) ═══════════
@@ -20360,6 +20362,28 @@ const mailTijd=ms=>{ const d=new Date(ms), v=vandaag(), dg=iso(d);
   return dg===v?d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})
     :dagenTussen(dg,v)<7?d.toLocaleDateString('nl-NL',{weekday:'short'}).replace('.','')
     :d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'}).replace('.','') };
+function sheetMail2Koppel(){
+  const k=koppeling();
+  sheet('Reserve-mailbox',
+    `<p class="hint">Een tweede Strato-adres, bijvoorbeeld h.ngadi@. Weigert info@ bij de drop-mail (verzendlimiet), dan gaat HQ automatisch verder met dit adres. Antwoorden van klanten komen gewoon bij info@ binnen.</p>
+     <div class="veld"><label>Mailadres</label><input class="inp" id="m2A" value="h.ngadi@cacaoboetiek.nl" autocapitalize="off" inputmode="email"></div>
+     <div class="veld"><label>Wachtwoord van dit mailadres</label><input class="inp" id="m2W" type="password" autocomplete="off" placeholder="zoals in je mailprogramma"></div>`,
+    `<button class="prim" style="margin-top:0" id="m2Ok">Koppelen en uitproberen</button>
+     ${k.mail2?`<button class="sec" id="m2Weg">Ontkoppelen</button>`:''}`);
+  sheetTerugZet(()=>sheetKoppelingen());
+  $('#m2Ok').onclick=async()=>{
+    const knop=$('#m2Ok'); knop.disabled=true; knop.textContent='Inloggen bij Strato…';
+    try{
+      const a=$('#m2A').value.trim(), w=$('#m2W').value;
+      if(!a||!w) throw new Error('Vul het mailadres en wachtwoord in.');
+      await roep('zetKoppeling',{mail2:{adres:a,wachtwoord:w}});
+      S.werk=S.werk||{}; S.werk.koppeling=Object.assign({},S.werk.koppeling,{mail2:true});
+      toast('Reserve-mailbox gekoppeld.'); sheetKoppelingen();
+    }catch(e){ toast(fout(e)); knop.disabled=false; knop.textContent='Koppelen en uitproberen' }
+  };
+  if($('#m2Weg')) $('#m2Weg').onclick=async()=>{ try{ await roep('wisKoppeling',{welke:'mail2'});
+    if(S.werk&&S.werk.koppeling) delete S.werk.koppeling.mail2; toast('Ontkoppeld.'); sheetKoppelingen() }catch(e){ toast(fout(e)) } };
+}
 function sheetMailKoppel(){
   const k=koppeling();
   sheet('Mail koppelen',
