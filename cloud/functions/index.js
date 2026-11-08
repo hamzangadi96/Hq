@@ -2863,10 +2863,13 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
         html: basis.split('{{ unsubscribe_url }}').join(url),
         text: DROPMAIL.tekst + ' Afmelden: ' + url });
       ok++; gelukt[nr] = Date.now();
-    } catch (e) { mis++; fout = String(e && e.message || e).slice(0, 150); }
+    } catch (e) { mis++; fout = String(e && e.message || e).replace(/[^\s<>@]+@[^\s<>]+/g, '[adres]').slice(0, 200);
+      console.warn('dropMailStuur fout', (e && e.responseCode) || '', fout);
+      if (mis >= 3 && !ok) break;   /* Strato weigert alles: niet doorhameren */ }
     await new Promise(z => setTimeout(z, 1200));
   }
   t.close();
   if (ok) await ref.child('verstuurd').update(gelukt);
+  if (mis) await ref.update({ laatsteFout: fout, laatsteFoutOp: Date.now() });
   return { verstuurd: ok, mislukt: mis, fout, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)), verstuurdOp: Object.assign({}, al, gelukt) };
 });
