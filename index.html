@@ -4883,6 +4883,7 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .mazoek input{flex:1;border:0;background:none;font:inherit;font-size:16px;color:var(--ink);min-width:0;padding:12px 0;outline:none}
 .mazoek input::-webkit-search-cancel-button{display:none}
 .mazoek button{border:0;background:#e4e4e7;color:var(--ink);width:32px;height:32px;border-radius:99px;font-size:18px;line-height:1;flex:none}
+.macamp{margin-bottom:10px}
 .maweer{margin:0 0 10px}
 .maweer button{font-size:14px}
 .sp2rij .mavink.maaf,.sp2rij.gemaild .mavink.maaf{background:#c0392b;border-color:#c0392b;font-weight:700;font-size:16px;line-height:1}
@@ -5353,7 +5354,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v984 · 8 nov 2026';
+const APPVERSIE='v985 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9405,6 +9406,14 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') wlDicht() });
 let maLijst=null, maPeriode='heropening', maFilter='nooit', maBezig=false, maFout='';
 /* v975: drop-mail — zelf adressen aanvinken en vanuit HQ versturen */
 let maKies=new Set(), maOngeldig=new Set(), maAfgemeld=null, maGemaildOp={}, maGemaild=null, maStuurBezig=false, maVoortgang='';
+/* v985: twee mails — de drop-mail en een herinnering voor wie nog niet bestelde */
+const MACAMP={
+  'drop-8-nov':{n:'Drop-mail',titel:'Vanavond om 19:00 gaat de drop live',sub:'Jouw ontwerp met de GIF',stempels:true},
+  'herinnering-9-nov':{n:'Herinnering',titel:'Je 2 stempels staan klaar',sub:'Zonder GIF · voor wie de drop-mail kreeg en nog niet bestelde',stempels:false}
+};
+const DROP_START='2026-11-08T17:55:00Z';
+let maCamp='drop-8-nov', maDropSet=null;
+const besteldNaDrop=x=>!!(x.laatsteOrder&&x.laatsteOrder>=DROP_START);
 function maAfgemeldLaden(){ roep('dropMailStuur',{afgemeld:true}).then(r=>{ maAfgemeld=(r&&r.afgemeld)||[]; maTeken() }).catch(e=>{ maAfgemeld=maAfgemeld||[]; toast((e&&e.message)||'Afmeldingen ophalen lukte niet') }) }
 function maAfHTML(past){
   if(!maAfgemeld) return '<p class="wdleeg">Afmeldingen ophalen…</p>';
@@ -9414,7 +9423,9 @@ function maAfHTML(past){
   return `<p class="hint" style="margin:0 2px 10px">Kregen de drop-mail en staan nu niet meer ingeschreven. Ze verdwijnen vanzelf uit je lijst.</p>
     <div class="sp2lijst">${lijst.map(x=>`<div class="sp2rij makies gemaild"><span class="mavink maaf">×</span><span class="sp2nm">${esc(x.email)}<small>${x.op?'afgemeld '+tijd(x.op)+' · ':''}gemaild ${tijd(x.gemaild)}</small></span></div>`).join('')}</div>`;
 }
-function maGemaildLaden(){ maAfgemeldLaden(); roep('dropMailStuur',{}).then(r=>{ maGemaild=new Set((r&&r.verstuurdIds)||[]); maGemaildOp=(r&&r.verstuurdOp)||{}; maOngeldig=new Set((r&&r.ongeldigIds)||[]); maTeken() }).catch(()=>{ maGemaild=maGemaild||new Set() }) }
+function maGemaildLaden(){ maAfgemeldLaden();
+  if(maCamp!=='drop-8-nov') roep('dropMailStuur',{campagne:'drop-8-nov'}).then(r=>{ maDropSet=new Set((r&&r.verstuurdIds)||[]); maTeken() }).catch(()=>{ maDropSet=maDropSet||new Set() });
+  const camp=maCamp; roep('dropMailStuur',{campagne:camp}).then(r=>{ if(camp!==maCamp) return; if(camp==='drop-8-nov') maDropSet=new Set((r&&r.verstuurdIds)||[]); maGemaild=new Set((r&&r.verstuurdIds)||[]); maGemaildOp=(r&&r.verstuurdOp)||{}; maOngeldig=new Set((r&&r.ongeldigIds)||[]); maTeken() }).catch(()=>{ maGemaild=maGemaild||new Set() }) }
 function maGroep(){
   const l=(maLijst||[]).filter(x=>maPeriode==='alles'||x.datum>=MAILDOEL.sinds);
   return {alle:l, nooit:l.filter(x=>!x.orders), wel:l.filter(x=>x.orders>0)};
@@ -9425,7 +9436,8 @@ function maTeken(){
   if(!maLijst){ $('#sheetBody').innerHTML=`<p class="wdleeg">${maFout?esc(maFout):'Ophalen uit Shopify…'}</p>`; $('#sheetVoet').innerHTML=''; return }
   const g=maGroep(), gm=x=>!!(maGemaild&&maGemaild.has(String(x.id)));
   /* v976: oudste aanmelding bovenaan, in blokken van 50 */
-  const groep=g[maFilter].slice().sort((a,b)=>String(a.tijd||a.datum).localeCompare(String(b.tijd||b.datum)));
+  const herin=maCamp!=='drop-8-nov';
+  const groep=g[maFilter].filter(x=>!herin||(maDropSet&&maDropSet.has(String(x.id))&&!besteldNaDrop(x))).slice().sort((a,b)=>String(a.tijd||a.datum).localeCompare(String(b.tijd||b.datum)));
   const ong=x=>maOngeldig.has(String(x.id));
   const nGem=groep.filter(gm).length, vrij=groep.filter(x=>x.id&&!gm(x)&&!ong(x));
   /* v978: twee weergaven — wie nog moet, en wie hem al kreeg (met tijdstip, nieuwste eerst) */
@@ -9444,7 +9456,9 @@ function maTeken(){
   const ditJaar=String(new Date().getFullYear());
   const dag=x=>new Date(x.datum+'T12:00:00').toLocaleDateString('nl-NL',x.datum.slice(0,4)===ditJaar?{day:'numeric',month:'short'}:{day:'numeric',month:'short',year:'numeric'});
   $('#sheetBody').innerHTML=`
-    <div class="sp2seg" style="margin-top:0">${seg('heropening','Sinds 1 okt')}${seg('alles','Alle abonnees')}</div>
+    <div class="sp2seg macamp" style="margin-top:0">${Object.keys(MACAMP).map(k=>`<button type="button" class="${maCamp===k?'aan':''}" data-macamp="${k}">${MACAMP[k].n}</button>`).join('')}</div>
+    ${herin?`<p class="hint" style="margin:0 2px 10px">Alleen wie de drop-mail kreeg en sindsdien <b>nog niet besteld</b> heeft.${maDropSet?'':' Ophalen…'}</p>`:''}
+    <div class="sp2seg">${seg('heropening','Sinds 1 okt')}${seg('alles','Alle abonnees')}</div>
     <div class="sp2get" style="margin:0 0 14px">
       ${tegel('nooit',g.nooit.length,'nooit besteld','nog geen klant')}${tegel('wel',g.wel.length,'al klant','besteld')}${tegel('alle',g.alle.length,'samen','op de lijst')}
     </div>
@@ -9465,7 +9479,7 @@ function maTeken(){
         const isO=!isG&&ong(x);
         return `<div class="sp2rij makies${aan?' aan':''}${isG||isO?' gemaild':''}" ${isG||isO?'':`data-makies="${esc(x.id)}"`} role="checkbox" aria-checked="${aan}"><span class="mavink${isO?' maaf':''}">${isO?'×':isG||aan?svg(I.vink,'2.6'):''}</span><span class="sp2nm">${esc(x.email)}<small>${isO?'<b style="color:#c0392b">adres bestaat niet</b> · '+dag(x):isG?wanneer(x)+' · aangemeld '+dag(x):dag(x)}${x.orders?' · '+x.orders+'× besteld':''}${!isG?` · <button type="button" class="malink mawz" data-mawijzig="${esc(x.id)}">${isO?'verbeteren':'wijzig'}</button>`:''}</small></span></div>` }).join('')}</div>` }).join('')
       :zq?'<p class="wdleeg">Geen adres gevonden met “'+esc(maZoek.trim())+'”.</p>':`<p class="wdleeg">${maWeergave==='al'?'Nog niemand in deze groep heeft de drop-mail gekregen.':groep.length?'Iedereen in deze groep is al gemaild.':'Niemand in deze groep.'}</p>`}`;
-  $('#sheetVoet').innerHTML=maWeergave==='af'?'':sel?`<button class="prim" style="margin-top:0" id="maStuur">Drop-mail sturen naar ${sel}</button>`
+  $('#sheetVoet').innerHTML=maWeergave==='af'?'':sel?`<button class="prim" style="margin-top:0" id="maStuur">${MACAMP[maCamp].n} sturen naar ${sel}</button>`
     :l.length?`<button class="sec" style="margin-top:0;width:100%" id="maKop">${l.length} adressen kopiëren</button>`:'';
   /* aangevinkt buiten deze groep telt niet mee: alleen wat je ziet gaat mee */
   [...maKies].forEach(id=>{ if(!vrijIds.includes(id)) maKies.delete(id) });
@@ -9479,6 +9493,7 @@ function maTeken(){
   const zi=$('#maZoekIn');
   if(zi){ zi.oninput=()=>{ maZoek=zi.value; const pos=zi.selectionStart; maTeken(); const n=$('#maZoekIn'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos) }catch(e){} } }; }
   if($('#maZoekWis')) $('#maZoekWis').onclick=()=>{ maZoek=''; maTeken(); };
+  $$('[data-macamp]').forEach(b=>b.onclick=()=>{ if(maCamp===b.dataset.macamp) return; maCamp=b.dataset.macamp; maKies.clear(); maGemaild=null; maGemaildOp={}; maOngeldig=new Set(); maWeergave='te'; if(maCamp!=='drop-8-nov') maFilter='alle'; maTeken(); maGemaildLaden() });
   $$('[data-maw]').forEach(b=>b.onclick=()=>{ maWeergave=b.dataset.maw; if(maWeergave==='af') maAfgemeldLaden(); maTeken(); $('#sheetBody').scrollTop=0 });
   $$('[data-mawijzig]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); maAdresWijzig(b.dataset.mawijzig) });
   $$('[data-makies]').forEach(r=>r.onclick=e=>{ if(e.target.closest('[data-maweg],[data-mawijzig]')) return; const id=r.dataset.makies; maKies.has(id)?maKies.delete(id):maKies.add(id); maTeken() });
@@ -9522,20 +9537,21 @@ function maAdresWeg(id){
 }
 function sheetDropMail(){
   const n=maKies.size; if(!n) return;
-  sheet('Drop-mail versturen',
+  const C=MACAMP[maCamp];
+  sheet(C.n+' versturen',
     `<div class="paneel" style="padding:16px">
-       <p style="margin:0 0 4px;font-weight:700">Vanavond om 19:00 gaat de drop live</p>
-       <p class="hint" style="margin:0">Jouw ontwerp met de GIF · van info@cacaoboetiek.nl · met afmeldlink</p>
+       <p style="margin:0 0 4px;font-weight:700">${esc(C.titel)}</p>
+       <p class="hint" style="margin:0">${esc(C.sub)} · van info@cacaoboetiek.nl · met afmeldlink</p>
      </div>
-     <div class="paneel"><label class="arij" style="cursor:pointer">
+     ${C.stempels?`<div class="paneel"><label class="arij" style="cursor:pointer">
        <span class="naam">Eerst 2 cadeaustempels geven<small>de mail belooft ze · wie ze al kreeg, krijgt ze niet nog eens</small></span>
-       <input type="checkbox" id="dmSt" checked style="width:24px;height:24px;accent-color:#18181b"></label></div>
+       <input type="checkbox" id="dmSt" checked style="width:24px;height:24px;accent-color:#18181b"></label></div>`:''}
      <p class="hint">Gaat naar <b>${n}</b> ${n===1?'adres':'adressen'}. Wie hem al kreeg of zich intussen afmeldde, wordt overgeslagen. Versturen kan niet worden teruggedraaid.</p>
      <p class="hint" id="dmStatus" style="font-weight:700"></p>`,
     `<button class="prim" style="margin-top:0" id="dmGo">Nu versturen naar ${n}</button>`);
   sheetTerugZet(()=>sheetMailAdressen());
-  $('#dmSt').onchange=()=>{ if(!$('#dmSt').checked) $('#dmStatus').textContent='Let op: de mail belooft 2 stempels.'; else $('#dmStatus').textContent='' };
-  $('#dmGo').onclick=()=>dropMailVersturen($('#dmSt').checked);
+  if($('#dmSt')) $('#dmSt').onchange=()=>{ if(!$('#dmSt').checked) $('#dmStatus').textContent='Let op: de mail belooft 2 stempels.'; else $('#dmStatus').textContent='' };
+  $('#dmGo').onclick=()=>dropMailVersturen(!!($('#dmSt')&&$('#dmSt').checked));
 }
 async function dropMailVersturen(stempels){
   if(maStuurBezig) return; maStuurBezig=true;
@@ -9545,7 +9561,7 @@ async function dropMailVersturen(stempels){
     for(let i=0;i<ids.length;i+=20){
       if($('#dmStatus')) $('#dmStatus').textContent='Bezig… '+Math.min(i,ids.length)+' van '+ids.length;
       if(knop) knop.textContent='Versturen… '+Math.min(i,ids.length)+'/'+ids.length;
-      const r=await roepLang('dropMailStuur',{ids:ids.slice(i,i+20),stempels});
+      const r=await roepLang('dropMailStuur',{ids:ids.slice(i,i+20),stempels,campagne:maCamp});
       ok+=r.verstuurd||0; mis+=r.mislukt||0; over+=(r.overgeslagen||0)+(r.nietIngeschreven||0); st+=r.stempels||0; if(r.fout) fout=r.fout; Object.entries(r.perAfzender||{}).forEach(([a,n])=>perAf[a]=(perAf[a]||0)+n);
       maGemaild=new Set(r.verstuurdIds||[]); maGemaildOp=r.verstuurdOp||maGemaildOp; maOngeldig=new Set(r.ongeldigIds||[]); ong+=r.ongeldig||0;
       ids.slice(i,i+20).forEach(id=>{ if(maOngeldig.has(id)) maKies.delete(id) });

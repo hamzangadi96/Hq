@@ -724,7 +724,7 @@ exports.mailAdressen = onCall(async req => {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          query: 'query($na:String){customers(first:250,after:$na){nodes{id createdAt firstName lastName numberOfOrders defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
+          query: 'query($na:String){customers(first:250,after:$na){nodes{id createdAt firstName lastName numberOfOrders lastOrder{createdAt} defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
           variables: { na }
         })
       });
@@ -738,7 +738,7 @@ exports.mailAdressen = onCall(async req => {
         const moment = aanmeldMoment(k), dag = nlDag(moment);
         if (dag < sinds) return;
         uit.push({ id: String(k.id).split('/').pop(), email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), voornaam: k.firstName || '', datum: dag, tijd: moment,
-          orders: parseInt(k.numberOfOrders, 10) || 0 });
+          orders: parseInt(k.numberOfOrders, 10) || 0, laatsteOrder: (k.lastOrder && k.lastOrder.createdAt) || null });
       });
       if (!c.pageInfo.hasNextPage) break;
       na = c.pageInfo.endCursor;
@@ -2812,12 +2812,20 @@ exports.afmelden = onRequest({ invoker: 'public', cors: false }, async (req, res
   }
 });
 
-const DROPMAIL = { campagne: 'drop-8-nov', html: 'https://cacaoboetiek-hq.web.app/shopify/mail/drop-8-november.html',
-  onderwerp: 'Vanavond om 19:00 gaat de drop live',
-  tekst: 'Vanavond om 19:00 gaat de drop live op www.cacaoboetiek.nl. Voor je aanmelding krijg je twee gratis stempels.' };
+const CAMPAGNES = {
+  'drop-8-nov': { campagne: 'drop-8-nov', stempels: true, html: 'https://cacaoboetiek-hq.web.app/shopify/mail/drop-8-november.html',
+    onderwerp: 'Vanavond om 19:00 gaat de drop live',
+    tekst: 'Vanavond om 19:00 gaat de drop live op www.cacaoboetiek.nl. Voor je aanmelding krijg je twee gratis stempels.' },
+  /* v985: herinnering voor aanmelders die nog niet bestelden */
+  'herinnering-9-nov': { campagne: 'herinnering-9-nov', stempels: false, html: 'https://cacaoboetiek-hq.web.app/shopify/mail/herinnering-9-november.html',
+    onderwerp: 'Je 2 stempels staan klaar',
+    tekst: 'De drop is live op www.cacaoboetiek.nl en de eerste smaken raken op. Je 2 gratis stempels staan klaar op je stempelkaart.' }
+};
 exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async req => {
   const uid = wieBenJe(req);
   const d = req.data || {};
+  const DROPMAIL = CAMPAGNES[d.campagne || 'drop-8-nov'];
+  if (!DROPMAIL) throw new HttpsError('invalid-argument', 'Onbekende mail.');
   const ref = werkRef(uid).child('dropMail').child(DROPMAIL.campagne);
   const al = (await ref.child('verstuurd').once('value')).val() || {};
   const alOngeldig = (await ref.child('ongeldig').once('value')).val() || {};
@@ -2856,7 +2864,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
 
   /* 1. stempels (optioneel) */
   let stempels = 0, oudeKlant = 0;
-  if (d.stempels) {
+  if (d.stempels && DROPMAIL.stempels) {
     const sRef = werkRef(uid).child('cadeauStempels').child(DROPMAIL.campagne);
     const sAl = (await sRef.child('klanten').once('value')).val() || {};
     const m = [], klaar = {};
