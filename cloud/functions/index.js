@@ -2799,7 +2799,7 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   const d = req.data || {};
   const ref = werkRef(uid).child('dropMail').child(DROPMAIL.campagne);
   const al = (await ref.child('verstuurd').once('value')).val() || {};
-  if (!Array.isArray(d.ids) || !d.ids.length) return { verstuurdIds: Object.keys(al) };
+  if (!Array.isArray(d.ids) || !d.ids.length) return { verstuurdIds: Object.keys(al), verstuurdOp: al };
   const ids = [...new Set(d.ids.map(x => String(x).replace(/\D/g, '')).filter(Boolean))].slice(0, 25);
   const mg = await leesGeheim(uid, 'mail');
   if (!mg || !mg.adres) throw new HttpsError('failed-precondition', 'Koppel eerst info@ bij Koppelingen › Mail.');
@@ -2868,5 +2868,5 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   }
   t.close();
   if (ok) await ref.child('verstuurd').update(gelukt);
-  return { verstuurd: ok, mislukt: mis, fout, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)) };
+  return { verstuurd: ok, mislukt: mis, fout, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)), verstuurdOp: Object.assign({}, al, gelukt) };
 });
