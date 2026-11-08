@@ -10,9 +10,9 @@ jobs:
         env:
           FIREBASE_SLEUTEL: ${{ secrets.FIREBASE_SLEUTEL }}
         run: |
-          printf '%s' "$FIREBASE_SLEUTEL" > sleutel.json
-          npm init -y >/dev/null && npm i firebase-admin@12 >/dev/null 2>&1
-          node -e "
-          const a=require('firebase-admin');a.initializeApp({credential:a.credential.cert(require('./sleutel.json')),databaseURL:'https://cacaoboetiek-hq-default-rtdb.europe-west1.firebasedatabase.app'});
-          a.database().ref('geheim/_systeem/testmailDrop8').once('value').then(s=>{console.log('STATUS',JSON.stringify(s.val()));process.exit(0)}).catch(e=>{console.log('ERR',e.message);process.exit(0)});"
-          rm -f sleutel.json
+          printf '%s' "$FIREBASE_SLEUTEL" > "$RUNNER_TEMP/s.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/s.json"
+          npm i -g firebase-tools >/dev/null 2>&1
+          echo "STATUS $(firebase database:get /geheim/_systeem/testmailDrop8 --project cacaoboetiek-hq 2>&1 | tail -3)"
+          firebase functions:log --only testmailDrop8 --project cacaoboetiek-hq 2>&1 | tail -15 | sed 's/^/LOG /'
+          rm -f "$RUNNER_TEMP/s.json"
