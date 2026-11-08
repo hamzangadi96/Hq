@@ -2928,3 +2928,16 @@ exports.dropMailStuur = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async 
   if (mis) await ref.update({ laatsteFout: fout, laatsteFoutOp: Date.now() });
   return { verstuurd: ok, mislukt: mis, fout, perAfzender, overgeslagen, nietIngeschreven, stempels, oudeKlant, verstuurdIds: Object.keys(Object.assign({}, al, gelukt)), verstuurdOp: Object.assign({}, al, gelukt), ongeldig: Object.keys(ongeldig).length, ongeldigIds: Object.keys(Object.assign({}, alOngeldig, ongeldig)) };
 });
+
+/* 8 nov: wekker voor de drop. Shopify heeft geen API om het winkelwachtwoord uit te
+   zetten, dus HQ seint je: 18:55 klaarzetten, 19:00 nu uitzetten. */
+async function dropWekker(titel, tekst) {
+  const g = (await db().ref('geheim').once('value')).val() || {};
+  for (const uid of Object.keys(g).filter(k => !k.startsWith('_') && g[k] && g[k].push)) {
+    await stuurPush(uid, { titel, tekst, url: 'https://admin.shopify.com/store/3e6b32-d5/online_store/preferences' });
+  }
+}
+exports.dropWekker1855 = onSchedule({ schedule: '55 18 8 11 *', timeZone: 'Europe/Amsterdam' }, async () =>
+  dropWekker('Drop over 5 minuten', 'Open nu Shopify › Online Store › Voorkeuren, zodat je om 19:00 alleen nog het wachtwoord hoeft uit te zetten.'));
+exports.dropWekker1900 = onSchedule({ schedule: '0 19 8 11 *', timeZone: 'Europe/Amsterdam' }, async () =>
+  dropWekker('19:00 — zet de winkel open!', 'Tik hier: wachtwoordbeveiliging uitvinken en opslaan.'));
