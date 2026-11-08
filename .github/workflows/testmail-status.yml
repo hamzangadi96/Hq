@@ -1,0 +1,18 @@
+name: Testmail status
+on: workflow_dispatch
+jobs:
+  lees:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Status lezen
+        env:
+          FIREBASE_SLEUTEL: ${{ secrets.FIREBASE_SLEUTEL }}
+        run: |
+          printf '%s' "$FIREBASE_SLEUTEL" > sleutel.json
+          npm init -y >/dev/null && npm i firebase-admin@12 >/dev/null 2>&1
+          node -e "
+          const a=require('firebase-admin');a.initializeApp({credential:a.credential.cert(require('./sleutel.json')),databaseURL:'https://cacaoboetiek-hq-default-rtdb.europe-west1.firebasedatabase.app'});
+          a.database().ref('geheim/_systeem/testmailDrop8').once('value').then(s=>{console.log('STATUS',JSON.stringify(s.val()));process.exit(0)}).catch(e=>{console.log('ERR',e.message);process.exit(0)});"
+          rm -f sleutel.json
