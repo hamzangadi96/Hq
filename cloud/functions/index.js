@@ -2641,6 +2641,26 @@ async function webDozen(uid, gql, smaken) {
   }
   return uit;
 }
+function kleurenUitOrder(o) {
+  const tel = {};
+  (o.line_items || []).forEach(li => {
+    const p = (li.properties || []).find(x => x && x.name === '_cbx_configuration');
+    if (!p) return;
+    let c = {}; try { c = JSON.parse(p.value) || {}; } catch (e) { return; }
+    if (c.color) tel[c.color] = (tel[c.color] || 0) + (Number(li.quantity) || 1);
+  });
+  return tel;
+}
+async function kleurVoorraad(gql) {
+  const s = (await gql('{shop{id m:metafield(namespace:"cbx",key:"dooskleur_voorraad"){value}}}')).shop;
+  let v = {}; try { v = s.m ? JSON.parse(s.m.value) || {} : {}; } catch (e) { v = {}; }
+  return { shopId: s.id, v };
+}
+async function kleurZet(gql, shopId, v) {
+  const u = (await gql('mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){userErrors{message}}}',
+    { m: [{ ownerId: shopId, namespace: 'cbx', key: 'dooskleur_voorraad', type: 'json', value: JSON.stringify(v) }] })).metafieldsSet;
+  if (u.userErrors && u.userErrors.length) throw new HttpsError('internal', 'Dooskleuren opslaan lukte niet: ' + fouten(u.userErrors));
+}
 function smakenUitOrder(o) {
   const tel = {};
   (o.line_items || []).forEach(li => {
@@ -2661,19 +2681,28 @@ async function webVoorraadVerwerk(uid, orders) {
   if (!start) { start = Date.parse('2026-11-08T08:00:00Z'); await startRef.set(start); }
   orders = orders.filter(o => Date.parse(o.created_at || 0) >= start);
   const geteld = (await ref.once('value')).val() || {};
-  const mut = {}, upd = {};
+  const mut = {}, kmut = {}, upd = {};
   orders.forEach(o => {
-    const id = String(o.id), tel = smakenUitOrder(o);
-    if (!Object.keys(tel).length) return;
+    const id = String(o.id), tel = smakenUitOrder(o), kl = kleurenUitOrder(o);
+    if (!Object.keys(tel).length && !Object.keys(kl).length) return;
     const g = geteld[id];
     if (!g && !o.cancelled_at && o.financial_status !== 'voided') {
-      Object.keys(tel).forEach(k => { mut[k] = (mut[k] || 0) - tel[k]; }); upd[id] = { tel, t: Date.now() };
+      Object.keys(tel).forEach(k => { mut[k] = (mut[k] || 0) - tel[k]; });
+      Object.keys(kl).forEach(k => { kmut[k] = (kmut[k] || 0) - kl[k]; });
+      upd[id] = { tel, kl, t: Date.now() };
     } else if (g && !g.terug && o.cancelled_at) {
-      Object.keys(g.tel || {}).forEach(k => { mut[k] = (mut[k] || 0) + g.tel[k]; }); upd[id] = Object.assign({}, g, { terug: Date.now() });
+      Object.keys(g.tel || {}).forEach(k => { mut[k] = (mut[k] || 0) + g.tel[k]; });
+      Object.keys(g.kl || {}).forEach(k => { kmut[k] = (kmut[k] || 0) + g.kl[k]; });
+      upd[id] = Object.assign({}, g, { terug: Date.now() });
     }
   });
-  if (!Object.keys(mut).length) return null;
+  if (!Object.keys(mut).length && !Object.keys(kmut).length) return null;
   const gql = await shopifyGql(uid, 'write_metaobjects');
+  if (Object.keys(kmut).length) {
+    const { shopId, v } = await kleurVoorraad(gql);
+    Object.keys(kmut).forEach(k => { if (typeof v[k] === 'number') v[k] = Math.max(0, v[k] + kmut[k]); });
+    await kleurZet(gql, shopId, v);
+  }
   const smaken = await webSmaken(gql);
   for (const k of Object.keys(mut)) {
     const s = smaken.find(x => x.sleutel === k);
@@ -2688,14 +2717,15 @@ exports.webVoorraadLees = binnen('webVoorraadLees', async req => {
   const gql = await shopifyGql(uid, 'read_metaobjects');
   const smaken = await webSmaken(gql);
   const tot = smaken.filter(s => s.leverbaar && s.voorraad !== null).reduce((n, s) => n + Math.max(0, s.voorraad), 0);
-  return { smaken: smaken.map(({ id, ...s }) => s), totaal: tot, doos16: Math.floor(tot / 16), doos25: Math.floor(tot / 25) };
+  let kleuren = {}; try { kleuren = (await kleurVoorraad(gql)).v; } catch (e) { kleuren = {}; }
+  return { smaken: smaken.map(({ id, ...s }) => s), kleuren, totaal: tot, doos16: Math.floor(tot / 16), doos25: Math.floor(tot / 25) };
 });
 
 /* per smaak: {sleutel, aantal} (precies zetten) of {sleutel, erbij} (erbij/eraf) */
 exports.webVoorraadZet = binnen('webVoorraadZet', async req => {
   const uid = wieBenJe(req);
   const lijst = ((req.data || {}).wijzigingen || []).slice(0, 50);
-  if (!lijst.length) throw new HttpsError('invalid-argument', 'Niets om aan te passen.');
+  if (!lijst.length && !(req.data || {}).kleuren) throw new HttpsError('invalid-argument', 'Niets om aan te passen.');
   const gql = await shopifyGql(uid, 'write_metaobjects');
   const smaken = await webSmaken(gql);
   for (const w of lijst) {
@@ -2704,7 +2734,15 @@ exports.webVoorraadZet = binnen('webVoorraadZet', async req => {
     const nieuw = typeof w.aantal === 'number' ? w.aantal : (s.voorraad || 0) + (Number(w.erbij) || 0);
     await webZetSmaak(gql, s, nieuw);
   }
+  const kw = (req.data || {}).kleuren;
+  let kleuren = null;
+  if (kw && typeof kw === 'object') {
+    const { shopId, v } = await kleurVoorraad(gql);
+    Object.keys(kw).forEach(k => { if (/^[a-z]{2,20}$/.test(k)) v[k] = Math.max(0, Math.round(Number(kw[k]) || 0)); });
+    await kleurZet(gql, shopId, v); kleuren = v;
+  }
   const d = await webDozen(uid, gql, smaken);
+  if (kleuren) d.kleuren = kleuren;
   await werkRef(uid).child('webVoorraad').update({ bijgewerkt: Date.now() });
   return Object.assign({ smaken: smaken.map(({ id, ...s }) => s) }, d);
 });
