@@ -5354,7 +5354,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v986 · 8 nov 2026';
+const APPVERSIE='v987 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21192,12 +21192,16 @@ function ordersHTML(){
 
   /* v986: openstaande betaallinks blijven hier staan tot ze betaald of ingetrokken zijn */
   const blOpen=alsLijst(S.betaallinks).filter(x=>x&&x.id&&x.status!=='COMPLETED'&&x.status!=='INGETROKKEN'&&x.status!=='GEANNULEERD'&&!(x.terug&&x.terug.geannuleerd)).slice().reverse();
-  if(blOpen.length&&Date.now()-(window._blChk||0)>90000){ window._blChk=Date.now();
-    roep('betaallinkStatus',{ids:blOpen.slice(0,20).map(x=>x.id)}).then(res=>{ let anders=false; const l=alsLijst(S.betaallinks);
-      (res.links||[]).forEach(n=>{ const x=l.find(y=>y.id===n.id); if(x&&x.status!==n.status){ Object.assign(x,{status:n.status,order:n.order,totaal:n.totaal}); anders=true } });
-      if(anders){ bewaarNu(); if(S.tab==='orders'&&!sheetOpen) render() } }).catch(()=>{}) }
-  if(blOpen.length) h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Open betaallinks</span><span class="tel">${blOpen.length}</span></div>
-    <div class="paneel">${blOpen.slice(0,15).map(x=>`<button class="arij" data-blopen="${esc(x.id)}">
+  if(Date.now()-(window._blChk||0)>60000){ window._blChk=Date.now();
+    roep('betaallinkStatus',{open:true}).then(res=>{ const l=alsLijst(S.betaallinks), open=res.open||[], ids=new Set(open.map(x=>x.id)); let anders=false;
+      open.forEach(n=>{ const x=l.find(y=>y.id===n.id); if(x){ if(x.status!==n.status){ x.status=n.status; anders=true } } else { l.push(Object.assign({},n,{datum:n.datum?new Date(n.datum+'T12:00:00').toLocaleDateString('nl-NL',{day:'numeric',month:'short'}):''})); anders=true } });
+      /* wat de app als open had maar in Shopify niet meer open is: status ophalen */
+      const weg=l.filter(x=>x&&x.id&&/DraftOrder/.test(x.id)&&!ids.has(x.id)&&(!x.status||x.status==='OPEN'));
+      const klaar=()=>{ if(anders){ S.betaallinks=l.slice(-50); bewaarNu(); if(S.tab==='orders'&&!sheetOpen) render() } };
+      if(weg.length) roep('betaallinkStatus',{ids:weg.slice(0,20).map(x=>x.id)}).then(r2=>{ (r2.links||[]).forEach(n=>{ const x=l.find(y=>y.id===n.id); if(x&&x.status!==n.status){ Object.assign(x,{status:n.status,order:n.order}); anders=true } }); klaar() }).catch(klaar);
+      else klaar() }).catch(()=>{}) }
+  h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Open betaallinks</span><span class="tel">${blOpen.length||''}</span></div>
+    <div class="paneel">${blOpen.length?'':'<div class="geen">Geen open betaallinks.</div>'}${blOpen.slice(0,15).map(x=>`<button class="arij" data-blopen="${esc(x.id)}">
       <span class="naam">${esc((x.klant&&x.klant.naam)||x.naam)} · ${blEuro(x.totaal)}<small>${esc(x.naam)}${x.datum?' · '+esc(x.datum):''} · nog niet betaald</small></span>
       <span class="stip amber"></span><span class="pijl">${svg(I.pijl,'2')}</span></button>`).join('')}</div>`;
   h+=`<div class="blokkop" style="margin-top:24px"><span class="eyebrow">Zelf ingevoerd</span>

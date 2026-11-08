@@ -2123,6 +2123,22 @@ exports.maakBetaallink = binnen('maakBetaallink', async req => {
 
 exports.betaallinkStatus = binnen('betaallinkStatus', async req => {
   const uid = wieBenJe(req);
+  /* v987: alle open betaallinks rechtstreeks uit Shopify, ook als de app ze kwijt is */
+  if ((req.data || {}).open) {
+    const gql0 = await shopifyGql(uid, 'read_draft_orders');
+    const r = await gql0('query{draftOrders(first:30,sortKey:UPDATED_AT,reverse:true,query:"status:open tag:hq-betaallink"){nodes{' + DRAFT_VELDEN +
+      ' tags appliedDiscount{amountSet{shopMoney{amount}} valueType value} shippingLine{title originalPriceSet{shopMoney{amount}}} lineItems(first:40){nodes{title variantTitle quantity originalUnitPriceSet{shopMoney{amount}}}}}}}');
+    const geld = x => Number(((x || {}).shopMoney || {}).amount || 0);
+    return { open: (r.draftOrders.nodes || []).map(d => Object.assign(netteDraft(d), {
+      datum: String(d.createdAt || '').slice(0, 10),
+      geenStempels: (d.tags || []).includes('geen-stempels'),
+      regels: (d.lineItems.nodes || []).filter(x => !/^verzend/i.test(x.title)).map(x => ({ titel: x.title + (x.variantTitle && x.variantTitle !== 'Default Title' ? ' · ' + x.variantTitle : ''), aantal: x.quantity, prijs: geld(x.originalUnitPriceSet) })),
+      verzending: d.shippingLine ? geld(d.shippingLine.originalPriceSet) : 0,
+      ophalen: !!(d.shippingLine && /ophalen/i.test(d.shippingLine.title || '')),
+      korting: d.appliedDiscount ? geld(d.appliedDiscount.amountSet) : 0,
+      kortingPct: d.appliedDiscount && d.appliedDiscount.valueType === 'PERCENTAGE' ? Number(d.appliedDiscount.value) || 0 : 0
+    })) };
+  }
   const ids = (Array.isArray((req.data || {}).ids) ? req.data.ids : [])
     .filter(x => typeof x === 'string' && /^gid:\/\/shopify\/DraftOrder\/\d+$/.test(x)).slice(0, 50);
   if (!ids.length) return { links: [] };
