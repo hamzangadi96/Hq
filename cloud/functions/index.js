@@ -2941,3 +2941,24 @@ exports.dropWekker1855 = onSchedule({ schedule: '55 18 8 11 *', timeZone: 'Europ
   dropWekker('Drop over 5 minuten', 'Open nu Shopify › Online Store › Voorkeuren, zodat je om 19:00 alleen nog het wachtwoord hoeft uit te zetten.'));
 exports.dropWekker1900 = onSchedule({ schedule: '0 19 8 11 *', timeZone: 'Europe/Amsterdam' }, async () =>
   dropWekker('19:00 — zet de winkel open!', 'Tik hier: wachtwoordbeveiliging uitvinken en opslaan.'));
+
+/* v983: Shopify-order annuleren vanuit HQ. Shopify zet de doos terug op voorraad;
+   de smaken en dooskleur zet HQ zelf terug bij de volgende ronde (binnen een minuut),
+   via webVoorraadVerwerk, die geannuleerde orders terugboekt. */
+exports.orderAnnuleer = binnen('orderAnnuleer', async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  const nr = String(d.order || '').replace(/\D/g, '');
+  if (!nr) throw new HttpsError('invalid-argument', 'Welke order?');
+  const gql = await shopifyGql(uid, 'write_orders');
+  const o = (await gql('query($id:ID!){order(id:$id){id name cancelledAt displayFinancialStatus}}', { id: 'gid://shopify/Order/' + nr })).order;
+  if (!o) throw new HttpsError('not-found', 'Order niet gevonden in Shopify.');
+  if (o.cancelledAt) return { alGedaan: true, naam: o.name };
+  let r;
+  try {
+    r = (await gql('mutation($o:ID!,$n:Boolean,$t:Boolean!){orderCancel(orderId:$o,reason:CUSTOMER,restock:true,notifyCustomer:$n,refundMethod:{originalPaymentMethodsRefund:$t},staffNote:"Geannuleerd via HQ"){job{id} orderCancelUserErrors{message}}}',
+      { o: o.id, n: d.bericht === true, t: d.terugbetalen !== false })).orderCancel;
+  } catch (e) { throw schrijfFout(e); }
+  if (r.orderCancelUserErrors && r.orderCancelUserErrors.length) throw schrijfFout(new HttpsError('internal', 'Annuleren lukte niet: ' + fouten(r.orderCancelUserErrors)));
+  return { ok: true, naam: o.name, terugbetaald: d.terugbetalen !== false };
+});

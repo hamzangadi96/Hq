@@ -5348,7 +5348,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v982 · 8 nov 2026';
+const APPVERSIE='v983 · 8 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -20687,7 +20687,9 @@ function sheetMacOrder(nr){
        ${rij('etiket','Ingredi\u00ebntenetiket','','kies eerst een partij')}
      </div>
      <div class="geen" style="padding-top:12px">${esc(o.periode||'')}</div>`,
-    `<button class="sec" id="moDicht">Terug</button>`);
+    `<button class="sec" id="moDicht">Terug</button>
+     <button class="sec" id="moAnnuleer" style="color:var(--rood)">Order annuleren</button>`);
+  if($('#moAnnuleer')) $('#moAnnuleer').onclick=()=>sheetOrderAnnuleer(o);
   if($('#moDicht')) $('#moDicht').onclick=dicht;
   $$('[data-doc]').forEach(b=>b.onclick=()=>docOpenen(o,b.dataset.doc));
   /* nog niets ingesteld: dan zeggen we wat er mist, niet dat het niet kan */
@@ -20741,6 +20743,24 @@ function factuurTonen(o,p){
   $('#fcPrint').onclick=()=>drukAf(html,'Factuur '+p.nummer,'@page{size:A4;margin:0}');
 }
 
+/* v983: annuleren vanuit HQ — Shopify zet de doos terug, HQ binnen een minuut de smaken en kleur */
+function sheetOrderAnnuleer(o){
+  sheet('Order '+o.nummer+' annuleren',
+    `<div class="paneel">
+       <label class="arij" style="cursor:pointer"><span class="naam">Geld terugbetalen<small>naar de manier waarop de klant betaalde</small></span>
+         <input type="checkbox" id="oaGeld" checked style="width:24px;height:24px;accent-color:#18181b"></label>
+       <label class="arij" style="cursor:pointer"><span class="naam">Klant een mail sturen<small>uit bij een testbestelling</small></span>
+         <input type="checkbox" id="oaMail" style="width:24px;height:24px;accent-color:#18181b"></label>
+     </div>
+     <p class="hint">De doos gaat in Shopify direct terug op voorraad. De smaken en de dooskleur zet HQ binnen een minuut terug op je website. Annuleren kan niet ongedaan worden gemaakt.</p>`,
+    `<button class="prim" style="margin-top:0;background:var(--rood);border-color:var(--rood)" id="oaGo">Order ${esc(o.nummer)} annuleren</button>
+     <button class="sec" id="oaTerug">Niet annuleren</button>`);
+  $('#oaTerug').onclick=()=>sheetMacOrder(o.nummer);
+  $('#oaGo').onclick=async()=>{ const k=$('#oaGo'); k.disabled=true; k.textContent='Annuleren bij Shopify…';
+    try{ const r=await roep('orderAnnuleer',{order:o.shopifyId||o.nummer,terugbetalen:$('#oaGeld').checked,bericht:$('#oaMail').checked});
+      klaarSheet(r.alGedaan?'Deze order was al geannuleerd.':'Order '+o.nummer+' geannuleerd'+(r.terugbetaald?' en terugbetaald':'')+'. Voorraad komt binnen een minuut terug.');
+    }catch(e){ toast(fout(e)); k.disabled=false; k.textContent='Order '+o.nummer+' annuleren' } };
+}
 async function verzondenMelden(o){
   if(o.verzonden) return toast('Al gemeld. De klant heeft zijn track & trace.');
   if(!confirm('Order '+o.nummer+' op verzonden zetten? De klant krijgt dan een mail met track & trace.')) return;
