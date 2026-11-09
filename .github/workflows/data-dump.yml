@@ -1,5 +1,7 @@
 name: Data dump (versleuteld)
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   dump:
     runs-on: ubuntu-latest
@@ -23,10 +25,9 @@ jobs:
           openssl enc -aes-256-cbc -pbkdf2 -salt -in dump.tgz -out dump.enc -pass file:k.bin
           openssl pkeyutl -encrypt -pubin -inkey .github/dump-pub.pem -in k.bin -out k.enc
           rm -f dump.tgz d-*.json k.bin "$RUNNER_TEMP/s.json"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dump
-          retention-days: 1
-          path: |
-            dump.enc
-            k.enc
+      - name: Versleuteld klaarzetten op tijdelijke branch
+        run: |
+          mkdir out && mv dump.enc k.enc out/ && cd out
+          git init -q && git checkout -q -b dump-tijdelijk
+          git -c user.name=hq -c user.email=hq@localhost add . && git -c user.name=hq -c user.email=hq@localhost commit -qm dump
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" dump-tijdelijk
