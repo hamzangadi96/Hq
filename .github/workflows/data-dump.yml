@@ -1,0 +1,32 @@
+name: Data dump (versleuteld)
+on: workflow_dispatch
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Recepten ophalen en versleutelen
+        env:
+          FIREBASE_SLEUTEL: ${{ secrets.FIREBASE_SLEUTEL }}
+        run: |
+          printf '%s' "$FIREBASE_SLEUTEL" > "$RUNNER_TEMP/s.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/s.json"
+          npm i -g firebase-tools >/dev/null 2>&1
+          firebase database:get /cacaoboetiek --shallow --project cacaoboetiek-hq > uids.json
+          for u in $(node -e "console.log(Object.keys(require('./uids.json')).join(' '))"); do
+            firebase database:get /cacaoboetiek/$u --project cacaoboetiek-hq > "d-$u.json" 2>/dev/null || true
+          done
+          tar czf dump.tgz d-*.json
+          openssl rand -out k.bin 32
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in dump.tgz -out dump.enc -pass file:k.bin
+          openssl pkeyutl -encrypt -pubin -inkey .github/dump-pub.pem -in k.bin -out k.enc
+          rm -f dump.tgz d-*.json k.bin "$RUNNER_TEMP/s.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dump
+          retention-days: 1
+          path: |
+            dump.enc
+            k.enc
