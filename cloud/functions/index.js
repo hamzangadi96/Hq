@@ -1698,6 +1698,30 @@ exports.haalKaarten = onCall(async req => {
    Hier zit wél naam en adres in — dat moet, want een factuur zonder adres is
    geen geldige factuur. Het gaat rechtstreeks naar jouw toestel en wordt
    nergens bewaard: niet in deze functie, niet in de database. */
+/* v993: factuurregels met inhoud. Bij een doos staan de smaken en de kleur eronder,
+   bij een kaartje de tekst, bij een lintje kleur en tekst. Kaartjes, lintjes en
+   inpakken zijn kado-opties en vallen onder 21% btw; bonbons onder 9%. */
+const KADO_OPTIE = /kado|cadeau|gift|inpak|wrap|wenskaart|kaartje|lint/i;
+function factuurRegelsVan(o) {
+  const regels = [], kadoRegels = [];
+  (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
+    const m = {}; (li.properties || []).forEach(p => { if (p && p.name) m[p.name] = p.value; });
+    const stuk = parseFloat(li.price) || 0;
+    const korting = (li.discount_allocations || []).reduce((n, d) => n + (parseFloat(d.amount) || 0), 0);
+    const naam = String(li.title || '').replace(/\s*-\s*(\d+) pralines$/i, ' · $1 bonbons') + (li.variant_title && !/standaard|default/i.test(li.variant_title) && !String(li.title).includes(li.variant_title.replace(/ bonbons/, '')) ? ' · ' + li.variant_title : '');
+    const det = [];
+    if (m.Ontvanger && m.Ontvanger !== 'Voor mezelf') det.push(m.Ontvanger);
+    if (m.Dooskleur) det.push('Kleur: ' + m.Dooskleur);
+    if (m.Bonbons) det.push(String(m.Bonbons).replace(/;\s*/g, ', '));
+    if (m.Boodschap) det.push('Tekst: “' + String(m.Boodschap).replace(/\s*\n\s*/g, ' / ') + '”');
+    if (m.Lintkleur) det.push('Kleur: ' + m.Lintkleur);
+    if (m.Tekst) det.push('Tekst: “' + m.Tekst + '”');
+    const regel = { naam, aantal: Number(li.quantity) || 0, prijs: stuk, korting, detail: det.join('\n') };
+    (KADO_OPTIE.test(naam) ? kadoRegels : regels).push(regel);
+  });
+  const kado = kadoRegels.reduce((n, r) => n + r.prijs * r.aantal - (r.korting || 0), 0);
+  return { regels, kadoRegels, kado };
+}
 exports.haalOrderDocumenten = onCall(async req => {
   const uid = wieBenJe(req);
   const o = await zoekOrder(uid, (req.data || {}).order);
@@ -1712,15 +1736,7 @@ exports.haalOrderDocumenten = onCall(async req => {
 
   /* Shopify rekent per regel; verzending en kado-opties staan apart en vallen
      onder het hoge btw-tarief. De rest is voedsel en dus laag. */
-  const KADO = /kado|cadeau|gift|inpak|wrap|wenskaart|kaartje/i;
-  const regels = [];
-  let kado = 0;
-  (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
-    const stuk = parseFloat(li.price) || 0;
-    const naam = String(li.title || '') + (li.variant_title ? ' · ' + li.variant_title : '');
-    if (KADO.test(naam)) { kado += stuk * (li.quantity || 0); return; }
-    regels.push({ naam, aantal: Number(li.quantity) || 0, prijs: stuk });
-  });
+  const { regels, kadoRegels, kado } = factuurRegelsVan(o);
 
   const verzending = (o.shipping_lines || [])
     .reduce((n, s) => n + (parseFloat(s.price) || 0), 0);
@@ -1738,6 +1754,7 @@ exports.haalOrderDocumenten = onCall(async req => {
     regels,
     verzending,
     kado,
+    kadoRegels,
     boodschap: boodschapVan(o),
     afhaal: !o.shipping_address
   };
@@ -3049,15 +3066,8 @@ exports.voorbereid = binnen('voorbereid', async req => {
     });
     kaarten.forEach(k => { if (dozen[k.id]) dozen[k.id].kaart = k; });
     linten.forEach(l => { if (dozen[l.id]) dozen[l.id].lint = l; });
-    /* factuurregels zoals bij één order */
-    const regels = []; let kado = 0;
-    (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
-      const stuk = parseFloat(li.price) || 0;
-      const korting = (li.discount_allocations || []).reduce((n, d) => n + (parseFloat(d.amount) || 0), 0);
-      const naam = String(li.title || '') + (li.variant_title ? ' · ' + li.variant_title : '');
-      if (KADO.test(naam)) { kado += stuk * (li.quantity || 0) - korting; return; }
-      regels.push({ naam, aantal: Number(li.quantity) || 0, prijs: stuk, korting });
-    });
+    /* factuurregels zoals bij één order, met inhoud */
+    const { regels, kadoRegels, kado } = factuurRegelsVan(o);
     const b = o.billing_address || a || {};
     return {
       shopifyId: String(o.id), nummer, datum: (o.created_at || '').slice(0, 10), betaald: o.financial_status === 'paid',
@@ -3066,7 +3076,7 @@ exports.voorbereid = binnen('voorbereid', async req => {
         adres: [b.address1, b.address2, [String(b.zip || '').toUpperCase(), b.city].filter(Boolean).join('  '), (b.country_code || 'NL') !== 'NL' ? b.country : null].filter(Boolean).join('\n') },
       dozen: volgorde.map(k => dozen[k]),
       losseKaarten: kaarten.filter(k => !dozen[k.id]), losseLinten: linten.filter(l => !dozen[l.id]),
-      regels, kado, verzending: (o.shipping_lines || []).reduce((n, s) => n + (parseFloat(s.price) || 0), 0),
+      regels, kado, kadoRegels, verzending: (o.shipping_lines || []).reduce((n, s) => n + (parseFloat(s.price) || 0), 0),
       kortingOrder: parseFloat(o.total_discounts || 0) || 0, totaal: parseFloat(o.total_price || 0) || 0
     };
   });

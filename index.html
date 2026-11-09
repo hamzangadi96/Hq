@@ -2982,6 +2982,7 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .fact2 td{padding:3.2mm 3mm;vertical-align:top}
 .fact2 .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .fact2 .c{text-align:center;white-space:nowrap}
+.fact2 .f2det{font-size:8.2pt;color:#6e6e73;line-height:1.45;margin-top:1.2mm;max-width:95mm}
 .fact2 td.kort{color:#1f7a3a;font-weight:700}
 .fact2 td.bed{font-weight:700}
 .fact2 .f2noot{border-top:.25mm solid #d4d4d8;margin-top:1mm;padding:2.4mm 3mm 0;font-size:6.6pt;color:#71717a}
@@ -5416,7 +5417,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v992 · 9 nov 2026';
+const APPVERSIE='v993 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19270,7 +19271,7 @@ function factuur2HTML(f){
     ${f.banner?`<div class="f2banner">${esc(f.banner)}</div>`:''}
     <table>
       <tr><th>Omschrijving</th><th class="c">Aantal</th><th class="n">Stukprijs<small>excl. btw</small></th>${heeftKort?'<th class="c">Korting</th>':''}<th class="c">Btw</th><th class="n">Bedrag<small>excl. btw</small></th></tr>
-      ${rg.map(x=>`<tr><td>${esc(x.oms)}</td><td class="c">${x.aantal}</td><td class="n">${x.isKorting?'':euro(x.stukExcl)}</td>
+      ${rg.map(x=>`<tr><td>${esc(x.oms)}${x.detail?`<div class="f2det">${esc(x.detail).replace(/\n/g,'<br>')}</div>`:''}</td><td class="c">${x.aantal}</td><td class="n">${x.isKorting?'':euro(x.stukExcl)}</td>
         ${heeftKort?`<td class="c kort">${x.korting?x.korting+'%':''}</td>`:''}<td class="c">${pc(x.btw)}</td>
         <td class="n bed">${x.excl<0?'− '+euro(-x.excl):euro(x.excl)}</td></tr>`).join('')}
     </table>
@@ -19290,13 +19291,15 @@ function factuurHTML(o){
   const k=o.klant||(S.klanten||[]).find(x=>x.id===o.klantId)||{};
   const totStuks=(o.regels||[]).reduce((n,x)=>n+(x.aantal||0),0);
   const regels=(o.regels||[]).map(r=>{
-    if(r.naam&&r.prijs!=null) return {oms:r.naam,aantal:r.aantal,prijs:+r.prijs,btw:BTW_ETEN};
+    if(r.naam&&r.prijs!=null) return {oms:r.naam,aantal:r.aantal,prijs:+r.prijs,btw:BTW_ETEN,detail:r.detail||''};
     const pr=prijsVoor(o.klantId,r.receptId,totStuks);
     return {oms:smaakNaam(r.receptId),aantal:r.aantal,prijs:pr===null?0:pr,btw:BTW_ETEN};
   });
   const verz=parseFloat(o.verzending)||0, kado=parseFloat(o.kado)||0;
   if(verz) regels.push({oms:'Verzending',aantal:1,prijs:verz,btw:BTW_REST});
-  if(kado) regels.push({oms:'Kado-opties',aantal:1,prijs:kado,btw:BTW_REST});
+  /* v993: kaartje en lintje als eigen regels, met hun tekst eronder */
+  if(Array.isArray(o.kadoRegels)&&o.kadoRegels.length) o.kadoRegels.forEach(r=>regels.push({oms:r.naam,aantal:r.aantal,prijs:Math.max(0,+r.prijs-(r.aantal?(r.korting||0)/r.aantal:0)),btw:BTW_REST,detail:r.detail||''}));
+  else if(kado) regels.push({oms:'Kado-opties',aantal:1,prijs:kado,btw:BTW_REST});
   const datum=o.factuurDatum||o.ingepakt||o.datum||iso(new Date());
   return factuur2HTML({nr:factuurNr(o),datum,referentie:o.nummer||'',
     klant:{naam:k.naam||klantNaam(o.klantId),regels:String(k.adres||'').split(/\n/).concat(k.email?[k.email]:[])},
@@ -20816,9 +20819,10 @@ function factuurTonen(o,p){
   /* een Shopify-order omgekat naar de vorm die je factuur al kent */
   const nep={
     klant:{naam:p.klant.naam,adres:p.klant.adres},
-    regels:p.regels,
+    regels:(p.regels||[]).map(r=>Object.assign({},r,{prijs:Math.max(0,r.prijs-(r.aantal?(r.korting||0)/r.aantal:0))})),
     verzending:p.verzending,
     kado:p.kado,
+    kadoRegels:p.kadoRegels||[],
     factuurNr:p.nummer,
     factuurDatum:p.datum,
     betaald:p.betaald
@@ -21456,8 +21460,8 @@ function vbLabelConceptHTML(l){
 }
 function vbFactuurHTML(l){
   return l.map(o=>factuurHTML({klant:{naam:o.klant.naam,adres:o.klant.adres},
-    regels:alsLijst(o.regels).map(r=>({naam:r.naam,aantal:r.aantal,prijs:Math.max(0,r.prijs-(r.aantal?(r.korting||0)/r.aantal:0))})),
-    verzending:o.verzending,kado:o.kado,factuurNr:o.nummer,factuurDatum:o.datum,betaald:o.betaald?o.datum:null})).join('');
+    regels:alsLijst(o.regels).map(r=>({naam:r.naam,aantal:r.aantal,prijs:Math.max(0,r.prijs-(r.aantal?(r.korting||0)/r.aantal:0)),detail:r.detail||''})),
+    verzending:o.verzending,kado:o.kado,kadoRegels:alsLijst(o.kadoRegels),factuurNr:o.nummer,factuurDatum:o.datum,betaald:o.betaald?o.datum:null})).join('');
 }
 const vbNorm=s=>String(s||'').toLowerCase().replace(/&| en /g,' ').replace(/[^a-z]/g,'');
 function vbRecept(k){ const n=vbNorm(vbSmaakNaam(k)); return (S.recepten||[]).find(r=>vbNorm(r.naam)===n)||(S.recepten||[]).find(r=>n&&(vbNorm(r.naam).includes(n)||n.includes(vbNorm(r.naam)))) }
