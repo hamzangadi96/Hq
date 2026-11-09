@@ -3107,6 +3107,23 @@ exports.voorbereidZet = binnen('voorbereidZet', async req => {
   return { ok: true };
 });
 
+/* v1003: elk MyParcel-label (A6) op een eigen vel van 102 × 152 mm, zo groot
+   mogelijk; een liggend label wordt een kwartslag gedraaid zodat het het vel vult */
+async function opVel102(bron) {
+  const { PDFDocument, degrees } = require('pdf-lib');
+  const mm = v => v * 72 / 25.4, W = mm(102), H = mm(152);
+  const src = await PDFDocument.load(bron), uit = await PDFDocument.create();
+  const pags = await uit.embedPages(src.getPages());
+  for (const ep of pags) {
+    const p = uit.addPage([W, H]);
+    const liggend = ep.width > ep.height;
+    const bw = liggend ? ep.height : ep.width, bh = liggend ? ep.width : ep.height;
+    const s = Math.min(W / bw, H / bh), w = bw * s, h = bh * s, x = (W - w) / 2, y = (H - h) / 2;
+    if (liggend) p.drawPage(ep, { x: x + w, y, xScale: s, yScale: s, rotate: degrees(90) });
+    else p.drawPage(ep, { x, y, xScale: s, yScale: s });
+  }
+  return Buffer.from(await uit.save());
+}
 /* alle verzendlabels: eerst aanmelden wat nog niet is aangemeld, dan één pdf */
 exports.labelsMaken = binnen('labelsMaken', async req => {
   const uid = wieBenJe(req);
@@ -3135,10 +3152,12 @@ exports.labelsMaken = binnen('labelsMaken', async req => {
     } catch (e) { fout.push({ id, fout: String(e && e.message || e).slice(0, 160) }); }
   }
   if (!ok.length) return { pdf: null, fout };
-  const formaat = String((req.data || {}).formaat || 'A6').toUpperCase() === 'A4' ? 'A4' : 'A6';
+  const vraag = String((req.data || {}).formaat || 'A6').toUpperCase();
+  const formaat = vraag === 'A4' ? 'A4' : 'A6';
   const r = await mpRoep(g.sleutel, 'shipment_labels/' + ok.map(x => encodeURIComponent(x.mp)).join(';') + '?format=' + formaat + (formaat === 'A4' ? '&positions=1;2;3;4' : ''), {
     headers: mpKoppen(g.sleutel, { 'Accept': 'application/pdf' }) });
   if (!r.ok) throw new HttpsError('internal', 'De labels zijn aangemaakt, maar de pdf kwam niet door (MyParcel ' + r.status + '). Probeer het zo nog eens; er worden geen dubbele labels gemaakt.');
-  const bytes = Buffer.from(await r.arrayBuffer());
+  let bytes = Buffer.from(await r.arrayBuffer());
+  if (vraag === 'L102') bytes = await opVel102(bytes);
   return { pdf: bytes.toString('base64'), naam: 'verzendlabels-' + new Date().toISOString().slice(0, 10) + '.pdf', aantal: ok.length, fout };
 }, { timeoutSeconds: 300, memory: '512MiB' });

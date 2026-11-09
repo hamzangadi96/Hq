@@ -5433,7 +5433,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1002 · 9 nov 2026';
+const APPVERSIE='v1003 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21673,7 +21673,7 @@ function sheetVbLabels(l,ids){
   sheet('Verzendlabels',
     `<p class="hint" style="margin-top:0"><b>Stap 1.</b> Bekijk de conceptlabels: naam, straat, huisnummer en postcode zoals MyParcel ze leest. Er is nog niets aangemaakt en het kost nog niets.</p>
      ${fout2.length?`<div class="melding amber">${svg(I.alarm,'2')}<span>${fout2.length} adres${fout2.length===1?'':'sen'} lastig te lezen: ${fout2.map(o=>'#'+esc(o.nummer)).join(', ')}. Pas die eerst aan in Shopify, anders weigert MyParcel ze.</span></div>`:''}
-     <p class="hint"><b>Stap 2.</b> Klopt alles, maak dan de labels aan. ${nieuw.length} nieuw${ver.length-nieuw.length?', '+(ver.length-nieuw.length)+' bestaan al en worden niet dubbel gemaakt':''}. Je krijgt ze als één pdf, vier per A4.</p>`,
+     <p class="hint"><b>Stap 2.</b> Klopt alles, maak dan de labels aan. ${nieuw.length} nieuw${ver.length-nieuw.length?', '+(ver.length-nieuw.length)+' bestaan al en worden niet dubbel gemaakt':''}. Je krijgt ze als één pdf: elk label liggend op een eigen vel van 102 × 152 mm, net als de ingrediëntenlabels. Print op 100% (werkelijke grootte).</p>`,
     `<button class="sec" style="margin-top:0" id="vbLc">${svg(I.doc)}Stap 1 · Concept bekijken</button>
      <button class="prim" id="vbLm" disabled>Stap 2 · ${nieuw.length?nieuw.length+' labels aanmaken bij MyParcel':'Labels-pdf ophalen'}</button>
      <button class="sec" id="vbLaf">${svg(I.vink,'2.4')} Afvinken</button>`);
@@ -21683,7 +21683,7 @@ function sheetVbLabels(l,ids){
   $('#vbLm').onclick=async()=>{ const b=$('#vbLm');
     if(nieuw.length&&b.dataset.zeker!=='1'){ b.dataset.zeker='1'; b.textContent='Zeker? Dit maakt '+nieuw.length+' betaalde labels aan · tik nog eens'; return }
     b.disabled=true; b.textContent='Labels aanmaken… dit duurt even';
-    try{ const r=await roep('labelsMaken',{orders:ver.map(o=>o.shopifyId),formaat:'A4'});
+    try{ const r=await roep('labelsMaken',{orders:ver.map(o=>o.shopifyId),formaat:'L102'});
       (r.fout||[]).length&&toast((r.fout.length)+' lukte niet: '+r.fout.map(x=>{ const o=ver.find(y=>y.shopifyId===x.id); return '#'+(o?o.nummer:x.id)+' ('+x.fout+')' }).join('; '));
       ver.forEach(o=>{ if(!(r.fout||[]).some(x=>x.id===o.shopifyId)) o.myparcel_id=o.myparcel_id||'1' });
       if(r.pdf){ const blob=new Blob([Uint8Array.from(atob(r.pdf),c=>c.charCodeAt(0))],{type:'application/pdf'}); await vbDeel(blob,r.naam) }
