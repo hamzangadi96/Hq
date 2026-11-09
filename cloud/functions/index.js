@@ -1292,8 +1292,8 @@ function klantId(req) {
   return id;
 }
 
-function binnen(naam, fn) {
-  return onCall(async req => {
+function binnen(naam, fn, opties) {
+  return onCall(opties || {}, async req => {
     try { return await fn(req); }
     catch (e) {
       if (e instanceof HttpsError) throw e;
@@ -2993,3 +2993,138 @@ exports.orderAnnuleer = binnen('orderAnnuleer', async req => {
   if (r.orderCancelUserErrors && r.orderCancelUserErrors.length) throw schrijfFout(new HttpsError('internal', 'Annuleren lukte niet: ' + fouten(r.orderCancelUserErrors)));
   return { ok: true, naam: o.name, terugbetaald: d.terugbetalen !== false };
 });
+
+/* ═══════════ v991: voorbereiden — alles voor de open orders in één keer ═══════════
+   Haalt de open, nog niet verzonden orders op met wat je nodig hebt om te printen:
+   dozen met smaken en inpakvolgorde, kaartjes, lintjes, factuurregels en het
+   verzendadres zoals MyParcel het zou lezen. Naam en adres gaan rechtstreeks naar
+   jouw toestel en worden nergens bewaard. */
+exports.voorbereid = binnen('voorbereid', async req => {
+  const uid = wieBenJe(req);
+  const orders = [];
+  let pad = 'orders.json?status=open&fulfillment_status=unfulfilled&limit=250';
+  for (let ronde = 0; ronde < 4; ronde++) {
+    const { gegevens, volgende } = await shopifyPagina(uid, pad);
+    (gegevens.orders || []).forEach(o => orders.push(o));
+    if (!volgende) break;
+    pad = 'orders.json?limit=250&page_info=' + encodeURIComponent(volgende);
+  }
+  const KADO = /kado|cadeau|gift|inpak|wrap|wenskaart|kaartje|lint/i;
+  const attr = li => { const m = {}; (li.properties || []).forEach(p => { if (p && p.name) m[p.name] = p.value; }); return m; };
+  const uit = orders.filter(o => !o.cancelled_at && o.financial_status !== 'voided').map(o => {
+    const nummer = String(o.name || o.order_number || '').replace(/^#/, '');
+    const a = o.shipping_address || null;
+    const ophalenLijn = (o.shipping_lines || []).some(s => /ophalen|afhalen|pick/i.test(String(s.title || '')));
+    const afhaal = !a || ophalenLijn;
+    let adres = null;
+    if (a) {
+      let sp = {}; try { sp = splitsAdres(a); } catch (e) { sp = {}; }
+      adres = {
+        naam: String(a.name || [a.first_name, a.last_name].filter(Boolean).join(' ') || ''),
+        bedrijf: a.company || '', regel1: a.address1 || '', regel2: a.address2 || '',
+        straat: sp.straat || '', nummer: sp.nummer || '', toevoeging: sp.toevoeging || '',
+        postcode: String(a.zip || '').replace(/\s+/g, '').toUpperCase(), plaats: a.city || '',
+        land: String(a.country_code || 'NL').toUpperCase(), landNaam: a.country || ''
+      };
+      adres.probleem = !adres.straat || !adres.nummer ? 'straat en huisnummer niet te scheiden' : (!adres.postcode ? 'geen postcode' : '');
+    }
+    const dozen = {}, volgorde = [];
+    const kaarten = [], linten = [];
+    (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
+      const m = attr(li), rol = m._cbx_role, id = m._cbx_id || ('li' + li.id);
+      if (rol === 'box' || m._cbx_configuration) {
+        let c = {}; try { c = JSON.parse(m._cbx_configuration || '{}') || {}; } catch (e) { c = {}; }
+        for (let q = 0; q < (Number(li.quantity) || 1); q++) {
+          const k = id + (q ? '-' + q : '');
+          dozen[k] = { id: k, maat: Number(c.size) || (/25/.test(li.title) ? 25 : 16), kleur: c.color || String(m.Dooskleur || '').toLowerCase(),
+            ontvanger: m.Ontvanger || '', counts: c.counts || {}, volgorde: Array.isArray(c.packingOrder) ? c.packingOrder : [],
+            allergenen: m.Allergenen && m.Allergenen !== 'Niet opgegeven' ? m.Allergenen : '', kaart: null, lint: null };
+          volgorde.push(k);
+        }
+      } else if (rol === 'card' || /kaartje/i.test(li.title || '')) {
+        kaarten.push({ id, tekst: m.Boodschap || '', voor: m.Ontvanger || '' });
+      } else if (rol === 'ribbon' || /lint/i.test(li.title || '')) {
+        linten.push({ id, tekst: m.Tekst || '', kleur: m.Lintkleur || '', voor: m.Ontvanger || '' });
+      }
+    });
+    kaarten.forEach(k => { if (dozen[k.id]) dozen[k.id].kaart = k; });
+    linten.forEach(l => { if (dozen[l.id]) dozen[l.id].lint = l; });
+    /* factuurregels zoals bij één order */
+    const regels = []; let kado = 0;
+    (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
+      const stuk = parseFloat(li.price) || 0;
+      const korting = (li.discount_allocations || []).reduce((n, d) => n + (parseFloat(d.amount) || 0), 0);
+      const naam = String(li.title || '') + (li.variant_title ? ' · ' + li.variant_title : '');
+      if (KADO.test(naam)) { kado += stuk * (li.quantity || 0) - korting; return; }
+      regels.push({ naam, aantal: Number(li.quantity) || 0, prijs: stuk, korting });
+    });
+    const b = o.billing_address || a || {};
+    return {
+      shopifyId: String(o.id), nummer, datum: (o.created_at || '').slice(0, 10), betaald: o.financial_status === 'paid',
+      afhaal, adres,
+      klant: { naam: String(b.name || [o.customer && o.customer.first_name, o.customer && o.customer.last_name].filter(Boolean).join(' ') || 'Klant'),
+        adres: [b.address1, b.address2, [String(b.zip || '').toUpperCase(), b.city].filter(Boolean).join('  '), (b.country_code || 'NL') !== 'NL' ? b.country : null].filter(Boolean).join('\n') },
+      dozen: volgorde.map(k => dozen[k]),
+      losseKaarten: kaarten.filter(k => !dozen[k.id]), losseLinten: linten.filter(l => !dozen[l.id]),
+      regels, kado, verzending: (o.shipping_lines || []).reduce((n, s) => n + (parseFloat(s.price) || 0), 0),
+      kortingOrder: parseFloat(o.total_discounts || 0) || 0, totaal: parseFloat(o.total_price || 0) || 0
+    };
+  });
+  /* status uit HQ: label al aangemaakt, ingepakt, stappen afgevinkt */
+  const werk = (await werkRef(uid).child('orders').once('value')).val() || {};
+  uit.forEach(x => { const w = werk[x.shopifyId] || {}; x.myparcel_id = w.myparcel_id || null; x.ingepakt = w.ingepakt || null; });
+  const stappen = (await werkRef(uid).child('voorbereid').once('value')).val() || {};
+  return { orders: uit.sort((p, q) => String(p.datum).localeCompare(String(q.datum)) || Number(p.nummer) - Number(q.nummer)), stappen };
+}, { timeoutSeconds: 120 });
+
+/* stap afvinken, of een order als ingepakt markeren */
+exports.voorbereidZet = binnen('voorbereidZet', async req => {
+  const uid = wieBenJe(req);
+  const d = req.data || {};
+  if (d.stap) {
+    const stap = String(d.stap).replace(/[^a-z]/g, '').slice(0, 20);
+    const ids = (d.ids || []).map(String).filter(x => /^\d+$/.test(x)).slice(0, 300);
+    await werkRef(uid).child('voorbereid').child(stap).set(d.wis ? null : { op: Date.now(), ids });
+  }
+  if (d.ingepakt) {
+    const id = String(d.ingepakt).replace(/\D/g, '');
+    await werkRef(uid).child('orders').child(id).update({ ingepakt: d.uit ? null : Date.now() });
+  }
+  return { ok: true };
+});
+
+/* alle verzendlabels: eerst aanmelden wat nog niet is aangemeld, dan één pdf */
+exports.labelsMaken = binnen('labelsMaken', async req => {
+  const uid = wieBenJe(req);
+  const g = await leesGeheim(uid, 'myparcel');
+  if (!g) throw new HttpsError('failed-precondition', 'MyParcel is nog niet gekoppeld.');
+  const ids = ((req.data || {}).orders || []).map(String).slice(0, 60);
+  const ok = [], fout = [];
+  for (const id of ids) {
+    try {
+      const pad = werkRef(uid).child('orders/' + id);
+      let mp = (await pad.child('myparcel_id').once('value')).val();
+      if (!mp) {
+        const o = await zoekOrder(uid, id);
+        const nr = String(o.name || o.order_number || '').replace(/^#/, '');
+        const r = await mpRoep(g.sleutel, 'shipments', { method: 'POST',
+          headers: mpKoppen(g.sleutel, { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1' }),
+          body: JSON.stringify({ data: { shipments: [zending(o, nr)] } }) });
+        const t = await r.text();
+        if (!r.ok) { let u = ''; try { const f = JSON.parse(t); u = (f.errors && f.errors[0] && (f.errors[0].human || f.errors[0].message)) || f.message || ''; } catch (e) {} throw new Error(u || 'MyParcel antwoordde ' + r.status); }
+        let n = null; try { n = ((JSON.parse(t).data || {}).ids || [])[0]; } catch (e) {}
+        mp = n && (n.id || n);
+        if (!mp) throw new Error('geen zendingnummer');
+        await pad.update({ myparcel_id: String(mp), label: true });
+      }
+      ok.push({ id, mp: String(mp) });
+    } catch (e) { fout.push({ id, fout: String(e && e.message || e).slice(0, 160) }); }
+  }
+  if (!ok.length) return { pdf: null, fout };
+  const formaat = String((req.data || {}).formaat || 'A6').toUpperCase() === 'A4' ? 'A4' : 'A6';
+  const r = await mpRoep(g.sleutel, 'shipment_labels/' + ok.map(x => encodeURIComponent(x.mp)).join(';') + '?format=' + formaat + (formaat === 'A4' ? '&positions=1;2;3;4' : ''), {
+    headers: mpKoppen(g.sleutel, { 'Accept': 'application/pdf' }) });
+  if (!r.ok) throw new HttpsError('internal', 'De labels zijn aangemaakt, maar de pdf kwam niet door (MyParcel ' + r.status + '). Probeer het zo nog eens; er worden geen dubbele labels gemaakt.');
+  const bytes = Buffer.from(await r.arrayBuffer());
+  return { pdf: bytes.toString('base64'), naam: 'verzendlabels-' + new Date().toISOString().slice(0, 10) + '.pdf', aantal: ok.length, fout };
+}, { timeoutSeconds: 300, memory: '512MiB' });
