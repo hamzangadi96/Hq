@@ -2912,15 +2912,15 @@ header.zoekt .kopacties{opacity:0!important;pointer-events:none;transition:opaci
 .etiket .er{display:flex;justify-content:space-between;gap:8px}
 .etiket .ek{color:#444}
 .etiket .eb{font-weight:700}
-.wenskaart{width:105mm;height:148mm;background:#fff;position:relative;
+.wenskaart{width:148mm;height:105mm;background:#fff;position:relative;
   display:flex;flex-direction:column;justify-content:center;align-items:center;
-  padding:16mm 12mm 20mm;box-sizing:border-box;color:#1a1a1a;overflow:hidden}
+  padding:12mm 16mm;box-sizing:border-box;color:#1a1a1a;overflow:hidden}
 .wktekst{text-align:center;max-width:100%;word-wrap:break-word}
 .wenskaart .wktekst{flex:none;text-align:center;min-width:0}
 .wkmerk{position:absolute;bottom:9mm;left:0;right:0;text-align:center;
   font-family:'Cormorant Garamond',Georgia,serif;font-size:7.5pt;font-weight:600;
   letter-spacing:.34em;padding-left:.34em;color:#8a8a8a}
-.vel.wenskaartvel{width:105mm;height:148mm;padding:0;display:block}
+.vel.wenskaartvel{width:148mm;height:105mm;padding:0;display:block}
 /* vier A6-kaarten op één A4, met dunne snijlijnen */
 .wkvel{width:210mm;height:296mm;display:grid;grid-template-columns:105mm 105mm;
   grid-template-rows:148mm 148mm;page-break-after:always;break-after:page;background:#fff}
@@ -5433,7 +5433,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1003 · 9 nov 2026';
+const APPVERSIE='v1004 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13277,10 +13277,11 @@ function kaartRegels(tekst){
 function kaartGrootte(tekst,font){
   const regels=kaartRegels(tekst);
   const langste=regels.reduce((n,r)=>Math.max(n,r.length),0);
-  /* A6 staand (v950): de helft van de oude A5-breedte, dus kleinere basis */
+  /* v1004: A6 liggend (148 x 105 mm), achterkant is al bedrukt; tekstvlak
+     binnen 16 mm links/rechts en 12 mm boven/onder */
   /* Lange regels lopen door naar de volgende regel; we tellen hoeveel regels
      dat wordt en krimpen pas als het niet meer in de hoogte past. */
-  const BREED=230, HOOG=300;               /* tekstvlak van een A6 in pt */
+  const BREED=330, HOOG=215;               /* tekstvlak van een liggende A6 in pt */
   let pt=Math.round(font.basis*0.62);
   const past=g=>{
     const lijnen=regels.reduce((n,r)=>n+Math.max(1,Math.ceil(r.length*g*0.5/BREED)),0);
@@ -13299,7 +13300,7 @@ const mmNaarPx=mm=>Math.round(mm/25.4*KAART_DPI);
 
 async function kaartCanvas(tekst,font,pt){
   const f=font||kaartFont(), g=pt||kaartGrootte(tekst,f);
-  const B=mmNaarPx(105), H=mmNaarPx(148);
+  const B=mmNaarPx(148), H=mmNaarPx(105);
   const c=document.createElement('canvas');
   c.width=B; c.height=H;
   const x=c.getContext('2d');
@@ -13317,7 +13318,7 @@ async function kaartCanvas(tekst,font,pt){
   x.font=`${groot}px ${fam}`;
 
   /* lange regels laten omslaan binnen de marges van de A6 */
-  const maxB=B-2*mmNaarPx(12);
+  const maxB=B-2*mmNaarPx(16);
   const regels=[];
   kaartRegels(tekst).forEach(r=>{
     if(!r.trim()){ regels.push(''); return }
@@ -13333,17 +13334,7 @@ async function kaartCanvas(tekst,font,pt){
   let y=H/2-totaal/2+regelHoogte/2;
   regels.forEach(r=>{ if(r.trim()) x.fillText(r,B/2,y); y+=regelHoogte });
 
-  /* woordmerk onderaan */
-  const mGroot=Math.round(7.5*pxPerPt);
-  try{ if(document.fonts&&document.fonts.load) await document.fonts.load(`600 ${mGroot}px 'Cormorant Garamond'`); }catch(e){}
-  x.font=`600 ${mGroot}px 'Cormorant Garamond',Georgia,serif`;
-  x.fillStyle='#8a8a8a';
-  const naam=merkNaam(), sp=mGroot*0.34;
-  const breedte=naam.split('').reduce((n,ch)=>n+x.measureText(ch).width+sp,0)-sp;
-  let mx=B/2-breedte/2;
-  x.textAlign='left';
-  naam.split('').forEach(ch=>{ x.fillText(ch,mx,H-mmNaarPx(9)); mx+=x.measureText(ch).width+sp });
-
+  /* v1004: geen woordmerk — de achterkant is al bedrukt */
   return c;
 }
 
@@ -13412,7 +13403,6 @@ function kaartHTML(tekst,font,pt){
     <div class="wktekst" style="font-family:${f.css};font-size:${g}pt;line-height:${f.hoog}">
       ${kaartRegels(tekst).map(r=>r.trim()?esc(r):'&nbsp;').join('<br>')}
     </div>
-    <div class="wkmerk">${esc(merkNaam())}</div>
   </div>`;
 }
 
@@ -13422,7 +13412,7 @@ function sheetWenskaart(vooraf){
     const tekst=($('#wkT')&&$('#wkT').value)||vooraf||'';
     const f=kaartFont(), pt=kaartGrootte(tekst,f);
     sheet('Wenskaart',
-      `<p class="hint">A6 staand, klaar om te printen. De tekst past zichzelf aan:
+      `<p class="hint">A6 liggend, alleen de tekst voor de voorkant (de achterkant is al bedrukt). De tekst past zichzelf aan:
         hij wordt kleiner als je meer schrijft, nooit groter.</p>
        <div class="etvoorbeeld" style="padding:12px"><div class="schaal" id="wkSchaal">${kaartHTML(tekst,f,pt)}</div></div>
        <div class="veld"><label>Wat komt erop?</label>
@@ -13463,7 +13453,7 @@ function sheetWenskaart(vooraf){
       const t=$('#wkT').value;
       if(!t.trim()) return toast('Schrijf eerst iets.');
       drukAf(`<div class="vel wenskaartvel">${kaartHTML(t,kaartFont(),kaartGrootte(t,kaartFont()))}</div>`,
-        'Wenskaart','@page{size:105mm 148mm;margin:0}');
+        'Wenskaart','@page{size:148mm 105mm;margin:0}');
     };
   };
   teken();
@@ -13494,12 +13484,13 @@ async function wenskaartenPrinten(orders){
   catch(e){ return toast(fout(e)) }
   const alle=r.kaarten||[];
   const goed=alle.filter(k=>k.tekst), mist=alle.filter(k=>!k.tekst);
-  const vellen=Math.ceil(goed.length/4);
   S.kaartFont=S.kaartFont||KAARTFONTS[0].k;
   sheet('Wenskaarten printen',
-    `<p class="hint">${goed.length} ${goed.length===1?'kaart':'kaarten'} op ${vellen} A4
-       ${vellen===1?'vel':'vellen'}, vier A6-kaarten per vel. Snijden langs de stippellijn.
-       Ze staan in deze volgorde op het vel:</p>
+    `<p class="hint">${goed.length} ${goed.length===1?'kaart':'kaarten'}, elk op een eigen
+       A6-kaartje liggend (148 × 105 mm). Alleen de tekst komt op de voorkant; de
+       achterkant is al bedrukt. Leg de kaartjes in de printer met de
+       <b>onbedrukte kant naar je toe</b> en print op <b>100% / werkelijke grootte</b>, papier A6.
+       Ze komen in deze volgorde uit de printer:</p>
      <div class="paneel" style="margin-bottom:20px">${goed.map((k,i)=>`<div class="item">
        <span class="t">${i+1}</span><span class="b">#${esc(k.nummer)}${k.voor?' · voor '+esc(k.voor):''}
        <em>${esc(k.bij)}</em></span></div>`).join('')||'<div class="geen">Geen kaarten met tekst.</div>'}</div>
@@ -13517,8 +13508,15 @@ async function wenskaartenPrinten(orders){
     $$('[data-wkbf]').forEach(y=>y.classList.remove('aan')); c.classList.add('aan');
   });
   $('#wkbDicht').onclick=dicht;
-  $('#wkbPrint').onclick=()=>{
-    drukAf(wkVellen(goed),'Wenskaarten','@page{size:A4;margin:0}');
+  $('#wkbPrint').onclick=async()=>{
+    /* v1004: één liggende A6 per pagina, als pdf — werkt ook vanaf je telefoon */
+    const b=$('#wkbPrint'); b.disabled=true; b.textContent='PDF maken…';
+    try{
+      const f=kaartFont();
+      const blob=await pdfVanHtml(goed.map(k=>kaartHTML(k.tekst,f,kaartGrootte(k.tekst,f))).join(''),{w:148,h:105});
+      await vbDeel(blob,'wenskaarten-'+iso(new Date())+'.pdf');
+    }catch(e){ b.disabled=false; b.innerHTML=svg(I.doc)+'Printen'; return toast(fout(e)) }
+    b.disabled=false; b.innerHTML=svg(I.doc)+'PDF opnieuw openen';
     /* onthouden dat ze geprint zijn, zodat de knop ze niet nog eens aanbiedt */
     if(fbUser){
       const ids=[...new Set(goed.map(k=>k.shopifyId))];
