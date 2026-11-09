@@ -5078,21 +5078,22 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .vrknop small{font-size:12px;font-weight:700;background:#fdf3e4;color:var(--amber);padding:2px 7px;border-radius:99px}
 .vrtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;background:#e9e9ec;margin-bottom:14px}
 .vrsub{margin:0 0 12px}
-.et102vel{width:102mm;height:152mm;background:#fff;display:grid;grid-template-rows:76mm 76mm;font-family:Inter,Arial,sans-serif;color:#18181b}
-.et102{box-sizing:border-box;height:76mm;padding:4.2mm 4.5mm 3.6mm;display:flex;flex-direction:column;overflow:hidden}
-.et102+.et102{border-top:.2mm dashed #d4d4d8}
+.et102vel{width:102mm;height:152mm;background:#fff;display:grid;grid-template-rows:76mm 76mm;font-family:Inter,Arial,sans-serif;color:#000}
+.et102vel *{color:#000!important;-webkit-font-smoothing:antialiased}
+.et102{box-sizing:border-box;height:76mm;padding:3mm 3.2mm 2.6mm;display:flex;flex-direction:column;overflow:hidden}
+.et102+.et102{border-top:.2mm dashed #a1a1aa}
 .et102k{display:flex;align-items:center;justify-content:space-between;gap:3mm;margin-bottom:1.8mm}
-.et102b{font-size:8.6pt;font-weight:700;line-height:1.15}
-.et102b small{display:block;font-weight:400;font-size:6.6pt;color:#52525b;margin-top:.3mm}
+.et102b{font-size:10pt;font-weight:700;line-height:1.15}
+.et102b small{display:block;font-weight:500;font-size:7.6pt;margin-top:.3mm}
 .et102m{width:34mm;height:5.08mm;display:block;object-fit:contain}
-.et102i{font-size:7pt;line-height:1.32}
+.et102i{font-size:7pt;line-height:1.28;font-weight:500}
 .et102i b{font-weight:800}
 .et102v{margin-top:auto;padding-top:1.6mm}
 .et102f{display:grid;grid-template-columns:1.1fr 1.05fr 1.25fr;border-top:.25mm solid #18181b;border-bottom:.25mm solid #18181b}
-.et102f div{padding:1.1mm 0 1mm;font-size:5.4pt;color:#52525b;line-height:1.15}
-.et102f div+div{padding-left:2mm;border-left:.2mm solid #d4d4d8}
-.et102f b{display:block;font-size:8.2pt;color:#18181b}
-.et102a{display:flex;justify-content:space-between;gap:2mm;font-size:5.5pt;color:#3f3f46;margin-top:1.2mm;line-height:1.25}
+.et102f div{padding:1mm 0 .9mm;font-size:6.4pt;font-weight:500;line-height:1.15}
+.et102f div+div{padding-left:2mm;border-left:.25mm solid #000}
+.et102f b{display:block;font-size:9pt;color:#18181b}
+.et102a{display:flex;justify-content:space-between;gap:2mm;font-size:6.4pt;font-weight:500;margin-top:1mm;line-height:1.25}
 .vbpaneel{background:#fff;border-radius:18px;overflow:hidden}
 .vbtop{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;background:#fff;border-radius:18px;padding:14px 16px;font-size:15px}
 .vbtop b{font-size:22px}
@@ -5432,7 +5433,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1001 · 9 nov 2026';
+const APPVERSIE='v1002 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21528,12 +21529,17 @@ async function pdfVanHtml(html,fmt){
   box.innerHTML=html; document.body.appendChild(box);
   try{
     try{ await document.fonts.ready }catch(e){}
+    /* v1002: ingrediëntentekst zo groot mogelijk laten vallen binnen het label */
+    box.querySelectorAll('.et102').forEach(et=>{ const i=et.querySelector('.et102i'); if(!i) return;
+      let pt=9.5; i.style.fontSize=pt+'pt'; while(pt>6&&et.scrollHeight>et.clientHeight+0.5){ pt-=0.1; i.style.fontSize=pt.toFixed(1)+'pt' } });
+    const lbl=w<150;
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:[w,hgt],orientation:w>hgt?'l':'p',compress:true});
     const pag=[...box.children];
     for(let i=0;i<pag.length;i++){
-      const c=await window.html2canvas(pag[i],{scale:w<150?4:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+      const c=await window.html2canvas(pag[i],{scale:lbl?8:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
       if(i) pdf.addPage([w,hgt],w>hgt?'l':'p');
-      pdf.addImage(c.toDataURL('image/jpeg',0.9),'JPEG',0,0,w,Math.min(hgt,c.height*w/c.width));
+      if(lbl) pdf.addImage(c.toDataURL('image/png'),'PNG',0,0,w,Math.min(hgt,c.height*w/c.width),undefined,'FAST');
+      else pdf.addImage(c.toDataURL('image/jpeg',0.9),'JPEG',0,0,w,Math.min(hgt,c.height*w/c.width));
     }
     return pdf.output('blob');
   }finally{ box.remove() }
