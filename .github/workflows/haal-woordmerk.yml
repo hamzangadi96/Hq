@@ -1,0 +1,17 @@
+name: Woordmerk ophalen
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  haal:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set -e
+          U=$(curl -sL https://www.cacaoboetiek.nl/ | grep -o '//www.cacaoboetiek.nl/cdn/shop/t/[0-9]*/assets/cbx-configurator-logo.svg[^"]*' | head -1)
+          [ -z "$U" ] && U=$(curl -sL https://www.cacaoboetiek.nl/ | grep -o '//[^"]*cbx-configurator-logo.svg[^"]*' | head -1)
+          echo "URL $U"
+          mkdir out && curl -sL "https:$U" -o out/woordmerk.svg && head -c 200 out/woordmerk.svg
+          cd out && git init -q && git checkout -q -b woordmerk-tijdelijk
+          git -c user.name=hq -c user.email=hq@localhost add . && git -c user.name=hq -c user.email=hq@localhost commit -qm woordmerk
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" woordmerk-tijdelijk
