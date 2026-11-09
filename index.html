@@ -5432,7 +5432,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v997 · 9 nov 2026';
+const APPVERSIE='v998 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21590,6 +21590,28 @@ function vbEtiketHTML(l){
     for(let i=0;i<per[m];i+=2){ pag.push(`<div class="et102vel">${een}${een}</div>`); n+=2 } });
   return {html:pag.join(''),mist:[...mist],kleurMist:[],n,vellen:pag.length,per};
 }
+/* v998: ingrediëntenlabels los printen, zonder orders — bijvoorbeeld voor een
+   TikTok-live of de winkel. Smaken = alles wat gereed op voorraad ligt. */
+let ETL={maat:16,vellen:5};
+function sheetEtiketLos(){
+  const rids=[...new Set(voorraadGereed().filter(v=>v.aantal>0).map(v=>v.receptId))];
+  sheet('Ingrediëntenlabels',
+    `<p class="hint" style="margin-top:0">Assortimentslabel, twee dezelfde per vel van 102 × 152 mm. Met de ingrediënten van de ${rids.length} smaken die nu gereed op voorraad liggen, en lot en THT uit je productie.</p>
+     <div class="sp2seg">${[16,25].map(m=>`<button type="button" class="${ETL.maat===m?'aan':''}" data-etm="${m}">Doos van ${m}</button>`).join('')}</div>
+     <div class="veld"><label>Aantal vellen (2 labels per vel)</label><input class="inp" id="etlN" type="number" inputmode="numeric" min="1" max="100" value="${ETL.vellen}"></div>`,
+    `<button class="prim" style="margin-top:0" id="etlGo" ${rids.length?'':'disabled'}>${svg(I.doc)}PDF maken en controleren</button>`);
+  $$('[data-etm]').forEach(b=>b.onclick=()=>{ ETL.maat=+b.dataset.etm; ETL.vellen=Math.max(1,parseInt($('#etlN').value,10)||1); sheetEtiketLos() });
+  $('#etlGo').onclick=async()=>{ const k=$('#etlGo'); k.disabled=true; k.textContent='PDF maken…';
+    try{ ETL.vellen=Math.max(1,Math.min(100,parseInt($('#etlN').value,10)||1));
+      const inh=doosInhoud(rids.map(id=>({receptId:id,aantal:1}))); if(!inh) throw new Error('Geen smaken met ingrediënten gevonden.');
+      const lt=vbEtLotTht(rids), thtD=lt.tht?new Date(lt.tht+'T12:00:00'):new Date(Date.now()+(inh.tht||60)*864e5);
+      const r0=recept(rids[0])||{};
+      const een=etiket102HTML(inh,{lot:lt.lot,tht:thtD.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'}),bewaar:r0.etiket&&r0.etiket.bewaar,stuks:ETL.maat,gram:Math.round(inh.totaal/inh.stuks*ETL.maat)});
+      const blob=await pdfVanHtml(Array(ETL.vellen).fill(`<div class="et102vel">${een}${een}</div>`).join(''),{w:102,h:152});
+      await vbDeel(blob,'ingredientenlabels-'+ETL.maat+'-'+iso(new Date())+'.pdf');
+    }catch(e){ toast(fout(e)) }
+    k.disabled=false; k.innerHTML=svg(I.doc)+'PDF opnieuw maken' };
+}
 function sheetVbStap(k){
   const d=VB&&VB.d; if(!d) return;
   const l=alsLijst(d.orders), inf=vbStapInfo(k,l), ids=inf.ids.map(o=>o.shopifyId), def=VB_STAPPEN.find(x=>x[0]===k);
@@ -22168,6 +22190,7 @@ function voorraadHTML(){
     <div class="sp2seg vrsub">${[['grond','Ingrediënten'],['verp','Verpakking']].map(([k,n])=>`<button type="button" class="${sub===k?'aan':''}" onclick="INKSUB='${k}';VRZOEK='';render()">${n}</button>`).join('')}</div>`;
   if(VRTAB==='web'){ h+=webVoorraadTabHTML(); return h }
   if(VRTAB==='gereed'){
+    h+=`<button class="prim" style="margin:0 0 12px" onclick="sheetEtiketLos()">${svg(I.doc)}Ingrediëntenlabels printen</button>`;
     h+=gereed.length?`<div class="vrlijst">${gereed.map(x=>{const d=dagenTotTHT(x.tht);
       const s=d!==null&&d<0?'op':d!==null&&d<=14?'bijna':'ok';
       return `<button class="vrrij" data-vr="${esc(x.receptId)}|${esc(x.lot)}"><i class="${s}"></i>
