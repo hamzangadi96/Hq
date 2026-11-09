@@ -5075,10 +5075,11 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .vrknop.donker{background:var(--ink);color:#fff}
 .vrknop svg{width:16px;height:16px}
 .vrknop small{font-size:12px;font-weight:700;background:#fdf3e4;color:var(--amber);padding:2px 7px;border-radius:99px}
-.vrtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;background:#e9e9ec;margin-bottom:14px}
-.vrtabs button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 6px;border:0;border-radius:10px;background:none;font:inherit;text-align:left;cursor:pointer;color:var(--ink);min-width:0}
-.vrtabs button b{font-size:12.5px;letter-spacing:-.15px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vrtabs button small{font-size:11px;color:var(--grijs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.vrtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;background:#e9e9ec;margin-bottom:14px}
+.vrsub{margin:0 0 12px}
+.vrtabs button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 10px;border:0;border-radius:10px;background:none;font:inherit;text-align:left;cursor:pointer;color:var(--ink);min-width:0}
+.vrtabs button b{font-size:14px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vrtabs button small{font-size:11.5px;color:var(--grijs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .vrtabs button small.let{color:var(--amber);font-weight:600}
 .vrtabs button.aan{background:var(--card);box-shadow:0 1px 3px rgba(24,24,27,.12)}
 .vrnooit{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;margin-bottom:14px;border-radius:14px;border:0;background:#fdf3e4;font:inherit;text-align:left;color:var(--ink);cursor:pointer}
@@ -5354,7 +5355,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v989 · 8 nov 2026';
+const APPVERSIE='v990 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21734,7 +21735,9 @@ function voorraadTegels(){
    hoeveel er ligt, wat bijna op is, en met één tik vul je een hoeveelheid in.
    Ook de ingrediënten uit je recepten die nog nooit geboekt zijn staan erin,
    zodat je in één keer je beginvoorraad kunt tellen. */
-let VRTAB='grond', VRZOEK='';
+/* v990: Voorraad volgt jouw drie vragen — wat kan ik verkopen (Webshop), wat ligt
+   er klaar (Gereed), wat moet ik kopen (Inkoop, met Ingrediënten/Verpakking erin). */
+let VRTAB='web', VRZOEK='', INKSUB='grond';
 /* v989: tab Webshop — leest de voorraad live uit Shopify (smaken, dozen, kleuren) */
 let WEBV=null;
 function webVLaad(stil){ if(WEBV&&WEBV.bezig) return; WEBV=Object.assign(WEBV||{},{bezig:true});
@@ -21744,21 +21747,24 @@ function webVoorraadTabHTML(){
   if(!WEBV||(!WEBV.bezig&&Date.now()-(WEBV.op||0)>60000)) webVLaad(true);
   const d=WEBV&&WEBV.d;
   if(!d) return `<p class="wdleeg">${WEBV&&WEBV.fout?esc(WEBV.fout):'Ophalen uit Shopify…'}</p>`;
-  const lev=d.smaken.filter(x=>x.leverbaar).sort((a,b)=>((a.voorraad===0)-(b.voorraad===0))||(b.voorraad||0)-(a.voorraad||0));
   const st=v=>v===0?'op':v!==null&&v<=24?'bijna':'ok';
+  const rang={op:0,bijna:1,ok:2};
+  const lev=d.smaken.filter(x=>x.leverbaar).sort((a,b)=>rang[st(a.voorraad)]-rang[st(b.voorraad)]||(b.voorraad||0)-(a.voorraad||0));
+  const nLet=lev.filter(x=>st(x.voorraad)!=='ok').length;
   const tijd=new Date(WEBV.op).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
   const kl=WV_KLEUREN.map(([k,nm])=>[nm,(d.kleuren||{})[k]]);
   return `<div class="sp2get" style="margin-bottom:12px">
       <div><b>${d.totaal.toLocaleString('nl-NL')}</b><span>bonbons</span><small>te koop</small></div>
       <div><b>${d.dozen&&d.dozen.d16!=null?d.dozen.d16:'–'}</b><span>dozen van 16</span><small>in Shopify</small></div>
       <div><b>${d.dozen&&d.dozen.d25!=null?d.dozen.d25:'–'}</b><span>dozen van 25</span><small>in Shopify</small></div></div>
+    ${nLet?`<div class="melding amber" style="margin-bottom:12px">${svg(I.alarm,'2')}<span>${lev.filter(x=>st(x.voorraad)==='op').length} uitverkocht, ${lev.filter(x=>st(x.voorraad)==='bijna').length} bijna op. Nieuwe batch gemaakt? Tik op Nieuwe batch.</span></div>`:''}
     <div class="sp2kop"><span>Per smaak</span><button type="button" class="malink" onclick="webVLaad()">${WEBV.bezig?'ophalen…':'bijgewerkt '+tijd}</button></div>
     <div class="vrlijst">${lev.map(x=>{ const s2=st(x.voorraad);
       return `<div class="vrrij" style="cursor:default"><i class="${s2}"></i><span class="vrn">${esc(x.naam)}<small class="${s2!=='ok'?'let':''}">${x.voorraad===null?'onbeperkt':s2==='op'?'uitverkocht':s2==='bijna'?'bijna op':esc(x.chocolade||'')}</small></span><span class="vrw" style="${s2==='op'?'color:var(--rood)':''}">${x.voorraad===null?'∞':x.voorraad}</span></div>` }).join('')}</div>
     <div class="sp2kop" style="margin-top:16px"><span>Dooskleuren</span></div>
     <div class="vrlijst">${kl.map(([nm,v])=>`<div class="vrrij" style="cursor:default"><i class="${v===0?'op':v!=null&&v<=10?'bijna':'ok'}"></i><span class="vrn">${nm}<small class="${v===0?'let':''}">${v===0?'op':'dozen'}</small></span><span class="vrw">${v==null?'∞':v}</span></div>`).join('')}</div>
     ${d.smaken.some(x=>!x.leverbaar)?`<p class="hint" style="margin-top:10px">Niet leverbaar: ${d.smaken.filter(x=>!x.leverbaar).map(x=>esc(x.naam)).join(', ')}.</p>`:''}
-    <button class="sec" style="margin-top:14px" onclick="sheetWebVoorraad()">${svg(I.potlood||I.plus)}&nbsp; Aanpassen (nieuwe batch)</button>`;
+    <button class="prim" style="margin-top:14px" onclick="sheetWebVoorraad()">${svg(I.plus)}Nieuwe batch / aanpassen</button>`;
 }
 /* v731: per leverancier gegroepeerd, korte namen, één balk voor wat nog niet
    geteld is, en "meer" als één rij. Geen losse nul-getallen bovenaan. */
@@ -21785,20 +21791,22 @@ function voorraadHTML(){
   const over=gereed.filter(x=>{const d=dagenTotTHT(x.tht);return d!==null&&d<0});
   const bonbons=gereed.reduce((n,x)=>n+x.aantal,0);
   let h='';
-  if(over.length) h+=`<div class="melding rood" style="margin-bottom:12px">${svg(I.alarm,'2')}
-    <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT. Boek die af als derving.</span></div>`;
-  h+=`<div class="vrkop">
-      <button class="vrknop donker" data-sheet="ontvangst">${svg(I.plus)}Levering</button>
-      <button class="vrknop" onclick="sheetTellijst(VRTAB==='verp'?'verp':'grond',0)">${svg(I.vink,'2.2')}Tellen</button></div>
-
-    <div class="vrtabs">
-      ${[['grond','Grondstof',aand(ingr)?aand(ingr)+' bijna op':ingr.length+' producten',aand(ingr)],
-         ['verp','Verpakking',aand(verp)?aand(verp)+' bijna op':verp.length?verp.length+' artikelen':'nog leeg',aand(verp)],
+  if(VRTAB==='grond'||VRTAB==='verp'){ INKSUB=VRTAB; VRTAB='inkoop' }
+  const sub=INKSUB==='verp'?'verp':'grond';
+  const wOp=WEBV&&WEBV.d?WEBV.d.smaken.filter(x=>x.leverbaar&&x.voorraad===0).length:0;
+  const inkAand=aand(ingr.filter(x=>artSoort(x.product)!=='half'))+aand(verp);
+  h+=`<div class="vrtabs">
+      ${[['web','Webshop',WEBV&&WEBV.d?(wOp?wOp+' uitverkocht':WEBV.d.totaal.toLocaleString('nl-NL')+' te koop'):'live',wOp],
          ['gereed','Gereed',bonbons?bonbons.toLocaleString('nl-NL')+' bonbons':'nog niets',over.length],
-         ['web','Webshop',WEBV&&WEBV.d?WEBV.d.totaal.toLocaleString('nl-NL')+' st':'live',WEBV&&WEBV.d?WEBV.d.smaken.filter(x=>x.leverbaar&&x.voorraad===0).length:0]].map(([k,n,s,l])=>
-        `<button type="button" class="${VRTAB===k?'aan':''}" onclick="VRTAB='${k}';VRZOEK='';render()"><b>${n}</b><small class="${l?'let':''}">${s}</small></button>`).join('')}
+         ['inkoop','Inkoop',inkAand?inkAand+' bestellen':'alles op peil',inkAand]].map(([k,n,s2,l])=>
+        `<button type="button" class="${VRTAB===k?'aan':''}" onclick="VRTAB='${k}';VRZOEK='';render()"><b>${n}</b><small class="${l?'let':''}">${s2}</small></button>`).join('')}
     </div>`;
-
+  if(VRTAB==='gereed'&&over.length) h+=`<div class="melding rood" style="margin-bottom:12px">${svg(I.alarm,'2')}
+    <span>${over.length===1?'Eén partij is':over.length+' partijen zijn'} over de THT. Boek die af als derving.</span></div>`;
+  if(VRTAB==='inkoop') h+=`<div class="vrkop">
+      <button class="vrknop donker" data-sheet="ontvangst">${svg(I.plus)}Levering</button>
+      <button class="vrknop" onclick="sheetTellijst(INKSUB==='verp'?'verp':'grond',0)">${svg(I.vink,'2.2')}Tellen</button></div>
+    <div class="sp2seg vrsub">${[['grond','Ingrediënten'],['verp','Verpakking']].map(([k,n])=>`<button type="button" class="${sub===k?'aan':''}" onclick="INKSUB='${k}';VRZOEK='';render()">${n}</button>`).join('')}</div>`;
   if(VRTAB==='web'){ h+=webVoorraadTabHTML(); return h }
   if(VRTAB==='gereed'){
     h+=gereed.length?`<div class="vrlijst">${gereed.map(x=>{const d=dagenTotTHT(x.tht);
@@ -21814,9 +21822,9 @@ function voorraadHTML(){
        Apple-richtlijnen): eerst wat je moet bestellen, daaronder een compacte
        lijst per winkel met naam links en hoeveelheid rechts. Tellen gebeurt op
        een tellijst per winkel, niet in het overzicht. */
-    const l=VRTAB==='verp'?verp:ingr, soort=VRTAB==='verp'?'verp':'grond';
+    const l=sub==='verp'?verp:ingr, soort=sub;
     const geteld=l.filter(x=>!x.nooit), nooitHier=l.filter(x=>x.nooit);
-    if(!l.length&&VRTAB==='verp'){
+    if(!l.length&&sub==='verp'){
       const sug=['Doos 16','Doos 25','Lint','Kaartje','Sticker','Verzenddoos','Koelelement','Vulmateriaal'];
       h+=`<div class="vrstart"><b>Nog geen verpakking</b>
           <span>Tik aan wat je gebruikt. Daarna tel je hoeveel je hebt.</span>
@@ -21827,17 +21835,18 @@ function voorraadHTML(){
       h+=`<div class="vrstart"><b>Nog geen grondstoffen</b><span>Voeg ingrediënten toe aan je smaken, of leg een levering vast.</span></div>`;
     } else if(!geteld.length){
       h+=`<div class="vrstart"><b>Nog niets geteld</b>
-          <span>${l.length} ${VRTAB==='verp'?'artikelen':'producten'} staan klaar op je tellijst, per winkel.</span>
+          <span>${l.length} ${sub==='verp'?'artikelen':'producten'} staan klaar op je tellijst, per winkel.</span>
           <button class="prim" onclick="sheetTellijst('${soort}',0)">${svg(I.vink,'2.2')}Tellijst openen</button></div>`;
     } else {
-      const bestel=l.filter(x=>['op','bijna'].includes(vrStatus(x)));
+      const zelf=x=>artSoort(x.product)==='half';
+      const bestel=l.filter(x=>!zelf(x)&&['op','bijna'].includes(vrStatus(x)));
       if(bestel.length) h+=`<div class="vrbestel"><div class="vrbk">Bestellen · ${bestel.length}</div>${bestel.map(x=>{const s=vrSplits(x.product);
           return `<button class="vrbr" data-gs="${esc(x.product)}"><span>${esc(s.kort)}${s.lev?` <small>· ${esc(s.lev)}</small>`:''}</span><b>${vrStatus(x)==='op'?'op':toonHoeveel(x.saldo,x.basis)}</b></button>`}).join('')}</div>`;
-      if(nooitHier.length) h+=`<button class="vrnog" onclick="sheetTellijst('${soort}',0)">${nooitHier.length} nog niet geteld <em>Tellijst ›</em></button>`;
+      if(nooitHier.length) h+=`<button type="button" class="malink" style="display:block;margin:2px 4px 10px;color:var(--grijs)" onclick="sheetTellijst('${soort}',0)">${nooitHier.length} nog niet geteld · tellijst</button>`;
       if(geteld.length>12) h+=`<input class="inp vrzoek" id="vrZoek" placeholder="Zoek een product" value="${esc(VRZOEK)}" autocomplete="off">`;
       const groep={};
-      l.forEach(x=>{const s=vrSplits(x.product); (groep[s.lev||'Overig']=groep[s.lev||'Overig']||[]).push(Object.assign({kort:s.kort},x))});
-      const kop=Object.keys(groep).sort((a,b)=>(a==='Overig')-(b==='Overig')||groep[b].length-groep[a].length||a.localeCompare(b));
+      l.forEach(x=>{const s=vrSplits(x.product), g=zelf(x)?'Zelf gemaakt':(s.lev||'Overig'); (groep[g]=groep[g]||[]).push(Object.assign({kort:s.kort},x))});
+      const kop=Object.keys(groep).sort((a,b)=>(a==='Zelf gemaakt')-(b==='Zelf gemaakt')||(a==='Overig')-(b==='Overig')||groep[b].length-groep[a].length||a.localeCompare(b));
       h+=`<div id="vrLijst">${kop.map(g=>`<div class="vrgroep" data-groep>
           <div class="vrgkop">${esc(g)}</div>
           <div class="vrlijst">${groep[g].sort((a,b)=>(a.nooit?1:0)-(b.nooit?1:0)||a.kort.localeCompare(b.kort)).map(x=>{const s=vrStatus(x);
@@ -21845,7 +21854,7 @@ function voorraadHTML(){
               <span>${esc(x.kort)}</span><b class="${s==='op'||s==='bijna'?'let':s==='nooit'?'leeg':''}">${s==='nooit'?'—':s==='op'?'op':toonHoeveel(x.saldo,x.basis)}</b></button>`}).join('')}</div></div>`).join('')}</div>`;
     }
   }
-  h+=`<button class="vrmeer" onclick="sheetVoorraadMeer()"><span>Meer overzichten<small>ingrediënten, verpakking, wanneer op, prijzen, leveranciers</small></span>${svg(I.pijl,'2')}</button>`;
+  if(VRTAB==='inkoop') h+=`<button class="vrmeer" onclick="sheetVoorraadMeer()"><span>Meer overzichten<small>ingrediënten, verpakking, wanneer op, prijzen, leveranciers</small></span>${svg(I.pijl,'2')}</button>`;
   return h;
 }
 function sheetVoorraadMeer(){
