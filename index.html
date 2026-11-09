@@ -5088,7 +5088,7 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .et102i{font-size:7pt;line-height:1.32}
 .et102i b{font-weight:800}
 .et102v{margin-top:auto;padding-top:1.6mm}
-.et102f{display:grid;grid-template-columns:1.25fr 1.15fr 1fr;border-top:.25mm solid #18181b;border-bottom:.25mm solid #18181b}
+.et102f{display:grid;grid-template-columns:1.1fr 1.05fr 1.25fr;border-top:.25mm solid #18181b;border-bottom:.25mm solid #18181b}
 .et102f div{padding:1.1mm 0 1mm;font-size:5.4pt;color:#52525b;line-height:1.15}
 .et102f div+div{padding-left:2mm;border-left:.2mm solid #d4d4d8}
 .et102f b{display:block;font-size:8.2pt;color:#18181b}
@@ -5432,7 +5432,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v994 · 9 nov 2026';
+const APPVERSIE='v995 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15004,8 +15004,17 @@ function etDeclaratie(inh){
     return etVet(naam,eigenAl.filter(k=>!delen2.some(d=>(d.al||[]).includes(k)))||[])+' ('+sub+')';
   }).join(', ');
 }
+/* kleurstoffen van de gekleurde cacaoboter waarmee de mallen zijn geverfd */
+function etKleuren(inh){
+  const kl=[], mist=[];
+  inh.posten.forEach(p=>(p.r.kleuren||[]).forEach(id=>{ const k=kleurVan(id); if(!k||kl.includes(k)) return; kl.push(k) }));
+  const enrs=[]; kl.forEach(k=>{ const e=kleurInhoud(k).enrs; if(!e.length) mist.push(k.naam); e.forEach(x=>String(x).split(/[,;]\s*/).forEach(y=>{ y=y.trim(); if(y&&!enrs.includes(y)) enrs.push(y) })) });
+  return {kl,enrs,mist};
+}
 function etiket102HTML(inh,o){
-  const decl=etDeclaratie(inh), lang=decl.replace(/<[^>]+>/g,'').length;
+  const kc=etKleuren(inh);
+  const kleurTekst=!kc.kl.length?'':(kc.mist.length?`, <span style="background:#fde2e2;color:#b91c1c;font-weight:700">kleurstoffen: E-nummers invullen bij ${esc(kc.mist.join(', '))}</span>`:', kleurstoffen: '+esc(kc.enrs.join(', ')));
+  const decl=etDeclaratie(inh)+kleurTekst, lang=decl.replace(/<[^>]+>/g,'').length;
   const pt=lang>1050?6.2:lang>900?6.5:lang>760?6.8:7.1;
   const choc=['wit','melk','puur'].filter(c=>inh.posten.some(p=>p.r.chocolade===c));
   const los={wit:'witte chocolade',melk:'melkchocolade',puur:'pure chocolade'}, deel={wit:'witte',melk:'melk-',puur:'pure'};
@@ -15013,7 +15022,7 @@ function etiket102HTML(inh,o){
   return `<div class="et102"><div class="et102k"><div class="et102b">Handgemaakte bonbons<small>${esc(sub)}</small></div>
     <img class="et102m" src="assets/woordmerk.svg" alt="Cacaoboetiek"></div>
     <div class="et102i" style="font-size:${pt}pt"><b>Ingrediënten:</b> ${decl}.</div>
-    <div class="et102v"><div class="et102f"><div>Netto-inhoud<b>${inh.stuks} bonbons · ${Math.round(inh.totaal)} g</b></div><div>Ten minste houdbaar tot<b>${esc(o.tht||'')}</b></div><div>Lotnummer<b>${esc(o.lot||'')}</b></div></div>
+    <div class="et102v"><div class="et102f"><div>Netto-inhoud<b>${inh.stuks} bonbons · ${Math.round(inh.totaal)} g</b></div><div>Ten minste houdbaar tot<b>${esc(o.tht||'')}</b></div><div>Lotnummer<b style="${String(o.lot||'').includes(',')?'font-size:6.2pt;line-height:1.25':''}">${esc(o.lot||'').replace(/, /g,'<br>')}</b></div></div>
     <div class="et102a"><span>${esc(o.bewaar||'Koel en droog bewaren, 15–18 °C.')}</span><span>Cacaoboetiek · Alcoalaan 8D · 5151 RW Drunen</span></div></div></div>`;
 }
 
@@ -21552,19 +21561,30 @@ function vbFactuurHTML(l){
     verzending:o.verzending,kado:o.kado,kadoRegels:alsLijst(o.kadoRegels),factuurNr:o.nummer,factuurDatum:o.datum,betaald:o.betaald?o.datum:null})).join('');
 }
 const vbNorm=s=>String(s||'').toLowerCase().replace(/&| en /g,' ').replace(/[^a-z]/g,'');
-function vbRecept(k){ const n=vbNorm(vbSmaakNaam(k)); return (S.recepten||[]).find(r=>vbNorm(r.naam)===n)||(S.recepten||[]).find(r=>n&&(vbNorm(r.naam).includes(n)||n.includes(vbNorm(r.naam)))) }
+const VB_ALIAS={pistachekadayif:'dubai'};
+function vbRecept(k){ let n=vbNorm(vbSmaakNaam(k)); n=VB_ALIAS[n]||n; return (S.recepten||[]).find(r=>vbNorm(r.naam)===n)||(S.recepten||[]).find(r=>n&&(vbNorm(r.naam).includes(n)||n.includes(vbNorm(r.naam)))) }
 function vbEtiketHTML(l){
-  const lot='CB-'+iso(new Date()).replace(/-/g,''), mist=new Set(), ets=[];
+  const mist=new Set(), ets=[], kleurMist=new Set();
   l.forEach(o=>vbDozen(o).forEach(d=>{
     const regels=[]; Object.keys(d.counts||{}).forEach(k=>{ const n=parseInt(d.counts[k],10)||0; if(!n) return; const r=vbRecept(k); if(!r){ mist.add(vbSmaakNaam(k)); return } regels.push({receptId:r.id,aantal:n}) });
     const inh=regels.length?doosInhoud(regels):null; if(!inh) return;
-    const thts=regels.map(x=>{ const g=voorraadGereed().filter(v=>v.receptId===x.receptId&&v.tht).sort((a,b)=>String(a.tht).localeCompare(String(b.tht)))[0]; return g?g.tht:null }).filter(Boolean).sort();
+    /* lot en THT komen uit je productie: per smaak de oudste partij die nog op
+       voorraad ligt (die pak je eerst). Meerdere partijen in één doos = meerdere lots. */
+    const lots=[], thts=[];
+    regels.forEach(x=>{ const g=voorraadGereed().filter(v=>v.receptId===x.receptId&&v.aantal>0).sort((a,b)=>String(a.tht||'').localeCompare(String(b.tht||'')))[0];
+      let lot=g&&g.lot, tht=g&&g.tht;
+      if(!lot){ const b=alsLijst(S.batches).filter(b=>b&&b.code&&alsLijst(b.regels).some(y=>y.receptId===x.receptId)).sort((a,b)=>String(b.eindDatum||b.startDatum||'').localeCompare(String(a.eindDatum||a.startDatum||'')))[0];
+        if(b){ lot=b.code; const r=recept(x.receptId)||{}; tht=iso(new Date(new Date((b.eindDatum||b.startDatum)+'T12:00:00').getTime()+(r.tht||60)*864e5)) } }
+      if(lot&&!lots.includes(lot)) lots.push(lot); if(tht) thts.push(tht) });
+    thts.sort();
+    const lot=lots.length?lots.join(', '):'—';
+    etKleuren(inh).mist.forEach(n=>kleurMist.add(n));
     const r0=recept(regels[0].receptId)||{};
-    const thtD=thts[0]?new Date(thts[0]):new Date(Date.now()+(inh.tht||60)*864e5);
+    const thtD=thts[0]?new Date(thts[0]+'T12:00:00'):new Date(Date.now()+(inh.tht||60)*864e5);
     ets.push(etiket102HTML(inh,{lot,tht:thtD.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'}),bewaar:r0.etiket&&r0.etiket.bewaar}));
   }));
   const pag=[]; for(let i=0;i<ets.length;i+=2) pag.push(`<div class="et102vel">${ets.slice(i,i+2).join('')}</div>`);
-  return {html:pag.join(''),mist:[...mist],n:ets.length};
+  return {html:pag.join(''),mist:[...mist],kleurMist:[...kleurMist],n:ets.length};
 }
 function sheetVbStap(k){
   const d=VB&&VB.d; if(!d) return;
@@ -21577,8 +21597,9 @@ function sheetVbStap(k){
   if(k==='factuur'){ uitleg=l.length+' facturen in één pdf, in volgorde van ordernummer. Btw 9% en 21% staan gesplitst.'; maak=()=>pdfVanHtml(vbFactuurHTML(l)); naam='facturen-'+dt+'.pdf' }
   if(k==='brief'){ uitleg='Vier briefjes per A4. Per doos zie je de vakjes 1 tot '+'16 of 25 in de volgorde waarin de klant ze koos, plus kaartje en lint.'; maak=()=>pdfVanHtml(vbBriefjesHTML(l)); naam='inpakbriefjes-'+dt+'.pdf' }
   if(k==='lint'){ uitleg='Per lint het ordernummer, de kleur en de tekst.'; maak=()=>pdfVanHtml(vbLintHTML(l)); naam='lintjes-'+dt+'.pdf' }
-  if(k==='etiket'){ const e=vbEtiketHTML(l); uitleg=e.n+' etiketten, twee per label van 102 × 152 mm. Lot '+'CB-'+dt.replace(/-/g,'')+' en de vroegste THT van de gebruikte smaken.';
-    if(e.mist.length) extra=`<div class="melding amber">${svg(I.alarm,'2')}<span>Geen recept gevonden voor ${e.mist.map(esc).join(', ')}. Die smaken ontbreken op het etiket; maak ze aan bij Smaken met precies dezelfde naam.</span></div>`;
+  if(k==='etiket'){ const e=vbEtiketHTML(l); uitleg=e.n+' etiketten, twee per label van 102 × 152 mm. Lot en THT komen uit je productie: per smaak de oudste partij die nog op voorraad ligt.';
+    if(e.kleurMist.length) extra+=`<div class="melding amber">${svg(I.alarm,'2')}<span>Nog geen E-nummers bij de kleuren ${e.kleurMist.map(esc).join(', ')}. Vul ze in bij Productie › Kleuren, anders ontbreken de kleurstoffen op het label (rood in de pdf).</span></div>`;
+    if(e.mist.length) extra+=`<div class="melding amber">${svg(I.alarm,'2')}<span>Geen recept gevonden voor ${e.mist.map(esc).join(', ')}. Die smaken ontbreken op het etiket; maak ze aan bij Smaken met precies dezelfde naam.</span></div>`;
     maak=()=>pdfVanHtml(e.html,{w:102,h:152}); naam='ingredientenlabels-'+dt+'.pdf' }
   if(k==='materiaal'){ uitleg=inf.ids.length+' verzenddozen nodig, plus vulmateriaal. Koelelementen alleen bij warm weer.'; knop='' }
   if(k==='label') return sheetVbLabels(l,ids);
