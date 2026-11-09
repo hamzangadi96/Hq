@@ -5078,6 +5078,21 @@ button.hoofdkaart.hk2:active{background:var(--bg)}
 .vrknop small{font-size:12px;font-weight:700;background:#fdf3e4;color:var(--amber);padding:2px 7px;border-radius:99px}
 .vrtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:14px;background:#e9e9ec;margin-bottom:14px}
 .vrsub{margin:0 0 12px}
+.et102vel{width:102mm;height:152mm;background:#fff;display:grid;grid-template-rows:76mm 76mm;font-family:Inter,Arial,sans-serif;color:#18181b}
+.et102{box-sizing:border-box;height:76mm;padding:4.2mm 4.5mm 3.6mm;display:flex;flex-direction:column;overflow:hidden}
+.et102+.et102{border-top:.2mm dashed #d4d4d8}
+.et102k{display:flex;align-items:center;justify-content:space-between;gap:3mm;margin-bottom:1.8mm}
+.et102b{font-size:8.6pt;font-weight:700;line-height:1.15}
+.et102b small{display:block;font-weight:400;font-size:6.6pt;color:#52525b;margin-top:.3mm}
+.et102m{width:34mm;height:auto;display:block}
+.et102i{font-size:7pt;line-height:1.32}
+.et102i b{font-weight:800}
+.et102v{margin-top:auto;padding-top:1.6mm}
+.et102f{display:grid;grid-template-columns:1.25fr 1.15fr 1fr;border-top:.25mm solid #18181b;border-bottom:.25mm solid #18181b}
+.et102f div{padding:1.1mm 0 1mm;font-size:5.4pt;color:#52525b;line-height:1.15}
+.et102f div+div{padding-left:2mm;border-left:.2mm solid #d4d4d8}
+.et102f b{display:block;font-size:8.2pt;color:#18181b}
+.et102a{display:flex;justify-content:space-between;gap:2mm;font-size:5.5pt;color:#3f3f46;margin-top:1.2mm;line-height:1.25}
 .vbpaneel{background:#fff;border-radius:18px;overflow:hidden}
 .vbtop{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;background:#fff;border-radius:18px;padding:14px 16px;font-size:15px}
 .vbtop b{font-size:22px}
@@ -5417,7 +5432,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v993 · 9 nov 2026';
+const APPVERSIE='v994 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6379,7 +6394,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -14929,6 +14944,79 @@ function eenmaligBatch24okt(){
   return true;
 }
 /* v941: witte batch 27 okt: alleen de geredde mallen (kleurstof bleef in de mal) */
+/* v994: etiketgegevens aangevuld (9 nov) — gevonden bij het maken van het nieuwe
+   ingrediëntenlabel. Pinda & karamel miste de pindaganache (dus ook het allergeen
+   pinda), pindakaas/pistachepasta/speculoospasta hadden geen allergenen, en bij
+   witte en melkchocolade ontbrak suiker in de samenstelling. */
+function eenmaligEtiket09nov(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.etiket09nov) return false;
+  S.eenmalig.etiket09nov=Date.now();
+  S.allerg=S.allerg||{}; S.samenstelling=S.samenstelling||{};
+  const zetAl=(naam,al)=>{ const cur=new Set(S.allerg[naam]||[]); al.forEach(k=>cur.add(k)); S.allerg[naam]=[...cur] };
+  zetAl('Pindakaas',['pinda']); zetAl('Pistachepasta',['noten']); zetAl('Speculoospasta',['gluten','soja']);
+  if(!S.samenstelling['Pindakaas']) S.samenstelling['Pindakaas']=[{naam:'pinda\'s',pct:'',al:['pinda']},{naam:'zout',pct:''}];
+  if(!S.samenstelling['Pistachepasta']) S.samenstelling['Pistachepasta']=[{naam:'pistachenoten',pct:'',al:['noten']}];
+  if(!S.samenstelling['Speculoospasta']) S.samenstelling['Speculoospasta']=[
+    {naam:'speculoos (tarwebloem, suiker, plantaardige oliën (palm, raapzaad), kandijsuikerstroop, rijsmiddel: natriumwaterstofcarbonaat, sojabloem, zout, kaneel)',pct:'',al:['gluten','soja']},
+    {naam:'raapzaadolie',pct:''},{naam:'suiker',pct:''},{naam:'emulgator: sojalecithine',pct:'',al:['soja']},{naam:'zuurteregelaar: citroenzuur',pct:''}];
+  ['Witte chocolade','Melkchocolade callets'].forEach(k=>{ const l=S.samenstelling[k]; if(l&&!l.some(d=>/^suiker$/i.test(String(d.naam||'').trim()))) l.unshift({naam:'suiker',pct:''}) });
+  /* Pinda & karamel: de pindaganache erbij, net als de stroopwafelganache bij Stroopwafel */
+  const pg=(S.halfRecepten||[]).find(h=>h&&/^pindaganache$/i.test(h.naam||''));
+  const pr=(S.recepten||[]).find(r=>r&&/^pinda\s*&\s*karamel$/i.test(r.naam||''));
+  if(pg&&pr&&!(pr.onderdelen||[]).some(o=>(o.ing||[]).some(i=>i.basis===pg.id))){
+    pr.onderdelen=pr.onderdelen||[];
+    pr.onderdelen.push({naam:'Pindaganache',stap:'Ganache maken',gram:'4',ing:[{basis:pg.id,deel:'100',naam:'Pindaganache'}],werkwijze:[]});
+  }
+  return true;
+}
+
+/* ── v994: ingrediëntenlabel 102 × 76 mm, twee per vel van 102 × 152 ──
+   Alleen wat wettelijk moet en wat helpt: benaming, ingrediënten (aflopend op
+   gewicht, allergenen vet), netto-inhoud, THT, lot, bewaren, naam en adres.
+   Geen percentages (alleen verplicht bij een ingrediënt in de productnaam). */
+const ET_NAAM={'kristalsuiker':'suiker','houdbare slagroom':'slagroom','ongezouten roomboter':'roomboter','melkchocolade callets':'melkchocolade',
+  'cacaoboter chips':'cacaoboter','blauwe bessen diepvries':'blauwe bessen','aardbeien diepvries':'aardbeien','fijn zeezout':'zeezout',
+  'ongezouten hazelnoten':'hazelnoten','ongezouten pistachenoten':'pistachenoten','ongezouten pinda\'s':'pinda\'s','pectine fruit nh':'pectine',
+  'vanillepasta':'vanille','stroopwafels':'stroopwafel','tahin':'sesampasta (tahin)'};
+const ET_WOORD={melk:/(roomboter|slagroom|melk\w*|room|boter)/i, soja:/(soja\w*)/i, gluten:/(tarwe\w*|gluten|gerst\w*|rogge\w*|haver\w*|spelt\w*)/i,
+  noten:/(hazelno\w*|pistache\w*|amandel\w*|walno\w*|cashew\w*|pecan\w*|macadamia\w*|noten)/i, pinda:/(pinda\w*)/i, sesam:/(sesam\w*|tahin)/i,
+  ei:/(\bei\b|eiwit|eigeel|ei-eiwit)/i};
+function etNet(s){ return String(s||'').replace(/\s*\*.*$/,'').replace(/\s*\(uitgedrukt in[^)]*\)/gi,'').replace(/:\s*\d+(?:[.,]\d+)?\s*mg\/100\s*g/gi,'').replace(/\s+\d+(?:[.,]\d+)?\s*%/g,'').trim() }
+function etVet(tekst,al){
+  let t=esc(tekst), raak=false;
+  (al||[]).forEach(k=>{ const re=ET_WOORD[k]; if(!re) return; const g=new RegExp(re.source,'gi'); if(g.test(t)){ raak=true; t=t.replace(g,m=>'<b>'+m+'</b>') } });
+  return (al||[]).length&&!raak?'<b>'+t+'</b>':t;
+}
+function etDeclaratie(inh){
+  return inh.lijst.map(x=>{
+    const sleutel=String(x.naam||'').trim().toLowerCase();
+    const naam=ET_NAAM[sleutel]||sleutel;
+    const delen=(S.samenstelling&&S.samenstelling[x.naam])||[];
+    const eigenAl=ingAllerg(x.naam)||[];
+    if(!delen.length) return etVet(naam,ingAllergDiep(x.naam));
+    let delen2=delen.filter(d=>etNet(d.naam).toLowerCase()!==naam);
+    /* samengesteld ingrediënt onder 2% van de doos: de uitsplitsing mag weg, de
+       allergenen moeten blijven (Vo. 1169/2011, bijlage VII deel E) */
+    if((x.pct||0)<2){ if(/pectine/.test(naam)) return 'geleermiddel: pectine'; delen2=delen2.filter(d=>(d.al||[]).length) }
+    if(!delen2.length) return etVet(naam,ingAllergDiep(x.naam));
+    const sub=delen2.map(d=>etVet(etNet(d.naam).replace(/^[A-Z](?=[a-z])/,c=>c.toLowerCase()),d.al||[])).join(', ');
+    return etVet(naam,eigenAl.filter(k=>!delen2.some(d=>(d.al||[]).includes(k)))||[])+' ('+sub+')';
+  }).join(', ');
+}
+function etiket102HTML(inh,o){
+  const decl=etDeclaratie(inh), lang=decl.replace(/<[^>]+>/g,'').length;
+  const pt=lang>1050?6.2:lang>900?6.5:lang>760?6.8:7.1;
+  const choc=['wit','melk','puur'].filter(c=>inh.posten.some(p=>p.r.chocolade===c));
+  const los={wit:'witte chocolade',melk:'melkchocolade',puur:'pure chocolade'}, deel={wit:'witte',melk:'melk-',puur:'pure'};
+  const sub=!choc.length?'Assortiment':choc.length===1?'Assortiment van '+los[choc[0]]:'Assortiment van '+choc.slice(0,-1).map(c=>deel[c]).join(', ')+' en '+(choc.slice(-1)[0]==='melk'?'melkchocolade':deel[choc.slice(-1)[0]]+' chocolade');
+  return `<div class="et102"><div class="et102k"><div class="et102b">Handgemaakte bonbons<small>${esc(sub)}</small></div>
+    <img class="et102m" src="assets/woordmerk.svg" alt="Cacaoboetiek"></div>
+    <div class="et102i" style="font-size:${pt}pt"><b>Ingrediënten:</b> ${decl}.</div>
+    <div class="et102v"><div class="et102f"><div>Netto-inhoud<b>${inh.stuks} bonbons · ${Math.round(inh.totaal)} g</b></div><div>Ten minste houdbaar tot<b>${esc(o.tht||'')}</b></div><div>Lotnummer<b>${esc(o.lot||'')}</b></div></div>
+    <div class="et102a"><span>${esc(o.bewaar||'Koel en droog bewaren, 15–18 °C.')}</span><span>Cacaoboetiek · Alcoalaan 8D · 5151 RW Drunen</span></div></div></div>`;
+}
+
 function eenmaligBatch27okt(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.batch27okt) return false;
@@ -21331,7 +21419,7 @@ const VB_STAPPEN=[
   ['pick','Pickoverzicht','wat je uit de koeling haalt en klaarzet'],
   ['factuur','Facturen','één per order, A4'],
   ['label','Verzendlabels','eerst controleren, dan pas aanmaken bij MyParcel'],
-  ['etiket','Ingrediëntenlabels','één per doos, acht per A4'],
+  ['etiket','Ingrediëntenlabels','één per doos, twee per 102 × 152'],
   ['kaart','Wenskaarten','vier per A4'],
   ['lint','Lintjes','tekst en kleur per lint'],
   ['brief','Inpakbriefjes','per doos de smaken op hun plek'],
@@ -21407,7 +21495,7 @@ async function pdfVanHtml(html,fmt){
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:[w,hgt],orientation:w>hgt?'l':'p',compress:true});
     const pag=[...box.children];
     for(let i=0;i<pag.length;i++){
-      const c=await window.html2canvas(pag[i],{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+      const c=await window.html2canvas(pag[i],{scale:w<150?4:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
       if(i) pdf.addPage([w,hgt],w>hgt?'l':'p');
       pdf.addImage(c.toDataURL('image/jpeg',0.9),'JPEG',0,0,w,Math.min(hgt,c.height*w/c.width));
     }
@@ -21472,9 +21560,10 @@ function vbEtiketHTML(l){
     const inh=regels.length?doosInhoud(regels):null; if(!inh) return;
     const thts=regels.map(x=>{ const g=voorraadGereed().filter(v=>v.receptId===x.receptId&&v.tht).sort((a,b)=>String(a.tht).localeCompare(String(b.tht)))[0]; return g?g.tht:null }).filter(Boolean).sort();
     const r0=recept(regels[0].receptId)||{};
-    ets.push(doosEtiketHtml(inh,{naam:'Bonbons · doos van '+d.maat,benaming:'Assortiment bonbons',bewaar:(r0.etiket&&r0.etiket.bewaar)||'Koel en droog bewaren, 15 – 18 °C'},lot,thts[0]?kort(new Date(thts[0])):''));
+    const thtD=thts[0]?new Date(thts[0]):new Date(Date.now()+(inh.tht||60)*864e5);
+    ets.push(etiket102HTML(inh,{lot,tht:thtD.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'}),bewaar:r0.etiket&&r0.etiket.bewaar}));
   }));
-  const pag=[]; for(let i=0;i<ets.length;i+=8) pag.push(`<div class="vel etiket8">${ets.slice(i,i+8).join('')}</div>`);
+  const pag=[]; for(let i=0;i<ets.length;i+=2) pag.push(`<div class="et102vel">${ets.slice(i,i+2).join('')}</div>`);
   return {html:pag.join(''),mist:[...mist],n:ets.length};
 }
 function sheetVbStap(k){
@@ -21488,9 +21577,9 @@ function sheetVbStap(k){
   if(k==='factuur'){ uitleg=l.length+' facturen in één pdf, in volgorde van ordernummer. Btw 9% en 21% staan gesplitst.'; maak=()=>pdfVanHtml(vbFactuurHTML(l)); naam='facturen-'+dt+'.pdf' }
   if(k==='brief'){ uitleg='Vier briefjes per A4. Per doos zie je de vakjes 1 tot '+'16 of 25 in de volgorde waarin de klant ze koos, plus kaartje en lint.'; maak=()=>pdfVanHtml(vbBriefjesHTML(l)); naam='inpakbriefjes-'+dt+'.pdf' }
   if(k==='lint'){ uitleg='Per lint het ordernummer, de kleur en de tekst.'; maak=()=>pdfVanHtml(vbLintHTML(l)); naam='lintjes-'+dt+'.pdf' }
-  if(k==='etiket'){ const e=vbEtiketHTML(l); uitleg=e.n+' etiketten, acht per A4 (99 × 68 mm). Lot '+'CB-'+dt.replace(/-/g,'')+' en de vroegste THT van de gebruikte smaken.';
+  if(k==='etiket'){ const e=vbEtiketHTML(l); uitleg=e.n+' etiketten, twee per label van 102 × 152 mm. Lot '+'CB-'+dt.replace(/-/g,'')+' en de vroegste THT van de gebruikte smaken.';
     if(e.mist.length) extra=`<div class="melding amber">${svg(I.alarm,'2')}<span>Geen recept gevonden voor ${e.mist.map(esc).join(', ')}. Die smaken ontbreken op het etiket; maak ze aan bij Smaken met precies dezelfde naam.</span></div>`;
-    maak=()=>pdfVanHtml(e.html); naam='ingredientenlabels-'+dt+'.pdf' }
+    maak=()=>pdfVanHtml(e.html,{w:102,h:152}); naam='ingredientenlabels-'+dt+'.pdf' }
   if(k==='materiaal'){ uitleg=inf.ids.length+' verzenddozen nodig, plus vulmateriaal. Koelelementen alleen bij warm weer.'; knop='' }
   if(k==='label') return sheetVbLabels(l,ids);
   sheet(def[1],`<p class="hint" style="margin-top:0">${uitleg}</p>${extra}<p class="hint">Je krijgt eerst de pdf te zien. Klopt alles, print hem dan vanuit dat scherm en vink de stap af.</p>`,
