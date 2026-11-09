@@ -5432,7 +5432,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v995 · 9 nov 2026';
+const APPVERSIE='v996 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -15012,9 +15012,9 @@ function etKleuren(inh){
   return {kl,enrs,mist};
 }
 function etiket102HTML(inh,o){
-  const kc=etKleuren(inh);
-  const kleurTekst=!kc.kl.length?'':(kc.mist.length?`, <span style="background:#fde2e2;color:#b91c1c;font-weight:700">kleurstoffen: E-nummers invullen bij ${esc(kc.mist.join(', '))}</span>`:', kleurstoffen: '+esc(kc.enrs.join(', ')));
-  const decl=etDeclaratie(inh)+kleurTekst, lang=decl.replace(/<[^>]+>/g,'').length;
+  /* kleurstoffen staan op verzoek (9 nov) niet op het label; etKleuren() blijft
+     beschikbaar voor als de E-nummers bij Kleuren zijn ingevuld */
+  const decl=etDeclaratie(inh), lang=decl.replace(/<[^>]+>/g,'').length;
   const pt=lang>1050?6.2:lang>900?6.5:lang>760?6.8:7.1;
   const choc=['wit','melk','puur'].filter(c=>inh.posten.some(p=>p.r.chocolade===c));
   const los={wit:'witte chocolade',melk:'melkchocolade',puur:'pure chocolade'}, deel={wit:'witte',melk:'melk-',puur:'pure'};
@@ -21598,7 +21598,7 @@ function sheetVbStap(k){
   if(k==='brief'){ uitleg='Vier briefjes per A4. Per doos zie je de vakjes 1 tot '+'16 of 25 in de volgorde waarin de klant ze koos, plus kaartje en lint.'; maak=()=>pdfVanHtml(vbBriefjesHTML(l)); naam='inpakbriefjes-'+dt+'.pdf' }
   if(k==='lint'){ uitleg='Per lint het ordernummer, de kleur en de tekst.'; maak=()=>pdfVanHtml(vbLintHTML(l)); naam='lintjes-'+dt+'.pdf' }
   if(k==='etiket'){ const e=vbEtiketHTML(l); uitleg=e.n+' etiketten, twee per label van 102 × 152 mm. Lot en THT komen uit je productie: per smaak de oudste partij die nog op voorraad ligt.';
-    if(e.kleurMist.length) extra+=`<div class="melding amber">${svg(I.alarm,'2')}<span>Nog geen E-nummers bij de kleuren ${e.kleurMist.map(esc).join(', ')}. Vul ze in bij Productie › Kleuren, anders ontbreken de kleurstoffen op het label (rood in de pdf).</span></div>`;
+
     if(e.mist.length) extra+=`<div class="melding amber">${svg(I.alarm,'2')}<span>Geen recept gevonden voor ${e.mist.map(esc).join(', ')}. Die smaken ontbreken op het etiket; maak ze aan bij Smaken met precies dezelfde naam.</span></div>`;
     maak=()=>pdfVanHtml(e.html,{w:102,h:152}); naam='ingredientenlabels-'+dt+'.pdf' }
   if(k==='materiaal'){ uitleg=inf.ids.length+' verzenddozen nodig, plus vulmateriaal. Koelelementen alleen bij warm weer.'; knop='' }
