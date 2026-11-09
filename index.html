@@ -5432,7 +5432,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1000 · 9 nov 2026';
+const APPVERSIE='v1001 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21450,10 +21450,14 @@ function vbHTML(teDoen){
   if(!VB||(!VB.bezig&&Date.now()-(VB.op||0)>60000)) vbLaad(true);
   const d=VB&&VB.d;
   if(!d) return `<p class="wdleeg">${VB&&VB.fout?esc(VB.fout):'Orders klaarzetten…'}</p>`;
-  const l=alsLijst(d.orders), st=d.stappen||{};
-  if(!l.length) return `<div class="vbleeg"><b>Alles is verstuurd</b><span>Nieuwe orders verschijnen hier vanzelf.</span></div>`;
+  /* v1001: orders voor later (zoals #1306 voor 8 december) tellen niet mee in deze ronde */
+  const alle=alsLijst(d.orders), later=alle.filter(o=>o.later), l=alle.filter(o=>!o.later), st=d.stappen||{};
+  if(!VB.d._1306&&alle.some(o=>o.nummer==='1306'&&!o.later)&&!(S.eenmalig&&S.eenmalig.later1306)){ VB.d._1306=1; S.eenmalig=S.eenmalig||{}; S.eenmalig.later1306=Date.now(); bewaar();
+    const o=alle.find(x=>x.nummer==='1306'); o.later=Date.now(); roep('voorbereidZet',{later:o.shopifyId}).catch(()=>{}); return vbHTML(teDoen) }
+  if(!l.length&&!later.length) return `<div class="vbleeg"><b>Alles is verstuurd</b><span>Nieuwe orders verschijnen hier vanzelf.</span></div>`;
   const ver=vbVerzend(l), afh=l.filter(o=>o.afhaal), ingep=l.filter(o=>o.ingepakt);
-  let h=`<div class="vbtop"><b>${l.length}</b> orders open<small>${ver.length} verzenden · ${afh.length} afhalen · ${ingep.length} ingepakt</small>
+  const n16=l.reduce((n,o)=>n+vbDozen(o).filter(x=>Number(x.maat)!==25).length,0), n25=l.reduce((n,o)=>n+vbDozen(o).filter(x=>Number(x.maat)===25).length,0);
+  let h=`<div class="vbtop"><b>${l.length}</b> orders in deze ronde<small>${n16} dozen van 16 · ${n25} dozen van 25 · ${ver.length} verzenden · ${afh.length} afhalen · ${ingep.length} ingepakt</small>
     <button type="button" class="malink" onclick="VB=null;render()">${VB.bezig?'ophalen…':'ververs'}</button></div>`;
   /* 1 · voorbereiden */
   const stapRij=([k,n,uitleg])=>{ const inf=vbStapInfo(k,l), ids=inf.ids.map(o=>o.shopifyId);
@@ -21472,7 +21476,9 @@ function vbHTML(teDoen){
     return esc(t)+(ex.length?' · '+ex.join(' · '):'') };
   h+=`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">2 · Inpakken</span><span class="tel">${ingep.length}/${l.length}</span></div>
     <div class="vbpaneel">${l.map(o=>`<div class="vbrij ${o.ingepakt?'af':''}"><button type="button" class="vbvink" data-vbpak="${esc(o.shopifyId)}" aria-label="Ingepakt">${o.ingepakt?svg(I.vink,'2.6'):''}</button>
-      <button type="button" class="vbrijtap" data-macorder="${esc(o.nummer)}"><span class="vbnr">#${esc(o.nummer)}</span><span class="vbwat">${wat(o)}<small>${o.afhaal?'afhalen':'verzenden'}${o.myparcel_id&&!o.afhaal?' · label ✓':''}</small></span></button></div>`).join('')}</div>`;
+      <button type="button" class="vbrijtap" data-macorder="${esc(o.nummer)}"><span class="vbnr">#${esc(o.nummer)}</span><span class="vbwat">${wat(o)}<small>${o.afhaal?'afhalen':'verzenden'}${o.myparcel_id&&!o.afhaal?' · label ✓':''}</small></span></button>
+      <button type="button" class="malink" data-vblater="${esc(o.shopifyId)}" style="color:var(--grijs);flex:none">later</button></div>`).join('')}</div>
+    ${later.length?`<details class="vbklaar" style="margin-top:12px"><summary>Voor later <span>${later.length}</span></summary><div class="vbpaneel">${later.map(o=>`<div class="vbrij"><button type="button" class="vbrijtap" data-macorder="${esc(o.nummer)}"><span class="vbnr">#${esc(o.nummer)}</span><span class="vbwat">${wat(o)}<small>telt niet mee in deze ronde</small></span></button><button type="button" class="malink" data-vbnu="${esc(o.shopifyId)}" style="flex:none">naar deze ronde</button></div>`).join('')}</div></details>`:''}`;
   /* 3 · versturen */
   const klaarVerz=ver.filter(o=>o.ingepakt&&o.myparcel_id), klaarAfh=afh.filter(o=>o.ingepakt);
   h+=`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">3 · Versturen</span></div>
@@ -21488,6 +21494,10 @@ function vbBind(){
     const uit=!!o.ingepakt; o.ingepakt=uit?null:Date.now(); render();
     try{ await roep('voorbereidZet',{ingepakt:id,uit}) }catch(err){ o.ingepakt=uit?Date.now():null; render(); toast(fout(err)) } });
   if($('#vbVerzonden')) $('#vbVerzonden').onclick=()=>sheetVbVerzonden();
+  const zetLater=async(id,uit)=>{ const o=alsLijst(VB&&VB.d&&VB.d.orders).find(x=>x.shopifyId===id); if(!o) return; o.later=uit?null:Date.now(); render();
+    try{ await roep('voorbereidZet',{later:id,uit}) }catch(err){ o.later=uit?Date.now():null; render(); toast(fout(err)) } };
+  $$('[data-vblater]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); zetLater(b.dataset.vblater,false) });
+  $$('[data-vbnu]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); zetLater(b.dataset.vbnu,true) });
 }
 async function vbAfvinken(k,ids){
   try{ await roep('voorbereidZet',{stap:k,ids}); VB.d.stappen=Object.assign({},VB.d.stappen,{[k]:{op:Date.now(),ids}}); klaarSheet('Afgevinkt.') }catch(e){ toast(fout(e)) }
@@ -21594,7 +21604,7 @@ function vbEtLotTht(rids){
 }
 function vbEtiketHTML(l){
   const mist=new Set(), per={16:0,25:0}, keys=new Set();
-  l.forEach(o=>vbDozen(o).forEach(d=>{ per[d.maat===25?25:16]++; Object.keys(d.counts||{}).forEach(k=>{ if(parseInt(d.counts[k],10)>0) keys.add(k) }) }));
+  l.forEach(o=>vbDozen(o).forEach(d=>{ per[Number(d.maat)===25?25:16]++; Object.keys(d.counts||{}).forEach(k=>{ if(parseInt(d.counts[k],10)>0) keys.add(k) }) }));
   const regels=[]; keys.forEach(k=>{ const r=vbRecept(k); if(!r){ mist.add(vbSmaakNaam(k)); return } if(!regels.some(x=>x.receptId===r.id)) regels.push({receptId:r.id,aantal:1}) });
   const inh=regels.length?doosInhoud(regels):null;
   if(!inh) return {html:'',mist:[...mist],kleurMist:[],n:0,vellen:0};
@@ -21631,7 +21641,7 @@ function sheetEtiketLos(){
 }
 function sheetVbStap(k){
   const d=VB&&VB.d; if(!d) return;
-  const l=alsLijst(d.orders), inf=vbStapInfo(k,l), ids=inf.ids.map(o=>o.shopifyId), def=VB_STAPPEN.find(x=>x[0]===k);
+  const l=alsLijst(d.orders).filter(o=>!o.later), inf=vbStapInfo(k,l), ids=inf.ids.map(o=>o.shopifyId), def=VB_STAPPEN.find(x=>x[0]===k);
   if(k==='kaart'){ dicht(); return wenskaartenPrinten(inf.ids.map(o=>({shopifyId:o.shopifyId,nummer:o.nummer}))).then(()=>{
     const v=$('#sheetVoet'); if(v) v.insertAdjacentHTML('beforeend',`<button class="sec" id="vbAfK">${svg(I.vink,'2.4')} Afvinken</button>`); if($('#vbAfK')) $('#vbAfK').onclick=()=>vbAfvinken('kaart',ids) }) }
   let uitleg='', knop='PDF maken en controleren', extra='', maak=null, naam='';
@@ -21676,7 +21686,7 @@ function sheetVbLabels(l,ids){
   $('#vbLaf').onclick=()=>vbAfvinken('label',ids);
 }
 function sheetVbVerzonden(){
-  const l=vbVerzend(alsLijst(VB&&VB.d&&VB.d.orders)).filter(o=>o.ingepakt&&o.myparcel_id);
+  const l=vbVerzend(alsLijst(VB&&VB.d&&VB.d.orders).filter(o=>!o.later)).filter(o=>o.ingepakt&&o.myparcel_id);
   sheet('Verzonden melden',`<p class="hint" style="margin-top:0">${l.length} orders zijn ingepakt en hebben een label: ${l.map(o=>'#'+esc(o.nummer)).join(', ')}.</p>
     <p class="hint">Shopify zet ze op verzonden en mailt elke klant de track & trace. Doe dit pas als de pakketten echt de deur uit gaan.</p>`,
     `<button class="prim" style="margin-top:0" id="vbVz">${l.length} orders verzonden melden</button><button class="sec" onclick="dicht()">Nog niet</button>`);

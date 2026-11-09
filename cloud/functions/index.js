@@ -3082,7 +3082,7 @@ exports.voorbereid = binnen('voorbereid', async req => {
   });
   /* status uit HQ: label al aangemaakt, ingepakt, stappen afgevinkt */
   const werk = (await werkRef(uid).child('orders').once('value')).val() || {};
-  uit.forEach(x => { const w = werk[x.shopifyId] || {}; x.myparcel_id = w.myparcel_id || null; x.ingepakt = w.ingepakt || null; });
+  uit.forEach(x => { const w = werk[x.shopifyId] || {}; x.myparcel_id = w.myparcel_id || null; x.ingepakt = w.ingepakt || null; x.later = w.later || null; });
   const stappen = (await werkRef(uid).child('voorbereid').once('value')).val() || {};
   return { orders: uit.sort((p, q) => String(p.datum).localeCompare(String(q.datum)) || Number(p.nummer) - Number(q.nummer)), stappen };
 }, { timeoutSeconds: 120 });
@@ -3095,6 +3095,10 @@ exports.voorbereidZet = binnen('voorbereidZet', async req => {
     const stap = String(d.stap).replace(/[^a-z]/g, '').slice(0, 20);
     const ids = (d.ids || []).map(String).filter(x => /^\d+$/.test(x)).slice(0, 300);
     await werkRef(uid).child('voorbereid').child(stap).set(d.wis ? null : { op: Date.now(), ids });
+  }
+  if (d.later) {
+    const id = String(d.later).replace(/\D/g, '');
+    await werkRef(uid).child('orders').child(id).update({ later: d.uit ? null : Date.now() });
   }
   if (d.ingepakt) {
     const id = String(d.ingepakt).replace(/\D/g, '');
