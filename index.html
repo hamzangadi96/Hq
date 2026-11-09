@@ -5416,7 +5416,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v991 · 9 nov 2026';
+const APPVERSIE='v992 · 9 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -19278,7 +19278,7 @@ function factuur2HTML(f){
     <div class="f2tot"><div><span>Subtotaal</span><span>${euro(sub)}</span></div>
       ${perT.map(x=>`<div><span>Btw ${pc(x.t)}</span><span>${euro(x.btw)}</span></div>`).join('')}
       <div class="f2eind"><span>Totaal te betalen</span><span>${euro(tot)}</span></div></div>
-    ${f.betaald?`<div class="f2stempel">BETAALD</div>`:''}
+    ${f.stempel?`<div class="f2stempel">BETAALD</div>`:""}
     <div class="f2bet"><b>Betaling</b>${f.betaling&&f.betaling.url&&!f.betaald?`<a class="lnk" data-pdflink="${esc(f.betaling.url)}" href="${esc(f.betaling.url)}">${esc(f.betaling.tekst||'Betaal via Shopify')}</a>`:`<span>${esc((f.betaling&&f.betaling.tekst)||'')}</span>`}</div>
     <div class="f2voet"><span>${[b.naam||'Cacaoboetiek'].concat(adres).concat(b.kvk?['KvK '+b.kvk]:[]).map(esc).join(' | ')}</span><span>1 / 1</span></div>
   </div>`;
