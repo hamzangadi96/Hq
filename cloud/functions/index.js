@@ -1886,6 +1886,28 @@ exports.labelPdf = onCall(async req => {
    in Shopify op verzonden zetten met die barcode, en Shopify mailt de klant
    de track & trace. Zo zijn Shopify en MyParcel aan elkaar gekoppeld zonder
    de losse MyParcel-app — die zou dubbele zendingen kunnen maken. */
+/* v1012: alleen de barcodes ophalen bij MyParcel (ordernummer + barcode, geen adres).
+   Voor als Shopify HQ (nog) niet laat afhandelen: dan kan het via een andere weg. */
+exports.haalBarcodes = onCall(async req => {
+  const uid = wieBenJe(req);
+  const g = await leesGeheim(uid, 'myparcel');
+  if (!g) throw new HttpsError('failed-precondition', 'MyParcel is nog niet gekoppeld.');
+  const lijst = ((req.data || {}).orders || []).map(String).slice(0, 80);
+  const uit = [];
+  for (const id of lijst) {
+    try {
+      const w = (await werkRef(uid).child('orders/' + id).once('value')).val() || {};
+      if (!w.myparcel_id) { uit.push({ id, fout: 'geen label' }); continue; }
+      const r = await mpRoep(g.sleutel, 'shipments/' + encodeURIComponent(w.myparcel_id), { headers: mpKoppen(g.sleutel) });
+      if (!r.ok) { uit.push({ id, fout: 'MyParcel ' + r.status }); continue; }
+      const z = (((await r.json()).data || {}).shipments || [])[0] || {};
+      const barcode = String(z.barcode || '').trim();
+      uit.push(barcode ? { id, barcode, nummer: String(z.reference_identifier || '') } : { id, fout: 'nog geen barcode' });
+    } catch (e) { uit.push({ id, fout: String(e && e.message || e).slice(0, 80) }); }
+  }
+  return { lijst: uit };
+});
+
 exports.meldVerzonden = onCall(async req => {
   const uid = wieBenJe(req);
   const g = await leesGeheim(uid, 'myparcel');
