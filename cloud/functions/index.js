@@ -211,7 +211,46 @@ function kaartTekstUit(k) {
 /* Alle kaarten van één order: tekst, voor wie, bij welke doos.
    Een betaald kaartje zonder tekst telt ook mee — dan weet je dat er
    nog iets ontbreekt in plaats van dat je hem vergeet. */
+/* ═══════════ Correctie via de ordernotitie (v1007) ═══════════
+   Shopify laat de teksten van een orderregel na het bestellen niet meer
+   wijzigen. Typfout van de klant? Zet in de ordernotitie (in Shopify) een
+   regel zoals:
+     Ontvanger: Voor Carla en Roel
+     Linttekst: Voor jullie, Carla en Roel
+     Kaarttekst: Bedankt! / Groetjes, Rumeysa     ( / = nieuwe regel)
+   HQ neemt die dan over op kaart, lint, inpaklijst en factuur. De tekst blijft
+   in Shopify staan; HQ bewaart hem nergens. */
+function correctieVan(o) {
+  const c = {};
+  String(o.note || '').split(/\r?\n/).forEach(r => {
+    const m = r.match(/^\s*(ontvanger|linttekst|kaarttekst)\s*:\s*(.+?)\s*$/i);
+    if (m) c[m[1].toLowerCase()] = m[1].toLowerCase() === 'kaarttekst' ? m[2].replace(/\s*\/\s*/g, '\n') : m[2];
+  });
+  return c;
+}
+function pasCorrectieToe(o) {
+  if (!o || o._gecorrigeerd) return o;
+  o._gecorrigeerd = true;
+  const c = correctieVan(o);
+  if (!Object.keys(c).length) return o;
+  (o.line_items || []).forEach(li => {
+    const props = li.properties || [];
+    const rol = (props.find(p => p && p.name === '_cbx_role') || {}).value || '';
+    const isLint = rol === 'ribbon' || /lint/i.test(li.title || '');
+    const isKaart = rol === 'card' || /kaartje|wenskaart/i.test(li.title || '');
+    props.forEach(p => {
+      if (!p || !p.name) return;
+      if (c.ontvanger && p.name === 'Ontvanger' && p.value !== 'Voor mezelf') p.value = c.ontvanger;
+      if (c.linttekst && isLint && /^(tekst|tekst lintje)$/i.test(p.name)) p.value = c.linttekst;
+      if (c.kaarttekst && (isKaart || /^(tekst kaartje|persoonlijke boodschap)$/i.test(p.name)) &&
+          /^(boodschap|tekst kaartje|persoonlijke boodschap)$/i.test(p.name)) p.value = c.kaarttekst;
+    });
+  });
+  return o;
+}
+
 function kaartenVan(o) {
+  pasCorrectieToe(o);
   const kaarten = [];
   (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
     const k = regelKenmerken(li);
@@ -1703,6 +1742,7 @@ exports.haalKaarten = onCall(async req => {
    inpakken zijn kado-opties en vallen onder 21% btw; bonbons onder 9%. */
 const KADO_OPTIE = /kado|cadeau|gift|inpak|wrap|wenskaart|kaartje|lint/i;
 function factuurRegelsVan(o) {
+  pasCorrectieToe(o);
   const regels = [], kadoRegels = [];
   (o.line_items || []).filter(li => !li.gift_card).forEach(li => {
     const m = {}; (li.properties || []).forEach(p => { if (p && p.name) m[p.name] = p.value; });
@@ -3029,6 +3069,7 @@ exports.voorbereid = binnen('voorbereid', async req => {
   const KADO = /kado|cadeau|gift|inpak|wrap|wenskaart|kaartje|lint/i;
   const attr = li => { const m = {}; (li.properties || []).forEach(p => { if (p && p.name) m[p.name] = p.value; }); return m; };
   const uit = orders.filter(o => !o.cancelled_at && o.financial_status !== 'voided').map(o => {
+    pasCorrectieToe(o);
     const nummer = String(o.name || o.order_number || '').replace(/^#/, '');
     const a = o.shipping_address || null;
     const ophalenLijn = (o.shipping_lines || []).some(s => /ophalen|afhalen|pick/i.test(String(s.title || '')));
