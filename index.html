@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1009 · 10 nov 2026';
+const APPVERSIE='v1010 · 10 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21492,10 +21492,10 @@ function vbHTML(teDoen){
       <button type="button" class="malink" data-vblater="${esc(o.shopifyId)}" style="color:var(--grijs);flex:none">later</button></div>`).join('')}</div>
     ${later.length?`<details class="vbklaar" style="margin-top:12px"><summary>Voor later <span>${later.length}</span></summary><div class="vbpaneel">${later.map(o=>`<div class="vbrij"><button type="button" class="vbrijtap" data-macorder="${esc(o.nummer)}"><span class="vbnr">#${esc(o.nummer)}</span><span class="vbwat">${wat(o)}<small>telt niet mee in deze ronde</small></span></button><button type="button" class="malink" data-vbnu="${esc(o.shopifyId)}" style="flex:none">naar deze ronde</button></div>`).join('')}</div></details>`:''}`;
   /* 3 · versturen */
-  const klaarVerz=ver.filter(o=>o.ingepakt&&o.myparcel_id), klaarAfh=afh.filter(o=>o.ingepakt);
+  const klaarVerz=ver.filter(o=>o.myparcel_id&&!o.verzonden), klaarAfh=afh.filter(o=>o.ingepakt);
   h+=`<div class="blokkop" style="margin-top:22px"><span class="eyebrow">3 · Versturen</span></div>
     <div class="vbpaneel">
-      <button type="button" class="vbstap" id="vbVerzonden" ${klaarVerz.length?'':'disabled'}><i></i><span>Verzonden melden in Shopify<small>${klaarVerz.length?klaarVerz.length+' ingepakt met label · klant krijgt track & trace':'eerst inpakken en labels maken'}</small></span>${svg(I.pijl,'2')}</button>
+      <button type="button" class="vbstap" id="vbVerzonden" ${klaarVerz.length?'':'disabled'}><i></i><span>Verzonden melden in Shopify<small>${klaarVerz.length?klaarVerz.length+' met label, nog niet gemeld · klant krijgt track & trace':'eerst labels maken'}</small></span>${svg(I.pijl,'2')}</button>
       <div class="vbstap leeg"><i></i><span>Afhalen<small>${afh.length?klaarAfh.length+' van '+afh.length+' klaar om op te halen':'geen afhaalorders'}</small></span></div>
     </div>`;
   return h;
@@ -21750,13 +21750,28 @@ function sheetVbLabels(l){
   $('#vbLaf').onclick=()=>vbAfvinken('label',K.gekozen().map(o=>o.shopifyId));
 }
 function sheetVbVerzonden(){
-  const l=vbVerzend(alsLijst(VB&&VB.d&&VB.d.orders).filter(o=>!o.later)).filter(o=>o.ingepakt&&o.myparcel_id);
-  sheet('Verzonden melden',`<p class="hint" style="margin-top:0">${l.length} orders zijn ingepakt en hebben een label: ${l.map(o=>'#'+esc(o.nummer)).join(', ')}.</p>
-    <p class="hint">Shopify zet ze op verzonden en mailt elke klant de track & trace. Doe dit pas als de pakketten echt de deur uit gaan.</p>`,
-    `<button class="prim" style="margin-top:0" id="vbVz">${l.length} orders verzonden melden</button><button class="sec" onclick="dicht()">Nog niet</button>`);
-  $('#vbVz').onclick=async()=>{ const b=$('#vbVz'); b.disabled=true; let ok=0, mis=[];
-    for(const o of l){ b.textContent='Melden… '+(ok+mis.length+1)+'/'+l.length; try{ await roep('meldVerzonden',{order:o.shopifyId}); ok++ }catch(e){ mis.push('#'+o.nummer) } }
-    VB=null; klaarSheet(ok+' verzonden gemeld'+(mis.length?' · niet gelukt: '+mis.join(', '):'')+'.') };
+  /* v1010: niet meer alleen 'ingepakt'. Je kiest zelf welke orders met een label
+     je meldt; standaard staan alle nog niet gemelde aan. */
+  const alle=vbVerzend(alsLijst(VB&&VB.d&&VB.d.orders).filter(o=>!o.later));
+  const metLabel=alle.filter(o=>o.myparcel_id), zonder=alle.filter(o=>!o.myparcel_id);
+  const K=vbKeuze('verzonden',metLabel,o=>!!o.verzonden);
+  sheet('Verzonden melden',
+    `<p class="hint" style="margin-top:0">Shopify zet de gekozen orders op verzonden en mailt elke klant zijn eigen track & trace (de barcode van MyParcel). Doe dit pas als de pakketten echt de deur uit gaan.</p>
+     ${zonder.length?`<div class="melding amber">${svg(I.alarm,'2')}<span>Nog geen label, dus nog niet te melden: ${zonder.map(o=>'#'+esc(o.nummer)).join(', ')}.</span></div>`:''}
+     ${K.html}<div id="vbVzUit"></div>`,
+    `<button class="prim" style="margin-top:0" id="vbVz"></button><button class="sec" onclick="dicht()">Nog niet</button>`);
+  const tekst=()=>{ const n=K.gekozen().length, b=$('#vbVz'); b.dataset.zeker=''; b.disabled=!n;
+    b.textContent=n?n+' orders verzonden melden':'Kies eerst orders' };
+  K.bind(()=>tekst()); tekst();
+  $('#vbVz').onclick=async()=>{ const b=$('#vbVz'), l=K.gekozen(); if(!l.length) return;
+    if(b.dataset.zeker!=='1'){ b.dataset.zeker='1'; b.textContent='Zeker? '+l.length+' klanten krijgen nu een mail · tik nog eens'; return }
+    b.disabled=true; let ok=[], mis=[];
+    for(const o of l){ b.textContent='Melden… '+(ok.length+mis.length+1)+'/'+l.length;
+      try{ const r=await roep('meldVerzonden',{order:o.shopifyId}); o.verzonden=true; ok.push('#'+o.nummer+(r&&r.barcode?' · '+r.barcode:'')) }
+      catch(e){ mis.push('#'+o.nummer+': '+fout(e)) } }
+    $('#vbVzUit').innerHTML=`<div class="paneel" style="margin-top:16px">${ok.map(x=>`<div class="item"><span class="t" style="color:#15803d">✓</span><span class="b">${esc(x)}</span></div>`).join('')}
+      ${mis.map(x=>`<div class="item"><span class="t" style="color:#c0392b">✗</span><span class="b">${esc(x)}</span></div>`).join('')}</div>`;
+    VB=null; b.textContent=ok.length+' gemeld'+(mis.length?' · '+mis.length+' niet gelukt':''); toast(ok.length+' verzonden gemeld'+(mis.length?', '+mis.length+' niet':'')) };
 }
 
 function shopifyHTML(){
