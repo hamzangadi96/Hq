@@ -1927,7 +1927,8 @@ exports.meldVerzonden = onCall(async req => {
     fulfillment: {
       line_items_by_fulfillment_order: open.map(f => ({ fulfillment_order_id: f.id })),
       tracking_info: { number: barcode, company: 'PostNL', url },
-      notify_customer: true
+      /* v1011: track & trace staat er altijd in; alleen de mail aan de klant is te kiezen */
+      notify_customer: (req.data || {}).mail !== false
     }
   });
 
