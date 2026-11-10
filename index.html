@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1006 · 10 nov 2026';
+const APPVERSIE='v1007 · 10 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21718,14 +21718,14 @@ function sheetVbLabels(l){
      <p class="hint"><b>Stap 1.</b> Bekijk de conceptlabels van je keuze. Er is nog niets aangemaakt en het kost nog niets.</p>
      <p class="hint"><b>Stap 2.</b> Klopt alles, maak dan de labels aan. Orders die al een label hebben worden niet dubbel gemaakt; die komen alleen opnieuw in de pdf. Elk label liggend op een eigen vel van 102 × 152 mm. Print op 100% (werkelijke grootte).</p>`,
     `<button class="sec" style="margin-top:0" id="vbLc">${svg(I.doc)}Stap 1 · Concept bekijken</button>
-     <button class="prim" id="vbLm" disabled></button>
+     <button class="prim" id="vbLm"></button>
      <button class="sec" id="vbLaf">${svg(I.vink,'2.4')} Gekozen afvinken</button>`);
   const tekstLm=()=>{ const g=K.gekozen(), n=g.filter(o=>!o.myparcel_id).length, b=$('#vbLm'); if(!b) return;
     b.dataset.zeker=''; b.textContent='Stap 2 · '+(n?n+' labels aanmaken bij MyParcel':g.length?'Labels-pdf ophalen ('+g.length+')':'Kies eerst orders') };
-  K.bind(n=>{ tekstLm(); $('#vbLm').disabled=true; $('#vbLc').disabled=!n; $('#vbLaf').disabled=!n });
+  K.bind(n=>{ tekstLm(); $('#vbLm').disabled=!n; $('#vbLc').disabled=!n; $('#vbLaf').disabled=!n });
   $('#vbLc').onclick=async()=>{ const g=K.gekozen(); if(!g.length) return toast('Kies minstens één order.');
     const b=$('#vbLc'); b.disabled=true; b.textContent='Concept maken…';
-    try{ await vbDeel(await pdfVanHtml(vbLabelConceptHTML(g)),'conceptlabels-'+iso(new Date())+'.pdf'); $('#vbLm').disabled=false }catch(e){ toast(fout(e)) }
+    try{ await vbDeel(await pdfVanHtml(vbLabelConceptHTML(g)),'conceptlabels-'+iso(new Date())+'.pdf') }catch(e){ toast(fout(e)) }
     b.disabled=false; b.innerHTML=svg(I.doc)+'Concept opnieuw bekijken' };
   $('#vbLm').onclick=async()=>{ const b=$('#vbLm'), g=K.gekozen(), nieuw=g.filter(o=>!o.myparcel_id);
     if(!g.length) return toast('Kies minstens één order.');
