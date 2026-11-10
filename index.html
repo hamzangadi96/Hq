@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1008 · 10 nov 2026';
+const APPVERSIE='v1009 · 10 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -21714,12 +21714,15 @@ function sheetVbStap(k){
     try{ const blob=await maak(g); await vbDeel(blob,naam) }catch(e){ toast(fout(e)) } b.disabled=false; b.innerHTML=svg(I.doc)+'PDF opnieuw maken' };
   $('#vbAf').onclick=()=>vbAfvinken(k,afIds());
 }
+let VB_PAKKET='klein';   /* v1009: standaard klein pakket, goedkoper */
 function sheetVbLabels(l){
   const alle=vbVerzend(l), K=vbKeuze('label',alle,o=>!!o.myparcel_id), fout2=alle.filter(o=>o.adres&&o.adres.probleem);
   sheet('Verzendlabels',
     `<p class="hint" style="margin-top:0">Kies de orders. Standaard staan alleen de orders aan die nog géén label hebben.</p>
      ${fout2.length?`<div class="melding amber">${svg(I.alarm,'2')}<span>${fout2.length} adres${fout2.length===1?'':'sen'} lastig te lezen: ${fout2.map(o=>'#'+esc(o.nummer)).join(', ')}. Pas die eerst aan in Shopify, anders weigert MyParcel ze.</span></div>`:''}
      ${K.html}
+     <div class="veld" style="margin-top:16px"><label>Soort zending bij MyParcel</label>
+       <div class="sp2seg">${['klein','normaal'].map(p=>`<button type="button" class="${VB_PAKKET===p?'aan':''}" data-vbpak="${p}">${p==='klein'?'Klein pakket':'Normaal pakket'}</button>`).join('')}</div></div>
      <p class="hint"><b>Stap 1.</b> Bekijk de conceptlabels van je keuze. Er is nog niets aangemaakt en het kost nog niets.</p>
      <p class="hint"><b>Stap 2.</b> Klopt alles, maak dan de labels aan. Orders die al een label hebben worden niet dubbel gemaakt; die komen alleen opnieuw in de pdf. Elk label liggend op een eigen vel van 102 × 152 mm. Print op 100% (werkelijke grootte).</p>`,
     `<button class="sec" style="margin-top:0" id="vbLc">${svg(I.doc)}Stap 1 · Concept bekijken</button>
@@ -21728,15 +21731,17 @@ function sheetVbLabels(l){
   const tekstLm=()=>{ const g=K.gekozen(), n=g.filter(o=>!o.myparcel_id).length, b=$('#vbLm'); if(!b) return;
     b.dataset.zeker=''; b.textContent='Stap 2 · '+(n?n+' labels aanmaken bij MyParcel':g.length?'Labels-pdf ophalen ('+g.length+')':'Kies eerst orders') };
   K.bind(n=>{ tekstLm(); $('#vbLm').disabled=!n; $('#vbLc').disabled=!n; $('#vbLaf').disabled=!n });
+  $$('[data-vbpak]').forEach(b=>b.onclick=()=>{ VB_PAKKET=b.dataset.vbpak;
+    $$('[data-vbpak]').forEach(y=>y.classList.toggle('aan',y===b)); tekstLm() });
   $('#vbLc').onclick=async()=>{ const g=K.gekozen(); if(!g.length) return toast('Kies minstens één order.');
     const b=$('#vbLc'); b.disabled=true; b.textContent='Concept maken…';
     try{ await vbDeel(await pdfVanHtml(vbLabelConceptHTML(g)),'conceptlabels-'+iso(new Date())+'.pdf') }catch(e){ toast(fout(e)) }
     b.disabled=false; b.innerHTML=svg(I.doc)+'Concept opnieuw bekijken' };
   $('#vbLm').onclick=async()=>{ const b=$('#vbLm'), g=K.gekozen(), nieuw=g.filter(o=>!o.myparcel_id);
     if(!g.length) return toast('Kies minstens één order.');
-    if(nieuw.length&&b.dataset.zeker!=='1'){ b.dataset.zeker='1'; b.textContent='Zeker? Dit maakt '+nieuw.length+' betaalde labels aan · tik nog eens'; return }
+    if(nieuw.length&&b.dataset.zeker!=='1'){ b.dataset.zeker='1'; b.textContent='Zeker? '+nieuw.length+'× '+(VB_PAKKET==='klein'?'KLEIN pakket':'NORMAAL pakket')+' · tik nog eens'; return }
     b.disabled=true; b.textContent='Labels aanmaken… dit duurt even';
-    try{ const r=await roep('labelsMaken',{orders:g.map(o=>o.shopifyId),formaat:'L102'});
+    try{ const r=await roep('labelsMaken',{orders:g.map(o=>o.shopifyId),formaat:'L102',pakket:VB_PAKKET});
       (r.fout||[]).length&&toast((r.fout.length)+' lukte niet: '+r.fout.map(x=>{ const o=g.find(y=>y.shopifyId===x.id); return '#'+(o?o.nummer:x.id)+' ('+x.fout+')' }).join('; '));
       g.forEach(o=>{ if(!(r.fout||[]).some(x=>x.id===o.shopifyId)) o.myparcel_id=o.myparcel_id||'1' });
       if(r.pdf){ const blob=new Blob([Uint8Array.from(atob(r.pdf),c=>c.charCodeAt(0))],{type:'application/pdf'}); await vbDeel(blob,r.naam) }

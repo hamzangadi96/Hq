@@ -350,7 +350,13 @@ function splitsAdres(a) {
   return { straat: m[1].trim(), nummer: m[2], toevoeging: (m[3] || '').trim() };
 }
 
-function zending(o, nr) {
+/* v1009: standaard KLEIN PAKKET (MyParcel package_type 6). Tot nu toe stond hier
+   vast 1 = normaal pakket, en dat is duurder. Normaal pakket alleen als je het
+   bij het aanmaken zelf kiest. */
+const PAKKET = { klein: 6, normaal: 1 };
+function pakketType(keuze) { return keuze === 'normaal' ? PAKKET.normaal : PAKKET.klein; }
+
+function zending(o, nr, keuze) {
   const a = o.shipping_address;
   if (!a) throw new HttpsError('failed-precondition', 'Deze order heeft geen verzendadres. Wordt hij afgehaald?');
 
@@ -374,10 +380,14 @@ function zending(o, nr) {
   if (a.phone) ontvanger.phone = String(a.phone);
   if (o.email) ontvanger.email = String(o.email);
 
+  const type = pakketType(keuze);
+  const opties = { package_type: type, label_description: nr };
+  /* klein pakket buiten NL en BE moet volgens MyParcel 'tracked' zijn */
+  if (type === PAKKET.klein && !['NL', 'BE'].includes(ontvanger.cc)) opties.tracked = 1;
   return {
     reference_identifier: nr,
     recipient: ontvanger,
-    options: { package_type: 1, label_description: nr },
+    options: opties,
     carrier: 1                       /* 1 = PostNL */
   };
 }
@@ -1819,7 +1829,7 @@ exports.maakLabel = onCall(async req => {
     headers: mpKoppen(g.sleutel, {
       'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1'
     }),
-    body: JSON.stringify({ data: { shipments: [zending(o, nr)] } })
+    body: JSON.stringify({ data: { shipments: [zending(o, nr, (req.data || {}).pakket)] } })
   });
 
   const tekst = await r.text();
@@ -3181,7 +3191,7 @@ exports.labelsMaken = binnen('labelsMaken', async req => {
         const nr = String(o.name || o.order_number || '').replace(/^#/, '');
         const r = await mpRoep(g.sleutel, 'shipments', { method: 'POST',
           headers: mpKoppen(g.sleutel, { 'Content-Type': 'application/vnd.shipment+json;charset=utf-8;version=1.1' }),
-          body: JSON.stringify({ data: { shipments: [zending(o, nr)] } }) });
+          body: JSON.stringify({ data: { shipments: [zending(o, nr, (req.data || {}).pakket)] } }) });
         const t = await r.text();
         if (!r.ok) { let u = ''; try { const f = JSON.parse(t); u = (f.errors && f.errors[0] && (f.errors[0].human || f.errors[0].message)) || f.message || ''; } catch (e) {} throw new Error(u || 'MyParcel antwoordde ' + r.status); }
         let n = null; try { n = ((JSON.parse(t).data || {}).ids || [])[0]; } catch (e) {}
