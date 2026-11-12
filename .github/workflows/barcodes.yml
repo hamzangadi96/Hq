@@ -1,0 +1,24 @@
+name: Barcodes ophalen (MyParcel)
+on: workflow_dispatch
+jobs:
+  b:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - env:
+          FIREBASE_SLEUTEL: ${{ secrets.FIREBASE_SLEUTEL }}
+        run: |
+          printf '%s' "$FIREBASE_SLEUTEL" > "$RUNNER_TEMP/s.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/s.json"
+          npm i -g firebase-tools >/dev/null 2>&1
+          U=WAGUngBbc9YWpZBV8DECs0UCnIy1
+          firebase database:get /werkvloer/$U/orders --project cacaoboetiek-hq > o.json
+          firebase database:get /geheim/$U/myparcel --project cacaoboetiek-hq > g.json
+          node -e '
+          const o=require("./o.json")||{}, g=require("./g.json")||{};
+          const h={Authorization:"bearer "+Buffer.from(String(g.sleutel)).toString("base64"),"User-Agent":"CacaoboetiekHQ/1"};
+          (async()=>{ for(const [id,w] of Object.entries(o)){ if(!w||!w.myparcel_id||w.verzonden) continue;
+            const r=await fetch("https://api.myparcel.nl/shipments/"+w.myparcel_id,{headers:h}); const z=(((await r.json()).data||{}).shipments||[])[0]||{};
+            console.log("RIJ",id,w.nummer||"",w.myparcel_id,z.barcode||"-",z.status||"",(z.recipient||{}).cc||"",(z.recipient||{}).postal_code||"") } })()'
+          rm -f g.json o.json "$RUNNER_TEMP/s.json"
