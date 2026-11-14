@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1012 · 10 nov 2026';
+const APPVERSIE='v1013 · 14 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7434,8 +7434,8 @@ const SNELITEMS=[
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
   {key:'rekenen',label:'Wat heb ik nodig?',icon:'vorm',soort:'sheet',doe:()=>sheetRekenen()},
-  /* v831: Mail even verborgen op verzoek; code blijft staan. Terugzetten = deze regel weer aanzetten.
-  {key:'inbox',label:'Mail',icon:'post',soort:'sheet',doe:()=>sheetInbox()}, */
+  /* v1004: inbox weer aan (was verborgen sinds v831) */
+  {key:'inbox',label:'Inbox',icon:'post',soort:'sheet',doe:()=>sheetInbox()},
   {key:'nieuwbatch',label:'Nieuwe batch',icon:'plus',soort:'sheet',doe:()=>sheetNieuweBatch()},
   {key:'halffab',label:'Halffabricaten',icon:'vorm',soort:'sheet',doe:()=>sheetHalfLijst()},
   {key:'smaken',label:'Smaken',icon:'boek',soort:'sheet',doe:()=>sheetRecepten()},
@@ -20691,7 +20691,8 @@ async function sheetMail(uid){
           ?`<textarea class="inp mlant" id="mlA" rows="12">${esc(INBOX.concept)}</textarea>
             ${/\[INVULLEN/i.test(INBOX.concept)?'<div class="lgsom"><b class="lglet">Vul eerst de [INVULLEN]-plekken in</b></div>':''}
             <div class="lgvoet bvoet"><button type="button" id="mlOpn">Opnieuw schrijven</button></div>`
-          :`<input class="inp" id="mlW" placeholder="Kort wat je wilt zeggen (mag leeg)" value="${esc(INBOX.wens)}">`}`,
+          :`<input class="inp" id="mlW" placeholder="Kort wat je wilt zeggen (mag leeg)" value="${esc(INBOX.wens)}">
+            <div class="lgvoet bvoet"><button type="button" id="mlZelf">Zelf typen, zonder Claude</button></div>`}`,
       !m?'':INBOX.concept
         ?`<button class="prim" style="margin-top:0" id="mlStuur">Versturen</button>`
         :`<button class="prim" style="margin-top:0" id="mlSchrijf">Schrijf antwoord</button>`);
@@ -20706,6 +20707,9 @@ async function sheetMail(uid){
     };
     if($('#mlSchrijf')) $('#mlSchrijf').onclick=()=>schrijf($('#mlSchrijf'));
     if($('#mlOpn')) $('#mlOpn').onclick=()=>{ leesA(); INBOX.concept=''; teken() };
+    if($('#mlZelf')) $('#mlZelf').onclick=()=>{ leesA(); const vn=String(m.van||'').trim().split(/\s+/)[0]||'';
+      INBOX.concept=(vn&&!/@/.test(vn)?'Beste '+vn+',':'Beste,')+'\n\n'+(INBOX.wens||'')+'\n\nMet vriendelijke groet,\nHamza\nCacaoboetiek'; teken();
+      const a=$('#mlA'); if(a){ a.focus(); const p=a.value.indexOf('\n\n')+2; a.setSelectionRange(p,p) } };
     if($('#mlStuur')) $('#mlStuur').onclick=async()=>{
       leesA(); const knop=$('#mlStuur');
       if(/\[INVULLEN/i.test(INBOX.concept)) return toast('Er staat nog een [INVULLEN] in je antwoord.');
