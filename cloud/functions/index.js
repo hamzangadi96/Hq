@@ -2538,18 +2538,18 @@ async function mailGeheim(uid) {
   return g;
 }
 
-exports.mailLijst = onCall({ timeoutSeconds: 60 }, async req => {
+exports.mailLijst = binnen('mailLijst', async req => {
   const uid = wieBenJe(req);
   const aantal = Math.min(80, Math.max(5, Number((req.data || {}).aantal) || 40));
   return { mails: await MAIL.lijst(await mailGeheim(uid), aantal) };
-});
+}, { timeoutSeconds: 60 });
 
-exports.mailLees = onCall({ timeoutSeconds: 60 }, async req => {
+exports.mailLees = binnen('mailLees', async req => {
   const uid = wieBenJe(req);
   const id = Number((req.data || {}).uid);
   if (!id) throw new HttpsError('invalid-argument', 'Welke mail?');
   return await MAIL.lees(await mailGeheim(uid), id);
-});
+}, { timeoutSeconds: 60 });
 
 /* laatste orders van deze klant, als hij in Shopify staat */
 async function ordersVan(uid, adres) {
@@ -2585,7 +2585,7 @@ const MAILOPDRACHT =
   'ingrediënt of optie.\n\nVaste informatie:\n{INFO}\n\nOrders van deze klant:\n{ORDERS}\n\n' +
   'Geef alleen de tekst van de mail terug, zonder onderwerpregel en zonder uitleg.';
 
-exports.mailConcept = onCall({ timeoutSeconds: 90 }, async req => {
+exports.mailConcept = binnen('mailConcept', async req => {
   const uid = wieBenJe(req);
   const d = req.data || {};
   const id = Number(d.uid);
@@ -2610,9 +2610,9 @@ exports.mailConcept = onCall({ timeoutSeconds: 90 }, async req => {
   const j = await r.json();
   const tekst = ((j.content || []).find(x => x.type === 'text') || {}).text || '';
   return { tekst: tekst.trim(), orders: !!orders };
-});
+}, { timeoutSeconds: 90 });
 
-exports.mailVerstuur = onCall({ timeoutSeconds: 90 }, async req => {
+exports.mailVerstuur = binnen('mailVerstuur', async req => {
   const uid = wieBenJe(req);
   const d = req.data || {};
   const id = Number(d.uid), tekst = String(d.tekst || '').trim();
@@ -2621,7 +2621,7 @@ exports.mailVerstuur = onCall({ timeoutSeconds: 90 }, async req => {
   const g = await mailGeheim(uid);
   const mail = await MAIL.lees(g, id);
   return await MAIL.verstuur(g, mail, tekst);
-});
+}, { timeoutSeconds: 90 });
 
 /* ═══════════ v969: orders vanzelf binnen + melding op je telefoon ═══════════
    Elke 5 minuten kijkt HQ bij Shopify of er orders zijn bijgekomen of

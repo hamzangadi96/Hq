@@ -1,0 +1,12 @@
+name: IAM check
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with: { credentials_json: '${{ secrets.FIREBASE_SLEUTEL }}' }
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: |
+          for s in maillijst voorbereid; do echo "UIT $s"; gcloud run services get-iam-policy $s --region europe-west1 --project cacaoboetiek-hq --format=json 2>&1 | tr -d '\n ' | sed 's/^/UIT /'; echo; done
+          gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="maillijst" AND timestamp>="2026-11-14T00:00:00Z"' --project cacaoboetiek-hq --limit 20 --format='value(timestamp,httpRequest.status,severity,textPayload)' 2>&1 | sed 's/^/UIT LOG /'
