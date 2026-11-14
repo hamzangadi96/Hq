@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1016 · 14 nov 2026';
+const APPVERSIE='v1017 · 14 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7407,8 +7407,10 @@ const TABS=[
   {key:'shopify',label:'Shopify',icon:I.vracht,klaar:true},
   {key:'voorraad',label:'Voorraad',icon:I.doos,klaar:true},
   {key:'geld',label:'Financiën',icon:I.euro,klaar:true},
-  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true},
-  {key:'content',label:'Content',icon:I.camera,klaar:true}
+  {key:'agenda',label:'Agenda',icon:I.klok,klaar:true}
+  /* v1017: Content-tab uit de app gehaald op verzoek (14 nov). Code blijft staan.
+     Terugzetten = deze regel weer aanzetten, plus de twee regels in SNELITEMS.
+  ,{key:'content',label:'Content',icon:I.camera,klaar:true} */
 ];
 /* ═══════════ Content eruit ═══════════
    Deze tab hield 63 kant-en-klare video-ideeën bij, met fases, sporen en
@@ -7427,8 +7429,9 @@ const SNELITEMS=[
   {key:'voorraad',label:'Voorraad',icon:'doos',soort:'tab'},
   {key:'geld',label:'Financiën',icon:'euro',soort:'tab'},
   {key:'agenda',label:'Agenda',icon:'klok',soort:'tab'},
+  /* v1017 verborgen:
   {key:'content',label:'Content',icon:'camera',soort:'tab'},
-  {key:'filmdag',label:'Filmdag',icon:'camera',soort:'sheet',doe:()=>sheetFilmdag()},
+  {key:'filmdag',label:'Filmdag',icon:'camera',soort:'sheet',doe:()=>sheetFilmdag()}, */
   {key:'planning',label:'Planning',icon:'klok',soort:'sheet',doe:()=>sheetPlanning()},
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
@@ -7574,6 +7577,7 @@ function render(){
   try{ if(window.hqDataGeladen&&S.eenmalig&&S.eenmalig.batch24okt&&!S.eenmalig.stroof924&&stroofwafel924()) setTimeout(bewaarNu,500) }catch(e){}
   try{ if(window.hqDataGeladen&&!(S.eenmalig&&S.eenmalig.todoWit927)&&todoWit927()) setTimeout(bewaarNu,500) }catch(e){}
   if(zoektAan&&S.tab!=='dashboard') zoekDicht();
+  if(S.tab==='content') S.tab='dashboard'; /* v1017: content verborgen */
   ritHervatten();
   try{ ritUI(); }catch(e){}
   try{ renderProberen(); }
@@ -12004,6 +12008,7 @@ function sheetHygieneplan(){
     '');
 }
 function filmdagKaartHTML(){
+  return ''; /* v1017: content verborgen */
   const d=filmdagData();
   if(d.datum!==vandaag()) return '';
   const items=filmdagItems(), af=items.filter(x=>filmAf(x.id)).length;
