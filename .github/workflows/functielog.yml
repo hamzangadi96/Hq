@@ -1,0 +1,21 @@
+name: Functielog lezen
+on:
+  workflow_dispatch:
+    inputs:
+      naam: { description: 'functienaam', required: true }
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - env:
+          FIREBASE_SLEUTEL: ${{ secrets.FIREBASE_SLEUTEL }}
+          NAAM: ${{ inputs.naam }}
+        run: |
+          printf '%s' "$FIREBASE_SLEUTEL" > "$RUNNER_TEMP/s.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/s.json"
+          npm i -g firebase-tools >/dev/null 2>&1
+          firebase functions:log --only "$NAAM" --project cacaoboetiek-hq 2>&1 | tail -40 | cut -c1-400 | sed 's/^/LOG /'
+          firebase functions:list --project cacaoboetiek-hq 2>&1 | grep -i mail | sed 's/^/LIJST /'
+          rm -f "$RUNNER_TEMP/s.json"
