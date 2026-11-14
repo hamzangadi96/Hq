@@ -1,0 +1,23 @@
+name: Inbox test
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - env:
+          FIREBASE_SLEUTEL: ${{ secrets.FIREBASE_SLEUTEL }}
+        run: |
+          printf '%s' "$FIREBASE_SLEUTEL" > "$RUNNER_TEMP/s.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/s.json"
+          npm i -g firebase-tools >/dev/null 2>&1
+          firebase database:get /geheim/WAGUngBbc9YWpZBV8DECs0UCnIy1/mail --project cacaoboetiek-hq > "$RUNNER_TEMP/g.json"
+          cd cloud/functions && npm i --omit=dev >/dev/null 2>&1
+          node -e '
+          const M=require("./mail"); const g=require(process.env.RUNNER_TEMP+"/g.json")||{};
+          console.log("UIT adres?",!!g.adres,"ww?",!!g.wachtwoord);
+          const t=Date.now();
+          M.lijst(g,40).then(l=>console.log("UIT ok",l.length,"mails in",Date.now()-t,"ms")).catch(e=>console.log("UIT FOUT",e&&e.message,e&&e.code,e&&e.responseText,"na",Date.now()-t,"ms"))'
+          rm -f "$RUNNER_TEMP/g.json" "$RUNNER_TEMP/s.json"
