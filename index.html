@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1015 · 14 nov 2026';
+const APPVERSIE='v1016 · 14 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6408,7 +6408,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -15029,6 +15029,21 @@ function eenmaligRecept14nov2(){
   zet('Dubai','Dubaivulling','6'); zet('Dubai (wit)','Dubaivulling','6');
   zet('Cappuccino & hazelnoot','Cappuccinoganache','4.59');
   zet('Vanille & hazelnoot','Vanilleganache','4.59');
+  return true;
+}
+
+/* v1016: speculoosganache met gemalen speculooskoek i.p.v. pasta, net als stroopwafel */
+function eenmaligSpeculoos14nov(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.speculoos14nov) return false;
+  S.eenmalig.speculoos14nov=Date.now();
+  const h=(S.halfRecepten||[]).find(h=>h&&/^speculoosganache$/i.test(String(h.naam||'').trim()));
+  if(!h) return true;
+  h.ing=[{deel:'800',naam:'Witte chocolade'},{deel:'400',naam:'Houdbare slagroom'},{deel:'180',naam:'Speculoos'},
+    {deel:'80',naam:'Ongezouten roomboter'},{deel:'53',naam:'Glucosestroop'}];
+  h.stappen=[{tekst:'Verwarm de slagroom met de glucose tot 80 °C.',temp:80},{tekst:'Giet het in 3 keer over de chocolade.'},
+    {tekst:'Staafmix tot glad en glanzend. Mixer onder het oppervlak.'},{tekst:'Mix op 35 °C de roomboter erdoor.',temp:35},
+    {tekst:'Spatel de gemalen speculoos er als laatste door.'},{tekst:'Folie direct op de ganache en laten afkoelen. Spuiten op 28–30 °C.',temp:30}];
   return true;
 }
 
