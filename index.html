@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1013 · 14 nov 2026';
+const APPVERSIE='v1014 · 14 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6408,7 +6408,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -14983,6 +14983,42 @@ function eenmaligEtiket09nov(){
   return true;
 }
 
+/* v1014: recepten rechtgezet na controle met Hamza (14 nov) */
+function eenmaligRecept14nov(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.recept14nov) return false;
+  S.eenmalig.recept14nov=Date.now();
+  const R=n=>(S.recepten||[]).find(r=>r&&String(r.naam||'').trim().toLowerCase()===n.toLowerCase());
+  const H=n=>(S.halfRecepten||[]).find(h=>h&&String(h.naam||'').trim().toLowerCase()===n.toLowerCase());
+  const deelMet=(r,naam)=>r&&(r.onderdelen||[]).find(o=>(o.ing||[]).some(i=>String(i.naam||'').toLowerCase()===naam.toLowerCase()));
+  /* vullingen: alles samen 6 g */
+  const zet=(rn,ing,g)=>{ const o=deelMet(R(rn),ing); if(o) o.gram=g };
+  zet('Pistache & rode vruchten','Pistacheganache','4.75');
+  zet('Matcha & aardbei','Matchaganache','4.75');
+  zet('Matcha & blauwe bessen','Matchaganache','4.75');
+  zet('Biscoff & karamel','Speculoosganache','4');
+  /* Gezouten karamel: dezelfde karamel als bij Biscoff, Stroopwafel en Pinda */
+  const gk=R('Gezouten karamel'), kar=H('Gezouten karamel');
+  if(gk&&kar){ const o=(gk.onderdelen||[]).find(o=>/karamel/i.test(o.naam||''));
+    if(o) o.ing=[{basis:kar.id,deel:'100',naam:'Gezouten karamel'}] }
+  /* Mangogelei: zelfde recept als de andere geleien, met diepvriesmango */
+  S.ingredienten=S.ingredienten||[];
+  if(!S.ingredienten.some(x=>String(x).toLowerCase()==='mango diepvries')) S.ingredienten.push('Mango diepvries');
+  let mg=H('Mangogelei'); const ag=H('Aardbeiengelei');
+  if(!mg){
+    mg=JSON.parse(JSON.stringify(ag||{stappen:[]}));
+    mg.id='mng'+Date.now().toString(36).slice(-5); mg.naam='Mangogelei';
+    mg.ing=[{deel:'1000',naam:'Mango diepvries'},{deel:'390',naam:'Kristalsuiker'},{deel:'15',naam:'Pectine fruit NH'},{deel:'15',naam:'Citroensap'}];
+    S.halfRecepten=S.halfRecepten||[]; S.halfRecepten.push(mg);
+  }
+  const am=R('Amandel & mango');
+  if(am&&!(am.onderdelen||[]).some(o=>(o.ing||[]).some(i=>i.basis===mg.id))){
+    const g=(R('Matcha & aardbei')||{}).onderdelen||[], go=g.find(o=>/gelei/i.test(o.naam||''));
+    am.onderdelen.push({naam:'Gelei',stap:'Gelei maken',gram:'1.25',ing:[{basis:mg.id,deel:'100',naam:'Mangogelei'}],werkwijze:go?(go.werkwijze||[]).slice():[]});
+  }
+  return true;
+}
+
 /* ── v994: ingrediëntenlabel 102 × 76 mm, twee per vel van 102 × 152 ──
    Alleen wat wettelijk moet en wat helpt: benaming, ingrediënten (aflopend op
    gewicht, allergenen vet), netto-inhoud, THT, lot, bewaren, naam en adres.
@@ -14990,7 +15026,7 @@ function eenmaligEtiket09nov(){
 const ET_NAAM={'kristalsuiker':'suiker','houdbare slagroom':'slagroom','ongezouten roomboter':'roomboter','melkchocolade callets':'melkchocolade',
   'cacaoboter chips':'cacaoboter','blauwe bessen diepvries':'blauwe bessen','aardbeien diepvries':'aardbeien','fijn zeezout':'zeezout',
   'ongezouten hazelnoten':'hazelnoten','ongezouten pistachenoten':'pistachenoten','ongezouten pinda\'s':'pinda\'s','pectine fruit nh':'pectine',
-  'vanillepasta':'vanille','stroopwafels':'stroopwafel','tahin':'sesampasta (tahin)'};
+  'vanillepasta':'vanille','stroopwafels':'stroopwafel','mango diepvries':'mango','tahin':'sesampasta (tahin)'};
 const ET_WOORD={melk:/(roomboter|slagroom|melk\w*|room|boter)/i, soja:/(soja\w*)/i, gluten:/(tarwe\w*|gluten|gerst\w*|rogge\w*|haver\w*|spelt\w*)/i,
   noten:/(hazelno\w*|pistache\w*|amandel\w*|walno\w*|cashew\w*|pecan\w*|macadamia\w*|noten)/i, pinda:/(pinda\w*)/i, sesam:/(sesam\w*|tahin)/i,
   ei:/(\bei\b|eiwit|eigeel|ei-eiwit)/i};
