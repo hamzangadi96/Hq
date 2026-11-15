@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1018 · 14 nov 2026';
+const APPVERSIE='v1019 · 15 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -9499,7 +9499,9 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') wlDicht() });
 })();
 /* v773: je abonnees — alles uit Shopify, alleen in het geheugen (niet opgeslagen).
    Kies de groep (heropening of alles sinds 2025) en of ze al eens bestelden. */
-let maLijst=null, maPeriode='heropening', maFilter='nooit', maBezig=false, maFout='';
+/* v1019: popup op de site (drop 29 nov) — aanmeldingen vanaf 15 nov apart */
+const MA_NIEUW='2026-11-15';
+let maLijst=null, maPeriode='nieuw', maFilter='alle', maBezig=false, maFout='';
 /* v975: drop-mail — zelf adressen aanvinken en vanuit HQ versturen */
 let maKies=new Set(), maOngeldig=new Set(), maAfgemeld=null, maGemaildOp={}, maGemaild=null, maStuurBezig=false, maVoortgang='';
 /* v985: twee mails — de drop-mail en een herinnering voor wie nog niet bestelde */
@@ -9523,7 +9525,7 @@ function maGemaildLaden(){ maAfgemeldLaden();
   if(maCamp!=='drop-8-nov') roep('dropMailStuur',{campagne:'drop-8-nov'}).then(r=>{ maDropSet=new Set((r&&r.verstuurdIds)||[]); maTeken() }).catch(()=>{ maDropSet=maDropSet||new Set() });
   const camp=maCamp; roep('dropMailStuur',{campagne:camp}).then(r=>{ if(camp!==maCamp) return; if(camp==='drop-8-nov') maDropSet=new Set((r&&r.verstuurdIds)||[]); maGemaild=new Set((r&&r.verstuurdIds)||[]); maGemaildOp=(r&&r.verstuurdOp)||{}; maOngeldig=new Set((r&&r.ongeldigIds)||[]); maTeken() }).catch(()=>{ maGemaild=maGemaild||new Set() }) }
 function maGroep(){
-  const l=(maLijst||[]).filter(x=>maPeriode==='alles'||x.datum>=MAILDOEL.sinds);
+  const l=(maLijst||[]).filter(x=>maPeriode==='alles'||(maPeriode==='nieuw'?(x.popup||x.datum>=MA_NIEUW):x.datum>=MAILDOEL.sinds));
   return {alle:l, nooit:l.filter(x=>!x.orders), wel:l.filter(x=>x.orders>0)};
 }
 let maWeergave='te', maZoek='';
@@ -9554,7 +9556,8 @@ function maTeken(){
   $('#sheetBody').innerHTML=`
     <div class="sp2seg macamp" style="margin-top:0">${Object.keys(MACAMP).map(k=>`<button type="button" class="${maCamp===k?'aan':''}" data-macamp="${k}">${MACAMP[k].n}</button>`).join('')}</div>
     ${herin?`<p class="hint" style="margin:0 2px 10px">Alleen wie de drop-mail kreeg en sindsdien <b>nog niet besteld</b> heeft.${maDropSet?'':' Ophalen…'}</p>`:''}
-    <div class="sp2seg">${seg('heropening','Sinds 1 okt')}${seg('alles','Alle abonnees')}</div>
+    <div class="sp2seg">${seg('nieuw','Nieuw · sinds 15 nov')}${seg('heropening','Sinds 1 okt')}${seg('alles','Alles')}</div>
+    ${maPeriode==='nieuw'?`<p class="hint" style="margin:-4px 2px 12px">Aanmeldingen via de popup op je site (drop 29 november) en iedereen die zich sinds 15 november inschreef.</p>`:''}
     <div class="sp2get" style="margin:0 0 14px">
       ${tegel('nooit',g.nooit.length,'nooit besteld','nog geen klant')}${tegel('wel',g.wel.length,'al klant','besteld')}${tegel('alle',g.alle.length,'samen','op de lijst')}
     </div>

@@ -773,7 +773,7 @@ exports.mailAdressen = onCall(async req => {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': t, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          query: 'query($na:String){customers(first:250,after:$na){nodes{id createdAt firstName lastName numberOfOrders lastOrder{createdAt} defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
+          query: 'query($na:String){customers(first:250,after:$na){nodes{id createdAt firstName lastName tags numberOfOrders lastOrder{createdAt} defaultEmailAddress{emailAddress marketingState marketingUpdatedAt}} pageInfo{hasNextPage endCursor}}}',
           variables: { na }
         })
       });
@@ -787,7 +787,8 @@ exports.mailAdressen = onCall(async req => {
         const moment = aanmeldMoment(k), dag = nlDag(moment);
         if (dag < sinds) return;
         uit.push({ id: String(k.id).split('/').pop(), email: e.emailAddress, naam: [k.firstName, k.lastName].filter(Boolean).join(' '), voornaam: k.firstName || '', datum: dag, tijd: moment,
-          orders: parseInt(k.numberOfOrders, 10) || 0, laatsteOrder: (k.lastOrder && k.lastOrder.createdAt) || null });
+          orders: parseInt(k.numberOfOrders, 10) || 0, laatsteOrder: (k.lastOrder && k.lastOrder.createdAt) || null,
+          popup: (k.tags || []).includes('restock-29-nov-2026') });
       });
       if (!c.pageInfo.hasNextPage) break;
       na = c.pageInfo.endCursor;
