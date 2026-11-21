@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1026 · 21 nov 2026';
+const APPVERSIE='v1027 · 21 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6408,7 +6408,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligPlan22nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligPlan22nov(),eenmaligGianduja21nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -15125,6 +15125,29 @@ function eenmaligSpeculoos14nov(){
    De decemberorders #1306 en #1364 niet: die worden in december apart gemaakt.
    Na afboeken houdt elke smaak ± 16 extra over t.o.v. de webshop: dat is Hamza's buffer. */
 /* v1025: productiedag zondag 22 november ingepland: melk, 6 smaken × 12 mallen */
+/* v1027: Cappuccino & hazelnoot krijgt gianduja (hazelnootpasta + melkchocolade, 60/40) i.p.v. losse pasta.
+   Plat opgeslagen (hazelnoten, suiker, melkchocolade), zodat lots en etiket gewoon werken. */
+function eenmaligGianduja21nov(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.gianduja21nov) return false;
+  S.eenmalig.gianduja21nov=Date.now();
+  S.halfRecepten=S.halfRecepten||[];
+  let g=S.halfRecepten.find(h=>h&&/^gianduja$/i.test(String(h.naam||'').trim()));
+  if(!g){ g={id:'gdj'+Date.now().toString(36).slice(-5),naam:'Gianduja',
+    ing:[{deel:'48',naam:'Ongezouten hazelnoten'},{deel:'12',naam:'Kristalsuiker'},{deel:'40',naam:'Melkchocolade callets'}],
+    stappen:[{tekst:'Maak eerst de hazelnootpasta: noten 8 min roosteren op 160 °C, velletjes eraf, suiker karamelliseren tot ± 170 °C, noten erdoor, afkoelen en fijnmalen tot een gladde pasta.'},
+      {tekst:'Tempereer de melkchocolade (45 °C → 27 °C → 31 °C).'},
+      {tekst:'Roer de hazelnootpasta (op kamertemperatuur) door de getempereerde chocolade: 60% pasta, 40% chocolade.'},
+      {tekst:'Laat afkoelen tot 26–27 °C, al roerend, en spuit meteen. Hij zet snel op.'},
+      {tekst:'Te stevig? Iets meer pasta. Te zacht? Iets meer chocolade.'}]};
+    S.halfRecepten.push(g) }
+  const r=(S.recepten||[]).find(x=>x&&x.naam==='Cappuccino & hazelnoot');
+  if(r){ const o=(r.onderdelen||[]).find(o=>(o.ing||[]).some(i=>/hazelnootpasta/i.test(i.naam||'')));
+    if(o){ o.naam='Gianduja'; o.gram='2'; o.ing=[{basis:g.id,deel:'100',naam:'Gianduja'}] }
+    const cg=(r.onderdelen||[]).find(o=>(o.ing||[]).some(i=>/cappuccinoganache/i.test(i.naam||''))||/cappuccino/i.test(o.naam||''));
+    if(cg) cg.gram='4'; }
+  return true;
+}
 function eenmaligPlan22nov(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.plan22nov) return false;
