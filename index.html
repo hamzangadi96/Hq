@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1024 · 21 nov 2026';
+const APPVERSIE='v1025 · 21 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6408,7 +6408,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligPlan22nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -15124,6 +15124,19 @@ function eenmaligSpeculoos14nov(){
 /* v1018: webshopverkoop van de drop (54 orders #1310–#1364, 1.004 bonbons) afgeboekt.
    De decemberorders #1306 en #1364 niet: die worden in december apart gemaakt.
    Na afboeken houdt elke smaak ± 16 extra over t.o.v. de webshop: dat is Hamza's buffer. */
+/* v1025: productiedag zondag 22 november ingepland: melk, 6 smaken × 12 mallen */
+function eenmaligPlan22nov(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.plan22nov) return false;
+  S.eenmalig.plan22nov=Date.now();
+  S.planning=S.planning||[];
+  if(S.planning.some(p=>p&&p.datum==='2026-11-22')) return true;
+  const regels=PP_MELK.map(n=>(S.recepten||[]).find(r=>r&&r.naam===n)).filter(Boolean)
+    .map(r=>{ let h=24; try{ h=malHoltes(r.id)||24 }catch(e){} return {receptId:r.id,mallen:12,aantal:12*h} });
+  if(!regels.length) return true;
+  S.planning.push({id:uid(),datum:'2026-11-22',chocolade:'melk',regels,levertijd:0,voorbereiding:[],gemaakt:vandaag()});
+  return true;
+}
 function eenmaligVerkocht14nov(){
   S.eenmalig=S.eenmalig||{};
   if(S.eenmalig.verkocht14nov) return false;
@@ -24400,6 +24413,7 @@ function planStart(id){
     regels:JSON.parse(JSON.stringify(p.regels)),gestart:nu(),startDatum:vandaag(),
     status:'bezig',dagen:[],lots:{},logs:[],resultaat:null,
     recepten:kopie,werkplan:S.werkplan.slice(),uitPlan:p.id};
+  try{ lotsKoppelen942(b) }catch(e){}
   S.batches.push(b);
   S.planning=S.planning.filter(x=>x.id!==id);
   S.tab='productie';S.batchId=b.id;S.open=null;
