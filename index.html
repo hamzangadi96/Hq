@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1021 · 21 nov 2026';
+const APPVERSIE='v1022 · 21 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -12992,6 +12992,8 @@ function prodTegelsHTML(a){
       ${t('sheetKleuren()','palet','Kleuren',nK?String(nK):'')}
       ${t('sheetIngredientenLijst(false)','doos','Ingrediënten',!ings.length?'':iOnaf?iOnaf+' niet af':ings.length+' '+vk,iOnaf)}
       ${t('sheetRekenen()','loep','Wat nodig?','')}
+      ${t('sheetBatchRapporten()','klembord','Batchrapporten',String((S.batches||[]).filter(b=>b&&b.status==='klaar').length))}
+      ${t('sheetProductieplan()','pot','Productieplan','')}
       ${loopt?'':t("sheetNieuweBatch()",'plus','Losse batch','')}
       ${t('sheetProductinfo()','lijst','Website-info','')}
       ${t("homeTegel('vv')",'klembord','HACCP',ij?vk:'ijken',!ij)}
@@ -33615,6 +33617,15 @@ function sheetDossier(){
   teken(iso(new Date(nu5.getFullYear(),nu5.getMonth(),1)),vandaag(),'maand');
 }
 
+/* v1022: alle batchrapporten bij elkaar, nieuwste bovenaan */
+function sheetBatchRapporten(){
+  const l=(S.batches||[]).filter(b=>b&&b.status==='klaar').slice().sort((a,b2)=>String(b2.eindDatum||b2.startDatum||'').localeCompare(String(a.eindDatum||a.startDatum||'')));
+  sheet('Batchrapporten',`<div class="gl">${l.map(b=>{ const r=b.resultaat||{}, dt=new Date((b.eindDatum||b.startDatum||vandaag())+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
+    return `<button type="button" class="shrij" data-brap="${b.id}"><span class="shn">${esc(chocNaam(b.chocolade))} · ${esc(dt)}<small>${esc(b.code||'')} · ${esc(bNamen(b))}</small></span>
+      <span class="shw">${(r.goed||0).toLocaleString('nl-NL')} goed${r.afkeur?`<small class="pgaf">${r.afkeur.toLocaleString('nl-NL')} afkeur</small>`:''}</span>${svg(I.pijl,'2')}</button>` }).join('')||'<p class="wdleeg">Nog geen afgeronde batches.</p>'}</div>
+    <p class="hint" style="margin-top:12px">Tik een batch aan voor het rapport. Daar kun je het printen of als pdf delen.</p>`,'');
+  $$('#sheetBody [data-brap]').forEach(b=>b.onclick=()=>{ sheetRapport('batch',b.dataset.brap); sheetTerugZet(sheetBatchRapporten) });
+}
 function sheetRapport(soort,batchId,datum){
   const html = soort==='batch' ? batchRapportHTML(S.batches.find(b=>b.id===batchId)) : dagRapportHTML(datum);
   sheet(soort==='batch'?'Batchrapport':(datum&&datum!==vandaag()?'Dagrapport '+kort(new Date(datum)):'Dagrapport'),
