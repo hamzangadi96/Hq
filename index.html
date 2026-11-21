@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1020 · 20 nov 2026';
+const APPVERSIE='v1021 · 21 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7436,6 +7436,7 @@ const SNELITEMS=[
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
+  {key:'productieplan',label:'Productieplan',icon:'pot',soort:'sheet',doe:()=>sheetProductieplan()},
   {key:'rekenen',label:'Wat heb ik nodig?',icon:'vorm',soort:'sheet',doe:()=>sheetRekenen()},
   /* v1004: inbox weer aan (was verborgen sinds v831) */
   {key:'inbox',label:'Inbox',icon:'post',soort:'sheet',doe:()=>sheetInbox()},
@@ -24770,6 +24771,72 @@ function sheetKlaar(){
   });
 }
 
+/* ═══════════ v1021: Productieplan ═══════════
+   Kies smaken en mallen per smaak. De app rekent uit wat je moet kopen
+   (met 20% marge en tempereer-reserve), en per vulling hoeveel je maakt,
+   wat erin gaat en hoe je het maakt. Alles komt uit je eigen recepten. */
+const PP_MELK=['Gezouten karamel','Biscoff & karamel','Stroopwafel','Cappuccino & hazelnoot','Pinda & karamel','Dubai'];
+function ppState(){
+  if(!S.productieplan||!Array.isArray(S.productieplan.smaken)){
+    const ids=PP_MELK.map(n=>(S.recepten||[]).find(r=>r&&r.naam===n)).filter(Boolean).map(r=>r.id);
+    S.productieplan={smaken:ids,mallen:12,marge:20};
+  }
+  return S.productieplan;
+}
+function ppBereken(){
+  const P=ppState(), perMal=24, marge=1+(P.marge||0)/100;
+  const H={}; (S.halfRecepten||[]).forEach(h=>{ if(h&&h.id) H[h.id]=h });
+  const HN={}; (S.halfRecepten||[]).forEach(h=>{ if(h&&h.naam) HN[String(h.naam).trim().toLowerCase()]=h });
+  const ing={}, half={}, voor={}, schelp={};
+  const add=(n,g)=>{ ing[n]=(ing[n]||0)+g };
+  const verdeel=(lijst,g,smaak,diep)=>{ const tot=(lijst||[]).reduce((t,i)=>t+(parseFloat(i.deel)||0),0); if(!tot||diep>4) return;
+    (lijst||[]).forEach(i=>{ const gg=g*(parseFloat(i.deel)||0)/tot, h=i.basis&&H[i.basis];
+      if(h){ half[h.naam]=(half[h.naam]||0)+gg; (voor[h.naam]=voor[h.naam]||new Set()).add(smaak); verdeel(h.ing,gg,smaak,diep+1) }
+      else if(i.naam) add(i.naam,gg) }) };
+  const rec=P.smaken.map(id=>(S.recepten||[]).find(r=>r&&r.id===id)).filter(Boolean);
+  rec.forEach(r=>{ const n=perMal*(P.mallen||0);
+    (r.onderdelen||[]).forEach(o=>{ const g=(parseFloat(o.gram)||0)*n*marge; if(!g) return;
+      if(o.naam==='Schelp'){ const c=(o.ing||[])[0]; if(c){ schelp[c.naam]=(schelp[c.naam]||0)+g; add(c.naam,g) } return }
+      const h=!(o.ing||[]).some(i=>i.basis)&&(o.ing||[]).length>1&&HN[String(o.naam||'').trim().toLowerCase()];
+      if(h){ half[h.naam]=(half[h.naam]||0)+g; (voor[h.naam]=voor[h.naam]||new Set()).add(r.naam); verdeel(h.ing,g,r.naam,1) }
+      else verdeel(o.ing,g,r.naam,0) }) });
+  const res=(typeof S.tempReserve==='number'&&S.tempReserve>=0)?S.tempReserve:1500;
+  Object.keys(schelp).forEach(c=>add(c,res));
+  return {rec,ing,half,voor,schelp,res,H,HN,P};
+}
+function ppG(g){ return g>=100?(Math.ceil(g/5)*5).toLocaleString('nl-NL')+' g':g>=10?Math.ceil(g)+' g':(Math.round(g*10)/10).toString().replace('.',',')+' g' }
+function sheetProductieplan(){
+  const B=ppBereken(), P=B.P, alle=(S.recepten||[]).filter(r=>r&&r.naam).sort((a,b)=>String(a.chocolade).localeCompare(String(b.chocolade))||a.naam.localeCompare(b.naam));
+  const inHuis=n=>{ const v=grondVoorraad().find(y=>gKey(y.product)===gKey(n)); return v?Math.max(0,v.saldo||0):0 };
+  const ingL=Object.keys(B.ing).sort((a,b)=>B.ing[b]-B.ing[a]);
+  const halfL=Object.keys(B.half).sort((a,b)=>B.half[b]-B.half[a]);
+  const nBon=B.rec.length*(P.mallen||0)*24;
+  sheet('Productieplan',`
+    <div class="veld"><label>Smaken</label><div class="vschips" style="display:flex;flex-wrap:wrap;gap:8px">${alle.map(r=>`<button type="button" class="chip ${P.smaken.includes(r.id)?'aan':''}" data-ppsm="${r.id}">${esc(r.naam)}</button>`).join('')}</div></div>
+    <div class="veld"><label>Mallen per smaak</label><div style="display:flex;align-items:center;gap:10px">
+      <button type="button" class="stepbtn" id="ppMin">${svg(I.min)}</button><input class="inp" id="ppMal" type="text" inputmode="numeric" value="${P.mallen}" style="width:70px;text-align:center;font-weight:700">
+      <button type="button" class="stepbtn" id="ppPlus">${svg(I.plus)}</button><span class="hint" style="margin:0">${B.rec.length} smaken · ${B.rec.length*(P.mallen||0)} mallen · ${nBon.toLocaleString('nl-NL')} bonbons</span></div></div>
+    <p class="hint">Inclusief ${P.marge}% marge en ${ppG(B.res)} tempereer-reserve per chocoladesoort.</p>
+    <div class="blokkop" style="margin-top:18px"><span class="eyebrow">1 · Boodschappen</span></div>
+    <div class="gl">${ingL.map(n=>{ const nodig=B.ing[n], h=inHuis(n), tek=Math.max(0,nodig-h);
+      return `<div class="shrij"><span class="shn">${esc(n)}<small>nodig ${ppG(nodig)}${h?' · in huis '+ppG(h):''}</small></span><span class="shw" style="${tek?'':'color:var(--groen)'}">${tek?'nog '+ppG(tek):'genoeg'}</span></div>` }).join('')||'<p class="wdleeg">Kies smaken.</p>'}</div>
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">2 · Vullingen maken</span></div>
+    ${halfL.map(n=>{ const h=B.HN[n.trim().toLowerCase()]||{}, tot=B.half[n], s2=(h.ing||[]).reduce((t,i)=>t+(parseFloat(i.deel)||0),0)||1;
+      const st=(h.stappen||[]).map(x=>typeof x==='string'?x:x&&x.tekst).filter(Boolean);
+      return `<div class="paneel" style="padding:14px 16px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><b style="font-size:16px">${esc(n)}</b><b>${ppG(tot)}</b></div>
+        <div class="hint" style="margin:2px 0 8px">Voor ${esc([...(B.voor[n]||[])].join(', '))}</div>
+        ${(h.ing||[]).map(i=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--lijn)"><span>${esc(i.naam)}</span><span>${ppG(tot*(parseFloat(i.deel)||0)/s2)}</span></div>`).join('')}
+        ${st.length?`<ol style="margin:10px 0 0;padding-left:20px">${st.map(t=>`<li style="margin:4px 0">${esc(t)}</li>`).join('')}</ol>`:'<p class="hint" style="margin-top:8px">Nog geen werkwijze in je recept.</p>'}</div>` }).join('')||'<p class="wdleeg">Geen vullingen.</p>'}
+    <div class="blokkop" style="margin-top:22px"><span class="eyebrow">3 · Per smaak</span></div>
+    <div class="gl">${B.rec.map(r=>`<div class="shrij"><span class="shn">${esc(r.naam)}<small>${(r.onderdelen||[]).filter(o=>o.naam!=='Schelp').map(o=>String(o.gram).replace('.',',')+' g '+((o.ing||[]).length===1?o.ing[0].naam:o.naam)).join(' + ')}${(r.kleurPlan||[]).length?' · '+esc(r.kleurPlan.join(', ')):''}</small></span><span class="shw">${P.mallen} mallen</span></div>`).join('')}</div>`,
+    `<button class="prim" style="margin-top:0" id="ppBood">${svg(I.vracht||I.plus)}Tekorten op boodschappenlijst</button>`);
+  $$('#sheetBody [data-ppsm]').forEach(b=>b.onclick=()=>{ const id=b.dataset.ppsm; P.smaken=P.smaken.includes(id)?P.smaken.filter(x=>x!==id):P.smaken.concat([id]); bewaar(); sheetProductieplan() });
+  const zetM=n=>{ P.mallen=Math.max(1,Math.min(200,n||1)); bewaar(); sheetProductieplan() };
+  $('#ppMin').onclick=()=>zetM((P.mallen||1)-1); $('#ppPlus').onclick=()=>zetM((P.mallen||0)+1);
+  $('#ppMal').onchange=()=>zetM(parseInt($('#ppMal').value,10));
+  $('#ppBood').onclick=()=>{ let n=0; ingL.forEach(x=>{ const tek=Math.ceil(Math.max(0,B.ing[x]-inHuis(x))); if(tek>0){ boodschapZet(x,tek,'productieplan'); n++ } });
+    bewaarNu(); toast(n?n+' ingrediënten op je boodschappenlijst gezet.':'Je hebt alles al in huis.'); };
+}
 function sheetBoodschappen(){
   /* alles onder de drempel hoort er ook bij, ook zonder batch */
   const lijst=(S.boodschappen||[]).slice();
