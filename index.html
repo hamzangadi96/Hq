@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1022 · 21 nov 2026';
+const APPVERSIE='v1023 · 21 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -5768,7 +5768,7 @@ const BEWAARVELDEN=['spulWeg','bestelVink','spulVersie','spullen','spulVink','ro
      dan te verdwijnen zodra je het toetsenbord sluit. */
   'prijsBron','ingLink','accent','ingredienten','prijsHist','ingArchief','voeding',
   'contentDagen','contentAf','contentStatus','contentPost','contentEigen','contentExtra','contentUitleg','videoVolgorde','vids','vidsGezet','vidsSerie','vidsOrde2','vidsFase1','vidsScript1','vidsFase1b','vidsLeergeld1','laatsteBackup','storingen','dozen','verpBron','verpAf','doosPerJaar','inkopen','inkoopConcept',
-  'filmAf','kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw','eenmalig','gepland'];
+  'filmAf','kleuren','ingericht','mallen','fouten','wwEigen','dienst','diensten','bonbonsPerUur','opstartUur','perDag','prodMaanden','dagUren','investeringen','prodAandeel','tempReserve','schoonNu','losLog','controleDag','ingEtiket','eigenWw','eenmalig','gepland','productieplan','prodOud'];
 let opslagOk=null, bewaarTimer=null, fbKlaar=false, fbRef=null, fbShop=null, fbTaken=null, fbUser=null, fbOnline=false, negeerRemote=false, fbAuthBekend=false;
 
 /* --- laag 1: op het toestel, werkt altijd, ook zonder wifi --- */
@@ -7436,7 +7436,7 @@ const SNELITEMS=[
   {key:'uren',label:'Uren',icon:'klok',soort:'sheet',doe:()=>sheetUren()},
   {key:'doel',label:'Doel',icon:'cirkel',soort:'sheet',doe:()=>sheetDoel()},
   {key:'boodschappen',label:'Boodschappen',icon:'vracht',soort:'sheet',doe:()=>sheetBoodschappen()},
-  {key:'productieplan',label:'Productieplan',icon:'pot',soort:'sheet',doe:()=>sheetProductieplan()},
+  {key:'productieplan',label:'Inkoop & vullingen',icon:'pot',soort:'sheet',doe:()=>sheetProductieplan()},
   {key:'rekenen',label:'Wat heb ik nodig?',icon:'vorm',soort:'sheet',doe:()=>sheetRekenen()},
   /* v1004: inbox weer aan (was verborgen sinds v831) */
   {key:'inbox',label:'Inbox',icon:'post',soort:'sheet',doe:()=>sheetInbox()},
@@ -12524,8 +12524,62 @@ function morgenHTML(){
 /* Dit scherm beantwoordt één vraag: wat moet ik maken, en waar staat dat nu?
    Stond hier eerder in negen blokken met vier onderwerpen. De tegelrij herhaalde
    alles wat eronder stond, planning kwam drie keer voor en smaken vier keer. */
+/* ═══════════ v1023: Productie als keten van 5 stations ═══════════
+   Inkopen → Binnen → Maken → Verkopen → Cijfers. Elk station is een sheet
+   met de bestaande functies. Er verdwijnt niets: de oude weergave blijft
+   bestaan (S.prodOud) en alle data blijft zoals hij is. */
+function ketenStatus(){
+  const st={};
+  try{ const bl=(S.boodschappen||[]).length; st.inkopen=bl?bl+(bl===1?' ding':' dingen')+' op je lijst':'lijst is leeg' }catch(e){ st.inkopen='' }
+  try{ const g=grondVoorraad(), leeg=g.filter(v=>v.saldo<=0||grondOnder(v)).length; st.binnen=leeg?leeg+' ingrediënten bijna op':'voorraad op peil'; st.binnenLet=!!leeg }catch(e){ st.binnen='' }
+  try{ const loopt=(S.batches||[]).filter(b=>b.status!=='klaar'); const pl=planLijst().slice().sort((x,y)=>String(x.datum).localeCompare(String(y.datum)))[0];
+    st.maken=loopt.length?'batch loopt':pl?'gepland '+new Date(pl.datum+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'}):'niets gepland' }catch(e){ st.maken='' }
+  try{ const n=voorraadGereed().reduce((t,v)=>t+(v.saldo||v.aantal||0),0); st.verkopen=n?n.toLocaleString('nl-NL')+' bonbons op voorraad':'geen voorraad' }catch(e){ st.verkopen='' }
+  try{ const n=(S.batches||[]).filter(b=>b.status==='klaar').length; st.cijfers=n+' batchrapporten' }catch(e){ st.cijfers='' }
+  return st;
+}
+const KETEN=[
+  ['inkopen','Inkopen','vracht','Wat halen'],
+  ['binnen','Binnen','doos','Lot en THT'],
+  ['maken','Maken','vorm','Plannen, maken'],
+  ['verkopen','Verkopen','euro','Voorraad, orders'],
+  ['cijfers','Cijfers','klembord','Rapporten']];
+function productieKetenHTML(loopt){
+  const st=ketenStatus();
+  let h='';
+  if(loopt.length){ h+=`<div class="blokkop" style="margin-top:8px"><span class="eyebrow">Nu</span></div>`+heroBatchHTML(loopt[0]) }
+  h+=`<div class="blokkop" style="margin-top:${loopt.length?24:8}px"><span class="eyebrow">Van inkoop tot verkoop</span></div>
+    <div class="gl">${KETEN.map((k,i)=>`<button type="button" class="shrij" data-keten="${k[0]}" style="gap:14px;padding-top:16px;padding-bottom:16px">
+      <span style="flex:none;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700">${i+1}</span>
+      <span class="shn"><b style="font-size:17px">${k[1]}</b><small>${k[3]}</small></span>
+      <span class="shw${k[0]==='binnen'&&st.binnenLet?' let':''}" style="font-size:13px;max-width:42%;text-align:right">${esc(st[k[0]]||'')}</span>${svg(I.pijl,'2')}</button>`).join('')}</div>
+    <div class="lgvoet bvoet" style="margin-top:14px"><button type="button" onclick="homeTegel('lst')">Instellingen</button>
+      <button type="button" onclick="S.prodOud=true;bewaar();render()">Oude weergave</button></div>`;
+  return h;
+}
+function sheetKeten(k){
+  const kk=KETEN.find(x=>x[0]===k)||KETEN[0];
+  const r=(fn,n,w,let2)=>`<button type="button" class="shrij" data-kdo="${fn}"><span class="shn">${n}${w?`<small>${w}</small>`:''}</span>${svg(I.pijl,'2')}</button>`;
+  const loopt=(S.batches||[]).some(b=>b.status!=='klaar');
+  const L={
+    inkopen:[['bood','Boodschappenlijst','per leverancier'],['pp','Inkoop & vullingen voor een productie','kies smaken en mallen, de app rekent uit wat je nodig hebt'],['reken','Wat nodig?','snel narekenen']],
+    binnen:[['ontv','Ontvangst invullen','lotnummer, THT en prijs'],['inkv','Voorraad ingrediënten en verpakking',''],['ing','Ingrediënten','samenstelling, allergenen, leverancier']],
+    maken:[['plan','Planning','wanneer je wat maakt'],loopt?null:['nieuw','Nieuwe batch',''],['basis','Basisrecepten','vullingen, geleien, karamel'],['smaak','Smaken',''],['kleur','Kleuren',''],['etlos','Ingrediëntenlabels printen','']].filter(Boolean),
+    verkopen:[['gereed','Voorraad bonbons','per smaak en lot'],['web','Webshop-voorraad','zoals de klant hem ziet'],['orders','Orders',''],['info','Website-info','']],
+    cijfers:[['brap','Batchrapporten','goed, afkeur, lots per batch'],['dag','Dagrapport',''],['dossier','HACCP-dossier',''],['haccp','HACCP-controles',''],['derv','Weggegooide ingrediënten','']]
+  };
+  sheet(kk[1],`<div class="gl">${L[k].map(x=>r(x[0],x[1],x[2])).join('')}</div>`,'');
+  const doe={bood:sheetBoodschappen,pp:sheetProductieplan,reken:sheetRekenen,ontv:()=>sheetOntvangst(),
+    inkv:()=>{ dicht(); S.tab='voorraad'; VRTAB='inkoop'; render() },ing:()=>sheetIngredientenLijst(false),
+    plan:sheetPlanning,nieuw:sheetNieuweBatch,basis:()=>{ VUL=null; sheetVullingen() },smaak:()=>homeTegel('smk'),kleur:sheetKleuren,etlos:sheetEtiketLos,
+    gereed:()=>{ dicht(); S.tab='voorraad'; VRTAB='gereed'; render() },web:()=>{ dicht(); S.tab='voorraad'; VRTAB='web'; render() },
+    orders:()=>{ dicht(); S.tab='shopify'; render() },info:sheetProductinfo,
+    brap:sheetBatchRapporten,dag:()=>sheetRapport('dag',null,vandaag()),dossier:sheetDossier,haccp:()=>homeTegel('vv'),derv:sheetDerving};
+  $$('#sheetBody [data-kdo]').forEach(b=>b.onclick=()=>{ const f=doe[b.dataset.kdo]; if(!f) return; f(); if(document.querySelector('.sheet.open')) sheetTerugZet(()=>sheetKeten(k)) });
+}
 function productieHTML(){
   const loopt=S.batches.filter(b=>b.status!=='klaar');
+  if(!S.prodOud&&S.recepten.length) return productieKetenHTML(loopt);
   const af=S.batches.filter(b=>b.status==='klaar').slice()
     .sort((a,b2)=>String(b2.eindDatum||'').localeCompare(String(a.eindDatum||'')));
   /* v920: batches van de laatste 3 dagen blijven gewoon zichtbaar, bovenaan als 'Laatste productie' */
@@ -12656,6 +12710,7 @@ function productieHTML(){
   /* ── Wat je niet elke dag nodig hebt: vier tegels, details in een sheet (v717).
      Zo past de hele tab op één scherm, net als Home. ── */
   h+=prodTegelsHTML(vsp);
+  h+=`<div class="lgvoet bvoet" style="margin-top:14px"><button type="button" onclick="S.prodOud=false;bewaar();render()">Nieuwe weergave (keten)</button></div>`;
   return h;
 }
 
@@ -12993,7 +13048,7 @@ function prodTegelsHTML(a){
       ${t('sheetIngredientenLijst(false)','doos','Ingrediënten',!ings.length?'':iOnaf?iOnaf+' niet af':ings.length+' '+vk,iOnaf)}
       ${t('sheetRekenen()','loep','Wat nodig?','')}
       ${t('sheetBatchRapporten()','klembord','Batchrapporten',String((S.batches||[]).filter(b=>b&&b.status==='klaar').length))}
-      ${t('sheetProductieplan()','pot','Productieplan','')}
+      ${t('sheetProductieplan()','pot','Inkoop & vullingen','')}
       ${loopt?'':t("sheetNieuweBatch()",'plus','Losse batch','')}
       ${t('sheetProductinfo()','lijst','Website-info','')}
       ${t("homeTegel('vv')",'klembord','HACCP',ij?vk:'ijken',!ij)}
@@ -24813,7 +24868,7 @@ function sheetProductieplan(){
   const ingL=Object.keys(B.ing).sort((a,b)=>B.ing[b]-B.ing[a]);
   const halfL=Object.keys(B.half).sort((a,b)=>B.half[b]-B.half[a]);
   const nBon=B.rec.length*(P.mallen||0)*24;
-  sheet('Productieplan',`
+  sheet('Inkoop & vullingen',`
     <div class="veld"><label>Smaken</label><div class="vschips" style="display:flex;flex-wrap:wrap;gap:8px">${alle.map(r=>`<button type="button" class="chip ${P.smaken.includes(r.id)?'aan':''}" data-ppsm="${r.id}">${esc(r.naam)}</button>`).join('')}</div></div>
     <div class="veld"><label>Mallen per smaak</label><div style="display:flex;align-items:center;gap:10px">
       <button type="button" class="stepbtn" id="ppMin">${svg(I.min)}</button><input class="inp" id="ppMal" type="text" inputmode="numeric" value="${P.mallen}" style="width:70px;text-align:center;font-weight:700">
@@ -28123,6 +28178,7 @@ function bind(){
   $$('[data-vraag]').forEach(x=>x.onclick=()=>sheetVraag(''));
   $$('[data-boodschap]').forEach(x=>x.onclick=sheetBoodschappen);
   $$('[data-planning]').forEach(x=>x.onclick=sheetPlanning);
+  $$('[data-keten]').forEach(x=>x.onclick=()=>sheetKeten(x.dataset.keten));
   $$('[data-plbest]').forEach(x=>x.onclick=ev=>{ ev.stopPropagation(); sheetPlanBestel(x.dataset.plbest) });
   $$('[data-haccpdoe]').forEach(x=>x.onclick=()=>{
     const k=x.dataset.haccpdoe;
