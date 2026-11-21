@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1023 · 21 nov 2026';
+const APPVERSIE='v1024 · 21 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -7247,11 +7247,16 @@ function lotsKoppelen942(b){
   bGrondstoffen(b).forEach(i=>{
     if(lotLijst(b,i.naam).length) return;
     let ps=partijenVan(i.naam).filter(x=>x&&x.lot);
-    if(!ps.length) ps=(S.lots||[]).filter(x=>{ if(!x||!x.lot) return false; const pr=String(x.product||'').toLowerCase(), nm=i.naam.toLowerCase(); return pr&&(pr.includes(nm)||nm.includes(pr)) })
+    /* v1024: hele woorden, anders kreeg 'Zout' het lot van 'Ongezouten hazelnoten' */
+    const woord=(hooi,naald)=>new RegExp('(^|[^a-zà-ÿ])'+naald.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-zà-ÿ])').test(hooi);
+    if(!ps.length) ps=(S.lots||[]).filter(x=>{ if(!x||!x.lot) return false; const pr=String(x.product||'').toLowerCase(), nm=i.naam.toLowerCase(); return pr&&(woord(pr,nm)||woord(nm,pr)) })
       .sort((a,c)=>String(c.ontvangen||'').localeCompare(String(a.ontvangen||'')));
     if(!ps.length) return;
     const voor=ps.filter(x=>!x.ontvangen||String(x.ontvangen).slice(0,10)<=dag);
-    const kies=(voor.length?voor:ps)[0];
+    /* v1024: eerst de partij die nog voorraad heeft, oudste THT eerst (first expired, first out) */
+    let rest={}; try{ const v=grondVoorraad().find(y=>gKey(y.product)===gKey(i.naam)); rest=(v&&v.lots)||{} }catch(e){}
+    const metRest=(voor.length?voor:ps).filter(x=>(rest[x.lot]||0)>0).sort((a,c)=>String(a.tht||'9999').localeCompare(String(c.tht||'9999')));
+    const kies=metRest[0]||(voor.length?voor:ps)[0];
     b.lots[i.naam]=[kies.lot]; n++;
   });
   if(n) b.lotsAfgeleid=true;
@@ -13118,6 +13123,8 @@ function uitwerkingHTML(b){
 /* ---------- batchscherm ---------- */
 function batchHTML(){
   const b=batch(), v=bVolgende(b);
+  /* v1024: wat je net hebt gescand, komt meteen aan een lopende batch */
+  if(b&&b.status!=='klaar'){ try{ if(lotsKoppelen942(b)) bewaar() }catch(e){} }
   /* tijdbalk */
   const w=lopendWerk(b);
   const tijdbalk = b.status==='klaar' ? '' :
@@ -13269,6 +13276,7 @@ function batchHTML(){
       return `<div class="gl" style="margin-top:14px">
         ${loopt?gr('data-bcorrectie','Smaken en aantallen',bTotaal(b)+' st'):''}
         ${gr('data-naslag="uitwerking"','Receptuitwerking',b.regels.length+' '+(b.regels.length===1?'smaak':'smaken'))}
+        ${(()=>{ const gs=bGrondstoffen(b), m=gs.filter(i=>lotLijst(b,i.naam).length).length; return gr('onclick="sheetBatchIngr(\''+b.id+'\')"','Ingrediënten en lotnummers',m+' van '+gs.length,m<gs.length) })()}
         ${gr('data-naslag="werk"','Tijd',tot?duurKort(tot):'')}
         ${gr('data-allerg','Allergenen',A2.verschil?'let op':(A2.alle.length?A2.alle.map(alNaam).join(', '):'geen'),A2.verschil)}
       </div>
@@ -26290,6 +26298,7 @@ function sheetBatchKopie(id){
     regels:JSON.parse(JSON.stringify(oud.regels)),
     gestart:nu(),startDatum:vandaag(),status:'bezig',dagen:[],lots:{},logs:[],resultaat:null,
     werk:[],stappen:{},afvink:{},recepten:kopie,werkplan:S.werkplan.slice()};
+  try{ lotsKoppelen942(b) }catch(e){}
   S.batches.push(b); S.batchId=b.id; S.open=null; bewaarNu(); render(); dicht();
   toast('Batch '+b.code+' aangemaakt, zelfde opzet als '+oud.code+'.');
 }
@@ -28931,6 +28940,7 @@ function wizard3(){
       status:'bezig',dagen:[],lots:{},logs:[],resultaat:null,
       recepten:kopie, werkplan:S.werkplan.slice()};
     S.batches.push(b);
+    try{ lotsKoppelen942(b) }catch(e){} /* v1024: gescande partijen meteen aan de batch */
     S.tab='productie';S.batchId=b.id;S.open=null;
     klaarSheet('Batch '+b.code+' aangemaakt.');$('#scherm').scrollTop=0;
   };
@@ -30180,6 +30190,7 @@ function sheetAfronden(){
     const goed=perSmaak.reduce((s,p)=>s+p.goed,0), afk=perSmaak.reduce((s,p)=>s+p.afkeur,0);
     const n=$('#fN').value.trim();
     stopWerk(b);
+    try{ lotsKoppelen942(b) }catch(e){} /* v1024: wat je tijdens de batch nog scande, komt er ook bij */
     b.resultaat={goed,afkeur:afk,perSmaak}; b.status='klaar'; b.eind=nu(); b.eindDatum=vandaag();
     perSmaak.filter(ps=>ps.goed>0).forEach(ps=>muteer({soort:'batch',receptId:ps.receptId,
       lot:b.code,tht:iso(thtVan(b,receptVan(b,ps.receptId))),aantal:ps.goed,
@@ -41977,6 +41988,17 @@ function sheetBedrijf(){
   };
 }
 
+/* v1024: welke gescande partij zit in deze batch */
+function sheetBatchIngr(id){
+  const b=(S.batches||[]).find(x=>x.id===id); if(!b) return;
+  try{ if(b.status!=='klaar'&&lotsKoppelen942(b)) bewaar() }catch(e){}
+  const gs=bGrondstoffen(b);
+  sheet('Ingrediënten in '+(b.code||'batch'),`<div class="gl">${gs.map(i=>{ const l=lotLijst(b,i.naam);
+    return `<div class="shrij"><span class="shn">${esc(i.naam)}<small>${Math.round(i.hoeveel).toLocaleString('nl-NL')} g</small></span>
+      <span class="shw${l.length?'':' let'}">${l.length?'lot '+esc(l.join(', ')):'nog niet gescand'}</span></div>` }).join('')}</div>
+    <p class="hint" style="margin-top:12px">Scan je een levering bij <b>Binnen → Ontvangst invullen</b>, dan komt die partij hier vanzelf bij: de partij die op de productiedag in huis was en nog voorraad heeft, oudste THT eerst.</p>`,
+    `<button class="prim" style="margin-top:0" onclick="sheetOntvangst()">${svg(I.vracht)}Ontvangst invullen</button>`);
+}
 function sheetLots(){
   sheet('Partijen in huis',
     `<p class="hint">Alles wat je bij ontvangst hebt vastgelegd. Hieruit kies je bij het loggen van je ingrediënten.</p>
