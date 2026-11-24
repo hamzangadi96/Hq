@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1027 · 21 nov 2026';
+const APPVERSIE='v1028 · 24 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6408,7 +6408,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligPlan22nov(),eenmaligGianduja21nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligPlan22nov(),eenmaligGianduja21nov(),eenmaligBatch22nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -15146,6 +15146,41 @@ function eenmaligGianduja21nov(){
     if(o){ o.naam='Gianduja'; o.gram='2'; o.ing=[{basis:g.id,deel:'100',naam:'Gianduja'}] }
     const cg=(r.onderdelen||[]).find(o=>(o.ing||[]).some(i=>/cappuccinoganache/i.test(i.naam||''))||/cappuccino/i.test(o.naam||''));
     if(cg) cg.gram='4'; }
+  return true;
+}
+/* v1028: batch melk 22 nov vastgelegd (Hamza startte hem niet in de app) */
+function eenmaligBatch22nov(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.batch22nov) return false;
+  S.batches=S.batches||[];
+  let b=S.batches.find(x=>x&&x.startDatum==='2026-11-22');
+  const p=(S.planning||[]).find(x=>x&&x.datum==='2026-11-22');
+  if(!b&&!p) return false;
+  S.eenmalig.batch22nov=Date.now();
+  if(!b){
+    const kopie={}; p.regels.forEach(rg=>{const r=recept(rg.receptId); if(r) kopie[rg.receptId]=JSON.parse(JSON.stringify(r))});
+    b={id:uid(),code:'CB-20261122-01',chocolade:p.chocolade||'melk',regels:JSON.parse(JSON.stringify(p.regels)),
+      gestart:'09:00',startDatum:'2026-11-22',status:'bezig',dagen:[],lots:{},logs:[],resultaat:null,
+      recepten:kopie,werkplan:(S.werkplan||[]).slice(),uitPlan:p.id,handmatig:true};
+    S.batches.push(b);
+    S.planning=S.planning.filter(x=>x!==p);
+  }
+  try{ lotsKoppelen942(b) }catch(e){}
+  b.dagen=b.dagen||[];
+  let dg=b.dagen.find(x=>x&&x.datum==='2026-11-22');
+  if(!dg){ dg={datum:'2026-11-22',gestart:'09:00'}; b.dagen.push(dg) }
+  if(!dg.opening) dg.opening={tijd:'09:00',ok:true,punten:[],metingen:[
+    {naam:'Koelkast',waarde:6.5,eenheid:'°C',min:0,max:7,ok:true},
+    {naam:'Klimaatkast',waarde:15,eenheid:'°C',min:15,max:18,ok:true}],actie:''};
+  b.logs=b.logs||[];
+  const lg=o=>b.logs.push(Object.assign({id:uid(),datum:'2026-11-22',tijd:'—',status:'ok'},o));
+  lg({type:'temperatuur',titel:'Koelkast · 6,5 °C',sub:'Norm max 7 °C · binnen norm'});
+  lg({type:'temperatuur',titel:'Klimaatkast · 15 °C',sub:'Norm 15–18 °C · binnen norm. Gevulde mallen hier afgedekt laten opzetten.'});
+  lg({type:'temperatuur',titel:'Room voor ganaches en karamel verhit · ± 80 °C',sub:'Norm min 70 °C · in orde'});
+  lg({type:'afwijking',status:'let',titel:'Gekleurde cacaoboter per ongeluk verwarmd tot 53 °C',
+    sub:'Actie: opnieuw getempereerd (afkoelen tot 27 °C, opwarmen naar 29–30 °C) en daarna gebruikt.'});
+  lg({type:'afwijking',status:'fout',titel:'Kleur bleef bij een deel van de mallen in de mal (vooral oranje en groen; koper ging goed)',
+    sub:'Vermoedelijke oorzaak: mallen gestapeld en te veel tegelijk in de koelkast, waardoor die tijdelijk opliep naar 9–12 °C en de mallen traag en ongelijk afkoelden. Een losse proefmal (schelpen, niet gestapeld) kwam wel goed los. Actie: nooit meer stapelen, koelkast eerst leeg op 5–8 °C, rondes van 8–10 mallen, deur dicht; volgende productie proef met mal los vs. mal in stapel.'});
   return true;
 }
 function eenmaligPlan22nov(){
