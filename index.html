@@ -5446,7 +5446,7 @@ const I={
 };
 const svg=(p,w='1.7')=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
-const APPVERSIE='v1029 · 25 nov 2026';
+const APPVERSIE='v1030 · 28 nov 2026';
 
 /* ================= helpers ================= */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -6408,7 +6408,7 @@ function firebaseStart(){
         if(eersteKeer||(d.bijgewerkt||0)>(S.bijgewerkt||0)){
           zetData(d); migreerChecks(); migreerBatches(); migreerGrond(); migreerPlanning();
           migreerOrders(); migreerBatches();
-          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligPlan22nov(),eenmaligGianduja21nov(),eenmaligBatch22nov(),eenmaligAfsluit22nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
+          if([eenmaligReconstructieSep12(),eenmaligReconstructieSepOkt(),eenmaligMallenOkt(),eenmaligWerkOkt(),eenmaligZondagGepland(),eenmaligRittenZa(),eenmaligBatch24okt(),eenmaligBatch27okt(),eenmaligEtiket09nov(),eenmaligRecept14nov(),eenmaligRecept14nov2(),eenmaligSpeculoos14nov(),eenmaligVerkocht14nov(),eenmaligPlan22nov(),eenmaligGianduja21nov(),eenmaligBatch22nov(),eenmaligAfsluit22nov(),eenmaligPlan29nov(),eenmaligBatches942(),eenmaligHaccp943(),eenmaligEnten944(),eenmaligGroot945(),stroofwafel924()].some(Boolean)) setTimeout(bewaarNu,800);
           if(eenmaligRegister2026H1()){ setTimeout(bewaarNu,800); setTimeout(()=>toast('Kilometerregistratie jan–jun 2026 ingelezen · 5.906 km.'),1200); }
           setTimeout(async()=>{ await eenmaligRittenOkt(); await eenmaligRittenRecon2026(); await eenmaligRittenRecon2025(); },1500);
           lokaalSchrijf(d); render();
@@ -15210,6 +15210,21 @@ function eenmaligBatch22nov(){
     sub:'Actie: opnieuw getempereerd (afkoelen tot 27 °C, opwarmen naar 29–30 °C) en daarna gebruikt.'});
   lg({type:'afwijking',status:'fout',titel:'Kleur bleef bij een deel van de mallen in de mal (vooral oranje en groen; koper ging goed)',
     sub:'Vermoedelijke oorzaak: mallen gestapeld en te veel tegelijk in de koelkast, waardoor die tijdelijk opliep naar 9–12 °C en de mallen traag en ongelijk afkoelden. Een losse proefmal (schelpen, niet gestapeld) kwam wel goed los. Actie: nooit meer stapelen, koelkast eerst leeg op 5–8 °C, rondes van 8–10 mallen, deur dicht; volgende productie proef met mal los vs. mal in stapel.'});
+  return true;
+}
+/* v1030: planning witte productie zondag 29 nov, 6 smaken x 12 mallen */
+function eenmaligPlan29nov(){
+  S.eenmalig=S.eenmalig||{};
+  if(S.eenmalig.plan29nov) return false;
+  S.eenmalig.plan29nov=Date.now();
+  S.planning=S.planning||[];
+  if(S.planning.some(p=>p&&p.datum==='2026-11-29')) return true;
+  const ids=['5zts2dg','2my8hwo','c7j9gyv','pem053w','hiqwgbe','zg98uif'];
+  const regels=ids.map(id=>(S.recepten||[]).find(r=>r&&r.id===id)).filter(Boolean)
+    .map(r=>{ let h=24; try{ h=malHoltes(r.id)||24 }catch(e){} return {receptId:r.id,mallen:12,aantal:12*h} });
+  if(!regels.length) return true;
+  S.planning.push({id:uid(),datum:'2026-11-29',chocolade:'wit',regels,levertijd:0,voorbereiding:[],gemaakt:vandaag()});
+  S.productieplan={smaken:ids.slice(),mallen:12,marge:20};
   return true;
 }
 function eenmaligPlan22nov(){
